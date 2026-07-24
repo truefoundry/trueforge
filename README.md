@@ -21,11 +21,11 @@ pnpm typecheck
 Create the local environment and registry files from the tracked examples:
 
 ```bash
-cp packages/server/src/.env.example packages/server/src/.env
+cp packages/server/.env.example packages/server/.env
 cp -R packages/server/registry-example packages/server/registry
 ```
 
-Fill in `MODEL_API_KEY` in `packages/server/src/.env`, then start the server:
+Fill in `MODEL_API_KEY` in `packages/server/.env`, then start the server:
 
 ```bash
 pnpm dev:server

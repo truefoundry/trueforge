@@ -10,9 +10,9 @@ services:
       # PORT the server listens on inside the container (defaults to 8790).
       PORT: 8790
     # Environment variables (MODEL_API_KEY, etc.) are read from this file.
-    # Copy packages/server/src/.env.example to packages/server/src/.env and fill it in.
+    # Copy packages/server/.env.example to packages/server/.env and fill it in.
     env_file:
-      - path: packages/server/src/.env
+      - path: packages/server/.env
         required: true
     # The YAML registry (models.yaml, mcp.yaml, skills.yaml) is not baked into
     # the image. Copy registry-example to registry before starting the service.

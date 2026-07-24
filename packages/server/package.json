@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "build": "tsup",
-    "dev": "tsx --env-file=src/.env src/main.ts",
+    "dev": "tsx --env-file=.env src/main.ts",
     "typecheck": "tsc --noEmit",
     "start": "node dist/main.js"
   },
