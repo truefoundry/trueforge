@@ -22,13 +22,15 @@ export default defineConfig(
     files: ['**/*.{js,mjs,cjs}'],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: {
-      // Flat config does not support /* eslint-env node */; CJS configs need Node globals.
+      // Flat config does not support /* eslint-env node */; Node scripts and CJS configs need Node globals.
       globals: {
         module: 'readonly',
         require: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',
         exports: 'writable',
+        console: 'readonly',
+        process: 'readonly',
       },
     },
   },

@@ -1,6 +1,6 @@
-import { EventType } from '../../src/agentSession/schemas/events';
-import { Sessions } from '../../src/agentSession/Sessions';
-import { InMemorySessionStore } from '../../src/agentSession/store/InMemorySessionStore';
+import { EventType } from '../../src/agent-session/schemas/events';
+import { Sessions } from '../../src/agent-session/Sessions';
+import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { makeAgentSpec, makeTestResolver } from './testHelpers';
 
 describe('Sessions / SessionHandle / TurnHandle (storage + run)', () => {

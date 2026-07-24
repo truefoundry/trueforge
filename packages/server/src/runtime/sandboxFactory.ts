@@ -10,25 +10,10 @@
  */
 import type { TurnSandboxFactory } from '@truefoundry/utils/agent-session';
 import { createSandboxProvider, Sandbox, SandboxProviderSettingsSchema } from '@truefoundry/utils/core';
-import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
 import type { Logger } from 'winston';
 import { ZodError } from 'zod';
 import { TENANT_NAME } from '../apis/sessions';
 import configuration from '../config/config';
-
-// Python helpers ship with @truefoundry/utils under dist/sandbox-scripts.
-const require = createRequire(import.meta.url);
-const UTILS_ROOT = dirname(require.resolve('@truefoundry/utils/package.json'));
-const SCRIPTS_DIR = join(UTILS_ROOT, 'dist/sandbox-scripts');
-
-function loadSandboxScripts(): { mcpClient: string; skillDownloader: string } {
-  return {
-    mcpClient: readFileSync(join(SCRIPTS_DIR, 'mcp_client.py'), 'utf-8'),
-    skillDownloader: readFileSync(join(SCRIPTS_DIR, 'skill_downloader.py'), 'utf-8'),
-  };
-}
 
 function parseSandboxSettings(rawJson: string) {
   let raw: unknown;
@@ -80,7 +65,6 @@ export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandbo
     previewUrlExpirySeconds: configuration.SANDBOX_PREVIEW_URL_EXPIRY_SECONDS,
     logger,
   });
-  const scripts = loadSandboxScripts();
 
   // TODO(skills): wire the complete skills flow. Spec-declared skills (from
   // skills.yaml) should be resolved to MountedSkill[] and passed as
@@ -95,7 +79,6 @@ export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandbo
         existingSandboxId,
         fileDownloadEnabled: spec.config?.sandbox?.file_downloads ?? false,
         blockDestructiveToolsInCodeMode: true,
-        scripts,
         // Sandbox reads its tenant from TFY_TENANT_NAME (see Sandbox constructor)
         // for the ownership check against provider-created sandbox ids
         // (`<tenant>.<uuid>`). Must match the tenantName given to the provider.

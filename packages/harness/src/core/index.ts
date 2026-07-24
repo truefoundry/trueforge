@@ -6,7 +6,17 @@
 // Runtime
 export type { AgentDefinition } from './runtime/AgentDefinition';
 export { AgentThread } from './runtime/AgentThread';
-export type { AgentInfo, AgentParent } from './runtime/AgentThread.types';
+export type {
+  AgentInfo,
+  AgentParent,
+  AgentSendInput,
+  AgentThreadAppendContext,
+  AgentThreadCreateSubAgent,
+  AgentThreadEvent,
+  AgentThreadExecutionEvent,
+  AgentThreadExecutionResult,
+  SubAgentCompletionMarker,
+} from './runtime/AgentThread.types';
 export { AgentThreadOrchestrator } from './runtime/AgentThreadOrchestrator';
 export type { CreateDynamicSubAgentThread } from './runtime/CreateDynamicSubAgentThread';
 export { isAgentInputUserMessage, isEmptyMessageContent, isFileContentPart } from './runtime/UserInputMessage';
@@ -23,10 +33,18 @@ export type {
 
 // Built-in factories
 export { askUserQuestion } from './capabilities/builtins/AskUserQuestion';
-export { contextCompaction } from './capabilities/builtins/ContextCompaction';
+export {
+  DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS,
+  contextCompaction,
+} from './capabilities/builtins/ContextCompaction';
 export { currentDateTime } from './capabilities/builtins/CurrentDateTime';
 export { SUB_AGENT_IDENTITY, dynamicSubAgents } from './capabilities/builtins/DynamicSubAgents';
-export { largeToolResponse } from './capabilities/builtins/LargeToolResponse';
+export {
+  DEFAULT_INDIVIDUAL_TOOL_TOKEN_THRESHOLD,
+  DEFAULT_PREVIEW_NUMBER_OF_CHARACTERS,
+  DEFAULT_TOTAL_TOOL_TOKEN_THRESHOLD,
+  largeToolResponse,
+} from './capabilities/builtins/LargeToolResponse';
 export { openUI } from './capabilities/builtins/OpenUI';
 
 // MCP contracts
@@ -52,17 +70,27 @@ export { RemoteMCP } from './mcp/RemoteMCP';
 export type { RemoteMcpHeaders, ResolveHeadersResult } from './mcp/RemoteMCP';
 export type { RemoteMcpConnection, RemoteMcpTransportType } from './mcp/remoteMcpClient';
 export type { ToolSelectorConfig } from './mcp/ToolSelectorPolicy';
+export {
+  DEFAULT_DISABLE_TOOLS,
+  DEFAULT_ENABLE_TOOLS,
+  DEFAULT_PRELOAD_TOOLS,
+  DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS,
+  REQUIRE_APPROVAL_TOOLS_SELECTOR_TAGS,
+  TOOLS_SELECTOR_TAGS,
+} from './mcp/toolSelectors';
 export { ToolSet } from './mcp/ToolSet';
 
 // LLM contracts
-export type { ILLM } from './llm/ILLM';
-export type { CompletionUsage, LLMUserMessage } from './llm/LLMTypes';
+export type { AgentMetadata, ILLM } from './llm/ILLM';
 export { OpenAILLM } from './llm/OpenAILLM';
 export { ResponseFormatSchema, toOpenAIResponseFormat } from './llm/responseFormat';
 export type { ResponseFormat } from './llm/responseFormat';
 
 // Event contracts
 export {
+  ActionRequiredEventSchema,
+  AgentInputUserMessageSchema,
+  EventIdSchema,
   EventType,
   MCPAuthRequiredEventSchema,
   MCPInitializeEventSchema,
@@ -71,15 +99,25 @@ export {
   SandboxCreatedEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
+  ThreadOverwriteContextEventSchema,
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
+  UserToolApprovalMessageSchema,
+  UserToolResponseMessageSchema,
   newEventId,
+} from './events/schema';
+export type {
+  AgentOutputEvent,
+  MCPAuthRequiredEvent,
+  MCPServerAuthInfo,
+  MCPServerInitInfo,
+  ThreadDoneEvent,
+  ThreadOverwriteContextEvent,
 } from './events/schema';
 export { InternalEventType } from './runtime/AgentThread.types';
 export type { AgentThreadSendBatch, ContextMessage } from './runtime/AgentThread.types';
 export type { AgentThreadMetrics } from './runtime/metrics';
-export type { SandboxInfo } from './sandbox/Sandbox';
 
 // Tracing
 export type {
@@ -101,6 +139,9 @@ export {
 } from './sandbox/provider/createSandboxProvider';
 export type { CreateSandboxProviderInput, SandboxProviderSettings } from './sandbox/provider/createSandboxProvider';
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
+export type { DaytonaSandboxSettings } from './sandbox/provider/DaytonaProvider';
 export type { SandboxProvider } from './sandbox/provider/Provider';
 export { TFYSandboxProvider } from './sandbox/provider/TFYSandboxProvider';
 export { Sandbox } from './sandbox/Sandbox';
+export type { MountedSkill, SandboxInfo } from './sandbox/Sandbox';
+export { SandboxError } from './sandbox/SandboxErrors';

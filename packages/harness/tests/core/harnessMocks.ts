@@ -70,7 +70,6 @@ export function makeStubPublicSandbox(tenantName = 'test-tenant'): Sandbox {
     provider,
     blockDestructiveToolsInCodeMode: true,
     execExtraEnv: { TFY_TENANT_NAME: tenantName },
-    scripts: { mcpClient: '# mcp', skillDownloader: '# skills' },
     logger: makeSilentLogger(),
     tracing: NOOP_AGENT_TRACING,
   });

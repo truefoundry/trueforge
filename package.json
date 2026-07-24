@@ -13,6 +13,7 @@
     "test": "pnpm --filter @truefoundry/utils test",
     "dev:server": "pnpm --filter @truefoundry/server dev",
     "pack:dry": "pnpm --filter @truefoundry/utils pack:dry",
+    "postinstall": "pnpm --filter @truefoundry/utils build:gen",
     "prepare": "husky || true"
   },
   "devDependencies": {

@@ -1,9 +1,9 @@
-import { MAIN_THREAD_ID } from '../../src/agentSession/models/TurnRecord';
-import type { PersistedTurnEvent } from '../../src/agentSession/schemas/events';
-import { CancellationReason } from '../../src/agentSession/schemas/turn';
-import type { ISessionStore } from '../../src/agentSession/store/ISessionStore';
-import { InMemorySessionStore } from '../../src/agentSession/store/InMemorySessionStore';
-import { SessionStoreConflictError, SessionStoreNotFoundError } from '../../src/agentSession/store/SessionStoreErrors';
+import { MAIN_THREAD_ID } from '../../src/agent-session/models/TurnRecord';
+import type { PersistedTurnEvent } from '../../src/agent-session/schemas/events';
+import { CancellationReason } from '../../src/agent-session/schemas/turn';
+import type { ISessionStore } from '../../src/agent-session/store/ISessionStore';
+import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
+import { SessionStoreConflictError, SessionStoreNotFoundError } from '../../src/agent-session/store/SessionStoreErrors';
 import { EventType, newEventId } from '../../src/core/events/schema';
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
 import { makeAgentSpec, makeModelMessageEvent, makeRunningTurnRecord, makeTurnCreatedEvent } from './testHelpers';
