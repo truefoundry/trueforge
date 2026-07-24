@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ThemeProvider } from 'tfy-web-components/components/theme/useTheme';
 import { AgentSessionClient } from 'truefoundry-gateway-sdk/agents';
 import { PrivateAgentSessionClient } from 'truefoundry-gateway-sdk/agents/private';
+import { ApiErrorCard } from './ApiErrorCard';
 import { ServerCapabilitiesProvider } from './capabilities';
 import { getCapabilities, listModels, type ServerCapabilities } from './catalog';
 import { AppComposerShell } from './ComposerShell';
@@ -103,6 +104,7 @@ function ChatApp({
                   <div className="app-thread-body">
                     <Thread />
                   </div>
+                  <ApiErrorCard />
                 </div>
               </div>
             </ErrorToasterProvider>
@@ -165,12 +167,18 @@ export function App() {
     return (
       <div className="boot-screen" data-error="true">
         Failed to load application configuration: {bootError}
+        <ApiErrorCard />
       </div>
     );
   }
 
   if (loading || defaultAgentSpec == null || capabilities == null) {
-    return <div className="boot-screen">Loading application…</div>;
+    return (
+      <div className="boot-screen">
+        Loading application…
+        <ApiErrorCard />
+      </div>
+    );
   }
 
   return <ChatApp defaultAgentSpec={defaultAgentSpec} capabilities={capabilities} />;
