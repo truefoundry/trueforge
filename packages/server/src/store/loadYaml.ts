@@ -7,10 +7,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parse } from 'yaml';
 import type { z } from 'zod';
-import { CONFIG_DIR } from '../config';
+import configuration from '../config';
 
 export function loadYamlFile<T>(fileName: string, schema: z.ZodType<T>): T {
-  const filePath = path.join(CONFIG_DIR, fileName);
+  const filePath = path.join(configuration.REGISTRY_DIR, fileName);
 
   let raw: string;
   try {

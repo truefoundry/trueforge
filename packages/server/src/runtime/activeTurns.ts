@@ -1,42 +1,49 @@
 /**
- * In-memory registry of running turns, at most one per session. Cancel and
- * turn-creation code abort a run through its AbortController; TurnHandle.stream()
- * writes the terminal state when the signal fires.
+ * In-memory registry of turns running in this process, keyed by session. A
+ * session may have any number of concurrent turns; the registry makes no
+ * attempt to enforce one turn per session (that would not hold across
+ * replicas anyway). Cancel code aborts runs through their AbortControllers;
+ * TurnHandle.stream() writes the terminal state when the signal fires.
  */
-interface ActiveTurn {
-  turnId: string;
-  abortController: AbortController;
-}
-
 export class ActiveTurnRegistry {
-  private readonly runs = new Map<string, ActiveTurn>();
+  /** sessionId -> (turnId -> AbortController) */
+  private readonly runs = new Map<string, Map<string, AbortController>>();
 
-  /** Registers the session's running turn. The previous entry, if any, must already be cancelled. */
+  /** Registers a running turn under its session. */
   register(input: { sessionId: string; turnId: string; abortController: AbortController }): void {
-    this.runs.set(input.sessionId, { turnId: input.turnId, abortController: input.abortController });
+    let sessionRuns = this.runs.get(input.sessionId);
+    if (!sessionRuns) {
+      sessionRuns = new Map();
+      this.runs.set(input.sessionId, sessionRuns);
+    }
+    sessionRuns.set(input.turnId, input.abortController);
   }
 
   /** Removes the entry once the turn's stream has fully drained. */
   finish(input: { sessionId: string; turnId: string }): void {
-    const active = this.runs.get(input.sessionId);
-    if (active?.turnId === input.turnId) {
+    const sessionRuns = this.runs.get(input.sessionId);
+    if (!sessionRuns) {
+      return;
+    }
+    sessionRuns.delete(input.turnId);
+    if (sessionRuns.size === 0) {
       this.runs.delete(input.sessionId);
     }
   }
 
   /**
-   * Aborts the session's running turn if there is one. Returns true when a
-   * run was found (already-aborted runs are not re-aborted). Cancelling a
-   * session with no running turn is a no-op, mirroring the store's
+   * Aborts the given turn if it is running in this process. Returns true when
+   * the run was found (already-aborted runs are not re-aborted). Cancelling a
+   * turn that is not running is a no-op, mirroring the store's
    * first-terminal-write-wins rule.
    */
-  cancelIfRunning(input: { sessionId: string; abortReason?: string }): boolean {
-    const active = this.runs.get(input.sessionId);
-    if (!active) {
+  cancelIfRunning(input: { sessionId: string; turnId: string; abortReason?: string }): boolean {
+    const abortController = this.runs.get(input.sessionId)?.get(input.turnId);
+    if (!abortController) {
       return false;
     }
-    if (!active.abortController.signal.aborted) {
-      active.abortController.abort(input.abortReason);
+    if (!abortController.signal.aborted) {
+      abortController.abort(input.abortReason);
     }
     return true;
   }

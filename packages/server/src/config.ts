@@ -12,10 +12,7 @@ import path from 'node:path';
 // CONFIG FILES
 // ============================================================================
 
-/** Directory containing the YAML config files: `./registry` relative to the working directory. */
-export const CONFIG_DIR = path.resolve('registry');
-
-/** YAML files the stores load from CONFIG_DIR at startup. */
+/** YAML files the stores load from `REGISTRY_DIR` at startup. */
 export const CONFIG_FILES = {
   models: 'models.yaml',
   mcpServers: 'mcp.yaml',
@@ -160,6 +157,13 @@ export interface ServerConfiguration {
   /** HTTP port the server listens on. Env: `PORT`. */
   PORT: number;
   /**
+   * Absolute path to the directory containing the YAML config files
+   * (models.yaml, mcp.yaml, skills.yaml). Relative values are resolved
+   * against the working directory. Env: `REGISTRY_DIR`, defaults to
+   * `./registry`.
+   */
+  REGISTRY_DIR: string;
+  /**
    * Default API key for the OpenAI-compatible API at models.yaml's base_url,
    * sent as `Authorization: Bearer <key>` on every model request.
    * Env: `MODEL_API_KEY` (required).
@@ -213,6 +217,7 @@ export interface ServerConfiguration {
 
 const configuration: ServerConfiguration = {
   PORT: parsePort(getEnv('PORT')),
+  REGISTRY_DIR: path.resolve(getEnv('REGISTRY_DIR', { defaultValue: 'registry' }) ?? 'registry'),
   MODEL_API_KEY: getEnv('MODEL_API_KEY', { required: true }) ?? '',
   MODEL_API_KEY_BY_NAME: parseApiKeysByName(),
   MODEL_HEADERS: parseHeaders('MODEL_HEADERS', getEnv('MODEL_HEADERS')),

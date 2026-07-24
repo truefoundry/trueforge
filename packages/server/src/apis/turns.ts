@@ -1,7 +1,6 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Sessions, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import {
-  CancellationReason,
   SessionStoreNotFoundError,
   TurnResourceResolver,
   type TurnInputItem,
@@ -118,9 +117,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-
-    // Starting a new turn supersedes the session's running turn, if any.
-    deps.activeTurns.cancelIfRunning({ sessionId, abortReason: CancellationReason.CancelledForNextTurn });
 
     const abortController = new AbortController();
     const resolver = createTurnResolver({

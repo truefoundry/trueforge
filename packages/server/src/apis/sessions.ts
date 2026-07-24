@@ -131,15 +131,22 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
   };
 
-  // Cancelling with no running turn is a 200 no-op, matching the turn state
-  // machine (first terminal write wins).
+  // Cancels only the session's tail (last_turn_id). Cancelling with no
+  // running turn is a 200 no-op, matching the turn state machine (first
+  // terminal write wins).
   const cancelSessionHandler: RouteHandler<typeof cancelSessionRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const record = await deps.sessionStore.getSession({ tenant_name: TENANT_NAME, session_id: sessionId });
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    deps.activeTurns.cancelIfRunning({ sessionId, abortReason: CancellationReason.ClientCancelled });
+    if (record.last_turn_id) {
+      deps.activeTurns.cancelIfRunning({
+        sessionId,
+        turnId: record.last_turn_id,
+        abortReason: CancellationReason.ClientCancelled,
+      });
+    }
     return c.json({}, 200);
   };
 
