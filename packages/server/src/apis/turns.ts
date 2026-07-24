@@ -1,6 +1,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { Sessions, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
+import type { Sessions, Turn, TurnRecord, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import {
+  SessionStoreConflictError,
   SessionStoreNotFoundError,
   TurnResourceResolver,
   type TurnInputItem,
@@ -17,11 +18,22 @@ import {
 import { streamSSE } from 'hono/streaming';
 import { Readable } from 'stream';
 import type { Logger } from 'winston';
-import { createTurnRoute } from '../routes/turnRoutes';
+import { createTurnRoute, getTurnRoute, listTurnEventsRoute, listTurnsRoute } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import type { McpStore } from '../store/McpStore';
 import type { ModelStore } from '../store/ModelStore';
 import { TENANT_NAME } from './sessions';
+
+function toWireTurn(record: TurnRecord): Turn {
+  return {
+    id: record.turn_id,
+    session_id: record.session_id,
+    previous_turn_id: record.previous_turn_id ?? null,
+    input: record.input,
+    state: record.state,
+    created_at: record.created_at,
+  };
+}
 
 export interface TurnsRouterDeps {
   sessions: Sessions;
@@ -109,6 +121,66 @@ function turnEventSsePayload(event: TurnStreamingEvent, sequenceNumber: number):
 }
 
 export function createTurnsRouter(deps: TurnsRouterDeps) {
+  const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
+    const { sessionId } = c.req.valid('param');
+    const query = c.req.valid('query');
+    const session = await deps.sessions.get({ tenant_name: TENANT_NAME, session_id: sessionId });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    try {
+      const { data, pagination } = await session.listTurns({
+        limit: query.limit,
+        page_token: query.page_token,
+      });
+      return c.json({ data: data.map(toWireTurn), pagination }, 200);
+    } catch (error) {
+      if (error instanceof SessionStoreConflictError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      throw error;
+    }
+  };
+
+  const getTurnHandler: RouteHandler<typeof getTurnRoute> = async c => {
+    const { sessionId, turnId } = c.req.valid('param');
+    const session = await deps.sessions.get({ tenant_name: TENANT_NAME, session_id: sessionId });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    const turn = await session.getTurn(turnId);
+    if (!turn) {
+      return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
+    }
+    return c.json({ data: toWireTurn(turn.record) }, 200);
+  };
+
+  const listTurnEventsHandler: RouteHandler<typeof listTurnEventsRoute> = async c => {
+    const { sessionId, turnId } = c.req.valid('param');
+    const query = c.req.valid('query');
+    const session = await deps.sessions.get({ tenant_name: TENANT_NAME, session_id: sessionId });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    const turn = await session.getTurn(turnId);
+    if (!turn) {
+      return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
+    }
+    try {
+      const { data, pagination } = await turn.listEvents({
+        limit: query.limit,
+        page_token: query.page_token,
+        order: query.order,
+      });
+      return c.json({ data, pagination }, 200);
+    } catch (error) {
+      if (error instanceof SessionStoreConflictError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      throw error;
+    }
+  };
+
   const createTurnHandler: RouteHandler<typeof createTurnRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
@@ -189,6 +261,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   };
 
   const router = new OpenAPIHono();
+  router.openapi(listTurnsRoute, listTurnsHandler);
+  router.openapi(getTurnRoute, getTurnHandler);
+  router.openapi(listTurnEventsRoute, listTurnEventsHandler);
   router.openapi(createTurnRoute, createTurnHandler);
   // subscribeTurnRoute (routes/turnRoutes.ts) is defined but not registered:
   // re-subscribing to a running turn needs a live-stream registry that this

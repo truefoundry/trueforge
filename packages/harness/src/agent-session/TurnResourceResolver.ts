@@ -176,13 +176,18 @@ export class TurnResourceResolver<
       definition: {
         model: spec.model.name,
         modelClient: this.deps.llm(spec.model.name),
-        instruction: agentInfo ? agentInfo.input : spec.instructions,
-        messages: spec.messages?.map(m => ({
-          role: 'user' as const,
-          content: m.content,
-        })),
+        // Sub-agents receive the delegated task as a user message; their system
+        // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.
+        instruction: agentInfo ? undefined : spec.instructions,
+        messages: agentInfo
+          ? [{ role: 'user' as const, content: agentInfo.input }]
+          : spec.messages?.map(m => ({
+              role: 'user' as const,
+              content: m.content,
+            })),
         modelParams: spec.model.params,
-        responseFormat: spec.response_format,
+        // Sub-agents should return free-form summaries to the parent, not the user-facing structured response.
+        responseFormat: agentInfo ? undefined : spec.response_format,
         iterationLimit: spec.config?.iteration_limit,
         toolSets,
       },

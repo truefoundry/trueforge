@@ -41,6 +41,32 @@ export const createSessionRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
     },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description:
+        'The agent spec is valid but requires a capability this server does not provide (e.g. sandbox or skills).',
+    },
+  },
+});
+
+export const getSessionRoute = createRoute({
+  method: 'get',
+  path: '/{sessionId}',
+  tags: [SESSIONS_TAG],
+  summary: 'Get a session',
+  description: 'Fetch a session by ID.',
+  request: {
+    params: SessionIdParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetSessionResponseSchema } },
+      description: 'Session data.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session not found.',
+    },
   },
 });
 
@@ -69,6 +95,11 @@ export const updateSessionRoute = createRoute({
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Session not found.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description:
+        'The agent spec is valid but requires a capability this server does not provide (e.g. sandbox or skills).',
     },
   },
 });

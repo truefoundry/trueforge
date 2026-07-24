@@ -1,8 +1,44 @@
 // @ts-check
 
+import react from '@eslint-react/eslint-plugin';
 import js from '@eslint/js';
+import reactHooks from 'eslint-plugin-react-hooks';
 import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
+
+/** Minimal browser globals for the Vite React frontend (avoid adding a globals dep). */
+const browserGlobals = {
+  window: 'readonly',
+  document: 'readonly',
+  navigator: 'readonly',
+  fetch: 'readonly',
+  console: 'readonly',
+  setTimeout: 'readonly',
+  clearTimeout: 'readonly',
+  setInterval: 'readonly',
+  clearInterval: 'readonly',
+  requestAnimationFrame: 'readonly',
+  cancelAnimationFrame: 'readonly',
+  URL: 'readonly',
+  URLSearchParams: 'readonly',
+  AbortController: 'readonly',
+  AbortSignal: 'readonly',
+  FormData: 'readonly',
+  Headers: 'readonly',
+  Request: 'readonly',
+  Response: 'readonly',
+  HTMLElement: 'readonly',
+  HTMLButtonElement: 'readonly',
+  HTMLInputElement: 'readonly',
+  HTMLSelectElement: 'readonly',
+  HTMLDivElement: 'readonly',
+  Event: 'readonly',
+  CustomEvent: 'readonly',
+  localStorage: 'readonly',
+  sessionStorage: 'readonly',
+  crypto: 'readonly',
+  process: 'readonly', // Vite injects import.meta / some env via process in configs
+};
 
 export default defineConfig(
   {
@@ -10,11 +46,44 @@ export default defineConfig(
   },
   {
     files: ['**/*.{js,mjs,cjs,ts}'],
+    ignores: ['packages/frontend/**'],
     extends: [js.configs.recommended, tseslint.configs.strictTypeChecked, tseslint.configs.stylisticTypeChecked],
     languageOptions: {
       parserOptions: {
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+  {
+    files: ['packages/frontend/src/**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.strictTypeChecked,
+      tseslint.configs.stylisticTypeChecked,
+      react.configs['recommended-type-checked'],
+      reactHooks.configs.flat['recommended-latest'],
+    ],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+        ecmaFeatures: { jsx: true },
+      },
+      globals: browserGlobals,
+    },
+  },
+  {
+    // Vite config is outside the frontend src tsconfig project.
+    files: ['packages/frontend/*.{ts,mts,cts}', 'packages/frontend/*.config.ts'],
+    extends: [js.configs.recommended, tseslint.configs.recommended],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        __dirname: 'readonly',
       },
     },
   },

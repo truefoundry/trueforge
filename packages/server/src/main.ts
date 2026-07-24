@@ -56,6 +56,36 @@ try {
     console.error('Failed to start server:', error instanceof Error ? error.message : error);
     process.exit(1);
   });
+
+  // Graceful drain: stop accepting new connections, let in-flight requests
+  // finish, then exit. Without this, Node (running as PID 1 in the container)
+  // ignores SIGTERM and docker stop escalates to SIGKILL after its grace
+  // period, killing requests mid-flight.
+  const DRAIN_TIMEOUT_MS = 8_000;
+  let shuttingDown = false;
+  const shutdown = (signal: NodeJS.Signals) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info(`Received ${signal}, draining connections before shutdown`);
+
+    server.close(() => {
+      process.exit(0);
+    });
+    // Keep-alive connections with no in-flight request would otherwise hold
+    // the server open until the client closes them.
+    if ('closeIdleConnections' in server) {
+      server.closeIdleConnections();
+    }
+
+    // Force exit if draining outlasts the timeout (kept below Docker's
+    // default 10s stop grace period so we exit on our own terms).
+    setTimeout(() => {
+      logger.warn(`Drain timed out after ${String(DRAIN_TIMEOUT_MS)}ms, exiting`);
+      process.exit(1);
+    }, DRAIN_TIMEOUT_MS).unref();
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 } catch (error) {
   console.error('Failed to start server:', error instanceof Error ? error.message : error);
   process.exit(1);

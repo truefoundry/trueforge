@@ -3,8 +3,8 @@
   "private": true,
   "packageManager": "pnpm@11.16.0+sha512.b767e9a98fc87aec0f42daefcd0e84941c2cdb45d73c4e1e68860fb2bdfdbe032ab592105479e5e05c237f740c8a5ffdbbb52385797ddc2296745a1bbb883e8d",
   "scripts": {
-    "build": "pnpm --filter @truefoundry/utils build && pnpm --filter @truefoundry/server build",
-    "typecheck": "pnpm --filter @truefoundry/utils typecheck && pnpm --filter @truefoundry/utils build && pnpm --filter @truefoundry/server typecheck",
+    "build": "pnpm --filter @truefoundry/utils build && pnpm --filter @truefoundry/server build && pnpm --filter frontend build",
+    "typecheck": "pnpm --filter @truefoundry/utils typecheck && pnpm --filter @truefoundry/utils build && pnpm --filter @truefoundry/server typecheck && pnpm --filter frontend typecheck",
     "lint": "eslint . --fix --cache --cache-location .eslintcache",
     "lint:ci": "eslint . --cache --cache-location .eslintcache",
     "format": "prettier --write . --cache --config .prettierrc",
@@ -12,13 +12,16 @@
     "format:fix": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\" --cache --config .prettierrc",
     "test": "pnpm --filter @truefoundry/utils test",
     "dev:server": "pnpm --filter @truefoundry/server dev",
+    "dev:frontend": "pnpm --filter frontend dev",
     "pack:dry": "pnpm --filter @truefoundry/utils pack:dry",
     "postinstall": "pnpm --filter @truefoundry/utils build:gen",
     "prepare": "husky || true"
   },
   "devDependencies": {
+    "@eslint-react/eslint-plugin": "^5.18.0",
     "@eslint/js": "^10.0.1",
     "eslint": "^10.7.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.5.3",

@@ -8,3 +8,30 @@ allowBuilds:
   '@swc/core': true
   esbuild: true
   protobufjs: true
+
+# Silence peer mismatches between agent-ui-sdk peers and the versions we pin.
+peerDependencyRules:
+  allowedVersions:
+    '@truefoundry/assistant-ui-runtime': '0.1.4'
+    truefoundry-gateway-sdk: '0.4.0-rc.1'
+
+# One Context module for assistant-ui (avoids "requires an AuiProvider").
+overrides:
+  '@assistant-ui/store': '0.2.20'
+  '@assistant-ui/core': '0.2.21'
+
+# tfy-web-components imports packages it does not declare (breaks Vite/pnpm resolution).
+packageExtensions:
+  tfy-web-components:
+    dependencies:
+      react-toastify: '^11.0.5'
+      '@emotion/react': '^11.14.0'
+      '@emotion/styled': '^11.14.0'
+      '@fortawesome/free-solid-svg-icons': '^6.7.2'
+      classnames: '^2.5.1'
+      clsx: '^2.1.1'
+      lucide-react: '^0.511.0'
+      tailwind-merge: '^2.6.0'
+
+patchedDependencies:
+  truefoundry-gateway-sdk@0.4.0-rc.1: patches/truefoundry-gateway-sdk@0.4.0-rc.1.patch

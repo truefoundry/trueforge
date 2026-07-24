@@ -7,6 +7,7 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnSandboxFactory } from '@truefoundry/utils/agent-session';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
+import { createCapabilitiesRouter } from './apis/capabilities';
 import { createMcpRouter } from './apis/mcp';
 import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
@@ -43,6 +44,7 @@ export function createServerApp(deps: ServerDeps) {
 
   app.get('/', c => c.text('OK!'));
 
+  app.route('/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
   app.route('/v1/models', createModelsRouter(deps.modelStore));
   app.route('/v1/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
   app.route('/v1/skills', createSkillsRouter(deps.skillStore));

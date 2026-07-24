@@ -2,10 +2,11 @@
 
 pnpm workspace with:
 
-| Package               | Path                                   | Role                                               |
-| --------------------- | -------------------------------------- | -------------------------------------------------- |
-| `@truefoundry/utils`  | [`packages/harness`](packages/harness) | Published library (`core` + `agent-session`)       |
-| `@truefoundry/server` | [`packages/server`](packages/server)   | Future CLI/HTTP server (private; depends on utils) |
+| Package               | Path                                     | Role                                             |
+| --------------------- | ---------------------------------------- | ------------------------------------------------ |
+| `@truefoundry/utils`  | [`packages/harness`](packages/harness)   | Published library (`core` + `agent-session`)     |
+| `@truefoundry/server` | [`packages/server`](packages/server)     | HTTP server (private; depends on utils)          |
+| `frontend`            | [`packages/frontend`](packages/frontend) | Private draft-only agent chat UI (not published) |
 
 ## Develop
 
@@ -15,6 +16,8 @@ pnpm build
 pnpm test
 pnpm typecheck
 ```
+
+Root `build` / `typecheck` (and CI) include utils, server, and frontend.
 
 ## Run the server
 
@@ -31,13 +34,26 @@ Fill in `MODEL_API_KEY` in `packages/server/.env`, then start the server:
 pnpm dev:server
 ```
 
-To build and run it with Docker instead:
+## Run the frontend (local)
+
+With the server on `:8790`:
+
+```bash
+pnpm dev:frontend
+```
+
+Vite serves the UI on `http://localhost:3000` and proxies `/v1/agents/*` → `/v1/sessions*` plus catalog routes. See [`packages/frontend/README.md`](packages/frontend/README.md).
+
+## Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-The local `.env` file and `packages/server/registry/` directory are ignored by Git. Docker Compose requires the environment file and mounts the registry read-only into the container.
+- API: `http://localhost:8790`
+- UI: `http://localhost:3000` (Caddy proxies same-origin `/v1/...` to `server:8790`)
+
+The local `.env` file and `packages/server/registry/` directory are ignored by Git. Docker Compose requires `packages/server/.env` and mounts the registry read-only into the server container.
 
 ## Library imports
 

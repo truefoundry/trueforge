@@ -1,0 +1,32 @@
+:80 {
+	encode gzip
+
+	# SDK draft/session paths → harness /v1/sessions
+	@draftSessions path /v1/agents/draft-sessions /v1/agents/draft-sessions/*
+	handle @draftSessions {
+		uri replace /v1/agents/draft-sessions /v1/sessions
+		reverse_proxy server:8790 {
+			flush_interval -1
+		}
+	}
+
+	@agentSessions path /v1/agents/sessions /v1/agents/sessions/*
+	handle @agentSessions {
+		uri replace /v1/agents/sessions /v1/sessions
+		reverse_proxy server:8790 {
+			flush_interval -1
+		}
+	}
+
+	handle /v1/* {
+		reverse_proxy server:8790 {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /usr/share/caddy
+		try_files {path} /index.html
+		file_server
+	}
+}

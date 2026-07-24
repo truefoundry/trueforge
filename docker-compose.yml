@@ -19,3 +19,14 @@ services:
     volumes:
       - ./packages/server/registry:/app/packages/server/registry:ro
     restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: packages/frontend/Dockerfile
+    image: truefoundry-frontend:latest
+    ports:
+      - '${FRONTEND_PORT:-3000}:80'
+    depends_on:
+      - server
+    restart: unless-stopped

@@ -9,6 +9,7 @@ import { ulid } from 'ulid';
 import {
   cancelSessionRoute,
   createSessionRoute,
+  getSessionRoute,
   listSessionEventsRoute,
   listSessionsRoute,
   updateSessionRoute,
@@ -21,29 +22,46 @@ import type { ModelStore } from '../store/ModelStore';
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
 export const TENANT_NAME = 'default';
 
+export function toWireSession(record: SessionRecord): Session {
+  return {
+    id: record.session_id,
+    agent_spec: record.agent_spec,
+    title: record.title ?? null,
+    created_at: record.created_at,
+    updated_at: record.updated_at,
+  };
+}
+
 /**
  * Cross-checks an AgentSpec against the YAML catalogs and the server's
  * capabilities before a session is created or updated, so misconfigured specs
- * fail at admission instead of at turn time. Returns an error message, or
- * undefined when the spec is usable.
+ * fail at admission instead of at turn time. Returns undefined when the spec
+ * is usable; otherwise an error with the status to respond with: 400 when the
+ * spec references unknown catalog entries (a client-side spec problem), 422
+ * when the spec is valid but this deployment cannot satisfy it (missing
+ * sandbox provider, unsupported skills).
  */
 function validateAgentSpec(
   spec: AgentSpec,
   deps: { modelStore: ModelStore; mcpStore: McpStore; sandboxSupported: boolean },
-): string | undefined {
+): { status: 400 | 422; message: string } | undefined {
   if (!deps.modelStore.get(spec.model.name)) {
-    return `Unknown model "${spec.model.name}" — not declared in models.yaml`;
+    return { status: 400, message: `Unknown model "${spec.model.name}" — not declared in models.yaml` };
   }
   for (const server of spec.mcp_servers ?? []) {
     if (!deps.mcpStore.get(server.name)) {
-      return `Unknown MCP server "${server.name}" — not declared in mcp.yaml`;
+      return { status: 400, message: `Unknown MCP server "${server.name}" — not declared in mcp.yaml` };
     }
   }
   if (spec.config?.sandbox?.enabled && !deps.sandboxSupported) {
-    return 'sandbox is enabled in the agent spec but this server has no sandbox provider configured — set SANDBOX_SETTINGS (and SANDBOX_API_KEY)';
+    return {
+      status: 422,
+      message:
+        'sandbox is enabled in the agent spec but this server has no sandbox provider configured — set SANDBOX_SETTINGS (and SANDBOX_API_KEY)',
+    };
   }
   if (spec.skills?.length) {
-    return 'skills are not supported by this server yet';
+    return { status: 422, message: 'skills are not supported by this server yet' };
   }
   return undefined;
 }
@@ -58,22 +76,15 @@ export interface SessionsRouterDeps {
   sandboxSupported: boolean;
 }
 
-function toWireSession(record: SessionRecord): Session {
-  return {
-    id: record.session_id,
-    agent_spec: record.agent_spec,
-    title: record.title ?? null,
-    created_at: record.created_at,
-    updated_at: record.updated_at,
-  };
-}
-
 export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
     const specError = validateAgentSpec(body.agent_spec, deps);
     if (specError) {
-      return c.json({ error: { message: specError } }, 400);
+      // Hono's typed responses require a literal status per call site.
+      return specError.status === 422
+        ? c.json({ error: { message: specError.message } }, 422)
+        : c.json({ error: { message: specError.message } }, 400);
     }
     const session = await deps.sessions.create({
       tenant_name: TENANT_NAME,
@@ -83,13 +94,24 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     return c.json({ data: toWireSession(session.record) }, 201);
   };
 
+  const getSessionHandler: RouteHandler<typeof getSessionRoute> = async c => {
+    const { sessionId } = c.req.valid('param');
+    const record = await deps.sessionStore.getSession({ tenant_name: TENANT_NAME, session_id: sessionId });
+    if (!record) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    return c.json({ data: toWireSession(record) }, 200);
+  };
+
   const updateSessionHandler: RouteHandler<typeof updateSessionRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
     if (body.agent_spec) {
       const specError = validateAgentSpec(body.agent_spec, deps);
       if (specError) {
-        return c.json({ error: { message: specError } }, 400);
+        return specError.status === 422
+          ? c.json({ error: { message: specError.message } }, 422)
+          : c.json({ error: { message: specError.message } }, 400);
       }
     }
     try {
@@ -177,6 +199,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const router = new OpenAPIHono();
   router.openapi(createSessionRoute, createSessionHandler);
+  router.openapi(getSessionRoute, getSessionHandler);
   router.openapi(updateSessionRoute, updateSessionHandler);
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);

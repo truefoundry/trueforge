@@ -6,13 +6,94 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { TurnStreamingEventSchema } from '../schemas/events';
-import { CreateTurnRequestSchema, SubscribeTurnRequestSchema } from '../schemas/turn';
+import {
+  CreateTurnRequestSchema,
+  GetTurnResponseSchema,
+  ListTurnEventsRequestQuerySchema,
+  ListTurnEventsResponseSchema,
+  ListTurnsRequestQuerySchema,
+  ListTurnsResponseSchema,
+  SubscribeTurnRequestSchema,
+} from '../schemas/turn';
 import { SessionIdParamsSchema } from './sessionRoutes';
 
 const SESSIONS_TAG = 'Sessions';
 
 export const TurnIdParamsSchema = SessionIdParamsSchema.extend({
   turnId: z.string().min(1).describe('Turn identifier.'),
+});
+
+export const listTurnsRoute = createRoute({
+  method: 'get',
+  path: '/{sessionId}/turns',
+  tags: [SESSIONS_TAG],
+  summary: 'List turns in a session',
+  description: 'List turns for a session (newest first by default), token-paginated.',
+  request: {
+    params: SessionIdParamsSchema,
+    query: ListTurnsRequestQuerySchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListTurnsResponseSchema } },
+      description: 'Paginated turns.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid page token.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session not found.',
+    },
+  },
+});
+
+export const getTurnRoute = createRoute({
+  method: 'get',
+  path: '/{sessionId}/turns/{turnId}',
+  tags: [SESSIONS_TAG],
+  summary: 'Get a turn',
+  description: 'Fetch a single turn by ID.',
+  request: {
+    params: TurnIdParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetTurnResponseSchema } },
+      description: 'Turn data.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session or turn not found.',
+    },
+  },
+});
+
+export const listTurnEventsRoute = createRoute({
+  method: 'get',
+  path: '/{sessionId}/turns/{turnId}/events',
+  tags: [SESSIONS_TAG],
+  summary: 'List turn events',
+  description: 'Paginated persisted events for a turn (insertion order by default).',
+  request: {
+    params: TurnIdParamsSchema,
+    query: ListTurnEventsRequestQuerySchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListTurnEventsResponseSchema } },
+      description: 'Paginated turn events.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid page token.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session or turn not found.',
+    },
+  },
 });
 
 export const createTurnRoute = createRoute({

@@ -383,7 +383,12 @@ export class SessionHandle<
               modelClient: definition.modelClient,
             }
           : {}),
-        instruction: params.request.input,
+        // The delegated task goes in as the initial user message; the sub-agent
+        // system prompt is SUB_AGENT_IDENTITY (added by AgentThread.buildInstruction).
+        instruction: undefined,
+        messages: [{ role: 'user', content: params.request.input }],
+        // Sub-agents should return free-form summaries to the parent, not the user-facing structured response.
+        responseFormat: undefined,
       };
       const capabilities = [
         ...builtinsFromSpec({
