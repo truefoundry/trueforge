@@ -66,12 +66,8 @@ export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandbo
     logger,
   });
 
-  // TODO(skills): wire the complete skills flow. Spec-declared skills (from
-  // skills.yaml) should be resolved to MountedSkill[] and passed as
-  // `mountedSkills`, with `skillInitEnv` carrying the credentials
-  // skill_downloader.py needs (TFY_HOST, TFY_API_KEY, TFY_AGENT_NAME) to
-  // download tarballs into the sandbox — mirroring the private gateway's
-  // sandboxComposition.ts. Until then sandbox sessions run without skills.
+  // TODO(skills): wire public-server skill specs to an ISkillMounter (e.g. the git-based
+  // SkillMounter). Until then, public-server sandbox sessions run without skills.
   return ({ spec, existingSandboxId, tracing }) =>
     Promise.resolve(
       new Sandbox({

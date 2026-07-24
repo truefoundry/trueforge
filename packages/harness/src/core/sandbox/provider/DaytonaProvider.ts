@@ -11,7 +11,7 @@ import {
   SandboxNotAvailableError,
   SandboxPathIsDirectoryError,
 } from '../SandboxErrors';
-import type { ExecResult, SandboxFileInfo, SandboxProvider } from './Provider';
+import type { ExecResult, SandboxExecParams, SandboxFileInfo, SandboxProvider } from './Provider';
 
 const SANDBOX_NOT_FOUND_STATUS = 404;
 const SANDBOX_STATE_STARTED = 'started';
@@ -57,7 +57,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private readonly previewUrlExpirySeconds: number;
   private readonly logger: Logger;
   private readonly daytona: Daytona;
-  private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; timeoutMs: number }>();
+  private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; defaultTimeoutMs: number }>();
   // De-dupes concurrent recovery attempts on the same sandbox to a single refreshData+start round-trip.
   private static readonly inFlightRecoveries = new Map<string, Promise<boolean>>();
 
@@ -72,7 +72,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.daytona = getDaytonaClient(this.apiKey);
   }
 
-  private async getOrCreateSandbox(sandboxId?: string): Promise<{ sandbox: Sandbox; timeoutMs: number }> {
+  private async getOrCreateSandbox(sandboxId?: string): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {
     if (sandboxId) {
       const cached = DaytonaSandboxProvider.cachedSandboxes.get(sandboxId);
       if (cached) return cached;
@@ -88,7 +88,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
           autoDeleteInterval: this.settings.autoDeleteIntervalInMinutes,
         });
 
-    const entry = { sandbox, timeoutMs: this.settings.timeoutMs };
+    const entry = { sandbox, defaultTimeoutMs: this.settings.timeoutMs };
     DaytonaSandboxProvider.cachedSandboxes.set(sandbox.name, entry);
     return entry;
   }
@@ -172,21 +172,16 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     });
   }
 
-  async exec(params: {
-    sandboxId: string;
-    command: string;
-    cwd?: string | undefined;
-    env?: Record<string, string> | undefined;
-  }): Promise<ExecResult> {
+  async exec(params: SandboxExecParams): Promise<ExecResult> {
     return context.with(suppressTracing(context.active()), async (): Promise<ExecResult> => {
       try {
         return await this.executeWithSandboxRecovery(params.sandboxId, async () => {
-          const { sandbox, timeoutMs } = await this.getOrCreateSandbox(params.sandboxId);
+          const { sandbox, defaultTimeoutMs } = await this.getOrCreateSandbox(params.sandboxId);
           const response = await sandbox.process.executeCommand(
             params.command,
             params.cwd,
             params.env ?? {},
-            timeoutMs / 1000,
+            params.timeoutSeconds ?? defaultTimeoutMs / 1000,
           );
           return {
             success: true,

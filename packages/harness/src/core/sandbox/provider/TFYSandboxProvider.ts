@@ -5,7 +5,13 @@ import dedent from 'dedent';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import { SandboxFileNotFoundError, SandboxFileTooLargeError, SandboxPathIsDirectoryError } from '../SandboxErrors';
-import { ensureExecSuccess, type ExecResult, type SandboxFileInfo, type SandboxProvider } from './Provider';
+import {
+  ensureExecSuccess,
+  type ExecResult,
+  type SandboxExecParams,
+  type SandboxFileInfo,
+  type SandboxProvider,
+} from './Provider';
 
 const DEFAULT_TIMEOUT_SECONDS = 60;
 // Buffer for network latency + response processing on top of the server-side timeout.
@@ -22,7 +28,7 @@ export interface TFYSandboxProviderOptions {
   natsBridgeUrl: string;
   tenantName: string;
   fileMaxBytes: number;
-  execTimeoutMs?: number | undefined;
+  defaultExecTimeoutMs?: number | undefined;
   logger: Logger;
 }
 
@@ -36,7 +42,7 @@ export class TFYSandboxProvider implements SandboxProvider {
   private readonly natsBridgeUrl: string;
   private readonly tenantName: string;
   private readonly fileMaxBytes: number;
-  private readonly execTimeoutSeconds: number;
+  private readonly defaultExecTimeoutSeconds: number;
   private readonly logger: Logger;
 
   constructor(options: TFYSandboxProviderOptions) {
@@ -44,7 +50,7 @@ export class TFYSandboxProvider implements SandboxProvider {
     this.natsBridgeUrl = options.natsBridgeUrl;
     this.tenantName = options.tenantName;
     this.fileMaxBytes = options.fileMaxBytes;
-    this.execTimeoutSeconds = Math.ceil((options.execTimeoutMs ?? DEFAULT_TIMEOUT_SECONDS * 1000) / 1000);
+    this.defaultExecTimeoutSeconds = Math.ceil((options.defaultExecTimeoutMs ?? DEFAULT_TIMEOUT_SECONDS * 1000) / 1000);
     this.logger = options.logger.child({ module: 'TFYSandboxProvider' });
   }
 
@@ -54,23 +60,21 @@ export class TFYSandboxProvider implements SandboxProvider {
     return Promise.resolve({ sandboxId });
   }
 
-  async exec(params: {
-    sandboxId: string;
-    command: string;
-    cwd?: string | undefined;
-    env?: Record<string, string> | undefined;
-  }): Promise<ExecResult> {
+  async exec(params: SandboxExecParams): Promise<ExecResult> {
     return context.with(suppressTracing(context.active()), async (): Promise<ExecResult> => {
+      // Honor the per-call timeout (e.g. the longer skill-download timeout) for both the server-side
+      // request timeout and the client abort timer; fall back to the provider default otherwise.
+      const timeoutSeconds = params.timeoutSeconds ?? this.defaultExecTimeoutSeconds;
       const body = {
         sandbox_id: params.sandboxId,
         command: params.command,
         cwd: params.cwd,
         env: params.env,
-        timeout: this.execTimeoutSeconds,
+        timeout: timeoutSeconds,
       };
 
       const controller = new AbortController();
-      const clientTimeoutMs = (this.execTimeoutSeconds + CLIENT_TIMEOUT_BUFFER_SECONDS) * 1000;
+      const clientTimeoutMs = (timeoutSeconds + CLIENT_TIMEOUT_BUFFER_SECONDS) * 1000;
       const timer = setTimeout(() => {
         controller.abort();
       }, clientTimeoutMs);
@@ -93,11 +97,8 @@ export class TFYSandboxProvider implements SandboxProvider {
         return result;
       } catch (e: unknown) {
         if (e instanceof Error && e.name === 'AbortError') {
-          this.logger.error(
-            `Sandbox exec timed out after ${String(this.execTimeoutSeconds)}s`,
-            extractErrorLogFields(e),
-          );
-          return { success: false, error: `Sandbox exec timed out after ${String(this.execTimeoutSeconds)}s` };
+          this.logger.error(`Sandbox exec timed out after ${String(timeoutSeconds)}s`, extractErrorLogFields(e));
+          return { success: false, error: `Sandbox exec timed out after ${String(timeoutSeconds)}s` };
         }
         this.logger.error('Sandbox exec failed', extractErrorLogFields(e));
         const message = e instanceof Error ? e.message : 'Unknown error';
