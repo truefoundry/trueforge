@@ -140,8 +140,14 @@ export {
 export type { CreateSandboxProviderInput, SandboxProviderSettings } from './sandbox/provider/createSandboxProvider';
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
 export type { DaytonaSandboxSettings } from './sandbox/provider/DaytonaProvider';
-export type { SandboxProvider } from './sandbox/provider/Provider';
+export type { SandboxExecParams, SandboxInit, SandboxProvider } from './sandbox/provider/Provider';
 export { TFYSandboxProvider } from './sandbox/provider/TFYSandboxProvider';
-export { Sandbox } from './sandbox/Sandbox';
-export type { MountedSkill, SandboxInfo } from './sandbox/Sandbox';
+export { SKILL_DOWNLOAD_TIMEOUT_SECONDS, Sandbox, buildWriteAndRunScriptCommand } from './sandbox/Sandbox';
+export type { SandboxInfo } from './sandbox/Sandbox';
 export { SandboxError } from './sandbox/SandboxErrors';
+
+// Skills: the ISkillMounter seam lets hosts plug in their own skill sources (e.g. the
+// gateway's private TrueFoundry registry mounter) while the harness ships the git-based one.
+export { InstructionBuilder } from './InstructionBuilder';
+export { SKILLS_PREAMBLE, SkillMounter, getSkillPath, renderSkillPromptBody } from './sandbox/skills';
+export type { GitSkill, ISkillMounter } from './sandbox/skills';

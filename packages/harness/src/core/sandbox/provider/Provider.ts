@@ -12,6 +12,15 @@ export interface ExecErrorResult {
 
 export type ExecResult = ExecSuccessResult | ExecErrorResult;
 
+/**
+ * Wraps a value in single quotes for safe use in a shell command. Inner single quotes are
+ * escaped via the standard shell idiom: ' -> '\''. Use for any user-controlled value that is
+ * interpolated into an exec command string.
+ */
+export function shellEscape(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
 /** Throws if the exec result indicates failure (infra error or non-zero exit code). */
 export function ensureExecSuccess(result: ExecResult): void {
   if (!result.success) {
@@ -27,14 +36,22 @@ export interface SandboxFileInfo {
   isDir: boolean;
 }
 
+/** Parameters for a single sandbox command. */
+export interface SandboxExecParams {
+  sandboxId: string;
+  command: string;
+  cwd?: string | undefined;
+  env?: Record<string, string> | undefined;
+  /** Overrides the provider's default exec timeout (e.g. for long skill downloads). */
+  timeoutSeconds?: number | undefined;
+}
+
+// An init command a producer (e.g. a skill mounter) hands to the Sandbox, which supplies `sandboxId`.
+export type SandboxInit = Omit<SandboxExecParams, 'sandboxId'>;
+
 export interface SandboxProvider {
   createSandbox(): Promise<{ sandboxId: string }>;
-  exec(params: {
-    sandboxId: string;
-    command: string;
-    cwd?: string | undefined;
-    env?: Record<string, string> | undefined;
-  }): Promise<ExecResult>;
+  exec(params: SandboxExecParams): Promise<ExecResult>;
   /** Provider-specific instructions appended to the agent system prompt. */
   getAdditionalInstructions(): string | undefined;
   /** Directory inside the sandbox where large tool responses are dumped. */

@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { InstructionBuilder } from '../InstructionBuilder';
 import { estimateTokensForString } from '../llm/usage';
 import type { MappedMCPTool } from '../mcp/convertMCPServers';
-import { type CallToolResponse, type IToolSet, toolResultResponse } from '../mcp/IMCPServer';
+import { toolResultResponse, type CallToolResponse, type IToolSet } from '../mcp/IMCPServer';
 import { defineTool, LocalToolMCP } from '../mcp/LocalToolMCP';
 import {
   DEFERRED_TOOLS_SERVER_ID,
@@ -16,13 +16,31 @@ import {
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import { SANDBOX_FILE_UPLOADS_DIR, SANDBOX_NATS_WS_PORT } from './constants';
-import { type SandboxProvider, ensureExecSuccess } from './provider/Provider';
+import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
 import { validateNoPathTraversal, validateSandboxOwnedByTenant } from './SandboxErrors';
 import { SandboxNatsBridge } from './SandboxNatsBridge';
 import { sandboxScripts } from './sandboxScripts.gen';
+// Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
+import { SKILLS_DIR } from './skills/constants';
+import type { ISkillMounter } from './skills/ISkillMounter';
 
 export interface SandboxInfo {
   sandbox_id: string;
+}
+
+// Downloader/setup scripts can run longer than a normal exec.
+export const SKILL_DOWNLOAD_TIMEOUT_SECONDS = 180;
+
+// Write a script (base64-encoded, never interpolated raw) to a path and run it. Skill mounters reuse it.
+export function buildWriteAndRunScriptCommand(params: { scriptPath: string; scriptContent: string }): string {
+  const b64 = Buffer.from(params.scriptContent, 'utf-8').toString('base64');
+  return [
+    `mkdir -p "$(dirname ${params.scriptPath})"`,
+    `rm -f ${params.scriptPath}`,
+    `echo ${shellEscape(b64)} | base64 -d > ${params.scriptPath}`,
+    `chmod a-w ${params.scriptPath}`,
+    `python3 ${params.scriptPath}`,
+  ].join(' && ');
 }
 
 /** Write or clear the git credential-store file at an absolute path (no global git config mutation). */
@@ -51,13 +69,6 @@ function buildGitCredentialHelperEnv(credentialsPath: string): Record<string, st
   };
 }
 
-export interface MountedSkill {
-  fqn: string;
-  name: string;
-  description: string;
-  skillMdContent: string | null;
-}
-
 export interface SandboxStoredFile {
   filePath: string;
   sandboxCreated?: SandboxInfo | undefined;
@@ -66,7 +77,7 @@ export interface SandboxStoredFile {
 export interface SandboxOptions {
   provider: SandboxProvider;
   existingSandboxId?: string | undefined;
-  mountedSkills?: readonly MountedSkill[] | undefined;
+  skillMounter?: ISkillMounter | undefined;
   fileDownloadEnabled?: boolean | undefined;
   /** Pre-resolved credential-store file content (null = clear / no git auth). */
   resolvedGitCredentialsContent?: string | null | undefined;
@@ -76,7 +87,6 @@ export interface SandboxOptions {
    */
   blockDestructiveToolsInCodeMode: true;
   execExtraEnv?: Readonly<Record<string, string>> | undefined;
-  skillInitEnv?: Readonly<Record<string, string>> | undefined;
   tracing: AgentTracing;
   logger: Logger;
 }
@@ -95,22 +105,6 @@ const SANDBOX_FILE_UPLOADS_TAG = 'sandbox-file-uploads';
 const MCP_CLIENT_DIR = '/opt/tfy/mcp-client';
 const MCP_CLIENT_PATH = `${MCP_CLIENT_DIR}/mcp_client.py`;
 const MCP_CLIENT_BIN_SYMLINK = '/usr/local/bin/mcp-client';
-const SKILL_DOWNLOADER_PATH = '/opt/tfy/skill_downloader.py';
-const SKILLS_DIR = '/opt/tfy/skills';
-
-function getSkillPath(skillName: string): string {
-  return `${SKILLS_DIR}/${skillName}`;
-}
-
-const SKILLS_PREAMBLE = [
-  '1. The skill is present in the `path` directory.',
-  '2. SKILL.md file within the directory is the primary file, there can be other files as well.',
-  '3. Use `description` to judge whether the Agent needs to use a skill.',
-  '4. To use a skill:',
-  '4.a. If the `SKILL.md content` is inlined, the Agent must not read `path/SKILL.md`.',
-  '4.b. Otherwise the Agent must read `path/SKILL.md` first.',
-  '5. The Agent must avoid listing the `path` unless there are references in `SKILL.md` and there is reason to do so given the current conversation.',
-].join('\n');
 
 // Per-server config sent to mcp_client.py via TFY_MCP_SERVERS.
 interface SandboxMcpServerConfig {
@@ -163,16 +157,6 @@ function injectMCPClientEnv(params: {
   };
 }
 
-function buildSkillInitEnv(
-  skillInitEnv: Readonly<Record<string, string>> | undefined,
-  skillVersionFqnsCsv?: string,
-): Record<string, string> {
-  return {
-    AGENT_SKILL_VERSION_FQNS: skillVersionFqnsCsv ?? '',
-    ...(skillInitEnv ?? {}),
-  };
-}
-
 const sandboxExecSchema = z.object({
   intent: z
     .string()
@@ -214,10 +198,9 @@ export class Sandbox extends LocalToolMCP {
   private codeExecToolSets: readonly IToolSet[] = [];
   private readonly fileDownloadEnabled: boolean;
   private readonly execExtraEnv?: Readonly<Record<string, string>> | undefined;
-  private readonly skillInitEnv?: Readonly<Record<string, string>> | undefined;
-  private readonly mountedSkills: readonly MountedSkill[];
+  private readonly skillMounter?: ISkillMounter | undefined;
+  private cachedSkillsSection?: string | undefined;
   private readonly mcpClientScriptBase64: string;
-  private readonly skillDownloaderScriptBase64: string;
   private readonly logger: Logger;
   // Pre-resolved credential-store file content (null = clear / no git auth).
   private readonly resolvedGitCredentialsContent: string | null;
@@ -237,15 +220,13 @@ export class Sandbox extends LocalToolMCP {
     this.provider = options.provider;
     this.existingSandboxId = options.existingSandboxId;
     this.tenantName = options.execExtraEnv?.['TFY_TENANT_NAME'] ?? '';
-    this.mountedSkills = options.mountedSkills ?? [];
+    this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
     this.execExtraEnv = options.execExtraEnv;
-    this.skillInitEnv = options.skillInitEnv;
     // Scripts are internal to Sandbox: the upload paths, env contract, and prompt
     // text are all hardcoded here, so injecting different content was never a
     // real extension point. Consumers don't see or provide them.
     this.mcpClientScriptBase64 = Buffer.from(sandboxScripts.mcpClient, 'utf-8').toString('base64');
-    this.skillDownloaderScriptBase64 = Buffer.from(sandboxScripts.skillDownloader, 'utf-8').toString('base64');
     this.logger = options.logger.child({ module: 'Sandbox' });
     this.resolvedGitCredentialsContent = options.resolvedGitCredentialsContent ?? null;
 
@@ -276,17 +257,17 @@ export class Sandbox extends LocalToolMCP {
   }
 
   estimateSkillsTokens(): number {
-    if (!this.mountedSkills.length) return 0;
-    let fullContent = `<skills>\n${SKILLS_PREAMBLE}\n\n`;
-    for (const skill of this.mountedSkills) {
-      const skillPath = getSkillPath(skill.name);
-      const body = skill.skillMdContent
-        ? `path: ${skillPath}\nSKILL.md content:\n${skill.skillMdContent}`
-        : `path: ${skillPath}\nname: ${skill.name}\ndescription: ${skill.description}`;
-      fullContent += `<skill>\n${body}\n</skill>\n\n`;
+    return Math.round(estimateTokensForString(this.renderSkillsSection()));
+  }
+
+  // Single source for the <skills> section, so the prompt and the token estimate can't drift.
+  private renderSkillsSection(): string {
+    if (this.cachedSkillsSection === undefined) {
+      const skills = new InstructionBuilder('skills');
+      this.skillMounter?.instruction(skills);
+      this.cachedSkillsSection = skills.build();
     }
-    fullContent += '</skills>';
-    return Math.round(estimateTokensForString(fullContent));
+    return this.cachedSkillsSection;
   }
 
   buildInstruction(builder: InstructionBuilder): void {
@@ -354,19 +335,7 @@ export class Sandbox extends LocalToolMCP {
   }
 
   private buildSkillsSection(builder: InstructionBuilder): void {
-    if (!this.mountedSkills.length) return;
-
-    const skills = builder.beginSection('skills');
-
-    skills.addContent(SKILLS_PREAMBLE);
-
-    for (const skill of this.mountedSkills) {
-      const skillPath = getSkillPath(skill.name);
-      const content = skill.skillMdContent
-        ? `path: ${skillPath}\nSKILL.md content:\n${skill.skillMdContent}`
-        : `path: ${skillPath}\nname: ${skill.name}\ndescription: ${skill.description}`;
-      skills.addSection('skill', content);
-    }
+    builder.addContent(this.renderSkillsSection());
   }
 
   private buildMCPSection(builder: InstructionBuilder): void {
@@ -604,37 +573,38 @@ export class Sandbox extends LocalToolMCP {
   }
 
   private async initSandboxEnvironment(): Promise<void> {
-    const skillVersionFqnsCsv = this.mountedSkills.length ? this.mountedSkills.map(s => s.fqn).join(',') : undefined;
     const toolResultDumpDir = this.provider.getToolResultDumpDir(this.requiredSandboxInfo.sandbox_id);
 
     this.logger.info('Uploading MCP client script and preparing skills directory in sandbox');
 
     const initSteps = [
-      `mkdir -p ${MCP_CLIENT_DIR} ${Sandbox.FILE_UPLOADS_DIR} ${toolResultDumpDir}`,
+      `mkdir -p ${MCP_CLIENT_DIR} ${Sandbox.FILE_UPLOADS_DIR} ${toolResultDumpDir} ${SKILLS_DIR}`,
       `rm -f ${MCP_CLIENT_PATH}`,
       `echo '${this.mcpClientScriptBase64}' | base64 -d > ${MCP_CLIENT_PATH}`,
       // Make executable + symlink onto PATH so `mcp-client` runs by name.
       `chmod 0555 ${MCP_CLIENT_PATH}`,
       `ln -sf ${MCP_CLIENT_PATH} ${MCP_CLIENT_BIN_SYMLINK}`,
-      `rm -f ${SKILL_DOWNLOADER_PATH}`,
-      `echo '${this.skillDownloaderScriptBase64}' | base64 -d > ${SKILL_DOWNLOADER_PATH}`,
-      `chmod a-w ${SKILL_DOWNLOADER_PATH}`,
-      `mkdir -p ${SKILLS_DIR}`,
-      `python3 ${SKILL_DOWNLOADER_PATH}`,
     ];
+
+    // Fold skill installation into this single init exec. The mounter returns a declarative
+    // command + env + timeout; runs even when empty so its downloader can prune a reused sandbox.
+    const skillInit = this.skillMounter?.getSandboxInit();
+    if (skillInit) {
+      initSteps.push(skillInit.command);
+    }
+
     const script = initSteps.join(' && ');
     const result = await this.provider.exec({
       sandboxId: this.requiredSandboxInfo.sandbox_id,
       command: script,
-      env: buildSkillInitEnv(this.skillInitEnv, skillVersionFqnsCsv),
+      env: skillInit?.env,
+      timeoutSeconds: skillInit?.timeoutSeconds,
     });
     ensureExecSuccess(result);
-    const fqnCount = this.mountedSkills.length;
     this.logger.info(
-      `Sandbox initialized: MCP client at ${MCP_CLIENT_PATH} (symlinked to ${MCP_CLIENT_BIN_SYMLINK}); ` +
-        `skill downloader at ${SKILL_DOWNLOADER_PATH}; skills dir ${SKILLS_DIR}` +
-        `; ran skill downloader with ${String(fqnCount)} FQN(s) input`,
+      `Sandbox initialized: MCP client at ${MCP_CLIENT_PATH} (symlinked to ${MCP_CLIENT_BIN_SYMLINK}); skills dir ${SKILLS_DIR}`,
     );
+
     await this.writeGitCredentials();
   }
 
