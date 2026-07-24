@@ -45,8 +45,18 @@ function validateAgentSpec(
   spec: AgentSpec,
   deps: { modelStore: ModelStore; mcpStore: McpStore; sandboxSupported: boolean },
 ): { status: 400 | 422; message: string } | undefined {
-  if (!deps.modelStore.get(spec.model.name)) {
+  const model = deps.modelStore.get(spec.model.name);
+  if (!model) {
     return { status: 400, message: `Unknown model "${spec.model.name}" — not declared in models.yaml` };
+  }
+  const reasoningEffort = spec.model.params?.reasoning_effort;
+  if (reasoningEffort !== undefined && !model.reasoning_efforts?.includes(reasoningEffort)) {
+    return {
+      status: 400,
+      message: model.reasoning_efforts
+        ? `Reasoning effort "${reasoningEffort}" is not supported by model "${model.name}"`
+        : `Model "${model.name}" does not support configurable reasoning effort`,
+    };
   }
   for (const server of spec.mcp_servers ?? []) {
     if (!deps.mcpStore.get(server.name)) {

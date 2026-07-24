@@ -45,7 +45,7 @@ function uniqueEnvNames(entries: { name: string }[], ctx: z.RefinementCtx): void
 export const ModelEntrySchema = z
   .object({
     name: z.string().min(1),
-    supported_reasoning_efforts: z.array(z.string().min(1)).optional(),
+    reasoning_efforts: z.array(z.string().min(1)).min(1).optional(),
     max_output_tokens: z.number().int().positive(),
   })
   .strict();

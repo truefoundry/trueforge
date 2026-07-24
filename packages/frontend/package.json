@@ -28,6 +28,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^4.7.0",
+    "playwright-core": "^1.61.1",
     "typescript": "^5.9.3",
     "vite": "^6.3.5",
     "vite-plugin-monaco-editor-esm": "^2.0.2"

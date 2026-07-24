@@ -1,5 +1,5 @@
 import { AssistantRuntimeProvider } from '@assistant-ui/react';
-import { ErrorToasterProvider, SlotsProvider, Thread, ThreadListContainer } from '@truefoundry/agent-ui-sdk';
+import { ErrorToasterProvider, SlotsProvider, Thread } from '@truefoundry/agent-ui-sdk';
 import { useTrueFoundryAgentRuntime, type AgentSpec } from '@truefoundry/assistant-ui-runtime';
 import { useEffect, useMemo, useState } from 'react';
 import { ThemeProvider } from 'tfy-web-components/components/theme/useTheme';
@@ -8,14 +8,10 @@ import { PrivateAgentSessionClient } from 'truefoundry-gateway-sdk/agents/privat
 import { ServerCapabilitiesProvider } from './capabilities';
 import { getCapabilities, listModels, type ServerCapabilities } from './catalog';
 import { AppComposerShell } from './ComposerShell';
-import {
-  AppThreadListEmptyState,
-  AppThreadListNewButton,
-  AppThreadListRow,
-  AppThreadListShell,
-  AppWelcomeScreen,
-} from './slots';
+import { PanelLeftIcon } from './icons';
+import { AppWelcomeScreen } from './slots';
 import { ThreadHeader } from './ThreadHeader';
+import { ThreadSidebar } from './ThreadSidebar';
 
 const client = new AgentSessionClient({
   baseUrl: '/',
@@ -33,10 +29,6 @@ const slotOverrides = {
   ComposerRightSection: () => null,
   ComposerLeftSection: () => null,
   ComposerSendButton: () => null,
-  ThreadListShell: AppThreadListShell,
-  ThreadListNewButton: AppThreadListNewButton,
-  ThreadListEmptyState: AppThreadListEmptyState,
-  ThreadListRow: AppThreadListRow,
 };
 
 function ChatApp({
@@ -46,6 +38,7 @@ function ChatApp({
   defaultAgentSpec: AgentSpec;
   capabilities: ServerCapabilities;
 }) {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const runtime = useTrueFoundryAgentRuntime({
     client,
     privateClient,
@@ -62,11 +55,30 @@ function ChatApp({
           <SlotsProvider theme="dark" overrides={slotOverrides}>
             <ErrorToasterProvider>
               <div className="app-shell">
-                <aside className="app-sidebar">
-                  <ThreadListContainer />
-                </aside>
+                {sidebarOpen ? (
+                  <aside className="app-sidebar">
+                    <div className="sidebar-top">
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        aria-label="Collapse sidebar"
+                        onClick={() => {
+                          setSidebarOpen(false);
+                        }}
+                      >
+                        <PanelLeftIcon />
+                      </button>
+                    </div>
+                    <ThreadSidebar />
+                  </aside>
+                ) : null}
                 <div className="app-main">
-                  <ThreadHeader />
+                  <ThreadHeader
+                    sidebarCollapsed={!sidebarOpen}
+                    onExpandSidebar={() => {
+                      setSidebarOpen(true);
+                    }}
+                  />
                   <div className="app-thread-body">
                     <Thread />
                   </div>
@@ -102,8 +114,12 @@ export function App() {
           throw new Error('No models in GET /v1/models — check models.yaml');
         }
         if (!state.cancelled) {
+          const defaultReasoningEffort = first.reasoning_efforts?.[0];
           setDefaultAgentSpec({
-            model: { name: first.name },
+            model: {
+              name: first.name,
+              ...(defaultReasoningEffort ? { params: { reasoningEffort: defaultReasoningEffort } } : {}),
+            },
             config: { sandbox: { enabled: serverCapabilities.sandbox.enabled } },
           });
           setCapabilities(serverCapabilities);

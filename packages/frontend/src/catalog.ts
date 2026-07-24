@@ -3,7 +3,7 @@
 export interface ModelEntry {
   name: string;
   max_output_tokens?: number;
-  supported_reasoning_efforts?: string[];
+  reasoning_efforts?: string[];
 }
 
 export interface McpServerEntry {

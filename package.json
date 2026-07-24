@@ -13,6 +13,8 @@
     "test": "pnpm --filter @truefoundry/utils test",
     "dev:server": "pnpm --filter @truefoundry/server dev",
     "dev:frontend": "pnpm --filter frontend dev",
+    "ui:shot": "node ui-shots/shot.mjs",
+    "ui:clean": "node ui-shots/clean.mjs",
     "pack:dry": "pnpm --filter @truefoundry/utils pack:dry",
     "postinstall": "pnpm --filter @truefoundry/utils build:gen",
     "prepare": "husky || true"

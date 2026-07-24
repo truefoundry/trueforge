@@ -12,4 +12,8 @@ base_url: https://internal.devtest.truefoundry.tech/api/llm
 
 models:
   - name: anthropic/claude-sonnet-4-6
+    reasoning_efforts:
+      - low
+      - medium
+      - high
     max_output_tokens: 32768
