@@ -94,8 +94,15 @@ textarea {
 .sidebar-top {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 0.6rem 0.6rem 0;
+  justify-content: space-between;
+  padding: 0.6rem 0.6rem 0 1rem;
+}
+
+.sidebar-brand {
+  color: var(--foreground);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .app-main {

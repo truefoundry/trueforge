@@ -1,8 +1,10 @@
 import path from 'node:path';
 import { chromium } from '../packages/frontend/node_modules/playwright-core/index.mjs';
 
-const url = process.argv[2] ?? 'http://localhost:3000/';
-const filename = process.argv[3] ?? 'current.png';
+// pnpm forwards a literal "--" separator; drop it so both invocation styles work.
+const args = process.argv.slice(2).filter(arg => arg !== '--');
+const url = args[0] ?? 'http://localhost:3000/';
+const filename = args[1] ?? 'current.png';
 const outputPath = path.resolve(import.meta.dirname, filename);
 
 if (path.extname(outputPath) !== '.png' || path.dirname(outputPath) !== import.meta.dirname) {

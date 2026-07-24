@@ -58,6 +58,7 @@ function ChatApp({
                 {sidebarOpen ? (
                   <aside className="app-sidebar">
                     <div className="sidebar-top">
+                      <span className="sidebar-brand">Harness</span>
                       <button
                         type="button"
                         className="icon-btn"
