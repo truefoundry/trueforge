@@ -146,8 +146,7 @@ export { SKILL_DOWNLOAD_TIMEOUT_SECONDS, Sandbox, buildWriteAndRunScriptCommand 
 export type { SandboxInfo } from './sandbox/Sandbox';
 export { SandboxError } from './sandbox/SandboxErrors';
 
-// Skills: the ISkillMounter seam lets hosts plug in their own skill sources (e.g. the
-// gateway's private TrueFoundry registry mounter) while the harness ships the git-based one.
+// Skills: the ISkillMounter seam lets hosts plug in their own skill sources
 export { InstructionBuilder } from './InstructionBuilder';
 export { SKILLS_PREAMBLE, SkillMounter, getSkillPath, renderSkillPromptBody } from './sandbox/skills';
 export type { GitSkill, ISkillMounter } from './sandbox/skills';

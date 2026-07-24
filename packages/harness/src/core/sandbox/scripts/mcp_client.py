@@ -3,9 +3,6 @@
 # /// script
 # dependencies = ["fastmcp==3.2.4", "pydantic==2.12.5", "nats-py==2.15.0"]
 # ///
-# NOTE: If you change or bump dependencies above, update them in these repos too:
-#   - https://github.com/truefoundry/tfy-llm-tools
-#   - https://github.com/truefoundry/tfy-sandbox-server
 
 import os
 import sys
