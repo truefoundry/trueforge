@@ -10,7 +10,12 @@ interface Props {
 export function ThreadHeader({ sidebarCollapsed, onExpandSidebar }: Props) {
   const mainThreadId = useAuiState(state => state.threads.mainThreadId);
   const threadItems = useAuiState(state => state.threads.threadItems);
-  const rawTitle = threadItems.find(item => item.id === mainThreadId)?.title?.trim();
+  // A thread started locally keeps its local id as mainThreadId, while the
+  // reloaded backend list carries the title under the remote id. Follow the
+  // remoteId link so the header picks up the backend-generated title.
+  const mainItem = threadItems.find(item => item.id === mainThreadId);
+  const listItem = threadItems.find(item => item.id === mainItem?.remoteId);
+  const rawTitle = (listItem?.title ?? mainItem?.title)?.trim();
   const title = rawTitle && rawTitle.length > 0 ? rawTitle : 'New Chat';
 
   return (

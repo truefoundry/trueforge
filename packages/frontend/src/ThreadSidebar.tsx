@@ -56,6 +56,9 @@ export function ThreadSidebar() {
   }, [aui, hasMore, isLoadingMore]);
 
   const itemsById = new Map(threadItems.map(item => [item.id, item]));
+  // Rows are keyed by remote id after a list reload, but a locally started
+  // thread keeps a local mainThreadId; compare against its remoteId too.
+  const mainRemoteId = itemsById.get(mainThreadId)?.remoteId;
 
   return (
     <div className="sidebar-shell">
@@ -83,13 +86,14 @@ export function ThreadSidebar() {
           const item = itemsById.get(id);
           const title = item?.title ?? 'New Chat';
           const time = relativeTime(item?.lastMessageAt, nowMs);
+          const isActive = id === mainThreadId || id === mainRemoteId;
           return (
             <button
               key={id}
               type="button"
               className="sidebar-row"
-              data-active={id === mainThreadId || undefined}
-              aria-current={id === mainThreadId ? 'page' : undefined}
+              data-active={isActive || undefined}
+              aria-current={isActive ? 'page' : undefined}
               title={title}
               onClick={() => {
                 aui.threads().switchToThread(id);

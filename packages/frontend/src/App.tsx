@@ -1,7 +1,7 @@
-import { AssistantRuntimeProvider } from '@assistant-ui/react';
+import { AssistantRuntimeProvider, useAui, useAuiState } from '@assistant-ui/react';
 import { ErrorToasterProvider, SlotsProvider, Thread } from '@truefoundry/agent-ui-sdk';
 import { useTrueFoundryAgentRuntime, type AgentSpec } from '@truefoundry/assistant-ui-runtime';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ThemeProvider } from 'tfy-web-components/components/theme/useTheme';
 import { AgentSessionClient } from 'truefoundry-gateway-sdk/agents';
 import { PrivateAgentSessionClient } from 'truefoundry-gateway-sdk/agents/private';
@@ -31,6 +31,25 @@ const slotOverrides = {
   ComposerSendButton: () => null,
 };
 
+/**
+ * The backend generates the session title once the first turn streams. Reload
+ * the thread list when streaming starts and ends so the sidebar and header
+ * (both read from `threads.threadItems`) pick up the new title.
+ */
+function ThreadTitleSync() {
+  const aui = useAui();
+  const isRunning = useAuiState(state => state.threads.main.isRunning);
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    void aui.threads().reload();
+  }, [aui, isRunning]);
+  return null;
+}
+
 function ChatApp({
   defaultAgentSpec,
   capabilities,
@@ -54,6 +73,7 @@ function ChatApp({
         <ThemeProvider theme="dark">
           <SlotsProvider theme="dark" overrides={slotOverrides}>
             <ErrorToasterProvider>
+              <ThreadTitleSync />
               <div className="app-shell">
                 {sidebarOpen ? (
                   <aside className="app-sidebar">
