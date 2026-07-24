@@ -60,12 +60,15 @@ export interface InternalCapabilityStateEvent {
   state: unknown;
 }
 
-export const InternalPassthroughEventSchema = z.object({
+export interface InternalPassthroughEvent {
+  type: typeof InternalEventType.PASSTHROUGH;
+  event: RegisteredPassthroughEvent;
+}
+
+export const InternalPassthroughEventSchema: z.ZodType<InternalPassthroughEvent> = z.object({
   type: z.literal(InternalEventType.PASSTHROUGH),
   event: z.custom<RegisteredPassthroughEvent>(),
 });
-
-export type InternalPassthroughEvent = z.infer<typeof InternalPassthroughEventSchema>;
 
 export type InternalMCPServerAuthInfo = MCPServerAuthInfo & {
   thread_ids: string[];
