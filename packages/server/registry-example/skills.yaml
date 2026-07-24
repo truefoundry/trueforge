@@ -1,10 +1,11 @@
 # Agent skills, each a directory with a SKILL.md in a public git repository.
-#   url        - public git repository
-#   path       - directory containing SKILL.md (optional, repo root if omitted)
-#   reference  - commit SHA, tag or branch to pin (optional, default branch if omitted)
+#   url   - public git repository
+#   path  - directory containing SKILL.md (optional, repo root if omitted)
+#   ref   - branch, tag, or commit SHA to pin (optional, default branch if omitted)
+#   description - concise guidance for when to use the skill
 skills:
-  - name: pr-review
-    url: https://github.com/acme/agent-skills
-    path: skills/pr-review
-    reference: v1.2.0
-    description: Reviews pull requests for style and correctness.
+  - name: algorithmic-art
+    url: https://github.com/anthropics/skills
+    path: skills/algorithmic-art
+    ref: main
+    description: Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration.

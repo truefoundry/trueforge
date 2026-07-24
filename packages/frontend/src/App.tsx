@@ -39,10 +39,10 @@ const slotOverrides = {
 function ThreadTitleSync() {
   const aui = useAui();
   const isRunning = useAuiState(state => state.threads.main.isRunning);
-  const mounted = useRef(false);
+  const mountedRef = useRef(false);
   useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true;
+    if (!mountedRef.current) {
+      mountedRef.current = true;
       return;
     }
     void aui.threads().reload();

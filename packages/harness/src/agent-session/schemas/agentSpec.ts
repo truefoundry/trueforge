@@ -199,11 +199,55 @@ export const RuntimeConfigSchema = z
   .openapi('RuntimeConfig');
 
 // --- Skills ---
+// Git mounts mirror the gateway SkillMountGitSchema. The sandbox git_downloader
+// resolves `ref` (branch/tag/SHA) to an object id before sparse-cloning.
+
+// GitHub is exactly owner/repo; GitLab allows subgroups (group[/subgroup...]/project, ≥2 segments).
+const GIT_URL_REGEX =
+  /^https:\/\/(github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+|gitlab\.com\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)+)(\/|\.git)?$/;
+const GIT_REF_REGEX = /^[A-Za-z0-9._\-/]+$/;
+const SKILL_NAME_REGEX = /^[A-Za-z0-9._-]+$/;
+const SKILL_PATH_REGEX = /^[A-Za-z0-9._\-/]+$/;
+const hasParentTraversal = (value: string): boolean => value.split('/').includes('..');
 
 const SkillMountSchema = z
   .object({
-    name: z.string().trim().min(1).describe('Name of a skill declared in skills.yaml.'),
-    preload: z.boolean().default(false).describe('If true, the SKILL.md content is injected into the agent context.'),
+    type: z.literal('git'),
+    url: z
+      .string()
+      .trim()
+      .min(1)
+      .regex(GIT_URL_REGEX, 'Must be a GitHub or GitLab HTTPS URL')
+      .refine(v => !hasParentTraversal(v), 'URL must not contain ".." segments')
+      .describe('Full HTTPS URL of a GitHub or GitLab repository.'),
+    path: z
+      .string()
+      .trim()
+      .min(1)
+      .regex(SKILL_PATH_REGEX, 'Path may only contain letters, numbers, ".", "_", "-", and "/"')
+      .refine(v => !hasParentTraversal(v), 'Path must not contain ".." segments')
+      .refine(v => !v.split('/').includes('.'), 'Path must not contain "." segments')
+      .refine(v => v.replace(/^\/+|\/+$/g, '').length > 0, 'Path must reference a subdirectory, not only slashes')
+      .optional()
+      .describe('Path to the skill directory within the repository. Omit to use the repository root.'),
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(64)
+      .regex(SKILL_NAME_REGEX, 'Name may only contain letters, numbers, ".", "_", and "-"')
+      .refine(v => v !== '.' && v !== '..', 'Name must not be "." or ".."')
+      .refine(v => !v.startsWith('.tfy-'), 'Name must not use the reserved ".tfy-" prefix')
+      .describe('Name for the skill, used as directory name in sandbox.'),
+    description: z.string().trim().min(1).describe('Concise guidance for when the agent should use the skill.'),
+    ref: z
+      .string()
+      .trim()
+      .min(1)
+      .regex(GIT_REF_REGEX, 'Ref may only contain letters, numbers, ".", "_", "-", and "/"')
+      .refine(v => !hasParentTraversal(v), 'Ref must not contain ".." segments')
+      .refine(v => v.replace(/^\/+|\/+$/g, '').length > 0, 'Ref must not consist only of slashes')
+      .describe('Git ref — branch name, tag, or commit SHA.'),
   })
   .openapi('SkillMount');
 
@@ -236,3 +280,4 @@ export const AgentSpecSchema = z
   .openapi('AgentSpec');
 
 export type AgentSpec = z.infer<typeof AgentSpecSchema>;
+export type SkillMount = z.infer<typeof SkillMountSchema>;

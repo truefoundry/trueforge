@@ -9,7 +9,7 @@
  * of failing mid-turn.
  */
 import type { TurnSandboxFactory } from '@truefoundry/utils/agent-session';
-import { createSandboxProvider, Sandbox, SandboxProviderSettingsSchema } from '@truefoundry/utils/core';
+import { createSandboxProvider, Sandbox, SandboxProviderSettingsSchema, SkillMounter } from '@truefoundry/utils/core';
 import type { Logger } from 'winston';
 import { ZodError } from 'zod';
 import { TENANT_NAME } from '../apis/sessions';
@@ -66,10 +66,21 @@ export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandbo
     logger,
   });
 
-  // TODO(skills): wire public-server skill specs to an ISkillMounter (e.g. the git-based
-  // SkillMounter). Until then, public-server sandbox sessions run without skills.
-  return ({ spec, existingSandboxId, tracing }) =>
-    Promise.resolve(
+  return ({ spec, existingSandboxId, tracing }) => {
+    const skills = spec.skills ?? [];
+    const skillMounter =
+      skills.length > 0
+        ? new SkillMounter(
+            skills.map(skill => ({
+              name: skill.name,
+              description: skill.description,
+              url: skill.url,
+              path: skill.path ?? '',
+              ref: skill.ref,
+            })),
+          )
+        : undefined;
+    return Promise.resolve(
       new Sandbox({
         provider,
         existingSandboxId,
@@ -79,8 +90,10 @@ export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandbo
         // for the ownership check against provider-created sandbox ids
         // (`<tenant>.<uuid>`). Must match the tenantName given to the provider.
         execExtraEnv: { TFY_TENANT_NAME: TENANT_NAME },
+        ...(skillMounter ? { skillMounter } : {}),
         tracing,
         logger,
       }),
     );
+  };
 }

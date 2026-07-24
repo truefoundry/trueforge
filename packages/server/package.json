@@ -10,6 +10,7 @@
     "build": "tsup",
     "dev": "tsx --env-file=.env src/main.ts",
     "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/**/*.test.ts",
     "start": "node dist/main.js"
   },
   "dependencies": {

@@ -10,7 +10,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
     "@assistant-ui/core": "0.2.21",
@@ -22,13 +23,14 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "tfy-web-components": "^0.0.31",
-    "truefoundry-gateway-sdk": "0.4.0-rc.1"
+    "truefoundry-gateway-sdk": "0.4.0-rc.2"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^4.7.0",
     "playwright-core": "^1.61.1",
+    "tsx": "^4.16.2",
     "typescript": "^5.9.3",
     "vite": "^6.3.5",
     "vite-plugin-monaco-editor-esm": "^2.0.2"

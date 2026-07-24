@@ -15,7 +15,7 @@ export interface SkillEntry {
   name: string;
   url: string;
   path?: string;
-  reference?: string;
+  ref?: string;
   description: string;
 }
 

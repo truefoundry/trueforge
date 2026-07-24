@@ -39,7 +39,7 @@ export function toWireSession(record: SessionRecord): Session {
  * is usable; otherwise an error with the status to respond with: 400 when the
  * spec references unknown catalog entries (a client-side spec problem), 422
  * when the spec is valid but this deployment cannot satisfy it (missing
- * sandbox provider, unsupported skills).
+ * sandbox provider).
  */
 function validateAgentSpec(
   spec: AgentSpec,
@@ -63,15 +63,15 @@ function validateAgentSpec(
       return { status: 400, message: `Unknown MCP server "${server.name}" — not declared in mcp.yaml` };
     }
   }
-  if (spec.config?.sandbox?.enabled && !deps.sandboxSupported) {
+  const wantsSandbox = spec.config?.sandbox?.enabled === true;
+  const hasSkills = (spec.skills?.length ?? 0) > 0;
+  if ((wantsSandbox || hasSkills) && !deps.sandboxSupported) {
     return {
       status: 422,
-      message:
-        'sandbox is enabled in the agent spec but this server has no sandbox provider configured — set SANDBOX_SETTINGS (and SANDBOX_API_KEY)',
+      message: hasSkills
+        ? 'skills require a sandbox provider — set SANDBOX_SETTINGS (and SANDBOX_API_KEY)'
+        : 'sandbox is enabled in the agent spec but this server has no sandbox provider configured — set SANDBOX_SETTINGS (and SANDBOX_API_KEY)',
     };
-  }
-  if (spec.skills?.length) {
-    return { status: 422, message: 'skills are not supported by this server yet' };
   }
   return undefined;
 }

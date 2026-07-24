@@ -36,11 +36,12 @@ try {
 
   const sessionStore = new InMemorySessionStore();
   // Throws on malformed SANDBOX_SETTINGS; undefined when sandbox is not configured.
+  const skillStore = SkillStore.load();
   const sandboxFactory = createServerSandboxFactory({ logger });
   const app = createServerApp({
     modelStore: ModelStore.load(),
     mcpStore: McpStore.load(),
-    skillStore: SkillStore.load(),
+    skillStore,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns: new ActiveTurnRegistry(),
@@ -52,7 +53,7 @@ try {
     console.log(`Agent server listening on http://localhost:${String(info.port)} (docs at /docs)`);
   });
 
-  server.on('error', error => {
+  server.on('error', (error: unknown) => {
     console.error('Failed to start server:', error instanceof Error ? error.message : error);
     process.exit(1);
   });

@@ -8,25 +8,27 @@ import type { ISkillMounter } from './ISkillMounter';
 // Absolute path the git skill downloader script is uploaded to before it is run.
 const GIT_DOWNLOADER_PATH = '/opt/tfy/git_downloader.py';
 
-// A git-sourced skill materialized by a SHA-pinned sparse clone. Git skills never preload — their
-// SKILL.md is read from disk at runtime (only name/description/path are advertised in the prompt).
+// A git-sourced skill materialized by a sparse clone in the sandbox (git_downloader.py). Git skills
+// never preload — their SKILL.md is read from disk at runtime (only name/description/path are
+// advertised in the prompt). Wire fields match the agent_spec git mount (`url`/`path`/`name`/`ref`);
+// the downloader resolves `ref` inside the sandbox before fetching.
 export interface GitSkill {
   readonly name: string;
   readonly description: string;
   // Canonical https clone URL of the github.com/gitlab.com repo (host-validated by the caller).
-  readonly cloneUrl: string;
+  readonly url: string;
   // Subdirectory within the repo that holds the skill (empty = repo root).
-  readonly subdir: string;
-  // Immutable commit the sparse clone is pinned to; an unchanged commit is skipped on later runs.
-  readonly commitSha: string;
+  readonly path: string;
+  // Branch, tag, or full object id — resolved and fetched by git_downloader.py in the sandbox.
+  readonly ref: string;
 }
 
 // Serializable descriptor handed to git_downloader.py (base64 JSON); keys match its GitSkill model.
 interface GitSkillSpec {
   name: string;
-  clone_url: string;
-  subdir: string;
-  commit_sha: string;
+  url: string;
+  path: string;
+  ref: string;
 }
 
 export class SkillMounter implements ISkillMounter {
@@ -56,9 +58,9 @@ export class SkillMounter implements ISkillMounter {
     // An empty desired set is also the source-neutral cleanup path for a reused sandbox.
     const specs: GitSkillSpec[] = this.skills.map(skill => ({
       name: skill.name,
-      clone_url: skill.cloneUrl,
-      subdir: skill.subdir,
-      commit_sha: skill.commitSha,
+      url: skill.url,
+      path: skill.path,
+      ref: skill.ref,
     }));
     const gitSkillsB64 = Buffer.from(JSON.stringify(specs)).toString('base64');
     return {

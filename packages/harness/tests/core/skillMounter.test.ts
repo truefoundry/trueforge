@@ -10,9 +10,9 @@ import { SkillMounter } from '../../src/core/sandbox/skills/SkillMounter';
 const GIT_SKILL = {
   name: 'git-skill',
   description: 'From git',
-  cloneUrl: 'https://github.com/acme/skills.git',
-  subdir: '',
-  commitSha: 'a'.repeat(40),
+  url: 'https://github.com/acme/skills.git',
+  path: '',
+  ref: 'a'.repeat(40),
 };
 
 // Renders a mounter's <skills> section the same way Sandbox does (empty section => '').

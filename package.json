@@ -10,7 +10,7 @@
     "format": "prettier --write . --cache --config .prettierrc",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\" --cache --error-on-unmatched-pattern --config .prettierrc",
     "format:fix": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\" --cache --config .prettierrc",
-    "test": "pnpm --filter @truefoundry/utils test",
+    "test": "pnpm --filter @truefoundry/utils test && pnpm --filter @truefoundry/server test && pnpm --filter frontend test",
     "dev:server": "pnpm --filter @truefoundry/server dev",
     "dev:frontend": "pnpm --filter frontend dev",
     "ui:shot": "node ui-shots/shot.mjs",

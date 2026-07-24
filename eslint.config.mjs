@@ -42,7 +42,15 @@ const browserGlobals = {
 
 export default defineConfig(
   {
-    ignores: ['**/node_modules/**', '**/dist/**', '**/coverage/**', '**/.pnpm-store/**', '**/.eslintcache'],
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/coverage/**',
+      '**/.pnpm-store/**',
+      '**/.eslintcache',
+      // Excluded from package tsconfigs; run via tsx/jest, not the type-aware ESLint project.
+      '**/*.test.ts',
+    ],
   },
   {
     files: ['**/*.{js,mjs,cjs,ts}'],

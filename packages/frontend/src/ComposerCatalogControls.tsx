@@ -10,7 +10,7 @@ import {
   type SkillEntry,
 } from './catalog';
 import { ChevronDownIcon, SearchIcon, SparklesIcon } from './icons';
-import { setSelectedSkillNames, useSelectedSkillNames } from './skillsSelection';
+import { selectedSkillNamesFromSpec, skillMountsFromNames } from './skillMounts';
 
 export type CatalogTab = 'connectors' | 'skills' | 'attachment';
 
@@ -36,7 +36,7 @@ function initialFor(name: string): string {
 
 /**
  * Composer catalog UI: model chip, skills chip, or Connectors/Skills/Attachment panel.
- * Skills selection is local-only — harness rejects agent_spec.skills for now.
+ * Skills are resolved from the catalog into git mounts on agent_spec.skills.
  */
 export function ComposerCatalogControls({
   mode = 'panel',
@@ -54,7 +54,7 @@ export function ComposerCatalogControls({
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<CatalogTab>(initialTab);
-  const selectedSkillNames = useSelectedSkillNames();
+  const selectedSkillNames = useMemo(() => selectedSkillNamesFromSpec(agentSpec?.skills), [agentSpec?.skills]);
   const sandboxSelected = agentSpec?.config?.sandbox?.enabled === true;
   const sandboxAvailable = capabilities.sandbox.enabled;
   const skillsDisabled = disabled || !sandboxSelected;
@@ -128,6 +128,12 @@ export function ComposerCatalogControls({
     });
   };
 
+  const applySkillSelection = (nextNames: Set<string>) => {
+    updateAgentSpec({
+      skills: skillMountsFromNames(nextNames, skills),
+    });
+  };
+
   if (mode === 'sandbox') {
     const unavailableReason = 'Sandbox is not configured on this server.';
     return (
@@ -150,8 +156,8 @@ export function ComposerCatalogControls({
                 enabled,
               },
             },
+            ...(!enabled ? { skills: [] } : {}),
           });
-          if (!enabled) setSelectedSkillNames(new Set());
         }}
       >
         <span className="sandbox-status" aria-hidden />
@@ -424,7 +430,7 @@ export function ComposerCatalogControls({
                     } else {
                       for (const skill of filteredSkills) next.delete(skill.name);
                     }
-                    setSelectedSkillNames(next);
+                    applySkillSelection(next);
                   }}
                 />
                 Select all
@@ -449,7 +455,7 @@ export function ComposerCatalogControls({
                         const next = new Set(selectedSkillNames);
                         if (event.target.checked) next.add(skill.name);
                         else next.delete(skill.name);
-                        setSelectedSkillNames(next);
+                        applySkillSelection(next);
                       }}
                     />
                   </label>

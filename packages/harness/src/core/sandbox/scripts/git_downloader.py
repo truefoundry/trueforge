@@ -6,17 +6,18 @@
 
 """Materialize git skill directories into TFY_SKILLS_DIR (default /opt/tfy/skills). Requires `git`.
 
-Each git skill (AGENT_GIT_SKILLS) is materialized with a SHA-pinned, blob-filtered sparse `git`
-clone that fetches only the requested subdir at the requested commit, keyed by name. A single on-disk
-state file records the installed commit + subdir per name so a skill whose ref hasn't moved (same
-commit and subdir) is skipped instead of re-cloning every run, and skills no longer desired are
-pruned from disk. A sparse clone is used instead of a full repo tarball because its cost is
+Each git skill (AGENT_GIT_SKILLS) is materialized with a blob-filtered sparse `git` clone that
+fetches only the requested subdir at a resolved object id, keyed by name. Mount `ref` values
+(branch, tag, or full object id) are resolved here via `git ls-remote` — the host never spawns
+git. A single on-disk state file records the installed object id + subdir per name so a skill
+whose tip hasn't moved is skipped instead of re-cloning every run, and skills no longer desired
+are pruned from disk. A sparse clone is used instead of a full repo tarball because its cost is
 ~constant in the subdir size rather than the whole-repo size, which is dramatically faster for a
 small skill living in a large monorepo.
 
 Optional env:
-  - AGENT_GIT_SKILLS (base64-encoded JSON list of {name, clone_url, subdir, commit_sha}; empty
-    clears git downloads)
+  - AGENT_GIT_SKILLS (base64-encoded JSON list of {name, url, path, ref}; empty
+    clears git downloads). `ref` is a branch, tag, or full object id.
   - TFY_SKILLS_DIR: override the skills directory (default /opt/tfy/skills).
 """
 
@@ -42,9 +43,11 @@ GIT_CLONE_TIMEOUT_SECONDS = 120
 # sparse clone already bounds a subdir skill to its subdir; this also guards the whole-repo (root
 # subdir) case where checkout hydrates every file.
 GIT_SKILL_MAX_BYTES = 200 * 1024 * 1024  # 200MB installed
-# A resolved git object id: sha1 (40 hex) or sha256 (64 hex). Validated here because commit_sha is
-# passed as a `git fetch` argument, so it must never be interpretable as an option or injected arg.
-COMMIT_SHA_RE = re.compile(r"^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$")
+# Resolved object id used for fetch + skip state (sha1 / sha256).
+OBJECT_ID_RE = re.compile(r"^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$")
+# Mount ref (branch/tag/SHA) charset — must match host AgentSpec SkillMount.ref validation.
+# Validated before the value is passed to `git ls-remote` / used as a fetch arg fallback.
+GIT_REF_RE = re.compile(r"^[A-Za-z0-9._\-/]+$")
 SKILLS_ROOT = Path(os.environ.get("TFY_SKILLS_DIR", DEFAULT_SKILLS_DIR))
 STATE_PATH = SKILLS_ROOT / STATE_FILE_NAME
 
@@ -70,64 +73,67 @@ def skill_dir(name: str) -> Path | None:
 
 
 class GitSkill(BaseModel):
-    """A git skill to materialize: its sandbox dir name, the repo clone URL, the subdir within the
-    repo, and the resolved commit SHA. The clone URL and SHA are passed to `git`, so both are format-
-    validated here (defense in depth — the gateway already validates and builds them) to keep an
-    unexpected value from being interpreted as a git option or reaching a non-public host."""
+    """A git skill to materialize: `name`, `url`, `path`, and mount `ref` (branch, tag, or object id).
+    This script resolves `ref` via `git ls-remote` in the sandbox, then sparse-fetches the resolved
+    object id. The url and ref are format-validated here (defense in depth) so an unexpected value
+    can't be interpreted as a git option or reach a non-public host."""
 
     model_config = ConfigDict(extra="ignore")
 
     name: str
-    clone_url: str
-    subdir: str = ""
-    commit_sha: str
+    url: str
+    path: str = ""
+    # Branch, tag, or full object id from the agent_spec mount (resolved in-sandbox before fetch).
+    ref: str
 
-    @field_validator("clone_url")
+    @field_validator("url")
     @classmethod
-    def _validate_clone_url(cls, v: str) -> str:
+    def _validate_url(cls, v: str) -> str:
         # Only the two public hosts the gateway supports. Anchoring on the "https://<host>/" prefix
         # blocks non-https schemes (file://, ext::, ssh) and any other host, so this URL can't be
         # turned into an SSRF/local-file/command vector once it reaches `git`.
         if not (v.startswith("https://github.com/") or v.startswith("https://gitlab.com/")):
-            raise ValueError(f"git skill clone_url must be a github.com/gitlab.com https URL: {v!r}")
+            raise ValueError(f"git skill url must be a github.com/gitlab.com https URL: {v!r}")
         return v
 
-    @field_validator("commit_sha")
+    @field_validator("ref")
     @classmethod
-    def _validate_commit_sha(cls, v: str) -> str:
-        if not COMMIT_SHA_RE.match(v):
-            raise ValueError(f"git skill commit_sha must be a 40- or 64-char hex object id: {v!r}")
+    def _validate_ref(cls, v: str) -> str:
+        if not v or ".." in v.split("/") or not GIT_REF_RE.match(v):
+            raise ValueError(f"git skill ref is invalid: {v!r}")
+        if v.replace("/", "") == "":
+            raise ValueError(f"git skill ref must not consist only of slashes: {v!r}")
         return v
 
-    @field_validator("subdir")
+    @field_validator("path")
     @classmethod
-    def _validate_subdir(cls, v: str) -> str:
+    def _validate_path(cls, v: str) -> str:
         # Relative subpath within the repo. Reject absolute paths and ".." segments so it can't
         # escape the repo root. Leading/trailing slashes are stripped (repo root == ""). A leading
         # "-" is safe because subdirs are fed to `git sparse-checkout set` via stdin, never as args.
         if v.startswith("/"):
-            raise ValueError(f"git skill subdir must be relative: {v!r}")
+            raise ValueError(f"git skill path must be relative: {v!r}")
         stripped = v.strip("/")
         if stripped and ".." in stripped.split("/"):
-            raise ValueError(f"git skill subdir must not contain '..': {v!r}")
+            raise ValueError(f"git skill path must not contain '..': {v!r}")
         return stripped
 
 
 class DownloadedGitSkill(BaseModel):
-    """A git skill recorded on disk: its dir name, the commit it was installed at, and the repo
-    subdir it was installed from. The commit lets a later run skip re-downloading when the requested
-    commit is unchanged; the subdir is part of the identity so that changing the subdir at the same
-    commit still triggers a re-download instead of serving the previously-installed layout."""
+    """A git skill recorded on disk: its dir name, the object id it was installed at, and the repo
+    path it was installed from. The ref lets a later run skip re-downloading when the requested
+    pin is unchanged; the path is part of the identity so that changing the path at the same
+    pin still triggers a re-download instead of serving the previously-installed layout."""
 
     model_config = ConfigDict(extra="ignore")
 
     name: str
-    # Empty when migrated from a pre-commit-tracking state file — treated as "unknown", forcing a
+    # Empty when migrated from a pre-pin-tracking state file — treated as "unknown", forcing a
     # one-time re-download while still keeping the name tracked for pruning.
-    commit_sha: str = ""
-    # Repo subdir the skill was installed from (repo root == ""). Empty on entries written before
-    # subdir tracking; a mismatch against the requested subdir forces a one-time re-download.
-    subdir: str = ""
+    ref: str = ""
+    # Repo path the skill was installed from (repo root == ""). Empty on entries written before
+    # path tracking; a mismatch against the requested path forces a one-time re-download.
+    path: str = ""
 
 
 class SkillDownloaderState(BaseModel):
@@ -137,8 +143,25 @@ class SkillDownloaderState(BaseModel):
 
     downloaded_git_skills: list[DownloadedGitSkill] = Field(
         default_factory=list,
-        description="Git skills successfully downloaded (name + installed commit SHA).",
+        description="Git skills successfully downloaded (name + installed object id).",
     )
+
+
+def _migrate_downloaded_git_skills(entries: list[object]) -> list[dict[str, object]]:
+    """Normalize state entries: rename legacy `commit_sha` → `ref` and `subdir` → `path`."""
+    migrated: list[dict[str, object]] = []
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        entry = dict(item)
+        if "ref" not in entry and isinstance(entry.get("commit_sha"), str):
+            entry["ref"] = entry["commit_sha"]
+        entry.pop("commit_sha", None)
+        if "path" not in entry and isinstance(entry.get("subdir"), str):
+            entry["path"] = entry["subdir"]
+        entry.pop("subdir", None)
+        migrated.append(entry)
+    return migrated
 
 
 def load_state() -> SkillDownloaderState:
@@ -150,14 +173,16 @@ def load_state() -> SkillDownloaderState:
         return SkillDownloaderState()
     if not isinstance(raw, dict):
         return SkillDownloaderState()
-    # Migrate a pre-commit-tracking state file: its `downloaded_git_names` (list of names, no commit)
-    # becomes entries with an empty commit_sha. That keeps the names tracked so undesired skills are
-    # still pruned, and forces a one-time re-download (empty != any requested commit). Skipped when
-    # the new field is already present so we never clobber real commits.
+    # Migrate a pre-pin-tracking state file: its `downloaded_git_names` (list of names, no pin)
+    # becomes entries with an empty ref. That keeps the names tracked so undesired skills are
+    # still pruned, and forces a one-time re-download (empty != any requested pin). Skipped when
+    # the new field is already present so we never clobber real pins.
     if "downloaded_git_skills" not in raw and isinstance(raw.get("downloaded_git_names"), list):
         raw["downloaded_git_skills"] = [
-            {"name": n, "commit_sha": ""} for n in raw["downloaded_git_names"] if isinstance(n, str)
+            {"name": n, "ref": ""} for n in raw["downloaded_git_names"] if isinstance(n, str)
         ]
+    if isinstance(raw.get("downloaded_git_skills"), list):
+        raw["downloaded_git_skills"] = _migrate_downloaded_git_skills(raw["downloaded_git_skills"])
     try:
         return SkillDownloaderState.model_validate(raw)
     except ValidationError:
@@ -260,24 +285,57 @@ def _run_git(
     return proc
 
 
+def _parse_ls_remote_object_id(stdout: str) -> str | None:
+    """Prefer a peeled `ref^{}` line (annotated tags), else the first object id."""
+    first: str | None = None
+    for line in stdout.splitlines():
+        trimmed = line.strip()
+        if not trimmed:
+            continue
+        parts = trimmed.split(None, 1)
+        sha = parts[0]
+        name = parts[1] if len(parts) > 1 else ""
+        if name.endswith("^{}"):
+            return sha
+        if first is None:
+            first = sha
+    return first
+
+
+def _resolve_object_id(url: str, ref: str, cwd: Path) -> str:
+    """Resolve a mount ref (branch/tag/SHA) to an object id inside the sandbox.
+
+    Full object ids are used as-is (`git ls-remote` does not advertise bare SHAs on
+    GitHub/GitLab). Branches and tags are resolved via `git ls-remote` so a branch tip
+    advances on later sandbox inits.
+    """
+    if OBJECT_ID_RE.match(ref):
+        return ref
+    proc = _run_git(["ls-remote", url, ref], cwd=cwd)
+    oid = _parse_ls_remote_object_id(proc.stdout or "")
+    if oid is None:
+        raise GitSkillError(f"git ls-remote returned no commit for {url} ref {ref}")
+    return oid
+
+
 def _git_fetch_repo(
-    clone_url: str, commit_sha: str, subdirs: list[str], parent_dir: Path
+    url: str, object_id: str, paths: list[str], parent_dir: Path
 ) -> Path:
-    """SHA-pinned, shallow, blob-filtered sparse checkout of `subdirs` into a fresh repo under
+    """Object-id-pinned, shallow, blob-filtered sparse checkout of `paths` into a fresh repo under
     `parent_dir`, returning the repo working directory.
 
-    When every requested subdir is the repo root ("") we can't sparse-restrict, so we do a full
-    shallow checkout (all blobs). Otherwise we cone-sparse to just the requested subdirs and use
-    --filter=blob:none so only those subdirs' blobs are fetched — the whole point of the approach.
-    Subdirs are fed to `git sparse-checkout set` via stdin so a subdir value can never be read as an
+    When every requested path is the repo root ("") we can't sparse-restrict, so we do a full
+    shallow checkout (all blobs). Otherwise we cone-sparse to just the requested paths and use
+    --filter=blob:none so only those paths' blobs are fetched — the whole point of the approach.
+    Paths are fed to `git sparse-checkout set` via stdin so a path value can never be read as an
     option/argument. Fetching by object id relies on the server allowing it, which github.com and
     gitlab.com both do."""
     repo = parent_dir / "repo"
     _run_git(["init", "-q", os.fspath(repo)], cwd=parent_dir)
-    _run_git(["remote", "add", "origin", clone_url], cwd=repo)
+    _run_git(["remote", "add", "origin", url], cwd=repo)
 
-    cone_dirs = [s for s in dict.fromkeys(subdirs) if s]  # de-duped, root ("") dropped
-    want_full_tree = any(s == "" for s in subdirs)
+    cone_dirs = [s for s in dict.fromkeys(paths) if s]  # de-duped, root ("") dropped
+    want_full_tree = any(s == "" for s in paths)
     if not want_full_tree and cone_dirs:
         _run_git(["sparse-checkout", "init", "--cone"], cwd=repo)
         _run_git(
@@ -289,7 +347,7 @@ def _git_fetch_repo(
     fetch_args = ["-c", "protocol.file.allow=never", "fetch", "-q", "--depth", "1"]
     if not want_full_tree:
         fetch_args.append("--filter=blob:none")
-    fetch_args += ["origin", commit_sha]
+    fetch_args += ["origin", object_id]
     _run_git(fetch_args, cwd=repo)
 
     _run_git(
@@ -318,16 +376,16 @@ def _install_git_skill(repo_root: Path, skill: GitSkill) -> None:
     if dest is None:
         raise GitSkillError(f"Git skill: unsafe directory name {skill.name!r}")
     repo_root_resolved = repo_root.resolve()
-    src = (repo_root / skill.subdir).resolve() if skill.subdir else repo_root_resolved
-    # Defense in depth: even though subdir is validated, ensure the resolved source stays within the
+    src = (repo_root / skill.path).resolve() if skill.path else repo_root_resolved
+    # Defense in depth: even though path is validated, ensure the resolved source stays within the
     # cloned repo (guards against a symlinked directory component pointing outside the checkout).
     if src != repo_root_resolved and not src.is_relative_to(repo_root_resolved):
         raise GitSkillError(
-            f"Git skill {skill.name}: subdirectory '{skill.subdir}' escapes the repository"
+            f"Git skill {skill.name}: path '{skill.path}' escapes the repository"
         )
     if not src.is_dir():
         raise GitSkillError(
-            f"Git skill {skill.name}: subdirectory '{skill.subdir}' not found in repository"
+            f"Git skill {skill.name}: path '{skill.path}' not found in repository"
         )
     if _installed_size_bytes(src) > GIT_SKILL_MAX_BYTES:
         raise GitSkillError(
@@ -360,27 +418,31 @@ def _install_git_skill(repo_root: Path, skill: GitSkill) -> None:
         raise GitSkillError(f"Failed to install git skill {skill.name}: {e}")
 
 
-def _mark_git_downloaded(state: SkillDownloaderState, skill: GitSkill) -> None:
-    """Upsert a git skill's installed commit + subdir so the next run can skip it when both are unchanged."""
+def _mark_git_downloaded(
+    state: SkillDownloaderState, skill: GitSkill, object_id: str
+) -> None:
+    """Upsert a git skill's installed object id + path so the next run can skip when both match."""
     for entry in state.downloaded_git_skills:
         if entry.name == skill.name:
-            entry.commit_sha = skill.commit_sha
-            entry.subdir = skill.subdir
+            entry.ref = object_id
+            entry.path = skill.path
             return
     state.downloaded_git_skills.append(
-        DownloadedGitSkill(name=skill.name, commit_sha=skill.commit_sha, subdir=skill.subdir)
+        DownloadedGitSkill(name=skill.name, ref=object_id, path=skill.path)
     )
 
 
-def _git_skill_already_installed(state: SkillDownloaderState, skill: GitSkill) -> bool:
-    """True only when the skill is recorded at the requested commit AND subdir AND its directory is
-    still present. Re-download otherwise (commit moved, subdir changed, first install, or the dir was
-    removed out-of-band) so the prompt never points at a missing/stale skill dir."""
+def _git_skill_already_installed(
+    state: SkillDownloaderState, skill: GitSkill, object_id: str
+) -> bool:
+    """True only when the skill is recorded at the resolved object id AND path AND its directory is
+    still present. Re-download otherwise (branch tip moved, path changed, first install, or the
+    dir was removed out-of-band) so the prompt never points at a missing/stale skill dir."""
     dir_ = skill_dir(skill.name)
     if dir_ is None or not dir_.is_dir():
         return False
     return any(
-        e.name == skill.name and e.commit_sha == skill.commit_sha and e.subdir == skill.subdir
+        e.name == skill.name and e.ref == object_id and e.path == skill.path
         for e in state.downloaded_git_skills
     )
 
@@ -388,32 +450,38 @@ def _git_skill_already_installed(state: SkillDownloaderState, skill: GitSkill) -
 def download_git_skills(
     git_skills: list[GitSkill], state: SkillDownloaderState
 ) -> int:
-    """Ensure desired git skills are installed at their requested commit, skipping any already present
-    at that commit so an unchanged ref no longer re-clones every run.
+    """Ensure desired git skills are installed at their resolved object id, skipping any already
+    present at that pin so an unchanged tip no longer re-clones every run.
 
+    Ref resolution (`git ls-remote`) runs here in the sandbox — the host never spawns git.
     Failures are isolated per repo group and per skill so one bad repo/subdir doesn't prevent the
     rest from being attempted; each failure is logged to stderr. Returns the number of skills that are
-    satisfied this run — freshly installed OR already present at the requested commit (never raises).
+    satisfied this run — freshly installed OR already present at the resolved pin (never raises).
     The caller (run_git_download) compares this to the number requested and exits non-zero if any are
     missing, so the overall behaviour is fail-closed."""
     SKILLS_ROOT.mkdir(parents=True, exist_ok=True)
 
-    # Skip skills already installed at the requested commit; only the rest need a clone.
-    pending: list[GitSkill] = []
+    # Resolve mount refs → object ids, then skip skills already installed at that pin.
+    pending: list[tuple[GitSkill, str]] = []
     satisfied = 0
     for skill in git_skills:
-        if _git_skill_already_installed(state, skill):
+        try:
+            object_id = _resolve_object_id(skill.url, skill.ref, SKILLS_ROOT)
+        except GitSkillError as e:
+            print(f"WARNING: {e} (skill: {skill.name})", file=sys.stderr)
+            continue
+        if _git_skill_already_installed(state, skill, object_id):
             satisfied += 1
         else:
-            pending.append(skill)
+            pending.append((skill, object_id))
 
-    # Group pending by (repo, commit) so a repo shared by several skills is cloned once and its
-    # needed subdirs fetched together in a single sparse checkout.
-    skills_by_repo: dict[tuple[str, str], list[GitSkill]] = {}
-    for skill in pending:
-        skills_by_repo.setdefault((skill.clone_url, skill.commit_sha), []).append(skill)
+    # Group pending by (repo, object id) so a repo shared by several skills is cloned once and its
+    # needed paths fetched together in a single sparse checkout.
+    skills_by_repo: dict[tuple[str, str], list[tuple[GitSkill, str]]] = {}
+    for skill, object_id in pending:
+        skills_by_repo.setdefault((skill.url, object_id), []).append((skill, object_id))
 
-    for (clone_url, commit_sha), skills in skills_by_repo.items():
+    for (url, object_id), group in skills_by_repo.items():
         try:
             with tempfile.TemporaryDirectory(
                 prefix=".git-skill-dl-",
@@ -421,13 +489,16 @@ def download_git_skills(
                 ignore_cleanup_errors=True,
             ) as tmp_str:
                 repo_root = _git_fetch_repo(
-                    clone_url, commit_sha, [s.subdir for s in skills], Path(tmp_str)
+                    url,
+                    object_id,
+                    [s.path for s, _ in group],
+                    Path(tmp_str),
                 )
-                # Install each skill independently so a bad subdir only skips that one skill.
-                for skill in skills:
+                # Install each skill independently so a bad path only skips that one skill.
+                for skill, oid in group:
                     try:
                         _install_git_skill(repo_root, skill)
-                        _mark_git_downloaded(state, skill)
+                        _mark_git_downloaded(state, skill, oid)
                         satisfied += 1
                     except GitSkillError as e:
                         print(f"WARNING: {e}", file=sys.stderr)
@@ -436,7 +507,7 @@ def download_git_skills(
             # run_git_download turns a non-zero failed count into a non-zero exit (fail-closed), which
             # fails the whole agent request. We still don't purge a previously installed copy here, so
             # a reused sandbox keeps the old files on disk even though this run is about to fail.
-            names = ", ".join(s.name for s in skills)
+            names = ", ".join(s.name for s, _ in group)
             print(f"WARNING: {e} (skills: {names})", file=sys.stderr)
     save_state(state)
     return satisfied

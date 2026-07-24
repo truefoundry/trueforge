@@ -88,9 +88,9 @@ export const SkillEntrySchema = z
     url: z.string().url(),
     // Directory inside the repository containing SKILL.md. Repo root if omitted.
     path: z.string().min(1).optional(),
-    // Commit SHA, tag or branch to pin. Default branch if omitted.
-    reference: z.string().min(1).optional(),
-    // Injected into the agent context so it can judge when to use the skill.
+    // Branch, tag, or commit SHA to pin. Default branch if omitted.
+    ref: z.string().min(1).optional(),
+    // Shown to users and persisted in the selected skill mount for runtime prompting.
     description: z.string().min(1),
   })
   .strict();
