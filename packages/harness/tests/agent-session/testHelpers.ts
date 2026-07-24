@@ -1,7 +1,7 @@
-import type { ITurnResourceResolver } from '../../src/agentSession/ITurnResourceResolver';
-import { MAIN_THREAD_ID, type TurnRecord } from '../../src/agentSession/models/TurnRecord';
-import { AgentSpecSchema, type AgentSpec } from '../../src/agentSession/schemas/agentSpec';
-import { TurnResourceResolver } from '../../src/agentSession/TurnResourceResolver';
+import type { ITurnResourceResolver } from '../../src/agent-session/ITurnResourceResolver';
+import { MAIN_THREAD_ID, type TurnRecord } from '../../src/agent-session/models/TurnRecord';
+import { AgentSpecSchema, type AgentSpec } from '../../src/agent-session/schemas/agentSpec';
+import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import { EventType, newEventId } from '../../src/core/events/schema';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../src/core/llm/LLMTypes';

@@ -3,10 +3,10 @@
  * Does not migrate private Plan / overwriteAgentPlan — gateway adoption is out of scope.
  */
 import type { Logger } from 'winston';
-import { MAIN_THREAD_ID } from '../../src/agentSession/models/TurnRecord';
-import { EventType } from '../../src/agentSession/schemas/events';
-import { Sessions } from '../../src/agentSession/Sessions';
-import { InMemorySessionStore } from '../../src/agentSession/store/InMemorySessionStore';
+import { MAIN_THREAD_ID } from '../../src/agent-session/models/TurnRecord';
+import { EventType } from '../../src/agent-session/schemas/events';
+import { Sessions } from '../../src/agent-session/Sessions';
+import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import type { AgentContextProcessorOutput } from '../../src/core/capabilities/AgentContextProcessor';
 import { AgentThread } from '../../src/core/runtime/AgentThread';

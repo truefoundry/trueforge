@@ -19,6 +19,7 @@ import { SANDBOX_FILE_UPLOADS_DIR, SANDBOX_NATS_WS_PORT } from './constants';
 import { type SandboxProvider, ensureExecSuccess } from './provider/Provider';
 import { validateNoPathTraversal, validateSandboxOwnedByTenant } from './SandboxErrors';
 import { SandboxNatsBridge } from './SandboxNatsBridge';
+import { sandboxScripts } from './sandboxScripts.gen';
 
 export interface SandboxInfo {
   sandbox_id: string;
@@ -74,10 +75,6 @@ export interface SandboxOptions {
    * instead. Must be `true` — approvals are always enabled (the kill switch is gone).
    */
   blockDestructiveToolsInCodeMode: true;
-  scripts: {
-    mcpClient: string;
-    skillDownloader: string;
-  };
   execExtraEnv?: Readonly<Record<string, string>> | undefined;
   skillInitEnv?: Readonly<Record<string, string>> | undefined;
   tracing: AgentTracing;
@@ -244,8 +241,11 @@ export class Sandbox extends LocalToolMCP {
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
     this.execExtraEnv = options.execExtraEnv;
     this.skillInitEnv = options.skillInitEnv;
-    this.mcpClientScriptBase64 = Buffer.from(options.scripts.mcpClient, 'utf-8').toString('base64');
-    this.skillDownloaderScriptBase64 = Buffer.from(options.scripts.skillDownloader, 'utf-8').toString('base64');
+    // Scripts are internal to Sandbox: the upload paths, env contract, and prompt
+    // text are all hardcoded here, so injecting different content was never a
+    // real extension point. Consumers don't see or provide them.
+    this.mcpClientScriptBase64 = Buffer.from(sandboxScripts.mcpClient, 'utf-8').toString('base64');
+    this.skillDownloaderScriptBase64 = Buffer.from(sandboxScripts.skillDownloader, 'utf-8').toString('base64');
     this.logger = options.logger.child({ module: 'Sandbox' });
     this.resolvedGitCredentialsContent = options.resolvedGitCredentialsContent ?? null;
 

@@ -10,3 +10,4 @@ coverage/
 *.tsbuildinfo
 .pnpm-store/
 .eslintcache
+packages/harness/src/core/sandbox/sandboxScripts.gen.ts

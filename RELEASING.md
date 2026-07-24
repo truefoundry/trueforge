@@ -14,6 +14,22 @@ open-source release happens later — every deferred item carries a
 > tsconfig.build.json), which embeds/references original TypeScript source in
 > the published tarball — this is a deliberate, accepted trade-off for now.
 
+## Publishing model (openai-node style)
+
+The package publishes **from `packages/harness/dist`**, not the package
+folder. The build compiles every `src/**/*.ts` to its own `.js` (CJS) +
+`.mjs` (ESM) + `.d.ts` triple and generates `dist/package.json` with
+dist-relative paths (`scripts/make-dist-package-json.mjs`), so the tarball
+root is the compiled file tree. Consequences:
+
+- Deep imports mirror the source tree with no `dist/` segment:
+  `@truefoundry/utils/core/llm/LLMTypes`, `.../core/runtime/contextUtils`.
+- Legacy `moduleResolution: "node"` consumers (the gateway) resolve subpaths
+  as literal file lookups — no `exports`/`typesVersions` support needed.
+- `require()` and `import` both work (`.js` is CJS, `.mjs` is ESM).
+- The curated barrels (`.`, `./core`, `./agent-session`) remain the public
+  API; deep imports are the escape hatch for internals.
+
 ## Per-release flow
 
 1. **Bump the version via PR** (direct pushes to `main` are blocked by org
@@ -38,9 +54,10 @@ open-source release happens later — every deferred item carries a
    ```
 
 3. **CI publishes automatically.** `.github/workflows/release.yml` installs,
-   builds, tests, verifies the tag matches `packages/harness/package.json`,
-   and runs `npm publish` via trusted publishing (OIDC — no NPM_TOKEN
-   anywhere). Watch it under the repo's Actions tab.
+   builds (which stages `dist/` with its own package.json and smoke-tests
+   it), tests, verifies the tag matches `packages/harness/package.json`, and
+   runs `npm publish` **from `packages/harness/dist`** via trusted publishing
+   (OIDC — no NPM_TOKEN anywhere). Watch it under the repo's Actions tab.
 
 4. **Bump the pinned version in the gateway.** Pin exact versions (no `^`)
    during the fast 0.x churn:
@@ -54,7 +71,7 @@ open-source release happens later — every deferred item carries a
 For tight loops, skip the publish round-trip:
 
 ```bash
-cd packages/harness && pnpm build && pnpm pack
+cd packages/harness && pnpm build && cd dist && pnpm pack
 ```
 
 Point the gateway at the tarball via a `file:` dependency (or use `yalc`).
@@ -77,7 +94,7 @@ Publish a real version when CI or teammates need it.
 | Item                                                                            | Where                                                   |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | License: UNLICENSED → Apache-2.0 + LICENSE file                                 | both package.jsons, repo root                           |
-| Ship README / remove prepack guard / npmignore md-strip                         | packages/harness                                        |
+| Ship README (guard lives in make-dist-package-json.mjs)                         | packages/harness/scripts                                |
 | Add repository/homepage/bugs/keywords metadata                                  | packages/harness/package.json                           |
 | Add `--provenance` to publish                                                   | .github/workflows/release.yml                           |
 | Replace `internal.devtest.truefoundry.tech` URLs                                | packages/server/src/config                              |

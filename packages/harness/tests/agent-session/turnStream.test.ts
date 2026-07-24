@@ -1,8 +1,8 @@
-import { EventType } from '../../src/agentSession/schemas/events';
-import { CancellationReason } from '../../src/agentSession/schemas/turn';
-import { Sessions } from '../../src/agentSession/Sessions';
-import { InMemorySessionStore } from '../../src/agentSession/store/InMemorySessionStore';
-import { TurnResourceResolver } from '../../src/agentSession/TurnResourceResolver';
+import { EventType } from '../../src/agent-session/schemas/events';
+import { CancellationReason } from '../../src/agent-session/schemas/turn';
+import { Sessions } from '../../src/agent-session/Sessions';
+import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
+import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import { RemoteMCP } from '../../src/core/mcp/RemoteMCP';
 import { makeStubPublicSandbox } from '../core/harnessMocks';
 import { emptyLlmStream, makeAgentSpec, makeMockILLM, makeSilentLogger, makeTestResolver } from './testHelpers';
