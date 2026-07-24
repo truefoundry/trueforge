@@ -19,6 +19,10 @@ FROM base AS builder
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json ./
 COPY packages/harness/package.json packages/harness/package.json
 COPY packages/server/package.json packages/server/package.json
+# The root postinstall hook runs build:gen in @truefoundry/utils, which needs
+# the generator script and the sandbox Python sources it inlines.
+COPY packages/harness/scripts packages/harness/scripts
+COPY packages/harness/src/core/sandbox/scripts packages/harness/src/core/sandbox/scripts
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 COPY packages/harness packages/harness
 COPY packages/server packages/server
@@ -31,6 +35,9 @@ FROM base AS prod-deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY packages/harness/package.json packages/harness/package.json
 COPY packages/server/package.json packages/server/package.json
+# Same as builder: the root postinstall hook needs the build:gen inputs.
+COPY packages/harness/scripts packages/harness/scripts
+COPY packages/harness/src/core/sandbox/scripts packages/harness/src/core/sandbox/scripts
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --prod
 
 # ---------------------------------------------------------------------------
