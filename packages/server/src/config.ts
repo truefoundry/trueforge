@@ -136,7 +136,12 @@ export const parsePort = (raw: string | undefined): number => {
 };
 
 /** Parses a positive-integer env var, falling back to `defaultValue` when unset/blank. */
-export const parsePositiveInt = (envKey: string, raw: string | undefined, defaultValue: number): number => {
+export const parsePositiveInt = (options: {
+  envKey: string;
+  raw: string | undefined;
+  defaultValue: number;
+}): number => {
+  const { envKey, raw, defaultValue } = options;
   if (raw === undefined || raw.trim() === '') {
     return defaultValue;
   }
@@ -145,6 +150,32 @@ export const parsePositiveInt = (envKey: string, raw: string | undefined, defaul
     throw new Error(`Environment variable ${envKey} must be a positive integer, got "${raw}"`);
   }
   return value;
+};
+
+/**
+ * Required non-empty env var. Same `NODE_ENV=test` exemption as `getEnv({ required: true })`,
+ * but also rejects blank strings outside tests.
+ */
+export const requireNonEmptyEnv = (key: string): string => {
+  const value = getEnv(key, { required: true });
+  if (value === undefined || value.trim() === '') {
+    if (process.env['NODE_ENV'] === 'test') {
+      return '';
+    }
+    throw new Error(`Environment variable ${key} is required but was not specified.`);
+  }
+  return value;
+};
+
+/** Builds a Postgres connection URL from discrete `POSTGRES_*` parts. */
+export const buildPostgresConnectionString = (parts: {
+  user: string;
+  password: string;
+  host: string;
+  port: number;
+  database: string;
+}): string => {
+  return `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
 };
 
 // ============================================================================
@@ -219,11 +250,28 @@ export interface ServerConfiguration {
    * `server-execution-timeout`. Env: `SERVER_EXECUTION_TIMEOUT_SECONDS`. Default 600 (10 minutes).
    */
   SERVER_EXECUTION_TIMEOUT_SECONDS: number;
+  /**
+   * Postgres connection string derived from `POSTGRES_*` (not read from env directly).
+   * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` with user/password URL-encoded.
+   */
+  DATABASE_URL: string;
+  /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
+  DATABASE_POOL_MAX: number;
 }
 
 // ============================================================================
 // CONFIGURATION VALUES
 // ============================================================================
+
+const postgresUser = requireNonEmptyEnv('POSTGRES_USER');
+const postgresPassword = requireNonEmptyEnv('POSTGRES_PASSWORD');
+const postgresDb = requireNonEmptyEnv('POSTGRES_DB');
+const postgresHost = requireNonEmptyEnv('POSTGRES_HOST');
+const postgresPort = parsePositiveInt({
+  envKey: 'POSTGRES_PORT',
+  raw: requireNonEmptyEnv('POSTGRES_PORT'),
+  defaultValue: 5432,
+});
 
 const configuration: ServerConfiguration = {
   PORT: parsePort(getEnv('PORT')),
@@ -236,18 +284,38 @@ const configuration: ServerConfiguration = {
   MCP_HEADERS_BY_NAME: parseHeadersByName('MCP'),
   SANDBOX_SETTINGS: getEnv('SANDBOX_SETTINGS'),
   SANDBOX_API_KEY: getEnv('SANDBOX_API_KEY'),
-  SANDBOX_FILE_MAX_BYTES: parsePositiveInt('SANDBOX_FILE_MAX_BYTES', getEnv('SANDBOX_FILE_MAX_BYTES'), 20_971_520),
-  SANDBOX_PREVIEW_URL_EXPIRY_SECONDS: parsePositiveInt(
-    'SANDBOX_PREVIEW_URL_EXPIRY_SECONDS',
-    getEnv('SANDBOX_PREVIEW_URL_EXPIRY_SECONDS'),
-    3600,
-  ),
-  GRACEFUL_TIMEOUT_SECONDS: parsePositiveInt('GRACEFUL_TIMEOUT_SECONDS', getEnv('GRACEFUL_TIMEOUT_SECONDS'), 30),
-  SERVER_EXECUTION_TIMEOUT_SECONDS: parsePositiveInt(
-    'SERVER_EXECUTION_TIMEOUT_SECONDS',
-    getEnv('SERVER_EXECUTION_TIMEOUT_SECONDS'),
-    600,
-  ),
+  SANDBOX_FILE_MAX_BYTES: parsePositiveInt({
+    envKey: 'SANDBOX_FILE_MAX_BYTES',
+    raw: getEnv('SANDBOX_FILE_MAX_BYTES'),
+    defaultValue: 20_971_520,
+  }),
+  SANDBOX_PREVIEW_URL_EXPIRY_SECONDS: parsePositiveInt({
+    envKey: 'SANDBOX_PREVIEW_URL_EXPIRY_SECONDS',
+    raw: getEnv('SANDBOX_PREVIEW_URL_EXPIRY_SECONDS'),
+    defaultValue: 3600,
+  }),
+  GRACEFUL_TIMEOUT_SECONDS: parsePositiveInt({
+    envKey: 'GRACEFUL_TIMEOUT_SECONDS',
+    raw: getEnv('GRACEFUL_TIMEOUT_SECONDS'),
+    defaultValue: 30,
+  }),
+  SERVER_EXECUTION_TIMEOUT_SECONDS: parsePositiveInt({
+    envKey: 'SERVER_EXECUTION_TIMEOUT_SECONDS',
+    raw: getEnv('SERVER_EXECUTION_TIMEOUT_SECONDS'),
+    defaultValue: 600,
+  }),
+  DATABASE_URL: buildPostgresConnectionString({
+    user: postgresUser,
+    password: postgresPassword,
+    host: postgresHost,
+    port: postgresPort,
+    database: postgresDb,
+  }),
+  DATABASE_POOL_MAX: parsePositiveInt({
+    envKey: 'DATABASE_POOL_MAX',
+    raw: getEnv('DATABASE_POOL_MAX'),
+    defaultValue: 10,
+  }),
 } as const;
 
 export default configuration;

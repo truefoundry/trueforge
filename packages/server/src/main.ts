@@ -1,7 +1,7 @@
 /**
- * Server entry point: validates config, loads the YAML stores, wires the
- * in-memory session runtime and starts the HTTP server. Any config or store
- * error aborts startup.
+ * Server entry point: validates config, migrates the database, loads the YAML
+ * stores, wires the in-memory session runtime and starts the HTTP server.
+ * Any config, migration, or store error aborts startup.
  */
 import { serve } from '@hono/node-server';
 import winston from 'winston';
@@ -10,6 +10,8 @@ try {
   const [
     { createServerApp },
     { default: configuration },
+    { createDb },
+    { migrateToLatest },
     { ModelStore },
     { McpStore },
     { SkillStore },
@@ -19,6 +21,8 @@ try {
   ] = await Promise.all([
     import('./app'),
     import('./config'),
+    import('./db/client'),
+    import('./db/migrate'),
     import('./store/ModelStore'),
     import('./store/McpStore'),
     import('./store/SkillStore'),
@@ -33,6 +37,9 @@ try {
     format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
     transports: [new winston.transports.Console()],
   });
+
+  const db = createDb(configuration.DATABASE_URL, configuration.DATABASE_POOL_MAX);
+  await migrateToLatest(db);
 
   const sessionStore = new InMemorySessionStore();
   // Throws on malformed SANDBOX_SETTINGS; undefined when sandbox is not configured.
@@ -86,6 +93,7 @@ try {
     // closed covers the gap where the registry is empty before that late track().
     await activeTurns.shutdownAndWait(CancellationReason.Abandoned);
     await closed;
+    await db.destroy();
     process.exit(0);
   };
   process.on('SIGTERM', signal => {
