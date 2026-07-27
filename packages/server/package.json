@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsx --env-file=.env src/main.ts",
+    "migrate": "tsx --env-file=.env src/db/migrate-cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test src/**/*.test.ts",
     "start": "node dist/main.js"
@@ -19,6 +20,8 @@
     "@hono/zod-openapi": "^0.19.10",
     "@truefoundry/utils": "workspace:*",
     "hono": "^4.12.31",
+    "kysely": "^0.29.4",
+    "pg": "^8.22.0",
     "ulid": "^3.0.2",
     "winston": "^3.13.0",
     "yaml": "^2.9.0",
@@ -26,6 +29,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.12.0",
+    "@types/pg": "^8.20.0",
     "tsup": "^8.5.0",
     "tsx": "^4.16.2",
     "typescript": "^7.0.2"

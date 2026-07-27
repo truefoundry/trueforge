@@ -34,6 +34,12 @@ Fill in `MODEL_API_KEY` in `packages/server/.env`, then start the server:
 pnpm dev:server
 ```
 
+Migrations run automatically on startup. To migrate without starting HTTP:
+
+```bash
+pnpm --filter @truefoundry/server migrate
+```
+
 ## Run the frontend (local)
 
 With the server on `:8790`:
@@ -50,10 +56,12 @@ Vite serves the UI on `http://localhost:3000` and proxies `/v1/agents/*` → `/v
 docker compose up --build
 ```
 
+Starts Postgres 17 (data in `./data/postgres`), the API, and the frontend. The server waits for Postgres to be healthy, runs migrations, then listens.
+
 - API: `http://localhost:8790`
 - UI: `http://localhost:3000` (Caddy proxies same-origin `/v1/...` to `server:8790`)
 
-The local `.env` file and `packages/server/registry/` directory are ignored by Git. Docker Compose requires `packages/server/.env` and mounts the registry read-only into the server container.
+The local `.env` file, `packages/server/registry/`, and `data/` are ignored by Git. Docker Compose requires `packages/server/.env` and mounts the registry read-only into the server container.
 
 ## Library imports
 
