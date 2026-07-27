@@ -212,30 +212,6 @@ function buildSandboxCreatedEvent(info: SandboxInfo): SandboxCreatedEvent {
   };
 }
 
-/** Persistable tool.response events for orchestrator LLMToolMessages in a send() context batch. */
-function toolResponseEventsFromContextMessages(
-  threadId: string,
-  contextMessages: (LLMUserMessage | LLMToolMessage)[],
-): ToolResponseEvent[] {
-  const output: ToolResponseEvent[] = [];
-  for (const m of contextMessages) {
-    if (m.role !== 'tool') {
-      continue;
-    }
-    output.push({
-      type: EventType.TOOL_RESPONSE,
-      id: newEventId(),
-      created_at: new Date().toISOString(),
-      thread_id: threadId,
-      tool_call_id: m.tool_call_id,
-      // Empty on purpose: matches the streamed sub-agent close event. Real result lives in
-      // LLM context (send_to_parent.content) and thread.done output, not this closer.
-      content: '',
-    });
-  }
-  return output;
-}
-
 function buildModelMessageEvent({
   assistantMessage,
   threadId,
@@ -651,10 +627,9 @@ export class AgentThread {
         });
       }
       if (contextMessages.length > 0) {
-        // Orchestrator-only LLMToolMessages (sub-agent completion): persist tool.response for listEvents.
         yield* this.appendToContext({
           context: contextMessages,
-          output: toolResponseEventsFromContextMessages(this.threadId, contextMessages),
+          output: [],
         });
       }
     } finally {
