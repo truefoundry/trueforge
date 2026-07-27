@@ -927,13 +927,13 @@ export class AgentThread {
                 `CAPABILITY_STATE key '${response.key}' is not declared by any capability on thread '${this.threadId}'`,
               );
             }
-            this.capabilityState[response.key] = response.state;
             yield {
               type: InternalEventType.CAPABILITY_STATE,
               thread_id: this.threadId,
               key: response.key,
               state: response.state,
             };
+            this.capabilityState[response.key] = response.state;
             break;
           default: {
             const _exhaustive: never = response;
