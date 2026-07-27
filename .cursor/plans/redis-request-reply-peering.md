@@ -258,6 +258,34 @@ services:
   412/424 mapping; `mintTurnId` only active when peering enabled
 - e2e (compose, 2 replicas): start turn on server-1, cancel via server-2, assert `turn.done` cancelled
 
+## Divergences from the gateway (explicit)
+
+Wire-compatible by design: `rr:*` keys, request/reply envelopes, heartbeat/GETDEL mechanics,
+412/424 error mapping, and the `<ulid>.<zone>.<executor>` grammar are identical.
+
+Deliberate (OSS-friendly) divergences:
+
+- Peering is **opt-in** (`REDIS_URL`); gateway always mints peered ids. Consequence: enabling
+  peering changes the turn-id format mid-history — pre-peering turns are not routable
+  (tolerated by the parser, same as gateway legacy ids).
+- No zone tier, no legacy `agent/responses` paths, no sentinel support in the OSS
+  `RedisConnection` impl, empty forward-headers (single-tenant). All strict subsets; the
+  envelope/interface keep the slots for gateway adoption.
+
+Behavioral gaps to resolve during implementation (decisions, not accidents):
+
+1. **Teardown wait on cancel.** Gateway cancel blocks until the run is torn down (timeout → 424).
+   `ActiveTurnRegistry.cancelIfRunning` returns immediately after abort. Fix: peering cancel
+   handler awaits `run.waitUntilCompleted` (already tracked) with a timeout; 424 on expiry.
+   Apply the same wait to the local path in `cancelSessionHandler` for parity.
+2. **Cancel-the-tail on create-turn.** Gateway create-turn cancels a running previous turn
+   (`CancelledForNextTurn`, best-effort). Harness removed process-local single-active-turn
+   enforcement (ebac8b5); multi-replica needs the owner-aware cancel hop on the create-turn
+   path too — or an explicit decision to allow concurrent turns per session.
+3. **Streaming is out of scope for request-reply.** Cross-replica subscribe/listEvents needs
+   shared event storage (redis streams), owned by the shared-store track. This plan delivers
+   cross-replica _commands_ only.
+
 ## Prerequisites / sequencing
 
 1. **Shared session store caveat:** with `InMemorySessionStore`, the replica receiving the cancel
