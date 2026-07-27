@@ -96,12 +96,12 @@ export const listTurnEventsRoute = createRoute({
   },
 });
 
-export const createTurnRoute = createRoute({
+export const createAndExecuteTurnRoute = createRoute({
   method: 'post',
   path: '/{sessionId}/turns',
   tags: [SESSIONS_TAG],
-  summary: 'Create a turn in a session',
-  description: `Start or continue a turn within a session. Responds with a Server-Sent Events stream.
+  summary: 'Create and execute a turn in a session',
+  description: `Create a turn within a session and stream its execution as Server-Sent Events.
 Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`).`,
   request: {
     params: SessionIdParamsSchema,

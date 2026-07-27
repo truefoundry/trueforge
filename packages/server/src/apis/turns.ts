@@ -1,6 +1,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Sessions, Turn, TurnRecord, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import {
+  CancellationReason,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
   TurnResourceResolver,
@@ -16,9 +17,9 @@ import {
   OpenAILLM,
 } from '@truefoundry/utils/core';
 import { streamSSE } from 'hono/streaming';
-import { Readable } from 'stream';
 import type { Logger } from 'winston';
-import { createTurnRoute, getTurnRoute, listTurnEventsRoute, listTurnsRoute } from '../routes/turnRoutes';
+import configuration from '../config';
+import { createAndExecuteTurnRoute, getTurnRoute, listTurnEventsRoute, listTurnsRoute } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import type { McpStore } from '../store/McpStore';
 import type { ModelStore } from '../store/ModelStore';
@@ -181,7 +182,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }
   };
 
-  const createTurnHandler: RouteHandler<typeof createTurnRoute> = async c => {
+  const createAndExecuteTurnHandler: RouteHandler<typeof createAndExecuteTurnRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
 
@@ -205,7 +206,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
     let turn;
     try {
-      turn = await session.run({
+      turn = await session.createTurn({
         input: body.input,
         previous_turn_id: body.previous_turn_id,
         signal: abortController.signal,
@@ -225,11 +226,21 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       throw error;
     }
 
-    deps.activeTurns.register({ sessionId, turnId: turn.id, abortController });
+    // Long timer not tied to any await; without unref() it would keep the process alive.
+    // Armed only after createTurn succeeds so a 4xx path never leaks a pending timer.
+    const maxExecutionTimer = setTimeout(() => {
+      if (!abortController.signal.aborted) {
+        abortController.abort(CancellationReason.ServerExecutionTimeout);
+      }
+    }, configuration.SERVER_EXECUTION_TIMEOUT_SECONDS * 1000);
+    maxExecutionTimer.unref();
 
-    // Buffer the run behind a Readable so a slow or disconnected client cannot
-    // stall execution; the SSE loop below drains it independently.
-    const generator = Readable.from(turn.stream(), { objectMode: true, highWaterMark: 128000 });
+    const trackedStream = deps.activeTurns.track({
+      sessionId,
+      turnId: turn.id,
+      abortController,
+      stream: turn.stream(),
+    });
 
     let shouldWriteToSSEStream = true;
     let sequenceNumber = -1;
@@ -240,7 +251,10 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         shouldWriteToSSEStream = false;
       });
       try {
-        for await (const event of generator as AsyncIterable<TurnStreamingEvent>) {
+        // Slow SSE writes backpressure turn.stream() (and thus agent execution /
+        // persistence). Acceptable for now; reintroduce an eager buffer if clients
+        // stall turns in practice.
+        for await (const event of trackedStream) {
           sequenceNumber += 1;
           if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
             try {
@@ -254,7 +268,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       } catch (error) {
         deps.logger.error('Unexpected error in turn SSE stream loop', extractErrorLogFields(error));
       } finally {
-        deps.activeTurns.finish({ sessionId, turnId: turn.id });
+        clearTimeout(maxExecutionTimer);
         await stream.close();
       }
     });
@@ -264,7 +278,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   router.openapi(listTurnsRoute, listTurnsHandler);
   router.openapi(getTurnRoute, getTurnHandler);
   router.openapi(listTurnEventsRoute, listTurnEventsHandler);
-  router.openapi(createTurnRoute, createTurnHandler);
+  router.openapi(createAndExecuteTurnRoute, createAndExecuteTurnHandler);
   // subscribeTurnRoute (routes/turnRoutes.ts) is defined but not registered:
   // re-subscribing to a running turn needs a live-stream registry that this
   // single-process server does not have yet.

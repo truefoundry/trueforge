@@ -1,5 +1,5 @@
 /**
- * Bound session handle: starts turns via {@link SessionHandle.run}.
+ * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
 import { ulid } from 'ulid';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
@@ -101,7 +101,7 @@ export class SessionHandle<
    * failure therefore persists nothing. The returned turn is durable with
    * state { status: 'running' }.
    *
-   * On any failure, run() closes the resolver (best-effort) before rethrowing,
+   * On any failure, createTurn() closes the resolver (best-effort) before rethrowing,
    * so resources acquired here (e.g. a sandbox VM) never outlive a failed run.
    * On success, ownership of resolver.close() passes to TurnHandle.stream().
    *
@@ -109,7 +109,7 @@ export class SessionHandle<
    * (no parent, even on a non-empty session); string → fork from that turn
    * (must exist). Concurrent `'auto'` forks both succeed.
    */
-  async run(input: {
+  async createTurn(input: {
     input?: TurnInputItem[] | undefined;
     /** 'auto'/omitted → session.last_turn_id; null → new root; id → fork from that turn. */
     previous_turn_id?: string | null | undefined;
@@ -137,7 +137,7 @@ export class SessionHandle<
 
     const spec = this.session.agent_spec;
     // Dispose-on-early-failure: any resource acquired below (sandbox handle,
-    // MCP connections) is owned by run() until the TurnHandle is returned; from then
+    // MCP connections) is owned by createTurn() until the TurnHandle is returned; from then
     // on TurnHandle.stream()'s finally owns resolver.close(). On any throw in this
     // acquisition phase we close the resolver (best-effort, error swallowed)
     // and rethrow — same pattern as the gateway's sessionTurnHandler, which
@@ -225,7 +225,7 @@ export class SessionHandle<
       });
     } catch (error) {
       await input.resolver.close().catch((closeError: unknown) => {
-        input.resolver.logger.warn('TurnResourceResolver.close() failed after run() error', {
+        input.resolver.logger.warn('TurnResourceResolver.close() failed after createTurn() error', {
           err: closeError,
         });
       });

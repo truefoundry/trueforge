@@ -67,7 +67,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     };
     let loads: unknown[] = [];
 
-    const turn1 = await session.run({
+    const turn1 = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -95,7 +95,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     expect(loads).toHaveLength(0);
 
     loads = [];
-    const turn2 = await session.run({
+    const turn2 = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'continue' }],
       previous_turn_id: 'auto',
       signal: new AbortController().signal,
@@ -136,7 +136,7 @@ describe('capability_state (tfy.plan fixture)', () => {
       todo: [{ title: 'step', description: 'do it', status: 'done' }],
     };
 
-    const turn1 = await session.run({
+    const turn1 = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -167,7 +167,7 @@ describe('capability_state (tfy.plan fixture)', () => {
       close: () => resolver.close(),
     };
 
-    const turn3 = await session.run({
+    const turn3 = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'no plan' }],
       previous_turn_id: 'auto',
       signal: new AbortController().signal,

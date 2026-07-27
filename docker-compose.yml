@@ -18,6 +18,9 @@ services:
     # the image. Copy registry-example to registry before starting the service.
     volumes:
       - ./packages/server/registry:/app/packages/server/registry:ro
+    # Above the app's default GRACEFUL_TIMEOUT_SECONDS (30) so SIGKILL does not
+    # cut off turn drain.
+    stop_grace_period: 35s
     restart: unless-stopped
 
   frontend:

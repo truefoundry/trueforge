@@ -164,7 +164,7 @@ export interface ISessionStore<
   /**
    * MUST return SessionRecord with `agent_spec` fully hydrated, even if the backend
    * only stores a uri/id (or named-agent ref). Hydration is the store's job — harness
-   * and SessionHandle.run never resolve agents themselves.
+   * and SessionHandle.createTurn never resolve agents themselves.
    * Does **not** bump `last_activity_timestamp_ms` (read path).
    */
   getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined>;

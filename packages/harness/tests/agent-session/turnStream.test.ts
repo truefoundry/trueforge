@@ -27,7 +27,7 @@ describe('TurnHandle.stream()', () => {
 
   it('run commits running turn; stream is sole terminal writer → done', async () => {
     const { store, session } = await createSession();
-    const turn = await session.run({
+    const turn = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -57,7 +57,7 @@ describe('TurnHandle.stream()', () => {
 
   it('background drain reaches terminal done', async () => {
     const { session } = await createSession();
-    const turn = await session.run({
+    const turn = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -74,7 +74,7 @@ describe('TurnHandle.stream()', () => {
 
   it('second stream() call throws', async () => {
     const { session } = await createSession();
-    const turn = await session.run({
+    const turn = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -97,7 +97,7 @@ describe('TurnHandle.stream()', () => {
   it('consumer break/abandon without abort writes cancelled ClientCancelled', async () => {
     const { store, session } = await createSession();
     let closeCalls = 0;
-    const turn = await session.run({
+    const turn = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -128,7 +128,7 @@ describe('TurnHandle.stream()', () => {
   it('abort mid-drain writes terminal cancelled', async () => {
     const { store, session } = await createSession();
     const controller = new AbortController();
-    const turn = await session.run({
+    const turn = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: controller.signal,
@@ -151,10 +151,66 @@ describe('TurnHandle.stream()', () => {
     expect(stored?.state.status).toBe('cancelled');
   });
 
+  it('abort with Abandoned persists reason abandoned', async () => {
+    const { store, session } = await createSession();
+    const controller = new AbortController();
+    const turn = await session.createTurn({
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: null,
+      signal: controller.signal,
+      resolver: makeTestResolver(),
+    });
+    controller.abort(CancellationReason.Abandoned);
+    for await (const event of turn.stream()) {
+      void event;
+    }
+    expect(turn.state.status).toBe('cancelled');
+    if (turn.state.status === 'cancelled') {
+      expect(turn.state.reason).toBe(CancellationReason.Abandoned);
+    }
+    const stored = await store.getTurn({
+      tenant_name: tenant,
+      session_id: 's1',
+      turn_id: turn.id,
+    });
+    expect(stored?.state.status).toBe('cancelled');
+    if (stored?.state.status === 'cancelled') {
+      expect(stored.state.reason).toBe(CancellationReason.Abandoned);
+    }
+  });
+
+  it('abort with ServerExecutionTimeout persists reason server-execution-timeout', async () => {
+    const { store, session } = await createSession();
+    const controller = new AbortController();
+    const turn = await session.createTurn({
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: null,
+      signal: controller.signal,
+      resolver: makeTestResolver(),
+    });
+    controller.abort(CancellationReason.ServerExecutionTimeout);
+    for await (const event of turn.stream()) {
+      void event;
+    }
+    expect(turn.state.status).toBe('cancelled');
+    if (turn.state.status === 'cancelled') {
+      expect(turn.state.reason).toBe(CancellationReason.ServerExecutionTimeout);
+    }
+    const stored = await store.getTurn({
+      tenant_name: tenant,
+      session_id: 's1',
+      turn_id: turn.id,
+    });
+    expect(stored?.state.status).toBe('cancelled');
+    if (stored?.state.status === 'cancelled') {
+      expect(stored.state.reason).toBe(CancellationReason.ServerExecutionTimeout);
+    }
+  });
+
   it('resolver.close() called once in finally; throwing close does not flip terminal state', async () => {
     const { store, session } = await createSession();
     let closeCalls = 0;
-    const turn = await session.run({
+    const turn = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -191,7 +247,7 @@ describe('TurnHandle.stream()', () => {
     });
     const { session } = await createSession();
     // Spec already has sandbox.enabled from createSession helper.
-    const turn = await session.run({
+    const turn = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -241,7 +297,7 @@ describe('TurnResourceResolver caches', () => {
     expect(creates).toBe(1);
   });
 
-  it('resolveSandbox called once per run via SessionHandle.run', async () => {
+  it('resolveSandbox called once per run via SessionHandle.createTurn', async () => {
     const sandbox = makeStubPublicSandbox();
     jest.spyOn(sandbox, 'close').mockResolvedValue(undefined);
     let sandboxCreates = 0;
@@ -266,7 +322,7 @@ describe('TurnResourceResolver caches', () => {
         },
       }),
     });
-    const turn = await session.run({
+    const turn = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
       previous_turn_id: null,
       signal: new AbortController().signal,

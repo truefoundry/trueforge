@@ -209,6 +209,16 @@ export interface ServerConfiguration {
    * Env: `SANDBOX_PREVIEW_URL_EXPIRY_SECONDS`. Default 1 hour.
    */
   SANDBOX_PREVIEW_URL_EXPIRY_SECONDS: number;
+  /**
+   * Max seconds to wait for turn cancellation + connection drain on SIGTERM/SIGINT.
+   * Env: `GRACEFUL_TIMEOUT_SECONDS`. Default 30.
+   */
+  GRACEFUL_TIMEOUT_SECONDS: number;
+  /**
+   * Max seconds a single turn may execute before it is cancelled with
+   * `server-execution-timeout`. Env: `SERVER_EXECUTION_TIMEOUT_SECONDS`. Default 600 (10 minutes).
+   */
+  SERVER_EXECUTION_TIMEOUT_SECONDS: number;
 }
 
 // ============================================================================
@@ -231,6 +241,12 @@ const configuration: ServerConfiguration = {
     'SANDBOX_PREVIEW_URL_EXPIRY_SECONDS',
     getEnv('SANDBOX_PREVIEW_URL_EXPIRY_SECONDS'),
     3600,
+  ),
+  GRACEFUL_TIMEOUT_SECONDS: parsePositiveInt('GRACEFUL_TIMEOUT_SECONDS', getEnv('GRACEFUL_TIMEOUT_SECONDS'), 30),
+  SERVER_EXECUTION_TIMEOUT_SECONDS: parsePositiveInt(
+    'SERVER_EXECUTION_TIMEOUT_SECONDS',
+    getEnv('SERVER_EXECUTION_TIMEOUT_SECONDS'),
+    600,
   ),
 } as const;
 

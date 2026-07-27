@@ -8,7 +8,7 @@ import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
 
 /**
- * Per-run wiring contract consumed by SessionHandle.run(). Implementations hold
+ * Per-run wiring contract consumed by SessionHandle.createTurn(). Implementations hold
  * per-request state (secrets, providers, caches) freely.
  */
 export interface ITurnResourceResolver<TTurnCustom extends object = Record<string, never>> {
@@ -51,7 +51,7 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
   /**
    * Release per-run resources. Called by the harness at the end of the run:
    * by TurnHandle.stream() in its finally (AFTER the terminal state write), or by
-   * SessionHandle.run() when it throws before a TurnHandle exists — so resources acquired
+   * SessionHandle.createTurn() when it throws before a TurnHandle exists — so resources acquired
    * during a failed run (e.g. a sandbox VM) are still released. Best-effort:
    * the harness logs and swallows errors — close() can never flip a terminal
    * state or fail the turn. Must be idempotent. The resolver owns cleanup

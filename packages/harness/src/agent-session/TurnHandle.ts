@@ -30,6 +30,9 @@ function cancellationReasonFromAbortReason(abortReason: unknown): CancellationRe
   if (abortReason === CancellationReason.CancelledForNextTurn) {
     return CancellationReason.CancelledForNextTurn;
   }
+  if (abortReason === CancellationReason.Abandoned) {
+    return CancellationReason.Abandoned;
+  }
   return CancellationReason.ClientCancelled;
 }
 
@@ -167,7 +170,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     const resolver = this.resolver;
     const signal = this.signal;
     if (!orchestrator || !resolver || !signal) {
-      throw new Error('TurnHandle.stream() is only available on turns returned from SessionHandle.run()');
+      throw new Error('TurnHandle.stream() is only available on turns returned from SessionHandle.createTurn()');
     }
 
     let caughtError: Error | undefined;

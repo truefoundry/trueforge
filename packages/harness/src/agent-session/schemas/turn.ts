@@ -15,6 +15,8 @@ export enum CancellationReason {
   ClientCancelled = 'client-cancelled',
   // Prior turn aborted because the client started a new turn.
   CancelledForNextTurn = 'cancelled-for-next-turn',
+  // Process shutting down (SIGTERM/SIGINT).
+  Abandoned = 'abandoned',
 }
 
 export const TurnStateRunningSchema = z

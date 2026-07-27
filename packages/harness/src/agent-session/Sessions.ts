@@ -1,6 +1,6 @@
 /**
  * Storage-only session collection: create / get. Behavior arrives per run via
- * the resolver on {@link SessionHandle.run}.
+ * the resolver on {@link SessionHandle.createTurn}.
  */
 import { SessionHandle } from './SessionHandle';
 import type { CreateSessionInput, GetSessionInput, ISessionStore } from './store/ISessionStore';

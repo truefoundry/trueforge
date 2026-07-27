@@ -13,7 +13,7 @@ try {
     { ModelStore },
     { McpStore },
     { SkillStore },
-    { Sessions, InMemorySessionStore },
+    { Sessions, InMemorySessionStore, CancellationReason },
     { ActiveTurnRegistry },
     { createServerSandboxFactory },
   ] = await Promise.all([
@@ -38,13 +38,14 @@ try {
   // Throws on malformed SANDBOX_SETTINGS; undefined when sandbox is not configured.
   const skillStore = SkillStore.load();
   const sandboxFactory = createServerSandboxFactory({ logger });
+  const activeTurns = new ActiveTurnRegistry();
   const app = createServerApp({
     modelStore: ModelStore.load(),
     mcpStore: McpStore.load(),
     skillStore,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
-    activeTurns: new ActiveTurnRegistry(),
+    activeTurns,
     ...(sandboxFactory ? { sandboxFactory } : {}),
     logger,
   });
@@ -58,35 +59,41 @@ try {
     process.exit(1);
   });
 
-  // Graceful drain: stop accepting new connections, let in-flight requests
-  // finish, then exit. Without this, Node (running as PID 1 in the container)
-  // ignores SIGTERM and docker stop escalates to SIGKILL after its grace
-  // period, killing requests mid-flight.
-  const DRAIN_TIMEOUT_MS = 8_000;
+  // Graceful drain: stop accepting new connections, cancel running turns as
+  // abandoned, wait for them to persist terminal state, then exit. Without
+  // this, Node (running as PID 1 in the container) ignores SIGTERM and docker
+  // stop escalates to SIGKILL after its grace period.
   let shuttingDown = false;
-  const shutdown = (signal: NodeJS.Signals) => {
+  const shutdown = async (signal: NodeJS.Signals) => {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info(`Received ${signal}, draining connections before shutdown`);
 
-    server.close(() => {
-      process.exit(0);
-    });
-    // Keep-alive connections with no in-flight request would otherwise hold
-    // the server open until the client closes them.
-    if ('closeIdleConnections' in server) {
-      server.closeIdleConnections();
-    }
-
-    // Force exit if draining outlasts the timeout (kept below Docker's
-    // default 10s stop grace period so we exit on our own terms).
+    // Arm at the start of each shutdown; unref so this timer alone cannot keep the process alive.
     setTimeout(() => {
-      logger.warn(`Drain timed out after ${String(DRAIN_TIMEOUT_MS)}ms, exiting`);
+      logger.warn(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`);
       process.exit(1);
-    }, DRAIN_TIMEOUT_MS).unref();
+    }, configuration.GRACEFUL_TIMEOUT_SECONDS * 1000).unref();
+
+    const closed = new Promise<void>(resolve => {
+      server.close(() => {
+        resolve();
+      });
+    });
+
+    // Sets the registry's shutdown reason immediately so late track() (in-flight create-turn still
+    // inside session.createTurn) aborts as Abandoned; then drains the registry. await
+    // closed covers the gap where the registry is empty before that late track().
+    await activeTurns.shutdownAndWait(CancellationReason.Abandoned);
+    await closed;
+    process.exit(0);
   };
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', signal => {
+    void shutdown(signal);
+  });
+  process.on('SIGINT', signal => {
+    void shutdown(signal);
+  });
 } catch (error) {
   console.error('Failed to start server:', error instanceof Error ? error.message : error);
   process.exit(1);

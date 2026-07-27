@@ -10,7 +10,7 @@ import type { AgentSpec } from '../schemas/agentSpec';
 export interface SessionRecord<TCustom extends object = Record<string, never>> {
   tenant_name: string;
   session_id: string;
-  /** Always hydrated on read. Source of `spec` in SessionHandle.run(). */
+  /** Always hydrated on read. Source of `spec` in SessionHandle.createTurn(). */
   agent_spec: AgentSpec;
   /**
    * Wire SessionSchema.title (nullable). Written via updateSession patch or
