@@ -5,3 +5,4 @@
 - Modules MUST use static `import` and `import type`; they MUST NOT use `require()`, `require.resolve()`, or lint suppressions to bypass import checks.
 - A change that makes code unused MUST remove that dead code in the same change; it MUST NOT leave stale exports, files, documentation, duplicates, or “just in case” shims.
 - Comments MUST explain intent, trade-offs, or constraints and remain concise; they MUST NOT restate the code or include issue-tracker IDs.
+- Every nested `AGENTS.md` MUST have a sibling `CLAUDE.md` containing only `@AGENTS.md`, so Cursor and Claude Code load the same scoped rules.
