@@ -50,7 +50,7 @@ packages/server/src/
 └── apis/
     └── sessions.ts                   # CHANGED — cancel: local vs remote via turn id
 
-docker-compose.yml                    # CHANGED — redis service, REDIS_URL/EXECUTOR_ID env
+docker-compose.yml                    # CHANGED — redis service, REDIS_URL env
 ```
 
 ## 1. `packages/harness/src/request-reply/` (new module)
@@ -157,7 +157,11 @@ accept dotted ids (gateway proves this).
 ```ts
 // config.ts — additions
 REDIS_URL: string | undefined; // unset ⇒ peering disabled, local-only cancel
-EXECUTOR_ID: string; // default: `srv-${randomUUID().slice(0, 8)}`
+// EXECUTOR_ID is NOT an env var (gateway precedent: randomAlphanumeric(6), "not read from env").
+// Boot-generated, ephemeral per process: identity == lifetime of the in-memory AbortControllers.
+// Stable/duplicated ids break request-reply (two subscribers on one channel race on the reply
+// key). Restart ⇒ turns owned by the dead process 412 as unreachable (correct: state is gone).
+EXECUTOR_ID: string; // generated at boot, e.g. randomAlphanumeric(6)
 REDIS_REQUEST_REPLY_TIMEOUT_MS: number; // default 10_000
 REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS: number; // default 5_000
 ```
@@ -235,14 +239,14 @@ services:
   server:
     environment:
       REDIS_URL: redis://redis:6379
-      EXECUTOR_ID: server-1
+      # no EXECUTOR_ID — each process boot-generates its own (see config.ts note)
     depends_on:
       redis: { condition: service_healthy }
 
   # optional second replica to exercise peering locally
   server-2:
     extends: { service: server }
-    environment: { EXECUTOR_ID: server-2, PORT: 8791 }
+    environment: { PORT: 8791 }
     ports: ['8791:8791']
 ```
 
