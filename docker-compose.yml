@@ -39,6 +39,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Probes existing GET / (plain text OK!); node is already in the image.
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8790/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
     # Above the app's default GRACEFUL_TIMEOUT_SECONDS (30) so SIGKILL does not
     # cut off turn drain.
     stop_grace_period: 35s
@@ -52,5 +65,6 @@ services:
     ports:
       - '${FRONTEND_PORT:-3000}:80'
     depends_on:
-      - server
+      server:
+        condition: service_healthy
     restart: unless-stopped
