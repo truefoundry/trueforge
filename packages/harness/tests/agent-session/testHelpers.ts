@@ -12,12 +12,9 @@ import { makeMockILLM, makeSilentLogger } from '../core/harnessMocks';
 
 export { makeMockILLM, makeSilentLogger };
 
-/**
- * Peered-style turn id (`<ulid>.<executor>`). The grammar is host-owned (the
- * library treats turn ids as opaque); tests just need unique caller-minted ids.
- */
+/** Turn ids are opaque, caller-minted strings; tests only need uniqueness. */
 export function mintTestTurnId(): string {
-  return `${ulid().toLowerCase()}.test-exec`;
+  return ulid().toLowerCase();
 }
 
 /** Minimal AgentSpec for session/turn tests — interactive builtins off. */
