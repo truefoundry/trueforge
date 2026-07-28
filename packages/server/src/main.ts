@@ -19,6 +19,7 @@ try {
     { ActiveTurnRegistry },
     { createServerSandboxFactory },
     { connectRedis },
+    { standaloneSubscription },
     { RequestReplyExecutor, RequestReplyRouter },
   ] = await Promise.all([
     import('./app'),
@@ -32,6 +33,7 @@ try {
     import('./runtime/activeTurns'),
     import('./runtime/sandboxFactory'),
     import('./runtime/redis'),
+    import('./runtime/subscription'),
     import('@truefoundry/utils/request-reply'),
   ]);
 
@@ -76,6 +78,7 @@ try {
     executorId: configuration.EXECUTOR_ID,
     redis,
     requestHandler: requestReplyRouter.dispatchRoute.bind(requestReplyRouter),
+    subscription: standaloneSubscription({ redis, logger }),
     logger,
     options: { heartbeatIntervalMs: configuration.REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS },
   });

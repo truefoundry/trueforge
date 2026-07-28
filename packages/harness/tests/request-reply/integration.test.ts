@@ -11,10 +11,42 @@ import { redisRequest } from '../../src/request-reply/client';
 import { NoResponderError, RequestTimeoutError } from '../../src/request-reply/errors';
 import { RequestReplyExecutor } from '../../src/request-reply/executor';
 import { RequestReplyRouter } from '../../src/request-reply/router';
+import type { Subscription } from '../../src/request-reply/subscription';
 import { heartbeatKey, sleep } from '../../src/request-reply/utils';
 
 const REDIS_URL = process.env['REDIS_URL'];
 const describeIfRedis = REDIS_URL ? describe : describe.skip;
+
+/**
+ * Test copy of the host-owned standalone strategy (the package ships only the
+ * Subscription contract; packages/server owns the production implementation).
+ */
+function testStandaloneSubscription(redis: RedisClientType): Subscription {
+  let subscriber: RedisClientType | null = null;
+  let subscribedChannel: string | null = null;
+  return {
+    async subscribe({ channel, onMessage, onLive, onLost }) {
+      subscribedChannel = channel;
+      subscriber = redis.duplicate();
+      subscriber.on('error', () => {
+        onLost();
+      });
+      await subscriber.connect();
+      await subscriber.subscribe(channel, onMessage);
+      onLive();
+    },
+    async close() {
+      if (!subscriber) {
+        return;
+      }
+      if (subscribedChannel) {
+        await subscriber.unsubscribe(subscribedChannel).catch(() => undefined);
+      }
+      await subscriber.close().catch(() => undefined);
+      subscriber = null;
+    },
+  };
+}
 
 describeIfRedis('request-reply over Redis', () => {
   const logger = winston.createLogger({ silent: true });
@@ -25,7 +57,7 @@ describeIfRedis('request-reply over Redis', () => {
   let executorA: RequestReplyExecutor;
   let executorB: RequestReplyExecutor;
 
-  /** Subscription completes async (in the subscriber's ready handler); the heartbeat marks it live. */
+  /** The first heartbeat SET is fired without being awaited; poll until it lands. */
   async function waitForHeartbeat(executorId: string): Promise<void> {
     for (let attempt = 0; attempt < 50; attempt += 1) {
       if ((await redis.exists(heartbeatKey(executorId))) === 1) {
@@ -54,6 +86,7 @@ describeIfRedis('request-reply over Redis', () => {
       executorId: executorIdA,
       redis,
       requestHandler: routerA.dispatchRoute.bind(routerA),
+      subscription: testStandaloneSubscription(redis),
       logger,
       options: { heartbeatIntervalMs: 500 },
     });
@@ -65,6 +98,7 @@ describeIfRedis('request-reply over Redis', () => {
       executorId: executorIdB,
       redis,
       requestHandler: routerB.dispatchRoute.bind(routerB),
+      subscription: testStandaloneSubscription(redis),
       logger,
       options: { heartbeatIntervalMs: 500 },
     });
