@@ -75,6 +75,7 @@ export function createServerApp(deps: ServerDeps) {
       modelStore: deps.modelStore,
       mcpStore: deps.mcpStore,
       ...(deps.sandboxFactory ? { sandboxFactory: deps.sandboxFactory } : {}),
+      redis: deps.redis,
       logger: deps.logger,
     }),
   );

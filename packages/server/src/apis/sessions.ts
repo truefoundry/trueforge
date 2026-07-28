@@ -150,7 +150,7 @@ export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): R
  * Failures to reach the owner surface as HTTPExceptions (412 unreachable,
  * 424 timed out), formatted by the app-level error handler.
  */
-async function cancelSessionTurn(
+export async function cancelSessionTurn(
   deps: Pick<SessionsRouterDeps, 'redis' | 'activeTurns'>,
   input: { sessionId: string; turnId: string; reason?: CancellationReason },
 ): Promise<void> {
