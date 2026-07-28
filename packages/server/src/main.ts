@@ -123,7 +123,11 @@ try {
     // Stop serving peer requests (waits for in-flight replies), then close
     // the primary client the executor's subscriber was duplicated from.
     await requestReplyExecutor.drain();
-    await redis.close().catch(() => undefined);
+    await redis.close().catch((error: unknown) => {
+      logger.warn('[Redis] Error closing client during shutdown', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
     await db.destroy();
     process.exit(0);
   };
