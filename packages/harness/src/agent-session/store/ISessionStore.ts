@@ -2,6 +2,7 @@ import type { MCPServerInitInfo, ThreadOverwriteContextEvent } from '../../core/
 import type { CompletionUsage } from '../../core/llm/LLMTypes';
 import type {
   AgentThreadSnapshot,
+  CapabilityStateValue,
   ContextMessage,
   SubAgentCompletionMarker,
 } from '../../core/runtime/AgentThread.types';
@@ -123,7 +124,7 @@ export interface PatchThreadCapabilityStateInput {
   turn_id: string;
   thread_id: string;
   key: string;
-  state: unknown;
+  state: CapabilityStateValue;
 }
 
 export interface ListTurnEventsInput {

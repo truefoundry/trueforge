@@ -50,6 +50,16 @@ export const InternalEventType = {
 } as const;
 
 /**
+ * JSON-serializable capability state value. Excludes `undefined` — durability is
+ * jsonb/JSON, so clears use `null` and absent data omits the key or the map.
+ */
+export type CapabilityStateValue =
+  null | boolean | number | string | CapabilityStateValue[] | { [key: string]: CapabilityStateValue };
+
+/** Cross-turn capability KV map. Keys: capability.state.key; `tfy.` reserved for builtins. */
+export type CapabilityState = Record<string, CapabilityStateValue>;
+
+/**
  * Cross-turn capability KV write. Processors emit without `thread_id`
  * ({@link AgentContextProcessorOutput}); AgentThread stamps `thread_id` when yielding.
  */
@@ -57,7 +67,7 @@ export interface InternalCapabilityStateEvent {
   type: typeof InternalEventType.CAPABILITY_STATE;
   thread_id: string;
   key: string;
-  state: unknown;
+  state: CapabilityStateValue;
 }
 
 export interface InternalPassthroughEvent {
@@ -161,7 +171,7 @@ export interface AgentThreadSnapshot {
   agent_info?: AgentInfo | undefined;
   completion?: SubAgentCompletionMarker | undefined;
   /** Cross-turn capability KV. Keys: capability.state.key; `tfy.` reserved for builtins. */
-  capability_state?: Record<string, unknown> | undefined;
+  capability_state?: CapabilityState | undefined;
 }
 
 export interface AgentThreadConstructorInput {
@@ -179,7 +189,7 @@ export interface AgentThreadConstructorInput {
    * Previous turn's capability_state for hydration. Optional — omit on first
    * turn / fresh sub-agent. The constructor is the sole hydration site.
    */
-  capabilityState?: Record<string, unknown> | undefined;
+  capabilityState?: CapabilityState | undefined;
   tracing: AgentTracing;
   logger: Logger;
 }

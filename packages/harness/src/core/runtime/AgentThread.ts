@@ -64,6 +64,7 @@ import type {
   AgentThreadRuntimeSendBatch,
   AgentThreadRuntimeSendInput,
   AgentThreadSnapshot,
+  CapabilityState,
 } from './AgentThread.types';
 import {
   InternalEventType,
@@ -494,7 +495,7 @@ export class AgentThread {
   private currentState: AgentThreadState | null = null;
   private readonly preComputedCompletion?: SubAgentCompletionMarker | undefined;
   /** Mirrored capability KV — source for toSnapshot().capability_state. */
-  private capabilityState: Record<string, unknown> = {};
+  private capabilityState: CapabilityState = {};
   private readonly capabilityStateKeys: ReadonlySet<string>;
 
   constructor(input: AgentThreadConstructorInput) {
@@ -1373,12 +1374,12 @@ function assertUniqueStateKeys(capabilities: readonly AgentCapability[]): void {
 
 function claimCapabilityState(
   capabilities: readonly AgentCapability[],
-  input: Record<string, unknown> | undefined,
+  input: CapabilityState | undefined,
   logger: Logger,
-): Record<string, unknown> {
+): CapabilityState {
   if (!input) return {};
   const claimedKeys = new Set(capabilities.map(c => c.state?.key).filter((k): k is string => typeof k === 'string'));
-  const claimed: Record<string, unknown> = {};
+  const claimed: CapabilityState = {};
   for (const [key, value] of Object.entries(input)) {
     if (!claimedKeys.has(key)) {
       logger.warn(`Dropping unclaimed capability_state key '${key}' — no capability declares it`);

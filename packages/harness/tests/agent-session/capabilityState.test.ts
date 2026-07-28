@@ -10,7 +10,7 @@ import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySess
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import type { AgentContextProcessorOutput } from '../../src/core/capabilities/AgentContextProcessor';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
-import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
+import { InternalEventType, type CapabilityStateValue } from '../../src/core/runtime/AgentThread.types';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import {
   emptyLlmStream,
@@ -21,14 +21,10 @@ import {
   mintTestTurnId,
 } from './testHelpers';
 
-interface PlanState {
-  todo: { title: string; description: string; status: string }[];
-}
-
 function makePlanShapedCapability(options: {
   enabled: boolean;
-  emitState?: PlanState;
-  onLoad?: (state: unknown) => void;
+  emitState?: CapabilityStateValue;
+  onLoad?: (state: CapabilityStateValue) => void;
 }): AgentCapability {
   const emitState = options.emitState;
   const processor = {
@@ -48,7 +44,7 @@ function makePlanShapedCapability(options: {
           preLLMProcessors: [processor],
           state: {
             key: 'tfy.plan',
-            load(state: unknown) {
+            load(state: CapabilityStateValue) {
               options.onLoad?.(state);
             },
           },
@@ -69,10 +65,10 @@ describe('capability_state (tfy.plan fixture)', () => {
       agent_spec: makeAgentSpec(),
     });
 
-    const planV1: PlanState = {
+    const planV1: CapabilityStateValue = {
       todo: [{ title: 'step', description: 'do it', status: 'wip' }],
     };
-    let loads: unknown[] = [];
+    let loads: CapabilityStateValue[] = [];
 
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -141,7 +137,7 @@ describe('capability_state (tfy.plan fixture)', () => {
       session_id: 's1',
       agent_spec: makeAgentSpec(),
     });
-    const planV1: PlanState = {
+    const planV1: CapabilityStateValue = {
       todo: [{ title: 'step', description: 'do it', status: 'done' }],
     };
 
