@@ -278,7 +278,8 @@ export interface ServerConfiguration {
   EXECUTOR_ID: string;
   /**
    * Max ms to wait for a peer executor's reply before failing with 424.
-   * Env: `REDIS_REQUEST_REPLY_TIMEOUT_MS`. Default 10000.
+   * Must exceed CANCEL_TEARDOWN_TIMEOUT_MS so a peer's teardown wait can
+   * reply in time. Env: `REDIS_REQUEST_REPLY_TIMEOUT_MS`. Default 60000.
    */
   REDIS_REQUEST_REPLY_TIMEOUT_MS: number;
   /**
@@ -286,6 +287,11 @@ export interface ServerConfiguration {
    * Env: `REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS`. Default 5000.
    */
   REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS: number;
+  /**
+   * How long a cancel waits for the aborted run's teardown before replying 424.
+   * Env: `CANCEL_TEARDOWN_TIMEOUT_MS`. Default 15000.
+   */
+  CANCEL_TEARDOWN_TIMEOUT_MS: number;
 }
 
 // ============================================================================
@@ -350,12 +356,17 @@ const configuration: ServerConfiguration = {
   REDIS_REQUEST_REPLY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'REDIS_REQUEST_REPLY_TIMEOUT_MS',
     raw: getEnv('REDIS_REQUEST_REPLY_TIMEOUT_MS'),
-    defaultValue: 10_000,
+    defaultValue: 60_000,
   }),
   REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS: parsePositiveInt({
     envKey: 'REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS',
     raw: getEnv('REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS'),
     defaultValue: 5_000,
+  }),
+  CANCEL_TEARDOWN_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'CANCEL_TEARDOWN_TIMEOUT_MS',
+    raw: getEnv('CANCEL_TEARDOWN_TIMEOUT_MS'),
+    defaultValue: 15_000,
   }),
 } as const;
 

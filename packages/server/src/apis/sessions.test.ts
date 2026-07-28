@@ -19,15 +19,21 @@ function makeRoute() {
 }
 
 describe('sessions/cancel request-reply route', () => {
-  it('cancels a turn running in this process and replies 200', async () => {
+  it('cancels a turn running in this process and replies 200 after teardown', async () => {
     const { activeTurns, router } = makeRoute();
     const abortController = new AbortController();
-    void activeTurns.track({
+    const tracked = activeTurns.track({
       sessionId: 's1',
       turnId: '01abc.exec1',
       abortController,
       stream: values([1]),
     });
+    // The cancel reply waits for teardown, so the run must actually drain.
+    const drain = (async () => {
+      for await (const value of tracked) {
+        void value;
+      }
+    })();
 
     const reply = await router.dispatchRoute(SESSIONS_CANCEL_PATH, {
       body: { session_id: 's1', turn_id: '01abc.exec1', reason: CancellationReason.ClientCancelled },
@@ -36,6 +42,7 @@ describe('sessions/cancel request-reply route', () => {
     assert.equal(reply.status, 200);
     assert.equal(abortController.signal.aborted, true);
     assert.equal(abortController.signal.reason, CancellationReason.ClientCancelled);
+    await drain;
   });
 
   it('replies 412 when the turn is not running here', async () => {

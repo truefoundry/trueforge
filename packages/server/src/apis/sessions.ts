@@ -110,7 +110,7 @@ export interface SessionsRouterDeps {
 function cancelTurnOnThisExecutor(
   activeTurns: ActiveTurnRegistry,
   input: { sessionId: string; turnId: string; reason: CancellationReason },
-): boolean {
+): Promise<boolean> {
   return activeTurns.cancelIfRunning({
     sessionId: input.sessionId,
     turnId: input.turnId,
@@ -119,36 +119,38 @@ function cancelTurnOnThisExecutor(
 }
 
 /**
- * Peer-facing cancel handler (registered on the request-reply router in
- * createSessionsRouter): aborts the turn if it runs in this process. 412
- * tells the caller the turn is not running here (terminal or torn down),
- * which the HTTP handler treats as the same no-op as local
- * cancel-of-finished-turn.
+ * Peer-facing cancel handler (registered in createSessionsRouter): aborts the
+ * turn if it runs in this process and waits for teardown. 200 = run gone,
+ * 412 = not running here (treated by callers as a no-op).
  */
 export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): RequestReplyRouteHandler {
-  return request => {
+  return async request => {
     const parsed = CancelPeerBodySchema.safeParse(request.body);
     if (!parsed.success) {
-      return Promise.resolve({ status: 400, body: { message: 'Invalid sessions/cancel payload' } });
+      return { status: 400, body: { message: 'Invalid sessions/cancel payload' } };
     }
-    const found = cancelTurnOnThisExecutor(activeTurns, {
-      sessionId: parsed.data.session_id,
-      turnId: parsed.data.turn_id,
-      reason: parsed.data.reason,
-    });
-    return Promise.resolve(
-      found ? { status: 200, body: {} } : { status: 412, body: { message: 'Turn is not running on this executor' } },
-    );
+    try {
+      const found = await cancelTurnOnThisExecutor(activeTurns, {
+        sessionId: parsed.data.session_id,
+        turnId: parsed.data.turn_id,
+        reason: parsed.data.reason,
+      });
+      return found
+        ? { status: 200, body: {} }
+        : { status: 412, body: { message: 'Turn is not running on this executor' } };
+    } catch (error) {
+      if (error instanceof HTTPException) {
+        return { status: error.status, body: { message: error.message } };
+      }
+      throw error;
+    }
   };
 }
 
 /**
- * Cancels the turn wherever it runs: on this executor directly, or on the
- * owning peer over Redis request-reply. Callers state the cancellation
- * motive; no motive means a plain client cancel. A peer 412 (turn no longer
- * running there) is the same no-op as a local cancel-of-finished-turn.
- * Failures to reach the owner surface as HTTPExceptions (412 unreachable,
- * 424 timed out), formatted by the app-level error handler.
+ * Cancels the turn wherever it runs: locally or on the owning peer over Redis
+ * request-reply. Callers state the motive; default is a plain client cancel.
+ * Owner failures throw HTTPException (412 unreachable, 424 timed out).
  */
 export async function cancelSessionTurn(
   deps: Pick<SessionsRouterDeps, 'redis' | 'activeTurns'>,
@@ -168,6 +170,10 @@ export async function cancelSessionTurn(
         },
         options: { replyTimeoutMs: configuration.REDIS_REQUEST_REPLY_TIMEOUT_MS },
       });
+      // The owner replies 424 when the aborted run's teardown timed out there.
+      if (reply.status === 424) {
+        throw new HTTPException(424, { message: 'Timed out waiting for the owning executor to cancel the turn' });
+      }
       if (reply.status !== 200 && reply.status !== 412) {
         throw new HTTPException(500, { message: 'Failed to cancel turn on the owning executor' });
       }
@@ -183,7 +189,7 @@ export async function cancelSessionTurn(
     return;
   }
 
-  cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
+  await cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
 }
 
 export function createSessionsRouter(deps: SessionsRouterDeps) {
