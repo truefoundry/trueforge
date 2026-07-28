@@ -1,6 +1,7 @@
 /**
  * Durable turn handle. {@link TurnHandle.stream} is execute-once (persist-before-yield).
  */
+import { AgentHarnessError } from '../core/errors';
 import type { MCPAuthRequiredEvent, ModelMessageDeltaEvent, ThreadDoneEvent } from '../core/events/schema';
 import { EventType as HarnessEventType, newEventId } from '../core/events/schema';
 import { getEmptyUsage } from '../core/llm/LLMTypes';
@@ -336,6 +337,14 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         return null;
 
       case InternalEventType.CAPABILITY_STATE: {
+        // Persist boundary: types exclude undefined; reject it at runtime so stores never see it.
+        const state: unknown = event.state;
+        if (state === undefined) {
+          throw new AgentHarnessError(
+            'capability_state_error',
+            `CAPABILITY_STATE for key '${event.key}' must not be undefined — use null to clear durable state`,
+          );
+        }
         await this.store.patchThreadCapabilityState({
           ...scope,
           thread_id: event.thread_id,
