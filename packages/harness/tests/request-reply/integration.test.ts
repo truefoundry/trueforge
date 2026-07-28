@@ -85,7 +85,7 @@ describeIfRedis('request-reply over Redis', () => {
     executorA = new RequestReplyExecutor({
       executorId: executorIdA,
       redis,
-      requestHandler: routerA.dispatchRoute.bind(routerA),
+      requestHandler: routerA.createRequestHandler(),
       subscription: testStandaloneSubscription(redis),
       logger,
       options: { heartbeatIntervalMs: 500 },
@@ -97,7 +97,7 @@ describeIfRedis('request-reply over Redis', () => {
     executorB = new RequestReplyExecutor({
       executorId: executorIdB,
       redis,
-      requestHandler: routerB.dispatchRoute.bind(routerB),
+      requestHandler: routerB.createRequestHandler(),
       subscription: testStandaloneSubscription(redis),
       logger,
       options: { heartbeatIntervalMs: 500 },

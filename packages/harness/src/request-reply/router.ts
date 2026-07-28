@@ -1,5 +1,5 @@
 import { ReplyError } from './errors';
-import type { JSONReply, RequestEnvelope } from './types';
+import type { JSONReply, RequestEnvelope, RequestHandler } from './types';
 
 /**
  * Handlers receive the wire body as unvalidated JSON and must validate it
@@ -9,7 +9,8 @@ export type RouteHandler = (request: RequestEnvelope) => Promise<JSONReply>;
 
 /**
  * In-process dispatch table keyed by logical path (e.g. `sessions/cancel`).
- * The host creates one at boot and binds `dispatchRoute` into the executor.
+ * The host creates one at boot and passes `createRequestHandler()` to the
+ * executor.
  */
 export class RequestReplyRouter {
   private readonly routes = new Map<string, RouteHandler>();
@@ -33,5 +34,10 @@ export class RequestReplyRouter {
       throw new ReplyError(500, `Route ${path} not found for executor proxying`);
     }
     return fn(request);
+  }
+
+  /** Builds the `requestHandler` callback the executor consumes: it dispatches every incoming request through this router. */
+  createRequestHandler(): RequestHandler {
+    return (path, request) => this.dispatchRoute(path, request);
   }
 }

@@ -77,7 +77,7 @@ try {
   const requestReplyExecutor = new RequestReplyExecutor({
     executorId: configuration.EXECUTOR_ID,
     redis,
-    requestHandler: requestReplyRouter.dispatchRoute.bind(requestReplyRouter),
+    requestHandler: requestReplyRouter.createRequestHandler(),
     subscription: standaloneSubscription({ redis, logger }),
     logger,
     options: { heartbeatIntervalMs: configuration.REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS },
