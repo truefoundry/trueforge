@@ -82,19 +82,7 @@ try {
     logger,
     options: { heartbeatIntervalMs: configuration.REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS },
   });
-  const attachExecutor = async () => {
-    try {
-      await requestReplyExecutor.init();
-    } catch (error) {
-      logger.error('[RequestReplyExecutor] Attach failed, will retry when Redis is ready', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
-  await attachExecutor();
-  redis.on('ready', () => {
-    void attachExecutor();
-  });
+  await requestReplyExecutor.init();
 
   const server = serve({ fetch: app.fetch, port: configuration.PORT }, info => {
     console.log(`Agent server listening on http://localhost:${String(info.port)} (docs at /docs)`);

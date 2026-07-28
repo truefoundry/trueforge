@@ -13,9 +13,10 @@ function deadRedisClient(): RedisClientType {
 }
 
 describe('standaloneSubscription', () => {
-  it('a failed attach resets the guard so a retry attaches instead of silently no-oping', async () => {
+  it('a failed attach resolves, retries on primary ready, and close() detaches the retry', async () => {
     const logger = winston.createLogger({ silent: true });
-    const subscription = standaloneSubscription({ redis: deadRedisClient(), logger });
+    const redis = deadRedisClient();
+    const subscription = standaloneSubscription({ redis, logger });
     let liveSignals = 0;
     const hooks = {
       channel: 'rr:req:test-exec',
@@ -26,15 +27,18 @@ describe('standaloneSubscription', () => {
       onLost: () => undefined,
     };
 
-    await assert.rejects(subscription.subscribe(hooks));
+    // A failed connect is swallowed, not surfaced to init().
+    await subscription.subscribe(hooks);
     assert.equal(liveSignals, 0);
+    assert.equal(redis.listenerCount('ready'), 1);
 
-    // Before the guard reset, this second attempt resolved without attaching
-    // or signalling onLive — the executor then believed it was subscribed and
-    // never started its heartbeat. It must reject (a real retry) instead.
-    await assert.rejects(subscription.subscribe(hooks));
+    // A primary 'ready' re-attempts the attach; it fails again here but must
+    // neither throw nor leave a half-built subscriber behind.
+    redis.emit('ready');
+    await new Promise(resolve => setTimeout(resolve, 50));
     assert.equal(liveSignals, 0);
 
     await subscription.close();
+    assert.equal(redis.listenerCount('ready'), 0);
   });
 });

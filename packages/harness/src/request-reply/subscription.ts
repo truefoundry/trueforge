@@ -19,8 +19,9 @@ export interface SubscriptionHooks {
 export interface Subscription {
   /**
    * Engage the subscription; `onLive` (not this promise) signals serving.
-   * Reject when nothing was engaged; `init()` propagates the rejection and
-   * stays retryable.
+   * Implementations may self-heal from their own connection events and
+   * resolve despite a failed first attach; reject only when the host should
+   * own the retry — `init()` propagates the rejection and stays retryable.
    */
   subscribe(hooks: SubscriptionHooks): Promise<void>;
   /** Release only what `subscribe` created — never the host's primary client. Must not throw. */
