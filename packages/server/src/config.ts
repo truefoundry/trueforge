@@ -124,14 +124,6 @@ export const parseApiKeysByName = (): Record<string, string> => {
   return byName;
 };
 
-/**
- * Boot-generated executor identity, embedded into turn ids
- * (`<ulid>.<executorId>`). Deliberately NOT an env var: the id must be unique
- * per process (two subscribers on one request channel race on the reply key)
- * and its lifetime must match the in-memory AbortControllers — after a
- * restart, turns owned by the dead process are correctly unreachable.
- * The id is deployment identity, not a secret, so Math.random suffices.
- */
 export function randomAlphanumeric(length: number): string {
   return Array.from({ length }, () => Math.floor(Math.random() * 36).toString(36)).join('');
 }

@@ -271,9 +271,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   // Cancels only the session's tail (last_turn_id). Cancelling with no
   // running turn is a 200 no-op, matching the turn state machine (first
-  // terminal write wins). The turn id names its owning executor
-  // (`<ulid>.<executorId>`); when another replica owns the turn, the cancel
-  // hops to it over Redis request-reply.
+  // terminal write wins).
   const cancelSessionHandler: RouteHandler<typeof cancelSessionRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const record = await deps.sessionStore.getSession({ tenant_name: TENANT_NAME, session_id: sessionId });

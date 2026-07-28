@@ -1,12 +1,3 @@
-/**
- * Peered turn id grammar: `<ulid>.<executorId>`. The executor segment names
- * the process that owns the running turn, so any replica can route a command
- * (e.g. cancel) to it.
- *
- * Server-owned on purpose: the shared request-reply transport only ever sees
- * a plain `executorId` — each host application defines and parses its own id
- * grammar in its own code.
- */
 import { HTTPException } from 'hono/http-exception';
 import { ulid } from 'ulid';
 
