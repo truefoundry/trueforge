@@ -342,11 +342,7 @@ export class AgentThreadOrchestrator {
               content: '',
             };
             yield parentToolResponse;
-            const parentEvents = parentThread.send([chunk.send_to_parent]);
-            for await (const event of parentEvents) {
-              const includesSendToParent = event.context.includes(chunk.send_to_parent);
-              yield includesSendToParent ? { ...event, output: [parentToolResponse] } : event;
-            }
+            yield* this.sendToThread(chunk.parent.thread_id, [chunk.send_to_parent]);
           }
           yield chunk;
           this.agentThreads.delete(chunk.thread_id);
