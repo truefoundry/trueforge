@@ -345,7 +345,7 @@ const configuration: ServerConfiguration = {
     raw: getEnv('DATABASE_POOL_MAX'),
     defaultValue: 10,
   }),
-  REDIS_URL: getEnv('REDIS_URL', { required: true }) ?? '',
+  REDIS_URL: requireNonEmptyEnv('REDIS_URL'),
   EXECUTOR_ID: randomAlphanumeric(6),
   REDIS_REQUEST_REPLY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'REDIS_REQUEST_REPLY_TIMEOUT_MS',
