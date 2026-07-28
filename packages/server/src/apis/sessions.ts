@@ -107,6 +107,17 @@ export interface SessionsRouterDeps {
   requestReplyRouter: RequestReplyRouter;
 }
 
+function cancelTurnOnThisExecutor(
+  activeTurns: ActiveTurnRegistry,
+  input: { sessionId: string; turnId: string; reason: CancellationReason },
+): boolean {
+  return activeTurns.cancelIfRunning({
+    sessionId: input.sessionId,
+    turnId: input.turnId,
+    abortReason: input.reason,
+  });
+}
+
 /**
  * Peer-facing cancel handler (registered on the request-reply router in
  * createSessionsRouter): aborts the turn if it runs in this process. 412
@@ -120,15 +131,59 @@ export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): R
     if (!parsed.success) {
       return Promise.resolve({ status: 400, body: { message: 'Invalid sessions/cancel payload' } });
     }
-    const found = activeTurns.cancelIfRunning({
+    const found = cancelTurnOnThisExecutor(activeTurns, {
       sessionId: parsed.data.session_id,
       turnId: parsed.data.turn_id,
-      abortReason: parsed.data.reason,
+      reason: parsed.data.reason,
     });
     return Promise.resolve(
       found ? { status: 200, body: {} } : { status: 412, body: { message: 'Turn is not running on this executor' } },
     );
   };
+}
+
+/**
+ * Cancels the turn wherever it runs: on this executor directly, or on the
+ * owning peer over Redis request-reply. Callers state the cancellation
+ * motive; no motive means a plain client cancel. A peer 412 (turn no longer
+ * running there) is the same no-op as a local cancel-of-finished-turn.
+ * Failures to reach the owner surface as HTTPExceptions (412 unreachable,
+ * 424 timed out), formatted by the app-level error handler.
+ */
+async function cancelSessionTurn(
+  deps: Pick<SessionsRouterDeps, 'redis' | 'activeTurns'>,
+  input: { sessionId: string; turnId: string; reason?: CancellationReason },
+): Promise<void> {
+  const { sessionId, turnId, reason = CancellationReason.ClientCancelled } = input;
+
+  const owner = executorFromTurnId(turnId);
+  if (owner !== undefined && owner !== configuration.EXECUTOR_ID) {
+    try {
+      const reply = await redisRequest({
+        redis: deps.redis,
+        executorId: owner,
+        path: SESSIONS_CANCEL_PATH,
+        request: {
+          body: { session_id: sessionId, turn_id: turnId, reason },
+        },
+        options: { replyTimeoutMs: configuration.REDIS_REQUEST_REPLY_TIMEOUT_MS },
+      });
+      if (reply.status !== 200 && reply.status !== 412) {
+        throw new HTTPException(500, { message: 'Failed to cancel turn on the owning executor' });
+      }
+    } catch (error) {
+      if (error instanceof NoResponderError) {
+        throw new HTTPException(412, { message: `Executor owning the running turn is unreachable: ${owner}` });
+      }
+      if (error instanceof RequestTimeoutError) {
+        throw new HTTPException(424, { message: 'Timed out waiting for the owning executor to cancel the turn' });
+      }
+      throw error;
+    }
+    return;
+  }
+
+  cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
 }
 
 export function createSessionsRouter(deps: SessionsRouterDeps) {
@@ -224,39 +279,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({}, 200);
     }
 
-    const owner = executorFromTurnId(turnId);
-    if (owner !== undefined && owner !== configuration.EXECUTOR_ID) {
-      try {
-        const reply = await redisRequest({
-          redis: deps.redis,
-          executorId: owner,
-          path: SESSIONS_CANCEL_PATH,
-          request: {
-            body: { session_id: sessionId, turn_id: turnId, reason: CancellationReason.ClientCancelled },
-          },
-          options: { replyTimeoutMs: configuration.REDIS_REQUEST_REPLY_TIMEOUT_MS },
-        });
-        // Peer 412 = turn no longer running there; same 200 no-op as local.
-        if (reply.status !== 200 && reply.status !== 412) {
-          throw new HTTPException(500, { message: 'Failed to cancel turn on the owning executor' });
-        }
-      } catch (error) {
-        if (error instanceof NoResponderError) {
-          return c.json({ error: { message: `Executor owning the running turn is unreachable: ${owner}` } }, 412);
-        }
-        if (error instanceof RequestTimeoutError) {
-          return c.json({ error: { message: 'Timed out waiting for the owning executor to cancel the turn' } }, 424);
-        }
-        throw error;
-      }
-      return c.json({}, 200);
-    }
-
-    deps.activeTurns.cancelIfRunning({
-      sessionId,
-      turnId,
-      abortReason: CancellationReason.ClientCancelled,
-    });
+    await cancelSessionTurn(deps, { sessionId, turnId });
     return c.json({}, 200);
   };
 
