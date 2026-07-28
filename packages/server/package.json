@@ -11,7 +11,7 @@
     "dev": "tsx --env-file=.env src/main.ts",
     "migrate": "tsx --env-file=.env src/db/migrate-cli.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/**/*.test.ts",
+    "test": "NODE_ENV=test tsx --test src/**/*.test.ts",
     "start": "node dist/main.js"
   },
   "dependencies": {
