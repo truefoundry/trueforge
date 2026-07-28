@@ -4,7 +4,7 @@ import type {
   ChatCompletionTool,
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
-import type { AgentCapability } from '../capabilities/AgentCapability';
+import type { AgentCapability, CapabilityState } from '../capabilities/AgentCapability';
 import type {
   AgentContextProcessorOutput,
   AgentContextProcessorOverwriteContext,
@@ -64,7 +64,6 @@ import type {
   AgentThreadRuntimeSendBatch,
   AgentThreadRuntimeSendInput,
   AgentThreadSnapshot,
-  CapabilityState,
 } from './AgentThread.types';
 import {
   InternalEventType,

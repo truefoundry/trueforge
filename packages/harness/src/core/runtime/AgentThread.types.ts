@@ -1,6 +1,6 @@
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import type { AgentCapability } from '../capabilities/AgentCapability';
+import type { AgentCapability, CapabilityState, JsonValue } from '../capabilities/AgentCapability';
 import type { RegisteredPassthroughEvent, WithRegisteredPassthrough } from '../events/PassthroughEvents';
 import type {
   ActionRequiredEvent,
@@ -48,15 +48,6 @@ export const InternalEventType = {
   MCP_AUTH_REQUIRED: 'internal.mcp.auth_required',
   CAPABILITY_STATE: 'internal.capability.state',
 } as const;
-
-/**
- * JSON-serializable value. Excludes `undefined` — durability is jsonb/JSON, so
- * clears use `null` and absent data omits the key or the map.
- */
-export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-
-/** Cross-turn capability KV map. Keys: capability.state.key; `tfy.` reserved for builtins. */
-export type CapabilityState = Record<string, JsonValue>;
 
 /**
  * Cross-turn capability KV write. Processors emit without `thread_id`
