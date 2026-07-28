@@ -172,7 +172,7 @@ export class RequestReplyExecutor {
     try {
       replyPayload = await this.requestHandler(path, { body, headers });
     } catch (err) {
-      // Gateway maps hono's HTTPException here; ReplyError is the framework-neutral equivalent.
+      // ReplyError lets handlers choose the reply status; any other throw is an unexpected 500.
       if (err instanceof ReplyError) {
         replyPayload = { status: err.status, headers: {}, body: { message: err.message } };
       } else {

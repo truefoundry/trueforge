@@ -109,11 +109,6 @@ export class SessionHandle<
    * (must exist). Concurrent `'auto'` forks both succeed.
    */
   async createTurn(input: {
-    /**
-     * Caller-minted id for the new turn — opaque to the library (stored and
-     * returned verbatim). Hosts that peer replicas encode ownership in it
-     * with their own grammar (e.g. `<ulid>.<executorId>`).
-     */
     turn_id: string;
     input?: TurnInputItem[] | undefined;
     /** 'auto'/omitted → session.last_turn_id; null → new root; id → fork from that turn. */

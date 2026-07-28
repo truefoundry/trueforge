@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
 /**
- * Plain JSON value (gateway takes this from hono; a shared package must not
- * depend on a web framework). Wire bodies are untyped JSON: the transport
- * carries them verbatim and each route handler validates its own body.
+ * Plain JSON value, defined locally so the wire schema does not depend on any
+ * web framework's types. Wire bodies are untyped JSON: the transport carries
+ * them verbatim and each route handler validates its own body.
  */
 export type JSONValue = string | number | boolean | null | JSONValue[] | { [key: string]: JSONValue };
 

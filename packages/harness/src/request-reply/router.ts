@@ -9,7 +9,7 @@ export type RouteHandler = (request: RequestEnvelope) => Promise<JSONReply>;
 
 /**
  * In-process dispatch table keyed by logical path (e.g. `sessions/cancel`).
- * Unlike the gateway (module singleton), the host creates and wires one.
+ * The host creates one at boot and binds `dispatchRoute` into the executor.
  */
 export class RequestReplyRouter {
   private readonly routes = new Map<string, RouteHandler>();
@@ -29,7 +29,7 @@ export class RequestReplyRouter {
   async dispatchRoute(path: string, request: RequestEnvelope): Promise<JSONReply> {
     const fn = this.routes.get(path);
     if (!fn) {
-      // Gateway throws hono's HTTPException here; ReplyError is the framework-neutral equivalent.
+      // ReplyError carries an explicit status onto the wire (see executor error mapping).
       throw new ReplyError(500, `Route ${path} not found for executor proxying`);
     }
     return fn(request);

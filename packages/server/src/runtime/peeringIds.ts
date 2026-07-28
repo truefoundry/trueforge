@@ -5,8 +5,8 @@
  * as local-only.
  *
  * Server-owned on purpose: the shared request-reply transport only ever sees
- * a plain `executorId` — each host defines its own id grammar (the gateway
- * uses a 3-segment `<ulid>.<zone>.<executor>` grammar in its own app code).
+ * a plain `executorId` — each host application defines and parses its own id
+ * grammar in its own code.
  */
 import { ulid } from 'ulid';
 

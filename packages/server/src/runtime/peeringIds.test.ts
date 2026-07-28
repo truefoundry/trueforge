@@ -29,7 +29,7 @@ describe('executorFromTurnId', () => {
     assert.equal(executorFromTurnId('01hxyzabcdefghijklmnopqrst'), undefined);
   });
 
-  it('returns undefined for 3-segment gateway-style ids', () => {
+  it('returns undefined for ids with more than two segments', () => {
     assert.equal(executorFromTurnId('01hxyzabcdefghijklmnopqrst.g.srv1ab'), undefined);
   });
 
