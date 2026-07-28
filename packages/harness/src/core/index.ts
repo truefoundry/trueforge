@@ -116,12 +116,7 @@ export type {
   ThreadOverwriteContextEvent,
 } from './events/schema';
 export { InternalEventType } from './runtime/AgentThread.types';
-export type {
-  AgentThreadSendBatch,
-  CapabilityState,
-  CapabilityStateValue,
-  ContextMessage,
-} from './runtime/AgentThread.types';
+export type { AgentThreadSendBatch, CapabilityState, ContextMessage, JsonValue } from './runtime/AgentThread.types';
 export type { AgentThreadMetrics } from './runtime/metrics';
 
 // Tracing

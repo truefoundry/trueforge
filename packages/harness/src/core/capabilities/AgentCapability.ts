@@ -1,6 +1,6 @@
 import type { InstructionBuilder } from '../InstructionBuilder';
 import type { IToolSet } from '../mcp/IMCPServer';
-import type { CapabilityStateValue } from '../runtime/AgentThread.types';
+import type { JsonValue } from '../runtime/AgentThread.types';
 import type {
   PostToolCallAgentContextProcessor,
   PreLLMAgentContextProcessor,
@@ -22,5 +22,5 @@ export interface AgentCapability {
    * thread (`tfy.` reserved for builtins). `load` hydrates from the previous
    * turn's capability_state; writes go through CAPABILITY_STATE events.
    */
-  readonly state?: { key: string; load(state: CapabilityStateValue): void };
+  readonly state?: { key: string; load(state: JsonValue): void };
 }

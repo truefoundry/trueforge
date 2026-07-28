@@ -50,14 +50,13 @@ export const InternalEventType = {
 } as const;
 
 /**
- * JSON-serializable capability state value. Excludes `undefined` — durability is
- * jsonb/JSON, so clears use `null` and absent data omits the key or the map.
+ * JSON-serializable value. Excludes `undefined` — durability is jsonb/JSON, so
+ * clears use `null` and absent data omits the key or the map.
  */
-export type CapabilityStateValue =
-  null | boolean | number | string | CapabilityStateValue[] | { [key: string]: CapabilityStateValue };
+export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 /** Cross-turn capability KV map. Keys: capability.state.key; `tfy.` reserved for builtins. */
-export type CapabilityState = Record<string, CapabilityStateValue>;
+export type CapabilityState = Record<string, JsonValue>;
 
 /**
  * Cross-turn capability KV write. Processors emit without `thread_id`
@@ -67,7 +66,7 @@ export interface InternalCapabilityStateEvent {
   type: typeof InternalEventType.CAPABILITY_STATE;
   thread_id: string;
   key: string;
-  state: CapabilityStateValue;
+  state: JsonValue;
 }
 
 export interface InternalPassthroughEvent {
