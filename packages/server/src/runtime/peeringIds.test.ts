@@ -1,6 +1,11 @@
+import { HTTPException } from 'hono/http-exception';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { executorFromTurnId, mintPeeredTurnId } from './peeringIds';
+
+function isBadRequest(error: unknown): boolean {
+  return error instanceof HTTPException && error.status === 400;
+}
 
 describe('mintPeeredTurnId', () => {
   it('mints <ulid>.<executorId> and round-trips through executorFromTurnId', () => {
@@ -25,15 +30,15 @@ describe('executorFromTurnId', () => {
     assert.equal(executorFromTurnId('01hxyzabcdefghijklmnopqrst.srv1ab'), 'srv1ab');
   });
 
-  it('returns undefined for a bare ulid', () => {
-    assert.equal(executorFromTurnId('01hxyzabcdefghijklmnopqrst'), undefined);
+  it('throws 400 for a bare ulid', () => {
+    assert.throws(() => executorFromTurnId('01hxyzabcdefghijklmnopqrst'), isBadRequest);
   });
 
-  it('returns undefined for ids with more than two segments', () => {
-    assert.equal(executorFromTurnId('01hxyzabcdefghijklmnopqrst.g.srv1ab'), undefined);
+  it('throws 400 for ids with more than two segments', () => {
+    assert.throws(() => executorFromTurnId('01hxyzabcdefghijklmnopqrst.g.srv1ab'), isBadRequest);
   });
 
-  it('returns undefined for an empty executor segment', () => {
-    assert.equal(executorFromTurnId('01hxyzabcdefghijklmnopqrst.'), undefined);
+  it('throws 400 for an empty executor segment', () => {
+    assert.throws(() => executorFromTurnId('01hxyzabcdefghijklmnopqrst.'), isBadRequest);
   });
 });

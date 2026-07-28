@@ -159,7 +159,7 @@ export async function cancelSessionTurn(
   const { sessionId, turnId, reason = CancellationReason.ClientCancelled } = input;
 
   const owner = executorFromTurnId(turnId);
-  if (owner !== undefined && owner !== configuration.EXECUTOR_ID) {
+  if (owner !== configuration.EXECUTOR_ID) {
     try {
       const reply = await redisRequest({
         redis: deps.redis,

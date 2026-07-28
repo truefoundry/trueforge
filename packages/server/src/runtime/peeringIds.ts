@@ -1,13 +1,13 @@
 /**
  * Peered turn id grammar: `<ulid>.<executorId>`. The executor segment names
  * the process that owns the running turn, so any replica can route a command
- * (e.g. cancel) to it. Bare ids (no dot) carry no ownership and are treated
- * as local-only.
+ * (e.g. cancel) to it.
  *
  * Server-owned on purpose: the shared request-reply transport only ever sees
  * a plain `executorId` — each host application defines and parses its own id
  * grammar in its own code.
  */
+import { HTTPException } from 'hono/http-exception';
 import { ulid } from 'ulid';
 
 /**
@@ -22,10 +22,11 @@ export function mintPeeredTurnId(executorId: string): string {
   return `${ulid().toLowerCase()}.${executorId}`;
 }
 
-export function executorFromTurnId(turnId: string): string | undefined {
+/** Decodes the owning executor; throws 400 for an id outside the grammar. */
+export function executorFromTurnId(turnId: string): string {
   const parts = turnId.split('.');
-  if (parts.length !== 2 || !parts[1]) {
-    return undefined;
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw new HTTPException(400, { message: `ID ${turnId} is not a valid turn id` });
   }
   return parts[1];
 }
