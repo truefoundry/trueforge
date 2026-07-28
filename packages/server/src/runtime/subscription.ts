@@ -1,26 +1,23 @@
 /**
- * Standalone-Redis Subscription for the request-reply executor: a subscribed
- * connection cannot issue normal commands, so duplicate the primary client
- * for a dedicated subscriber. Server-owned on purpose — the package only
- * defines the Subscription contract and never manages connections (hosts
- * with other topologies, e.g. Sentinel, implement their own).
+ * Standalone-Redis Subscription: duplicates the primary client for a dedicated
+ * subscriber, since a subscribed connection cannot issue normal commands.
  */
 import type { Subscription } from '@truefoundry/utils/request-reply';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
 export function standaloneSubscription({ redis, logger }: { redis: RedisClientType; logger: Logger }): Subscription {
-  let subscriber: RedisClientType | null = null;
+  let subscriberRedisClient: RedisClientType | null = null;
   let channel: string | null = null;
 
   return {
     async subscribe({ channel: requestChannel, onMessage, onLive, onLost }) {
-      if (subscriber) {
+      if (subscriberRedisClient) {
         return;
       }
       channel = requestChannel;
-      subscriber = redis.duplicate();
-      let live = false;
+      const subscriber = redis.duplicate();
+      subscriberRedisClient = subscriber;
 
       subscriber.on('error', (err: Error) => {
         logger.error('[standaloneSubscription] Subscriber error', { channel, error: err.message });
@@ -30,39 +27,58 @@ export function standaloneSubscription({ redis, logger }: { redis: RedisClientTy
         logger.warn('[standaloneSubscription] Subscriber connection ended', { channel });
         onLost();
       });
-      // After a reconnect node-redis restores the subscription itself; only
-      // the heartbeat needs restarting. The first ready (during connect())
-      // precedes our subscribe, so it must not signal live yet.
+      // Re-attempt the subscribe on every ready (connect + each reconnect) so a
+      // failed SUBSCRIBE self-heals. Safe: node-redis dedupes the stable
+      // onMessage listener via a Set.
       subscriber.on('ready', () => {
-        if (live) {
-          onLive();
-        }
+        subscriber
+          .subscribe(requestChannel, onMessage)
+          .then(() => {
+            logger.info('[standaloneSubscription] Subscribed to request channel', { channel });
+            onLive();
+          })
+          .catch((err: unknown) => {
+            logger.error('[standaloneSubscription] Error subscribing to request channel', {
+              channel,
+              error: err instanceof Error ? err.message : String(err),
+            });
+            onLost();
+          });
       });
 
-      await subscriber.connect();
-      await subscriber.subscribe(requestChannel, onMessage);
-      live = true;
-      onLive();
+      try {
+        await subscriber.connect();
+      } catch (err) {
+        // Reset the guard and destroy the half-built duplicate so a retried
+        // subscribe() starts fresh.
+        subscriberRedisClient = null;
+        try {
+          subscriber.destroy();
+        } catch {
+          // ignore: the client may never have connected
+        }
+        throw err;
+      }
     },
 
     // Releases only the duplicated subscriber, never the primary client.
     async close() {
-      if (!subscriber) {
+      if (!subscriberRedisClient) {
         return;
       }
       try {
         if (channel) {
-          await subscriber.unsubscribe(channel);
+          await subscriberRedisClient.unsubscribe(channel);
         }
       } catch {
         // ignore: connection may already be closed
       }
       try {
-        await subscriber.close();
+        await subscriberRedisClient.close();
       } catch {
         // ignore
       }
-      subscriber = null;
+      subscriberRedisClient = null;
     },
   };
 }

@@ -22,28 +22,43 @@ const describeIfRedis = REDIS_URL ? describe : describe.skip;
  * Subscription contract; packages/server owns the production implementation).
  */
 function testStandaloneSubscription(redis: RedisClientType): Subscription {
-  let subscriber: RedisClientType | null = null;
+  let subscriberRedisClient: RedisClientType | null = null;
   let subscribedChannel: string | null = null;
   return {
     async subscribe({ channel, onMessage, onLive, onLost }) {
+      if (subscriberRedisClient) {
+        return;
+      }
       subscribedChannel = channel;
-      subscriber = redis.duplicate();
+      const subscriber = redis.duplicate();
+      subscriberRedisClient = subscriber;
       subscriber.on('error', () => {
         onLost();
       });
-      await subscriber.connect();
-      await subscriber.subscribe(channel, onMessage);
+      try {
+        await subscriber.connect();
+        await subscriber.subscribe(channel, onMessage);
+      } catch (err) {
+        // Failed attach resets the guard so a retry starts fresh (see server standaloneSubscription).
+        subscriberRedisClient = null;
+        try {
+          subscriber.destroy();
+        } catch {
+          // ignore
+        }
+        throw err;
+      }
       onLive();
     },
     async close() {
-      if (!subscriber) {
+      if (!subscriberRedisClient) {
         return;
       }
       if (subscribedChannel) {
-        await subscriber.unsubscribe(subscribedChannel).catch(() => undefined);
+        await subscriberRedisClient.unsubscribe(subscribedChannel).catch(() => undefined);
       }
-      await subscriber.close().catch(() => undefined);
-      subscriber = null;
+      await subscriberRedisClient.close().catch(() => undefined);
+      subscriberRedisClient = null;
     },
   };
 }
