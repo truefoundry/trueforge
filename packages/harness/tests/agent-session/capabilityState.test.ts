@@ -10,7 +10,7 @@ import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySess
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import type { AgentContextProcessorOutput } from '../../src/core/capabilities/AgentContextProcessor';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
-import { InternalEventType, type CapabilityStateValue } from '../../src/core/runtime/AgentThread.types';
+import { InternalEventType, type JsonValue } from '../../src/core/runtime/AgentThread.types';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import {
   emptyLlmStream,
@@ -23,8 +23,8 @@ import {
 
 function makePlanShapedCapability(options: {
   enabled: boolean;
-  emitState?: CapabilityStateValue;
-  onLoad?: (state: CapabilityStateValue) => void;
+  emitState?: JsonValue;
+  onLoad?: (state: JsonValue) => void;
 }): AgentCapability {
   const emitState = options.emitState;
   const processor = {
@@ -44,7 +44,7 @@ function makePlanShapedCapability(options: {
           preLLMProcessors: [processor],
           state: {
             key: 'tfy.plan',
-            load(state: CapabilityStateValue) {
+            load(state: JsonValue) {
               options.onLoad?.(state);
             },
           },
@@ -65,10 +65,10 @@ describe('capability_state (tfy.plan fixture)', () => {
       agent_spec: makeAgentSpec(),
     });
 
-    const planV1: CapabilityStateValue = {
+    const planV1: JsonValue = {
       todo: [{ title: 'step', description: 'do it', status: 'wip' }],
     };
-    let loads: CapabilityStateValue[] = [];
+    let loads: JsonValue[] = [];
 
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -137,7 +137,7 @@ describe('capability_state (tfy.plan fixture)', () => {
       session_id: 's1',
       agent_spec: makeAgentSpec(),
     });
-    const planV1: CapabilityStateValue = {
+    const planV1: JsonValue = {
       todo: [{ title: 'step', description: 'do it', status: 'done' }],
     };
 
