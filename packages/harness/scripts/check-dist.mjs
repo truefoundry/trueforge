@@ -13,6 +13,7 @@ const modulePaths = [
   'dist/index',
   'dist/core/index',
   'dist/agent-session/index',
+  'dist/request-reply/index',
   // Deep paths: one class module, one dropped-from-the-barrel internals module.
   'dist/core/sandbox/Sandbox',
   'dist/core/runtime/contextUtils',

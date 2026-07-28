@@ -12,7 +12,14 @@ import type { AgentContextProcessorOutput } from '../../src/core/capabilities/Ag
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
-import { emptyLlmStream, makeAgentSpec, makeMockILLM, makeSilentLogger, makeTestResolver } from './testHelpers';
+import {
+  emptyLlmStream,
+  makeAgentSpec,
+  makeMockILLM,
+  makeSilentLogger,
+  makeTestResolver,
+  mintTestTurnId,
+} from './testHelpers';
 
 interface PlanState {
   todo: { title: string; description: string; status: string }[];
@@ -68,6 +75,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     let loads: unknown[] = [];
 
     const turn1 = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -96,6 +104,7 @@ describe('capability_state (tfy.plan fixture)', () => {
 
     loads = [];
     const turn2 = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'continue' }],
       previous_turn_id: 'auto',
       signal: new AbortController().signal,
@@ -137,6 +146,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     };
 
     const turn1 = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -168,6 +178,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     };
 
     const turn3 = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'no plan' }],
       previous_turn_id: 'auto',
       signal: new AbortController().signal,

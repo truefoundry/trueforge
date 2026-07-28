@@ -150,7 +150,12 @@ export const cancelSessionRoute = createRoute({
     },
     412: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Requested action cannot be performed on the session because it is no longer usable.',
+      description:
+        'Requested action cannot be performed on the session because it is no longer usable, or the executor owning the running turn is unreachable.',
+    },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Timed out waiting for the executor owning the running turn to cancel it.',
     },
   },
 });

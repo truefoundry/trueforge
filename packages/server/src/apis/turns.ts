@@ -21,6 +21,7 @@ import type { Logger } from 'winston';
 import configuration from '../config';
 import { createAndExecuteTurnRoute, getTurnRoute, listTurnEventsRoute, listTurnsRoute } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
+import { mintPeeredTurnId } from '../runtime/peeringIds';
 import type { McpStore } from '../store/McpStore';
 import type { ModelStore } from '../store/ModelStore';
 import { TENANT_NAME } from './sessions';
@@ -207,6 +208,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     let turn;
     try {
       turn = await session.createTurn({
+        // Peered id: the executor segment lets any replica route commands
+        // (e.g. cancel) back to the process running this turn.
+        turn_id: mintPeeredTurnId(configuration.EXECUTOR_ID),
         input: body.input,
         previous_turn_id: body.previous_turn_id,
         signal: abortController.signal,

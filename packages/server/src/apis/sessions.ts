@@ -5,7 +5,13 @@ import {
   SessionStoreConflictError,
   SessionStoreNotFoundError,
 } from '@truefoundry/utils/agent-session';
+import type { RouteHandler as RequestReplyRouteHandler, RequestReplyRouter } from '@truefoundry/utils/request-reply';
+import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundry/utils/request-reply';
+import { HTTPException } from 'hono/http-exception';
+import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';
+import { z } from 'zod';
+import configuration from '../config';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -15,12 +21,23 @@ import {
   updateSessionRoute,
 } from '../routes/sessionRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
+import { executorFromTurnId } from '../runtime/peeringIds';
 import type { Session } from '../schemas/session';
 import type { McpStore } from '../store/McpStore';
 import type { ModelStore } from '../store/ModelStore';
 
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
 export const TENANT_NAME = 'default';
+
+/** Request-reply path a replica serves to cancel a turn it owns. */
+export const SESSIONS_CANCEL_PATH = 'sessions/cancel';
+
+/** Wire body of a peer cancel; validated on receipt (it crosses processes via Redis). */
+const CancelPeerBodySchema = z.object({
+  session_id: z.string(),
+  turn_id: z.string(),
+  reason: z.nativeEnum(CancellationReason),
+});
 
 export function toWireSession(record: SessionRecord): Session {
   return {
@@ -84,6 +101,34 @@ export interface SessionsRouterDeps {
   mcpStore: McpStore;
   /** Whether a sandbox provider is configured (SANDBOX_SETTINGS); gates spec admission. */
   sandboxSupported: boolean;
+  /** Primary Redis client (server-owned); used to reach peer executors. */
+  redis: RedisClientType;
+  /** Request-reply dispatch table this replica serves; cancel registers here. */
+  requestReplyRouter: RequestReplyRouter;
+}
+
+/**
+ * Peer-facing cancel handler (registered on the request-reply router in
+ * createSessionsRouter): aborts the turn if it runs in this process. 412
+ * tells the caller the turn is not running here (terminal or torn down),
+ * which the HTTP handler treats as the same no-op as local
+ * cancel-of-finished-turn.
+ */
+export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): RequestReplyRouteHandler {
+  return request => {
+    const parsed = CancelPeerBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return Promise.resolve({ status: 400, body: { message: 'Invalid sessions/cancel payload' } });
+    }
+    const found = activeTurns.cancelIfRunning({
+      sessionId: parsed.data.session_id,
+      turnId: parsed.data.turn_id,
+      abortReason: parsed.data.reason,
+    });
+    return Promise.resolve(
+      found ? { status: 200, body: {} } : { status: 412, body: { message: 'Turn is not running on this executor' } },
+    );
+  };
 }
 
 export function createSessionsRouter(deps: SessionsRouterDeps) {
@@ -165,20 +210,53 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   // Cancels only the session's tail (last_turn_id). Cancelling with no
   // running turn is a 200 no-op, matching the turn state machine (first
-  // terminal write wins).
+  // terminal write wins). The turn id names its owning executor
+  // (`<ulid>.<executorId>`); when another replica owns the turn, the cancel
+  // hops to it over Redis request-reply.
   const cancelSessionHandler: RouteHandler<typeof cancelSessionRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const record = await deps.sessionStore.getSession({ tenant_name: TENANT_NAME, session_id: sessionId });
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (record.last_turn_id) {
-      deps.activeTurns.cancelIfRunning({
-        sessionId,
-        turnId: record.last_turn_id,
-        abortReason: CancellationReason.ClientCancelled,
-      });
+    const turnId = record.last_turn_id;
+    if (!turnId) {
+      return c.json({}, 200);
     }
+
+    const owner = executorFromTurnId(turnId);
+    if (owner !== undefined && owner !== configuration.EXECUTOR_ID) {
+      try {
+        const reply = await redisRequest({
+          redis: deps.redis,
+          executorId: owner,
+          path: SESSIONS_CANCEL_PATH,
+          request: {
+            body: { session_id: sessionId, turn_id: turnId, reason: CancellationReason.ClientCancelled },
+          },
+          options: { replyTimeoutMs: configuration.REDIS_REQUEST_REPLY_TIMEOUT_MS },
+        });
+        // Peer 412 = turn no longer running there; same 200 no-op as local.
+        if (reply.status !== 200 && reply.status !== 412) {
+          throw new HTTPException(500, { message: 'Failed to cancel turn on the owning executor' });
+        }
+      } catch (error) {
+        if (error instanceof NoResponderError) {
+          return c.json({ error: { message: `Executor owning the running turn is unreachable: ${owner}` } }, 412);
+        }
+        if (error instanceof RequestTimeoutError) {
+          return c.json({ error: { message: 'Timed out waiting for the owning executor to cancel the turn' } }, 424);
+        }
+        throw error;
+      }
+      return c.json({}, 200);
+    }
+
+    deps.activeTurns.cancelIfRunning({
+      sessionId,
+      turnId,
+      abortReason: CancellationReason.ClientCancelled,
+    });
     return c.json({}, 200);
   };
 
@@ -213,6 +291,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   router.openapi(updateSessionRoute, updateSessionHandler);
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);
+  deps.requestReplyRouter.registerRoute(SESSIONS_CANCEL_PATH, cancelSessionTurnPeerHandler(deps.activeTurns));
   router.openapi(listSessionEventsRoute, listSessionEventsHandler);
   return router;
 }

@@ -1,7 +1,6 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
-import { ulid } from 'ulid';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
 import type { AgentThreadSendBatch, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
@@ -110,6 +109,12 @@ export class SessionHandle<
    * (must exist). Concurrent `'auto'` forks both succeed.
    */
   async createTurn(input: {
+    /**
+     * Caller-minted id for the new turn — opaque to the library (stored and
+     * returned verbatim). Hosts that peer replicas encode ownership in it
+     * with their own grammar (e.g. `<ulid>.<executorId>`).
+     */
+    turn_id: string;
     input?: TurnInputItem[] | undefined;
     /** 'auto'/omitted → session.last_turn_id; null → new root; id → fork from that turn. */
     previous_turn_id?: string | null | undefined;
@@ -180,7 +185,7 @@ export class SessionHandle<
         void event; // drain only
       }
 
-      const turnId = ulid().toLowerCase();
+      const turnId = input.turn_id;
       const now = new Date().toISOString();
       const turnRecord: TurnRecord<TTurnCustom> = {
         turn_id: turnId,

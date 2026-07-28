@@ -1,3 +1,4 @@
+import { ulid } from 'ulid';
 import type { ITurnResourceResolver } from '../../src/agent-session/ITurnResourceResolver';
 import { MAIN_THREAD_ID, type TurnRecord } from '../../src/agent-session/models/TurnRecord';
 import { AgentSpecSchema, type AgentSpec } from '../../src/agent-session/schemas/agentSpec';
@@ -10,6 +11,14 @@ import type { Sandbox } from '../../src/core/sandbox/Sandbox';
 import { makeMockILLM, makeSilentLogger } from '../core/harnessMocks';
 
 export { makeMockILLM, makeSilentLogger };
+
+/**
+ * Peered-style turn id (`<ulid>.<executor>`). The grammar is host-owned (the
+ * library treats turn ids as opaque); tests just need unique caller-minted ids.
+ */
+export function mintTestTurnId(): string {
+  return `${ulid().toLowerCase()}.test-exec`;
+}
 
 /** Minimal AgentSpec for session/turn tests — interactive builtins off. */
 export function makeAgentSpec(

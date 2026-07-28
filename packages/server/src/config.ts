@@ -124,6 +124,19 @@ export const parseApiKeysByName = (): Record<string, string> => {
   return byName;
 };
 
+/**
+ * Boot-generated executor identity, embedded into turn ids
+ * (`<ulid>.<executorId>`). Deliberately NOT an env var: the id must be unique
+ * per process (two subscribers on one request channel race on the reply key)
+ * and its lifetime must match the in-memory AbortControllers — after a
+ * restart, turns owned by the dead process are correctly unreachable.
+ * Gateway-identical helper (`randomAlphanumeric` in gateway config.ts) — the
+ * id is deployment identity, not a secret, so Math.random suffices.
+ */
+export function randomAlphanumeric(length: number): string {
+  return Array.from({ length }, () => Math.floor(Math.random() * 36).toString(36)).join('');
+}
+
 export const parsePort = (raw: string | undefined): number => {
   if (raw === undefined || raw.trim() === '') {
     return DEFAULT_PORT;
@@ -257,6 +270,23 @@ export interface ServerConfiguration {
   DATABASE_URL: string;
   /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
   DATABASE_POOL_MAX: number;
+  /**
+   * Redis connection URL shared by all replicas; carries executor peering
+   * (cross-replica turn cancel). Env: `REDIS_URL` (required).
+   */
+  REDIS_URL: string;
+  /** Unique id of this process (see randomAlphanumeric). Not an env var. */
+  EXECUTOR_ID: string;
+  /**
+   * Max ms to wait for a peer executor's reply before failing with 424.
+   * Env: `REDIS_REQUEST_REPLY_TIMEOUT_MS`. Default 10000.
+   */
+  REDIS_REQUEST_REPLY_TIMEOUT_MS: number;
+  /**
+   * How often this process refreshes its peering heartbeat key.
+   * Env: `REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS`. Default 5000.
+   */
+  REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS: number;
 }
 
 // ============================================================================
@@ -315,6 +345,18 @@ const configuration: ServerConfiguration = {
     envKey: 'DATABASE_POOL_MAX',
     raw: getEnv('DATABASE_POOL_MAX'),
     defaultValue: 10,
+  }),
+  REDIS_URL: getEnv('REDIS_URL', { required: true }) ?? '',
+  EXECUTOR_ID: randomAlphanumeric(6),
+  REDIS_REQUEST_REPLY_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'REDIS_REQUEST_REPLY_TIMEOUT_MS',
+    raw: getEnv('REDIS_REQUEST_REPLY_TIMEOUT_MS'),
+    defaultValue: 10_000,
+  }),
+  REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS: parsePositiveInt({
+    envKey: 'REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS',
+    raw: getEnv('REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS'),
+    defaultValue: 5_000,
   }),
 } as const;
 

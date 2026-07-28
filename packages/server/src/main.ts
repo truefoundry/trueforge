@@ -18,6 +18,8 @@ try {
     { Sessions, InMemorySessionStore, CancellationReason },
     { ActiveTurnRegistry },
     { createServerSandboxFactory },
+    { connectRedis },
+    { RequestReplyExecutor, RequestReplyRouter },
   ] = await Promise.all([
     import('./app'),
     import('./config'),
@@ -29,6 +31,8 @@ try {
     import('@truefoundry/utils/agent-session'),
     import('./runtime/activeTurns'),
     import('./runtime/sandboxFactory'),
+    import('./runtime/redis'),
+    import('@truefoundry/utils/request-reply'),
   ]);
 
   // Console logger shared by the server runtime (harness components require one).
@@ -46,6 +50,13 @@ try {
   const skillStore = SkillStore.load();
   const sandboxFactory = createServerSandboxFactory({ logger });
   const activeTurns = new ActiveTurnRegistry();
+
+  // Executor peering: this process's identity is embedded into turn ids so
+  // any replica can route a cancel to the owner over Redis request-reply.
+  logger.info(`Executor id: ${configuration.EXECUTOR_ID}`);
+  const redis = await connectRedis({ url: configuration.REDIS_URL, logger });
+  const requestReplyRouter = new RequestReplyRouter();
+
   const app = createServerApp({
     modelStore: ModelStore.load(),
     mcpStore: McpStore.load(),
@@ -54,8 +65,21 @@ try {
     sessions: new Sessions({ sessionStore }),
     activeTurns,
     ...(sandboxFactory ? { sandboxFactory } : {}),
+    redis,
+    requestReplyRouter,
     logger,
   });
+
+  // After createServerApp so every request-reply route is registered before
+  // the executor starts consuming messages.
+  const requestReplyExecutor = new RequestReplyExecutor({
+    executorId: configuration.EXECUTOR_ID,
+    redis,
+    requestHandler: requestReplyRouter.dispatchRoute.bind(requestReplyRouter),
+    logger,
+    options: { heartbeatIntervalMs: configuration.REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS },
+  });
+  await requestReplyExecutor.init();
 
   const server = serve({ fetch: app.fetch, port: configuration.PORT }, info => {
     console.log(`Agent server listening on http://localhost:${String(info.port)} (docs at /docs)`);
@@ -93,6 +117,10 @@ try {
     // closed covers the gap where the registry is empty before that late track().
     await activeTurns.shutdownAndWait(CancellationReason.Abandoned);
     await closed;
+    // Stop serving peer requests (waits for in-flight replies), then close
+    // the primary client the executor's subscriber was duplicated from.
+    await requestReplyExecutor.drain();
+    await redis.close().catch(() => undefined);
     await db.destroy();
     process.exit(0);
   };

@@ -25,6 +25,11 @@
       "require": "./dist/agent-session/index.js",
       "default": "./dist/agent-session/index.mjs"
     },
+    "./request-reply": {
+      "types": "./dist/request-reply/index.d.ts",
+      "require": "./dist/request-reply/index.js",
+      "default": "./dist/request-reply/index.mjs"
+    },
     "./*.mjs": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.mjs"
@@ -69,7 +74,11 @@
     "zod": "^3.24.3",
     "zod-to-json-schema": "^3.25.1"
   },
+  "peerDependencies": {
+    "redis": "^5.10.0"
+  },
   "devDependencies": {
+    "redis": "^5.10.0",
     "@swc/core": "^1.11.0",
     "@swc/jest": "^0.2.37",
     "@types/jest": "^29.5.14",
