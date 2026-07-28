@@ -84,10 +84,6 @@ export class RequestReplyExecutor {
     this.heartbeatTtlMs = Math.ceil(this.heartbeatIntervalMs * 1.5);
   }
 
-  /**
-   * Attaches the subscription. A rejected `subscribe` is logged and leaves
-   * the executor unsubscribed (heartbeat off), so `init()` may be retried.
-   */
   async init(): Promise<void> {
     if (this.closed || this.subscribed) {
       return;
@@ -112,6 +108,7 @@ export class RequestReplyExecutor {
         executorId: this.executorId,
         error: err instanceof Error ? err.message : String(err),
       });
+      throw err;
     }
   }
 

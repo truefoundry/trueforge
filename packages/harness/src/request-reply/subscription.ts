@@ -19,7 +19,8 @@ export interface SubscriptionHooks {
 export interface Subscription {
   /**
    * Engage the subscription; `onLive` (not this promise) signals serving.
-   * Reject when nothing was engaged, keeping `init()` retryable.
+   * Reject when nothing was engaged; `init()` propagates the rejection and
+   * stays retryable.
    */
   subscribe(hooks: SubscriptionHooks): Promise<void>;
   /** Release only what `subscribe` created — never the host's primary client. Must not throw. */

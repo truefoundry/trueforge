@@ -182,7 +182,7 @@ describeIfRedis('RequestReplyExecutor (hooks contract)', () => {
     await executor.drain();
   });
 
-  it('logs and stays unsubscribed when subscribe rejects, allowing a retry', async () => {
+  it('init rejects when subscribe fails and stays unsubscribed, allowing a retry', async () => {
     let attempts = 0;
     const flaky: Subscription = {
       subscribe(hooks) {
@@ -207,7 +207,7 @@ describeIfRedis('RequestReplyExecutor (hooks contract)', () => {
       options: { heartbeatIntervalMs: 200 },
     });
 
-    await executor.init();
+    await expect(executor.init()).rejects.toThrow('subscribe failed');
     expect(attempts).toBe(1);
     expect(await redis.exists(heartbeatKey(executorId))).toBe(0);
 
