@@ -23,7 +23,7 @@ function resolveRunExecutorOptions(options: Partial<RunExecutorOptions> | undefi
   };
 }
 
-/** Observability hook for subscriber errors and failed SUBSCRIBEs. */
+/** Observability hook for subscriber errors, failed SUBSCRIBEs, and malformed messages. */
 export type RequestReplyErrorHandler = (err: Error, context: { executorId: string; channel: string }) => void;
 
 /**
@@ -184,16 +184,30 @@ export class RequestReplyExecutor {
     } catch {
       // Drop the request, this should never happen
       this.logger.warn('[RequestReplyExecutor] Request message is not valid JSON', { executorId: this.executorId });
+      this.onError?.(
+        new Error(`Request message is not valid JSON for executorId: ${this.executorId}, message: ${message}`),
+        {
+          executorId: this.executorId,
+          channel: this.channel,
+        },
+      );
       return;
     }
 
     const parsedRequest = publishedRequestSchema.safeParse(raw);
     if (!parsedRequest.success) {
       // Drop the request, this should never happen
+      const zodError = parsedRequest.error.flatten();
       this.logger.warn('[RequestReplyExecutor] Invalid request message shape', {
         executorId: this.executorId,
-        zod: parsedRequest.error.flatten(),
+        zod: zodError,
       });
+      this.onError?.(
+        new Error(
+          `Invalid request message shape for executorId: ${this.executorId}, error: ${JSON.stringify(zodError)}`,
+        ),
+        { executorId: this.executorId, channel: this.channel },
+      );
       return;
     }
 
