@@ -1,16 +1,9 @@
 import { z } from 'zod';
 
-/**
- * Plain JSON value, defined locally so the wire schema does not depend on any
- * web framework's types. Wire bodies are untyped JSON: the transport carries
- * them verbatim and each route handler validates its own body.
- */
 export type JSONValue = string | number | boolean | null | JSONValue[] | { [key: string]: JSONValue };
 
-// copied from zod 4
-// https://zod.dev/api?id=json
-// (recursive schemas cannot use z.infer — zod v3 requires the explicit type
-// annotation on z.lazy, so JSONValue is the one hand-written exception)
+// Recursive schema (https://zod.dev/api?id=json); z.lazy needs the explicit
+// annotation, so JSONValue cannot be derived with z.infer.
 const jsonSchema: z.ZodType<JSONValue> = z.lazy(() => {
   return z.union([
     z.string(),

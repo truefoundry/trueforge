@@ -75,7 +75,7 @@ export async function redisRequest<T extends JSONValue>({
   }
 
   const replyDeadline = performance.now() + replyTimeoutMs;
-  // wait before polling for the reply
+  // Give the executor a moment to process before the first poll.
   await sleep(Math.min(200, replyTimeoutMs));
   for (;;) {
     const replyPayload = await getDelReply(redisClient, rKey);

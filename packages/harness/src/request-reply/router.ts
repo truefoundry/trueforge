@@ -15,7 +15,7 @@ export type RouteHandler = (request: RequestEnvelope) => Promise<JSONReply>;
 export class RequestReplyRouter {
   private readonly routes = new Map<string, RouteHandler>();
 
-  /** Boot-time registration: teach the router path → handler. Throws on duplicates. */
+  /** Throws if the path is already registered. */
   registerRoute(path: string, fn: RouteHandler): void {
     const alreadyAddedFn = this.routes.get(path);
     if (alreadyAddedFn) {
@@ -26,7 +26,6 @@ export class RequestReplyRouter {
     this.routes.set(path, fn);
   }
 
-  /** Per-message dispatch: called by the executor for each incoming request. */
   async dispatchRoute(path: string, request: RequestEnvelope): Promise<JSONReply> {
     const fn = this.routes.get(path);
     if (!fn) {
@@ -36,7 +35,7 @@ export class RequestReplyRouter {
     return fn(request);
   }
 
-  /** Builds the `requestHandler` callback the executor consumes: it dispatches every incoming request through this router. */
+  /** Returns the `requestHandler` callback the executor consumes. */
   createRequestHandler(): RequestHandler {
     return (path, request) => this.dispatchRoute(path, request);
   }
