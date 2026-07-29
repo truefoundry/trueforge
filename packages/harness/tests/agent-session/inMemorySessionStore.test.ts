@@ -142,7 +142,7 @@ function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createTurn({ tenant_name: tenant, turn });
       const after = await store.getSession({ tenant_name: tenant, session_id: sessionId });
       expect(mustGet(after).last_turn_id).toBe('turn-1');
-      expect(mustGet(after).num_turns).toBe(1);
+      expect(mustGet(after).total_turns).toBe(1);
       expect(mustGet(after).last_activity_timestamp_ms).toBeGreaterThan(mustGet(before).last_activity_timestamp_ms);
     });
 
@@ -293,8 +293,7 @@ function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(session).toMatchObject({
         total_cost_in_usd: 0.25,
         total_duration_ms: 2000,
-        num_turns: 1,
-        num_completed_turns: 1,
+        total_turns: 1,
         last_activity_timestamp_ms: completedAtMs,
       });
     });

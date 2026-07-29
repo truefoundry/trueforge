@@ -86,8 +86,7 @@ describe('TurnHandle.stream()', () => {
     const storedSession = await store.getSession({ tenant_name: tenant, session_id: 's1' });
     expect(storedSession).toMatchObject({
       total_cost_in_usd: 0.42,
-      num_turns: 1,
-      num_completed_turns: 1,
+      total_turns: 1,
     });
   });
 

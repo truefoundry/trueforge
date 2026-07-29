@@ -33,7 +33,6 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
   last_activity_timestamp_ms: number;
   total_cost_in_usd: number;
   total_duration_ms: number;
-  num_turns: number;
-  num_completed_turns: number;
+  total_turns: number;
   custom?: TCustom | undefined;
 }

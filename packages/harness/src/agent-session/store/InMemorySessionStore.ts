@@ -100,8 +100,7 @@ export class InMemorySessionStore<
       last_activity_timestamp_ms: Date.now(),
       total_cost_in_usd: 0,
       total_duration_ms: 0,
-      num_turns: 0,
-      num_completed_turns: 0,
+      total_turns: 0,
       custom: input.custom !== undefined ? deepCopy(input.custom) : undefined,
     };
     this.sessions.set(key, { record, turnIds: [] });
@@ -173,7 +172,7 @@ export class InMemorySessionStore<
     this.events.set(tKey, []);
     stored.turnIds.push(input.turn.turn_id);
     stored.record.last_turn_id = input.turn.turn_id;
-    stored.record.num_turns += 1;
+    stored.record.total_turns += 1;
     stored.record.last_activity_timestamp_ms = Date.now();
     stored.record.updated_at = new Date().toISOString();
     if (
@@ -224,9 +223,8 @@ export class InMemorySessionStore<
     const durationMs = Math.max(0, completedAtMs - Date.parse(turn.created_at));
     turn.state = deepCopy(input.state);
     turn.updated_at = input.state.completed_at;
-    stored.record.total_cost_in_usd += input.state.usage.total_cost_in_usd;
+    stored.record.total_cost_in_usd += input.state.usage?.total_cost_in_usd ?? 0;
     stored.record.total_duration_ms += durationMs;
-    stored.record.num_completed_turns += 1;
     if (completedAtMs > stored.record.last_activity_timestamp_ms) {
       stored.record.last_activity_timestamp_ms = completedAtMs;
       stored.record.updated_at = input.state.completed_at;

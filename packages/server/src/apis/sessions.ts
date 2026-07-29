@@ -31,8 +31,7 @@ export function toWireSession(record: SessionRecord): Session {
     updated_at: record.updated_at,
     total_cost_in_usd: record.total_cost_in_usd,
     total_duration_ms: record.total_duration_ms,
-    num_turns: record.num_turns,
-    num_completed_turns: record.num_completed_turns,
+    total_turns: record.total_turns,
     last_activity_at: new Date(record.last_activity_timestamp_ms).toISOString(),
   };
 }

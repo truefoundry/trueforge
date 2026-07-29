@@ -11,7 +11,7 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
-import type { TerminalTurnState, TurnUsage } from '../schemas/turn';
+import type { TerminalTurnState } from '../schemas/turn';
 
 /** Caller-supplied fields for creating a session; the store owns timestamps and tip state. */
 export type CreateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
@@ -63,7 +63,7 @@ export interface UpdateTurnStateInput {
   tenant_name: string;
   session_id: string;
   turn_id: string;
-  state: TerminalTurnState & { usage: TurnUsage };
+  state: TerminalTurnState;
 }
 
 export interface AppendToEventsInput {
@@ -190,7 +190,7 @@ export interface ISessionStore<
   ): Promise<{ data: SessionRecord<TSessionCustom>[]; pagination: TokenPagination }>;
 
   /**
-   * Creates the turn, advances `session.last_turn_id`, and increments `session.num_turns`.
+   * Creates the turn, advances `session.last_turn_id`, and increments `session.total_turns`.
    *
    * Atomicity (store contract): insert turn + set `last_turn_id` (+ session
    * turn-list append if the backend has one) MUST be one atomic unit per

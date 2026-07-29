@@ -238,7 +238,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
       const createdAt = new Date().toISOString();
       const usage = turnUsageFromMetrics(orchestrator.getRunningMetrics());
-      let terminalState: TerminalTurnState & { usage: TurnUsage };
+      let terminalState: TerminalTurnState;
       if (signal.aborted) {
         terminalState = {
           status: 'cancelled',
