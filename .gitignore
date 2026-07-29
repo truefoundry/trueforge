@@ -11,7 +11,10 @@ coverage/
 .pnpm-store/
 .eslintcache
 packages/harness/src/core/sandbox/sandboxScripts.gen.ts
+# Fern rewrites packages/sdk, so these are throwaway build artifacts, and
+# metadata.json records the commit it generated from and so never converges.
 packages/sdk/pnpm-lock.yaml
 packages/sdk/package-lock.json
+packages/sdk/.fern/metadata.json
 ui-shots/*.png
 data/
