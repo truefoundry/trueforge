@@ -73,9 +73,14 @@ try {
   // After createServerApp so every request-reply route is registered before
   // the executor starts consuming messages. The executor needs a dedicated
   // subscriber connection (a subscribed client cannot issue normal commands);
-  // this process owns its lifecycle. init() before connect() so the executor's
-  // listeners are attached from the first connection attempt.
+  // this process owns its lifecycle. Connect before init() so init() awaits
+  // the initial subscribe + heartbeat — the replica is reachable for peering
+  // before the HTTP server starts.
   const requestReplySubscriber = redis.duplicate();
+  requestReplySubscriber.on('error', (error: Error) => {
+    logger.error('[RedisSubscriber] Client error', { error: error.message });
+  });
+  await requestReplySubscriber.connect();
   const requestReplyExecutor = new RequestReplyExecutor({
     executorId: configuration.EXECUTOR_ID,
     redis,
@@ -88,7 +93,6 @@ try {
     },
   });
   await requestReplyExecutor.init();
-  await requestReplySubscriber.connect();
 
   const server = serve({ fetch: app.fetch, port: configuration.PORT }, info => {
     console.log(`Agent server listening on http://localhost:${String(info.port)} (docs at /docs)`);
