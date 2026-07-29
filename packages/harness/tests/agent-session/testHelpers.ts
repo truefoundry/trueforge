@@ -1,3 +1,4 @@
+import { ulid } from 'ulid';
 import type { ITurnResourceResolver } from '../../src/agent-session/ITurnResourceResolver';
 import { MAIN_THREAD_ID, type TurnRecord } from '../../src/agent-session/models/TurnRecord';
 import { AgentSpecSchema, type AgentSpec } from '../../src/agent-session/schemas/agentSpec';
@@ -13,6 +14,11 @@ import type { Sandbox } from '../../src/core/sandbox/Sandbox';
 import { makeMockILLM, makeSilentLogger } from '../core/harnessMocks';
 
 export { makeMockILLM, makeSilentLogger };
+
+/** Turn ids are opaque, caller-minted strings; tests only need uniqueness. */
+export function mintTestTurnId(): string {
+  return ulid().toLowerCase();
+}
 
 /** Minimal AgentSpec for session/turn tests — interactive builtins off. */
 export function makeAgentSpec(

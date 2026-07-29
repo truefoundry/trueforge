@@ -39,7 +39,7 @@ export const getEnv = (key: string, options?: GetEnvOptions): string | undefined
     return options.defaultValue;
   }
 
-  if (process.env['NODE_ENV'] !== 'test' && options?.required) {
+  if (options?.required) {
     throw new Error(`Environment variable ${key} is required but was not specified.`);
   }
 
@@ -124,6 +124,10 @@ export const parseApiKeysByName = (): Record<string, string> => {
   return byName;
 };
 
+function randomAlphanumeric(length: number): string {
+  return Array.from({ length }, () => Math.floor(Math.random() * 36).toString(36)).join('');
+}
+
 export const parsePort = (raw: string | undefined): number => {
   if (raw === undefined || raw.trim() === '') {
     return DEFAULT_PORT;
@@ -152,16 +156,10 @@ export const parsePositiveInt = (options: {
   return value;
 };
 
-/**
- * Required non-empty env var. Same `NODE_ENV=test` exemption as `getEnv({ required: true })`,
- * but also rejects blank strings outside tests.
- */
+/** Required env var that also rejects blank strings. */
 export const requireNonEmptyEnv = (key: string): string => {
   const value = getEnv(key, { required: true });
   if (value === undefined || value.trim() === '') {
-    if (process.env['NODE_ENV'] === 'test') {
-      return '';
-    }
     throw new Error(`Environment variable ${key} is required but was not specified.`);
   }
   return value;
@@ -257,6 +255,33 @@ export interface ServerConfiguration {
   DATABASE_URL: string;
   /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
   DATABASE_POOL_MAX: number;
+  /**
+   * Redis connection URL shared by all replicas; carries executor peering
+   * (cross-replica turn cancel). Env: `REDIS_URL` (required).
+   */
+  REDIS_URL: string;
+  /** Unique id of this process. Not an env var. */
+  EXECUTOR_ID: string;
+  /**
+   * Max ms to wait for a peer executor's reply before failing with 424.
+   * Env: `REDIS_REQUEST_REPLY_TIMEOUT_MS`. Default 60000.
+   */
+  REDIS_REQUEST_REPLY_TIMEOUT_MS: number;
+  /**
+   * How often this process refreshes its peering heartbeat key.
+   * Env: `REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS`. Default 5000.
+   */
+  REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS: number;
+  /**
+   * TTL for reply values so abandoned reply keys are reclaimed.
+   * Env: `REDIS_REQUEST_REPLY_REPLY_TTL_MS`. Default 120000.
+   */
+  REDIS_REQUEST_REPLY_REPLY_TTL_MS: number;
+  /**
+   * Sleep between reply poll attempts while waiting on a peer.
+   * Env: `REDIS_REQUEST_REPLY_POLL_INTERVAL_MS`. Default 500.
+   */
+  REDIS_REQUEST_REPLY_POLL_INTERVAL_MS: number;
 }
 
 // ============================================================================
@@ -315,6 +340,28 @@ const configuration: ServerConfiguration = {
     envKey: 'DATABASE_POOL_MAX',
     raw: getEnv('DATABASE_POOL_MAX'),
     defaultValue: 10,
+  }),
+  REDIS_URL: requireNonEmptyEnv('REDIS_URL'),
+  EXECUTOR_ID: randomAlphanumeric(6),
+  REDIS_REQUEST_REPLY_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'REDIS_REQUEST_REPLY_TIMEOUT_MS',
+    raw: getEnv('REDIS_REQUEST_REPLY_TIMEOUT_MS'),
+    defaultValue: 60_000,
+  }),
+  REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS: parsePositiveInt({
+    envKey: 'REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS',
+    raw: getEnv('REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS'),
+    defaultValue: 5_000,
+  }),
+  REDIS_REQUEST_REPLY_REPLY_TTL_MS: parsePositiveInt({
+    envKey: 'REDIS_REQUEST_REPLY_REPLY_TTL_MS',
+    raw: getEnv('REDIS_REQUEST_REPLY_REPLY_TTL_MS'),
+    defaultValue: 120_000,
+  }),
+  REDIS_REQUEST_REPLY_POLL_INTERVAL_MS: parsePositiveInt({
+    envKey: 'REDIS_REQUEST_REPLY_POLL_INTERVAL_MS',
+    raw: getEnv('REDIS_REQUEST_REPLY_POLL_INTERVAL_MS'),
+    defaultValue: 500,
   }),
 } as const;
 

@@ -5,7 +5,14 @@ import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySess
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import { RemoteMCP } from '../../src/core/mcp/RemoteMCP';
 import { makeStubPublicSandbox } from '../core/harnessMocks';
-import { emptyLlmStream, makeAgentSpec, makeMockILLM, makeSilentLogger, makeTestResolver } from './testHelpers';
+import {
+  emptyLlmStream,
+  makeAgentSpec,
+  makeMockILLM,
+  makeSilentLogger,
+  makeTestResolver,
+  mintTestTurnId,
+} from './testHelpers';
 
 describe('TurnHandle.stream()', () => {
   const tenant = 'tenant-1';
@@ -28,6 +35,7 @@ describe('TurnHandle.stream()', () => {
   it('run commits running turn; stream is sole terminal writer → done', async () => {
     const { store, session } = await createSession();
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -58,6 +66,7 @@ describe('TurnHandle.stream()', () => {
   it('background drain reaches terminal done', async () => {
     const { session } = await createSession();
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -75,6 +84,7 @@ describe('TurnHandle.stream()', () => {
   it('second stream() call throws', async () => {
     const { session } = await createSession();
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -98,6 +108,7 @@ describe('TurnHandle.stream()', () => {
     const { store, session } = await createSession();
     let closeCalls = 0;
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -129,6 +140,7 @@ describe('TurnHandle.stream()', () => {
     const { store, session } = await createSession();
     const controller = new AbortController();
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: controller.signal,
@@ -155,6 +167,7 @@ describe('TurnHandle.stream()', () => {
     const { store, session } = await createSession();
     const controller = new AbortController();
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: controller.signal,
@@ -183,6 +196,7 @@ describe('TurnHandle.stream()', () => {
     const { store, session } = await createSession();
     const controller = new AbortController();
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: controller.signal,
@@ -211,6 +225,7 @@ describe('TurnHandle.stream()', () => {
     const { store, session } = await createSession();
     let closeCalls = 0;
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -248,6 +263,7 @@ describe('TurnHandle.stream()', () => {
     const { session } = await createSession();
     // Spec already has sandbox.enabled from createSession helper.
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -323,6 +339,7 @@ describe('TurnResourceResolver caches', () => {
       }),
     });
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
       previous_turn_id: null,
       signal: new AbortController().signal,

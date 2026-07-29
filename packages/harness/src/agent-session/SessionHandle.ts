@@ -1,7 +1,6 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
-import { ulid } from 'ulid';
 import { newEventId } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
@@ -164,6 +163,7 @@ export class SessionHandle<
    * (must exist). Concurrent `'auto'` forks both succeed.
    */
   async createTurn(input: {
+    turn_id: string;
     input?: TurnInputItem[] | undefined;
     /** 'auto'/omitted → session.last_turn_id; null → new root; id → fork from that turn. */
     previous_turn_id?: string | null | undefined;
@@ -233,7 +233,7 @@ export class SessionHandle<
       const sendBatch = toSendBatch(input.input);
       const new_context_appends = await collectContextAppends(orchestrator.send(sendBatch));
 
-      const turnId = ulid().toLowerCase();
+      const turnId = input.turn_id;
       const now = new Date().toISOString();
 
       const new_threads: NewThreadInit[] = [];

@@ -5,7 +5,9 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnSandboxFactory } from '@truefoundry/utils/agent-session';
+import type { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import { HTTPException } from 'hono/http-exception';
+import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createMcpRouter } from './apis/mcp';
@@ -36,6 +38,10 @@ export interface ServerDeps {
   activeTurns: ActiveTurnRegistry;
   /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
   sandboxFactory?: TurnSandboxFactory;
+  /** Primary Redis client (server-owned); carries executor peering. */
+  redis: RedisClientType;
+  /** Request-reply dispatch table served by this replica's executor. */
+  requestReplyRouter: RequestReplyRouter;
   logger: Logger;
 }
 
@@ -57,6 +63,8 @@ export function createServerApp(deps: ServerDeps) {
       modelStore: deps.modelStore,
       mcpStore: deps.mcpStore,
       sandboxSupported: deps.sandboxFactory !== undefined,
+      redis: deps.redis,
+      requestReplyRouter: deps.requestReplyRouter,
     }),
   );
   app.route(

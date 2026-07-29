@@ -11,7 +11,7 @@
     "dev": "tsx --env-file=.env src/main.ts",
     "migrate": "tsx --env-file=.env src/db/migrate-cli.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/**/*.test.ts",
+    "test": "tsx --env-file=.env.test --test src/**/*.test.ts",
     "test:store": "jest --config jest.store.config.cjs",
     "start": "node dist/main.js"
   },
@@ -23,6 +23,7 @@
     "hono": "^4.12.31",
     "kysely": "^0.29.4",
     "pg": "^8.22.0",
+    "redis": "^5.10.0",
     "ulid": "^3.0.2",
     "winston": "^3.13.0",
     "yaml": "^2.9.0",

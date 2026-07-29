@@ -18,6 +18,8 @@ try {
     { Sessions, CancellationReason },
     { ActiveTurnRegistry },
     { createServerSandboxFactory },
+    { connectRedis },
+    { RequestReplyExecutor, RequestReplyRouter },
     { PostgresSessionStore },
   ] = await Promise.all([
     import('./app'),
@@ -30,6 +32,8 @@ try {
     import('@truefoundry/utils/agent-session'),
     import('./runtime/activeTurns'),
     import('./runtime/sandboxFactory'),
+    import('./runtime/redis'),
+    import('@truefoundry/utils/request-reply'),
     import('./db/session-store/PostgresSessionStore'),
   ]);
 
@@ -48,6 +52,13 @@ try {
   const skillStore = SkillStore.load();
   const sandboxFactory = createServerSandboxFactory({ logger });
   const activeTurns = new ActiveTurnRegistry();
+
+  // Executor peering: this process's identity is embedded into turn ids so
+  // any replica can route a cancel to the owner over Redis request-reply.
+  logger.info(`Executor id: ${configuration.EXECUTOR_ID}`);
+  const redis = await connectRedis({ url: configuration.REDIS_URL, logger });
+  const requestReplyRouter = new RequestReplyRouter();
+
   const app = createServerApp({
     modelStore: ModelStore.load(),
     mcpStore: McpStore.load(),
@@ -56,8 +67,34 @@ try {
     sessions: new Sessions({ sessionStore }),
     activeTurns,
     ...(sandboxFactory ? { sandboxFactory } : {}),
+    redis,
+    requestReplyRouter,
     logger,
   });
+
+  // After createServerApp so every request-reply route is registered before
+  // the executor starts consuming messages. The executor needs a dedicated
+  // subscriber connection (a subscribed client cannot issue normal commands);
+  // this process owns its lifecycle. Connect before init() so init() awaits
+  // the initial subscribe + heartbeat — the replica is reachable for peering
+  // before the HTTP server starts.
+  const requestReplySubscriber = redis.duplicate();
+  requestReplySubscriber.on('error', (error: Error) => {
+    logger.error('[RedisSubscriber] Client error', { error: error.message });
+  });
+  await requestReplySubscriber.connect();
+  const requestReplyExecutor = new RequestReplyExecutor({
+    executorId: configuration.EXECUTOR_ID,
+    redis,
+    subscriberClient: requestReplySubscriber,
+    requestHandler: requestReplyRouter.createRequestHandler(),
+    logger,
+    options: {
+      heartbeatIntervalMs: configuration.REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS,
+      replyTtlMs: configuration.REDIS_REQUEST_REPLY_REPLY_TTL_MS,
+    },
+  });
+  await requestReplyExecutor.init();
 
   const server = serve({ fetch: app.fetch, port: configuration.PORT }, info => {
     console.log(`Agent server listening on http://localhost:${String(info.port)} (docs at /docs)`);
@@ -95,6 +132,19 @@ try {
     // closed covers the gap where the registry is empty before that late track().
     await activeTurns.shutdownAndWait(CancellationReason.Abandoned);
     await closed;
+    // Stop serving peer requests (waits for in-flight replies), then close
+    // the clients this process owns: the subscriber duplicate and the primary.
+    await requestReplyExecutor.drain();
+    await requestReplySubscriber.close().catch((error: unknown) => {
+      logger.warn('[Redis] Error closing subscriber client during shutdown', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+    await redis.close().catch((error: unknown) => {
+      logger.warn('[Redis] Error closing client during shutdown', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
     await db.destroy();
     process.exit(0);
   };
