@@ -98,9 +98,6 @@ export class InMemorySessionStore<
       created_at: now,
       updated_at: now,
       last_activity_timestamp_ms: Date.now(),
-      total_cost_in_usd: 0,
-      total_duration_ms: 0,
-      total_turns: 0,
       custom: input.custom !== undefined ? deepCopy(input.custom) : undefined,
     };
     this.sessions.set(key, { record, turnIds: [] });
@@ -172,7 +169,6 @@ export class InMemorySessionStore<
     this.events.set(tKey, []);
     stored.turnIds.push(input.turn.turn_id);
     stored.record.last_turn_id = input.turn.turn_id;
-    stored.record.total_turns += 1;
     stored.record.last_activity_timestamp_ms = Date.now();
     stored.record.updated_at = new Date().toISOString();
     if (
@@ -215,20 +211,8 @@ export class InMemorySessionStore<
         `Turn ${input.turn_id} is already terminal (${turn.state.status}); first terminal write wins`,
       );
     }
-    const stored = this.sessions.get(sessionKey(input.tenant_name, input.session_id));
-    if (!stored) {
-      throw new SessionStoreNotFoundError(`Session not found: ${input.session_id}`);
-    }
-    const completedAtMs = Date.parse(input.state.completed_at);
-    const durationMs = Math.max(0, completedAtMs - Date.parse(turn.created_at));
     turn.state = deepCopy(input.state);
-    turn.updated_at = input.state.completed_at;
-    stored.record.total_cost_in_usd += input.state.usage?.total_cost_in_usd ?? 0;
-    stored.record.total_duration_ms += durationMs;
-    if (completedAtMs > stored.record.last_activity_timestamp_ms) {
-      stored.record.last_activity_timestamp_ms = completedAtMs;
-      stored.record.updated_at = input.state.completed_at;
-    }
+    turn.updated_at = new Date().toISOString();
   }
 
   async appendToEvents(input: AppendToEventsInput): Promise<void> {

@@ -28,11 +28,8 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
   updated_at: string;
   /**
    * Liveness clock (ms since epoch). The store bumps it on createSession,
-   * updateSession, createTurn, and turn finalize — never on reads.
+   * updateSession, and createTurn — never on reads.
    */
   last_activity_timestamp_ms: number;
-  total_cost_in_usd: number;
-  total_duration_ms: number;
-  total_turns: number;
   custom?: TCustom | undefined;
 }

@@ -240,8 +240,8 @@ export class AgentThreadOrchestrator {
   }
 
   /**
-   * Aggregate metrics for the turn so far. `execute()` returns this as `metrics.total`; also safe
-   * to read mid-flight or after cancel/error (when `execute()` throws instead of returning).
+   * Aggregate metrics for the turn so far. Safe to read mid-flight or after
+   * cancel/error (when `execute()` throws instead of returning).
    *
    * Counts each thread once by summing two disjoint sets — finished sub-agents
    * (`completedSubAgentMetrics`) and live threads (`agentThreads`) — which stay disjoint because a
@@ -507,7 +507,6 @@ export class AgentThreadOrchestrator {
       output,
       required_actions: requiredActions,
       root_agent_error: rootAgentError,
-      metrics: { total: this.getRunningMetrics() },
     };
   }
 }

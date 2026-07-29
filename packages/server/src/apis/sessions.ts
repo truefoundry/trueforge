@@ -29,10 +29,6 @@ export function toWireSession(record: SessionRecord): Session {
     title: record.title ?? null,
     created_at: record.created_at,
     updated_at: record.updated_at,
-    total_cost_in_usd: record.total_cost_in_usd,
-    total_duration_ms: record.total_duration_ms,
-    total_turns: record.total_turns,
-    last_activity_at: new Date(record.last_activity_timestamp_ms).toISOString(),
   };
 }
 

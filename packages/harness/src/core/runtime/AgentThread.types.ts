@@ -34,7 +34,6 @@ import type {
 import type { Sandbox } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import type { AgentDefinition } from './AgentDefinition';
-import type { AgentThreadMetrics } from './metrics';
 
 export type { AgentInfo, AgentParent };
 
@@ -144,7 +143,6 @@ export interface AgentThreadExecutionResult {
   output: ModelMessageEvent | null;
   required_actions: ActionRequiredEvent[];
   root_agent_error?: Pick<ThreadStateError, 'error' | 'output'> | undefined;
-  metrics: { total: AgentThreadMetrics };
 }
 
 /** Public send items plus internal LLM tool messages (child→parent delivery). */

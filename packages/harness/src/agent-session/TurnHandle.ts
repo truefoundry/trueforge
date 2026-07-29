@@ -14,7 +14,7 @@ import {
   type InternalThreadDoneEvent,
 } from '../core/runtime/AgentThread.types';
 import type { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
-import { createEmptyAgentThreadMetrics, type AgentThreadMetrics } from '../core/runtime/metrics';
+import type { AgentThreadMetrics } from '../core/runtime/metrics';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
 import { EventType, type PersistedTurnEvent, type TurnCreatedEvent, type TurnDoneEvent } from './schemas/events';
@@ -231,7 +231,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         const emptyResult: AgentThreadExecutionResult = {
           output: null,
           required_actions: [],
-          metrics: { total: createEmptyAgentThreadMetrics() },
         };
         await generator.return(emptyResult);
       }

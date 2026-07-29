@@ -9,10 +9,6 @@ export const SessionSchema = z
     title: z.string().nullable(),
     created_at: z.string(),
     updated_at: z.string(),
-    total_cost_in_usd: z.number().nonnegative(),
-    total_duration_ms: z.number().int().nonnegative(),
-    total_turns: z.number().int().nonnegative(),
-    last_activity_at: z.string(),
   })
   .openapi('Session');
 

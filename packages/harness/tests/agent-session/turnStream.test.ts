@@ -55,8 +55,8 @@ describe('TurnHandle.stream()', () => {
     expect(stored?.state.status).toBe('done');
   });
 
-  it('persists final turn usage and session cost from running metrics', async () => {
-    const { store, session } = await createSession();
+  it('persists final turn usage from running metrics', async () => {
+    const { session } = await createSession();
     const turn = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
@@ -82,11 +82,6 @@ describe('TurnHandle.stream()', () => {
         total_cache_read_tokens: 4,
         total_cost_in_usd: 0.42,
       },
-    });
-    const storedSession = await store.getSession({ tenant_name: tenant, session_id: 's1' });
-    expect(storedSession).toMatchObject({
-      total_cost_in_usd: 0.42,
-      total_turns: 1,
     });
   });
 
