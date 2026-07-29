@@ -19,7 +19,6 @@ try {
     { ActiveTurnRegistry },
     { createServerSandboxFactory },
     { connectRedis },
-    { standaloneSubscription },
     { RequestReplyExecutor, RequestReplyRouter },
   ] = await Promise.all([
     import('./app'),
@@ -33,7 +32,6 @@ try {
     import('./runtime/activeTurns'),
     import('./runtime/sandboxFactory'),
     import('./runtime/redis'),
-    import('./runtime/subscription'),
     import('@truefoundry/utils/request-reply'),
   ]);
 
@@ -73,16 +71,21 @@ try {
   });
 
   // After createServerApp so every request-reply route is registered before
-  // the executor starts consuming messages.
+  // the executor starts consuming messages. The executor needs a dedicated
+  // subscriber connection (a subscribed client cannot issue normal commands);
+  // this process owns its lifecycle. init() before connect() so the executor's
+  // listeners are attached from the first connection attempt.
+  const requestReplySubscriber = redis.duplicate();
   const requestReplyExecutor = new RequestReplyExecutor({
     executorId: configuration.EXECUTOR_ID,
     redis,
+    subscriberClient: requestReplySubscriber,
     requestHandler: requestReplyRouter.createRequestHandler(),
-    subscription: standaloneSubscription({ redis, logger }),
     logger,
     options: { heartbeatIntervalMs: configuration.REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS },
   });
   await requestReplyExecutor.init();
+  await requestReplySubscriber.connect();
 
   const server = serve({ fetch: app.fetch, port: configuration.PORT }, info => {
     console.log(`Agent server listening on http://localhost:${String(info.port)} (docs at /docs)`);
@@ -121,8 +124,13 @@ try {
     await activeTurns.shutdownAndWait(CancellationReason.Abandoned);
     await closed;
     // Stop serving peer requests (waits for in-flight replies), then close
-    // the primary client the executor's subscriber was duplicated from.
+    // the clients this process owns: the subscriber duplicate and the primary.
     await requestReplyExecutor.drain();
+    await requestReplySubscriber.close().catch((error: unknown) => {
+      logger.warn('[Redis] Error closing subscriber client during shutdown', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
     await redis.close().catch((error: unknown) => {
       logger.warn('[Redis] Error closing client during shutdown', {
         error: error instanceof Error ? error.message : String(error),
