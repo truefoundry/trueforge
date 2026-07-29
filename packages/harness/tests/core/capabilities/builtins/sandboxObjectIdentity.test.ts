@@ -1,8 +1,8 @@
-import { largeToolResponse } from '../../src/core/capabilities/builtins/LargeToolResponse';
-import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
-import type { IToolSet } from '../../src/core/mcp/IMCPServer';
-import type { ToolCallResult } from '../../src/core/mcp/executeToolCalls';
-import { makeMockIMCPServer, makeSilentLogger, makeStubPublicSandbox } from './harnessMocks';
+import { largeToolResponse } from '../../../../src/core/capabilities/builtins/LargeToolResponse';
+import { getEmptyUsage } from '../../../../src/core/llm/LLMTypes';
+import type { IToolSet } from '../../../../src/core/mcp/IMCPServer';
+import type { ToolCallResult } from '../../../../src/core/mcp/executeToolCalls';
+import { makeMockIMCPServer, makeSilentLogger, makeStubPublicSandbox } from '../../harnessMocks';
 
 const silentLogger = makeSilentLogger();
 

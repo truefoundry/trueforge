@@ -1,13 +1,13 @@
-import { AgentSandboxRequiredError, InvalidAgentInputError } from '../../src/core/errors';
-import { EventType } from '../../src/core/events/schema';
+import { AgentSandboxRequiredError, InvalidAgentInputError } from '../../../src/core/errors';
+import { EventType } from '../../../src/core/events/schema';
 import {
   isEmptyMessageContent,
   processAgentUserInput,
   type AgentInputUserMessage,
   type FileContentPart,
-} from '../../src/core/runtime/UserInputMessage';
-import './harnessMocks';
-import { makeStubPublicSandbox } from './harnessMocks';
+} from '../../../src/core/runtime/UserInputMessage';
+import '../harnessMocks';
+import { makeStubPublicSandbox } from '../harnessMocks';
 
 describe('UserInputMessage validation', () => {
   const sandbox = makeStubPublicSandbox();

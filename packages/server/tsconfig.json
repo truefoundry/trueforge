@@ -4,6 +4,8 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["src/**/*", "tsup.config.ts"],
-  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
+  "include": ["src/**/*", "tests/**/*", "tsup.config.ts"],
+  // Test bodies pull harness test sources across the package boundary, which needs
+  // that package's own compiler paths; support modules stay in-project.
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts", "tests/**/*.test.ts"]
 }

@@ -1,11 +1,11 @@
-import type { ILLM } from '../../src/core/llm/ILLM';
-import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../src/core/llm/LLMTypes';
-import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
-import { AgentThread } from '../../src/core/runtime/AgentThread';
-import { makeUnknownToolInfo, toToolCallInfo } from '../../src/core/runtime/contextUtils';
-import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
-import './harnessMocks';
-import { makeSilentLogger } from './harnessMocks';
+import type { ILLM } from '../../../src/core/llm/ILLM';
+import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
+import { getEmptyUsage } from '../../../src/core/llm/LLMTypes';
+import { AgentThread } from '../../../src/core/runtime/AgentThread';
+import { makeUnknownToolInfo, toToolCallInfo } from '../../../src/core/runtime/contextUtils';
+import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
+import '../harnessMocks';
+import { makeSilentLogger } from '../harnessMocks';
 
 const silentLogger = makeSilentLogger();
 const warn = jest.spyOn(silentLogger, 'warn');

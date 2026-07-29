@@ -1,9 +1,9 @@
-import { InstructionBuilder } from '../../src/core/InstructionBuilder';
-import type { IToolSet } from '../../src/core/mcp/IMCPServer';
-import { DeferredTool } from '../../src/core/runtime/DeferredTool';
-import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
-import './harnessMocks';
-import { makeMockIMCPServer, makeSilentLogger } from './harnessMocks';
+import { InstructionBuilder } from '../../../src/core/InstructionBuilder';
+import type { IToolSet } from '../../../src/core/mcp/IMCPServer';
+import { DeferredTool } from '../../../src/core/runtime/DeferredTool';
+import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
+import '../harnessMocks';
+import { makeMockIMCPServer, makeSilentLogger } from '../harnessMocks';
 
 const DEFERRED_TOOLS_INSTRUCTION = 'deferred-tools-instructions';
 

@@ -15,6 +15,19 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # Shared by all server replicas: carries executor peering (cross-replica
+  # turn cancel via request-reply).
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   server:
     build:
       context: .
@@ -27,6 +40,7 @@ services:
       PORT: 8790
       # Compose network hostname; credentials still come from env_file.
       POSTGRES_HOST: postgres
+      REDIS_URL: redis://redis:6379
     # Environment variables (MODEL_API_KEY, POSTGRES_*, etc.) are read from this file.
     # Copy packages/server/.env.example to packages/server/.env and fill it in.
     env_file:
@@ -38,6 +52,8 @@ services:
       - ./packages/server/registry:/app/packages/server/registry:ro
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     # Probes existing GET / (plain text OK!); node is already in the image.
     healthcheck:

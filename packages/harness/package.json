@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/utils",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "TrueFoundry agent core and session library",
   "author": "Truefoundry",
   "license": "UNLICENSED",
@@ -25,6 +25,11 @@
       "require": "./dist/agent-session/index.js",
       "default": "./dist/agent-session/index.mjs"
     },
+    "./request-reply": {
+      "types": "./dist/request-reply/index.d.ts",
+      "require": "./dist/request-reply/index.js",
+      "default": "./dist/request-reply/index.mjs"
+    },
     "./*.mjs": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.mjs"
@@ -44,14 +49,14 @@
     "dist"
   ],
   "scripts": {
-    "build": "pnpm run build:gen && pnpm run build:js && pnpm run build:dts && pnpm run build:pkg && pnpm run build:check",
+    "build": "pnpm run build:gen && tsc --noEmit && pnpm run build:js && pnpm run build:dts && pnpm run build:pkg && pnpm run build:check",
     "build:gen": "node scripts/generate-sandbox-scripts.mjs",
     "build:js": "tsup",
     "build:dts": "tsc -p tsconfig.build.json --emitDeclarationOnly",
     "build:pkg": "node scripts/make-dist-package-json.mjs",
     "build:check": "node scripts/check-dist.mjs",
     "typecheck": "pnpm run build:gen && tsc --noEmit",
-    "test": "pnpm run build:gen && jest --config jest.config.cjs --forceExit",
+    "test": "pnpm run build:gen && jest --config jest.config.cjs",
     "pack:dry": "cd dist && pnpm pack --dry-run"
   },
   "dependencies": {
@@ -69,7 +74,11 @@
     "zod": "^3.24.3",
     "zod-to-json-schema": "^3.25.1"
   },
+  "peerDependencies": {
+    "redis": "^5.10.0"
+  },
   "devDependencies": {
+    "redis": "^5.10.0",
     "@swc/core": "^1.11.0",
     "@swc/jest": "^0.2.37",
     "@types/jest": "^29.5.14",

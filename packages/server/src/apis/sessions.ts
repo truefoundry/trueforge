@@ -5,7 +5,13 @@ import {
   SessionStoreConflictError,
   SessionStoreNotFoundError,
 } from '@truefoundry/utils/agent-session';
+import type { RouteHandler as RequestReplyRouteHandler, RequestReplyRouter } from '@truefoundry/utils/request-reply';
+import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundry/utils/request-reply';
+import { HTTPException } from 'hono/http-exception';
+import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';
+import { z } from 'zod';
+import configuration from '../config';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -15,18 +21,30 @@ import {
   updateSessionRoute,
 } from '../routes/sessionRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
+import { executorFromTurnId } from '../runtime/peeringIds';
 import type { Session } from '../schemas/session';
 import type { McpStore } from '../store/McpStore';
 import type { ModelStore } from '../store/ModelStore';
 
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
-export const TENANT_NAME = 'default';
+export const TENANT_ID = 'default';
+
+/** Request-reply path a replica serves to cancel a turn it owns. */
+export const SESSIONS_CANCEL_PATH = 'sessions/cancel';
+
+/** Wire body of a peer cancel; validated on receipt (it crosses processes via Redis). */
+const CancelPeerBodySchema = z.object({
+  session_id: z.string(),
+  turn_id: z.string(),
+  reason: z.nativeEnum(CancellationReason),
+});
+type CancelPeerBody = z.infer<typeof CancelPeerBodySchema>;
 
 export function toWireSession(record: SessionRecord): Session {
   return {
     id: record.session_id,
     agent_spec: record.agent_spec,
-    title: record.title ?? null,
+    title: record.title,
     created_at: record.created_at,
     updated_at: record.updated_at,
   };
@@ -84,6 +102,111 @@ export interface SessionsRouterDeps {
   mcpStore: McpStore;
   /** Whether a sandbox provider is configured (SANDBOX_SETTINGS); gates spec admission. */
   sandboxSupported: boolean;
+  /** Primary Redis client (server-owned); used to reach peer executors. */
+  redis: RedisClientType;
+  /** Request-reply dispatch table this replica serves; cancel registers here. */
+  requestReplyRouter: RequestReplyRouter;
+}
+
+function cancelTurnOnThisExecutor(
+  activeTurns: ActiveTurnRegistry,
+  input: { sessionId: string; turnId: string; reason: CancellationReason },
+): boolean {
+  return activeTurns.cancelIfRunning({
+    sessionId: input.sessionId,
+    turnId: input.turnId,
+    abortReason: input.reason,
+  });
+}
+
+/**
+ * Peer-facing cancel handler (registered in createSessionsRouter): aborts the
+ * turn if it runs in this process. 200 = abort fired, 412 = not running here
+ * (treated by callers as a no-op).
+ */
+export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): RequestReplyRouteHandler {
+  // Synchronous by nature; the transport expects a Promise and require-await
+  // forbids an async fn without awaits.
+  return request => {
+    const parsed = CancelPeerBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return Promise.resolve({ status: 400, body: { message: 'Invalid sessions/cancel payload' } });
+    }
+    const found = cancelTurnOnThisExecutor(activeTurns, {
+      sessionId: parsed.data.session_id,
+      turnId: parsed.data.turn_id,
+      reason: parsed.data.reason,
+    });
+    return Promise.resolve(
+      found ? { status: 200, body: {} } : { status: 412, body: { message: 'Turn is not running on this executor' } },
+    );
+  };
+}
+
+/**
+ * Cancels the turn wherever it runs: locally or on the owning peer over Redis
+ * request-reply. Callers state the motive; default is a plain client cancel.
+ * Owner failures throw HTTPException (412 unreachable, 424 timed out).
+ */
+export async function cancelSessionTurn(
+  deps: Pick<SessionsRouterDeps, 'redis' | 'activeTurns' | 'sessionStore'>,
+  input: { sessionId: string; turnId: string; reason?: CancellationReason },
+): Promise<void> {
+  const { sessionId, turnId, reason = CancellationReason.ClientCancelled } = input;
+
+  const turn = await deps.sessionStore.getTurn({
+    tenant_id: TENANT_ID,
+    session_id: sessionId,
+    turn_id: turnId,
+  });
+  if (turn?.state.status !== 'running') {
+    // Missing or already terminal — nothing to cancel.
+    return;
+  }
+
+  const owner = executorFromTurnId(turnId);
+  if (owner !== configuration.EXECUTOR_ID) {
+    try {
+      const reply = await redisRequest<CancelPeerBody>({
+        redis: deps.redis,
+        executorId: owner,
+        path: SESSIONS_CANCEL_PATH,
+        request: {
+          body: { session_id: sessionId, turn_id: turnId, reason },
+        },
+        options: {
+          replyTimeoutMs: configuration.REDIS_REQUEST_REPLY_TIMEOUT_MS,
+          pollIntervalMs: configuration.REDIS_REQUEST_REPLY_POLL_INTERVAL_MS,
+        },
+      });
+      if (reply.status !== 200 && reply.status !== 412) {
+        throw new HTTPException(500, { message: 'Failed to cancel turn on the owning executor', cause: reply });
+      }
+    } catch (error) {
+      if (error instanceof NoResponderError) {
+        throw new HTTPException(412, {
+          message: `Executor owning the running turn is unreachable: ${owner}`,
+          cause: error,
+        });
+      }
+      if (error instanceof RequestTimeoutError) {
+        throw new HTTPException(424, {
+          message: 'Timed out waiting for the owning executor to cancel the turn',
+          cause: error,
+        });
+      }
+      if (error instanceof HTTPException) {
+        throw error;
+      }
+      throw new HTTPException(500, {
+        message: `Unexpected error while cancelling the turn on the owning executor: ${owner}`,
+        cause: error,
+      });
+    }
+    return;
+  }
+
+  cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
 }
 
 export function createSessionsRouter(deps: SessionsRouterDeps) {
@@ -97,7 +220,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         : c.json({ error: { message: specError.message } }, 400);
     }
     const session = await deps.sessions.create({
-      tenant_name: TENANT_NAME,
+      tenant_id: TENANT_ID,
       session_id: ulid().toLowerCase(),
       agent_spec: body.agent_spec,
     });
@@ -106,7 +229,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const getSessionHandler: RouteHandler<typeof getSessionRoute> = async c => {
     const { sessionId } = c.req.valid('param');
-    const record = await deps.sessionStore.getSession({ tenant_name: TENANT_NAME, session_id: sessionId });
+    const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
@@ -126,9 +249,10 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
     try {
       await deps.sessionStore.updateSession({
-        tenant_name: TENANT_NAME,
+        tenant_id: TENANT_ID,
         session_id: sessionId,
-        ...(body.agent_spec ? { agent_spec: body.agent_spec } : {}),
+        agent_spec: body.agent_spec,
+        title: undefined,
       });
     } catch (error) {
       if (error instanceof SessionStoreNotFoundError) {
@@ -136,7 +260,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       }
       throw error;
     }
-    const record = await deps.sessionStore.getSession({ tenant_name: TENANT_NAME, session_id: sessionId });
+    const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
@@ -147,7 +271,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const query = c.req.valid('query');
     try {
       const { data, pagination } = await deps.sessionStore.listSessions({
-        tenant_name: TENANT_NAME,
+        tenant_id: TENANT_ID,
         limit: query.limit,
         order: query.order,
         page_token: query.page_token,
@@ -168,24 +292,23 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   // terminal write wins).
   const cancelSessionHandler: RouteHandler<typeof cancelSessionRoute> = async c => {
     const { sessionId } = c.req.valid('param');
-    const record = await deps.sessionStore.getSession({ tenant_name: TENANT_NAME, session_id: sessionId });
+    const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (record.last_turn_id) {
-      deps.activeTurns.cancelIfRunning({
-        sessionId,
-        turnId: record.last_turn_id,
-        abortReason: CancellationReason.ClientCancelled,
-      });
+    const turnId = record.last_turn_id;
+    if (!turnId) {
+      return c.json({}, 200);
     }
+
+    await cancelSessionTurn(deps, { sessionId, turnId });
     return c.json({}, 200);
   };
 
   const listSessionEventsHandler: RouteHandler<typeof listSessionEventsRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
-    const session = await deps.sessions.get({ tenant_name: TENANT_NAME, session_id: sessionId });
+    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
@@ -213,6 +336,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   router.openapi(updateSessionRoute, updateSessionHandler);
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);
+  deps.requestReplyRouter.registerRoute(SESSIONS_CANCEL_PATH, cancelSessionTurnPeerHandler(deps.activeTurns));
   router.openapi(listSessionEventsRoute, listSessionEventsHandler);
   return router;
 }

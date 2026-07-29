@@ -26,6 +26,7 @@ import {
   type TurnUsage,
 } from './schemas/turn';
 import type { ISessionStore } from './store/ISessionStore';
+import { TurnNotRunningError } from './store/SessionStoreErrors';
 
 /** Streaming yield union — deltas pass through; never persisted. No sequence_number. */
 export type TurnStreamingEvent = PersistedTurnEvent | ModelMessageDeltaEvent;
@@ -83,7 +84,7 @@ function turnUsageFromMetrics(metrics: AgentThreadMetrics): TurnUsage {
 
 export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   private readonly store: ISessionStore<object, TTurnCustom>;
-  private readonly tenantName: string;
+  private readonly tenantId: string;
   private turn: TurnRecord<TTurnCustom>;
   private readonly orchestrator: AgentThreadOrchestrator | undefined;
   private readonly resolver: ITurnResourceResolver<TTurnCustom> | undefined;
@@ -92,14 +93,14 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
   constructor(options: {
     store: ISessionStore<object, TTurnCustom>;
-    tenantName: string;
+    tenantId: string;
     turn: TurnRecord<TTurnCustom>;
     orchestrator?: AgentThreadOrchestrator | undefined;
     resolver?: ITurnResourceResolver<TTurnCustom> | undefined;
     signal?: AbortSignal | undefined;
   }) {
     this.store = options.store;
-    this.tenantName = options.tenantName;
+    this.tenantId = options.tenantId;
     this.turn = options.turn;
     this.orchestrator = options.orchestrator;
     this.resolver = options.resolver;
@@ -109,7 +110,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   /** Store-only handle (e.g. from {@link SessionHandle.getTurn}) — stream() is not available. */
   static fromRecord<TCustom extends object = Record<string, never>>(options: {
     store: ISessionStore<object, TCustom>;
-    tenantName: string;
+    tenantId: string;
     turn: TurnRecord<TCustom>;
   }): TurnHandle<TCustom> {
     return new TurnHandle(options);
@@ -123,7 +124,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return this.turn.session_id;
   }
 
-  get previous_turn_id(): string | undefined {
+  get previous_turn_id(): string | null {
     return this.turn.previous_turn_id;
   }
 
@@ -139,7 +140,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return this.turn.created_at;
   }
 
-  get custom(): TTurnCustom | undefined {
+  get custom(): TTurnCustom | null {
     return this.turn.custom;
   }
 
@@ -190,6 +191,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     }
 
     let caughtError: Error | undefined;
+    let frozenByStore = false;
     let executeResult: AgentThreadExecutionResult | undefined;
     let generator: AsyncGenerator<AgentThreadExecutionEvent, AgentThreadExecutionResult, unknown> | undefined;
 
@@ -198,14 +200,14 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         type: EventType.TURN_CREATED,
         id: newEventId(),
         turn_id: this.turn.turn_id,
-        previous_turn_id: this.turn.previous_turn_id ?? null,
+        previous_turn_id: this.turn.previous_turn_id,
         ...(this.turn.input.length > 0 ? { input: this.turn.input } : {}),
         state: { status: 'running' },
         created_at: this.turn.created_at,
         thread_id: null,
       };
       await this.store.appendToEvents({
-        tenant_name: this.tenantName,
+        tenant_id: this.tenantId,
         session_id: this.turn.session_id,
         turn_id: this.turn.turn_id,
         events: [turnCreated],
@@ -216,9 +218,33 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       let iterResult = await generator.next();
       while (!iterResult.done) {
         const event = iterResult.value;
-        const yielded = await this.persistExecutionEvent(event);
-        if (yielded) {
-          yield yielded;
+        try {
+          const yielded = await this.persistExecutionEvent(event);
+          if (yielded) {
+            yield yielded;
+          }
+        } catch (error) {
+          if (error instanceof TurnNotRunningError) {
+            frozenByStore = true;
+            const emptyResult: AgentThreadExecutionResult = {
+              output: null,
+              required_actions: [],
+              metrics: { total: createEmptyAgentThreadMetrics() },
+            };
+            await generator.return(emptyResult);
+            // Cleared so the finally block does not close the generator a second time.
+            generator = undefined;
+            this.turn = { ...this.turn, state: error.state, updated_at: new Date().toISOString() };
+            yield {
+              type: EventType.TURN_DONE,
+              id: newEventId(),
+              created_at: new Date().toISOString(),
+              state: error.state,
+              thread_id: null,
+            };
+            return;
+          }
+          throw error;
         }
         iterResult = await generator.next();
       }
@@ -285,34 +311,48 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         thread_id: null,
       };
 
-      try {
-        await this.store.updateTurnState({
-          tenant_name: this.tenantName,
-          session_id: this.turn.session_id,
-          turn_id: this.turn.turn_id,
-          state: terminalState,
-        });
-        await this.store.appendToEvents({
-          tenant_name: this.tenantName,
-          session_id: this.turn.session_id,
-          turn_id: this.turn.turn_id,
-          events: [turnDone],
-        });
-        this.turn = { ...this.turn, state: terminalState, updated_at: createdAt };
-      } catch (persistError) {
-        // Store-write failures reject the stream (caller drain .catch).
-        await resolver.close().catch(() => {
-          /* no-op */
-        });
-        // eslint-disable-next-line no-unsafe-finally -- deliberate: the terminal-state write runs in finally and its failure must reject the stream
-        throw persistError;
+      if (!frozenByStore) {
+        try {
+          await this.store.updateTurnState({
+            tenant_id: this.tenantId,
+            session_id: this.turn.session_id,
+            turn_id: this.turn.turn_id,
+            state: terminalState,
+            turn_done_event: turnDone,
+          });
+          this.turn = { ...this.turn, state: terminalState, updated_at: createdAt };
+        } catch (persistError) {
+          if (persistError instanceof TurnNotRunningError) {
+            this.turn = { ...this.turn, state: persistError.state, updated_at: createdAt };
+            await resolver.close().catch(() => {
+              /* no-op */
+            });
+            yield {
+              type: EventType.TURN_DONE,
+              id: newEventId(),
+              created_at: createdAt,
+              state: persistError.state,
+              thread_id: null,
+            };
+            // eslint-disable-next-line no-unsafe-finally -- deliberate: a concurrent freeze during the terminal write makes the store's state authoritative, so the stream ends here
+            return;
+          }
+          // Store-write failures reject the stream (caller drain .catch).
+          await resolver.close().catch(() => {
+            /* no-op */
+          });
+          // eslint-disable-next-line no-unsafe-finally -- deliberate: the terminal-state write runs in finally and its failure must reject the stream
+          throw persistError;
+        }
       }
 
       await resolver.close().catch((err: unknown) => {
         resolver.logger.warn('TurnResourceResolver.close() failed', { err });
       });
 
-      yield turnDone;
+      if (!frozenByStore) {
+        yield turnDone;
+      }
     }
   }
 
@@ -326,7 +366,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     pagination: TokenPagination;
   }> {
     return this.store.listTurnEvents({
-      tenant_name: this.tenantName,
+      tenant_id: this.tenantId,
       session_id: this.turn.session_id,
       turn_id: this.turn.turn_id,
       limit: input.limit,
@@ -341,7 +381,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
    */
   private async persistExecutionEvent(event: AgentThreadExecutionEvent): Promise<TurnStreamingEvent | null> {
     const scope = {
-      tenant_name: this.tenantName,
+      tenant_id: this.tenantId,
       session_id: this.turn.session_id,
       turn_id: this.turn.turn_id,
     };
@@ -349,8 +389,14 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     switch (event.type) {
       case HarnessEventType.MODEL_MESSAGE:
       case HarnessEventType.MODEL_MESSAGE_DELTA:
+        // Stream only — durable model content lands via AGENT_CONTEXT_APPEND.output.
+        return event;
+
       case HarnessEventType.TOOL_RESPONSE:
-        // Stream only — durable model/tool content lands via AGENT_CONTEXT_APPEND.output.
+        await this.store.appendToEvents({
+          ...scope,
+          events: [event],
+        });
         return event;
 
       case InternalEventType.AGENT_CREATE_SUBAGENT:
@@ -384,8 +430,8 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           ...scope,
           thread_id: event.thread_id,
           context: event.context,
-          current_context_usage: event.current_context_usage,
-          completion: event.completion,
+          current_context_usage: event.current_context_usage ?? null,
+          completion: event.completion ?? null,
         });
         if (event.output.length > 0) {
           await this.store.appendToEvents({
@@ -422,6 +468,8 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
               agent_info: event.agent_info,
               context: [],
               current_context_usage: getEmptyUsage(),
+              completion: null,
+              capability_state: null,
             },
           ],
         });

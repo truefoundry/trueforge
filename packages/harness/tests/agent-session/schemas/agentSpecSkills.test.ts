@@ -1,4 +1,4 @@
-import { AgentSpecSchema } from '../../src/agent-session/schemas/agentSpec';
+import { AgentSpecSchema } from '../../../src/agent-session/schemas/agentSpec';
 
 const base = {
   model: { name: 'test-model' },

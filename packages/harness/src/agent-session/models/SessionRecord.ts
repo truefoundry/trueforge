@@ -8,7 +8,7 @@ import type { AgentSpec } from '../schemas/agentSpec';
  * binding via the updateSession patch.
  */
 export interface SessionRecord<TCustom extends object = Record<string, never>> {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   /** Always hydrated on read. Source of `spec` in SessionHandle.createTurn(). */
   agent_spec: AgentSpec;
@@ -16,12 +16,12 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    * Wire SessionSchema.title (nullable). Written via updateSession patch or
    * createTurn's update_session_title_if_not_exist (first write wins; caller derives).
    */
-  title?: string | null | undefined;
+  title: string | null;
   /**
    * Session tip — used for `previous_turn_id: 'auto'` resolution and turn
    * listing anchors. Advanced only by `createTurn` (atomic link).
    */
-  last_turn_id?: string | undefined;
+  last_turn_id: string | null;
   /** ISO-8601 UTC datetime string (for example, `2026-07-24T02:45:00.000Z`). */
   created_at: string;
   /** ISO-8601 UTC datetime string (for example, `2026-07-24T02:45:00.000Z`). */
@@ -31,5 +31,5 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    * updateSession, and createTurn — never on reads.
    */
   last_activity_timestamp_ms: number;
-  custom?: TCustom | undefined;
+  custom: TCustom | null;
 }

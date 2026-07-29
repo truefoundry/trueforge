@@ -1,4 +1,4 @@
-import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
+import { InternalEventType } from '../../../src/core/runtime/AgentThread.types';
 
 describe('passthrough event identity (public harness)', () => {
   it('includes PASSTHROUGH in public InternalEventType', () => {

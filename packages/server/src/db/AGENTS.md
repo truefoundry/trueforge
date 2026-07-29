@@ -1,2 +1,3 @@
 - Temporal columns MUST use `timestamptz` (`timestamp with time zone`). Do not use `timestamp` without time zone.
 - Application timestamps MUST be treated as UTC instants. Serialize with `Date.prototype.toISOString()` (always `...Z` with milliseconds).
+- Do not run DB queries inside loops (N+1). Prefer a single batched query, a join, or an `IN`/`ANY` lookup over per-item round-trips.

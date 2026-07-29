@@ -54,6 +54,7 @@ export type {
   AppendToThreadContextInput,
   CreateSessionInput,
   CreateTurnInput,
+  FreezeAndGetTurnInput,
   GetSessionInput,
   GetTurnInput,
   ISessionStore,
@@ -61,15 +62,29 @@ export type {
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
+  NewThreadInit,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
   RemoveThreadsInput,
+  TurnContextAppend,
+  TurnRecordWithoutSnapshot,
   UpdateSessionInput,
   UpdateTurnStateInput,
 } from './store/ISessionStore';
-export { SessionStoreConflictError, SessionStoreNotFoundError } from './store/SessionStoreErrors';
+export {
+  InvalidPageTokenError,
+  PreviousTurnRunningError,
+  SessionAlreadyExistsError,
+  SessionNotFoundError,
+  SessionStoreConflictError,
+  SessionStoreInvariantError,
+  SessionStoreNotFoundError,
+  TurnAlreadyExistsError,
+  TurnNotFoundError,
+  TurnNotRunningError,
+} from './store/SessionStoreErrors';
 
 export type { ITurnResourceResolver } from './ITurnResourceResolver';
 export { TurnResourceResolver } from './TurnResourceResolver';

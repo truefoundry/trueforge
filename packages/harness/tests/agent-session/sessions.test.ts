@@ -1,7 +1,7 @@
 import { EventType } from '../../src/agent-session/schemas/events';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
-import { makeAgentSpec, makeTestResolver } from './testHelpers';
+import { makeAgentSpec, makeTestResolver, mintTestTurnId } from './testHelpers';
 
 describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
   const tenant = 'tenant-1';
@@ -10,7 +10,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const store = new InMemorySessionStore<{ tag: string }>();
     const sessions = new Sessions<{ tag: string }>({ sessionStore: store });
     const created = await sessions.create({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       agent_spec: makeAgentSpec({ instructions: 'hydrate-me' }),
       custom: { tag: 'a' },
@@ -18,7 +18,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(created.agent_spec.instructions).toBe('hydrate-me');
     expect(created.custom).toEqual({ tag: 'a' });
 
-    const loaded = await sessions.get({ tenant_name: tenant, session_id: 's1' });
+    const loaded = await sessions.get({ tenant_id: tenant, session_id: 's1' });
     expect(loaded?.agent_spec.instructions).toBe('hydrate-me');
     expect(loaded?.session_id).toBe('s1');
   });
@@ -27,11 +27,12 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       agent_spec: makeAgentSpec(),
     });
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -42,12 +43,12 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(turn.input).toHaveLength(1);
 
     const stored = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
     expect(stored?.state.status).toBe('running');
-    const sessionRecord = await store.getSession({ tenant_name: tenant, session_id: 's1' });
+    const sessionRecord = await store.getSession({ tenant_id: tenant, session_id: 's1' });
     expect(sessionRecord?.title).toBe('From first message');
     expect(sessionRecord?.last_turn_id).toBe(turn.id);
   });
@@ -56,11 +57,12 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const store = new InMemorySessionStore<{ tag: string }, { n: number }>();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       agent_spec: makeAgentSpec(),
     });
     const t1 = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'one' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -70,6 +72,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(t1.custom).toEqual({ n: 1 });
 
     const t2 = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'two' }],
       previous_turn_id: 'auto',
       signal: new AbortController().signal,
@@ -83,11 +86,12 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       agent_spec: makeAgentSpec(),
     });
     const first = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'one' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -98,13 +102,14 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       // drain
     }
     const root2 = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'fresh root' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
       resolver: makeTestResolver(),
     });
-    expect(root2.previous_turn_id).toBeUndefined();
-    const sessionRecord = await store.getSession({ tenant_name: tenant, session_id: 's1' });
+    expect(root2.previous_turn_id).toBeNull();
+    const sessionRecord = await store.getSession({ tenant_id: tenant, session_id: 's1' });
     expect(sessionRecord?.last_turn_id).toBe(root2.id);
   });
 
@@ -112,12 +117,13 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       agent_spec: makeAgentSpec(),
     });
     await expect(
       session.createTurn({
+        turn_id: mintTestTurnId(),
         // Mixed batch — rejected by SessionHandle.toSendBatch / orchestrator validation path.
         input: [
           { type: EventType.USER_MESSAGE, content: 'hi' },
@@ -134,20 +140,21 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       }),
     ).rejects.toThrow();
     const turns = await store.listTurns({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       limit: 10,
+      page_token: undefined,
     });
     expect(turns.data).toHaveLength(0);
-    const sessionRecord = await store.getSession({ tenant_name: tenant, session_id: 's1' });
-    expect(sessionRecord?.last_turn_id).toBeUndefined();
+    const sessionRecord = await store.getSession({ tenant_id: tenant, session_id: 's1' });
+    expect(sessionRecord?.last_turn_id).toBeNull();
   });
 
   it('run() failure closes the resolver; success defers close() to stream()', async () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       agent_spec: makeAgentSpec(),
     });
@@ -156,6 +163,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const closeOnFailure = jest.fn().mockResolvedValue(undefined);
     await expect(
       session.createTurn({
+        turn_id: mintTestTurnId(),
         // Mixed batch — rejected after sandbox/thread resolution.
         input: [
           { type: EventType.USER_MESSAGE, content: 'hi' },
@@ -176,6 +184,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     // Success path: run() must NOT close — TurnHandle.stream()'s finally owns it.
     const closeOnSuccess = jest.fn().mockResolvedValue(undefined);
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,

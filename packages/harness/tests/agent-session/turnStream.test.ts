@@ -6,7 +6,14 @@ import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolv
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
 import { RemoteMCP } from '../../src/core/mcp/RemoteMCP';
 import { makeStubPublicSandbox } from '../core/harnessMocks';
-import { emptyLlmStream, makeAgentSpec, makeMockILLM, makeSilentLogger, makeTestResolver } from './testHelpers';
+import {
+  emptyLlmStream,
+  makeAgentSpec,
+  makeMockILLM,
+  makeSilentLogger,
+  makeTestResolver,
+  mintTestTurnId,
+} from './testHelpers';
 
 describe('TurnHandle.stream()', () => {
   const tenant = 'tenant-1';
@@ -15,7 +22,7 @@ describe('TurnHandle.stream()', () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       agent_spec: makeAgentSpec({
         config: {
@@ -29,6 +36,7 @@ describe('TurnHandle.stream()', () => {
   it('run commits running turn; stream is sole terminal writer → done', async () => {
     const { store, session } = await createSession();
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -57,7 +65,7 @@ describe('TurnHandle.stream()', () => {
     expect(data.some(e => e.type === EventType.TURN_DONE)).toBe(true);
 
     const stored = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -187,6 +195,7 @@ describe('TurnHandle.stream()', () => {
   it('background drain reaches terminal done', async () => {
     const { session } = await createSession();
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -204,6 +213,7 @@ describe('TurnHandle.stream()', () => {
   it('second stream() call throws', async () => {
     const { session } = await createSession();
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -227,6 +237,7 @@ describe('TurnHandle.stream()', () => {
     const { store, session } = await createSession();
     let closeCalls = 0;
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -247,7 +258,7 @@ describe('TurnHandle.stream()', () => {
     }
     expect(closeCalls).toBe(1);
     const stored = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -258,6 +269,7 @@ describe('TurnHandle.stream()', () => {
     const { store, session } = await createSession();
     const controller = new AbortController();
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: controller.signal,
@@ -273,7 +285,7 @@ describe('TurnHandle.stream()', () => {
       expect(turn.state.reason).toBe(CancellationReason.ClientCancelled);
     }
     const stored = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -284,6 +296,7 @@ describe('TurnHandle.stream()', () => {
     const { store, session } = await createSession();
     const controller = new AbortController();
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: controller.signal,
@@ -298,7 +311,7 @@ describe('TurnHandle.stream()', () => {
       expect(turn.state.reason).toBe(CancellationReason.Abandoned);
     }
     const stored = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -312,6 +325,7 @@ describe('TurnHandle.stream()', () => {
     const { store, session } = await createSession();
     const controller = new AbortController();
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: controller.signal,
@@ -326,7 +340,7 @@ describe('TurnHandle.stream()', () => {
       expect(turn.state.reason).toBe(CancellationReason.ServerExecutionTimeout);
     }
     const stored = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -340,6 +354,7 @@ describe('TurnHandle.stream()', () => {
     const { store, session } = await createSession();
     let closeCalls = 0;
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -357,7 +372,7 @@ describe('TurnHandle.stream()', () => {
     expect(closeCalls).toBe(1);
     expect(turn.state.status).toBe('done');
     const stored = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -377,6 +392,7 @@ describe('TurnHandle.stream()', () => {
     const { session } = await createSession();
     // Spec already has sandbox.enabled from createSession helper.
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -443,7 +459,7 @@ describe('TurnResourceResolver caches', () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
-      tenant_name: 't',
+      tenant_id: 't',
       session_id: 's',
       agent_spec: makeAgentSpec({
         config: {
@@ -452,6 +468,7 @@ describe('TurnResourceResolver caches', () => {
       }),
     });
     const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
       previous_turn_id: null,
       signal: new AbortController().signal,

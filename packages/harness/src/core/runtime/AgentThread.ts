@@ -627,7 +627,10 @@ export class AgentThread {
         });
       }
       if (contextMessages.length > 0) {
-        yield* this.appendToContext({ context: contextMessages, output: [] });
+        yield* this.appendToContext({
+          context: contextMessages,
+          output: [],
+        });
       }
     } finally {
       this.contextBusy = false;
@@ -731,24 +734,16 @@ export class AgentThread {
   }
 
   public toSnapshot(): AgentThreadSnapshot {
-    const capability_state = Object.keys(this.capabilityState).length > 0 ? { ...this.capabilityState } : undefined;
-    const base: AgentThreadSnapshot = {
+    const capability_state = Object.keys(this.capabilityState).length > 0 ? { ...this.capabilityState } : null;
+    return {
       thread_id: this.threadId,
       context: this.context,
       current_context_usage: this.currentContextUsage,
-      ...(capability_state && { capability_state }),
+      parent: this.parent ?? null,
+      agent_info: this.agentInfo ?? null,
+      completion: this.preComputedCompletion ?? null,
+      capability_state,
     };
-
-    if (this.parent && this.agentInfo) {
-      return {
-        ...base,
-        parent: this.parent,
-        agent_info: this.agentInfo,
-        ...(this.preComputedCompletion && { completion: this.preComputedCompletion }),
-      };
-    }
-
-    return base;
   }
 
   public getAgentThreadMetrics(): AgentThreadMetrics {
@@ -1210,9 +1205,10 @@ export class AgentThread {
     for (const msg of agentToolMessages) {
       yield msg;
     }
+    // tool.response is persisted by the session/response layer when yielded; only mutate context here.
     yield* this.appendToContext({
       context: toolCallResults.map(t => t.message),
-      output: agentToolMessages,
+      output: [],
     });
 
     if (authRequirementInfo.length > 0) {
