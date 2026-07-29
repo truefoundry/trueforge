@@ -149,10 +149,20 @@ export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): R
  * Owner failures throw HTTPException (412 unreachable, 424 timed out).
  */
 export async function cancelSessionTurn(
-  deps: Pick<SessionsRouterDeps, 'redis' | 'activeTurns'>,
+  deps: Pick<SessionsRouterDeps, 'redis' | 'activeTurns' | 'sessionStore'>,
   input: { sessionId: string; turnId: string; reason?: CancellationReason },
 ): Promise<void> {
   const { sessionId, turnId, reason = CancellationReason.ClientCancelled } = input;
+
+  const turn = await deps.sessionStore.getTurn({
+    tenant_id: TENANT_ID,
+    session_id: sessionId,
+    turn_id: turnId,
+  });
+  if (turn?.state.status !== 'running') {
+    // Missing or already terminal — nothing to cancel.
+    return;
+  }
 
   const owner = executorFromTurnId(turnId);
   if (owner !== configuration.EXECUTOR_ID) {
