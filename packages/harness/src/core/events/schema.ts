@@ -133,6 +133,8 @@ export const InputTokensBreakdownSchema = z.object({
   messages: z.number().int().nonnegative(),
 });
 
+/** Per-model-call usage on events. Add optional fields when consumers need them. */
+// TODO: Should we rename this input_tokens and output_tokens to prompt_tokens and completion_tokens??
 export const ModelMessageUsageSchema = z
   .object({
     input_tokens: z.number().int().nonnegative(),

@@ -34,6 +34,7 @@ export const TurnUsageSchema = z
   .object({
     total_prompt_tokens: z.number().int().nonnegative(),
     total_completion_tokens: z.number().int().nonnegative(),
+    total_tokens: z.number().int().nonnegative(),
     total_cache_read_tokens: z.number().int().nonnegative(),
     total_cost_in_usd: z.number().nonnegative(),
   })

@@ -55,6 +55,7 @@ describe('TurnHandle.stream()', () => {
       usage: {
         total_prompt_tokens: 0,
         total_completion_tokens: 0,
+        total_tokens: 0,
         total_cache_read_tokens: 0,
         total_cost_in_usd: 0,
       },
@@ -98,6 +99,7 @@ describe('TurnHandle.stream()', () => {
       usage: {
         total_prompt_tokens: 12,
         total_completion_tokens: 5,
+        total_tokens: 17,
         total_cache_read_tokens: 4,
         total_cost_in_usd: 0.42,
       },
@@ -129,6 +131,7 @@ describe('TurnHandle.stream()', () => {
       usage: {
         total_prompt_tokens: 100,
         total_completion_tokens: 50,
+        total_tokens: 150,
         total_cache_read_tokens: 20,
         total_cost_in_usd: 1.5,
       },
@@ -157,6 +160,7 @@ describe('TurnHandle.stream()', () => {
       usage: {
         total_prompt_tokens: 7,
         total_completion_tokens: 3,
+        total_tokens: 10,
         total_cache_read_tokens: 1,
         total_cost_in_usd: 0.05,
       },
@@ -165,6 +169,7 @@ describe('TurnHandle.stream()', () => {
     expect(turn2.state.status === 'done' && turn2.state.usage).not.toMatchObject({
       total_prompt_tokens: 107,
       total_completion_tokens: 53,
+      total_tokens: 160,
       total_cost_in_usd: 1.55,
     });
   });

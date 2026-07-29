@@ -156,7 +156,10 @@ export const GatewayChatCompletionUsageSchema = z
   })
   .openapi('GatewayChatCompletionUsage');
 
-/** Provider-agnostic usage used throughout the harness after gateway normalization. */
+/**
+ * Provider-agnostic usage used throughout the harness after gateway normalization.
+ * Keep to fields consumers need today; add more optional fields when needed.
+ */
 export const CompletionUsageSchema = z
   .object({
     prompt_tokens: z.number().int().nonnegative(),
@@ -164,7 +167,6 @@ export const CompletionUsageSchema = z
     total_tokens: z.number().int().nonnegative(),
     cache_read_tokens: z.number().int().nonnegative().optional(),
     cache_write_tokens: z.number().int().nonnegative().optional(),
-    reasoning_tokens: z.number().int().nonnegative().optional(),
     cost_in_USD: z.number().nonnegative().optional(),
   })
   .openapi('CompletionUsage');
@@ -197,7 +199,6 @@ export function getEmptyUsage(): CompletionUsage {
     total_tokens: 0,
     cache_read_tokens: 0,
     cache_write_tokens: 0,
-    reasoning_tokens: 0,
     cost_in_USD: 0,
   };
 }

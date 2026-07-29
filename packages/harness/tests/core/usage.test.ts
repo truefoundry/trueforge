@@ -30,7 +30,6 @@ describe('completion usage cost', () => {
       total_tokens: 15,
       cache_read_tokens: 4,
       cache_write_tokens: 2,
-      reasoning_tokens: 3,
       cost_in_USD: 0.12,
     });
     expect(CompletionUsageSchema.parse(normalized)).toEqual(normalized);
@@ -78,14 +77,13 @@ describe('completion usage cost', () => {
 });
 
 describe('mergeUsage normalized fields', () => {
-  it('sums flat cache, reasoning, and cost fields', () => {
+  it('sums flat cache-read, cache-write, and cost fields', () => {
     const merged = mergeUsage(
-      { ...getEmptyUsage(), cache_read_tokens: 9, reasoning_tokens: 3 },
-      { ...getEmptyUsage(), cache_read_tokens: 4, reasoning_tokens: 5 },
+      { ...getEmptyUsage(), cache_read_tokens: 9, cache_write_tokens: 2, cost_in_USD: 0.1 },
+      { ...getEmptyUsage(), cache_read_tokens: 4, cache_write_tokens: 3, cost_in_USD: 0.2 },
     );
-    expect(merged).toMatchObject({
-      cache_read_tokens: 13,
-      reasoning_tokens: 8,
-    });
+    expect(merged.cache_read_tokens).toBe(13);
+    expect(merged.cache_write_tokens).toBe(5);
+    expect(merged.cost_in_USD).toBe(0.1 + 0.2);
   });
 });
