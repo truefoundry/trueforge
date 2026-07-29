@@ -1,6 +1,6 @@
 /**
  * Server entry point: validates config, migrates the database, loads the YAML
- * stores, wires the in-memory session runtime and starts the HTTP server.
+ * stores, wires the Postgres session store and starts the HTTP server.
  * Any config, migration, or store error aborts startup.
  */
 import { serve } from '@hono/node-server';
@@ -15,11 +15,12 @@ try {
     { ModelStore },
     { McpStore },
     { SkillStore },
-    { Sessions, InMemorySessionStore, CancellationReason },
+    { Sessions, CancellationReason },
     { ActiveTurnRegistry },
     { createServerSandboxFactory },
     { connectRedis },
     { RequestReplyExecutor, RequestReplyRouter },
+    { PostgresSessionStore },
   ] = await Promise.all([
     import('./app'),
     import('./config'),
@@ -33,6 +34,7 @@ try {
     import('./runtime/sandboxFactory'),
     import('./runtime/redis'),
     import('@truefoundry/utils/request-reply'),
+    import('./db/session-store/PostgresSessionStore'),
   ]);
 
   // Console logger shared by the server runtime (harness components require one).
@@ -45,7 +47,7 @@ try {
   const db = createDb(configuration.DATABASE_URL, configuration.DATABASE_POOL_MAX);
   await migrateToLatest(db);
 
-  const sessionStore = new InMemorySessionStore();
+  const sessionStore = new PostgresSessionStore(db);
   // Throws on malformed SANDBOX_SETTINGS; undefined when sandbox is not configured.
   const skillStore = SkillStore.load();
   const sandboxFactory = createServerSandboxFactory({ logger });

@@ -734,24 +734,16 @@ export class AgentThread {
   }
 
   public toSnapshot(): AgentThreadSnapshot {
-    const capability_state = Object.keys(this.capabilityState).length > 0 ? { ...this.capabilityState } : undefined;
-    const base: AgentThreadSnapshot = {
+    const capability_state = Object.keys(this.capabilityState).length > 0 ? { ...this.capabilityState } : null;
+    return {
       thread_id: this.threadId,
       context: this.context,
       current_context_usage: this.currentContextUsage,
-      ...(capability_state && { capability_state }),
+      parent: this.parent ?? null,
+      agent_info: this.agentInfo ?? null,
+      completion: this.preComputedCompletion ?? null,
+      capability_state,
     };
-
-    if (this.parent && this.agentInfo) {
-      return {
-        ...base,
-        parent: this.parent,
-        agent_info: this.agentInfo,
-        ...(this.preComputedCompletion && { completion: this.preComputedCompletion }),
-      };
-    }
-
-    return base;
   }
 
   public getAgentThreadMetrics(): AgentThreadMetrics {

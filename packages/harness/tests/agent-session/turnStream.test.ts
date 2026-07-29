@@ -21,7 +21,7 @@ describe('TurnHandle.stream()', () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       agent_spec: makeAgentSpec({
         config: {
@@ -56,7 +56,7 @@ describe('TurnHandle.stream()', () => {
     expect(data.some(e => e.type === EventType.TURN_DONE)).toBe(true);
 
     const stored = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -129,7 +129,7 @@ describe('TurnHandle.stream()', () => {
     }
     expect(closeCalls).toBe(1);
     const stored = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -156,7 +156,7 @@ describe('TurnHandle.stream()', () => {
       expect(turn.state.reason).toBe(CancellationReason.ClientCancelled);
     }
     const stored = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -182,7 +182,7 @@ describe('TurnHandle.stream()', () => {
       expect(turn.state.reason).toBe(CancellationReason.Abandoned);
     }
     const stored = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -211,7 +211,7 @@ describe('TurnHandle.stream()', () => {
       expect(turn.state.reason).toBe(CancellationReason.ServerExecutionTimeout);
     }
     const stored = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -243,7 +243,7 @@ describe('TurnHandle.stream()', () => {
     expect(closeCalls).toBe(1);
     expect(turn.state.status).toBe('done');
     const stored = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -330,7 +330,7 @@ describe('TurnResourceResolver caches', () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
-      tenant_name: 't',
+      tenant_id: 't',
       session_id: 's',
       agent_spec: makeAgentSpec({
         config: {

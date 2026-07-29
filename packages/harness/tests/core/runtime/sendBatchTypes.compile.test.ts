@@ -2,10 +2,10 @@
  * Compile-time ownership of public vs runtime send batches.
  * Accepts the three homogeneous modes; rejects mixed pairs via @ts-expect-error.
  */
-import type { UserToolApprovalMessage, UserToolResponseMessage } from '../../src/core/events/schema';
-import type { LLMToolMessage } from '../../src/core/llm/LLMTypes';
-import type { AgentThreadRuntimeSendBatch, AgentThreadSendBatch } from '../../src/core/runtime/AgentThread.types';
-import type { AgentInputUserMessage } from '../../src/core/runtime/UserInputMessage';
+import type { UserToolApprovalMessage, UserToolResponseMessage } from '../../../src/core/events/schema';
+import type { LLMToolMessage } from '../../../src/core/llm/LLMTypes';
+import type { AgentThreadRuntimeSendBatch, AgentThreadSendBatch } from '../../../src/core/runtime/AgentThread.types';
+import type { AgentInputUserMessage } from '../../../src/core/runtime/UserInputMessage';
 
 const userMsg = { type: 'user.message' as const, content: 'hi' } satisfies AgentInputUserMessage;
 const approval = {

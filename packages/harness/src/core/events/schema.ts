@@ -1,6 +1,6 @@
 // Harness wire-format event schemas (OpenAPI-decorated Zod).
 import { z } from '@hono/zod-openapi';
-import { ulid } from 'ulid';
+import { monotonicFactory } from 'ulid';
 import {
   CompletionUsageSchema,
   EnrichedAssistantMessageSchema,
@@ -11,8 +11,17 @@ import {
   LLMUserMessageSchema,
 } from '../llm/LLMTypes';
 
+/**
+ * Process-local monotonic ULIDs preserve event creation order, including
+ * multiple events created in the same millisecond. A turn has one sequential
+ * writer, so this is the durable event order key.
+ *
+ * @see https://github.com/ulid/spec#monotonicity
+ */
+const monotonicUlid = monotonicFactory();
+
 export function newEventId(): string {
-  return ulid().toLowerCase();
+  return monotonicUlid().toLowerCase();
 }
 
 /** Canonical string constants for harness wire-level and user-input event `type` fields. */

@@ -1,5 +1,5 @@
-import { McpConnectionError } from '../../src/core/errors';
-import { connectRemoteMcp } from '../../src/core/mcp/remoteMcpClient';
+import { McpConnectionError } from '../../../src/core/errors';
+import { connectRemoteMcp } from '../../../src/core/mcp/remoteMcpClient';
 
 // Records every transport type client.connect() was attempted with, in order.
 const mockConnectAttempts: string[] = [];

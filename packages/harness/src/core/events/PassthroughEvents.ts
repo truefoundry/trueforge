@@ -17,7 +17,13 @@ export interface AgentPassthroughEventSchemaMap {}
 
 export type RegisteredPassthroughEvent = {
   [K in keyof AgentPassthroughEventSchemaMap]: AgentPassthroughEventSchemaMap[K] extends z.ZodType<infer Event>
-    ? Event & { type: K }
+    ? Event & {
+        type: K;
+        /** Durable event identity and primary ordering key. */
+        id: string;
+        /** ISO-8601 event creation time; required for every persisted event. */
+        created_at: string;
+      }
     : never;
 }[keyof AgentPassthroughEventSchemaMap];
 
@@ -27,5 +33,4 @@ export type RegisteredPassthroughEvent = {
  */
 export type WithRegisteredPassthrough<T> = [RegisteredPassthroughEvent] extends [never]
   ? T
-  : // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- false branch only when registry is non-empty; empty registry is `never`
-    T | RegisteredPassthroughEvent;
+  : T | RegisteredPassthroughEvent;

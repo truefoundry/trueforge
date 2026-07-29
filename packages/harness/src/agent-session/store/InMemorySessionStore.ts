@@ -1,13 +1,17 @@
+import { getEmptyUsage } from '../../core/llm/LLMTypes';
+import type { AgentThreadSnapshot } from '../../core/runtime/AgentThread.types';
 import type { SessionRecord } from '../models/SessionRecord';
-import type { TurnRecord } from '../models/TurnRecord';
+import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
+import { CancellationReason, type TerminalTurnState } from '../schemas/turn';
 import type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
   CreateSessionInput,
   CreateTurnInput,
+  FreezeAndGetTurnInput,
   GetSessionInput,
   GetTurnInput,
   ISessionStore,
@@ -15,15 +19,32 @@ import type {
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
+  NewThreadInit,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
   RemoveThreadsInput,
+  TurnContextAppend,
+  TurnRecordWithoutSnapshot,
   UpdateSessionInput,
   UpdateTurnStateInput,
 } from './ISessionStore';
-import { SessionStoreConflictError, SessionStoreNotFoundError } from './SessionStoreErrors';
+import { decodeOffsetPageToken, encodeOffsetPageToken } from './OffsetPageToken';
+import {
+  decodeSessionEventPageToken,
+  paginateSessionEventRows,
+  type SessionEventPageCursor,
+} from './SessionEventPageToken';
+import {
+  PreviousTurnRunningError,
+  SessionAlreadyExistsError,
+  SessionNotFoundError,
+  SessionStoreInvariantError,
+  TurnAlreadyExistsError,
+  TurnNotFoundError,
+  TurnNotRunningError,
+} from './SessionStoreErrors';
 
 /* eslint-disable @typescript-eslint/require-await -- in-memory store is synchronous; methods stay async so thrown SessionStore*Error reject as Promises for ISessionStore callers */
 
@@ -46,28 +67,92 @@ function turnKey(tenant: string, sessionId: string, turnId: string): string {
   return `${tenant}:${sessionId}:${turnId}`;
 }
 
-function encodeOffset(offset: number): string {
-  return String(offset);
+function newThreadSnapshot(thread: NewThreadInit): AgentThreadSnapshot {
+  return {
+    thread_id: thread.thread_id,
+    parent: thread.parent ?? null,
+    agent_info: thread.agent_info ?? null,
+    capability_state: null,
+    context: [],
+    current_context_usage: getEmptyUsage(),
+    completion: null,
+  };
 }
 
-function decodeOffset(token: string | undefined): number {
-  if (token === undefined || token === '') return 0;
-  const n = Number(token);
-  if (!Number.isInteger(n) || n < 0) {
-    throw new SessionStoreConflictError(`Invalid page_token: ${token}`);
+function applyContextAppends(threads: Record<string, AgentThreadSnapshot>, appends: TurnContextAppend[]): void {
+  for (const append of appends) {
+    const thread = threads[append.thread_id];
+    if (!thread) {
+      throw new SessionStoreInvariantError(`new_context_appends references unknown thread ${append.thread_id}`);
+    }
+    thread.context.push(...deepCopy(append.context));
+    if (append.current_context_usage !== null) {
+      thread.current_context_usage = deepCopy(append.current_context_usage);
+    }
   }
-  return n;
+}
+
+function buildSnapshotFromDelta(input: {
+  previousSnapshot: TurnSnapshot | undefined;
+  new_threads: NewThreadInit[];
+  new_context_appends: TurnContextAppend[];
+  capability_states: CreateTurnInput['capability_states'];
+}): TurnSnapshot {
+  const threads: Record<string, AgentThreadSnapshot> = input.previousSnapshot
+    ? deepCopy(input.previousSnapshot.threads)
+    : {};
+
+  for (const nt of input.new_threads) {
+    if (threads[nt.thread_id] !== undefined) {
+      throw new SessionStoreInvariantError(
+        `new_threads must only contain threads absent on the previous turn; thread '${nt.thread_id}' already exists`,
+      );
+    }
+    threads[nt.thread_id] = newThreadSnapshot(nt);
+  }
+
+  const knownThreadIds = new Set(Object.keys(threads));
+  for (const append of input.new_context_appends) {
+    if (!knownThreadIds.has(append.thread_id)) {
+      throw new SessionStoreInvariantError(`new_context_appends references unknown thread ${append.thread_id}`);
+    }
+  }
+
+  applyContextAppends(threads, input.new_context_appends);
+  const seenCapabilityThreads = new Set<string>();
+  for (const capability of input.capability_states) {
+    const thread = threads[capability.thread_id];
+    if (thread === undefined) {
+      throw new SessionStoreInvariantError(`capability_states references unknown thread ${capability.thread_id}`);
+    }
+    if (seenCapabilityThreads.has(capability.thread_id)) {
+      throw new SessionStoreInvariantError(`capability_states contains duplicate thread ${capability.thread_id}`);
+    }
+    seenCapabilityThreads.add(capability.thread_id);
+    thread.capability_state = deepCopy(capability.capability_state);
+  }
+  for (const threadId of Object.keys(threads)) {
+    if (!seenCapabilityThreads.has(threadId)) {
+      throw new SessionStoreInvariantError(`capability_states is missing thread ${threadId}`);
+    }
+  }
+
+  return {
+    threads,
+    mcp_servers: input.previousSnapshot ? deepCopy(input.previousSnapshot.mcp_servers) : null,
+    sandbox_info: input.previousSnapshot ? deepCopy(input.previousSnapshot.sandbox_info) : null,
+  };
 }
 
 function paginate<T>(items: T[], limit: number, pageToken?: string): { data: T[]; pagination: TokenPagination } {
-  const offset = decodeOffset(pageToken);
+  const offset = decodeOffsetPageToken(pageToken);
   const slice = items.slice(offset, offset + limit);
   return {
     data: slice,
     pagination: {
       limit,
-      ...(offset + limit < items.length ? { next_page_token: encodeOffset(offset + limit) } : {}),
-      ...(offset > 0 ? { previous_page_token: encodeOffset(Math.max(0, offset - limit)) } : {}),
+      ...(offset + limit < items.length ? { next_page_token: encodeOffsetPageToken(offset + limit) } : {}),
+      ...(offset > 0 ? { previous_page_token: encodeOffsetPageToken(Math.max(0, offset - limit)) } : {}),
     },
   };
 }
@@ -85,35 +170,36 @@ export class InMemorySessionStore<
   private readonly events = new Map<string, StoredEvent[]>();
 
   async createSession(input: CreateSessionInput<TSessionCustom>): Promise<void> {
-    const key = sessionKey(input.tenant_name, input.session_id);
+    const key = sessionKey(input.tenant_id, input.session_id);
     if (this.sessions.has(key)) {
-      throw new SessionStoreConflictError(`Session already exists: ${input.session_id}`);
+      throw new SessionAlreadyExistsError(input.session_id);
     }
     const now = new Date().toISOString();
     const record: SessionRecord<TSessionCustom> = {
-      tenant_name: input.tenant_name,
+      tenant_id: input.tenant_id,
       session_id: input.session_id,
       agent_spec: deepCopy(input.agent_spec),
       title: null,
+      last_turn_id: null,
       created_at: now,
       updated_at: now,
       last_activity_timestamp_ms: Date.now(),
-      custom: input.custom !== undefined ? deepCopy(input.custom) : undefined,
+      custom: input.custom !== null ? deepCopy(input.custom) : null,
     };
     this.sessions.set(key, { record, turnIds: [] });
     return;
   }
 
   async getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined> {
-    const stored = this.sessions.get(sessionKey(input.tenant_name, input.session_id));
+    const stored = this.sessions.get(sessionKey(input.tenant_id, input.session_id));
     return stored ? deepCopy(stored.record) : undefined;
   }
 
   async updateSession(input: UpdateSessionInput<TSessionCustom>): Promise<void> {
-    const key = sessionKey(input.tenant_name, input.session_id);
+    const key = sessionKey(input.tenant_id, input.session_id);
     const stored = this.sessions.get(key);
     if (!stored) {
-      throw new SessionStoreNotFoundError(`Session not found: ${input.session_id}`);
+      throw new SessionNotFoundError(input.session_id);
     }
     if (input.agent_spec !== undefined) {
       stored.record.agent_spec = deepCopy(input.agent_spec);
@@ -121,15 +207,16 @@ export class InMemorySessionStore<
     if (input.title !== undefined) {
       stored.record.title = input.title;
     }
-    stored.record.updated_at = new Date().toISOString();
-    stored.record.last_activity_timestamp_ms = Date.now();
+    const now = Date.now();
+    stored.record.updated_at = new Date(now).toISOString();
+    stored.record.last_activity_timestamp_ms = now;
     return;
   }
 
   async listSessions(
     input: ListSessionsInput,
   ): Promise<{ data: SessionRecord<TSessionCustom>[]; pagination: TokenPagination }> {
-    const prefix = `${input.tenant_name}:`;
+    const prefix = `${input.tenant_id}:`;
     const records: SessionRecord<TSessionCustom>[] = [];
     for (const [key, stored] of this.sessions) {
       if (!key.startsWith(prefix)) continue;
@@ -149,77 +236,127 @@ export class InMemorySessionStore<
     // Atomicity is free here: this body is fully synchronous, so Node's
     // run-to-completion guarantees it. Real backends must still use their own
     // locking/transactions to satisfy the ISessionStore createTurn contract.
-    const sKey = sessionKey(input.tenant_name, input.turn.session_id);
+    const sKey = sessionKey(input.tenant_id, input.turn.session_id);
     const stored = this.sessions.get(sKey);
     if (!stored) {
-      throw new SessionStoreNotFoundError(`Session not found: ${input.turn.session_id}`);
+      throw new SessionNotFoundError(input.turn.session_id);
     }
+
     const previousTurnId = input.turn.previous_turn_id;
-    if (previousTurnId !== undefined) {
-      const prevKey = turnKey(input.tenant_name, input.turn.session_id, previousTurnId);
-      if (!this.turns.has(prevKey)) {
-        throw new SessionStoreNotFoundError(`previous_turn_id not found in session: ${previousTurnId}`);
+    let previousSnapshot: TurnSnapshot | undefined;
+    if (previousTurnId !== null) {
+      const prevKey = turnKey(input.tenant_id, input.turn.session_id, previousTurnId);
+      const prev = this.turns.get(prevKey);
+      // Unknown previous_turn_id is allowed (relaxed): treat as no inheritance.
+      // A still-running previous must be frozen first.
+      if (prev !== undefined) {
+        if (prev.state.status === 'running') {
+          throw new PreviousTurnRunningError(previousTurnId);
+        }
+        previousSnapshot = prev.snapshot;
       }
     }
-    const tKey = turnKey(input.tenant_name, input.turn.session_id, input.turn.turn_id);
+
+    const tKey = turnKey(input.tenant_id, input.turn.session_id, input.turn.turn_id);
     if (this.turns.has(tKey)) {
-      throw new SessionStoreConflictError(`Turn already exists: ${input.turn.turn_id}`);
+      throw new TurnAlreadyExistsError(input.turn.turn_id);
     }
-    this.turns.set(tKey, deepCopy(input.turn));
+
+    const snapshot = buildSnapshotFromDelta({
+      previousSnapshot,
+      new_threads: input.new_threads,
+      new_context_appends: input.new_context_appends,
+      capability_states: input.capability_states,
+    });
+
+    const turnRecord: TurnRecord<TTurnCustom> = {
+      ...deepCopy(input.turn),
+      snapshot,
+    };
+
+    this.turns.set(tKey, turnRecord);
     this.events.set(tKey, []);
     stored.turnIds.push(input.turn.turn_id);
     stored.record.last_turn_id = input.turn.turn_id;
     stored.record.last_activity_timestamp_ms = Date.now();
     stored.record.updated_at = new Date().toISOString();
-    if (
-      input.update_session_title_if_not_exist !== undefined &&
-      (stored.record.title === undefined || stored.record.title === null)
-    ) {
+    if (input.update_session_title_if_not_exist !== null && stored.record.title === null) {
       stored.record.title = input.update_session_title_if_not_exist;
     }
   }
 
+  async freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>> {
+    const tKey = turnKey(input.tenant_id, input.session_id, input.turn_id);
+    const turn = this.turns.get(tKey);
+    if (!turn) {
+      throw new TurnNotFoundError(input.turn_id);
+    }
+
+    if (turn.state.status === 'running') {
+      const cancelledState: TerminalTurnState = {
+        status: 'cancelled',
+        reason: CancellationReason.CancelledForNextTurn,
+        completed_at: new Date().toISOString(),
+      };
+      turn.state = cancelledState;
+      turn.updated_at = new Date().toISOString();
+      const list = this.events.get(tKey);
+      if (list) {
+        list.push(deepCopy(input.turn_done_event));
+      }
+    }
+
+    return deepCopy(turn);
+  }
+
   async getTurn(input: GetTurnInput): Promise<TurnRecord<TTurnCustom> | undefined> {
-    const turn = this.turns.get(turnKey(input.tenant_name, input.session_id, input.turn_id));
+    const turn = this.turns.get(turnKey(input.tenant_id, input.session_id, input.turn_id));
     return turn ? deepCopy(turn) : undefined;
   }
 
-  async listTurns(input: ListTurnsInput): Promise<{ data: TurnRecord<TTurnCustom>[]; pagination: TokenPagination }> {
-    const stored = this.sessions.get(sessionKey(input.tenant_name, input.session_id));
+  async listTurns(
+    input: ListTurnsInput,
+  ): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }> {
+    const stored = this.sessions.get(sessionKey(input.tenant_id, input.session_id));
     if (!stored) {
-      throw new SessionStoreNotFoundError(`Session not found: ${input.session_id}`);
+      throw new SessionNotFoundError(input.session_id);
     }
     const records = stored.turnIds.map(id => {
-      const turn = this.turns.get(turnKey(input.tenant_name, input.session_id, id));
+      const turn = this.turns.get(turnKey(input.tenant_id, input.session_id, id));
       if (!turn) {
-        throw new SessionStoreNotFoundError(`Turn not found: ${id}`);
+        throw new TurnNotFoundError(id);
       }
-      return deepCopy(turn);
+      const { snapshot, ...row } = deepCopy(turn);
+      void snapshot;
+      return row;
     });
     return paginate(records, input.limit, input.page_token);
   }
 
   async updateTurnState(input: UpdateTurnStateInput): Promise<void> {
     // Same as createTurn: synchronous body ⇒ atomic under run-to-completion.
-    const tKey = turnKey(input.tenant_name, input.session_id, input.turn_id);
+    const tKey = turnKey(input.tenant_id, input.session_id, input.turn_id);
     const turn = this.turns.get(tKey);
     if (!turn) {
-      throw new SessionStoreNotFoundError(`Turn not found: ${input.turn_id}`);
+      throw new TurnNotFoundError(input.turn_id);
     }
     if (turn.state.status !== 'running') {
-      throw new SessionStoreConflictError(
-        `Turn ${input.turn_id} is already terminal (${turn.state.status}); first terminal write wins`,
-      );
+      throw new TurnNotRunningError(input.turn_id, turn.state);
     }
     turn.state = deepCopy(input.state);
     turn.updated_at = new Date().toISOString();
+    const list = this.events.get(tKey);
+    if (list) {
+      list.push(deepCopy(input.turn_done_event));
+    }
   }
 
   async appendToEvents(input: AppendToEventsInput): Promise<void> {
-    const tKey = turnKey(input.tenant_name, input.session_id, input.turn_id);
+    this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
+    const tKey = turnKey(input.tenant_id, input.session_id, input.turn_id);
     const list = this.events.get(tKey);
     if (!list) {
-      throw new SessionStoreNotFoundError(`Turn not found: ${input.turn_id}`);
+      throw new TurnNotFoundError(input.turn_id);
     }
     list.push(...deepCopy(input.events));
     return;
@@ -228,13 +365,21 @@ export class InMemorySessionStore<
   private requireTurn(tenant: string, sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
     const turn = this.turns.get(turnKey(tenant, sessionId, turnId));
     if (!turn) {
-      throw new SessionStoreNotFoundError(`Turn not found: ${turnId}`);
+      throw new TurnNotFoundError(turnId);
+    }
+    return turn;
+  }
+
+  private requireRunningTurn(tenant: string, sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
+    const turn = this.requireTurn(tenant, sessionId, turnId);
+    if (turn.state.status !== 'running') {
+      throw new TurnNotRunningError(turnId, turn.state);
     }
     return turn;
   }
 
   async addThreads(input: AddThreadsInput): Promise<void> {
-    const turn = this.requireTurn(input.tenant_name, input.session_id, input.turn_id);
+    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
     for (const thread of input.threads) {
       turn.snapshot.threads[thread.thread_id] = deepCopy(thread);
     }
@@ -243,7 +388,7 @@ export class InMemorySessionStore<
   }
 
   async removeThreads(input: RemoveThreadsInput): Promise<void> {
-    const turn = this.requireTurn(input.tenant_name, input.session_id, input.turn_id);
+    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
     for (const id of input.thread_ids) {
       Reflect.deleteProperty(turn.snapshot.threads, id);
     }
@@ -252,16 +397,16 @@ export class InMemorySessionStore<
   }
 
   async appendToThreadContext(input: AppendToThreadContextInput): Promise<void> {
-    const turn = this.requireTurn(input.tenant_name, input.session_id, input.turn_id);
+    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
     const thread = turn.snapshot.threads[input.thread_id];
     if (!thread) {
-      throw new SessionStoreNotFoundError(`Thread not found: ${input.thread_id}`);
+      throw new SessionStoreInvariantError(`Thread not found: ${input.thread_id}`);
     }
     thread.context.push(...deepCopy(input.context));
-    if (input.current_context_usage !== undefined) {
+    if (input.current_context_usage !== null) {
       thread.current_context_usage = deepCopy(input.current_context_usage);
     }
-    if (input.completion !== undefined) {
+    if (input.completion !== null) {
       thread.completion = deepCopy(input.completion);
     }
     turn.updated_at = new Date().toISOString();
@@ -269,11 +414,11 @@ export class InMemorySessionStore<
   }
 
   async overwriteThreadContext(input: OverwriteThreadContextInput): Promise<void> {
-    const turn = this.requireTurn(input.tenant_name, input.session_id, input.turn_id);
+    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
     const threadId = input.event.thread_id;
     const thread = turn.snapshot.threads[threadId];
     if (!thread) {
-      throw new SessionStoreNotFoundError(`Thread not found: ${threadId}`);
+      throw new SessionStoreInvariantError(`Thread not found: ${threadId}`);
     }
     thread.context = deepCopy(input.event.context);
     thread.current_context_usage = deepCopy(input.event.current_context_usage);
@@ -282,7 +427,7 @@ export class InMemorySessionStore<
   }
 
   async patchMCPServers(input: PatchMCPServersInput): Promise<void> {
-    const turn = this.requireTurn(input.tenant_name, input.session_id, input.turn_id);
+    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
     turn.snapshot.mcp_servers ??= {};
     for (const server of input.mcp_servers) {
       turn.snapshot.mcp_servers[server.id] = deepCopy(server);
@@ -292,20 +437,27 @@ export class InMemorySessionStore<
   }
 
   async patchSandboxInfo(input: PatchSandboxInfoInput): Promise<void> {
-    const turn = this.requireTurn(input.tenant_name, input.session_id, input.turn_id);
+    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
     turn.snapshot.sandbox_info = deepCopy(input.sandbox_info);
     turn.updated_at = new Date().toISOString();
     return;
   }
 
   async patchThreadCapabilityState(input: PatchThreadCapabilityStateInput): Promise<void> {
-    const turn = this.requireTurn(input.tenant_name, input.session_id, input.turn_id);
+    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
     const thread = turn.snapshot.threads[input.thread_id];
     if (!thread) {
-      throw new SessionStoreNotFoundError(`Thread not found: ${input.thread_id}`);
+      throw new SessionStoreInvariantError(`Thread not found: ${input.thread_id}`);
     }
     thread.capability_state ??= {};
-    thread.capability_state[input.key] = deepCopy(input.state);
+    if (input.state === null) {
+      Reflect.deleteProperty(thread.capability_state, input.key);
+      if (Object.keys(thread.capability_state).length === 0) {
+        thread.capability_state = null;
+      }
+    } else {
+      thread.capability_state[input.key] = deepCopy(input.state);
+    }
     turn.updated_at = new Date().toISOString();
     return;
   }
@@ -314,11 +466,13 @@ export class InMemorySessionStore<
     data: PersistedTurnEvent[];
     pagination: TokenPagination;
   }> {
-    const list = this.events.get(turnKey(input.tenant_name, input.session_id, input.turn_id));
+    const list = this.events.get(turnKey(input.tenant_id, input.session_id, input.turn_id));
     if (!list) {
-      throw new SessionStoreNotFoundError(`Turn not found: ${input.turn_id}`);
+      throw new TurnNotFoundError(input.turn_id);
     }
-    const ordered = input.order === 'desc' ? [...list].reverse() : list;
+    const ordered = [...list].sort((a, b) =>
+      input.order === 'desc' ? b.id.localeCompare(a.id) : a.id.localeCompare(b.id),
+    );
     const page = paginate(ordered, input.limit, input.page_token);
     return { data: deepCopy(page.data), pagination: page.pagination };
   }
@@ -327,28 +481,38 @@ export class InMemorySessionStore<
     data: SessionEventItem[];
     pagination: TokenPagination;
   }> {
-    const stored = this.sessions.get(sessionKey(input.tenant_name, input.session_id));
+    const stored = this.sessions.get(sessionKey(input.tenant_id, input.session_id));
     if (!stored) {
-      throw new SessionStoreNotFoundError(`Session not found: ${input.session_id}`);
+      throw new SessionNotFoundError(input.session_id);
     }
-    let turnIds = stored.turnIds;
-    if (input.last_turn_id) {
-      const anchor = this.turns.get(turnKey(input.tenant_name, input.session_id, input.last_turn_id));
-      if (!anchor) {
-        throw new SessionStoreNotFoundError(`Turn not found: ${input.last_turn_id}`);
-      }
-      turnIds = this.resolveAncestorChain(input.tenant_name, input.session_id, anchor);
+
+    const decodedCursor = input.page_token === undefined ? undefined : decodeSessionEventPageToken(input.page_token);
+    const lastTurnId = decodedCursor?.last_turn_id ?? input.last_turn_id ?? stored.record.last_turn_id;
+    if (lastTurnId === null) {
+      return { data: [], pagination: { limit: input.limit } };
     }
+    const cursor: SessionEventPageCursor = {
+      last_turn_id: lastTurnId,
+      offset: decodedCursor?.offset ?? 0,
+    };
+
+    const anchor = this.turns.get(turnKey(input.tenant_id, input.session_id, cursor.last_turn_id));
+    if (!anchor) {
+      throw new TurnNotFoundError(cursor.last_turn_id);
+    }
+    const turnIds = this.resolveAncestorChain(input.tenant_id, input.session_id, anchor);
     const flattened: SessionEventItem[] = [];
-    for (const turnId of turnIds) {
-      const evts = this.events.get(turnKey(input.tenant_name, input.session_id, turnId)) ?? [];
-      for (const event of evts) {
+    for (const turnId of [...turnIds].reverse()) {
+      const evts = this.events.get(turnKey(input.tenant_id, input.session_id, turnId)) ?? [];
+      for (const event of [...evts].sort((a, b) => b.id.localeCompare(a.id))) {
         flattened.push({ turn_id: turnId, event });
       }
     }
-    // Newest first for session feed.
-    flattened.reverse();
-    const page = paginate(flattened, input.limit, input.page_token);
+    const page = paginateSessionEventRows(
+      flattened.slice(cursor.offset, cursor.offset + input.limit + 1),
+      input.limit,
+      cursor,
+    );
     return { data: deepCopy(page.data), pagination: page.pagination };
   }
 

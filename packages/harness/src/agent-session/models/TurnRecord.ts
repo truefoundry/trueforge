@@ -13,8 +13,8 @@ export const MAIN_THREAD_ID = 'main';
  */
 export interface TurnSnapshot {
   threads: Record<string, AgentThreadSnapshot>;
-  mcp_servers?: Record<string, MCPServerInitInfo> | undefined;
-  sandbox_info?: SandboxInfo | undefined;
+  mcp_servers: Record<string, MCPServerInitInfo> | null;
+  sandbox_info: SandboxInfo | null;
 }
 
 export interface TurnRecord<TCustom extends object = Record<string, never>> {
@@ -27,7 +27,7 @@ export interface TurnRecord<TCustom extends object = Record<string, never>> {
    * need the full chain spill through older turns' own `ancestor_ids`.
    */
   ancestor_ids: string[];
-  previous_turn_id?: string | undefined;
+  previous_turn_id: string | null;
   state: TurnState;
   input: TurnInputItem[];
   snapshot: TurnSnapshot;
@@ -35,5 +35,5 @@ export interface TurnRecord<TCustom extends object = Record<string, never>> {
   created_at: string;
   /** ISO-8601 UTC datetime string (for example, `2026-07-24T02:45:00.000Z`). */
   updated_at: string;
-  custom?: TCustom | undefined;
+  custom: TCustom | null;
 }

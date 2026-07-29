@@ -1,9 +1,9 @@
-import type { MCPServerInitInfo } from '../../src/core/events/schema';
-import { EventType } from '../../src/core/events/schema';
-import type { AgentToolSchema, IToolSet, ListToolsResponse } from '../../src/core/mcp/IMCPServer';
-import { convertMCPServersToTools } from '../../src/core/mcp/convertMCPServers';
-import './harnessMocks';
-import { OBJECT_INPUT_SCHEMA, makeMockIMCPServer } from './harnessMocks';
+import type { MCPServerInitInfo } from '../../../src/core/events/schema';
+import { EventType } from '../../../src/core/events/schema';
+import type { AgentToolSchema, IToolSet, ListToolsResponse } from '../../../src/core/mcp/IMCPServer';
+import { convertMCPServersToTools } from '../../../src/core/mcp/convertMCPServers';
+import '../harnessMocks';
+import { OBJECT_INPUT_SCHEMA, makeMockIMCPServer } from '../harnessMocks';
 
 function makeServer(params: {
   name: string;

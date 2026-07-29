@@ -1,16 +1,16 @@
 import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/chat';
-import type { ILLM } from '../../src/core/llm/ILLM';
+import type { ILLM } from '../../../src/core/llm/ILLM';
 import type {
   ExtendedChatCompletionChunk,
   InternalEnrichedAssistantMessage,
   RawAssistantMessageWithUsage,
-} from '../../src/core/llm/LLMTypes';
-import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
-import { ResponseFormatSchema, toOpenAIResponseFormat } from '../../src/core/llm/responseFormat';
-import { toOpenAIChatMessage } from '../../src/core/llm/toOpenAIChatMessage';
-import { AgentThread } from '../../src/core/runtime/AgentThread';
-import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
-import { makeSilentLogger } from './harnessMocks';
+} from '../../../src/core/llm/LLMTypes';
+import { getEmptyUsage } from '../../../src/core/llm/LLMTypes';
+import { ResponseFormatSchema, toOpenAIResponseFormat } from '../../../src/core/llm/responseFormat';
+import { toOpenAIChatMessage } from '../../../src/core/llm/toOpenAIChatMessage';
+import { AgentThread } from '../../../src/core/runtime/AgentThread';
+import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
+import { makeSilentLogger } from '../harnessMocks';
 
 const toolInfo = {
   type: 'mcp' as const,
