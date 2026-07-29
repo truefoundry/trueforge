@@ -163,6 +163,7 @@ export const CompletionUsageSchema = z
     completion_tokens: z.number().int().nonnegative(),
     total_tokens: z.number().int().nonnegative(),
     cache_read_tokens: z.number().int().nonnegative().optional(),
+    cache_write_tokens: z.number().int().nonnegative().optional(),
     reasoning_tokens: z.number().int().nonnegative().optional(),
     cost_in_USD: z.number().nonnegative().optional(),
   })
@@ -195,6 +196,7 @@ export function getEmptyUsage(): CompletionUsage {
     completion_tokens: 0,
     total_tokens: 0,
     cache_read_tokens: 0,
+    cache_write_tokens: 0,
     reasoning_tokens: 0,
     cost_in_USD: 0,
   };

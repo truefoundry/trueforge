@@ -29,6 +29,7 @@ describe('completion usage cost', () => {
       completion_tokens: 5,
       total_tokens: 15,
       cache_read_tokens: 4,
+      cache_write_tokens: 2,
       reasoning_tokens: 3,
       cost_in_USD: 0.12,
     });

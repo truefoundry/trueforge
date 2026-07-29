@@ -673,13 +673,15 @@ export class AgentThread {
       ...(completion && { completion }),
     };
 
+    // Update usage before yield so we still count it if the stream stops here.
+    if (updateCumulativeUsage && overwriteUsage) {
+      this._cumulativeUsage = mergeUsage(this._cumulativeUsage, overwriteUsage);
+    }
+
     yield event;
 
     this.context = this.context.concat(context);
     this.currentContextUsage = newCurrentContextUsage;
-    if (updateCumulativeUsage && overwriteUsage) {
-      this._cumulativeUsage = mergeUsage(this._cumulativeUsage, overwriteUsage);
-    }
   }
 
   private *overwriteContext(
@@ -689,9 +691,11 @@ export class AgentThread {
       thread_id: this.threadId,
       ...payload,
     };
+    // Update usage before yield so we still count it if the stream stops here.
+    this._cumulativeUsage = mergeUsage(this._cumulativeUsage, payload.compaction_llm_usage);
+
     yield event;
     this.context = payload.context;
-    this._cumulativeUsage = mergeUsage(this._cumulativeUsage, payload.compaction_llm_usage);
     this.currentContextUsage = payload.current_context_usage;
     this._totalSummarizations++;
   }
@@ -847,6 +851,7 @@ export class AgentThread {
       input_tokens: usage.prompt_tokens,
       output_tokens: usage.completion_tokens,
       cache_read_tokens: usage.cache_read_tokens,
+      cache_write_tokens: usage.cache_write_tokens,
       input_tokens_breakdown: {
         harness: harnessEstimate,
         skills: skillsEstimate,

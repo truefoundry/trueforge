@@ -25,6 +25,7 @@ export function addAgentThreadMetrics(target: AgentThreadMetrics, source: AgentT
   target.prompt_tokens += source.prompt_tokens;
   target.completion_tokens += source.completion_tokens;
   target.cache_read_tokens = (target.cache_read_tokens ?? 0) + (source.cache_read_tokens ?? 0);
+  target.cache_write_tokens = (target.cache_write_tokens ?? 0) + (source.cache_write_tokens ?? 0);
   target.reasoning_tokens = (target.reasoning_tokens ?? 0) + (source.reasoning_tokens ?? 0);
   target.cost_in_USD = (target.cost_in_USD ?? 0) + (source.cost_in_USD ?? 0);
   target.total_tokens += source.total_tokens;
