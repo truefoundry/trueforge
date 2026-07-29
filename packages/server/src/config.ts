@@ -124,7 +124,7 @@ export const parseApiKeysByName = (): Record<string, string> => {
   return byName;
 };
 
-export function randomAlphanumeric(length: number): string {
+function randomAlphanumeric(length: number): string {
   return Array.from({ length }, () => Math.floor(Math.random() * 36).toString(36)).join('');
 }
 
@@ -266,7 +266,7 @@ export interface ServerConfiguration {
    * (cross-replica turn cancel). Env: `REDIS_URL` (required).
    */
   REDIS_URL: string;
-  /** Unique id of this process (see randomAlphanumeric). Not an env var. */
+  /** Unique id of this process. Not an env var. */
   EXECUTOR_ID: string;
   /**
    * Max ms to wait for a peer executor's reply before failing with 424.

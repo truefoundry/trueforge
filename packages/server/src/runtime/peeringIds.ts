@@ -7,9 +7,6 @@ import { ulid } from 'ulid';
  * is the matching decoder on the routing path.
  */
 export function mintPeeredTurnId(executorId: string): string {
-  if (!executorId || executorId.includes('.')) {
-    throw new Error(`executorId must be a non-empty string without '.', got "${executorId}"`);
-  }
   return `${ulid().toLowerCase()}.${executorId}`;
 }
 
