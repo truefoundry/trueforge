@@ -329,8 +329,14 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     switch (event.type) {
       case HarnessEventType.MODEL_MESSAGE:
       case HarnessEventType.MODEL_MESSAGE_DELTA:
+        // Stream only — durable model content lands via AGENT_CONTEXT_APPEND.output.
+        return event;
+
       case HarnessEventType.TOOL_RESPONSE:
-        // Stream only — durable model/tool content lands via AGENT_CONTEXT_APPEND.output.
+        await this.store.appendToEvents({
+          ...scope,
+          events: [event],
+        });
         return event;
 
       case InternalEventType.AGENT_CREATE_SUBAGENT:

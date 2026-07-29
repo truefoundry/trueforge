@@ -627,7 +627,10 @@ export class AgentThread {
         });
       }
       if (contextMessages.length > 0) {
-        yield* this.appendToContext({ context: contextMessages, output: [] });
+        yield* this.appendToContext({
+          context: contextMessages,
+          output: [],
+        });
       }
     } finally {
       this.contextBusy = false;
@@ -1199,9 +1202,10 @@ export class AgentThread {
     for (const msg of agentToolMessages) {
       yield msg;
     }
+    // tool.response is persisted by the session/response layer when yielded; only mutate context here.
     yield* this.appendToContext({
       context: toolCallResults.map(t => t.message),
-      output: agentToolMessages,
+      output: [],
     });
 
     if (authRequirementInfo.length > 0) {
