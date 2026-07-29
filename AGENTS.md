@@ -1,3 +1,4 @@
+- Workspace tasks MUST use `package.json` scripts; add a script when a missing workflow is repeatable like the existing commands, not ad hoc commands.
 - Changes to types or schemas MUST keep `packages/harness`, `packages/frontend`, `packages/server`, and `patches` synchronized; they MUST NOT update only one affected layer.
 - TypeScript code MUST NOT use assertion escapes such as `as T`, `as unknown as T`, non-null `!`, or `as never` to silence type errors; implementations MUST use sound contracts, guards, or corrected types.
 - When catching an error and throwing another, the new error MUST set `{ cause: caught }` so the original failure is preserved for logs and debugging.
