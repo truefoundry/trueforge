@@ -20,13 +20,13 @@ import type { McpStore } from '../store/McpStore';
 import type { ModelStore } from '../store/ModelStore';
 
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
-export const TENANT_NAME = 'default';
+export const TENANT_ID = 'default';
 
 export function toWireSession(record: SessionRecord): Session {
   return {
     id: record.session_id,
     agent_spec: record.agent_spec,
-    title: record.title ?? null,
+    title: record.title,
     created_at: record.created_at,
     updated_at: record.updated_at,
   };
@@ -97,7 +97,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         : c.json({ error: { message: specError.message } }, 400);
     }
     const session = await deps.sessions.create({
-      tenant_name: TENANT_NAME,
+      tenant_id: TENANT_ID,
       session_id: ulid().toLowerCase(),
       agent_spec: body.agent_spec,
     });
@@ -106,7 +106,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const getSessionHandler: RouteHandler<typeof getSessionRoute> = async c => {
     const { sessionId } = c.req.valid('param');
-    const record = await deps.sessionStore.getSession({ tenant_name: TENANT_NAME, session_id: sessionId });
+    const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
@@ -126,9 +126,10 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
     try {
       await deps.sessionStore.updateSession({
-        tenant_name: TENANT_NAME,
+        tenant_id: TENANT_ID,
         session_id: sessionId,
-        ...(body.agent_spec ? { agent_spec: body.agent_spec } : {}),
+        agent_spec: body.agent_spec,
+        title: undefined,
       });
     } catch (error) {
       if (error instanceof SessionStoreNotFoundError) {
@@ -136,7 +137,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       }
       throw error;
     }
-    const record = await deps.sessionStore.getSession({ tenant_name: TENANT_NAME, session_id: sessionId });
+    const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
@@ -147,7 +148,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const query = c.req.valid('query');
     try {
       const { data, pagination } = await deps.sessionStore.listSessions({
-        tenant_name: TENANT_NAME,
+        tenant_id: TENANT_ID,
         limit: query.limit,
         order: query.order,
         page_token: query.page_token,
@@ -168,7 +169,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   // terminal write wins).
   const cancelSessionHandler: RouteHandler<typeof cancelSessionRoute> = async c => {
     const { sessionId } = c.req.valid('param');
-    const record = await deps.sessionStore.getSession({ tenant_name: TENANT_NAME, session_id: sessionId });
+    const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
@@ -185,7 +186,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   const listSessionEventsHandler: RouteHandler<typeof listSessionEventsRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
-    const session = await deps.sessions.get({ tenant_name: TENANT_NAME, session_id: sessionId });
+    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }

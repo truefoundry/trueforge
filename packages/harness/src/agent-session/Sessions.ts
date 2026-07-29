@@ -5,6 +5,10 @@
 import { SessionHandle } from './SessionHandle';
 import type { CreateSessionInput, GetSessionInput, ISessionStore } from './store/ISessionStore';
 
+export type SessionsCreateInput<TSessionCustom extends object> = Omit<CreateSessionInput<TSessionCustom>, 'custom'> & {
+  custom?: TSessionCustom | undefined;
+};
+
 export class Sessions<
   TSessionCustom extends object = Record<string, never>,
   TTurnCustom extends object = Record<string, never>,
@@ -19,10 +23,13 @@ export class Sessions<
    * Creates and persists a new session. `agent_spec` is the fully hydrated
    * spec; the store may internally persist a blob and/or a uri/id.
    */
-  async create(input: CreateSessionInput<TSessionCustom>): Promise<SessionHandle<TSessionCustom, TTurnCustom>> {
-    await this.store.createSession(input);
+  async create(input: SessionsCreateInput<TSessionCustom>): Promise<SessionHandle<TSessionCustom, TTurnCustom>> {
+    await this.store.createSession({
+      ...input,
+      custom: input.custom ?? null,
+    });
     const record = await this.store.getSession({
-      tenant_name: input.tenant_name,
+      tenant_id: input.tenant_id,
       session_id: input.session_id,
     });
     if (!record) {

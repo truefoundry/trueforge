@@ -12,6 +12,7 @@
     "migrate": "tsx --env-file=.env src/db/migrate-cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test src/**/*.test.ts",
+    "test:store": "jest --config jest.store.config.cjs",
     "start": "node dist/main.js"
   },
   "dependencies": {
@@ -28,8 +29,12 @@
     "zod": "^3.24.3"
   },
   "devDependencies": {
+    "@swc/core": "^1.11.0",
+    "@swc/jest": "^0.2.37",
+    "@types/jest": "^29.5.14",
     "@types/node": "^24.12.0",
     "@types/pg": "^8.20.0",
+    "jest": "^29.7.0",
     "tsup": "^8.5.0",
     "tsx": "^4.16.2",
     "typescript": "^7.0.2"

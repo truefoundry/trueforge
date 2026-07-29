@@ -12,7 +12,7 @@ import type { TurnSandboxFactory } from '@truefoundry/utils/agent-session';
 import { createSandboxProvider, Sandbox, SandboxProviderSettingsSchema, SkillMounter } from '@truefoundry/utils/core';
 import type { Logger } from 'winston';
 import { ZodError } from 'zod';
-import { TENANT_NAME } from '../apis/sessions';
+import { TENANT_ID } from '../apis/sessions';
 import configuration from '../config';
 
 function parseSandboxSettings(rawJson: string) {
@@ -60,7 +60,7 @@ export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandbo
   const logger = deps.logger.child({ module: 'sandboxFactory' });
   const provider = createSandboxProvider({
     settings,
-    tenantName: TENANT_NAME,
+    tenantName: TENANT_ID,
     fileMaxBytes: configuration.SANDBOX_FILE_MAX_BYTES,
     previewUrlExpirySeconds: configuration.SANDBOX_PREVIEW_URL_EXPIRY_SECONDS,
     logger,
@@ -89,7 +89,7 @@ export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandbo
         // Sandbox reads its tenant from TFY_TENANT_NAME (see Sandbox constructor)
         // for the ownership check against provider-created sandbox ids
         // (`<tenant>.<uuid>`). Must match the tenantName given to the provider.
-        execExtraEnv: { TFY_TENANT_NAME: TENANT_NAME },
+        execExtraEnv: { TFY_TENANT_NAME: TENANT_ID },
         ...(skillMounter ? { skillMounter } : {}),
         tracing,
         logger,

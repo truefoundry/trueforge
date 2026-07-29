@@ -1,21 +1,21 @@
 import type { Logger } from 'winston';
-import { McpConnectionError, RemoteMCP, ToolSet } from '../../src/core';
+import { McpConnectionError, RemoteMCP, ToolSet } from '../../../src/core';
 import {
   isApprovalRequiredResponse,
   isCallToolResponseResult,
   type MCPAuthRequired,
   type ToolSchema,
-} from '../../src/core/mcp/IMCPServer';
-import type { RemoteMcpHeaders } from '../../src/core/mcp/RemoteMCP';
-import { connectRemoteMcp } from '../../src/core/mcp/remoteMcpClient';
-import type { ToolSelectorConfig } from '../../src/core/mcp/ToolSelectorPolicy';
-import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
+} from '../../../src/core/mcp/IMCPServer';
+import type { RemoteMcpHeaders } from '../../../src/core/mcp/RemoteMCP';
+import { connectRemoteMcp } from '../../../src/core/mcp/remoteMcpClient';
+import type { ToolSelectorConfig } from '../../../src/core/mcp/ToolSelectorPolicy';
+import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
 
 // RemoteMCP connects itself via connectRemoteMcp; mock it so the split RemoteMCP (connection) +
 // ToolSet (policy) can be exercised without real networking. isSessionExpiredError stays real.
-jest.mock('../../src/core/mcp/remoteMcpClient', () => {
-  const actualUnknown: unknown = jest.requireActual('../../src/core/mcp/remoteMcpClient');
-  const actual = actualUnknown as typeof import('../../src/core/mcp/remoteMcpClient');
+jest.mock('../../../src/core/mcp/remoteMcpClient', () => {
+  const actualUnknown: unknown = jest.requireActual('../../../src/core/mcp/remoteMcpClient');
+  const actual = actualUnknown as typeof import('../../../src/core/mcp/remoteMcpClient');
   return { __esModule: true as const, ...actual, connectRemoteMcp: jest.fn() };
 });
 

@@ -53,7 +53,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       agent_spec: makeAgentSpec(),
     });
@@ -82,7 +82,7 @@ describe('capability_state (tfy.plan fixture)', () => {
       // drain
     }
     const stored1 = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn1.id,
     });
@@ -112,7 +112,7 @@ describe('capability_state (tfy.plan fixture)', () => {
       // drain
     }
     const stored2 = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn2.id,
     });
@@ -124,7 +124,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       agent_spec: makeAgentSpec(),
     });
@@ -176,18 +176,64 @@ describe('capability_state (tfy.plan fixture)', () => {
       // drain
     }
     const prior = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn1.id,
     });
     expect(prior?.snapshot.threads[MAIN_THREAD_ID]?.capability_state?.['tfy.plan']).toEqual(planV1);
 
     const latest = await store.getTurn({
-      tenant_name: tenant,
+      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn3.id,
     });
     expect(latest?.snapshot.threads[MAIN_THREAD_ID]?.capability_state?.['tfy.plan']).toBeUndefined();
+  });
+
+  it('CAPABILITY_STATE with undefined state surfaces capability_state_error at persist boundary', async () => {
+    const undefinedStateCapability: AgentCapability = {
+      state: {
+        key: 'tfy.plan',
+        load: () => {
+          /* no-op */
+        },
+      },
+      preLLMProcessors: [
+        {
+          // eslint-disable-next-line @typescript-eslint/require-await -- async generator fixture, not awaiting I/O
+          async *processPreLLM(): AsyncGenerator<AgentContextProcessorOutput> {
+            yield {
+              type: InternalEventType.CAPABILITY_STATE,
+              key: 'tfy.plan',
+              // @ts-expect-error intentional runtime undefined past the JsonValue contract
+              state: undefined,
+            };
+          },
+        },
+      ],
+    };
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: tenant,
+      session_id: 's1',
+      agent_spec: makeAgentSpec(),
+    });
+    const turn = await session.createTurn({
+      input: [{ type: EventType.USER_MESSAGE, content: 'x' }],
+      previous_turn_id: null,
+      signal: new AbortController().signal,
+      resolver: makeTestResolver({ extraCapabilities: [undefinedStateCapability] }),
+    });
+    let errorMessage: string | undefined;
+    for await (const event of turn.stream()) {
+      if (event.type === EventType.TURN_DONE && event.state.status === 'error') {
+        errorMessage = event.state.message;
+      }
+    }
+    expect(errorMessage).toContain('CAPABILITY_STATE');
+    expect(errorMessage).toContain('undefined');
+    expect(errorMessage).toContain('null');
   });
 
   it('emit with undeclared key surfaces capability_state_error (emit-key guard)', async () => {

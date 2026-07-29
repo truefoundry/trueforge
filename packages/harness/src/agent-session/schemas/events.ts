@@ -86,9 +86,13 @@ export type TurnDoneEvent = z.infer<typeof TurnDoneEventSchema>;
 export type SessionEvent = z.infer<typeof SessionEventSchema>;
 /**
  * Durable turn event log entries: {@link SessionEvent} plus any registered
- * passthrough events. Shared by append and list operations.
+ * passthrough events. Every merged event must carry its monotonic ULID and
+ * creation timestamp; shared by append and list operations.
  */
-export type PersistedTurnEvent = WithRegisteredPassthrough<SessionEvent>;
+export type PersistedTurnEvent = WithRegisteredPassthrough<SessionEvent> & {
+  id: string;
+  created_at: string;
+};
 export interface SessionEventItem {
   turn_id: string;
   event: PersistedTurnEvent;

@@ -3,9 +3,9 @@
  * init it hands to Sandbox. (Host-specific mounters, e.g. the gateway's
  * TrueFoundry registry mounter, are tested in their own repo.)
  */
-import { InstructionBuilder } from '../../src/core/InstructionBuilder';
-import type { ISkillMounter } from '../../src/core/sandbox/skills/ISkillMounter';
-import { SkillMounter } from '../../src/core/sandbox/skills/SkillMounter';
+import { InstructionBuilder } from '../../../../src/core/InstructionBuilder';
+import type { ISkillMounter } from '../../../../src/core/sandbox/skills/ISkillMounter';
+import { SkillMounter } from '../../../../src/core/sandbox/skills/SkillMounter';
 
 const GIT_SKILL = {
   name: 'git-skill',

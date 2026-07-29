@@ -157,11 +157,11 @@ export interface AgentThreadSnapshot {
   thread_id: string;
   context: ContextMessage[];
   current_context_usage: CompletionUsage;
-  parent?: AgentParent | undefined;
-  agent_info?: AgentInfo | undefined;
-  completion?: SubAgentCompletionMarker | undefined;
+  parent: AgentParent | null;
+  agent_info: AgentInfo | null;
+  completion: SubAgentCompletionMarker | null;
   /** Cross-turn capability KV. Keys: capability.state.key; `tfy.` reserved for builtins. */
-  capability_state?: CapabilityState | undefined;
+  capability_state: CapabilityState | null;
 }
 
 export interface AgentThreadConstructorInput {

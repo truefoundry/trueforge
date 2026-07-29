@@ -161,7 +161,7 @@ export const listSessionEventsRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'List session events',
   description:
-    'List session events as `{ turn_id, event }` across the turn chain (newest first). Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done; streaming deltas are not included. If the newest turn is still running, its events are excluded — subscribe to the running turn for live events. Use `page_token` to paginate backward toward older events.',
+    'List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor.',
   request: {
     params: SessionIdParamsSchema,
     query: ListSessionEventsRequestQuerySchema,

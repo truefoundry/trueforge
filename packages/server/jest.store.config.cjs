@@ -1,0 +1,27 @@
+/** @type {import('jest').Config} */
+module.exports = {
+  testEnvironment: 'node',
+  globalSetup: '<rootDir>/tests/db/session-store/globalSetup.ts',
+  transform: {
+    '^.+\\.(m?js|tsx?)$': [
+      '@swc/jest',
+      {
+        jsc: {
+          parser: { syntax: 'typescript', decorators: true, dynamicImport: true },
+          target: 'es2022',
+        },
+        module: { type: 'commonjs' },
+      },
+    ],
+  },
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@truefoundry/utils/agent-session/(.*)$': '<rootDir>/../harness/src/agent-session/$1',
+    '^@truefoundry/utils/core/(.*)$': '<rootDir>/../harness/src/core/$1',
+  },
+  transformIgnorePatterns: ['/node_modules/(?!.*kysely)'],
+  testTimeout: 120_000,
+  maxWorkers: '50%',
+  roots: ['<rootDir>/tests/db/session-store', '<rootDir>/src'],
+  testMatch: ['<rootDir>/tests/db/session-store/**/*.test.ts'],
+};

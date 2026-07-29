@@ -5,9 +5,9 @@
 import {
   createSandboxProvider,
   SandboxProviderSettingsSchema,
-} from '../../src/core/sandbox/provider/createSandboxProvider';
-import { DaytonaSandboxProvider } from '../../src/core/sandbox/provider/DaytonaProvider';
-import { makeSilentLogger } from './harnessMocks';
+} from '../../../../src/core/sandbox/provider/createSandboxProvider';
+import { DaytonaSandboxProvider } from '../../../../src/core/sandbox/provider/DaytonaProvider';
+import { makeSilentLogger } from '../../harnessMocks';
 
 describe('SandboxProviderSettingsSchema', () => {
   it('parses minimal daytona settings and applies defaults', () => {

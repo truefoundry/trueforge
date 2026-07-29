@@ -210,12 +210,24 @@ importers:
         specifier: ^3.24.3
         version: 3.25.76
     devDependencies:
+      '@swc/core':
+        specifier: ^1.11.0
+        version: 1.15.46
+      '@swc/jest':
+        specifier: ^0.2.37
+        version: 0.2.39(@swc/core@1.15.46)
+      '@types/jest':
+        specifier: ^29.5.14
+        version: 29.5.14
       '@types/node':
         specifier: ^24.12.0
         version: 24.13.3
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@24.13.3)(babel-plugin-macros@3.1.0)(supports-color@8.1.1)
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(@swc/core@1.15.46)(jiti@1.21.7)(postcss@8.5.22)(supports-color@8.1.1)(tsx@4.23.1)(typescript@7.0.2)(yaml@2.9.0)

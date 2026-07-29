@@ -16,110 +16,162 @@ import type { TerminalTurnState } from '../schemas/turn';
 /** Caller-supplied fields for creating a session; the store owns timestamps and tip state. */
 export type CreateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
-  'tenant_name' | 'session_id' | 'agent_spec' | 'custom'
->;
+  'tenant_id' | 'session_id' | 'agent_spec'
+> & {
+  custom: TSessionCustom | null;
+};
 
-/** PATCH fields for an existing session; omitted keys are left unchanged. */
+/** PATCH fields for an existing session; `undefined` fields are left unchanged. */
 export type UpdateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
-  'tenant_name' | 'session_id'
-> &
-  Partial<Pick<SessionRecord<TSessionCustom>, 'agent_spec' | 'title'>>;
+  'tenant_id' | 'session_id'
+> & {
+  agent_spec: SessionRecord<TSessionCustom>['agent_spec'] | undefined;
+  title: SessionRecord<TSessionCustom>['title'] | undefined;
+};
 
 export interface GetSessionInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
 }
 
 export interface ListSessionsInput {
-  tenant_name: string;
+  tenant_id: string;
   limit: number;
-  page_token?: string | undefined;
-  order?: 'asc' | 'desc' | undefined;
-  start_timestamp?: string | undefined;
-  end_timestamp?: string | undefined;
+  page_token: string | undefined;
+  order: 'asc' | 'desc' | undefined;
+  start_timestamp: string | undefined;
+  end_timestamp: string | undefined;
+}
+
+/** Turn row fields without assembled snapshot (create input / listTurns). */
+export type TurnRecordWithoutSnapshot<TTurnCustom extends object = Record<string, never>> = Omit<
+  TurnRecord<TTurnCustom>,
+  'snapshot'
+>;
+
+/** Thread registration; mutable per-turn data arrives through dedicated createTurn fields. */
+export type NewThreadInit = Omit<
+  AgentThreadSnapshot,
+  'context' | 'current_context_usage' | 'completion' | 'capability_state'
+>;
+
+/** Full post-send capability map for one thread. */
+export type ThreadCapabilityStateInit = Pick<AgentThreadSnapshot, 'thread_id' | 'capability_state'>;
+
+/** One drained send() append batch for one thread; writer = the new turn. */
+export interface TurnContextAppend {
+  thread_id: string;
+  context: ContextMessage[];
+  current_context_usage: CompletionUsage | null;
 }
 
 export interface CreateTurnInput<TTurnCustom extends object = Record<string, never>> {
-  tenant_name: string;
-  turn: TurnRecord<TTurnCustom>;
-  update_session_title_if_not_exist?: string | undefined;
+  tenant_id: string;
+  turn: TurnRecordWithoutSnapshot<TTurnCustom>;
+  /** Threads absent on the previous turn (turn 1: the root thread; else empty). */
+  new_threads: NewThreadInit[];
+  /**
+   * All new messages, for new and carried-forward threads alike — collected by
+   * draining orchestrator.send() BEFORE this call. Draining without persisting is
+   * safe: send() mutates only in-memory threads, and if createTurn fails the whole
+   * in-memory state (orchestrator, threads, resolver) is discarded — so either this
+   * turn commits atomically with its appends, or nothing was persisted at all.
+   */
+  new_context_appends: TurnContextAppend[];
+  /**
+   * Complete post-send capability maps: exactly one entry per turn thread.
+   * Authoritative for this turn; the store does not carry capability rows forward.
+   */
+  capability_states: ThreadCapabilityStateInit[];
+  /** Set only if session.title is NULL (first write wins). */
+  update_session_title_if_not_exist: string | null;
+}
+
+export interface FreezeAndGetTurnInput {
+  tenant_id: string;
+  session_id: string;
+  turn_id: string;
+  /** Caller-built cancelled turn.done event; store persists atomically with state flip when it cancels. */
+  turn_done_event: PersistedTurnEvent;
 }
 
 export interface GetTurnInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   turn_id: string;
 }
 
 export interface ListTurnsInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   limit: number;
-  page_token?: string | undefined;
+  page_token: string | undefined;
 }
 
 export interface UpdateTurnStateInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   turn_id: string;
   state: TerminalTurnState;
+  /** Caller-built turn.done; written atomically with the state flip in the same tx. */
+  turn_done_event: PersistedTurnEvent;
 }
 
 export interface AppendToEventsInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   turn_id: string;
   events: PersistedTurnEvent[];
 }
 
 export interface AddThreadsInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   turn_id: string;
   threads: AgentThreadSnapshot[];
 }
 
 export interface RemoveThreadsInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   turn_id: string;
   thread_ids: string[];
 }
 
 export interface AppendToThreadContextInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   turn_id: string;
   thread_id: string;
   context: ContextMessage[];
-  current_context_usage?: CompletionUsage | undefined;
-  completion?: SubAgentCompletionMarker | undefined;
+  current_context_usage: CompletionUsage | null;
+  completion: SubAgentCompletionMarker | null;
 }
 
 export interface OverwriteThreadContextInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   turn_id: string;
   event: ThreadOverwriteContextEvent;
 }
 
 export interface PatchMCPServersInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   turn_id: string;
   mcp_servers: MCPServerInitInfo[];
 }
 
 export interface PatchSandboxInfoInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   turn_id: string;
   sandbox_info: SandboxInfo;
 }
 
 export interface PatchThreadCapabilityStateInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   turn_id: string;
   thread_id: string;
@@ -128,28 +180,28 @@ export interface PatchThreadCapabilityStateInput {
 }
 
 export interface ListTurnEventsInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   turn_id: string;
   limit: number;
-  page_token?: string | undefined;
-  order?: 'asc' | 'desc' | undefined;
+  page_token: string | undefined;
+  order: 'asc' | 'desc' | undefined;
 }
 
 export interface ListSessionEventsInput {
-  tenant_name: string;
+  tenant_id: string;
   session_id: string;
   limit: number;
-  page_token?: string | undefined;
-  last_turn_id?: string | undefined;
+  page_token: string | undefined;
+  last_turn_id: string | undefined;
 }
 
 /**
  * Session/turn persistence contract. Pure durability: no streaming, SSE, or
  * subscription members. Turn-scoped ops take session_id (membership check).
- * Capability durability goes through patchThreadCapabilityState only. Agent
- * binding is session-scoped: reads always return a hydrated agent_spec even
- * if the backend persists a uri/id.
+ * Capability maps are initialized atomically by createTurn and subsequently
+ * updated through patchThreadCapabilityState. Agent binding is session-scoped:
+ * reads always return a hydrated agent_spec even if the backend persists a uri/id.
  */
 export interface ISessionStore<
   TSessionCustom extends object = Record<string, never>,
@@ -174,8 +226,7 @@ export interface ISessionStore<
    * PATCH semantics — update only the provided fields:
    * - agent_spec: rewrite binding (full spec and/or backing uri/id). Next getSession hydrates.
    * - title: set/replace the session title.
-   * Bumps `last_activity_timestamp_ms` (= now). Same liveness rule applies to any
-   * future session-update fields: update session ⇒ touch activity.
+   * Bumps `last_activity_timestamp_ms` (= now) in the same update.
    */
   updateSession(input: UpdateSessionInput<TSessionCustom>): Promise<void>;
 
@@ -190,7 +241,11 @@ export interface ISessionStore<
   ): Promise<{ data: SessionRecord<TSessionCustom>[]; pagination: TokenPagination }>;
 
   /**
-   * Creates the turn AND advances `session.last_turn_id`.
+   * Creates the turn AND advances `session.last_turn_id`. Context merging is the
+   * store's responsibility: `new_context_appends` and `new_threads` are applied
+   * on top of the previous turn's snapshot when `turn.previous_turn_id` is set.
+   * `capability_states` is the complete authoritative map for every resulting
+   * thread and is persisted directly without store-side carry-forward.
    *
    * Atomicity (store contract): insert turn + set `last_turn_id` (+ session
    * turn-list append if the backend has one) MUST be one atomic unit per
@@ -201,10 +256,12 @@ export interface ISessionStore<
    * Also bumps `session.last_activity_timestamp_ms` in that same atomic unit.
    *
    * Fork semantics for `turn.previous_turn_id`:
-   * - `undefined` — new root turn (no parent); always allowed.
-   * - string — must reference an **existing** turn in this session (fork/chain
-   *   from that turn). Tip-equality is NOT required; concurrent forks from the
-   *   same tip both succeed. Unknown id → not-found.
+   * - `null` — new root turn (no parent); always allowed.
+   * - string — fork/chain from that turn when it exists. Tip-equality is NOT
+   *   required; concurrent forks from the same tip both succeed. Unknown id is
+   *   allowed (relaxed) and treated as no inheritance. If that turn exists and
+   *   is still `running`, reject with {@link PreviousTurnRunningError} —
+   *   callers must {@link freezeAndGetTurn} first.
    * `last_turn_id` always advances to the new turn in the same atomic unit.
    *
    * `update_session_title_if_not_exist`: when set AND `session.title` is
@@ -214,14 +271,26 @@ export interface ISessionStore<
    */
   createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void>;
 
+  /**
+   * One tx: (a) conditionally cancel a running turn with
+   * {@link CancellationReason.CancelledForNextTurn}; (b) if it did cancel,
+   * insert the caller-built `turn_done_event` — already-terminal turns skip the
+   * event insert; (c) return the now-immutable turn record. Missing turn →
+   * {@link TurnNotFoundError}.
+   */
+  freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>>;
+
   /** Returns the turn record, or undefined if not found in this session. */
   getTurn(input: GetTurnInput): Promise<TurnRecord<TTurnCustom> | undefined>;
 
-  /** Paginated list of the session's turn records, stable ordering. */
-  listTurns(input: ListTurnsInput): Promise<{ data: TurnRecord<TTurnCustom>[]; pagination: TokenPagination }>;
+  /** Paginated list of turn rows (no snapshot); use getTurn for assembled snapshot. */
+  listTurns(
+    input: ListTurnsInput,
+  ): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }>;
 
   /**
-   * Writes the terminal state. Store contract — **first terminal write wins**:
+   * Writes the terminal state and `turn_done_event` atomically. Store contract —
+   * **first terminal write wins**:
    * - Allowed: `running` → `done` | `cancelled` | `error`.
    * - Rejected with **409** (or equivalent conflict): any write when status is already
    *   terminal — including done→cancelled, cancelled→done, error→*, terminal→running.
@@ -237,7 +306,9 @@ export interface ISessionStore<
    * `TurnCreatedEvent` at the start of the stream and a terminal `TurnDoneEvent`
    * (or its cancelled/error shape) at the end. Every turn written through this
    * API persists lifecycle in the stream — implementations never synthesize
-   * missing created/done rows on read.
+   * missing created/done rows on read. Every event MUST carry `id` and
+   * `created_at`; `id` is a monotonic ULID and is the primary within-turn sort
+   * key. `created_at` records event creation time but is not the order key.
    */
   appendToEvents(input: AppendToEventsInput): Promise<void>;
 
@@ -262,7 +333,7 @@ export interface ISessionStore<
   /** Generic capability KV — store has zero Plan/feature knowledge. */
   patchThreadCapabilityState(input: PatchThreadCapabilityStateInput): Promise<void>;
 
-  /** Paginated read of one turn's persisted events, insertion order (asc default). */
+  /** Paginated read ordered lexically by monotonic `event.id` (asc default). */
   listTurnEvents(input: ListTurnEventsInput): Promise<{
     data: PersistedTurnEvent[];
     pagination: TokenPagination;
@@ -273,12 +344,15 @@ export interface ISessionStore<
    * turn.created / turn.done lifecycle rows. Reads only — never synthesizes.
    *
    * Includes events from **running** turns (the HTTP layer may 409 separately;
-   * that is not store semantics). Ordering: newest-first across the flattened
-   * feed. `last_turn_id` anchors the window to that turn plus its ancestors
-   * (oldest first). `ancestor_ids` may be only the previous N ancestors and
-   * need not reach the root — implementations that need the full chain must
-   * spill through older turns' own `ancestor_ids`. Sibling branches from forks
-   * are excluded; omit `last_turn_id` to use the full session turn list.
+   * that is not store semantics). Ordering: newest turn first, then monotonic
+   * `event.id` descending within each turn. `last_turn_id` anchors the window
+   * to that turn plus its ancestors; when omitted, the session's current
+   * `last_turn_id` selects the active branch. Continuation page tokens encode
+   * that anchor and take precedence over `last_turn_id`, so later session
+   * activity cannot move an in-progress pagination walk to another branch.
+   * `ancestor_ids` may include only the previous N ancestors and need not reach
+   * the root — implementations must spill through older turns' own
+   * `ancestor_ids` when needed. Sibling branches from forks are excluded.
    */
   listSessionEvents(input: ListSessionEventsInput): Promise<{
     data: SessionEventItem[];

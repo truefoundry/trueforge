@@ -2,9 +2,14 @@
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
 import { ulid } from 'ulid';
+import { newEventId } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
-import type { AgentThreadSendBatch, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
+import type {
+  AgentThreadAppendContext,
+  AgentThreadSendBatch,
+  AgentThreadSnapshot,
+} from '../core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
 import {
   isApprovalDecisionMessage,
@@ -19,22 +24,24 @@ import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { SessionRecord } from './models/SessionRecord';
 import { MAIN_THREAD_ID, type TurnRecord } from './models/TurnRecord';
 import type { SessionEventItem } from './schemas/events';
+import { EventType, type TurnDoneEvent } from './schemas/events';
 import type { TokenPagination } from './schemas/pagination';
 import type { TurnInputItem } from './schemas/turn';
-import type { ISessionStore } from './store/ISessionStore';
+import { CancellationReason } from './schemas/turn';
+import type { ISessionStore, NewThreadInit, TurnContextAppend, TurnRecordWithoutSnapshot } from './store/ISessionStore';
 import { TurnHandle } from './TurnHandle';
 
 /** How many recent ancestors SessionHandle persists on each turn. Store-local. */
 const MAX_TURN_ANCESTORS = 20;
 function resolvePreviousTurnId(
   requested: string | null | undefined,
-  lastTurnId: string | undefined,
-): string | undefined {
+  lastTurnId: string | null | undefined,
+): string | null {
   if (requested === null) {
-    return undefined;
+    return null;
   }
   if (requested === undefined || requested === 'auto') {
-    return lastTurnId;
+    return lastTurnId ?? null;
   }
   return requested;
 }
@@ -50,6 +57,53 @@ function toSendBatch(input: TurnInputItem[] | undefined): AgentThreadSendBatch {
     return input;
   }
   throw new Error('input must be homogeneous: all user messages, or all approval/tool-response messages');
+}
+
+function toNewThreadInit(snapshot: AgentThreadSnapshot): NewThreadInit {
+  const { context, current_context_usage, completion, capability_state, ...rest } = snapshot;
+  void context;
+  void current_context_usage;
+  void completion;
+  void capability_state;
+  return rest;
+}
+
+function collectContextAppends(
+  events: AsyncGenerator<AgentThreadAppendContext, void, unknown>,
+): Promise<TurnContextAppend[]> {
+  return (async () => {
+    const appendMap = new Map<string, TurnContextAppend>();
+    for await (const event of events) {
+      const existing = appendMap.get(event.thread_id);
+      if (existing) {
+        existing.context.push(...event.context);
+        if (event.current_context_usage !== undefined) {
+          existing.current_context_usage = event.current_context_usage;
+        }
+      } else {
+        appendMap.set(event.thread_id, {
+          thread_id: event.thread_id,
+          context: [...event.context],
+          current_context_usage: event.current_context_usage ?? null,
+        });
+      }
+    }
+    return [...appendMap.values()];
+  })();
+}
+
+function cancelledTurnDoneEvent(): TurnDoneEvent {
+  return {
+    type: EventType.TURN_DONE,
+    id: newEventId(),
+    created_at: new Date().toISOString(),
+    state: {
+      status: 'cancelled',
+      reason: CancellationReason.CancelledForNextTurn,
+      completed_at: new Date().toISOString(),
+    },
+    thread_id: null,
+  };
 }
 
 function threadsRecordFromMap(threads: Map<string, AgentThread>): Record<string, AgentThreadSnapshot> {
@@ -76,15 +130,15 @@ export class SessionHandle<
     return this.session.session_id;
   }
 
-  get tenant_name(): string {
-    return this.session.tenant_name;
+  get tenant_id(): string {
+    return this.session.tenant_id;
   }
 
   get agent_spec() {
     return this.session.agent_spec;
   }
 
-  get custom(): TSessionCustom | undefined {
+  get custom(): TSessionCustom | null {
     return this.session.custom;
   }
 
@@ -126,14 +180,15 @@ export class SessionHandle<
   }): Promise<TurnHandle<TTurnCustom>> {
     const previousTurnId = resolvePreviousTurnId(input.previous_turn_id, this.session.last_turn_id);
     const previous = previousTurnId
-      ? await this.store.getTurn({
-          tenant_name: this.tenant_name,
+      ? await this.store.freezeAndGetTurn({
+          tenant_id: this.tenant_id,
           session_id: this.session.session_id,
           turn_id: previousTurnId,
+          turn_done_event: cancelledTurnDoneEvent(),
         })
       : undefined;
 
-    const custom = typeof input.custom === 'function' ? input.custom(previous?.custom) : input.custom;
+    const custom = typeof input.custom === 'function' ? input.custom(previous?.custom ?? undefined) : input.custom;
 
     const spec = this.session.agent_spec;
     // Dispose-on-early-failure: any resource acquired below (sandbox handle,
@@ -146,7 +201,7 @@ export class SessionHandle<
       const tracing = input.resolver.createTracing();
       const sandbox = await input.resolver.resolveSandbox({
         spec,
-        existing: previous?.snapshot.sandbox_info,
+        existing: previous?.snapshot.sandbox_info ?? undefined,
         previousTurn: previous,
         signal: input.signal,
         tracing,
@@ -176,39 +231,61 @@ export class SessionHandle<
 
       // SEND BEFORE COMMIT — validate + append; throw ⇒ nothing persisted.
       const sendBatch = toSendBatch(input.input);
-      for await (const event of orchestrator.send(sendBatch)) {
-        void event; // drain only
-      }
+      const new_context_appends = await collectContextAppends(orchestrator.send(sendBatch));
 
       const turnId = ulid().toLowerCase();
       const now = new Date().toISOString();
-      const turnRecord: TurnRecord<TTurnCustom> = {
+
+      const new_threads: NewThreadInit[] = [];
+      if (!previous) {
+        const root = agentThreads.get(MAIN_THREAD_ID);
+        if (root) {
+          new_threads.push(toNewThreadInit(root.toSnapshot()));
+        }
+      } else {
+        for (const [threadId, thread] of agentThreads) {
+          if (previous.snapshot.threads[threadId] === undefined) {
+            new_threads.push(toNewThreadInit(thread.toSnapshot()));
+          }
+        }
+      }
+
+      const turnInit: TurnRecordWithoutSnapshot<TTurnCustom> = {
         turn_id: turnId,
         session_id: this.session.session_id,
         first_turn_id: previous?.first_turn_id ?? turnId,
-        // Truncate to a recent window; stores spill if they need older ancestors.
         ancestor_ids: previous ? [...previous.ancestor_ids, previous.turn_id].slice(-MAX_TURN_ANCESTORS) : [],
         previous_turn_id: previousTurnId,
         state: { status: 'running' },
         input: input.input ?? [],
-        snapshot: {
-          threads: threadsRecordFromMap(agentThreads),
-          mcp_servers: previous?.snapshot.mcp_servers,
-          sandbox_info: previous?.snapshot.sandbox_info,
-        },
         created_at: now,
         updated_at: now,
-        custom,
+        custom: custom ?? null,
+      };
+
+      const turnRecord: TurnRecord<TTurnCustom> = {
+        ...turnInit,
+        snapshot: {
+          threads: threadsRecordFromMap(agentThreads),
+          mcp_servers: previous?.snapshot.mcp_servers ?? null,
+          sandbox_info: previous?.snapshot.sandbox_info ?? null,
+        },
       };
 
       await this.store.createTurn({
-        tenant_name: this.tenant_name,
-        turn: turnRecord,
-        update_session_title_if_not_exist: input.update_session_title_if_not_exist,
+        tenant_id: this.tenant_id,
+        turn: turnInit,
+        new_threads,
+        new_context_appends,
+        capability_states: [...agentThreads].map(([thread_id, thread]) => ({
+          thread_id,
+          capability_state: thread.toSnapshot().capability_state,
+        })),
+        update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
       });
 
       const refreshed = await this.store.getSession({
-        tenant_name: this.tenant_name,
+        tenant_id: this.tenant_id,
         session_id: this.session.session_id,
       });
       if (refreshed) {
@@ -217,7 +294,7 @@ export class SessionHandle<
 
       return new TurnHandle({
         store: this.store,
-        tenantName: this.tenant_name,
+        tenantId: this.tenant_id,
         turn: turnRecord,
         orchestrator,
         resolver: input.resolver,
@@ -236,7 +313,7 @@ export class SessionHandle<
   /** Returns the turn handle (store-backed; not executable), or undefined if not found. */
   async getTurn(turn_id: string): Promise<TurnHandle<TTurnCustom> | undefined> {
     const turn = await this.store.getTurn({
-      tenant_name: this.tenant_name,
+      tenant_id: this.tenant_id,
       session_id: this.session.session_id,
       turn_id,
     });
@@ -245,18 +322,18 @@ export class SessionHandle<
     }
     return TurnHandle.fromRecord({
       store: this.store,
-      tenantName: this.tenant_name,
+      tenantId: this.tenant_id,
       turn,
     });
   }
 
-  /** Paginated list of this session's turn records. */
+  /** Paginated list of this session's turn rows (no snapshot). */
   async listTurns(input: {
     limit: number;
     page_token?: string | undefined;
-  }): Promise<{ data: TurnRecord<TTurnCustom>[]; pagination: TokenPagination }> {
+  }): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }> {
     return this.store.listTurns({
-      tenant_name: this.tenant_name,
+      tenant_id: this.tenant_id,
       session_id: this.session.session_id,
       limit: input.limit,
       page_token: input.page_token,
@@ -277,7 +354,7 @@ export class SessionHandle<
     pagination: TokenPagination;
   }> {
     return this.store.listSessionEvents({
-      tenant_name: this.tenant_name,
+      tenant_id: this.tenant_id,
       session_id: this.session.session_id,
       limit: input.limit,
       page_token: input.page_token,
@@ -325,7 +402,7 @@ export class SessionHandle<
     const { definition, extraCapabilities } = await input.resolver.resolveAgentDefinition({
       spec: this.session.agent_spec,
       thread_id: input.threadId,
-      agent_info: input.data?.agent_info,
+      agent_info: input.data?.agent_info ?? undefined,
       previousTurn: input.previous,
       signal: input.signal,
       tracing: input.tracing,
@@ -349,11 +426,11 @@ export class SessionHandle<
       sandbox: input.sandbox,
       context: input.data?.context,
       currentContextUsage: input.data?.current_context_usage,
-      parent: input.data?.parent,
-      agentInfo: input.data?.agent_info,
-      preComputedCompletion: input.data?.completion,
+      parent: input.data?.parent ?? undefined,
+      agentInfo: input.data?.agent_info ?? undefined,
+      preComputedCompletion: input.data?.completion ?? undefined,
       capabilities,
-      capabilityState: input.data?.capability_state,
+      capabilityState: input.data?.capability_state ?? undefined,
       tracing: input.tracing,
       logger: input.resolver.logger,
     });

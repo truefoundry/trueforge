@@ -51,7 +51,7 @@
     "build:pkg": "node scripts/make-dist-package-json.mjs",
     "build:check": "node scripts/check-dist.mjs",
     "typecheck": "pnpm run build:gen && tsc --noEmit",
-    "test": "pnpm run build:gen && jest --config jest.config.cjs --forceExit",
+    "test": "pnpm run build:gen && jest --config jest.config.cjs",
     "pack:dry": "cd dist && pnpm pack --dry-run"
   },
   "dependencies": {
