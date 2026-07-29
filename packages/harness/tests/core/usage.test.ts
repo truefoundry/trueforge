@@ -1,10 +1,10 @@
-import { CompletionUsageSchema, GatewayCompletionUsageSchema, getEmptyUsage } from '../../src/core/llm/LLMTypes';
+import { CompletionUsageSchema, GatewayChatCompletionUsageSchema, getEmptyUsage } from '../../src/core/llm/LLMTypes';
 import { mergeUsage } from '../../src/core/llm/usage';
 
 describe('completion usage cost', () => {
   it('accepts gateway-computed cost', () => {
     expect(
-      GatewayCompletionUsageSchema.parse({
+      GatewayChatCompletionUsageSchema.parse({
         prompt_tokens: 10,
         completion_tokens: 5,
         total_tokens: 15,

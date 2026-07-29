@@ -11,7 +11,7 @@ import {
   type RawAssistantMessage,
   type RawAssistantMessageWithUsage,
 } from './LLMTypes';
-import { mergeUsage } from './usage';
+import { normalizeUsage } from './usage';
 
 /** Static headers, or a resolver invoked on every request. */
 export type LLMHeaders = Record<string, string> | (() => Record<string, string>);
@@ -219,7 +219,7 @@ function accumulateTokensFromChunk(
     }
   }
   if (chunk.usage) {
-    message.usage = mergeUsage(getEmptyUsage(), chunk.usage);
+    message.usage = normalizeUsage(chunk.usage);
   }
   const finishReason = chunk.choices[0]?.finish_reason;
   if (finishReason) {

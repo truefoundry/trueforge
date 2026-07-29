@@ -52,7 +52,7 @@ import {
 } from '../llm/LLMTypes';
 import { toOpenAIResponseFormat } from '../llm/responseFormat';
 import { toOpenAIChatMessage } from '../llm/toOpenAIChatMessage';
-import { estimateTokensForString, mergeUsage } from '../llm/usage';
+import { estimateTokensForString, mergeUsage, normalizeUsage } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
@@ -756,7 +756,6 @@ export class AgentThread {
     };
   }
 
-  /** Reset turn-scoped usage without changing the context-window estimate. */
   public resetTurnUsage(): void {
     this._cumulativeUsage = getEmptyUsage();
   }
@@ -1015,7 +1014,7 @@ export class AgentThread {
       if (chunk.usage) {
         usage = this.computeAssistantMessageUsage({
           requestBody,
-          usage: mergeUsage(getEmptyUsage(), chunk.usage),
+          usage: normalizeUsage(chunk.usage),
           toolMapping,
         });
       }

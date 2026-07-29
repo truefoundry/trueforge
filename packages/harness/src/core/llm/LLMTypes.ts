@@ -135,7 +135,7 @@ export const LLMToolMessageSchema = ChatCompletionToolMessageParamSchema.omit({ 
   .openapi('LLMToolMessage');
 
 /** Raw usage accepted from the OpenAI-compatible gateway response. */
-export const GatewayCompletionUsageSchema = z
+export const GatewayChatCompletionUsageSchema = z
   .object({
     completion_tokens: z.number().int().nonnegative(),
     prompt_tokens: z.number().int().nonnegative(),
@@ -154,7 +154,7 @@ export const GatewayCompletionUsageSchema = z
     cache_creation_input_tokens: z.number().int().nonnegative().optional(),
     costInUSD: z.number().nonnegative().optional(),
   })
-  .openapi('GatewayCompletionUsage');
+  .openapi('GatewayChatCompletionUsage');
 
 /** Provider-agnostic usage used throughout the harness after gateway normalization. */
 export const CompletionUsageSchema = z
@@ -185,7 +185,7 @@ export type ExtendedDeltaToolCall = z.infer<typeof ExtendedChunkDeltaToolCallSch
 export type ExtendedDelta = z.infer<typeof ExtendedChunkDeltaSchema>;
 export type LLMUserMessage = z.infer<typeof LLMUserMessageSchema>;
 export type LLMToolMessage = z.infer<typeof LLMToolMessageSchema>;
-export type GatewayCompletionUsage = z.infer<typeof GatewayCompletionUsageSchema>;
+export type GatewayChatCompletionUsage = z.infer<typeof GatewayChatCompletionUsageSchema>;
 export type CompletionUsage = z.infer<typeof CompletionUsageSchema>;
 export type FinishReason = z.infer<typeof FinishReasonSchema>;
 
@@ -194,6 +194,9 @@ export function getEmptyUsage(): CompletionUsage {
     prompt_tokens: 0,
     completion_tokens: 0,
     total_tokens: 0,
+    cache_read_tokens: 0,
+    reasoning_tokens: 0,
+    cost_in_USD: 0,
   };
 }
 
@@ -209,15 +212,15 @@ interface ExtendedChoice extends Omit<ChatCompletionChunk.Choice, 'delta'> {
 
 /**
  * Extended chat completion chunk that includes thought_signature in tool calls.
- * `usage` is still the gateway/OpenAI payload; merge it into a {@link CompletionUsage}
- * before treating it as normalized harness usage.
+ * Streamed `usage` is the raw gateway payload; the returned
+ * {@link RawAssistantMessageWithUsage.usage} is normalized `CompletionUsage`.
  */
 export interface ExtendedChatCompletionChunk extends Omit<ChatCompletionChunk, 'choices' | 'usage'> {
   /**
    * A list of chat completion choices, with thought_signature support in deltas.
    */
   choices: ExtendedChoice[];
-  usage?: GatewayCompletionUsage | null;
+  usage?: GatewayChatCompletionUsage | null;
 }
 
 export interface RawAssistantMessageWithUsage {
