@@ -3,7 +3,7 @@
  * Validation is strict: unknown keys, duplicate names, or missing fields make
  * the server fail at startup.
  */
-import { z } from 'zod';
+import { z } from '@hono/zod-openapi';
 import { normalizeEnvName } from '../config';
 
 /** Adds a validation issue if two entries share a name. */
@@ -48,7 +48,8 @@ export const ModelEntrySchema = z
     reasoning_efforts: z.array(z.string().min(1)).min(1).optional(),
     max_output_tokens: z.number().int().positive(),
   })
-  .strict();
+  .strict()
+  .openapi('ModelEntry');
 
 export const ModelsFileSchema = z
   .object({
@@ -69,7 +70,8 @@ export const McpServerEntrySchema = z
     name: z.string().min(1),
     url: z.string().url(),
   })
-  .strict();
+  .strict()
+  .openapi('McpServerEntry');
 
 export const McpFileSchema = z
   .object({
@@ -93,7 +95,8 @@ export const SkillEntrySchema = z
     // Shown to users and persisted in the selected skill mount for runtime prompting.
     description: z.string().min(1),
   })
-  .strict();
+  .strict()
+  .openapi('SkillEntry');
 
 export const SkillsFileSchema = z
   .object({

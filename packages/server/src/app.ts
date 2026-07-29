@@ -15,6 +15,7 @@ import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
 import { createSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
+import { DEFAULT_PORT } from './config';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { McpStore } from './store/McpStore';
 import type { ModelStore } from './store/ModelStore';
@@ -27,6 +28,9 @@ export const openApiDocConfig = {
     description: 'Agent server exposing models, MCP servers and skills from local YAML config.',
     version: '0.1.0',
   },
+  // Self-hosted: the default local port is the only URL we can name. SDK
+  // consumers override it to point at their own deployment.
+  servers: [{ url: `http://localhost:${String(DEFAULT_PORT)}`, description: 'Local server' }],
 };
 
 export interface ServerDeps {

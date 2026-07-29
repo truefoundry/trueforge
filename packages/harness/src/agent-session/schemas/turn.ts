@@ -49,7 +49,7 @@ export const TurnStateErrorSchema = z
 export const TurnStateDoneSchema = z
   .object({
     status: z.literal('done'),
-    output: ModelMessageEventSchema.nullable(),
+    output: ModelMessageEventSchema.optional(),
     required_actions: z.array(ActionRequiredEventSchema),
     completed_at: z.string(),
   })

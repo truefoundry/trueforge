@@ -15,6 +15,8 @@ export const getCapabilitiesRoute = createRoute({
   path: '/',
   tags: ['Capabilities'],
   summary: 'Get server capabilities',
+  'x-fern-sdk-group-name': ['capabilities'],
+  'x-fern-sdk-method-name': 'get',
   description: 'Report optional runtime capabilities available in this server deployment.',
   responses: {
     200: {
