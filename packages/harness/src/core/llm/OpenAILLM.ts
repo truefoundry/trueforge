@@ -6,12 +6,11 @@ import { extractErrorLogFields } from '../util/errorLogFields';
 import type { ILLM } from './ILLM';
 import {
   getEmptyUsage,
-  type CompletionUsage,
   type ExtendedChatCompletionChunk,
+  type GatewayChatCompletionUsage,
   type RawAssistantMessage,
   type RawAssistantMessageWithUsage,
 } from './LLMTypes';
-import { normalizeUsage } from './usage';
 
 /** Static headers, or a resolver invoked on every request. */
 export type LLMHeaders = Record<string, string> | (() => Record<string, string>);
@@ -120,7 +119,7 @@ function estimateTokensForAssistantMessage(
   _request: ChatCompletionCreateParamsStreaming,
   _response: RawAssistantMessage,
   logger: Logger,
-): CompletionUsage {
+): GatewayChatCompletionUsage {
   // TODO(usage): fill this.
   logger.error(`Did not recieve usage from LLM, estimation is not implemented.`);
   return getEmptyUsage();
@@ -219,7 +218,7 @@ function accumulateTokensFromChunk(
     }
   }
   if (chunk.usage) {
-    message.usage = normalizeUsage(chunk.usage);
+    message.usage = chunk.usage;
   }
   const finishReason = chunk.choices[0]?.finish_reason;
   if (finishReason) {

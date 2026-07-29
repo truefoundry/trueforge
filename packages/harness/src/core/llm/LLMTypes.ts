@@ -212,8 +212,7 @@ interface ExtendedChoice extends Omit<ChatCompletionChunk.Choice, 'delta'> {
 
 /**
  * Extended chat completion chunk that includes thought_signature in tool calls.
- * Streamed `usage` is the raw gateway payload; the returned
- * {@link RawAssistantMessageWithUsage.usage} is normalized `CompletionUsage`.
+ * `usage` is the raw gateway payload; consumers normalize with `normalizeUsage` / `mergeUsage`.
  */
 export interface ExtendedChatCompletionChunk extends Omit<ChatCompletionChunk, 'choices' | 'usage'> {
   /**
@@ -225,7 +224,7 @@ export interface ExtendedChatCompletionChunk extends Omit<ChatCompletionChunk, '
 
 export interface RawAssistantMessageWithUsage {
   output: RawAssistantMessage;
-  usage: CompletionUsage;
+  usage: GatewayChatCompletionUsage;
   finish_reason: FinishReason;
 }
 

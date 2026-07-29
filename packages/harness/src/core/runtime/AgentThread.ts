@@ -1045,7 +1045,8 @@ export class AgentThread {
     }
 
     // should be computed by this point but in case provider never gives out any delta with usage key, compute it now.
-    usage ??= this.computeAssistantMessageUsage({ requestBody, usage: result.value.usage, toolMapping });
+    const llmUsage = normalizeUsage(result.value.usage);
+    usage ??= this.computeAssistantMessageUsage({ requestBody, usage: llmUsage, toolMapping });
     const assistantMessage: InternalEnrichedAssistantMessage = await buildContextAssistantMessage(
       result.value.output,
       toolMapping,
@@ -1085,7 +1086,7 @@ export class AgentThread {
     yield* this.appendToContext({
       context: [assistantMessage],
       output: [agentAssistantMessage],
-      overwriteUsage: result.value.usage,
+      overwriteUsage: llmUsage,
       updateCumulativeUsage: true,
       completion,
     });

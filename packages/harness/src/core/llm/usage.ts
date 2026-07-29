@@ -1,18 +1,12 @@
-import type { CompletionUsage, GatewayChatCompletionUsage } from './LLMTypes';
+import { getEmptyUsage, type CompletionUsage, type GatewayChatCompletionUsage } from './LLMTypes';
 
 export function estimateTokensForString(s: string): number {
   return s.length / 4;
 }
 
-export function normalizeUsage(usage: GatewayChatCompletionUsage): CompletionUsage {
-  return {
-    prompt_tokens: usage.prompt_tokens,
-    completion_tokens: usage.completion_tokens,
-    total_tokens: usage.total_tokens,
-    cache_read_tokens: usage.cache_read_input_tokens ?? usage.prompt_tokens_details?.cached_tokens,
-    reasoning_tokens: usage.completion_tokens_details?.reasoning_tokens,
-    cost_in_USD: usage.costInUSD,
-  };
+// Normalize usage to the harness shape.
+export function normalizeUsage(usage: GatewayChatCompletionUsage | CompletionUsage): CompletionUsage {
+  return mergeUsage(getEmptyUsage(), usage);
 }
 
 export function mergeUsage(a: CompletionUsage, b: GatewayChatCompletionUsage | CompletionUsage): CompletionUsage {
