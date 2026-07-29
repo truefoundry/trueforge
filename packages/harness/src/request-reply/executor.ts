@@ -13,8 +13,8 @@ export interface RunExecutorOptions {
   replyTtlMs: number;
 }
 
-export const DEFAULT_HEARTBEAT_INTERVAL_MS = 5_000;
-export const DEFAULT_REPLY_TTL_MS = 120_000;
+const DEFAULT_HEARTBEAT_INTERVAL_MS = 5_000;
+const DEFAULT_REPLY_TTL_MS = 120_000;
 
 function resolveRunExecutorOptions(options: Partial<RunExecutorOptions> | undefined): RunExecutorOptions {
   return {
