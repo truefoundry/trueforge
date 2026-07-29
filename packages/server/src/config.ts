@@ -39,7 +39,7 @@ export const getEnv = (key: string, options?: GetEnvOptions): string | undefined
     return options.defaultValue;
   }
 
-  if (process.env['NODE_ENV'] !== 'test' && options?.required) {
+  if (options?.required) {
     throw new Error(`Environment variable ${key} is required but was not specified.`);
   }
 
@@ -156,16 +156,10 @@ export const parsePositiveInt = (options: {
   return value;
 };
 
-/**
- * Required non-empty env var. Same `NODE_ENV=test` exemption as `getEnv({ required: true })`,
- * but also rejects blank strings outside tests.
- */
+/** Required env var that also rejects blank strings. */
 export const requireNonEmptyEnv = (key: string): string => {
   const value = getEnv(key, { required: true });
   if (value === undefined || value.trim() === '') {
-    if (process.env['NODE_ENV'] === 'test') {
-      return '';
-    }
     throw new Error(`Environment variable ${key} is required but was not specified.`);
   }
   return value;
