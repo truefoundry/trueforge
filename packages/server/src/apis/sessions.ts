@@ -38,6 +38,7 @@ const CancelPeerBodySchema = z.object({
   turn_id: z.string(),
   reason: z.nativeEnum(CancellationReason),
 });
+type CancelPeerBody = z.infer<typeof CancelPeerBodySchema>;
 
 export function toWireSession(record: SessionRecord): Session {
   return {
@@ -156,7 +157,7 @@ export async function cancelSessionTurn(
   const owner = executorFromTurnId(turnId);
   if (owner !== configuration.EXECUTOR_ID) {
     try {
-      const reply = await redisRequest({
+      const reply = await redisRequest<CancelPeerBody>({
         redis: deps.redis,
         executorId: owner,
         path: SESSIONS_CANCEL_PATH,
@@ -184,7 +185,13 @@ export async function cancelSessionTurn(
           cause: error,
         });
       }
-      throw error;
+      if (error instanceof HTTPException) {
+        throw error;
+      }
+      throw new HTTPException(500, {
+        message: `Unexpected error while cancelling the turn on the owning executor: ${owner}`,
+        cause: error,
+      });
     }
     return;
   }
