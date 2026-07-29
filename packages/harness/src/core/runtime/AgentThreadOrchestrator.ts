@@ -32,12 +32,7 @@ import {
   isInternalThreadDoneError,
 } from './contextUtils';
 import type { CreateDynamicSubAgentThread } from './CreateDynamicSubAgentThread';
-import {
-  addAgentThreadMetrics,
-  clearAgentThreadMetrics,
-  createEmptyAgentThreadMetrics,
-  type AgentThreadMetrics,
-} from './metrics';
+import { addAgentThreadMetrics, createEmptyAgentThreadMetrics, type AgentThreadMetrics } from './metrics';
 
 const MAX_PARALLEL_SUB_AGENTS = 5;
 
@@ -235,7 +230,7 @@ export class AgentThreadOrchestrator {
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
   // Finished sub-agents removed from `agentThreads`; kept so turn totals still include them.
-  private readonly finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
+  private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
 
   constructor(params: AgentThreadOrchestratorInput) {
     this.agentThreads = params.agentThreads;
@@ -417,14 +412,14 @@ export class AgentThreadOrchestrator {
   }: {
     signal: AbortSignal;
   }): AsyncGenerator<AgentThreadExecutionEvent, AgentThreadExecutionResult, unknown> {
-    // Turn-scoped billable totals: clear finished bucket + live threads so a reused
-    // orchestrator/thread cannot leak Turn N usage into Turn N+1.
-    clearAgentThreadMetrics(this.finishedSubAgentMetrics);
-    for (const thread of this.agentThreads.values()) {
-      thread.resetBillableMetrics();
+    const { agentThreads } = this;
+
+    // Reset turn-scoped metrics for all threads
+    this.finishedSubAgentMetrics = createEmptyAgentThreadMetrics();
+    for (const thread of agentThreads.values()) {
+      thread.resetTurnUsage();
     }
 
-    const { agentThreads } = this;
     let shouldStopExecution = false;
     let caughtError: unknown;
     let output: ModelMessageEvent | null = null;

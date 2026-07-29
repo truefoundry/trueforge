@@ -75,6 +75,7 @@ describe('TurnHandle.stream()', () => {
   it('persists final turn usage from orchestrator metrics', async () => {
     const { session } = await createSession();
     const turn = await session.createTurn({
+      turn_id: 'turn-usage',
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -85,7 +86,7 @@ describe('TurnHandle.stream()', () => {
           completion_tokens: 5,
           total_tokens: 17,
           cache_read_tokens: 4,
-          cost_in_usd: 0.42,
+          cost_in_USD: 0.42,
         },
       }),
     });
@@ -107,6 +108,7 @@ describe('TurnHandle.stream()', () => {
     const { session } = await createSession();
 
     const turn1 = await session.createTurn({
+      turn_id: 'turn-isolation-1',
       input: [{ type: EventType.USER_MESSAGE, content: 'turn one' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -117,7 +119,7 @@ describe('TurnHandle.stream()', () => {
           completion_tokens: 50,
           total_tokens: 150,
           cache_read_tokens: 20,
-          cost_in_usd: 1.5,
+          cost_in_USD: 1.5,
         },
       }),
     });
@@ -133,6 +135,7 @@ describe('TurnHandle.stream()', () => {
     });
 
     const turn2 = await session.createTurn({
+      turn_id: 'turn-isolation-2',
       input: [{ type: EventType.USER_MESSAGE, content: 'turn two' }],
       previous_turn_id: 'auto',
       signal: new AbortController().signal,
@@ -143,7 +146,7 @@ describe('TurnHandle.stream()', () => {
           completion_tokens: 3,
           total_tokens: 10,
           cache_read_tokens: 1,
-          cost_in_usd: 0.05,
+          cost_in_USD: 0.05,
         },
       }),
     });
@@ -169,6 +172,7 @@ describe('TurnHandle.stream()', () => {
   it('persists normalized cache-read tokens', async () => {
     const { session } = await createSession();
     const turn = await session.createTurn({
+      turn_id: 'turn-cache-read',
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: null,
       signal: new AbortController().signal,
@@ -179,7 +183,7 @@ describe('TurnHandle.stream()', () => {
           completion_tokens: 5,
           total_tokens: 17,
           cache_read_tokens: 4,
-          cost_in_usd: 0.42,
+          cost_in_USD: 0.42,
         },
       }),
     });

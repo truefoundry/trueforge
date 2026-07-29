@@ -164,7 +164,7 @@ export const CompletionUsageSchema = z
     total_tokens: z.number().int().nonnegative(),
     cache_read_tokens: z.number().int().nonnegative().optional(),
     reasoning_tokens: z.number().int().nonnegative().optional(),
-    cost_in_usd: z.number().nonnegative().optional(),
+    cost_in_USD: z.number().nonnegative().optional(),
   })
   .openapi('CompletionUsage');
 
@@ -194,9 +194,6 @@ export function getEmptyUsage(): CompletionUsage {
     prompt_tokens: 0,
     completion_tokens: 0,
     total_tokens: 0,
-    cache_read_tokens: 0,
-    reasoning_tokens: 0,
-    cost_in_usd: 0,
   };
 }
 
@@ -212,8 +209,8 @@ interface ExtendedChoice extends Omit<ChatCompletionChunk.Choice, 'delta'> {
 
 /**
  * Extended chat completion chunk that includes thought_signature in tool calls.
- * `usage` is still the gateway/OpenAI payload; normalize at consume sites
- * ({@link normalizeCompletionUsage}) before treating it as {@link CompletionUsage}.
+ * `usage` is still the gateway/OpenAI payload; merge it into a {@link CompletionUsage}
+ * before treating it as normalized harness usage.
  */
 export interface ExtendedChatCompletionChunk extends Omit<ChatCompletionChunk, 'choices' | 'usage'> {
   /**

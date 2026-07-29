@@ -1,5 +1,5 @@
 import { CompletionUsageSchema, GatewayCompletionUsageSchema, getEmptyUsage } from '../../src/core/llm/LLMTypes';
-import { mergeUsage, normalizeCompletionUsage } from '../../src/core/llm/usage';
+import { mergeUsage } from '../../src/core/llm/usage';
 
 describe('completion usage cost', () => {
   it('accepts gateway-computed cost', () => {
@@ -14,7 +14,7 @@ describe('completion usage cost', () => {
   });
 
   it('normalizes and trims gateway usage to the flat harness shape', () => {
-    const normalized = normalizeCompletionUsage({
+    const normalized = mergeUsage(getEmptyUsage(), {
       prompt_tokens: 10,
       completion_tokens: 5,
       total_tokens: 15,
@@ -30,7 +30,7 @@ describe('completion usage cost', () => {
       total_tokens: 15,
       cache_read_tokens: 4,
       reasoning_tokens: 3,
-      cost_in_usd: 0.12,
+      cost_in_USD: 0.12,
     });
     expect(CompletionUsageSchema.parse(normalized)).toEqual(normalized);
   });
@@ -42,14 +42,14 @@ describe('completion usage cost', () => {
         prompt_tokens: 10,
         completion_tokens: 5,
         total_tokens: 15,
-        cost_in_usd: 0.12,
+        cost_in_USD: 0.12,
       },
       {
         ...getEmptyUsage(),
         prompt_tokens: 20,
         completion_tokens: 8,
         total_tokens: 28,
-        cost_in_usd: 0.23,
+        cost_in_USD: 0.23,
       },
     );
 
@@ -58,21 +58,21 @@ describe('completion usage cost', () => {
       completion_tokens: 13,
       total_tokens: 43,
     });
-    expect(merged.cost_in_usd).toBe(0.12 + 0.23);
+    expect(merged.cost_in_USD).toBe(0.12 + 0.23);
   });
 
   it('retains full precision and never rounds cost to cents', () => {
     // Sub-cent inputs must survive verbatim; any rounding to 2 dp would collapse these to 0.
-    const merged = mergeUsage({ ...getEmptyUsage(), cost_in_usd: 0.0001 }, { ...getEmptyUsage(), cost_in_usd: 0.0002 });
+    const merged = mergeUsage({ ...getEmptyUsage(), cost_in_USD: 0.0001 }, { ...getEmptyUsage(), cost_in_USD: 0.0002 });
 
-    expect(merged.cost_in_usd).toBe(0.0001 + 0.0002);
-    expect(merged.cost_in_usd).toBeGreaterThan(0);
+    expect(merged.cost_in_USD).toBe(0.0001 + 0.0002);
+    expect(merged.cost_in_USD).toBeGreaterThan(0);
   });
 
   it('treats a missing cost as zero', () => {
-    const merged = mergeUsage(getEmptyUsage(), { ...getEmptyUsage(), cost_in_usd: 0.5 });
+    const merged = mergeUsage(getEmptyUsage(), { ...getEmptyUsage(), cost_in_USD: 0.5 });
 
-    expect(merged.cost_in_usd).toBe(0.5);
+    expect(merged.cost_in_USD).toBe(0.5);
   });
 });
 

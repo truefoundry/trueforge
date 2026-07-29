@@ -52,7 +52,7 @@ import {
 } from '../llm/LLMTypes';
 import { toOpenAIResponseFormat } from '../llm/responseFormat';
 import { toOpenAIChatMessage } from '../llm/toOpenAIChatMessage';
-import { estimateTokensForString, mergeUsage, normalizeCompletionUsage } from '../llm/usage';
+import { estimateTokensForString, mergeUsage } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
@@ -748,19 +748,16 @@ export class AgentThread {
 
   public getAgentThreadMetrics(): AgentThreadMetrics {
     return {
+      ...this._cumulativeUsage,
       iterations: this._iterations,
       total_tool_calls: this._totalToolCalls,
       total_summarizations: this._totalSummarizations,
       total_sub_agents: this._totalSubAgents,
-      prompt_tokens: this._cumulativeUsage.prompt_tokens,
-      completion_tokens: this._cumulativeUsage.completion_tokens,
-      cache_read_tokens: this._cumulativeUsage.cache_read_tokens ?? 0,
-      cost_in_usd: this._cumulativeUsage.cost_in_usd ?? 0,
     };
   }
 
-  /** Zero turn billable counters. Does not touch `current_context_usage` (context budget, not billing). */
-  public resetBillableMetrics(): void {
+  /** Reset turn-scoped usage without changing the context-window estimate. */
+  public resetTurnUsage(): void {
     this._cumulativeUsage = getEmptyUsage();
   }
 
@@ -1018,7 +1015,7 @@ export class AgentThread {
       if (chunk.usage) {
         usage = this.computeAssistantMessageUsage({
           requestBody,
-          usage: normalizeCompletionUsage(chunk.usage),
+          usage: mergeUsage(getEmptyUsage(), chunk.usage),
           toolMapping,
         });
       }

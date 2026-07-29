@@ -1,8 +1,6 @@
-export interface AgentThreadMetrics {
-  prompt_tokens: number;
-  completion_tokens: number;
-  cache_read_tokens: number;
-  cost_in_usd: number;
+import { getEmptyUsage, type CompletionUsage } from '../llm/LLMTypes';
+
+export interface AgentThreadMetrics extends CompletionUsage {
   iterations: number;
   total_tool_calls: number;
   total_summarizations: number;
@@ -11,20 +9,12 @@ export interface AgentThreadMetrics {
 
 export function createEmptyAgentThreadMetrics(): AgentThreadMetrics {
   return {
-    prompt_tokens: 0,
-    completion_tokens: 0,
-    cache_read_tokens: 0,
-    cost_in_usd: 0,
+    ...getEmptyUsage(),
     iterations: 0,
     total_tool_calls: 0,
     total_summarizations: 0,
     total_sub_agents: 0,
   };
-}
-
-/** In-place zero of all fields (for turn-scoped buckets that must not leak across executes). */
-export function clearAgentThreadMetrics(target: AgentThreadMetrics): void {
-  Object.assign(target, createEmptyAgentThreadMetrics());
 }
 
 export function addAgentThreadMetrics(target: AgentThreadMetrics, source: AgentThreadMetrics): void {
@@ -34,6 +24,8 @@ export function addAgentThreadMetrics(target: AgentThreadMetrics, source: AgentT
   target.total_sub_agents += source.total_sub_agents;
   target.prompt_tokens += source.prompt_tokens;
   target.completion_tokens += source.completion_tokens;
-  target.cache_read_tokens += source.cache_read_tokens;
-  target.cost_in_usd += source.cost_in_usd;
+  target.cache_read_tokens = (target.cache_read_tokens ?? 0) + (source.cache_read_tokens ?? 0);
+  target.reasoning_tokens = (target.reasoning_tokens ?? 0) + (source.reasoning_tokens ?? 0);
+  target.cost_in_USD = (target.cost_in_USD ?? 0) + (source.cost_in_USD ?? 0);
+  target.total_tokens += source.total_tokens;
 }

@@ -77,8 +77,8 @@ function turnUsageFromMetrics(metrics: AgentThreadMetrics): TurnUsage {
   return {
     total_prompt_tokens: metrics.prompt_tokens,
     total_completion_tokens: metrics.completion_tokens,
-    total_cache_read_tokens: metrics.cache_read_tokens,
-    total_cost_in_usd: metrics.cost_in_usd,
+    total_cache_read_tokens: metrics.cache_read_tokens ?? 0,
+    total_cost_in_usd: metrics.cost_in_USD ?? 0,
   };
 }
 
@@ -229,7 +229,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             const emptyResult: AgentThreadExecutionResult = {
               output: null,
               required_actions: [],
-              metrics: { total: createEmptyAgentThreadMetrics() },
             };
             await generator.return(emptyResult);
             // Cleared so the finally block does not close the generator a second time.
