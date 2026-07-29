@@ -135,7 +135,7 @@ export class RequestReplyExecutor {
       this.stopHeartbeat();
       this.startHeartbeat();
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
+      const error = err instanceof Error ? err : new Error(String(err), { cause: err });
       this.logger.error('[RequestReplyExecutor] Error subscribing to request channel', {
         executorId: this.executorId,
         error: error.message,
@@ -181,11 +181,13 @@ export class RequestReplyExecutor {
     let raw: unknown;
     try {
       raw = JSON.parse(message);
-    } catch {
+    } catch (err) {
       // Drop the request, this should never happen
       this.logger.warn('[RequestReplyExecutor] Request message is not valid JSON', { executorId: this.executorId });
       this.onError?.(
-        new Error(`Request message is not valid JSON for executorId: ${this.executorId}, message: ${message}`),
+        new Error(`Request message is not valid JSON for executorId: ${this.executorId}, message: ${message}`, {
+          cause: err,
+        }),
         {
           executorId: this.executorId,
           channel: this.channel,
@@ -205,6 +207,7 @@ export class RequestReplyExecutor {
       this.onError?.(
         new Error(
           `Invalid request message shape for executorId: ${this.executorId}, error: ${JSON.stringify(zodError)}`,
+          { cause: parsedRequest.error },
         ),
         { executorId: this.executorId, channel: this.channel },
       );

@@ -169,14 +169,20 @@ export async function cancelSessionTurn(
         },
       });
       if (reply.status !== 200 && reply.status !== 412) {
-        throw new HTTPException(500, { message: 'Failed to cancel turn on the owning executor' });
+        throw new HTTPException(500, { message: 'Failed to cancel turn on the owning executor', cause: reply });
       }
     } catch (error) {
       if (error instanceof NoResponderError) {
-        throw new HTTPException(412, { message: `Executor owning the running turn is unreachable: ${owner}` });
+        throw new HTTPException(412, {
+          message: `Executor owning the running turn is unreachable: ${owner}`,
+          cause: error,
+        });
       }
       if (error instanceof RequestTimeoutError) {
-        throw new HTTPException(424, { message: 'Timed out waiting for the owning executor to cancel the turn' });
+        throw new HTTPException(424, {
+          message: 'Timed out waiting for the owning executor to cancel the turn',
+          cause: error,
+        });
       }
       throw error;
     }
