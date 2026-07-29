@@ -16,9 +16,7 @@ import {
   McpConnectionError,
   OpenAILLM,
 } from '@truefoundry/utils/core';
-import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
-import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import configuration from '../config';
 import { createAndExecuteTurnRoute, getTurnRoute, listTurnEventsRoute, listTurnsRoute } from '../routes/turnRoutes';
@@ -26,7 +24,7 @@ import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
 import type { McpStore } from '../store/McpStore';
 import type { ModelStore } from '../store/ModelStore';
-import { cancelSessionTurn, TENANT_NAME } from './sessions';
+import { TENANT_NAME } from './sessions';
 
 function toWireTurn(record: TurnRecord): Turn {
   return {
@@ -46,8 +44,6 @@ export interface TurnsRouterDeps {
   mcpStore: McpStore;
   /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
   sandboxFactory?: TurnSandboxFactory;
-  /** Primary Redis client (server-owned); used to cancel the prior turn on its owning peer. */
-  redis: RedisClientType;
   logger: Logger;
 }
 
@@ -204,27 +200,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       logger: deps.logger,
       signal: abortController.signal,
     });
-
-    if (session.record.last_turn_id) {
-      try {
-        await cancelSessionTurn(deps, {
-          sessionId,
-          turnId: session.record.last_turn_id,
-          reason: CancellationReason.CancelledForNextTurn,
-        });
-      } catch (error) {
-        if (error instanceof HTTPException && (error.status === 412 || error.status === 424)) {
-          deps.logger.warn('Failed to cancel prior turn, proceeding with new turn', {
-            sessionId,
-            turnId: session.record.last_turn_id,
-            status: error.status,
-            message: error.message,
-          });
-        } else {
-          throw error;
-        }
-      }
-    }
 
     // First turn only: derive the title from the first user message. The store
     // never overwrites an existing title.

@@ -45,7 +45,7 @@ describe('ActiveTurnRegistry', () => {
     }
     assert.deepEqual(seen, [1, 2, 3]);
     assert.equal(
-      await registry.cancelIfRunning({
+      registry.cancelIfRunning({
         sessionId: 's1',
         turnId: 't1',
         abortReason: CancellationReason.ClientCancelled,
@@ -69,7 +69,7 @@ describe('ActiveTurnRegistry', () => {
       break;
     }
     assert.equal(
-      await registry.cancelIfRunning({
+      registry.cancelIfRunning({
         sessionId: 's1',
         turnId: 't1',
         abortReason: CancellationReason.ClientCancelled,
@@ -94,7 +94,7 @@ describe('ActiveTurnRegistry', () => {
       }
     }, /stream boom/);
     assert.equal(
-      await registry.cancelIfRunning({
+      registry.cancelIfRunning({
         sessionId: 's1',
         turnId: 't1',
         abortReason: CancellationReason.ClientCancelled,
@@ -103,24 +103,18 @@ describe('ActiveTurnRegistry', () => {
     );
   });
 
-  it('cancelIfRunning aborts with the given reason, waits for teardown, and returns true', async () => {
+  it('cancelIfRunning aborts with the given reason and returns true', () => {
     const registry = new ActiveTurnRegistry();
     const abortController = new AbortController();
-    // gateOnAbort finishes only after abort, proving the cancel waits for teardown.
-    const tracked = registry.track({
+    void registry.track({
       sessionId: 's1',
       turnId: 't1',
       abortController,
-      stream: gateOnAbort(abortController.signal),
+      stream: values([1]),
     });
-    const drain = (async () => {
-      for await (const value of tracked) {
-        void value;
-      }
-    })();
 
     assert.equal(
-      await registry.cancelIfRunning({
+      registry.cancelIfRunning({
         sessionId: 's1',
         turnId: 't1',
         abortReason: CancellationReason.ClientCancelled,
@@ -129,13 +123,12 @@ describe('ActiveTurnRegistry', () => {
     );
     assert.equal(abortController.signal.aborted, true);
     assert.equal(abortController.signal.reason, CancellationReason.ClientCancelled);
-    await drain;
   });
 
-  it('cancelIfRunning returns false for unknown ids', async () => {
+  it('cancelIfRunning returns false for unknown ids', () => {
     const registry = new ActiveTurnRegistry();
     assert.equal(
-      await registry.cancelIfRunning({
+      registry.cancelIfRunning({
         sessionId: 'missing',
         turnId: 'missing',
         abortReason: CancellationReason.ClientCancelled,
@@ -144,24 +137,19 @@ describe('ActiveTurnRegistry', () => {
     );
   });
 
-  it('cancelIfRunning does not re-abort an already-aborted controller', async () => {
+  it('cancelIfRunning does not re-abort an already-aborted controller', () => {
     const registry = new ActiveTurnRegistry();
     const abortController = new AbortController();
-    const tracked = registry.track({
+    void registry.track({
       sessionId: 's1',
       turnId: 't1',
       abortController,
       stream: values([1]),
     });
     abortController.abort(CancellationReason.ClientCancelled);
-    const drain = (async () => {
-      for await (const value of tracked) {
-        void value;
-      }
-    })();
 
     assert.equal(
-      await registry.cancelIfRunning({
+      registry.cancelIfRunning({
         sessionId: 's1',
         turnId: 't1',
         abortReason: CancellationReason.Abandoned,
@@ -169,7 +157,6 @@ describe('ActiveTurnRegistry', () => {
       true,
     );
     assert.equal(abortController.signal.reason, CancellationReason.ClientCancelled);
-    await drain;
   });
 
   it('shutdownAndWait aborts runs and waits until tracked streams finish', async () => {
@@ -193,7 +180,7 @@ describe('ActiveTurnRegistry', () => {
     assert.equal(abortController.signal.reason, CancellationReason.Abandoned);
     await drain;
     assert.equal(
-      await registry.cancelIfRunning({
+      registry.cancelIfRunning({
         sessionId: 's1',
         turnId: 't1',
         abortReason: CancellationReason.ClientCancelled,

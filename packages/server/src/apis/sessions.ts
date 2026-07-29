@@ -110,7 +110,7 @@ export interface SessionsRouterDeps {
 function cancelTurnOnThisExecutor(
   activeTurns: ActiveTurnRegistry,
   input: { sessionId: string; turnId: string; reason: CancellationReason },
-): Promise<boolean> {
+): boolean {
   return activeTurns.cancelIfRunning({
     sessionId: input.sessionId,
     turnId: input.turnId,
@@ -120,30 +120,25 @@ function cancelTurnOnThisExecutor(
 
 /**
  * Peer-facing cancel handler (registered in createSessionsRouter): aborts the
- * turn if it runs in this process and waits for teardown. 200 = run gone,
- * 412 = not running here (treated by callers as a no-op).
+ * turn if it runs in this process. 200 = abort fired, 412 = not running here
+ * (treated by callers as a no-op).
  */
 export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): RequestReplyRouteHandler {
-  return async request => {
+  // Synchronous by nature; the transport expects a Promise and require-await
+  // forbids an async fn without awaits.
+  return request => {
     const parsed = CancelPeerBodySchema.safeParse(request.body);
     if (!parsed.success) {
-      return { status: 400, body: { message: 'Invalid sessions/cancel payload' } };
+      return Promise.resolve({ status: 400, body: { message: 'Invalid sessions/cancel payload' } });
     }
-    try {
-      const found = await cancelTurnOnThisExecutor(activeTurns, {
-        sessionId: parsed.data.session_id,
-        turnId: parsed.data.turn_id,
-        reason: parsed.data.reason,
-      });
-      return found
-        ? { status: 200, body: {} }
-        : { status: 412, body: { message: 'Turn is not running on this executor' } };
-    } catch (error) {
-      if (error instanceof HTTPException) {
-        return { status: error.status, body: { message: error.message } };
-      }
-      throw error;
-    }
+    const found = cancelTurnOnThisExecutor(activeTurns, {
+      sessionId: parsed.data.session_id,
+      turnId: parsed.data.turn_id,
+      reason: parsed.data.reason,
+    });
+    return Promise.resolve(
+      found ? { status: 200, body: {} } : { status: 412, body: { message: 'Turn is not running on this executor' } },
+    );
   };
 }
 
@@ -170,10 +165,6 @@ export async function cancelSessionTurn(
         },
         options: { replyTimeoutMs: configuration.REDIS_REQUEST_REPLY_TIMEOUT_MS },
       });
-      // The owner replies 424 when the aborted run's teardown timed out there.
-      if (reply.status === 424) {
-        throw new HTTPException(424, { message: 'Timed out waiting for the owning executor to cancel the turn' });
-      }
       if (reply.status !== 200 && reply.status !== 412) {
         throw new HTTPException(500, { message: 'Failed to cancel turn on the owning executor' });
       }
@@ -189,7 +180,7 @@ export async function cancelSessionTurn(
     return;
   }
 
-  await cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
+  cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
 }
 
 export function createSessionsRouter(deps: SessionsRouterDeps) {

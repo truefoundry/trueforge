@@ -5,9 +5,6 @@
  * `track()` owns registration and cleanup around the stream lifecycle.
  */
 import { CancellationReason } from '@truefoundry/utils/agent-session';
-import { HTTPException } from 'hono/http-exception';
-import configuration from '../config';
-import { PromiseTimeoutError, withTimeout } from './promises';
 
 interface ActiveTurnRun {
   abortController: AbortController;
@@ -72,29 +69,18 @@ export class ActiveTurnRegistry {
   }
 
   /**
-   * Aborts the turn if it runs in this process and waits for its teardown, so
-   * true means the run is actually gone. Returns false when nothing was
-   * running; throws HTTPException(424) when teardown exceeds the timeout.
+   * Aborts the given turn if it is running in this process. Returns true when
+   * the run was found (already-aborted runs are not re-aborted). Cancelling a
+   * turn that is not running is a no-op, mirroring the store's
+   * first-terminal-write-wins rule.
    */
-  async cancelIfRunning(input: {
-    sessionId: string;
-    turnId: string;
-    abortReason: CancellationReason;
-  }): Promise<boolean> {
+  cancelIfRunning(input: { sessionId: string; turnId: string; abortReason: CancellationReason }): boolean {
     const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
     if (!run) {
       return false;
     }
     if (!run.abortController.signal.aborted) {
       run.abortController.abort(input.abortReason);
-    }
-    try {
-      await withTimeout(run.waitUntilCompleted, configuration.CANCEL_TEARDOWN_TIMEOUT_MS);
-    } catch (error) {
-      if (error instanceof PromiseTimeoutError) {
-        throw new HTTPException(424, { message: 'Timed out waiting for execution to cancel' });
-      }
-      throw error;
     }
     return true;
   }
