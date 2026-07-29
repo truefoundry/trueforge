@@ -176,6 +176,7 @@ export function makeCreateTurnInput(input: {
 
 export function makeDoneTurnState(): TerminalTurnState {
   return {
+    // TODO: restore `output: null` alongside TurnStateDone.output.
     status: 'done',
     required_actions: [],
     completed_at: new Date().toISOString(),

@@ -1,24 +1,22 @@
 name: Generate SDK
 
-# Regenerates fern/openapi/openapi.json from the server's route definitions and
-# the TypeScript SDK in packages/sdk, then commits both to the branch that
-# triggered the run.
-#
-# `packages/harness` is in the trigger paths because the request/response
-# schemas the spec is built from live there, not only in packages/server.
+# Regenerates the OpenAPI document and the SDK, and commits both to the branch.
 on:
   push:
     branches: [main]
+    # Only sources the document is built from; tests and metadata cannot change it.
     paths:
-      - 'packages/server/**'
-      - 'packages/harness/**'
+      - 'packages/server/src/**'
+      - 'packages/server/scripts/**'
+      - 'packages/harness/src/**'
       - 'fern/**'
       - '.github/workflows/generate-sdk.yaml'
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      - 'packages/server/**'
-      - 'packages/harness/**'
+      - 'packages/server/src/**'
+      - 'packages/server/scripts/**'
+      - 'packages/harness/src/**'
       - 'fern/**'
       - '.github/workflows/generate-sdk.yaml'
 
@@ -35,11 +33,11 @@ jobs:
       contents: write
 
     steps:
-      # Check out the branch tip rather than the PR merge commit, so the
-      # generated output can be committed back onto the branch.
+      # Branch tip, not the merge commit, so output can be pushed back; forks need the head repo named.
       - name: Check out repository code
         uses: actions/checkout@v4
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Setup pnpm
@@ -61,49 +59,32 @@ jobs:
       - name: Write OpenAPI document
         run: pnpm --filter @truefoundry/server openapi:write
 
-      # Pinned to the version in fern/fern.config.json so CI and local runs
-      # generate identical output.
+      # Pinned in one place so CI and local runs agree; bumps come from upgrade-sdk-toolchain.yaml.
       - name: Install Fern
-        run: npm install -g fern-api@5.82.0
+        run: npm install -g "fern-api@$(jq -r .version fern/fern.config.json)"
 
       - name: Check API is valid
         run: fern check
 
-      # Runs the generator image on this runner instead of Fern's infrastructure.
-      # `local-file-system` output only includes a package manifest when Fern sets
-      # generateFullProject, and remote runs derive that solely from the org's
-      # selfHostedSDKs entitlement, which is off for `truefoundry` — a remote run
-      # returns loose source files with no package.json. Locally the flag is
-      # `generateTests || selfHostedSDKs`, so --generate-tests gets us the full
-      # package without depending on an entitlement Fern controls.
+      # `--generate-tests` is the only thing that makes Fern emit a full package rather than loose sources.
       - name: Generate TypeScript SDK
         run: fern generate --group ts-sdk --version 0.0.0 --local --generate-tests --log-level debug
 
-      # Guards the invariant above: if the output ever loses its manifest, fail
-      # rather than commit a package that cannot be built or published.
-      - name: Verify the SDK is a complete package
-        run: |
-          set -euo pipefail
+      # Fern generates no CI for this output mode, so this is what proves the SDK compiles.
+      - name: Verify the generated SDK builds
+        working-directory: packages/sdk
+        run: bash .fern/verify.sh
 
-          missing=()
-          for file in package.json tsconfig.json src/index.ts; do
-            [ -e "packages/sdk/$file" ] || missing+=("$file")
-          done
-
-          if [ ${#missing[@]} -gt 0 ]; then
-            echo "::error::Fern emitted source files without a package manifest (missing: ${missing[*]}). Check that the generate step still passes --local --generate-tests."
-            exit 1
-          fi
-
-      # Pull requests from forks get a read-only token, so the commit is skipped
-      # there; generation above still runs and fails the check on a bad spec.
+      # Forks get a read-only token, so only the commit is skipped. TODO: an approval flow that can push to the fork.
       - name: Commit generated output
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        # Passed as env, never interpolated into the script, so it cannot inject shell.
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           set -euo pipefail
 
-          # --porcelain (not `git diff`) so the first run, where packages/sdk is
-          # still untracked, is recognised as a change.
+          # --porcelain, not `git diff`, so new files count too.
           if [ -z "$(git status --porcelain -- fern/openapi packages/sdk)" ]; then
             echo "OpenAPI document and SDK are already up to date."
             exit 0
@@ -113,7 +94,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add fern/openapi packages/sdk
           git commit -m "Regenerate OpenAPI document and TypeScript SDK"
-          git push origin HEAD:"${{ github.head_ref || github.ref_name }}"
+          git push origin "HEAD:refs/heads/$BRANCH"
 
       - name: Report skipped commit on fork
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository

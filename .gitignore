@@ -11,5 +11,7 @@ coverage/
 .pnpm-store/
 .eslintcache
 packages/harness/src/core/sandbox/sandboxScripts.gen.ts
+packages/sdk/pnpm-lock.yaml
+packages/sdk/package-lock.json
 ui-shots/*.png
 data/

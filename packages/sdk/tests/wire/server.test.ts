@@ -3,8 +3,8 @@
 import { TrueHarness } from "../../src/Client";
 import { mockServerPool } from "../mock-server/MockServerPool";
 
-describe("CapabilitiesClient", () => {
-    test("get", async () => {
+describe("ServerClient", () => {
+    test("get_capabilities", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
@@ -12,7 +12,7 @@ describe("CapabilitiesClient", () => {
 
         server.mockEndpoint().get("/v1/capabilities").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
 
-        const response = await client.capabilities.get();
+        const response = await client.server.getCapabilities();
         expect(response).toEqual({
             data: {
                 sandbox: {

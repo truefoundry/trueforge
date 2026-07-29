@@ -13,7 +13,6 @@ The harness server has no built-in authentication, so point the client at your o
 - [Installation](#installation)
 - [Reference](#reference)
 - [Usage](#usage)
-- [Environments](#environments)
 - [Request and Response Types](#request-and-response-types)
 - [Exception Handling](#exception-handling)
 - [Streaming Response](#streaming-response)
@@ -48,23 +47,11 @@ Instantiate and use the client with the following:
 ```typescript
 import { TrueHarness } from "trueharness";
 
-const client = new TrueHarness;
+const client = new TrueHarness({ baseUrl: "YOUR_BASE_URL" });
 const response = await client.sessions.createTurn("sessionId");
 for await (const item of response) {
     console.log(item);
 }
-```
-
-## Environments
-
-This SDK allows you to configure different environments for API requests.
-
-```typescript
-import { TrueHarness, TrueHarnessEnvironment } from "trueharness";
-
-const client = new TrueHarness({
-    environment: TrueHarnessEnvironment.Default,
-});
 ```
 
 ## Request and Response Types
@@ -108,7 +95,7 @@ The SDK uses async iterators, so you can consume the responses using a `for awai
 ```typescript
 import { TrueHarness } from "trueharness";
 
-const client = new TrueHarness;
+const client = new TrueHarness({ baseUrl: "YOUR_BASE_URL" });
 const response = await client.sessions.createTurn("sessionId");
 for await (const item of response) {
     console.log(item);
@@ -122,9 +109,9 @@ for await (const item of response) {
 This SDK supports direct imports of subpackage clients, which allows JavaScript bundlers to tree-shake and include only the imported subpackage code. This results in much smaller bundle sizes.
 
 ```typescript
-import { CapabilitiesClient } from 'trueharness/capabilities';
+import { ServerClient } from 'trueharness/server';
 
-const client = new CapabilitiesClient({...});
+const client = new ServerClient({...});
 ```
 
 ### Additional Headers

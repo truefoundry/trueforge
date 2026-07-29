@@ -1,6 +1,6 @@
 # Reference
-## Capabilities
-<details><summary><code>client.capabilities.<a href="/src/api/resources/capabilities/client/Client.ts">get</a>() -> TrueHarness.GetCapabilitiesResponse</code></summary>
+## Server
+<details><summary><code>client.server.<a href="/src/api/resources/server/client/Client.ts">getCapabilities</a>() -> TrueHarness.GetCapabilitiesResponse</code></summary>
 <dl>
 <dd>
 
@@ -27,7 +27,7 @@ Report optional runtime capabilities available in this server deployment.
 <dd>
 
 ```typescript
-await client.capabilities.get();
+await client.server.getCapabilities();
 
 ```
 </dd>
@@ -43,7 +43,7 @@ await client.capabilities.get();
 <dl>
 <dd>
 
-**requestOptions:** `CapabilitiesClient.RequestOptions` 
+**requestOptions:** `ServerClient.RequestOptions` 
     
 </dd>
 </dl>

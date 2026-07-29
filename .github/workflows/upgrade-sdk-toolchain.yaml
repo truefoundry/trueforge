@@ -1,0 +1,98 @@
+name: Upgrade SDK toolchain
+
+# Bumps the pinned Fern CLI and generator and opens a PR. Kept out of
+# generate-sdk.yaml so the toolchain cannot shift under an unrelated PR.
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: upgrade-sdk-toolchain
+  cancel-in-progress: true
+
+jobs:
+  upgrade:
+    name: Upgrade Fern and regenerate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build utils
+        run: pnpm --filter @truefoundry/utils build
+
+      # Unpinned, since deciding what "latest" is is this workflow's job.
+      - name: Install Fern
+        run: npm install -g fern-api
+
+      - name: Upgrade Fern CLI and generator pins
+        run: |
+          fern upgrade
+          fern generator upgrade
+
+      - name: Write OpenAPI document
+        run: pnpm --filter @truefoundry/server openapi:write
+
+      - name: Check API is valid
+        run: fern check
+
+      - name: Generate TypeScript SDK
+        run: fern generate --group ts-sdk --version 0.0.0 --local --generate-tests --log-level debug
+
+      # A bump that breaks the SDK should fail here, not become an unmergeable PR.
+      - name: Verify the generated SDK builds
+        working-directory: packages/sdk
+        run: bash .fern/verify.sh
+
+      - name: Open a pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          # Gate on the pins alone: regeneration can leave incidental diffs, and a
+          # PR titled as an upgrade should contain one.
+          if [ -z "$(git status --porcelain -- fern/fern.config.json fern/generators.yml)" ]; then
+            echo "Fern CLI and generator are already at their latest versions."
+            exit 0
+          fi
+
+          cli="$(jq -r .version fern/fern.config.json)"
+          branch="chore/upgrade-fern-${cli}"
+
+          # Leave last week's open PR alone rather than force-pushing over a review.
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "$branch already exists; leaving it alone."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add -A
+          git commit -m "Upgrade Fern to ${cli} and regenerate SDK"
+          git push origin "$branch"
+
+          gh pr create \
+            --title "Upgrade Fern to ${cli} and regenerate SDK" \
+            --body "Ran \`fern upgrade\` and \`fern generator upgrade\`, then regenerated \`fern/openapi\` and \`packages/sdk\`. The SDK built and its tests passed in this run. Review the SDK diff for breaking changes before merging." \
+            --base "$BASE"

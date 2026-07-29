@@ -11,9 +11,8 @@ export const ModelMessageEventContent: core.serialization.Schema<
 > = core.serialization.undiscriminatedUnion([
     core.serialization.string(),
     core.serialization.list(ModelMessageEventContentOneItem),
-    core.serialization.unknown().nullable(),
 ]);
 
 export declare namespace ModelMessageEventContent {
-    export type Raw = string | ModelMessageEventContentOneItem.Raw[] | (unknown | null | undefined);
+    export type Raw = string | ModelMessageEventContentOneItem.Raw[];
 }

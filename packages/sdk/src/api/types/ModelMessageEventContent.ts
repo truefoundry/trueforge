@@ -2,4 +2,4 @@
 
 import type * as TrueHarness from "../index.js";
 
-export type ModelMessageEventContent = string | TrueHarness.ModelMessageEventContentOneItem[] | unknown | null;
+export type ModelMessageEventContent = string | TrueHarness.ModelMessageEventContentOneItem[];

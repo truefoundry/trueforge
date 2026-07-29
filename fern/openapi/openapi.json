@@ -1,16 +1,10 @@
 {
-  "openapi": "3.0.0",
+  "openapi": "3.1.0",
   "info": {
     "title": "Agent Server",
     "description": "Agent server exposing models, MCP servers and skills from local YAML config.",
     "version": "0.1.0"
   },
-  "servers": [
-    {
-      "url": "http://localhost:8790",
-      "description": "Local server"
-    }
-  ],
   "components": {
     "schemas": {
       "GetCapabilitiesResponse": {
@@ -58,8 +52,7 @@
           },
           "max_output_tokens": {
             "type": "integer",
-            "minimum": 0,
-            "exclusiveMinimum": true
+            "exclusiveMinimum": 0
           }
         },
         "required": [
@@ -121,9 +114,7 @@
             "type": "array",
             "items": {
               "type": "object",
-              "additionalProperties": {
-                "nullable": true
-              }
+              "additionalProperties": {}
             },
             "description": "MCP `tools/list` entries, passed through verbatim from the MCP server."
           }
@@ -145,12 +136,16 @@
                 "type": "string"
               },
               "code": {
-                "type": "string",
-                "nullable": true
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "param": {
-                "type": "string",
-                "nullable": true
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -412,13 +407,13 @@
                   },
                   "schema": {
                     "type": "object",
-                    "additionalProperties": {
-                      "nullable": true
-                    }
+                    "additionalProperties": {}
                   },
                   "strict": {
-                    "type": "boolean",
-                    "nullable": true
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
                   }
                 },
                 "required": [
@@ -597,8 +592,7 @@
               },
               "compaction_threshold_tokens": {
                 "type": "integer",
-                "minimum": 0,
-                "exclusiveMinimum": true,
+                "exclusiveMinimum": 0,
                 "default": 50000
               }
             },
@@ -642,8 +636,7 @@
         "properties": {
           "iteration_limit": {
             "type": "integer",
-            "minimum": 0,
-            "exclusiveMinimum": true,
+            "exclusiveMinimum": 0,
             "maximum": 1024,
             "default": 100
           },
@@ -719,8 +712,10 @@
             "$ref": "#/components/schemas/AgentSpec"
           },
           "title": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "created_at": {
             "type": "string"
@@ -778,8 +773,7 @@
           },
           "limit": {
             "type": "integer",
-            "minimum": 0,
-            "exclusiveMinimum": true
+            "exclusiveMinimum": 0
           }
         },
         "required": [
@@ -1064,8 +1058,10 @@
             "type": "string"
           },
           "previous_turn_id": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "input": {
             "type": "array",
@@ -1080,8 +1076,10 @@
             "type": "string"
           },
           "thread_id": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -1235,9 +1233,7 @@
             "properties": {
               "provider_specific_fields": {
                 "type": "object",
-                "additionalProperties": {
-                  "nullable": true
-                }
+                "additionalProperties": {}
               }
             }
           }
@@ -1262,8 +1258,10 @@
         ]
       },
       "FinishReason": {
-        "type": "string",
-        "nullable": true,
+        "type": [
+          "string",
+          "null"
+        ],
         "enum": [
           "stop",
           "length",
@@ -1352,7 +1350,7 @@
                 }
               },
               {
-                "nullable": true
+                "type": "null"
               }
             ]
           },
@@ -1360,8 +1358,10 @@
             "type": "string"
           },
           "refusal": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "reasoning_content": {
             "type": "string"
@@ -1515,8 +1515,10 @@
             "type": "string"
           },
           "thread_id": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -1694,8 +1696,10 @@
             "type": "string"
           },
           "thread_id": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -2008,8 +2012,10 @@
             "type": "string"
           },
           "thread_id": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -2141,8 +2147,10 @@
             "type": "string"
           },
           "previous_turn_id": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "input": {
             "type": "array",
@@ -2266,9 +2274,7 @@
               },
               "provider_specific_fields": {
                 "type": "object",
-                "additionalProperties": {
-                  "nullable": true
-                }
+                "additionalProperties": {}
               }
             }
           }
@@ -2278,12 +2284,16 @@
         "type": "object",
         "properties": {
           "content": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "refusal": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "tool_calls": {
             "type": "array",
@@ -2393,7 +2403,7 @@
             "minLength": 1
           },
           {
-            "nullable": true
+            "type": "null"
           }
         ],
         "default": "auto",
@@ -2424,9 +2434,9 @@
         ],
         "summary": "Get server capabilities",
         "x-fern-sdk-group-name": [
-          "capabilities"
+          "server"
         ],
-        "x-fern-sdk-method-name": "get",
+        "x-fern-sdk-method-name": "get_capabilities",
         "description": "Report optional runtime capabilities available in this server deployment.",
         "responses": {
           "200": {
@@ -3359,5 +3369,6 @@
         }
       }
     }
-  }
+  },
+  "webhooks": {}
 }

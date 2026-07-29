@@ -2,10 +2,9 @@
 
 import { mergeHeaders } from "./core/headers.js";
 import * as core from "./core/index.js";
-import type * as environments from "./environments.js";
 
 export interface BaseClientOptions {
-    environment?: core.Supplier<environments.TrueHarnessEnvironment | string>;
+    environment: core.Supplier<string>;
     /** Specify a custom URL to connect the client to. */
     baseUrl?: core.Supplier<string>;
     /** Additional headers to include in requests. */

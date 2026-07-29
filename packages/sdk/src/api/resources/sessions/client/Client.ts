@@ -5,7 +5,6 @@ import { type NormalizedClientOptions, normalizeClientOptions } from "../../../.
 import { mergeHeaders } from "../../../../core/headers.js";
 import * as core from "../../../../core/index.js";
 import { mergeAdditionalBodyParameters } from "../../../../core/requestBody.js";
-import * as environments from "../../../../environments.js";
 import { handleNonStatusCodeError } from "../../../../errors/handleNonStatusCodeError.js";
 import * as errors from "../../../../errors/index.js";
 import * as serializers from "../../../../serialization/index.js";
@@ -20,7 +19,7 @@ export declare namespace SessionsClient {
 export class SessionsClient {
     protected readonly _options: NormalizedClientOptions<SessionsClient.Options>;
 
-    constructor(options: SessionsClient.Options = {}) {
+    constructor(options: SessionsClient.Options) {
         this._options = normalizeClientOptions(options);
     }
 
@@ -68,8 +67,7 @@ export class SessionsClient {
                 const _response = await (this._options.fetcher ?? core.fetcher)({
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
-                            (await core.Supplier.get(this._options.environment)) ??
-                            environments.TrueHarnessEnvironment.Default,
+                            (await core.Supplier.get(this._options.environment)),
                         "v1/sessions",
                     ),
                     method: "GET",
@@ -170,8 +168,7 @@ export class SessionsClient {
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
-                    (await core.Supplier.get(this._options.environment)) ??
-                    environments.TrueHarnessEnvironment.Default,
+                    (await core.Supplier.get(this._options.environment)),
                 "v1/sessions",
             ),
             method: "POST",
@@ -271,8 +268,7 @@ export class SessionsClient {
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
-                    (await core.Supplier.get(this._options.environment)) ??
-                    environments.TrueHarnessEnvironment.Default,
+                    (await core.Supplier.get(this._options.environment)),
                 `v1/sessions/${core.url.encodePathParam(sessionId)}`,
             ),
             method: "GET",
@@ -355,8 +351,7 @@ export class SessionsClient {
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
-                    (await core.Supplier.get(this._options.environment)) ??
-                    environments.TrueHarnessEnvironment.Default,
+                    (await core.Supplier.get(this._options.environment)),
                 `v1/sessions/${core.url.encodePathParam(sessionId)}`,
             ),
             method: "PATCH",
@@ -471,8 +466,7 @@ export class SessionsClient {
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
-                    (await core.Supplier.get(this._options.environment)) ??
-                    environments.TrueHarnessEnvironment.Default,
+                    (await core.Supplier.get(this._options.environment)),
                 `v1/sessions/${core.url.encodePathParam(sessionId)}/cancel`,
             ),
             method: "POST",
@@ -586,8 +580,7 @@ export class SessionsClient {
                 const _response = await (this._options.fetcher ?? core.fetcher)({
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
-                            (await core.Supplier.get(this._options.environment)) ??
-                            environments.TrueHarnessEnvironment.Default,
+                            (await core.Supplier.get(this._options.environment)),
                         `v1/sessions/${core.url.encodePathParam(sessionId)}/events`,
                     ),
                     method: "GET",
@@ -705,8 +698,7 @@ export class SessionsClient {
                 const _response = await (this._options.fetcher ?? core.fetcher)({
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
-                            (await core.Supplier.get(this._options.environment)) ??
-                            environments.TrueHarnessEnvironment.Default,
+                            (await core.Supplier.get(this._options.environment)),
                         `v1/sessions/${core.url.encodePathParam(sessionId)}/turns`,
                     ),
                     method: "GET",
@@ -809,8 +801,7 @@ export class SessionsClient {
         const _response = await (this._options.fetcher ?? core.fetcher)<ReadableStream>({
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
-                    (await core.Supplier.get(this._options.environment)) ??
-                    environments.TrueHarnessEnvironment.Default,
+                    (await core.Supplier.get(this._options.environment)),
                 `v1/sessions/${core.url.encodePathParam(sessionId)}/turns`,
             ),
             method: "POST",
@@ -939,8 +930,7 @@ export class SessionsClient {
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
-                    (await core.Supplier.get(this._options.environment)) ??
-                    environments.TrueHarnessEnvironment.Default,
+                    (await core.Supplier.get(this._options.environment)),
                 `v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}`,
             ),
             method: "GET",
@@ -1042,8 +1032,7 @@ export class SessionsClient {
                 const _response = await (this._options.fetcher ?? core.fetcher)({
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
-                            (await core.Supplier.get(this._options.environment)) ??
-                            environments.TrueHarnessEnvironment.Default,
+                            (await core.Supplier.get(this._options.environment)),
                         `v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}/events`,
                     ),
                     method: "GET",

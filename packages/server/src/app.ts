@@ -15,23 +15,24 @@ import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
 import { createSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
-import { DEFAULT_PORT } from './config';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { McpStore } from './store/McpStore';
 import type { ModelStore } from './store/ModelStore';
 import type { SkillStore } from './store/SkillStore';
 
-export const openApiDocConfig = {
-  openapi: '3.0.0',
+const openApiDocConfig = {
+  openapi: '3.1.0',
   info: {
     title: 'Agent Server',
     description: 'Agent server exposing models, MCP servers and skills from local YAML config.',
     version: '0.1.0',
   },
-  // Self-hosted: the default local port is the only URL we can name. SDK
-  // consumers override it to point at their own deployment.
-  servers: [{ url: `http://localhost:${String(DEFAULT_PORT)}`, description: 'Local server' }],
 };
+
+/** Single source for both the served document and the one the SDK is built from. */
+export function buildOpenApiDocument(app: OpenAPIHono) {
+  return app.getOpenAPI31Document(openApiDocConfig);
+}
 
 export interface ServerDeps {
   modelStore: ModelStore;
@@ -84,7 +85,7 @@ export function createServerApp(deps: ServerDeps) {
   );
 
   app.get('/docs', swaggerUI({ url: '/openapi.json' }));
-  app.get('/openapi.json', c => c.json(app.getOpenAPIDocument(openApiDocConfig)));
+  app.get('/openapi.json', c => c.json(buildOpenApiDocument(app)));
 
   app.notFound(c => c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404));
 

@@ -15,7 +15,7 @@ import {
   ListTurnsResponseSchema,
   SubscribeTurnRequestSchema,
 } from '../schemas/turn';
-import { SSE_STREAM, TOKEN_PAGINATION } from './fernExtensions';
+import { TOKEN_PAGINATION } from './fernExtensions';
 import { SessionIdParamsSchema } from './sessionRoutes';
 
 const SESSIONS_TAG = 'Sessions';
@@ -114,7 +114,8 @@ export const createAndExecuteTurnRoute = createRoute({
 Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`).`,
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create_turn',
-  'x-fern-streaming': SSE_STREAM,
+  // Not resumable: subscribeTurnRoute, which would reattach, is not registered.
+  'x-fern-streaming': { format: 'sse', resumable: false },
   request: {
     params: SessionIdParamsSchema,
     body: {

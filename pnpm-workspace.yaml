@@ -1,8 +1,6 @@
 packages:
   - packages/*
-  # Fern-generated SDK. Kept out of the workspace so its generated dependency
-  # set never has to be reconciled with pnpm-lock.yaml, which would break
-  # `pnpm install --frozen-lockfile` in CI on every regeneration.
+  # Out of the workspace: its generated devDeps would break --frozen-lockfile in CI.
   - '!packages/sdk'
 
 minimumReleaseAge: 0

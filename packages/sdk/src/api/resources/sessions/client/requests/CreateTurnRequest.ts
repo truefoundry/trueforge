@@ -8,5 +8,5 @@ import type * as TrueHarness from "../../../../index.js";
  */
 export interface CreateTurnRequest {
     input?: TrueHarness.TurnInputItem[];
-    previousTurnId?: TrueHarness.PreviousTurnIdInput;
+    previousTurnId?: TrueHarness.PreviousTurnIdInput | null;
 }

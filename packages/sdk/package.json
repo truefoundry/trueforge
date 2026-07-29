@@ -29,16 +29,16 @@
             },
             "default": "./dist/cjs/serialization/index.js"
         },
-        "./capabilities": {
+        "./server": {
             "import": {
-                "types": "./dist/esm/api/resources/capabilities/exports.d.mts",
-                "default": "./dist/esm/api/resources/capabilities/exports.mjs"
+                "types": "./dist/esm/api/resources/server/exports.d.mts",
+                "default": "./dist/esm/api/resources/server/exports.mjs"
             },
             "require": {
-                "types": "./dist/cjs/api/resources/capabilities/exports.d.ts",
-                "default": "./dist/cjs/api/resources/capabilities/exports.js"
+                "types": "./dist/cjs/api/resources/server/exports.d.ts",
+                "default": "./dist/cjs/api/resources/server/exports.js"
             },
-            "default": "./dist/cjs/api/resources/capabilities/exports.js"
+            "default": "./dist/cjs/api/resources/server/exports.js"
         },
         "./models": {
             "import": {

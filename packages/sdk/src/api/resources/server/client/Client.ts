@@ -4,51 +4,49 @@ import type { BaseClientOptions, BaseRequestOptions } from "../../../../BaseClie
 import { type NormalizedClientOptions, normalizeClientOptions } from "../../../../BaseClient.js";
 import { mergeHeaders } from "../../../../core/headers.js";
 import * as core from "../../../../core/index.js";
-import * as environments from "../../../../environments.js";
 import { handleNonStatusCodeError } from "../../../../errors/handleNonStatusCodeError.js";
 import * as errors from "../../../../errors/index.js";
 import * as serializers from "../../../../serialization/index.js";
 import type * as TrueHarness from "../../../index.js";
 
-export declare namespace CapabilitiesClient {
+export declare namespace ServerClient {
     export type Options = BaseClientOptions;
 
     export interface RequestOptions extends BaseRequestOptions {}
 }
 
-export class CapabilitiesClient {
-    protected readonly _options: NormalizedClientOptions<CapabilitiesClient.Options>;
+export class ServerClient {
+    protected readonly _options: NormalizedClientOptions<ServerClient.Options>;
 
-    constructor(options: CapabilitiesClient.Options = {}) {
+    constructor(options: ServerClient.Options) {
         this._options = normalizeClientOptions(options);
     }
 
     /**
      * Report optional runtime capabilities available in this server deployment.
      *
-     * @param {CapabilitiesClient.RequestOptions} requestOptions - Request-specific configuration.
+     * @param {ServerClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link errors.TrueHarnessError}
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
      * @example
-     *     await client.capabilities.get()
+     *     await client.server.getCapabilities()
      */
-    public get(
-        requestOptions?: CapabilitiesClient.RequestOptions,
+    public getCapabilities(
+        requestOptions?: ServerClient.RequestOptions,
     ): core.HttpResponsePromise<TrueHarness.GetCapabilitiesResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__get(requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__getCapabilities(requestOptions));
     }
 
-    private async __get(
-        requestOptions?: CapabilitiesClient.RequestOptions,
+    private async __getCapabilities(
+        requestOptions?: ServerClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueHarness.GetCapabilitiesResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
-                    (await core.Supplier.get(this._options.environment)) ??
-                    environments.TrueHarnessEnvironment.Default,
+                    (await core.Supplier.get(this._options.environment)),
                 "v1/capabilities",
             ),
             method: "GET",

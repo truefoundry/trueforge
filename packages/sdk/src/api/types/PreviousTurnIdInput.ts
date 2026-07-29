@@ -3,4 +3,4 @@
 /**
  * Defaults to 'auto' (chain to session last turn). Use 'null' for the session's first turn.
  */
-export type PreviousTurnIdInput = "auto" | string | unknown | null;
+export type PreviousTurnIdInput = "auto" | string;

@@ -1,9 +1,6 @@
 # yaml-language-server: $schema=https://schema.buildwithfern.dev/generators-yml.json
 #
-# Generates the TypeScript SDK into packages/sdk from the OpenAPI document that
-# packages/server emits. `openapi/openapi.json` is written by
-# `pnpm --filter @truefoundry/server openapi:write` and committed, so a Fern run
-# never needs the server running.
+# openapi/openapi.json is committed by `pnpm openapi:write`, so Fern never needs the server.
 readme:
   introduction: >
     TypeScript client for the TrueFoundry agent harness server: a self-hosted
@@ -12,9 +9,7 @@ readme:
 
     The harness server has no built-in authentication, so point the client at
     your own deployment's base URL.
-  # `POST /v1/sessions/{sessionId}/turns` is the streaming create endpoint. Fern
-  # keys the readme-endpoint cache on the stream flag, so the string form (which
-  # defaults stream=false) misses this entry and fails with "Endpoint not found".
+  # Fern keys this lookup on the stream flag, so the string form misses and fails.
   defaultEndpoint:
     method: POST
     path: /v1/sessions/{sessionId}/turns
@@ -36,10 +31,7 @@ api:
         coerce-enums-to-literals: true
         respect-forward-compatible-enums: true
 groups:
-  # Writes generated files straight into packages/sdk. `local-file-system` output
-  # cannot be combined with a `github` block, so the workflow commits the result
-  # itself. The npm package name comes from `packageJson.name` for this output
-  # mode; there is no `output.package-name` field to set.
+  # `local-file-system` allows no `github` block, so the workflow commits the result itself.
   ts-sdk:
     generators:
       - name: fernapi/fern-typescript-node-sdk
@@ -48,6 +40,7 @@ groups:
           location: local-file-system
           path: ../packages/sdk
         config:
+          # TODO: settle the public name before the first publish.
           packageJson:
             name: trueharness
           allowExtraFields: true

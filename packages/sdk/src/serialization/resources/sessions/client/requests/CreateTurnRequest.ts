@@ -11,12 +11,12 @@ export const CreateTurnRequest: core.serialization.Schema<
     TrueHarness.CreateTurnRequest
 > = core.serialization.object({
     input: core.serialization.list(TurnInputItem).optional(),
-    previousTurnId: core.serialization.property("previous_turn_id", PreviousTurnIdInput.optional()),
+    previousTurnId: core.serialization.property("previous_turn_id", PreviousTurnIdInput.optionalNullable()),
 });
 
 export declare namespace CreateTurnRequest {
     export interface Raw {
         input?: TurnInputItem.Raw[] | null;
-        previous_turn_id?: PreviousTurnIdInput.Raw | null;
+        previous_turn_id?: (PreviousTurnIdInput.Raw | null | undefined) | null;
     }
 }

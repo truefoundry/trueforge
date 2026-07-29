@@ -3,7 +3,7 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ModelMessageEvent {
-    content?: TrueHarness.ModelMessageEventContent;
+    content?: TrueHarness.ModelMessageEventContent | null;
     name?: string;
     refusal?: string | null;
     reasoningContent?: string;

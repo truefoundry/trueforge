@@ -2,6 +2,8 @@
  * Zod schemas for the YAML config files (models.yaml, mcp.yaml, skills.yaml).
  * Validation is strict: unknown keys, duplicate names, or missing fields make
  * the server fail at startup.
+ *
+ * TODO: settle the `.openapi()` names below; they become the SDK's exported types.
  */
 import { z } from '@hono/zod-openapi';
 import { normalizeEnvName } from '../config';

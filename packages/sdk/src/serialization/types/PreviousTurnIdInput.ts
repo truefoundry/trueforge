@@ -7,12 +7,8 @@ import type * as serializers from "../index.js";
 export const PreviousTurnIdInput: core.serialization.Schema<
     serializers.PreviousTurnIdInput.Raw,
     TrueHarness.PreviousTurnIdInput
-> = core.serialization.undiscriminatedUnion([
-    core.serialization.stringLiteral("auto"),
-    core.serialization.string(),
-    core.serialization.unknown().nullable(),
-]);
+> = core.serialization.undiscriminatedUnion([core.serialization.stringLiteral("auto"), core.serialization.string()]);
 
 export declare namespace PreviousTurnIdInput {
-    export type Raw = "auto" | string | (unknown | null | undefined);
+    export type Raw = "auto" | string;
 }
