@@ -4,7 +4,7 @@ import type {
   ChatCompletionTool,
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
-import type { AgentCapability } from '../capabilities/AgentCapability';
+import type { AgentCapability, CapabilityState } from '../capabilities/AgentCapability';
 import type {
   AgentContextProcessorOutput,
   AgentContextProcessorOverwriteContext,
@@ -64,7 +64,6 @@ import type {
   AgentThreadRuntimeSendBatch,
   AgentThreadRuntimeSendInput,
   AgentThreadSnapshot,
-  CapabilityState,
 } from './AgentThread.types';
 import {
   InternalEventType,
@@ -628,7 +627,10 @@ export class AgentThread {
         });
       }
       if (contextMessages.length > 0) {
-        yield* this.appendToContext({ context: contextMessages, output: [] });
+        yield* this.appendToContext({
+          context: contextMessages,
+          output: [],
+        });
       }
     } finally {
       this.contextBusy = false;
@@ -1200,9 +1202,10 @@ export class AgentThread {
     for (const msg of agentToolMessages) {
       yield msg;
     }
+    // tool.response is persisted by the session/response layer when yielded; only mutate context here.
     yield* this.appendToContext({
       context: toolCallResults.map(t => t.message),
-      output: agentToolMessages,
+      output: [],
     });
 
     if (authRequirementInfo.length > 0) {

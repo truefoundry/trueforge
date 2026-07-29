@@ -1,9 +1,9 @@
+import type { JsonValue } from '../../core/capabilities/AgentCapability';
 import type { MCPServerInitInfo, ThreadOverwriteContextEvent } from '../../core/events/schema';
 import type { CompletionUsage } from '../../core/llm/LLMTypes';
 import type {
   AgentThreadSnapshot,
   ContextMessage,
-  JsonValue,
   SubAgentCompletionMarker,
 } from '../../core/runtime/AgentThread.types';
 import type { SandboxInfo } from '../../core/sandbox/Sandbox';

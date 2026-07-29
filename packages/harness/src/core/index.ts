@@ -23,7 +23,7 @@ export { isAgentInputUserMessage, isEmptyMessageContent, isFileContentPart } fro
 export type { AgentInputUserMessage } from './runtime/UserInputMessage';
 
 // Capability contracts
-export type { AgentCapability } from './capabilities/AgentCapability';
+export type { AgentCapability, CapabilityState, JsonValue } from './capabilities/AgentCapability';
 export type {
   AgentContextProcessorOutput,
   AgentThreadExecutionContext,
@@ -116,7 +116,7 @@ export type {
   ThreadOverwriteContextEvent,
 } from './events/schema';
 export { InternalEventType } from './runtime/AgentThread.types';
-export type { AgentThreadSendBatch, CapabilityState, ContextMessage, JsonValue } from './runtime/AgentThread.types';
+export type { AgentThreadSendBatch, ContextMessage } from './runtime/AgentThread.types';
 export type { AgentThreadMetrics } from './runtime/metrics';
 
 // Tracing

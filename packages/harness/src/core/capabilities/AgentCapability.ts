@@ -1,6 +1,5 @@
 import type { InstructionBuilder } from '../InstructionBuilder';
 import type { IToolSet } from '../mcp/IMCPServer';
-import type { JsonValue } from '../runtime/AgentThread.types';
 import type {
   PostToolCallAgentContextProcessor,
   PreLLMAgentContextProcessor,
@@ -8,6 +7,15 @@ import type {
   PreSendContextProcessor,
 } from './AgentContextProcessor';
 import type { ToolResponseProcessor } from './ToolResponseProcessor';
+
+/**
+ * JSON-serializable value. Excludes `undefined` — durability is jsonb/JSON, so
+ * clears use `null` and absent data omits the key or the map.
+ */
+export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+
+/** Cross-turn capability KV map. Keys: capability.state.key; `tfy.` reserved for builtins. */
+export type CapabilityState = Record<string, JsonValue>;
 
 export interface AgentCapability {
   readonly systemToolSets?: readonly IToolSet[] | undefined;
