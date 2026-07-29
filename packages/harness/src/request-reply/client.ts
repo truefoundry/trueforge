@@ -13,8 +13,8 @@ export interface SendRequestOptions {
   pollIntervalMs: number;
 }
 
-export const DEFAULT_REPLY_TIMEOUT_MS = 10_000;
-export const DEFAULT_POLL_INTERVAL_MS = 150;
+export const DEFAULT_REPLY_TIMEOUT_MS = 60_000;
+export const DEFAULT_POLL_INTERVAL_MS = 500;
 
 function resolveSendRequestOptions(options: Partial<SendRequestOptions> | undefined): SendRequestOptions {
   return {

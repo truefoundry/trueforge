@@ -163,7 +163,10 @@ export async function cancelSessionTurn(
         request: {
           body: { session_id: sessionId, turn_id: turnId, reason },
         },
-        options: { replyTimeoutMs: configuration.REDIS_REQUEST_REPLY_TIMEOUT_MS },
+        options: {
+          replyTimeoutMs: configuration.REDIS_REQUEST_REPLY_TIMEOUT_MS,
+          pollIntervalMs: configuration.REDIS_REQUEST_REPLY_POLL_INTERVAL_MS,
+        },
       });
       if (reply.status !== 200 && reply.status !== 412) {
         throw new HTTPException(500, { message: 'Failed to cancel turn on the owning executor' });

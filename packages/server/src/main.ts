@@ -82,7 +82,10 @@ try {
     subscriberClient: requestReplySubscriber,
     requestHandler: requestReplyRouter.createRequestHandler(),
     logger,
-    options: { heartbeatIntervalMs: configuration.REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS },
+    options: {
+      heartbeatIntervalMs: configuration.REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS,
+      replyTtlMs: configuration.REDIS_REQUEST_REPLY_REPLY_TTL_MS,
+    },
   });
   await requestReplyExecutor.init();
   await requestReplySubscriber.connect();

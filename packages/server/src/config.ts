@@ -278,6 +278,16 @@ export interface ServerConfiguration {
    * Env: `REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS`. Default 5000.
    */
   REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS: number;
+  /**
+   * TTL for reply values so abandoned reply keys are reclaimed.
+   * Env: `REDIS_REQUEST_REPLY_REPLY_TTL_MS`. Default 120000.
+   */
+  REDIS_REQUEST_REPLY_REPLY_TTL_MS: number;
+  /**
+   * Sleep between reply poll attempts while waiting on a peer.
+   * Env: `REDIS_REQUEST_REPLY_POLL_INTERVAL_MS`. Default 500.
+   */
+  REDIS_REQUEST_REPLY_POLL_INTERVAL_MS: number;
 }
 
 // ============================================================================
@@ -348,6 +358,16 @@ const configuration: ServerConfiguration = {
     envKey: 'REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS',
     raw: getEnv('REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS'),
     defaultValue: 5_000,
+  }),
+  REDIS_REQUEST_REPLY_REPLY_TTL_MS: parsePositiveInt({
+    envKey: 'REDIS_REQUEST_REPLY_REPLY_TTL_MS',
+    raw: getEnv('REDIS_REQUEST_REPLY_REPLY_TTL_MS'),
+    defaultValue: 120_000,
+  }),
+  REDIS_REQUEST_REPLY_POLL_INTERVAL_MS: parsePositiveInt({
+    envKey: 'REDIS_REQUEST_REPLY_POLL_INTERVAL_MS',
+    raw: getEnv('REDIS_REQUEST_REPLY_POLL_INTERVAL_MS'),
+    defaultValue: 500,
   }),
 } as const;
 
