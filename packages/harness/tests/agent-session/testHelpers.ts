@@ -9,13 +9,18 @@ import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolv
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import { newEventId } from '../../src/core/events/schema';
 import type {
-  CompletionUsage,
   ExtendedChatCompletionChunk,
+  GatewayChatCompletionUsage,
   RawAssistantMessageWithUsage,
 } from '../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
 import type { Sandbox } from '../../src/core/sandbox/Sandbox';
 import { makeMockILLM, makeSilentLogger } from '../core/harnessMocks';
+
+/** Gateway-shaped zero usage — the LLM boundary carries the raw payload, not the harness shape. */
+export function emptyGatewayUsage(): GatewayChatCompletionUsage {
+  return { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+}
 
 export { makeMockILLM, makeSilentLogger };
 
@@ -60,7 +65,7 @@ export function makeAgentSpec(
 
 // eslint-disable-next-line @typescript-eslint/require-await -- async generator fixture, not awaiting I/O
 export async function* emptyLlmStream(
-  usage: CompletionUsage = getEmptyUsage(),
+  usage: GatewayChatCompletionUsage = emptyGatewayUsage(),
 ): AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown> {
   yield {
     id: 'chunk-1',
@@ -80,7 +85,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
   extraCapabilities?: AgentCapability[];
   sandbox?: Sandbox;
   close?: () => Promise<void>;
-  usage?: CompletionUsage;
+  usage?: GatewayChatCompletionUsage;
 }): ITurnResourceResolver<TTurnCustom> {
   const llm = makeMockILLM({
     create: jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),

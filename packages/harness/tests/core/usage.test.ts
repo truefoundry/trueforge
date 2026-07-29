@@ -1,5 +1,5 @@
 import { CompletionUsageSchema, GatewayChatCompletionUsageSchema, getEmptyUsage } from '../../src/core/llm/LLMTypes';
-import { mergeUsage } from '../../src/core/llm/usage';
+import { mergeUsage, normalizeUsage } from '../../src/core/llm/usage';
 
 describe('completion usage cost', () => {
   it('accepts gateway-computed cost', () => {
@@ -14,12 +14,13 @@ describe('completion usage cost', () => {
   });
 
   it('normalizes and trims gateway usage to the flat harness shape', () => {
-    const normalized = mergeUsage(getEmptyUsage(), {
+    const normalized = normalizeUsage({
       prompt_tokens: 10,
       completion_tokens: 5,
       total_tokens: 15,
       prompt_tokens_details: { cached_tokens: 4 },
       cache_creation_input_tokens: 2,
+      // Dropped from CompletionUsage until needed; present only on raw gateway payload.
       completion_tokens_details: { reasoning_tokens: 3 },
       costInUSD: 0.12,
     });
@@ -33,6 +34,18 @@ describe('completion usage cost', () => {
       cost_in_USD: 0.12,
     });
     expect(CompletionUsageSchema.parse(normalized)).toEqual(normalized);
+  });
+
+  it('prefers cache_read_input_tokens over prompt_tokens_details when both are present', () => {
+    const normalized = normalizeUsage({
+      prompt_tokens: 10,
+      completion_tokens: 5,
+      total_tokens: 15,
+      cache_read_input_tokens: 7,
+      prompt_tokens_details: { cached_tokens: 4 },
+    });
+
+    expect(normalized.cache_read_tokens).toBe(7);
   });
 
   it('sums cost across model calls', () => {

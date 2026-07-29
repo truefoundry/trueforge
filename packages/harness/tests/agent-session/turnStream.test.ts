@@ -3,7 +3,6 @@ import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
-import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
 import { RemoteMCP } from '../../src/core/mcp/RemoteMCP';
 import { makeStubPublicSandbox } from '../core/harnessMocks';
 import {
@@ -82,12 +81,11 @@ describe('TurnHandle.stream()', () => {
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
-          ...getEmptyUsage(),
           prompt_tokens: 12,
           completion_tokens: 5,
           total_tokens: 17,
-          cache_read_tokens: 4,
-          cost_in_USD: 0.42,
+          cache_read_input_tokens: 4,
+          costInUSD: 0.42,
         },
       }),
     });
@@ -116,12 +114,11 @@ describe('TurnHandle.stream()', () => {
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
-          ...getEmptyUsage(),
           prompt_tokens: 100,
           completion_tokens: 50,
           total_tokens: 150,
-          cache_read_tokens: 20,
-          cost_in_USD: 1.5,
+          cache_read_input_tokens: 20,
+          costInUSD: 1.5,
         },
       }),
     });
@@ -144,12 +141,11 @@ describe('TurnHandle.stream()', () => {
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
-          ...getEmptyUsage(),
           prompt_tokens: 7,
           completion_tokens: 3,
           total_tokens: 10,
-          cache_read_tokens: 1,
-          cost_in_USD: 0.05,
+          cache_read_input_tokens: 1,
+          costInUSD: 0.05,
         },
       }),
     });
@@ -182,13 +178,13 @@ describe('TurnHandle.stream()', () => {
       previous_turn_id: null,
       signal: new AbortController().signal,
       resolver: makeTestResolver({
+        // Cache reads arrive under the OpenAI-style nesting here, not the Anthropic-style flat field.
         usage: {
-          ...getEmptyUsage(),
           prompt_tokens: 12,
           completion_tokens: 5,
           total_tokens: 17,
-          cache_read_tokens: 4,
-          cost_in_USD: 0.42,
+          prompt_tokens_details: { cached_tokens: 4 },
+          costInUSD: 0.42,
         },
       }),
     });
