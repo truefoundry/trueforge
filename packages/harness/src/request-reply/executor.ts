@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { ReplyError } from './errors';
-import type { Subscription } from './subscription';
 import type { JSONReply, RequestHandler } from './types';
 import { publishedRequestSchema } from './types';
 import { heartbeatKey, requestChannel } from './utils';
@@ -24,60 +23,71 @@ function resolveRunExecutorOptions(options: Partial<RunExecutorOptions> | undefi
   };
 }
 
+/** Observability hook for subscriber errors and failed SUBSCRIBEs. */
+export type RequestReplyErrorHandler = (err: Error, context: { executorId: string; channel: string }) => void;
+
 /**
  * Serving side of the request-reply transport: parses and validates each
  * published message, dispatches it to the request handler, writes the
  * JSONReply to the request's reply key, and refreshes the heartbeat key while
- * the subscription is live.
+ * subscribed.
  *
- * Connection management stays with the host: the executor never subscribes
- * itself — `init()` attaches the injected `Subscription` and reacts to its
- * onLive/onLost signals; `drain()` releases it before waiting out in-flight
- * requests. The injected `redis` command client is used only for SETs
- * (replies + heartbeat) and its lifecycle is host-owned too.
+ * Connection lifecycle stays with the caller: both clients are supplied
+ * connected and are never closed here. `subscriberClient` is the connection to
+ * SUBSCRIBE on — a `duplicate()` for standalone Redis, or the shared client
+ * for Sentinel — and must have a reconnect strategy so a failed connect
+ * self-heals (the executor re-subscribes on every `ready`).
  */
 export class RequestReplyExecutor {
   readonly executorId: string;
-  /** `rr:req:<executorId>` — the channel the subscription attaches to. */
+  /** `rr:req:<executorId>` — the channel this executor subscribes to. */
   readonly channel: string;
   private readonly redis: RedisClientType;
+  private readonly subscriberClient: RedisClientType;
   private readonly logger: Logger;
   private readonly heartbeatIntervalMs: number;
   private readonly heartbeatTtlMs: number;
   private readonly replyTtlMs: number;
   private readonly heartbeatKey: string;
   private readonly requestHandler: RequestHandler;
-  private readonly subscription: Subscription;
+  private readonly onError: RequestReplyErrorHandler | undefined;
+  /** Stable reference so node-redis dedupes the listener across re-subscribes. */
+  private readonly subscribeListener = (message: string): void => {
+    this.onMessage(message);
+  };
 
   private closed = false;
-  private subscribed = false;
+  private initialized = false;
   private runningRequests = new Map<string, Promise<void>>();
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor({
     executorId,
     redis,
+    subscriberClient,
     requestHandler,
-    subscription,
+    onError,
     logger,
     options,
   }: {
     executorId: string;
-    /** Connected command client, used only for SET (reply + heartbeat). Host owns its lifecycle. */
+    /** Connected command client, used only for SET (reply + heartbeat). Caller owns its lifecycle. */
     redis: RedisClientType;
+    /** Connected client to SUBSCRIBE on (duplicate or Sentinel). Caller owns its lifecycle. */
+    subscriberClient: RedisClientType;
     requestHandler: RequestHandler;
-    /** Host-owned channel attach/detach strategy (see subscription.ts). */
-    subscription: Subscription;
+    onError?: RequestReplyErrorHandler | undefined;
     logger: Logger;
     options?: Partial<RunExecutorOptions> | undefined;
   }) {
     const { heartbeatIntervalMs, replyTtlMs } = resolveRunExecutorOptions(options);
     this.executorId = executorId;
     this.redis = redis;
+    this.subscriberClient = subscriberClient;
     this.logger = logger;
     this.replyTtlMs = replyTtlMs;
     this.requestHandler = requestHandler;
-    this.subscription = subscription;
+    this.onError = onError;
     this.channel = requestChannel(executorId);
     this.heartbeatKey = heartbeatKey(executorId);
     this.heartbeatIntervalMs = heartbeatIntervalMs;
@@ -85,30 +95,53 @@ export class RequestReplyExecutor {
   }
 
   async init(): Promise<void> {
-    if (this.closed || this.subscribed) {
+    if (this.closed || this.initialized) {
       return;
     }
-    this.subscribed = true;
-    try {
-      await this.subscription.subscribe({
-        channel: this.channel,
-        onMessage: message => {
-          this.handleMessage(message);
-        },
-        onLive: () => {
-          this.startServing();
-        },
-        onLost: () => {
-          this.stopServing();
-        },
-      });
-    } catch (err) {
-      this.subscribed = false;
-      this.logger.error('[RequestReplyExecutor] Error attaching subscription', {
+    this.initialized = true;
+
+    this.subscriberClient.on('error', (err: Error) => {
+      this.logger.error('[RequestReplyExecutor] Subscriber error', {
         executorId: this.executorId,
-        error: err instanceof Error ? err.message : String(err),
+        error: err.message,
       });
-      throw err;
+      this.onError?.(err, { executorId: this.executorId, channel: this.channel });
+      this.stopHeartbeat();
+    });
+    this.subscriberClient.on('end', () => {
+      this.logger.warn('[RequestReplyExecutor] Subscriber connection ended', { executorId: this.executorId });
+      this.stopHeartbeat();
+    });
+    // ready fires on the first connect and every reconnect; re-subscribing is
+    // safe because node-redis dedupes the stable listener.
+    this.subscriberClient.on('ready', () => {
+      void this.setupSubscriber();
+    });
+
+    // On stable connections we won't get another ready event — if the caller
+    // already connected the client, subscribe now.
+    if (this.subscriberClient.isReady) {
+      await this.setupSubscriber();
+    }
+  }
+
+  private async setupSubscriber(): Promise<void> {
+    if (this.closed) {
+      return;
+    }
+    try {
+      await this.subscriberClient.subscribe(this.channel, this.subscribeListener);
+      this.logger.info('[RequestReplyExecutor] Subscribed to request channel', { executorId: this.executorId });
+      this.stopHeartbeat();
+      this.startHeartbeat();
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      this.logger.error('[RequestReplyExecutor] Error subscribing to request channel', {
+        executorId: this.executorId,
+        error: error.message,
+      });
+      this.onError?.(error, { executorId: this.executorId, channel: this.channel });
+      this.stopHeartbeat();
     }
   }
 
@@ -122,21 +155,21 @@ export class RequestReplyExecutor {
     }
   }
 
-  /** onLive: heartbeat only while the subscription is live. Idempotent (restarts the timer). */
-  private startServing(): void {
+  /** Heartbeat only while subscribed. Idempotent (restarts the timer). */
+  private startHeartbeat(): void {
     if (this.closed) {
       return;
     }
     this.logger.info('[RequestReplyExecutor] Starting heartbeat', { executorId: this.executorId });
-    this.stopServing();
+    this.stopHeartbeat();
     void this.beat();
     this.heartbeatTimer = setInterval(() => {
       void this.beat();
     }, this.heartbeatIntervalMs);
   }
 
-  /** onLost: a stopped heartbeat makes callers fail fast with NoResponderError. */
-  private stopServing(): void {
+  /** A stopped heartbeat makes callers fail fast with NoResponderError. */
+  private stopHeartbeat(): void {
     if (this.heartbeatTimer) {
       this.logger.info('[RequestReplyExecutor] Stopping heartbeat', { executorId: this.executorId });
       clearInterval(this.heartbeatTimer);
@@ -189,8 +222,8 @@ export class RequestReplyExecutor {
     }
   }
 
-  /** onMessage: one raw pub/sub payload from the subscription. Never throws. */
-  private handleMessage(message: string): void {
+  /** One raw pub/sub payload. Never throws. */
+  private onMessage(message: string): void {
     this.logger.debug('[RequestReplyExecutor] Received message', { executorId: this.executorId, message });
     if (!message) {
       return;
@@ -210,25 +243,26 @@ export class RequestReplyExecutor {
   }
 
   // This function should never throw!
-  // Shutdown entry: release the subscription (stop intake), then stop the
-  // heartbeat and wait out in-flight replies.
-  async drain(): Promise<void> {
+  // Stops intake: unsubscribe from the channel and stop the heartbeat. Never
+  // closes the clients — the caller owns their lifecycle.
+  async close(): Promise<void> {
     if (this.closed) {
       return;
     }
-    this.logger.info('[RequestReplyExecutor] Draining', { executorId: this.executorId });
-    try {
-      // Subscriptions must not throw from close(); guard anyway because a
-      // broken host implementation must not abort process shutdown.
-      await this.subscription.close();
-    } catch (err) {
-      this.logger.error('[RequestReplyExecutor] Error closing subscription', {
-        executorId: this.executorId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+    this.logger.info('[RequestReplyExecutor] Closing', { executorId: this.executorId });
     this.closed = true;
-    this.stopServing();
+    try {
+      await this.subscriberClient.unsubscribe(this.channel);
+    } catch {
+      // ignore: connection may already be closed
+    }
+    this.stopHeartbeat();
+  }
+
+  // This function should never throw!
+  // This is called during graceful shutdown
+  async drain(): Promise<void> {
+    await this.close();
     await Promise.allSettled(Array.from(this.runningRequests.values()));
   }
 }
