@@ -238,7 +238,10 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
               type: EventType.TURN_DONE,
               id: newEventId(),
               created_at: new Date().toISOString(),
-              state: error.state,
+              state: {
+                ...error.state,
+                usage: turnUsageFromMetrics(orchestrator.getMetrics()),
+              },
               thread_id: null,
             };
             return;
@@ -330,7 +333,10 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
               type: EventType.TURN_DONE,
               id: newEventId(),
               created_at: createdAt,
-              state: persistError.state,
+              state: {
+                ...persistError.state,
+                usage,
+              },
               thread_id: null,
             };
             // eslint-disable-next-line no-unsafe-finally -- deliberate: a concurrent freeze during the terminal write makes the store's state authoritative, so the stream ends here
