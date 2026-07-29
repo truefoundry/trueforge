@@ -44,7 +44,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "pnpm run build:gen && pnpm run build:js && pnpm run build:dts && pnpm run build:pkg && pnpm run build:check",
+    "build": "pnpm run build:gen && tsc --noEmit && pnpm run build:js && pnpm run build:dts && pnpm run build:pkg && pnpm run build:check",
     "build:gen": "node scripts/generate-sandbox-scripts.mjs",
     "build:js": "tsup",
     "build:dts": "tsc -p tsconfig.build.json --emitDeclarationOnly",

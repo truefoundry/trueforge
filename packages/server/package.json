@@ -7,7 +7,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsup",
+    "build": "tsc --noEmit && tsup",
     "dev": "tsx --env-file=.env src/main.ts",
     "migrate": "tsx --env-file=.env src/db/migrate-cli.ts",
     "typecheck": "tsc --noEmit",
