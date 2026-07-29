@@ -16,8 +16,8 @@ function mustGet<T>(value: T | undefined | null, label = 'value'): T {
 }
 
 const emptyTurnUsage = {
-  total_input_tokens: 0,
-  total_output_tokens: 0,
+  total_prompt_tokens: 0,
+  total_completion_tokens: 0,
   total_cache_read_tokens: 0,
   total_cost_in_usd: 0,
 };
@@ -271,8 +271,8 @@ function runStoreContractSuite(createStore: () => ISessionStore) {
 
       const completedAt = new Date().toISOString();
       const usage = {
-        total_input_tokens: 10,
-        total_output_tokens: 4,
+        total_prompt_tokens: 10,
+        total_completion_tokens: 4,
         total_cache_read_tokens: 3,
         total_cost_in_usd: 0.25,
       };

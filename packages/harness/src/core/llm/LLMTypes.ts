@@ -134,7 +134,8 @@ export const LLMToolMessageSchema = ChatCompletionToolMessageParamSchema.omit({ 
   })
   .openapi('LLMToolMessage');
 
-export const CompletionUsageSchema = z
+/** Raw usage accepted from the OpenAI-compatible gateway response. */
+export const GatewayCompletionUsageSchema = z
   .object({
     completion_tokens: z.number().int().nonnegative(),
     prompt_tokens: z.number().int().nonnegative(),
@@ -151,6 +152,18 @@ export const CompletionUsageSchema = z
       .optional(),
     cache_read_input_tokens: z.number().int().nonnegative().optional(),
     cache_creation_input_tokens: z.number().int().nonnegative().optional(),
+    costInUSD: z.number().nonnegative().optional(),
+  })
+  .openapi('GatewayCompletionUsage');
+
+/** Provider-agnostic usage used throughout the harness after gateway normalization. */
+export const CompletionUsageSchema = z
+  .object({
+    prompt_tokens: z.number().int().nonnegative(),
+    completion_tokens: z.number().int().nonnegative(),
+    total_tokens: z.number().int().nonnegative(),
+    cache_read_tokens: z.number().int().nonnegative().optional(),
+    reasoning_tokens: z.number().int().nonnegative().optional(),
     cost_in_usd: z.number().nonnegative().optional(),
   })
   .openapi('CompletionUsage');
@@ -172,11 +185,19 @@ export type ExtendedDeltaToolCall = z.infer<typeof ExtendedChunkDeltaToolCallSch
 export type ExtendedDelta = z.infer<typeof ExtendedChunkDeltaSchema>;
 export type LLMUserMessage = z.infer<typeof LLMUserMessageSchema>;
 export type LLMToolMessage = z.infer<typeof LLMToolMessageSchema>;
+export type GatewayCompletionUsage = z.infer<typeof GatewayCompletionUsageSchema>;
 export type CompletionUsage = z.infer<typeof CompletionUsageSchema>;
 export type FinishReason = z.infer<typeof FinishReasonSchema>;
 
 export function getEmptyUsage(): CompletionUsage {
-  return { prompt_tokens: 0, total_tokens: 0, completion_tokens: 0, cost_in_usd: 0 };
+  return {
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    total_tokens: 0,
+    cache_read_tokens: 0,
+    reasoning_tokens: 0,
+    cost_in_usd: 0,
+  };
 }
 
 /**
@@ -191,12 +212,15 @@ interface ExtendedChoice extends Omit<ChatCompletionChunk.Choice, 'delta'> {
 
 /**
  * Extended chat completion chunk that includes thought_signature in tool calls.
+ * `usage` is still the gateway/OpenAI payload; normalize at consume sites
+ * ({@link normalizeCompletionUsage}) before treating it as {@link CompletionUsage}.
  */
-export interface ExtendedChatCompletionChunk extends Omit<ChatCompletionChunk, 'choices'> {
+export interface ExtendedChatCompletionChunk extends Omit<ChatCompletionChunk, 'choices' | 'usage'> {
   /**
    * A list of chat completion choices, with thought_signature support in deltas.
    */
   choices: ExtendedChoice[];
+  usage?: GatewayCompletionUsage | null;
 }
 
 export interface RawAssistantMessageWithUsage {

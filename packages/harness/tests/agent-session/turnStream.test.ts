@@ -3,6 +3,7 @@ import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
+import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
 import { RemoteMCP } from '../../src/core/mcp/RemoteMCP';
 import { makeStubPublicSandbox } from '../core/harnessMocks';
 import { emptyLlmStream, makeAgentSpec, makeMockILLM, makeSilentLogger, makeTestResolver } from './testHelpers';
@@ -41,7 +42,15 @@ describe('TurnHandle.stream()', () => {
     }
     expect(types[0]).toBe(EventType.TURN_CREATED);
     expect(types[types.length - 1]).toBe(EventType.TURN_DONE);
-    expect(turn.state.status).toBe('done');
+    expect(turn.state).toMatchObject({
+      status: 'done',
+      usage: {
+        total_prompt_tokens: 0,
+        total_completion_tokens: 0,
+        total_cache_read_tokens: 0,
+        total_cost_in_usd: 0,
+      },
+    });
 
     const { data } = await turn.listEvents({ limit: 50 });
     expect(data.some(e => e.type === EventType.TURN_CREATED)).toBe(true);
@@ -55,7 +64,7 @@ describe('TurnHandle.stream()', () => {
     expect(stored?.state.status).toBe('done');
   });
 
-  it('persists final turn usage from running metrics', async () => {
+  it('persists final turn usage from orchestrator metrics', async () => {
     const { session } = await createSession();
     const turn = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
@@ -63,10 +72,11 @@ describe('TurnHandle.stream()', () => {
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
+          ...getEmptyUsage(),
           prompt_tokens: 12,
           completion_tokens: 5,
           total_tokens: 17,
-          cache_read_input_tokens: 4,
+          cache_read_tokens: 4,
           cost_in_usd: 0.42,
         },
       }),
@@ -77,15 +87,78 @@ describe('TurnHandle.stream()', () => {
     expect(turn.state).toMatchObject({
       status: 'done',
       usage: {
-        total_input_tokens: 12,
-        total_output_tokens: 5,
+        total_prompt_tokens: 12,
+        total_completion_tokens: 5,
         total_cache_read_tokens: 4,
         total_cost_in_usd: 0.42,
       },
     });
   });
 
-  it('persists OpenAI-shaped cache reads reported via prompt_tokens_details', async () => {
+  it('isolates billable usage across turns (Turn 2 does not include Turn 1)', async () => {
+    const { session } = await createSession();
+
+    const turn1 = await session.createTurn({
+      input: [{ type: EventType.USER_MESSAGE, content: 'turn one' }],
+      previous_turn_id: null,
+      signal: new AbortController().signal,
+      resolver: makeTestResolver({
+        usage: {
+          ...getEmptyUsage(),
+          prompt_tokens: 100,
+          completion_tokens: 50,
+          total_tokens: 150,
+          cache_read_tokens: 20,
+          cost_in_usd: 1.5,
+        },
+      }),
+    });
+    for await (const event of turn1.stream()) void event;
+    expect(turn1.state).toMatchObject({
+      status: 'done',
+      usage: {
+        total_prompt_tokens: 100,
+        total_completion_tokens: 50,
+        total_cache_read_tokens: 20,
+        total_cost_in_usd: 1.5,
+      },
+    });
+
+    const turn2 = await session.createTurn({
+      input: [{ type: EventType.USER_MESSAGE, content: 'turn two' }],
+      previous_turn_id: 'auto',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver({
+        usage: {
+          ...getEmptyUsage(),
+          prompt_tokens: 7,
+          completion_tokens: 3,
+          total_tokens: 10,
+          cache_read_tokens: 1,
+          cost_in_usd: 0.05,
+        },
+      }),
+    });
+    for await (const event of turn2.stream()) void event;
+
+    expect(turn2.state).toMatchObject({
+      status: 'done',
+      usage: {
+        total_prompt_tokens: 7,
+        total_completion_tokens: 3,
+        total_cache_read_tokens: 1,
+        total_cost_in_usd: 0.05,
+      },
+    });
+    // Explicitly not a sum with turn 1.
+    expect(turn2.state.status === 'done' && turn2.state.usage).not.toMatchObject({
+      total_prompt_tokens: 107,
+      total_completion_tokens: 53,
+      total_cost_in_usd: 1.55,
+    });
+  });
+
+  it('persists normalized cache-read tokens', async () => {
     const { session } = await createSession();
     const turn = await session.createTurn({
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
@@ -93,10 +166,11 @@ describe('TurnHandle.stream()', () => {
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
+          ...getEmptyUsage(),
           prompt_tokens: 12,
           completion_tokens: 5,
           total_tokens: 17,
-          prompt_tokens_details: { cached_tokens: 4 },
+          cache_read_tokens: 4,
           cost_in_usd: 0.42,
         },
       }),

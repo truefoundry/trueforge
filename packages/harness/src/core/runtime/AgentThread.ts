@@ -52,7 +52,7 @@ import {
 } from '../llm/LLMTypes';
 import { toOpenAIResponseFormat } from '../llm/responseFormat';
 import { toOpenAIChatMessage } from '../llm/toOpenAIChatMessage';
-import { estimateTokensForString, mergeUsage, resolveCacheReadTokens } from '../llm/usage';
+import { estimateTokensForString, mergeUsage, normalizeCompletionUsage } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
@@ -756,9 +756,17 @@ export class AgentThread {
       iterations: this._iterations,
       total_tool_calls: this._totalToolCalls,
       total_summarizations: this._totalSummarizations,
-      usage: { ...this._cumulativeUsage },
       total_sub_agents: this._totalSubAgents,
+      prompt_tokens: this._cumulativeUsage.prompt_tokens,
+      completion_tokens: this._cumulativeUsage.completion_tokens,
+      cache_read_tokens: this._cumulativeUsage.cache_read_tokens ?? 0,
+      cost_in_usd: this._cumulativeUsage.cost_in_usd ?? 0,
     };
+  }
+
+  /** Zero turn billable counters. Does not touch `current_context_usage` (context budget, not billing). */
+  public resetBillableMetrics(): void {
+    this._cumulativeUsage = getEmptyUsage();
   }
 
   private transformToLLMRequest(tools: ChatCompletionTool[]): ChatCompletionCreateParamsStreaming {
@@ -847,8 +855,7 @@ export class AgentThread {
     return {
       input_tokens: usage.prompt_tokens,
       output_tokens: usage.completion_tokens,
-      cache_read_tokens: resolveCacheReadTokens(usage),
-      cache_write_tokens: usage.cache_creation_input_tokens,
+      cache_read_tokens: usage.cache_read_tokens,
       input_tokens_breakdown: {
         harness: harnessEstimate,
         skills: skillsEstimate,
@@ -1014,7 +1021,11 @@ export class AgentThread {
     while (!result.done) {
       const chunk = result.value;
       if (chunk.usage) {
-        usage = this.computeAssistantMessageUsage({ requestBody, usage: chunk.usage, toolMapping });
+        usage = this.computeAssistantMessageUsage({
+          requestBody,
+          usage: normalizeCompletionUsage(chunk.usage),
+          toolMapping,
+        });
       }
       const event = await buildModelMessageDeltaEvent({
         chunk,

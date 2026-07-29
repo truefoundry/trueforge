@@ -5,7 +5,6 @@ import { AgentHarnessError } from '../core/errors';
 import type { MCPAuthRequiredEvent, ModelMessageDeltaEvent, ThreadDoneEvent } from '../core/events/schema';
 import { EventType as HarnessEventType, newEventId } from '../core/events/schema';
 import { getEmptyUsage } from '../core/llm/LLMTypes';
-import { resolveCacheReadTokens } from '../core/llm/usage';
 import {
   InternalEventType,
   type AgentThreadExecutionEvent,
@@ -75,10 +74,10 @@ function toMCPAuthRequiredEvent(event: InternalMCPAuthRequiredEvent): MCPAuthReq
 
 function turnUsageFromMetrics(metrics: AgentThreadMetrics): TurnUsage {
   return {
-    total_input_tokens: metrics.usage.prompt_tokens,
-    total_output_tokens: metrics.usage.completion_tokens,
-    total_cache_read_tokens: resolveCacheReadTokens(metrics.usage) ?? 0,
-    total_cost_in_usd: metrics.usage.cost_in_usd ?? 0,
+    total_prompt_tokens: metrics.prompt_tokens,
+    total_completion_tokens: metrics.completion_tokens,
+    total_cache_read_tokens: metrics.cache_read_tokens,
+    total_cost_in_usd: metrics.cost_in_usd,
   };
 }
 
@@ -236,7 +235,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       }
 
       const createdAt = new Date().toISOString();
-      const usage = turnUsageFromMetrics(orchestrator.getRunningMetrics());
+      const usage = turnUsageFromMetrics(orchestrator.getMetrics());
       let terminalState: TerminalTurnState;
       if (signal.aborted) {
         terminalState = {

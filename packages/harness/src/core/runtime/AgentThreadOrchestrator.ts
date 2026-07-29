@@ -32,7 +32,12 @@ import {
   isInternalThreadDoneError,
 } from './contextUtils';
 import type { CreateDynamicSubAgentThread } from './CreateDynamicSubAgentThread';
-import { addAgentThreadMetrics, createEmptyAgentThreadMetrics, type AgentThreadMetrics } from './metrics';
+import {
+  addAgentThreadMetrics,
+  clearAgentThreadMetrics,
+  createEmptyAgentThreadMetrics,
+  type AgentThreadMetrics,
+} from './metrics';
 
 const MAX_PARALLEL_SUB_AGENTS = 5;
 
@@ -229,8 +234,8 @@ export class AgentThreadOrchestrator {
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
-  // Metrics of sub-agents that finished and were removed from `agentThreads`.
-  private readonly completedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
+  // Finished sub-agents removed from `agentThreads`; kept so turn totals still include them.
+  private readonly finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
 
   constructor(params: AgentThreadOrchestratorInput) {
     this.agentThreads = params.agentThreads;
@@ -240,20 +245,17 @@ export class AgentThreadOrchestrator {
   }
 
   /**
-   * Aggregate metrics for the turn so far. Safe to read mid-flight or after
-   * cancel/error (when `execute()` throws instead of returning).
-   *
-   * Counts each thread once by summing two disjoint sets — finished sub-agents
-   * (`completedSubAgentMetrics`) and live threads (`agentThreads`) — which stay disjoint because a
-   * sub-agent is moved between them atomically in `processAgentStreamChunk`.
+   * Turn-wide metrics so far: live threads plus finished sub-agents.
+   * Safe mid-flight and after cancel/error (`execute()` may not return).
+   * Each thread is counted once — a sub-agent moves from live → finished atomically.
    */
-  public getRunningMetrics(): AgentThreadMetrics {
-    const snapshot = createEmptyAgentThreadMetrics();
-    addAgentThreadMetrics(snapshot, this.completedSubAgentMetrics);
+  public getMetrics(): AgentThreadMetrics {
+    const total = createEmptyAgentThreadMetrics();
+    addAgentThreadMetrics(total, this.finishedSubAgentMetrics);
     for (const thread of this.agentThreads.values()) {
-      addAgentThreadMetrics(snapshot, thread.getAgentThreadMetrics());
+      addAgentThreadMetrics(total, thread.getAgentThreadMetrics());
     }
-    return snapshot;
+    return total;
   }
 
   public async *send(messages: AgentThreadSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
@@ -365,8 +367,8 @@ export class AgentThreadOrchestrator {
           }
           yield chunk;
           // Move metrics to the finished bucket and drop the live entry with no `yield` between,
-          // so getRunningMetrics() counts this sub-agent once. After `yield chunk` per durable-state.
-          addAgentThreadMetrics(this.completedSubAgentMetrics, currentThread.getAgentThreadMetrics());
+          // so getMetrics() counts this sub-agent once. After `yield chunk` per durable-state.
+          addAgentThreadMetrics(this.finishedSubAgentMetrics, currentThread.getAgentThreadMetrics());
           this.agentThreads.delete(chunk.thread_id);
           return { shouldStopExecution: false };
         }
@@ -415,6 +417,13 @@ export class AgentThreadOrchestrator {
   }: {
     signal: AbortSignal;
   }): AsyncGenerator<AgentThreadExecutionEvent, AgentThreadExecutionResult, unknown> {
+    // Turn-scoped billable totals: clear finished bucket + live threads so a reused
+    // orchestrator/thread cannot leak Turn N usage into Turn N+1.
+    clearAgentThreadMetrics(this.finishedSubAgentMetrics);
+    for (const thread of this.agentThreads.values()) {
+      thread.resetBillableMetrics();
+    }
+
     const { agentThreads } = this;
     let shouldStopExecution = false;
     let caughtError: unknown;

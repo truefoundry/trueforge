@@ -32,8 +32,8 @@ export const TurnStateCancelledReasonSchema = z
 
 export const TurnUsageSchema = z
   .object({
-    total_input_tokens: z.number().int().nonnegative(),
-    total_output_tokens: z.number().int().nonnegative(),
+    total_prompt_tokens: z.number().int().nonnegative(),
+    total_completion_tokens: z.number().int().nonnegative(),
     total_cache_read_tokens: z.number().int().nonnegative(),
     total_cost_in_usd: z.number().nonnegative(),
   })
