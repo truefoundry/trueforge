@@ -234,15 +234,17 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             await generator.return(emptyResult);
             // Cleared so the finally block does not close the generator a second time.
             generator = undefined;
-            this.turn = { ...this.turn, state: error.state, updated_at: new Date().toISOString() };
+            const createdAt = new Date().toISOString();
+            const state: TerminalTurnState = {
+              ...error.state,
+              usage: turnUsageFromMetrics(orchestrator.getMetrics()),
+            };
+            this.turn = { ...this.turn, state, updated_at: createdAt };
             yield {
               type: EventType.TURN_DONE,
               id: newEventId(),
-              created_at: new Date().toISOString(),
-              state: {
-                ...error.state,
-                usage: turnUsageFromMetrics(orchestrator.getMetrics()),
-              },
+              created_at: createdAt,
+              state,
               thread_id: null,
             };
             return;
@@ -326,7 +328,8 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           this.turn = { ...this.turn, state: terminalState, updated_at: createdAt };
         } catch (persistError) {
           if (persistError instanceof TurnNotRunningError) {
-            this.turn = { ...this.turn, state: persistError.state, updated_at: createdAt };
+            const state: TerminalTurnState = { ...persistError.state, usage };
+            this.turn = { ...this.turn, state, updated_at: createdAt };
             await resolver.close().catch(() => {
               /* no-op */
             });
@@ -334,10 +337,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
               type: EventType.TURN_DONE,
               id: newEventId(),
               created_at: createdAt,
-              state: {
-                ...persistError.state,
-                usage,
-              },
+              state,
               thread_id: null,
             };
             // eslint-disable-next-line no-unsafe-finally -- deliberate: a concurrent freeze during the terminal write makes the store's state authoritative, so the stream ends here
