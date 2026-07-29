@@ -52,6 +52,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+      pull-requests: read
 
     services:
       postgres:
