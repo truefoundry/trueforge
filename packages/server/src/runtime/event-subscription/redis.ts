@@ -1,6 +1,5 @@
 import type { RedisClientType } from 'redis';
 import {
-  sleep,
   StreamCorruptEntryError,
   StreamExpiringError,
   StreamGoneError,
@@ -10,6 +9,7 @@ import {
   type EventSubscriptionPutOptions,
   type SequencedEvent,
 } from '.';
+import { sleep } from '../../utils';
 
 const SUBSCRIBE_STREAM_POLL_ITEMS_COUNT = 100;
 

@@ -4,7 +4,6 @@
  * Resume only works within one replica.
  */
 import {
-  sleep,
   StreamExpiringError,
   StreamGoneError,
   SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS,
@@ -13,6 +12,7 @@ import {
   type EventSubscriptionPutOptions,
   type SequencedEvent,
 } from '.';
+import { sleep } from '../../utils';
 
 interface InMemoryStream<T extends object> {
   /** Dense log: the event at index i has sequence_number i. */

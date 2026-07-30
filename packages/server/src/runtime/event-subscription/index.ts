@@ -47,10 +47,6 @@ export const SUBSCRIBE_STREAM_THRESHOLD_MS = 60 * 1_000;
 /** Delay between poll iterations while a stream has no new events. */
 export const SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS = 1_000;
 
-export function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 /** The stream expired or was never created (map to HTTP 412). */
 export class StreamGoneError extends Error {
   readonly code = 'STREAM_GONE' as const;
