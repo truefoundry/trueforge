@@ -47,7 +47,7 @@ export class ModelsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "api/models",
+                "api/v1/models",
             ),
             method: "GET",
             headers: _headers,
@@ -79,6 +79,6 @@ export class ModelsClient {
             });
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/models");
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/models");
     }
 }
