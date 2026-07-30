@@ -282,6 +282,21 @@ export interface ServerConfiguration {
    * Env: `REDIS_REQUEST_REPLY_POLL_INTERVAL_MS`. Default 500.
    */
   REDIS_REQUEST_REPLY_POLL_INTERVAL_MS: number;
+  /**
+   * TTL for a running turn's resumable event stream.
+   * Env: `TURN_STREAM_TTL_SECONDS`. Default execution timeout + 300.
+   */
+  TURN_STREAM_TTL_SECONDS: number;
+  /**
+   * TTL retained after `turn.done` so subscribers can drain remaining events.
+   * Env: `TURN_STREAM_POST_COMPLETION_TTL_SECONDS`. Default 300.
+   */
+  TURN_STREAM_POST_COMPLETION_TTL_SECONDS: number;
+  /**
+   * Max ms to keep a turn subscription open.
+   * Env: `TURN_SUBSCRIBE_TIMEOUT_MS`. Default 600000.
+   */
+  TURN_SUBSCRIBE_TIMEOUT_MS: number;
 }
 
 // ============================================================================
@@ -296,6 +311,11 @@ const postgresPort = parsePositiveInt({
   envKey: 'POSTGRES_PORT',
   raw: requireNonEmptyEnv('POSTGRES_PORT'),
   defaultValue: 5432,
+});
+const serverExecutionTimeoutSeconds = parsePositiveInt({
+  envKey: 'SERVER_EXECUTION_TIMEOUT_SECONDS',
+  raw: getEnv('SERVER_EXECUTION_TIMEOUT_SECONDS'),
+  defaultValue: 600,
 });
 
 const configuration: ServerConfiguration = {
@@ -324,11 +344,7 @@ const configuration: ServerConfiguration = {
     raw: getEnv('GRACEFUL_TIMEOUT_SECONDS'),
     defaultValue: 30,
   }),
-  SERVER_EXECUTION_TIMEOUT_SECONDS: parsePositiveInt({
-    envKey: 'SERVER_EXECUTION_TIMEOUT_SECONDS',
-    raw: getEnv('SERVER_EXECUTION_TIMEOUT_SECONDS'),
-    defaultValue: 600,
-  }),
+  SERVER_EXECUTION_TIMEOUT_SECONDS: serverExecutionTimeoutSeconds,
   DATABASE_URL: buildPostgresConnectionString({
     user: postgresUser,
     password: postgresPassword,
@@ -362,6 +378,21 @@ const configuration: ServerConfiguration = {
     envKey: 'REDIS_REQUEST_REPLY_POLL_INTERVAL_MS',
     raw: getEnv('REDIS_REQUEST_REPLY_POLL_INTERVAL_MS'),
     defaultValue: 500,
+  }),
+  TURN_STREAM_TTL_SECONDS: parsePositiveInt({
+    envKey: 'TURN_STREAM_TTL_SECONDS',
+    raw: getEnv('TURN_STREAM_TTL_SECONDS'),
+    defaultValue: serverExecutionTimeoutSeconds + 300,
+  }),
+  TURN_STREAM_POST_COMPLETION_TTL_SECONDS: parsePositiveInt({
+    envKey: 'TURN_STREAM_POST_COMPLETION_TTL_SECONDS',
+    raw: getEnv('TURN_STREAM_POST_COMPLETION_TTL_SECONDS'),
+    defaultValue: 300,
+  }),
+  TURN_SUBSCRIBE_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'TURN_SUBSCRIBE_TIMEOUT_MS',
+    raw: getEnv('TURN_SUBSCRIBE_TIMEOUT_MS'),
+    defaultValue: 600_000,
   }),
 } as const;
 
