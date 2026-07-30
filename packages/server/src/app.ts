@@ -15,6 +15,7 @@ import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
 import { createSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
+import { loadFrontendAssets, wantsAppShell } from './frontend';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { McpStore } from './store/McpStore';
 import type { ModelStore } from './store/ModelStore';
@@ -47,13 +48,15 @@ export interface ServerDeps {
   redis: RedisClientType;
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;
+  /** Frontend build to serve; omitted or absent = API only. */
+  frontendDir?: string;
   logger: Logger;
 }
 
 export function createServerApp(deps: ServerDeps) {
   const app = new OpenAPIHono();
 
-  app.get('/', c => c.text('OK!'));
+  app.get('/healthz', c => c.text('OK!'));
 
   app.route('/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
   app.route('/v1/models', createModelsRouter(deps.modelStore));
@@ -87,7 +90,25 @@ export function createServerApp(deps: ServerDeps) {
   app.get('/docs', swaggerUI({ url: '/openapi.json' }));
   app.get('/openapi.json', c => c.json(buildOpenApiDocument(app)));
 
-  app.notFound(c => c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404));
+  // Last, so the API routes above always win.
+  const frontend = deps.frontendDir === undefined ? undefined : loadFrontendAssets(deps.frontendDir);
+  if (deps.frontendDir !== undefined) {
+    deps.logger.info(
+      frontend
+        ? `Serving frontend from ${deps.frontendDir}`
+        : `No frontend build at ${deps.frontendDir}, serving the API only`,
+    );
+  }
+  if (frontend) {
+    app.use('/*', frontend.middleware);
+  }
+
+  app.notFound(c => {
+    if (frontend && wantsAppShell({ method: c.req.method, pathname: c.req.path, accept: c.req.header('accept') })) {
+      return c.html(frontend.indexHtml, 200, { 'Cache-Control': 'no-cache' });
+    }
+    return c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404);
+  });
 
   app.onError((error, c) => {
     if (error instanceof HTTPException) {

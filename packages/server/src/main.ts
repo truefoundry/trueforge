@@ -69,6 +69,7 @@ try {
     ...(sandboxFactory ? { sandboxFactory } : {}),
     redis,
     requestReplyRouter,
+    frontendDir: configuration.FRONTEND_DIR,
     logger,
   });
 

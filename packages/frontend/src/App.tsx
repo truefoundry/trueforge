@@ -9,6 +9,7 @@ import { ApiErrorCard } from './ApiErrorCard';
 import { ServerCapabilitiesProvider } from './capabilities';
 import { getCapabilities, listModels, type ServerCapabilities } from './catalog';
 import { AppComposerShell } from './ComposerShell';
+import { harnessFetch } from './harnessFetch';
 import { PanelLeftIcon } from './icons';
 import { AppWelcomeScreen } from './slots';
 import { ThreadHeader } from './ThreadHeader';
@@ -17,11 +18,13 @@ import { ThreadSidebar } from './ThreadSidebar';
 const client = new AgentSessionClient({
   baseUrl: '/',
   auth: false,
+  fetch: harnessFetch,
 });
 
 const privateClient = new PrivateAgentSessionClient({
   baseUrl: '/',
   auth: false,
+  fetch: harnessFetch,
 });
 
 const slotOverrides = {

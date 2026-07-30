@@ -2,11 +2,11 @@
 
 pnpm workspace with:
 
-| Package               | Path                                     | Role                                             |
-| --------------------- | ---------------------------------------- | ------------------------------------------------ |
-| `@truefoundry/utils`  | [`packages/harness`](packages/harness)   | Published library (`core` + `agent-session`)     |
-| `@truefoundry/server` | [`packages/server`](packages/server)     | HTTP server (private; depends on utils)          |
-| `frontend`            | [`packages/frontend`](packages/frontend) | Private draft-only agent chat UI (not published) |
+| Package               | Path                                     | Role                                              |
+| --------------------- | ---------------------------------------- | ------------------------------------------------- |
+| `@truefoundry/utils`  | [`packages/harness`](packages/harness)   | Published library (`core` + `agent-session`)      |
+| `@truefoundry/server` | [`packages/server`](packages/server)     | HTTP server + UI host (private; depends on utils) |
+| `frontend`            | [`packages/frontend`](packages/frontend) | Private draft-only agent chat UI (not published)  |
 
 ## Develop
 
@@ -48,7 +48,20 @@ With the server on `:8790`:
 pnpm dev:frontend
 ```
 
-Vite serves the UI on `http://localhost:3000` and proxies `/v1/agents/*` → `/v1/sessions*` plus catalog routes. See [`packages/frontend/README.md`](packages/frontend/README.md).
+Vite serves the UI on `http://localhost:3000` and proxies `/v1/*` to the server. See [`packages/frontend/README.md`](packages/frontend/README.md).
+
+## Serving the UI from the server
+
+The server serves the frontend build itself, so deployments are a single process on a single origin:
+`/v1/*`, `/docs`, `/openapi.json` and `/healthz` are the API, and everything else resolves to the UI.
+`FRONTEND_DIR` points at the build (default `../frontend/dist`, relative to `packages/server`); when it
+does not exist the server logs that and serves the API only, which is what `pnpm dev:server` does.
+
+To run the built app the way a deployment does — one port, no Vite:
+
+```bash
+pnpm preview
+```
 
 ## Docker Compose
 
@@ -56,10 +69,9 @@ Vite serves the UI on `http://localhost:3000` and proxies `/v1/agents/*` → `/v
 docker compose up --build
 ```
 
-Starts Postgres 17 (data in `./data/postgres`), the API, and the frontend. The server waits for Postgres to be healthy, runs migrations, then listens.
-
-- API: `http://localhost:8790`
-- UI: `http://localhost:3000` (Caddy proxies same-origin `/v1/...` to `server:8790`)
+One image serves both the UI and the API. Compose starts Postgres 17 (data in `./data/postgres`) and
+Redis, and the server waits for both to be healthy, runs migrations, then listens on
+`http://localhost:8790`.
 
 The local `.env` file, `packages/server/registry/`, and `data/` are ignored by Git. Docker Compose requires `packages/server/.env` and mounts the registry read-only into the server container.
 

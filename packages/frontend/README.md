@@ -26,26 +26,32 @@ pnpm --filter frontend dev
 
 Open `http://localhost:3000`.
 
-### Vite proxy map
+### Session paths
 
-| Browser                                          | Upstream (`localhost:8790`) |
-| ------------------------------------------------ | --------------------------- |
-| `/v1/agents/draft-sessions*`                     | `/v1/sessions*`             |
-| `/v1/agents/sessions*`                           | `/v1/sessions*`             |
-| `/v1/models*`, `/v1/mcp-servers*`, `/v1/skills*` | passthrough                 |
+The gateway SDK is generated against the gateway, where session routes sit under `/v1/agents` and draft
+sessions are a separate resource. The harness serves one `/v1/sessions` surface, so
+[`src/harnessFetch.ts`](src/harnessFetch.ts) rewrites requests on their way out and is handed to both
+clients as their `fetch`:
 
-## Docker Compose
+| SDK request                  | Harness route   |
+| ---------------------------- | --------------- |
+| `/v1/agents/draft-sessions*` | `/v1/sessions*` |
+| `/v1/agents/sessions*`       | `/v1/sessions*` |
 
-Requires `packages/server/.env` and `packages/server/registry/` (see server docs).
+Vite's dev proxy forwards `/v1/*` to `localhost:8790` untouched; nothing else rewrites paths.
+
+## Production
+
+There is no frontend image. `pnpm build` writes `dist/` plus `.br`/`.gz` siblings
+(`vite-plugin-compression2`), and the server serves it from `FRONTEND_DIR`, so the UI and API share one
+origin and one container. See the root README.
+
+The Monaco workers land in `dist/monacoeditorwork/` outside Vite's asset pipeline, so the plugin cannot
+precompress them; the server gzips those on the fly instead.
 
 ```bash
-docker compose up --build
+docker compose up --build   # UI + API on http://localhost:8790
 ```
-
-- UI: `http://localhost:3000` (`FRONTEND_PORT`)
-- API: `http://localhost:8790` (direct) or same-origin `/v1/...` via Caddy in the frontend container
-
-Caddy uses the same path rewrite as Vite and disables buffering for SSE.
 
 ## Catalogs (model + MCP)
 

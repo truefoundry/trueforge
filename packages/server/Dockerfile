@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Multi-stage build for @truefoundry/server.
+# Multi-stage build for @truefoundry/server, which also serves the UI: the only image the stack needs.
 #
 # The build context must be the repository root (this is a pnpm workspace and
 # the server depends on the workspace package @truefoundry/utils). See the
@@ -41,6 +41,27 @@ COPY packages/server packages/server
 RUN pnpm --filter @truefoundry/utils build && pnpm --filter @truefoundry/server build
 
 # ---------------------------------------------------------------------------
+# frontend-builder: build the UI the server serves (parallel to builder above).
+# ---------------------------------------------------------------------------
+FROM base AS frontend-builder
+# Populate the store from the lockfile only (stable when manifests churn).
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches patches
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
+
+COPY package.json .npmrc ./
+COPY packages/harness/package.json packages/harness/package.json
+COPY packages/server/package.json packages/server/package.json
+COPY packages/frontend/package.json packages/frontend/package.json
+# Same as builder: the root postinstall hook needs the build:gen inputs.
+COPY packages/harness/scripts packages/harness/scripts
+COPY packages/harness/src/core/sandbox/scripts packages/harness/src/core/sandbox/scripts
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+  pnpm install --frozen-lockfile --offline --filter frontend...
+COPY packages/frontend packages/frontend
+RUN pnpm --filter frontend build
+
+# ---------------------------------------------------------------------------
 # prod-deps: resolve only production dependencies (no dev tooling).
 # ---------------------------------------------------------------------------
 FROM base AS prod-deps
@@ -76,6 +97,9 @@ COPY --from=builder /app/packages/harness/dist ./packages/harness/dist
 # Built server.
 COPY --from=builder /app/packages/server/package.json ./packages/server/package.json
 COPY --from=builder /app/packages/server/dist ./packages/server/dist
+
+# Kept at the workspace path so the default FRONTEND_DIR (../frontend/dist) resolves.
+COPY --from=frontend-builder /app/packages/frontend/dist ./packages/frontend/dist
 
 WORKDIR /app/packages/server
 
