@@ -50,6 +50,8 @@ export default defineConfig(
       '**/.eslintcache',
       // Excluded from package tsconfigs; run via tsx/jest, not the type-aware ESLint project.
       '**/*.test.ts',
+      // Fern-generated SDK: not part of any tsconfig project, and not ours to lint.
+      'packages/sdk/**',
     ],
   },
   {

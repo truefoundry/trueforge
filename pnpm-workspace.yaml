@@ -1,5 +1,7 @@
 packages:
   - packages/*
+  # Out of the workspace: its generated devDeps would break --frozen-lockfile in CI.
+  - '!packages/sdk'
 
 minimumReleaseAge: 0
 trustLockfile: true

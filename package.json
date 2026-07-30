@@ -13,6 +13,7 @@
     "test": "pnpm --filter @truefoundry/utils test && pnpm --filter @truefoundry/server test && pnpm --filter frontend test",
     "test:store:local": "bash scripts/test-store-with-postgres.sh",
     "dev:server": "pnpm --filter @truefoundry/server dev",
+    "openapi:write": "pnpm --filter @truefoundry/server openapi:write",
     "dev:frontend": "pnpm --filter frontend dev",
     "ui:shot": "node ui-shots/shot.mjs",
     "ui:clean": "node ui-shots/clean.mjs",

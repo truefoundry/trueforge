@@ -15,6 +15,7 @@ import {
   ListTurnsResponseSchema,
   SubscribeTurnRequestSchema,
 } from '../schemas/turn';
+import { TOKEN_PAGINATION } from './fernExtensions';
 import { SessionIdParamsSchema } from './sessionRoutes';
 
 const SESSIONS_TAG = 'Sessions';
@@ -29,6 +30,9 @@ export const listTurnsRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'List turns in a session',
   description: 'List turns for a session (newest first by default), token-paginated.',
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'list_turns',
+  'x-fern-pagination': TOKEN_PAGINATION,
   request: {
     params: SessionIdParamsSchema,
     query: ListTurnsRequestQuerySchema,
@@ -55,6 +59,8 @@ export const getTurnRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Get a turn',
   description: 'Fetch a single turn by ID.',
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'get_turn',
   request: {
     params: TurnIdParamsSchema,
   },
@@ -76,6 +82,9 @@ export const listTurnEventsRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'List turn events',
   description: 'Paginated persisted events for a turn (insertion order by default).',
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'list_turn_events',
+  'x-fern-pagination': TOKEN_PAGINATION,
   request: {
     params: TurnIdParamsSchema,
     query: ListTurnEventsRequestQuerySchema,
@@ -103,6 +112,10 @@ export const createAndExecuteTurnRoute = createRoute({
   summary: 'Create and execute a turn in a session',
   description: `Create a turn within a session and stream its execution as Server-Sent Events.
 Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`).`,
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'create_turn',
+  // Not resumable: subscribeTurnRoute, which would reattach, is not registered.
+  'x-fern-streaming': { format: 'sse', resumable: false },
   request: {
     params: SessionIdParamsSchema,
     body: {

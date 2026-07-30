@@ -12,6 +12,8 @@ export const listModelsRoute = createRoute({
   path: '/',
   tags: ['Models'],
   summary: 'List models',
+  'x-fern-sdk-group-name': ['models'],
+  'x-fern-sdk-method-name': 'list',
   description: "Models declared in models.yaml, reachable through the OpenAI-compatible API at the file's base_url.",
   responses: {
     200: {
