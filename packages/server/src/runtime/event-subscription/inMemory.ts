@@ -4,7 +4,6 @@
  * Resume only works within one replica.
  */
 import {
-  StreamExpiringError,
   StreamGoneError,
   SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS,
   SUBSCRIBE_STREAM_THRESHOLD_MS,
@@ -88,8 +87,9 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
     if (!stream) {
       throw new StreamGoneError(this.streamId);
     }
+    // Expiring within the threshold is treated as already gone, mirroring the Redis backend.
     if (stream.expiresAtMs !== undefined && stream.expiresAtMs - Date.now() < SUBSCRIBE_STREAM_THRESHOLD_MS) {
-      throw new StreamExpiringError(this.streamId, stream.expiresAtMs);
+      throw new StreamGoneError(this.streamId);
     }
 
     let cursor = afterSequenceNumber === undefined ? 0 : afterSequenceNumber + 1;

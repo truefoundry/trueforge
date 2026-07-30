@@ -1,7 +1,6 @@
 import type { RedisClientType } from 'redis';
 import {
   StreamCorruptEntryError,
-  StreamExpiringError,
   StreamGoneError,
   SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS,
   SUBSCRIBE_STREAM_THRESHOLD_MS,
@@ -55,8 +54,10 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
     if (expiresAtMs === -2) {
       throw new StreamGoneError(this.streamId);
     }
+    // Expiring within the threshold is treated as already gone: too little
+    // time remains for a subscription to be useful.
     if (expiresAtMs >= 0 && expiresAtMs - Date.now() < SUBSCRIBE_STREAM_THRESHOLD_MS) {
-      throw new StreamExpiringError(this.streamId, expiresAtMs);
+      throw new StreamGoneError(this.streamId);
     }
 
     let cursor = afterSequenceNumber === undefined ? '0-0' : `${String(afterSequenceNumber + 1)}-0`;

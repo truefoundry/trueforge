@@ -55,20 +55,6 @@ export class StreamGoneError extends Error {
   }
 }
 
-/** The stream expires too soon to accept a new subscription (map to HTTP 412). */
-export class StreamExpiringError extends Error {
-  readonly code = 'STREAM_EXPIRING' as const;
-
-  constructor(
-    readonly streamId: string,
-    readonly expiresAtMs: number,
-  ) {
-    super(`Cannot subscribe to stream, stream is about to expire: ${streamId}`);
-    this.name = 'StreamExpiringError';
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-}
-
 /** A stored entry violates the event-subscription wire format (map to HTTP 412). */
 export class StreamCorruptEntryError extends Error {
   readonly code = 'STREAM_CORRUPT_ENTRY' as const;

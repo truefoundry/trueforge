@@ -33,7 +33,6 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import {
   StreamCorruptEntryError,
-  StreamExpiringError,
   StreamGoneError,
   type EventSubscriptionRegistry,
   type SequencedEvent,
@@ -367,11 +366,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       iterResult = await generator.next();
     } catch (error) {
       clearTimeout(timeoutHandler);
-      if (
-        error instanceof StreamGoneError ||
-        error instanceof StreamExpiringError ||
-        error instanceof StreamCorruptEntryError
-      ) {
+      if (error instanceof StreamGoneError || error instanceof StreamCorruptEntryError) {
         throw new HTTPException(412, { message: error.message, cause: error });
       }
       throw error;
