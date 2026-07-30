@@ -4,12 +4,12 @@ import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ActionRequiredEvent } from "./ActionRequiredEvent.js";
-import { ModelMessageEvent } from "./ModelMessageEvent.js";
+import { TurnStateDoneOutput } from "./TurnStateDoneOutput.js";
 
 export const TurnStateDone: core.serialization.ObjectSchema<serializers.TurnStateDone.Raw, TrueHarness.TurnStateDone> =
     core.serialization.object({
         completedAt: core.serialization.property("completed_at", core.serialization.string()),
-        output: ModelMessageEvent.optional(),
+        output: TurnStateDoneOutput.nullable(),
         requiredActions: core.serialization.property("required_actions", core.serialization.list(ActionRequiredEvent)),
         status: core.serialization.stringLiteral("done"),
     });
@@ -17,7 +17,7 @@ export const TurnStateDone: core.serialization.ObjectSchema<serializers.TurnStat
 export declare namespace TurnStateDone {
     export interface Raw {
         completed_at: string;
-        output?: ModelMessageEvent.Raw | null;
+        output?: TurnStateDoneOutput.Raw | null;
         required_actions: ActionRequiredEvent.Raw[];
         status: "done";
     }

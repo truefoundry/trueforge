@@ -2193,7 +2193,17 @@
             "type": "string"
           },
           "output": {
-            "$ref": "#/components/schemas/ModelMessageEvent"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ModelMessageEvent"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
           },
           "required_actions": {
             "items": {
@@ -2210,6 +2220,7 @@
         },
         "required": [
           "status",
+          "output",
           "required_actions",
           "completed_at"
         ],
