@@ -8,8 +8,8 @@ import type {
 } from '@truefoundry/utils/agent-session/store/ISessionStore';
 import type { JsonValue } from '@truefoundry/utils/core/capabilities/AgentCapability';
 import type { AgentInfo } from '@truefoundry/utils/core/events/schema';
-import type { CompletionUsage } from '@truefoundry/utils/core/llm/LLMTypes';
 import type { ContextMessage, SubAgentCompletionMarker } from '@truefoundry/utils/core/runtime/AgentThread.types';
+import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
 import type { Database, TurnThreadCheckpoint } from '../../types';
 import { json, jsonbSet, values } from '../sqlExpressions';
@@ -59,7 +59,7 @@ export async function addThreads(db: Kysely<Database>, input: AddThreadsInput): 
       thread_id: string;
       checkpoint: TurnThreadCheckpoint;
       agent_info: RawBuilder<AgentInfo> | null;
-      current_context_usage: CompletionUsage;
+      current_context_usage: CurrentContextUsage;
     }[] = [];
 
     for (const thread of input.threads) {
@@ -188,7 +188,7 @@ function completionPatchExpr(completion: SubAgentCompletionMarker | null): RawBu
   return jsonbSet<TurnThreadCheckpoint>(sql`checkpoint`, sql`'{completion}'`, json(completion));
 }
 
-function usageSetExpr(usage: CompletionUsage | null): RawBuilder<CompletionUsage> {
+function usageSetExpr(usage: CurrentContextUsage | null): RawBuilder<CurrentContextUsage> {
   if (usage === null) {
     return sql`current_context_usage`;
   }
@@ -203,10 +203,10 @@ async function fencedTurnThreadContextUpdate(
     thread_id: string;
     context: ContextMessage[];
     replace_array: boolean;
-    current_context_usage: CompletionUsage | null;
+    current_context_usage: CurrentContextUsage | null;
     completion: SubAgentCompletionMarker | null;
     /** When replace_array, usage is set unconditionally (overwrite contract). */
-    usage_unconditional: CompletionUsage | null;
+    usage_unconditional: CurrentContextUsage | null;
   },
 ): Promise<void> {
   const { keys, thread_id, context, replace_array } = args;
@@ -403,7 +403,7 @@ export async function getTurnThread(
       thread_id: string;
       checkpoint: TurnThreadCheckpoint;
       agent_info: unknown;
-      current_context_usage: CompletionUsage;
+      current_context_usage: CurrentContextUsage;
       context_ids: number[];
     }
   | undefined

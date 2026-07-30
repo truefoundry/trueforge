@@ -1,16 +1,74 @@
+import { z } from '@hono/zod-openapi';
 import OpenAI from 'openai';
 import type { RequestOptions } from 'openai/core';
-import type { ChatCompletionCreateParams, ChatCompletionCreateParamsStreaming } from 'openai/resources/chat';
+import type {
+  ChatCompletionChunk,
+  ChatCompletionCreateParams,
+  ChatCompletionCreateParamsStreaming,
+} from 'openai/resources/chat';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import type { ILLM } from './ILLM';
 import {
-  getEmptyUsage,
   type CompletionUsage,
   type ExtendedChatCompletionChunk,
+  getEmptyUsage,
   type RawAssistantMessage,
   type RawAssistantMessageWithUsage,
 } from './LLMTypes';
+
+/** Gateway wire usage. Private; normalized once into CompletionUsage. */
+const OptionalGatewayTokenCountSchema = z.number().int().nonnegative().optional().catch(undefined);
+const OptionalGatewayCostSchema = z.number().nonnegative().optional().catch(undefined);
+
+const GatewayChatCompletionUsageSchema = z.object({
+  completion_tokens: OptionalGatewayTokenCountSchema,
+  prompt_tokens: OptionalGatewayTokenCountSchema,
+  total_tokens: OptionalGatewayTokenCountSchema,
+  completion_tokens_details: z
+    .object({
+      reasoning_tokens: OptionalGatewayTokenCountSchema,
+    })
+    .optional()
+    .catch(undefined),
+  prompt_tokens_details: z
+    .object({
+      cached_tokens: OptionalGatewayTokenCountSchema,
+    })
+    .optional()
+    .catch(undefined),
+  cache_read_input_tokens: OptionalGatewayTokenCountSchema,
+  cache_creation_input_tokens: OptionalGatewayTokenCountSchema,
+  costInUSD: OptionalGatewayCostSchema,
+});
+
+type GatewayChatCompletionUsage = z.infer<typeof GatewayChatCompletionUsageSchema>;
+
+/** One-shot translation: gateway wire → canonical harness CompletionUsage. */
+function normalizeGatewayUsage(usage: unknown): CompletionUsage {
+  const result = GatewayChatCompletionUsageSchema.safeParse(usage);
+  const parsed: GatewayChatCompletionUsage = result.success ? result.data : {};
+  return {
+    input_tokens: parsed.prompt_tokens ?? 0,
+    output_tokens: parsed.completion_tokens ?? 0,
+    total_tokens: parsed.total_tokens ?? 0,
+    cache_read_tokens: parsed.cache_read_input_tokens ?? parsed.prompt_tokens_details?.cached_tokens,
+    cache_write_tokens: parsed.cache_creation_input_tokens,
+    reasoning_tokens: parsed.completion_tokens_details?.reasoning_tokens,
+    cost_in_usd: parsed.costInUSD,
+  };
+}
+
+function toHarnessChunk(event: ChatCompletionChunk): ExtendedChatCompletionChunk {
+  const { usage, ...rest } = event;
+  if (usage == null) {
+    return rest;
+  }
+  return {
+    ...rest,
+    usage: normalizeGatewayUsage(usage),
+  };
+}
 
 /** Static headers, or a resolver invoked on every request. */
 export type LLMHeaders = Record<string, string> | (() => Record<string, string>);
@@ -87,8 +145,9 @@ export class OpenAILLM implements ILLM {
     }
 
     for await (const event of response) {
-      yield event;
-      accumulateTokensFromChunk(event, newMessage, this.logger);
+      const chunk = toHarnessChunk(event);
+      yield chunk;
+      accumulateTokensFromChunk(chunk, newMessage, this.logger);
     }
     // Record after the stream drains so the last completed LLM call wins.
     const servedModelContextLength = Number(servedModelContextLengthHeader);

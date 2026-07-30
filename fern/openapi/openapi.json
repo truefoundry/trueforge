@@ -2130,6 +2130,39 @@
           }
         ]
       },
+      "TurnMetrics": {
+        "properties": {
+          "total_cache_read_tokens": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_cache_write_tokens": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_cost_in_usd": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "total_input_tokens": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_output_tokens": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_reasoning_tokens": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_tokens": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "TurnState": {
         "discriminator": {
           "mapping": {
@@ -2159,6 +2192,9 @@
         "properties": {
           "completed_at": {
             "type": "string"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/TurnMetrics"
           },
           "reason": {
             "$ref": "#/components/schemas/TurnStateCancelledReason"
@@ -2192,6 +2228,9 @@
           "completed_at": {
             "type": "string"
           },
+          "metrics": {
+            "$ref": "#/components/schemas/TurnMetrics"
+          },
           "output": {
             "$ref": "#/components/schemas/ModelMessageEvent"
           },
@@ -2222,6 +2261,9 @@
           },
           "message": {
             "type": "string"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/TurnMetrics"
           },
           "status": {
             "enum": [

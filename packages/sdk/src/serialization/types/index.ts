@@ -100,6 +100,7 @@ export * from "./TurnCreatedEvent.js";
 export * from "./TurnDoneEvent.js";
 export * from "./TurnDoneEventState.js";
 export * from "./TurnInputItem.js";
+export * from "./TurnMetrics.js";
 export * from "./TurnState.js";
 export * from "./TurnStateCancelled.js";
 export * from "./TurnStateCancelledReason.js";
