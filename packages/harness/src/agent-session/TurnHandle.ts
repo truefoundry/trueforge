@@ -75,11 +75,13 @@ function toMCPAuthRequiredEvent(event: InternalMCPAuthRequiredEvent): MCPAuthReq
 
 function turnUsageFromMetrics(metrics: AgentThreadMetrics): TurnUsage {
   return {
-    total_prompt_tokens: metrics.prompt_tokens,
-    total_completion_tokens: metrics.completion_tokens,
+    total_input_tokens: metrics.total_input_tokens,
+    total_output_tokens: metrics.total_output_tokens,
     total_tokens: metrics.total_tokens,
-    total_cache_read_tokens: metrics.cache_read_tokens ?? 0,
-    total_cost_in_usd: metrics.cost_in_USD ?? 0,
+    total_cache_read_tokens: metrics.total_cache_read_tokens,
+    total_cache_write_tokens: metrics.total_cache_write_tokens,
+    total_reasoning_tokens: metrics.total_reasoning_tokens,
+    total_cost_in_usd: metrics.total_cost_in_usd,
   };
 }
 

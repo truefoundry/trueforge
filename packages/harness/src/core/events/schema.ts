@@ -133,17 +133,13 @@ export const InputTokensBreakdownSchema = z.object({
   messages: z.number().int().nonnegative(),
 });
 
-/** Per-model-call usage on events. Add optional fields when consumers need them. */
-// TODO: Should we rename this input_tokens and output_tokens to prompt_tokens and completion_tokens??
-export const ModelMessageUsageSchema = z
-  .object({
-    input_tokens: z.number().int().nonnegative(),
-    output_tokens: z.number().int().nonnegative(),
-    cache_read_tokens: z.number().int().nonnegative().optional(),
-    cache_write_tokens: z.number().int().nonnegative().optional(),
-    input_tokens_breakdown: InputTokensBreakdownSchema,
-  })
-  .openapi('ModelMessageUsage');
+/**
+ * SSE / wire usage on model.message(+delta). Same canonical CompletionUsage fields,
+ * plus live input_tokens_breakdown (not carried into AgentThreadMetrics aggregates).
+ */
+export const ModelMessageUsageSchema = CompletionUsageSchema.extend({
+  input_tokens_breakdown: InputTokensBreakdownSchema,
+}).openapi('ModelMessageUsage');
 
 export const ModelMessageEventSchema = EnrichedAssistantMessageSchema.omit({ role: true })
   .extend({
@@ -246,10 +242,10 @@ export const ThreadOverwriteContextEventSchema = z.object({
   // NOTE: add other reasons here.
   reason: z.literal('compaction'),
   context: z.array(ContextMessageSchema),
-  // Estimated token usage of the new (compacted) context for the next LLM call's budget
+  // Live budget for the next LLM call after this overwrite (not billable aggregate).
   current_context_usage: CompletionUsageSchema,
-  // Actual token usage consumed by the compaction LLM call itself
-  compaction_llm_usage: CompletionUsageSchema,
+  // Billable harness usage for the LLM call that produced this step (same shape as model.message).
+  usage: CompletionUsageSchema,
 });
 
 export const MCPServerAuthInfoSchema = z

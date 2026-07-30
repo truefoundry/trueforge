@@ -1,9 +1,9 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat';
 import type { ThreadOverwriteContextEvent } from '../events/schema';
-import type { CompletionUsage } from '../llm/LLMTypes';
 import type {
   AgentThreadAppendContext,
   ContextMessage,
+  CurrentContextUsage,
   InternalCapabilityStateEvent,
   InternalPassthroughEvent,
 } from '../runtime/AgentThread.types';
@@ -13,7 +13,7 @@ import type { Sandbox } from '../sandbox/Sandbox';
 export interface AgentThreadExecutionContext {
   threadId: string;
   sandbox?: Sandbox | undefined;
-  currentContextUsage: CompletionUsage;
+  currentContextUsage: CurrentContextUsage;
   context: ContextMessage[];
 }
 

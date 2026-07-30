@@ -168,8 +168,8 @@ export function estimateTokensForContextMessages(messages: ContextMessage[]): Co
   }
 
   return {
-    prompt_tokens: tokenCount,
-    completion_tokens: 0,
+    input_tokens: tokenCount,
+    output_tokens: 0,
     total_tokens: tokenCount,
   };
 }

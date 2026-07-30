@@ -35,6 +35,12 @@ import type { Sandbox } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import type { AgentDefinition } from './AgentDefinition';
 
+/**
+ * Live context budget for the next LLM call (running metric).
+ * Same field shape as CompletionUsage; not a `total_*` billable aggregate.
+ */
+export type CurrentContextUsage = CompletionUsage;
+
 export type { AgentInfo, AgentParent };
 
 /** Canonical string constants for internal (non-wire) orchestration event `type` fields. */
@@ -106,7 +112,7 @@ export interface AgentThreadAppendContext {
   thread_id: string;
   context: ContextMessage[];
   output: AgentOutputEvent[];
-  current_context_usage?: CompletionUsage | undefined;
+  current_context_usage?: CurrentContextUsage | undefined;
   completion?: SubAgentCompletionMarker | undefined;
 }
 
@@ -154,7 +160,7 @@ export type AgentThreadRuntimeSendBatch = AgentThreadSendBatch | LLMToolMessage[
 export interface AgentThreadSnapshot {
   thread_id: string;
   context: ContextMessage[];
-  current_context_usage: CompletionUsage;
+  current_context_usage: CurrentContextUsage;
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
   completion: SubAgentCompletionMarker | null;
@@ -169,7 +175,7 @@ export interface AgentThreadConstructorInput {
   parent?: AgentParent | undefined;
   agentInfo?: AgentInfo | undefined;
   context?: ContextMessage[] | undefined;
-  currentContextUsage?: CompletionUsage | undefined;
+  currentContextUsage?: CurrentContextUsage | undefined;
   preComputedCompletion?: SubAgentCompletionMarker | undefined;
   sandbox?: Sandbox | undefined;
   capabilities?: readonly AgentCapability[] | undefined;

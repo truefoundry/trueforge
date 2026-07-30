@@ -52,8 +52,8 @@ describe('TurnHandle.stream()', () => {
     expect(turn.state).toMatchObject({
       status: 'done',
       usage: {
-        total_prompt_tokens: 0,
-        total_completion_tokens: 0,
+        total_input_tokens: 0,
+        total_output_tokens: 0,
         total_tokens: 0,
         total_cache_read_tokens: 0,
         total_cost_in_usd: 0,
@@ -81,11 +81,12 @@ describe('TurnHandle.stream()', () => {
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
-          prompt_tokens: 12,
-          completion_tokens: 5,
+          input_tokens: 12,
+          output_tokens: 5,
           total_tokens: 17,
-          cache_read_input_tokens: 4,
-          costInUSD: 0.42,
+          cache_read_tokens: 4,
+          reasoning_tokens: 3,
+          cost_in_usd: 0.42,
         },
       }),
     });
@@ -95,10 +96,11 @@ describe('TurnHandle.stream()', () => {
     expect(turn.state).toMatchObject({
       status: 'done',
       usage: {
-        total_prompt_tokens: 12,
-        total_completion_tokens: 5,
+        total_input_tokens: 12,
+        total_output_tokens: 5,
         total_tokens: 17,
         total_cache_read_tokens: 4,
+        total_reasoning_tokens: 3,
         total_cost_in_usd: 0.42,
       },
     });
@@ -114,11 +116,11 @@ describe('TurnHandle.stream()', () => {
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
-          prompt_tokens: 100,
-          completion_tokens: 50,
+          input_tokens: 100,
+          output_tokens: 50,
           total_tokens: 150,
-          cache_read_input_tokens: 20,
-          costInUSD: 1.5,
+          cache_read_tokens: 20,
+          cost_in_usd: 1.5,
         },
       }),
     });
@@ -126,8 +128,8 @@ describe('TurnHandle.stream()', () => {
     expect(turn1.state).toMatchObject({
       status: 'done',
       usage: {
-        total_prompt_tokens: 100,
-        total_completion_tokens: 50,
+        total_input_tokens: 100,
+        total_output_tokens: 50,
         total_tokens: 150,
         total_cache_read_tokens: 20,
         total_cost_in_usd: 1.5,
@@ -141,11 +143,11 @@ describe('TurnHandle.stream()', () => {
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
-          prompt_tokens: 7,
-          completion_tokens: 3,
+          input_tokens: 7,
+          output_tokens: 3,
           total_tokens: 10,
-          cache_read_input_tokens: 1,
-          costInUSD: 0.05,
+          cache_read_tokens: 1,
+          cost_in_usd: 0.05,
         },
       }),
     });
@@ -154,8 +156,8 @@ describe('TurnHandle.stream()', () => {
     expect(turn2.state).toMatchObject({
       status: 'done',
       usage: {
-        total_prompt_tokens: 7,
-        total_completion_tokens: 3,
+        total_input_tokens: 7,
+        total_output_tokens: 3,
         total_tokens: 10,
         total_cache_read_tokens: 1,
         total_cost_in_usd: 0.05,
@@ -163,14 +165,14 @@ describe('TurnHandle.stream()', () => {
     });
     // Explicitly not a sum with turn 1.
     expect(turn2.state.status === 'done' && turn2.state.usage).not.toMatchObject({
-      total_prompt_tokens: 107,
-      total_completion_tokens: 53,
+      total_input_tokens: 107,
+      total_output_tokens: 53,
       total_tokens: 160,
       total_cost_in_usd: 1.55,
     });
   });
 
-  it('persists normalized cache-read tokens', async () => {
+  it('persists cache-read tokens on turn usage', async () => {
     const { session } = await createSession();
     const turn = await session.createTurn({
       turn_id: 'turn-cache-read',
@@ -178,13 +180,12 @@ describe('TurnHandle.stream()', () => {
       previous_turn_id: null,
       signal: new AbortController().signal,
       resolver: makeTestResolver({
-        // Cache reads arrive under the OpenAI-style nesting here, not the Anthropic-style flat field.
         usage: {
-          prompt_tokens: 12,
-          completion_tokens: 5,
+          input_tokens: 12,
+          output_tokens: 5,
           total_tokens: 17,
-          prompt_tokens_details: { cached_tokens: 4 },
-          costInUSD: 0.42,
+          cache_read_tokens: 4,
+          cost_in_usd: 0.42,
         },
       }),
     });

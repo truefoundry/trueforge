@@ -1,16 +1,70 @@
+import { z } from '@hono/zod-openapi';
 import OpenAI from 'openai';
 import type { RequestOptions } from 'openai/core';
-import type { ChatCompletionCreateParams, ChatCompletionCreateParamsStreaming } from 'openai/resources/chat';
+import type {
+  ChatCompletionChunk,
+  ChatCompletionCreateParams,
+  ChatCompletionCreateParamsStreaming,
+} from 'openai/resources/chat';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import type { ILLM } from './ILLM';
 import {
-  getEmptyUsage,
+  type CompletionUsage,
   type ExtendedChatCompletionChunk,
-  type GatewayChatCompletionUsage,
+  getEmptyUsage,
   type RawAssistantMessage,
   type RawAssistantMessageWithUsage,
 } from './LLMTypes';
+
+/**
+ * Raw chat-completions usage from the gateway wire. Private to this OpenAI LLM
+ * implementation — never exported. All other harness code sees CompletionUsage only.
+ */
+const GatewayChatCompletionUsageSchema = z.object({
+  completion_tokens: z.number().int().nonnegative(),
+  prompt_tokens: z.number().int().nonnegative(),
+  total_tokens: z.number().int().nonnegative(),
+  completion_tokens_details: z
+    .object({
+      reasoning_tokens: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
+  prompt_tokens_details: z
+    .object({
+      cached_tokens: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
+  cache_read_input_tokens: z.number().int().nonnegative().optional(),
+  cache_creation_input_tokens: z.number().int().nonnegative().optional(),
+  costInUSD: z.number().nonnegative().optional(),
+});
+
+type GatewayChatCompletionUsage = z.infer<typeof GatewayChatCompletionUsageSchema>;
+
+/** One-shot translation: gateway wire → canonical harness CompletionUsage. */
+function normalizeGatewayUsage(usage: GatewayChatCompletionUsage): CompletionUsage {
+  return {
+    input_tokens: usage.prompt_tokens,
+    output_tokens: usage.completion_tokens,
+    total_tokens: usage.total_tokens,
+    cache_read_tokens: usage.cache_read_input_tokens ?? usage.prompt_tokens_details?.cached_tokens ?? 0,
+    cache_write_tokens: usage.cache_creation_input_tokens ?? 0,
+    reasoning_tokens: usage.completion_tokens_details?.reasoning_tokens ?? 0,
+    cost_in_usd: usage.costInUSD ?? 0,
+  };
+}
+
+function toHarnessChunk(event: ChatCompletionChunk): ExtendedChatCompletionChunk {
+  const { usage, ...rest } = event;
+  if (usage == null) {
+    return rest;
+  }
+  return {
+    ...rest,
+    usage: normalizeGatewayUsage(GatewayChatCompletionUsageSchema.parse(usage)),
+  };
+}
 
 /** Static headers, or a resolver invoked on every request. */
 export type LLMHeaders = Record<string, string> | (() => Record<string, string>);
@@ -87,8 +141,9 @@ export class OpenAILLM implements ILLM {
     }
 
     for await (const event of response) {
-      yield event;
-      accumulateTokensFromChunk(event, newMessage, this.logger);
+      const chunk = toHarnessChunk(event);
+      yield chunk;
+      accumulateTokensFromChunk(chunk, newMessage, this.logger);
     }
     // Record after the stream drains so the last completed LLM call wins.
     const servedModelContextLength = Number(servedModelContextLengthHeader);
@@ -119,7 +174,7 @@ function estimateTokensForAssistantMessage(
   _request: ChatCompletionCreateParamsStreaming,
   _response: RawAssistantMessage,
   logger: Logger,
-): GatewayChatCompletionUsage {
+): CompletionUsage {
   // TODO(usage): fill this.
   logger.error(`Did not recieve usage from LLM, estimation is not implemented.`);
   return getEmptyUsage();

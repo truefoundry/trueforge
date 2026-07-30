@@ -1,7 +1,6 @@
 import type { ChatCompletionCreateParams } from 'openai/resources/chat';
 import { EventType, newEventId } from '../../events/schema';
 import type { ILLM } from '../../llm/ILLM';
-import { normalizeUsage } from '../../llm/usage';
 import type { AgentDefinition } from '../../runtime/AgentDefinition';
 import type { ContextMessage } from '../../runtime/AgentThread.types';
 import { internalSystemMessage, isInternalSystemMessage, isLLMContextMessage } from '../../runtime/contextUtils';
@@ -198,7 +197,6 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
     };
 
     const response = await this.modelClient.createNonStream(body);
-    const compactionUsage = normalizeUsage(response.usage);
     const context: ContextMessage[] = [{ role: 'assistant', content: response.output.content }, CONTINUATION_MESSAGE];
 
     yield {
@@ -208,15 +206,15 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
       reason: 'compaction',
       context: context,
       current_context_usage: {
-        total_tokens: compactionUsage.total_tokens + CONTINUATION_MESSAGE_TOKENS,
+        total_tokens: response.usage.total_tokens + CONTINUATION_MESSAGE_TOKENS,
         // NOTE(agent): This is not really correct.
         // This is not taking into account that the original request had
         // tool definition in them.
         // This will get refreshed in the next LLM call.
-        prompt_tokens: compactionUsage.prompt_tokens + CONTINUATION_MESSAGE_TOKENS,
-        completion_tokens: 0,
+        input_tokens: response.usage.input_tokens + CONTINUATION_MESSAGE_TOKENS,
+        output_tokens: 0,
       },
-      compaction_llm_usage: compactionUsage,
+      usage: response.usage,
     };
   }
 }

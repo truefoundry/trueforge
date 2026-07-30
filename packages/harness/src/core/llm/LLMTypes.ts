@@ -134,40 +134,22 @@ export const LLMToolMessageSchema = ChatCompletionToolMessageParamSchema.omit({ 
   })
   .openapi('LLMToolMessage');
 
-/** Raw usage accepted from the OpenAI-compatible gateway response. */
-export const GatewayChatCompletionUsageSchema = z
-  .object({
-    completion_tokens: z.number().int().nonnegative(),
-    prompt_tokens: z.number().int().nonnegative(),
-    total_tokens: z.number().int().nonnegative(),
-    completion_tokens_details: z
-      .object({
-        reasoning_tokens: z.number().int().nonnegative().optional(),
-      })
-      .optional(),
-    prompt_tokens_details: z
-      .object({
-        cached_tokens: z.number().int().nonnegative().optional(),
-      })
-      .optional(),
-    cache_read_input_tokens: z.number().int().nonnegative().optional(),
-    cache_creation_input_tokens: z.number().int().nonnegative().optional(),
-    costInUSD: z.number().nonnegative().optional(),
-  })
-  .openapi('GatewayChatCompletionUsage');
-
 /**
- * Provider-agnostic usage used throughout the harness after gateway normalization.
- * Keep to fields consumers need today; add more optional fields when needed.
+ * Canonical harness usage after one-shot LLM-boundary normalization.
+ * Per-call / live fields only — never `total_*` (those belong on AgentThreadMetrics).
+ *
+ * Fields: input_tokens, output_tokens, total_tokens, cache_read_tokens,
+ * cache_write_tokens, reasoning_tokens, cost_in_usd.
  */
 export const CompletionUsageSchema = z
   .object({
-    prompt_tokens: z.number().int().nonnegative(),
-    completion_tokens: z.number().int().nonnegative(),
+    input_tokens: z.number().int().nonnegative(),
+    output_tokens: z.number().int().nonnegative(),
     total_tokens: z.number().int().nonnegative(),
     cache_read_tokens: z.number().int().nonnegative().optional(),
     cache_write_tokens: z.number().int().nonnegative().optional(),
-    cost_in_USD: z.number().nonnegative().optional(),
+    reasoning_tokens: z.number().int().nonnegative().optional(),
+    cost_in_usd: z.number().nonnegative().optional(),
   })
   .openapi('CompletionUsage');
 
@@ -188,18 +170,18 @@ export type ExtendedDeltaToolCall = z.infer<typeof ExtendedChunkDeltaToolCallSch
 export type ExtendedDelta = z.infer<typeof ExtendedChunkDeltaSchema>;
 export type LLMUserMessage = z.infer<typeof LLMUserMessageSchema>;
 export type LLMToolMessage = z.infer<typeof LLMToolMessageSchema>;
-export type GatewayChatCompletionUsage = z.infer<typeof GatewayChatCompletionUsageSchema>;
 export type CompletionUsage = z.infer<typeof CompletionUsageSchema>;
 export type FinishReason = z.infer<typeof FinishReasonSchema>;
 
 export function getEmptyUsage(): CompletionUsage {
   return {
-    prompt_tokens: 0,
-    completion_tokens: 0,
+    input_tokens: 0,
+    output_tokens: 0,
     total_tokens: 0,
     cache_read_tokens: 0,
     cache_write_tokens: 0,
-    cost_in_USD: 0,
+    reasoning_tokens: 0,
+    cost_in_usd: 0,
   };
 }
 
@@ -215,19 +197,19 @@ interface ExtendedChoice extends Omit<ChatCompletionChunk.Choice, 'delta'> {
 
 /**
  * Extended chat completion chunk that includes thought_signature in tool calls.
- * `usage` is the raw gateway payload; consumers normalize with `normalizeUsage` / `mergeUsage`.
+ * `usage` is harness-normalized; OpenAILLM maps the gateway payload at the adapter boundary.
  */
 export interface ExtendedChatCompletionChunk extends Omit<ChatCompletionChunk, 'choices' | 'usage'> {
   /**
    * A list of chat completion choices, with thought_signature support in deltas.
    */
   choices: ExtendedChoice[];
-  usage?: GatewayChatCompletionUsage | null;
+  usage?: CompletionUsage | null;
 }
 
 export interface RawAssistantMessageWithUsage {
   output: RawAssistantMessage;
-  usage: GatewayChatCompletionUsage;
+  usage: CompletionUsage;
   finish_reason: FinishReason;
 }
 

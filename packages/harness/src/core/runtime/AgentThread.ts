@@ -52,7 +52,7 @@ import {
 } from '../llm/LLMTypes';
 import { toOpenAIResponseFormat } from '../llm/responseFormat';
 import { toOpenAIChatMessage } from '../llm/toOpenAIChatMessage';
-import { estimateTokensForString, mergeUsage, normalizeUsage } from '../llm/usage';
+import { estimateTokensForString, mergeUsage } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
@@ -90,7 +90,7 @@ import {
   toToolCallInfo,
 } from './contextUtils';
 import { DeferredTool } from './DeferredTool';
-import type { AgentThreadMetrics } from './metrics';
+import { agentThreadMetricsFromUsage, type AgentThreadMetrics } from './metrics';
 import { getClosableOpenToolCallIds, OpenToolCallCloser } from './OpenToolCallCloser';
 import { isEmptyMessageContent, processAgentUserInput, type AgentInputUserMessage } from './UserInputMessage';
 
@@ -692,7 +692,7 @@ export class AgentThread {
       ...payload,
     };
     // Update usage before yield so we still count it if the stream stops here.
-    this._cumulativeUsage = mergeUsage(this._cumulativeUsage, payload.compaction_llm_usage);
+    this._cumulativeUsage = mergeUsage(this._cumulativeUsage, payload.usage);
 
     yield event;
     this.context = payload.context;
@@ -751,13 +751,12 @@ export class AgentThread {
   }
 
   public getAgentThreadMetrics(): AgentThreadMetrics {
-    return {
-      ...this._cumulativeUsage,
+    return agentThreadMetricsFromUsage(this._cumulativeUsage, {
       iterations: this._iterations,
       total_tool_calls: this._totalToolCalls,
       total_summarizations: this._totalSummarizations,
       total_sub_agents: this._totalSubAgents,
-    };
+    });
   }
 
   public resetTurnUsage(): void {
@@ -845,13 +844,16 @@ export class AgentThread {
     const harnessEstimate = harnessInstructionTokens + tfyManagedToolTokens;
 
     const estimatedComponentsTotal = harnessEstimate + skillsEstimate + instructionsEstimate + userToolTokens;
-    const messagesEstimate = Math.max(0, usage.prompt_tokens - estimatedComponentsTotal);
+    const messagesEstimate = Math.max(0, usage.input_tokens - estimatedComponentsTotal);
 
     return {
-      input_tokens: usage.prompt_tokens,
-      output_tokens: usage.completion_tokens,
+      input_tokens: usage.input_tokens,
+      output_tokens: usage.output_tokens,
+      total_tokens: usage.total_tokens,
       cache_read_tokens: usage.cache_read_tokens,
       cache_write_tokens: usage.cache_write_tokens,
+      reasoning_tokens: usage.reasoning_tokens,
+      cost_in_usd: usage.cost_in_usd,
       input_tokens_breakdown: {
         harness: harnessEstimate,
         skills: skillsEstimate,
@@ -1019,7 +1021,7 @@ export class AgentThread {
       if (chunk.usage) {
         usage = this.computeAssistantMessageUsage({
           requestBody,
-          usage: normalizeUsage(chunk.usage),
+          usage: chunk.usage,
           toolMapping,
         });
       }
@@ -1050,8 +1052,7 @@ export class AgentThread {
     }
 
     // should be computed by this point but in case provider never gives out any delta with usage key, compute it now.
-    const llmUsage = normalizeUsage(result.value.usage);
-    usage ??= this.computeAssistantMessageUsage({ requestBody, usage: llmUsage, toolMapping });
+    usage ??= this.computeAssistantMessageUsage({ requestBody, usage: result.value.usage, toolMapping });
     const assistantMessage: InternalEnrichedAssistantMessage = await buildContextAssistantMessage(
       result.value.output,
       toolMapping,
@@ -1091,7 +1092,7 @@ export class AgentThread {
     yield* this.appendToContext({
       context: [assistantMessage],
       output: [agentAssistantMessage],
-      overwriteUsage: llmUsage,
+      overwriteUsage: result.value.usage,
       updateCumulativeUsage: true,
       completion,
     });

@@ -503,7 +503,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           reason: 'compaction',
           context: [userMessage('t2-summary-only')],
           current_context_usage: getEmptyUsage(),
-          compaction_llm_usage: getEmptyUsage(),
+          usage: getEmptyUsage(),
         },
       });
       await finishTurn(store, 't2');
@@ -654,7 +654,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
               reason: 'compaction',
               context: [userMessage('late-overwrite')],
               current_context_usage: getEmptyUsage(),
-              compaction_llm_usage: getEmptyUsage(),
+              usage: getEmptyUsage(),
             },
           }),
         () =>
@@ -927,7 +927,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           reason: 'compaction',
           context: [{ role: 'user', content: 'replaced' }],
           current_context_usage: getEmptyUsage(),
-          compaction_llm_usage: getEmptyUsage(),
+          usage: getEmptyUsage(),
         },
       });
       turn = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' });
