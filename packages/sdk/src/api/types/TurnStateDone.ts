@@ -4,6 +4,7 @@ import type * as TrueHarness from "../index.js";
 
 export interface TurnStateDone {
     completedAt: string;
+    metrics?: TrueHarness.TurnMetrics;
     output?: TrueHarness.ModelMessageEvent;
     requiredActions: TrueHarness.ActionRequiredEvent[];
     status: "done";

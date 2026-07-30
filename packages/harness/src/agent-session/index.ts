@@ -11,6 +11,7 @@ export {
   CreateTurnRequestSchema,
   PreviousTurnIdInputSchema,
   TurnInputItemSchema,
+  TurnMetricsSchema,
   TurnSchema,
   TurnStateCancelledReasonSchema,
   TurnStateCancelledSchema,
@@ -19,7 +20,7 @@ export {
   TurnStateRunningSchema,
   TurnStateSchema,
 } from './schemas/turn';
-export type { TerminalTurnState, Turn, TurnInputItem, TurnState } from './schemas/turn';
+export type { TerminalTurnState, Turn, TurnInputItem, TurnMetrics, TurnState } from './schemas/turn';
 
 export { CreateSessionRequestSchema, SessionSchema, UpdateSessionRequestSchema } from './schemas/session';
 export type { Session } from './schemas/session';

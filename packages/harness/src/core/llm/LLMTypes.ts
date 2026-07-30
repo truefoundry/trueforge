@@ -136,21 +136,13 @@ export const LLMToolMessageSchema = ChatCompletionToolMessageParamSchema.omit({ 
 
 export const CompletionUsageSchema = z
   .object({
-    completion_tokens: z.number().int().nonnegative(),
-    prompt_tokens: z.number().int().nonnegative(),
+    input_tokens: z.number().int().nonnegative(),
+    output_tokens: z.number().int().nonnegative(),
     total_tokens: z.number().int().nonnegative(),
-    completion_tokens_details: z
-      .object({
-        reasoning_tokens: z.number().int().nonnegative().optional(),
-      })
-      .optional(),
-    prompt_tokens_details: z
-      .object({
-        cached_tokens: z.number().int().nonnegative().optional(),
-      })
-      .optional(),
-    cache_read_input_tokens: z.number().int().nonnegative().optional(),
-    cache_creation_input_tokens: z.number().int().nonnegative().optional(),
+    cache_read_tokens: z.number().int().nonnegative().optional(),
+    cache_write_tokens: z.number().int().nonnegative().optional(),
+    reasoning_tokens: z.number().int().nonnegative().optional(),
+    cost_in_usd: z.number().nonnegative().optional(),
   })
   .openapi('CompletionUsage');
 
@@ -175,7 +167,7 @@ export type CompletionUsage = z.infer<typeof CompletionUsageSchema>;
 export type FinishReason = z.infer<typeof FinishReasonSchema>;
 
 export function getEmptyUsage(): CompletionUsage {
-  return { prompt_tokens: 0, total_tokens: 0, completion_tokens: 0 };
+  return { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
 }
 
 /**
@@ -190,12 +182,14 @@ interface ExtendedChoice extends Omit<ChatCompletionChunk.Choice, 'delta'> {
 
 /**
  * Extended chat completion chunk that includes thought_signature in tool calls.
+ * `usage` is harness-normalized; OpenAILLM maps the gateway wire `usage` payload at the adapter boundary.
  */
-export interface ExtendedChatCompletionChunk extends Omit<ChatCompletionChunk, 'choices'> {
+export interface ExtendedChatCompletionChunk extends Omit<ChatCompletionChunk, 'choices' | 'usage'> {
   /**
    * A list of chat completion choices, with thought_signature support in deltas.
    */
   choices: ExtendedChoice[];
+  usage?: CompletionUsage | null;
 }
 
 export interface RawAssistantMessageWithUsage {
