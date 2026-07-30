@@ -26,6 +26,18 @@ import {
 export type { TurnCreatedEvent } from '@truefoundry/utils/agent-session';
 export { EventType };
 
+/**
+ * Runtime boundary for the resumable turn stream store. Registered passthrough
+ * events extend the streaming union at the type level only, so stored entries
+ * are validated against this envelope instead of the closed discriminated union.
+ */
+export const StoredTurnStreamingEventSchema = z.object({ type: z.string() }).passthrough();
+export type StoredTurnStreamingEvent = z.infer<typeof StoredTurnStreamingEventSchema>;
+
+export function parseStoredTurnStreamingEvent(raw: unknown): StoredTurnStreamingEvent {
+  return StoredTurnStreamingEventSchema.parse(raw);
+}
+
 /** Live SSE stream for session turns — content events, deltas and lifecycle. */
 export const TurnStreamingEventSchema = z
   .discriminatedUnion('type', [

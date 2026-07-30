@@ -21,6 +21,8 @@ try {
     { connectRedis },
     { RequestReplyExecutor, RequestReplyRouter },
     { PostgresSessionStore },
+    { RedisEventSubscription },
+    { parseStoredTurnStreamingEvent },
   ] = await Promise.all([
     import('./app'),
     import('./config'),
@@ -35,6 +37,8 @@ try {
     import('./runtime/redis'),
     import('@truefoundry/utils/request-reply'),
     import('./db/session-store/PostgresSessionStore'),
+    import('./runtime/event-subscription/redis'),
+    import('./schemas/events'),
   ]);
 
   // Console logger shared by the server runtime (harness components require one).
@@ -58,6 +62,7 @@ try {
   logger.info(`Executor id: ${configuration.EXECUTOR_ID}`);
   const redis = await connectRedis({ url: configuration.REDIS_URL, logger });
   const requestReplyRouter = new RequestReplyRouter();
+  const eventSubscription = new RedisEventSubscription(redis, parseStoredTurnStreamingEvent);
 
   const app = createServerApp({
     modelStore: ModelStore.load(),
@@ -69,6 +74,7 @@ try {
     ...(sandboxFactory ? { sandboxFactory } : {}),
     redis,
     requestReplyRouter,
+    eventSubscription,
     logger,
   });
 
