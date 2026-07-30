@@ -26,8 +26,8 @@ try {
   ] = await Promise.all([
     import('./app'),
     import('./config'),
-    import('./db/client'),
-    import('./db/migrate'),
+    import('./db/postgres/client'),
+    import('./db/migratePostgres'),
     import('./store/ModelStore'),
     import('./store/McpStore'),
     import('./store/SkillStore'),
@@ -36,7 +36,7 @@ try {
     import('./runtime/sandboxFactory'),
     import('./runtime/redis'),
     import('@truefoundry/utils/request-reply'),
-    import('./db/session-store/PostgresSessionStore'),
+    import('./db/postgres/session-store/PostgresSessionStore'),
     import('./runtime/event-subscription/redis'),
     import('./schemas/events'),
   ]);

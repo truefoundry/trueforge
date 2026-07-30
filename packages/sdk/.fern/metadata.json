@@ -1,0 +1,35 @@
+{
+    "cliVersion": "5.82.0",
+    "generatorName": "fernapi/fern-typescript-node-sdk",
+    "generatorVersion": "3.85.0",
+    "generatorConfig": {
+        "packageJson": {
+            "name": "trueharness"
+        },
+        "allowExtraFields": true,
+        "allowCustomFetcher": true,
+        "enableInlineTypes": false,
+        "fetchSupport": "native",
+        "fileResponseType": "binary-response",
+        "formDataSupport": "Node18",
+        "includeApiReference": true,
+        "inlineFileProperties": true,
+        "inlinePathParameters": true,
+        "naming": {
+            "namespace": "TrueHarness",
+            "client": "TrueHarness"
+        },
+        "noSerdeLayer": false,
+        "omitUndefined": true,
+        "retainOriginalCasing": false,
+        "skipResponseValidation": true,
+        "streamType": "web",
+        "useDefaultRequestParameterValues": true
+    },
+    "originGitCommit": "70854f9f99677aeca430caf131a2d13df2996205",
+    "originGitCommitIsDirty": false,
+    "invokedBy": "ci",
+    "requestedVersion": "0.0.0",
+    "ciProvider": "github",
+    "sdkVersion": "0.0.0"
+}

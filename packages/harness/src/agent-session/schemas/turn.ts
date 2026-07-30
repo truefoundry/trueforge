@@ -49,7 +49,8 @@ export const TurnStateErrorSchema = z
 export const TurnStateDoneSchema = z
   .object({
     status: z.literal('done'),
-    output: ModelMessageEventSchema.nullable(),
+    // TODO: restore `.nullable()`; it marks the shared component nullable and breaks SDK codegen.
+    output: ModelMessageEventSchema.optional(),
     required_actions: z.array(ActionRequiredEventSchema),
     completed_at: z.string(),
   })

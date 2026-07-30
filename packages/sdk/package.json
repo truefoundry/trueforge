@@ -1,0 +1,131 @@
+{
+    "name": "trueharness",
+    "version": "0.0.0",
+    "private": false,
+    "type": "commonjs",
+    "main": "./dist/cjs/index.js",
+    "module": "./dist/esm/index.mjs",
+    "types": "./dist/cjs/index.d.ts",
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/esm/index.d.mts",
+                "default": "./dist/esm/index.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/index.d.ts",
+                "default": "./dist/cjs/index.js"
+            },
+            "default": "./dist/cjs/index.js"
+        },
+        "./serialization": {
+            "import": {
+                "types": "./dist/esm/serialization/index.d.mts",
+                "default": "./dist/esm/serialization/index.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/serialization/index.d.ts",
+                "default": "./dist/cjs/serialization/index.js"
+            },
+            "default": "./dist/cjs/serialization/index.js"
+        },
+        "./server": {
+            "import": {
+                "types": "./dist/esm/api/resources/server/exports.d.mts",
+                "default": "./dist/esm/api/resources/server/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/server/exports.d.ts",
+                "default": "./dist/cjs/api/resources/server/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/server/exports.js"
+        },
+        "./mcpServers": {
+            "import": {
+                "types": "./dist/esm/api/resources/mcpServers/exports.d.mts",
+                "default": "./dist/esm/api/resources/mcpServers/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/mcpServers/exports.d.ts",
+                "default": "./dist/cjs/api/resources/mcpServers/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/mcpServers/exports.js"
+        },
+        "./models": {
+            "import": {
+                "types": "./dist/esm/api/resources/models/exports.d.mts",
+                "default": "./dist/esm/api/resources/models/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/models/exports.d.ts",
+                "default": "./dist/cjs/api/resources/models/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/models/exports.js"
+        },
+        "./sessions": {
+            "import": {
+                "types": "./dist/esm/api/resources/sessions/exports.d.mts",
+                "default": "./dist/esm/api/resources/sessions/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/sessions/exports.d.ts",
+                "default": "./dist/cjs/api/resources/sessions/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/sessions/exports.js"
+        },
+        "./skills": {
+            "import": {
+                "types": "./dist/esm/api/resources/skills/exports.d.mts",
+                "default": "./dist/esm/api/resources/skills/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/skills/exports.d.ts",
+                "default": "./dist/cjs/api/resources/skills/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/skills/exports.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "reference.md",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "format": "biome format --write --skip-parse-errors --no-errors-on-unmatched --max-diagnostics=none",
+        "format:check": "biome format --skip-parse-errors --no-errors-on-unmatched --max-diagnostics=none",
+        "lint": "biome lint --skip-parse-errors --no-errors-on-unmatched --max-diagnostics=none",
+        "lint:fix": "biome lint --fix --unsafe --skip-parse-errors --no-errors-on-unmatched --max-diagnostics=none",
+        "check": "biome check --skip-parse-errors --no-errors-on-unmatched --max-diagnostics=none",
+        "check:fix": "biome check --fix --unsafe --skip-parse-errors --no-errors-on-unmatched --max-diagnostics=none",
+        "build": "pnpm build:cjs && pnpm build:esm",
+        "build:cjs": "tsc --project ./tsconfig.cjs.json",
+        "build:esm": "tsc --project ./tsconfig.esm.json && node scripts/rename-to-esm-files.js dist/esm",
+        "test": "vitest",
+        "test:unit": "vitest --project unit",
+        "test:wire": "vitest --project wire"
+    },
+    "dependencies": {},
+    "devDependencies": {
+        "webpack": "^5.105.4",
+        "ts-loader": "^9.5.4",
+        "vitest": "^4.1.1",
+        "msw": "2.11.2",
+        "@types/node": "^20.0.0",
+        "typescript": "~5.9.3",
+        "@biomejs/biome": "2.4.10"
+    },
+    "browser": {
+        "fs": false,
+        "os": false,
+        "path": false,
+        "stream": false,
+        "crypto": false
+    },
+    "packageManager": "pnpm@10.33.0",
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "sideEffects": false
+}

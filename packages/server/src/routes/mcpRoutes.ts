@@ -16,6 +16,8 @@ export const listMcpServersRoute = createRoute({
   tags: [MCP_SERVERS_TAG],
   summary: 'List MCP servers',
   description: 'MCP servers declared in mcp.yaml. Auth headers are configured via env vars and never returned.',
+  'x-fern-sdk-group-name': ['mcp_servers'],
+  'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
       content: { 'application/json': { schema: ListMcpServersResponseSchema } },
@@ -46,6 +48,8 @@ export const listMcpToolsRoute = createRoute({
   path: '/{name}/tools',
   tags: [MCP_SERVERS_TAG],
   summary: 'List tools of an MCP server',
+  'x-fern-sdk-group-name': ['mcp_servers'],
+  'x-fern-sdk-method-name': 'list_tools',
   description:
     'All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call. No agent-spec tool selectors are applied — this is the raw server catalog.',
   request: {
