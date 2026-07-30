@@ -96,13 +96,13 @@ describe('mergeUsage', () => {
 });
 
 describe('AgentThreadMetrics', () => {
-  it('keeps unreported aggregate usage undefined', () => {
+  it('initializes required token totals to zero and leaves optional totals undefined', () => {
     const target = createEmptyAgentThreadMetrics();
     addAgentThreadMetrics(target, createEmptyAgentThreadMetrics());
 
-    expect(target.total_input_tokens).toBeUndefined();
-    expect(target.total_output_tokens).toBeUndefined();
-    expect(target.total_tokens).toBeUndefined();
+    expect(target.total_input_tokens).toBe(0);
+    expect(target.total_output_tokens).toBe(0);
+    expect(target.total_tokens).toBe(0);
     expect(target.total_cache_read_tokens).toBeUndefined();
     expect(target.total_cost_in_usd).toBeUndefined();
   });

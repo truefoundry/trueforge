@@ -382,7 +382,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             {
               thread_id: MAIN_THREAD_ID,
               context: [userMessage('L1a'), userMessage('L1b')],
-              current_context_usage: { ...getEmptyCurrentContextUsage(), total_tokens: 2 },
+              current_context_usage: { ...getEmptyCurrentContextUsage(), prompt_tokens: 2 },
             },
           ],
         }),
@@ -408,7 +408,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             {
               thread_id: MAIN_THREAD_ID,
               context: [userMessage('L2')],
-              current_context_usage: { ...getEmptyCurrentContextUsage(), total_tokens: 3 },
+              current_context_usage: { ...getEmptyCurrentContextUsage(), prompt_tokens: 3 },
             },
           ],
         }),
@@ -417,7 +417,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const t2 = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 't2' });
       const main = mustGet(t2).snapshot.threads[MAIN_THREAD_ID];
       expect(contextContents(main?.context)).toEqual(['L1a', 'L1b', 'L2']);
-      expect(main?.current_context_usage.total_tokens).toBe(3);
+      expect(main?.current_context_usage.prompt_tokens).toBe(3);
       expect(main?.capability_state).toEqual({ 'tfy.plan': { step: 2 } });
     });
 
@@ -571,12 +571,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             {
               thread_id: 'child-a',
               context: [userMessage('a-msg')],
-              current_context_usage: { ...getEmptyCurrentContextUsage(), total_tokens: 1 },
+              current_context_usage: { ...getEmptyCurrentContextUsage(), prompt_tokens: 1 },
             },
             {
               thread_id: 'child-b',
               context: [userMessage('b-msg-1'), userMessage('b-msg-2')],
-              current_context_usage: { ...getEmptyCurrentContextUsage(), total_tokens: 2 },
+              current_context_usage: { ...getEmptyCurrentContextUsage(), prompt_tokens: 2 },
             },
           ],
         }),
@@ -602,7 +602,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         input: 'task-a',
       });
       expect(threads['child-a']?.capability_state).toEqual({ 'tfy.plan': { step: 1 } });
-      expect(threads['child-b']?.current_context_usage.total_tokens).toBe(2);
+      expect(threads['child-b']?.current_context_usage.prompt_tokens).toBe(2);
     });
   });
 

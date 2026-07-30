@@ -6,27 +6,25 @@ import type { CompletionUsage } from '../llm/LLMTypes';
  * `prompt_tokens`/`completion_tokens` names are load-bearing: this shape is persisted per
  * thread, so renaming them would make already-stored rows load as missing fields.
  *
- * Zod is needed here mainly so ThreadOverwriteContextEventSchema can reuse the shape.
+ * We Need Zod mainly for ThreadOverwriteContextEventSchema
  */
 export const CurrentContextUsageSchema = z
   .object({
     prompt_tokens: z.number().int().nonnegative(),
     completion_tokens: z.number().int().nonnegative(),
-    total_tokens: z.number().int().nonnegative(),
   })
   .openapi('CurrentContextUsage');
 
 export type CurrentContextUsage = z.infer<typeof CurrentContextUsageSchema>;
 
 export function getEmptyCurrentContextUsage(): CurrentContextUsage {
-  return { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+  return { prompt_tokens: 0, completion_tokens: 0 };
 }
 
 export function mergeCurrentContextUsage(a: CurrentContextUsage, b: CurrentContextUsage): CurrentContextUsage {
   return {
     prompt_tokens: a.prompt_tokens + b.prompt_tokens,
     completion_tokens: a.completion_tokens + b.completion_tokens,
-    total_tokens: a.total_tokens + b.total_tokens,
   };
 }
 
@@ -35,6 +33,5 @@ export function currentContextUsageFromCompletion(usage: CompletionUsage): Curre
   return {
     prompt_tokens: usage.input_tokens,
     completion_tokens: usage.output_tokens,
-    total_tokens: usage.total_tokens,
   };
 }

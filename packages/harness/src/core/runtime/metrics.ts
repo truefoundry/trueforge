@@ -4,9 +4,9 @@ import type { CompletionUsage } from '../llm/LLMTypes';
 /** Billable aggregate — thread/orchestrator totals (`total_*`). */
 export const AgentThreadMetricsSchema = z
   .object({
-    total_input_tokens: z.number().int().nonnegative().optional(),
-    total_output_tokens: z.number().int().nonnegative().optional(),
-    total_tokens: z.number().int().nonnegative().optional(),
+    total_input_tokens: z.number().int().nonnegative(),
+    total_output_tokens: z.number().int().nonnegative(),
+    total_tokens: z.number().int().nonnegative(),
     total_cache_read_tokens: z.number().int().nonnegative().optional(),
     total_cache_write_tokens: z.number().int().nonnegative().optional(),
     total_reasoning_tokens: z.number().int().nonnegative().optional(),
@@ -29,6 +29,9 @@ function sumOptional(a: number | undefined, b: number | undefined): number | und
 
 export function createEmptyAgentThreadMetrics(): AgentThreadMetrics {
   return {
+    total_input_tokens: 0,
+    total_output_tokens: 0,
+    total_tokens: 0,
     iterations: 0,
     total_tool_calls: 0,
     total_summarizations: 0,
@@ -38,9 +41,9 @@ export function createEmptyAgentThreadMetrics(): AgentThreadMetrics {
 
 /** Fold one per-call completion usage into aggregated thread metrics. */
 export function updateMetricsFromUsage(target: AgentThreadMetrics, usage: CompletionUsage): void {
-  target.total_input_tokens = sumOptional(target.total_input_tokens, usage.input_tokens);
-  target.total_output_tokens = sumOptional(target.total_output_tokens, usage.output_tokens);
-  target.total_tokens = sumOptional(target.total_tokens, usage.total_tokens);
+  target.total_input_tokens += usage.input_tokens;
+  target.total_output_tokens += usage.output_tokens;
+  target.total_tokens += usage.total_tokens;
   target.total_cache_read_tokens = sumOptional(target.total_cache_read_tokens, usage.cache_read_tokens);
   target.total_cache_write_tokens = sumOptional(target.total_cache_write_tokens, usage.cache_write_tokens);
   target.total_reasoning_tokens = sumOptional(target.total_reasoning_tokens, usage.reasoning_tokens);
@@ -48,9 +51,9 @@ export function updateMetricsFromUsage(target: AgentThreadMetrics, usage: Comple
 }
 
 export function addAgentThreadMetrics(target: AgentThreadMetrics, source: AgentThreadMetrics): void {
-  target.total_input_tokens = sumOptional(target.total_input_tokens, source.total_input_tokens);
-  target.total_output_tokens = sumOptional(target.total_output_tokens, source.total_output_tokens);
-  target.total_tokens = sumOptional(target.total_tokens, source.total_tokens);
+  target.total_input_tokens += source.total_input_tokens;
+  target.total_output_tokens += source.total_output_tokens;
+  target.total_tokens += source.total_tokens;
   target.total_cache_read_tokens = sumOptional(target.total_cache_read_tokens, source.total_cache_read_tokens);
   target.total_cache_write_tokens = sumOptional(target.total_cache_write_tokens, source.total_cache_write_tokens);
   target.total_reasoning_tokens = sumOptional(target.total_reasoning_tokens, source.total_reasoning_tokens);

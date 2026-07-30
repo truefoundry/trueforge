@@ -183,7 +183,8 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
   async *processPreLLM(
     execution: Readonly<AgentThreadExecutionContext>,
   ): AsyncGenerator<AgentContextProcessorOutput, void, unknown> {
-    if (execution.currentContextUsage.total_tokens + PROMPT_TOKENS < this.compactionThresholdTokens) {
+    const contextTokens = execution.currentContextUsage.prompt_tokens + execution.currentContextUsage.completion_tokens;
+    if (contextTokens + PROMPT_TOKENS < this.compactionThresholdTokens) {
       return;
     }
 
@@ -206,7 +207,6 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
       reason: 'compaction',
       context: context,
       current_context_usage: {
-        total_tokens: response.usage.total_tokens + CONTINUATION_MESSAGE_TOKENS,
         // NOTE(agent): This is not really correct.
         // This is not taking into account that the original request had
         // tool definition in them.
