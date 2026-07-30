@@ -4,13 +4,13 @@ import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'tsup';
 
-const migrationsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'src/db/migrations');
+const migrationsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'src/db/postgres/migrations');
 const migrationEntries = Object.fromEntries(
   readdirSync(migrationsDir)
     .filter(name => name.endsWith('.ts'))
     .map(name => {
       const base = name.replace(/\.ts$/, '');
-      return [`migrations/${base}`, path.join(migrationsDir, name)] as const;
+      return [`postgres/migrations/${base}`, path.join(migrationsDir, name)] as const;
     }),
 );
 

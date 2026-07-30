@@ -4,11 +4,13 @@ import path from 'node:path';
 import type { Kysely } from 'kysely';
 import { FileMigrationProvider, Migrator } from 'kysely/migration';
 
-import type { Database } from './types';
+import type { Database } from './postgres/types';
 
 /**
- * Runs all pending migrations. On Postgres this executes inside one
- * transaction (Kysely default) unless `disableTransactions` is set — never set that.
+ * Runs all pending Postgres migrations.
+ *
+ * This module lives at `src/db/` (bundled into `dist/main.js`) so the folder is
+ * always `…/postgres/migrations` — source or production.
  */
 export async function migrateToLatest(db: Kysely<Database>): Promise<void> {
   const migrator = new Migrator({
@@ -16,10 +18,7 @@ export async function migrateToLatest(db: Kysely<Database>): Promise<void> {
     provider: new FileMigrationProvider({
       fs,
       path,
-      // Absolute path required.
-      // Dev (tsx): this file lives in src/db → src/db/migrations
-      // Prod (bundled into dist/main.js): import.meta.dirname is dist → dist/migrations
-      migrationFolder: path.join(import.meta.dirname, 'migrations'),
+      migrationFolder: path.join(import.meta.dirname, 'postgres', 'migrations'),
     }),
   });
 
