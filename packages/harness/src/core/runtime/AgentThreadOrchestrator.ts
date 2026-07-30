@@ -414,8 +414,21 @@ export class AgentThreadOrchestrator {
   }): AsyncGenerator<AgentThreadExecutionEvent, AgentThreadExecutionResult, unknown> {
     const { agentThreads } = this;
 
-    // Reset orchestrator-scoped metrics for finished sub-agents removed from the map.
+    // Reset billable aggregates once per orchestrator.execute() (= once per turn), not in AgentThread.execute().
+    // That re-enters mid-turn after sub-agents finish; resetting there would wipe phase-1 usage and restart the metrics:
+    //   Turn
+    //   ├── parent.execute()     ← reset → 0
+    //   │     LLM #1 (1000 tokens), iterations=1
+    //   │     spawn child, exit
+    //   ├── child.execute()
+    //   └── parent.execute()     ← reset → 0 again  ❌
+    //         LLM #2 (200 tokens)
+    //         reported parent total = 200, not 1200
+    // Both halves of the turn total clear together: live threads + finishedSubAgentMetrics.
     this.finishedSubAgentMetrics = createEmptyAgentThreadMetrics();
+    for (const thread of agentThreads.values()) {
+      thread.resetMetrics();
+    }
 
     let shouldStopExecution = false;
     let caughtError: unknown;

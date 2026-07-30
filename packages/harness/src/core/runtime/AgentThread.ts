@@ -760,7 +760,10 @@ export class AgentThread {
     return { ...this.metrics };
   }
 
-  private resetMetrics(): void {
+  // Clears this thread's aggregate metrics. Callers must not invoke this from execute(): a thread
+  // re-enters execute() mid-turn after spawning sub-agents, so resetting there would drop earlier
+  // phases' tokens/cost and restart the iteration budget. The orchestrator resets once per turn.
+  public resetMetrics(): void {
     this.metrics = createEmptyAgentThreadMetrics();
   }
 
@@ -1282,7 +1285,6 @@ export class AgentThread {
   }): AsyncGenerator<AgentThreadEvent, void, unknown> {
     const signal = options?.signal;
 
-    this.resetMetrics();
     this.throwIfContextBusy();
     this.contextBusy = true;
     this.currentState = null;
