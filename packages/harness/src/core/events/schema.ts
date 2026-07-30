@@ -133,10 +133,16 @@ export const InputTokensBreakdownSchema = z.object({
   messages: z.number().int().nonnegative(),
 });
 
-/**
- * SSE / wire usage on model.message(+delta). Same canonical CompletionUsage fields,
- * plus live input_tokens_breakdown (not carried into AgentThreadMetrics aggregates).
- */
+/** Live — context budget for the next LLM call (not billable). */
+export const CurrentContextUsageSchema = z
+  .object({
+    input_tokens: z.number().int().nonnegative(),
+    output_tokens: z.number().int().nonnegative(),
+    total_tokens: z.number().int().nonnegative(),
+  })
+  .openapi('CurrentContextUsage');
+
+/** Billable per-call usage on model.message, plus input_tokens_breakdown. */
 export const ModelMessageUsageSchema = CompletionUsageSchema.extend({
   input_tokens_breakdown: InputTokensBreakdownSchema,
 }).openapi('ModelMessageUsage');
@@ -242,9 +248,7 @@ export const ThreadOverwriteContextEventSchema = z.object({
   // NOTE: add other reasons here.
   reason: z.literal('compaction'),
   context: z.array(ContextMessageSchema),
-  // Live budget for the next LLM call after this overwrite (not billable aggregate).
-  current_context_usage: CompletionUsageSchema,
-  // Billable harness usage for the LLM call that produced this step (same shape as model.message).
+  current_context_usage: CurrentContextUsageSchema,
   usage: CompletionUsageSchema,
 });
 
@@ -356,6 +360,7 @@ export type UserToolApprovalMessage = z.infer<typeof UserToolApprovalMessageSche
 export type UserToolResponseMessage = z.infer<typeof UserToolResponseMessageSchema>;
 export type AgentApprovalDecisionMessage = z.infer<typeof AgentApprovalDecisionMessageSchema>;
 export type InputTokensBreakdown = z.infer<typeof InputTokensBreakdownSchema>;
+export type CurrentContextUsage = z.infer<typeof CurrentContextUsageSchema>;
 export type ModelMessageUsage = z.infer<typeof ModelMessageUsageSchema>;
 export type ModelMessageEvent = z.infer<typeof ModelMessageEventSchema>;
 export type ModelMessageDeltaEvent = z.infer<typeof ModelMessageDeltaEventSchema>;

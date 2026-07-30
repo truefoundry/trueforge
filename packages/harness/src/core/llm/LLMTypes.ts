@@ -134,13 +134,7 @@ export const LLMToolMessageSchema = ChatCompletionToolMessageParamSchema.omit({ 
   })
   .openapi('LLMToolMessage');
 
-/**
- * Canonical harness usage after one-shot LLM-boundary normalization.
- * Per-call / live fields only — never `total_*` (those belong on AgentThreadMetrics).
- *
- * Fields: input_tokens, output_tokens, total_tokens, cache_read_tokens,
- * cache_write_tokens, reasoning_tokens, cost_in_usd.
- */
+/** Billable — one normalized LLM call (no `total_*`). */
 export const CompletionUsageSchema = z
   .object({
     input_tokens: z.number().int().nonnegative(),

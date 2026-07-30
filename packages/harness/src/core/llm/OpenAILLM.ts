@@ -17,10 +17,7 @@ import {
   type RawAssistantMessageWithUsage,
 } from './LLMTypes';
 
-/**
- * Raw chat-completions usage from the gateway wire. Private to this OpenAI LLM
- * implementation — never exported. All other harness code sees CompletionUsage only.
- */
+/** Gateway wire usage. Private; normalized once into CompletionUsage. */
 const GatewayChatCompletionUsageSchema = z.object({
   completion_tokens: z.number().int().nonnegative(),
   prompt_tokens: z.number().int().nonnegative(),

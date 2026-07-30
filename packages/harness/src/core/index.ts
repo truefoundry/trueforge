@@ -90,6 +90,7 @@ export type { ResponseFormat } from './llm/responseFormat';
 export {
   ActionRequiredEventSchema,
   AgentInputUserMessageSchema,
+  CurrentContextUsageSchema,
   EventIdSchema,
   EventType,
   MCPAuthRequiredEventSchema,
@@ -109,6 +110,7 @@ export {
 } from './events/schema';
 export type {
   AgentOutputEvent,
+  CurrentContextUsage,
   MCPAuthRequiredEvent,
   MCPServerAuthInfo,
   MCPServerInitInfo,
@@ -119,6 +121,11 @@ export { CompletionUsageSchema, getEmptyUsage } from './llm/LLMTypes';
 export type { CompletionUsage } from './llm/LLMTypes';
 export { InternalEventType } from './runtime/AgentThread.types';
 export type { AgentThreadSendBatch, ContextMessage } from './runtime/AgentThread.types';
+export {
+  currentContextUsageFromCompletion,
+  getEmptyCurrentContextUsage,
+  mergeCurrentContextUsage,
+} from './runtime/contextUsage';
 export { AgentThreadMetricsSchema, agentThreadMetricsFromUsage } from './runtime/metrics';
 export type { AgentThreadMetrics } from './runtime/metrics';
 

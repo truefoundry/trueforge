@@ -1,5 +1,5 @@
 import dedent from 'dedent';
-import type { ApprovalDecision } from '../events/schema';
+import type { ApprovalDecision, CurrentContextUsage } from '../events/schema';
 import {
   EventType,
   type AgentApprovalDecisionMessage,
@@ -7,7 +7,6 @@ import {
   type UserToolResponseMessage,
 } from '../events/schema';
 import type {
-  CompletionUsage,
   EnrichedToolCall,
   InternalEnrichedToolCall,
   InternalToolCallInfo,
@@ -139,7 +138,7 @@ export function getThreadId(): string {
   return crypto.randomUUID();
 }
 
-export function estimateTokensForContextMessages(messages: ContextMessage[]): CompletionUsage {
+export function estimateTokensForContextMessages(messages: ContextMessage[]): CurrentContextUsage {
   let tokenCount = 0;
 
   for (const b of messages) {

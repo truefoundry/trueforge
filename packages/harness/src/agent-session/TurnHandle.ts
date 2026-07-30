@@ -4,7 +4,6 @@
 import { AgentHarnessError } from '../core/errors';
 import type { MCPAuthRequiredEvent, ModelMessageDeltaEvent, ThreadDoneEvent } from '../core/events/schema';
 import { EventType as HarnessEventType, newEventId } from '../core/events/schema';
-import { getEmptyUsage } from '../core/llm/LLMTypes';
 import {
   InternalEventType,
   type AgentThreadExecutionEvent,
@@ -13,6 +12,7 @@ import {
   type InternalThreadDoneEvent,
 } from '../core/runtime/AgentThread.types';
 import type { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
+import { getEmptyCurrentContextUsage } from '../core/runtime/contextUsage';
 import type { AgentThreadMetrics } from '../core/runtime/metrics';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
@@ -475,7 +475,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
               parent: event.parent,
               agent_info: event.agent_info,
               context: [],
-              current_context_usage: getEmptyUsage(),
+              current_context_usage: getEmptyCurrentContextUsage(),
               completion: null,
               capability_state: null,
             },

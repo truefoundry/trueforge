@@ -11,6 +11,7 @@ import type {
   AgentParent,
   BaseMCPAuthRequiredEvent,
   BaseThreadDoneEvent,
+  CurrentContextUsage,
   MCPInitializeEvent,
   MCPServerAuthInfo,
   ModelMessageDeltaEvent,
@@ -25,21 +26,10 @@ import type {
   UserToolApprovalMessage,
   UserToolResponseMessage,
 } from '../events/schema';
-import type {
-  CompletionUsage,
-  InternalEnrichedAssistantMessage,
-  LLMToolMessage,
-  LLMUserMessage,
-} from '../llm/LLMTypes';
+import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
 import type { Sandbox } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import type { AgentDefinition } from './AgentDefinition';
-
-/**
- * Live context budget for the next LLM call (running metric).
- * Same field shape as CompletionUsage; not a `total_*` billable aggregate.
- */
-export type CurrentContextUsage = CompletionUsage;
 
 export type { AgentInfo, AgentParent };
 

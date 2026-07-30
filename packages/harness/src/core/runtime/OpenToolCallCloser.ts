@@ -18,9 +18,9 @@ import type {
   PreSendContextProcessor,
 } from '../capabilities/AgentContextProcessor';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage } from '../llm/LLMTypes';
-import { mergeUsage } from '../llm/usage';
 import type { ContextMessage } from './AgentThread.types';
 import { InternalEventType } from './AgentThread.types';
+import { mergeCurrentContextUsage } from './contextUsage';
 import { estimateTokensForContextMessages, isLLMContextMessage } from './contextUtils';
 
 const DUMMY_TOOL_MESSAGE_CONTENT = JSON.stringify({
@@ -82,7 +82,7 @@ export class OpenToolCallCloser implements PreSendContextProcessor {
       content: DUMMY_TOOL_MESSAGE_CONTENT,
     }));
 
-    const currentContextUsage = mergeUsage(
+    const currentContextUsage = mergeCurrentContextUsage(
       execution.currentContextUsage,
       estimateTokensForContextMessages(dummyToolMessages),
     );

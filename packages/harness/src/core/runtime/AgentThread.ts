@@ -18,6 +18,7 @@ import { SUB_AGENT_IDENTITY } from '../capabilities/builtins/DynamicSubAgents';
 import type { ToolResponseProcessor } from '../capabilities/ToolResponseProcessor';
 import { AgentHarnessError, InvalidAgentSendInputError } from '../errors';
 import type { RegisteredPassthroughEvent } from '../events/PassthroughEvents';
+import type { CurrentContextUsage } from '../events/schema';
 import {
   EventType,
   newEventId,
@@ -75,6 +76,11 @@ import {
   type InternalThreadDoneEvent,
   type SubAgentCompletionMarker,
 } from './AgentThread.types';
+import {
+  currentContextUsageFromCompletion,
+  getEmptyCurrentContextUsage,
+  mergeCurrentContextUsage,
+} from './contextUsage';
 import {
   assistantMessageContentToStringForSubAgent,
   estimateTokensForContextMessages,
@@ -465,7 +471,7 @@ export class AgentThread {
   readonly agentInfo?: AgentInfo | undefined;
 
   private context: ContextMessage[];
-  private currentContextUsage: CompletionUsage;
+  private currentContextUsage: CurrentContextUsage;
   private preSendContextProcessors: PreSendContextProcessor[];
   private preLLMContextProcessors: PreLLMAgentContextProcessor[];
   private preEphemeralLLMContextProcessors: PreLLMEphemeralAgentContextProcessor[];
@@ -505,7 +511,7 @@ export class AgentThread {
     this.context = input.context ? [...input.context] : [];
     this.title = input.title;
     this.parent = input.parent;
-    this.currentContextUsage = input.currentContextUsage ?? getEmptyUsage();
+    this.currentContextUsage = input.currentContextUsage ?? getEmptyCurrentContextUsage();
     this.agentInfo = input.agentInfo;
     this.preComputedCompletion = input.preComputedCompletion;
     this.sandbox = input.sandbox;
@@ -655,14 +661,17 @@ export class AgentThread {
   private *appendToContext(opts: {
     context: ContextMessage[];
     output: AgentOutputEvent[];
-    overwriteUsage?: CompletionUsage | undefined;
-    updateCumulativeUsage?: boolean | undefined;
+    /** When set, replaces the live context budget; otherwise estimate-merge appended messages. */
+    currentContextUsage?: CurrentContextUsage | undefined;
+    /** When set, adds this per-call billable usage into turn aggregates. */
+    billableUsage?: CompletionUsage | undefined;
     completion?: SubAgentCompletionMarker | undefined;
   }): Generator<AgentThreadAppendContext, void, unknown> {
-    const { context, output, overwriteUsage, updateCumulativeUsage, completion } = opts;
+    const { context, output, currentContextUsage, billableUsage, completion } = opts;
 
     const newCurrentContextUsage =
-      overwriteUsage ?? mergeUsage(this.currentContextUsage, estimateTokensForContextMessages(context));
+      currentContextUsage ??
+      mergeCurrentContextUsage(this.currentContextUsage, estimateTokensForContextMessages(context));
 
     const event: AgentThreadAppendContext = {
       type: InternalEventType.AGENT_CONTEXT_APPEND,
@@ -674,8 +683,8 @@ export class AgentThread {
     };
 
     // Update usage before yield so we still count it if the stream stops here.
-    if (updateCumulativeUsage && overwriteUsage) {
-      this._cumulativeUsage = mergeUsage(this._cumulativeUsage, overwriteUsage);
+    if (billableUsage) {
+      this._cumulativeUsage = mergeUsage(this._cumulativeUsage, billableUsage);
     }
 
     yield event;
@@ -761,6 +770,10 @@ export class AgentThread {
 
   public resetTurnUsage(): void {
     this._cumulativeUsage = getEmptyUsage();
+    this._iterations = 0;
+    this._totalToolCalls = 0;
+    this._totalSummarizations = 0;
+    this._totalSubAgents = 0;
   }
 
   private transformToLLMRequest(tools: ChatCompletionTool[]): ChatCompletionCreateParamsStreaming {
@@ -916,7 +929,7 @@ export class AgentThread {
             yield* this.appendToContext({
               context: response.context,
               output: response.output,
-              overwriteUsage: response.current_context_usage ?? this.currentContextUsage,
+              currentContextUsage: response.current_context_usage ?? this.currentContextUsage,
             });
             break;
           case EventType.AGENT_CONTEXT_OVERWRITE:
@@ -1092,8 +1105,8 @@ export class AgentThread {
     yield* this.appendToContext({
       context: [assistantMessage],
       output: [agentAssistantMessage],
-      overwriteUsage: result.value.usage,
-      updateCumulativeUsage: true,
+      currentContextUsage: currentContextUsageFromCompletion(result.value.usage),
+      billableUsage: result.value.usage,
       completion,
     });
 

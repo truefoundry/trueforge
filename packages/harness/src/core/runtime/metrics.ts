@@ -1,13 +1,7 @@
 import { z } from '@hono/zod-openapi';
 import type { CompletionUsage } from '../llm/LLMTypes';
 
-/**
- * Billable / aggregated metrics for one AgentThread.
- * Orchestrator rollups reuse this same schema (sum of thread metrics).
- *
- * Every usage field is `total_*` so it cannot be confused with per-call CompletionUsage.
- * Does not include input_tokens_breakdown (that stays on live model-message usage only).
- */
+/** Billable aggregate — thread/orchestrator totals (`total_*`). */
 export const AgentThreadMetricsSchema = z
   .object({
     total_input_tokens: z.number().int().nonnegative(),

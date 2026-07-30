@@ -30,6 +30,7 @@ export const TurnStateCancelledReasonSchema = z
   .describe('Reason for the cancellation.')
   .openapi('TurnStateCancelledReason');
 
+/** Billable aggregate for one turn. */
 export const TurnUsageSchema = z
   .object({
     total_input_tokens: z.number().int().nonnegative(),
