@@ -1,7 +1,7 @@
 import { InMemorySessionStore, Sessions } from '@truefoundry/utils/agent-session';
 import { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
@@ -20,6 +20,9 @@ const ASSET_JS = 'console.log("app")';
 /** Long enough to clear the compress() threshold. */
 const WORKER_JS = `self.onmessage = () => {};${' '.repeat(2048)}`;
 
+const SECRET_FILE = 'harness-frontend-secret.txt';
+const OUTSIDE_SECRET = 'secret that lives beside the build root';
+
 /** The shell, a hashed asset with its precompressed sibling, and an uncompressed worker. */
 function writeFrontendBuild(): string {
   const dir = mkdtempSync(path.join(tmpdir(), 'harness-frontend-'));
@@ -29,6 +32,7 @@ function writeFrontendBuild(): string {
   writeFileSync(path.join(dir, 'assets/app-abc123.js'), ASSET_JS);
   writeFileSync(path.join(dir, 'assets/app-abc123.js.br'), brotliCompressSync(ASSET_JS));
   writeFileSync(path.join(dir, 'monacoeditorwork/editor.worker.bundle.js'), WORKER_JS);
+  writeFileSync(path.join(dir, '..', SECRET_FILE), OUTSIDE_SECRET);
   return dir;
 }
 
@@ -114,10 +118,60 @@ describe('frontend serving', () => {
     assert.equal(response.status, 404);
   });
 
+  it('marks a compressed shell as varying on the encoding', async () => {
+    const response = await app.request('/some/app/route', {
+      headers: { ...navigation.headers, 'accept-encoding': 'gzip' },
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-encoding'), 'gzip');
+    assert.equal(response.headers.get('vary'), 'Accept-Encoding');
+    assert.equal(gunzipSync(await response.bytes()).toString(), INDEX_HTML);
+  });
+
+  it('cannot be walked out of the build directory', async () => {
+    const escapes = [
+      `/../${SECRET_FILE}`,
+      `/assets/../../${SECRET_FILE}`,
+      `/%2e%2e%2f${SECRET_FILE}`,
+      `/..%252f..%252f${SECRET_FILE}`,
+      '//etc/passwd',
+    ];
+    for (const escape of escapes) {
+      const fetched = await app.request(escape);
+      assert.equal(fetched.status, 404, `${escape} must not resolve`);
+      assert.equal((await fetched.text()).includes(OUTSIDE_SECRET), false, `${escape} leaked a file`);
+
+      // A navigation to the same path gets the shell, which must still not be the file.
+      const navigated = await app.request(escape, navigation);
+      assert.equal((await navigated.text()).includes(OUTSIDE_SECRET), false, `${escape} leaked a file`);
+    }
+  });
+
   it('still answers the health check', async () => {
     const response = await app.request('/healthz');
     assert.equal(response.status, 200);
     assert.equal(await response.text(), 'OK!');
+  });
+});
+
+describe('after the build is replaced while the server runs', () => {
+  const dir = writeFrontendBuild();
+  const { app } = createApp(dir);
+  const indexPath = path.join(dir, 'index.html');
+  const REBUILT_HTML = '<!doctype html><title>Rebuilt</title>';
+
+  it('serves the new shell on in-app routes without a restart', async () => {
+    writeFileSync(indexPath, REBUILT_HTML);
+    const response = await app.request('/some/app/route', navigation);
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), REBUILT_HTML);
+  });
+
+  it('keeps serving the last shell while a rebuild has the file removed', async () => {
+    rmSync(indexPath);
+    const response = await app.request('/some/app/route', navigation);
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), REBUILT_HTML);
   });
 });
 

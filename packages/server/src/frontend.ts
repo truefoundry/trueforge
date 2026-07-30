@@ -34,7 +34,17 @@ function wantsAppShell(c: Context): boolean {
 export function mountFrontend(app: OpenAPIHono, dir: string): boolean {
   const indexPath = path.join(dir, 'index.html');
   if (!existsSync(indexPath)) return false;
-  const indexHtml = readFileSync(indexPath, 'utf8');
+  let lastShell = readFileSync(indexPath, 'utf8');
+
+  /** Fresh per navigation, so a rebuild needs no restart to stop serving stale asset hashes. */
+  function readShell(): string {
+    try {
+      lastShell = readFileSync(indexPath, 'utf8');
+    } catch {
+      // A rebuild empties the directory first, so the previous shell beats failing the navigation.
+    }
+    return lastShell;
+  }
 
   // serveStatic joins `root` with the request path, so an absolute dir is working-directory proof.
   const serveFile = serveStatic({ root: dir, precompressed: true });
@@ -68,9 +78,10 @@ export function mountFrontend(app: OpenAPIHono, dir: string): boolean {
 
   app.use('/*', serveBuild);
 
-  app.notFound(c =>
-    wantsAppShell(c) ? c.html(indexHtml, 200, { 'Cache-Control': REVALIDATE_CACHE_CONTROL }) : routeNotFound(c),
-  );
+  // Vary because compress() above may encode the shell without advertising it.
+  const shellHeaders = { 'Cache-Control': REVALIDATE_CACHE_CONTROL, Vary: 'Accept-Encoding' };
+
+  app.notFound(c => (wantsAppShell(c) ? c.html(readShell(), 200, shellHeaders) : routeNotFound(c)));
 
   return true;
 }
