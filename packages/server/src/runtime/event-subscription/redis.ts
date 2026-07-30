@@ -1,24 +1,21 @@
 import type { RedisClientType } from 'redis';
 import {
+  sleep,
   StreamCorruptEntryError,
   StreamExpiringError,
   StreamGoneError,
+  SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS,
+  SUBSCRIBE_STREAM_THRESHOLD_MS,
   type EventSubscription,
   type EventSubscriptionPutOptions,
   type SequencedEvent,
 } from '.';
 
-const SUBSCRIBE_STREAM_THRESHOLD_MS = 60 * 1_000;
 const SUBSCRIBE_STREAM_POLL_ITEMS_COUNT = 100;
-const SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS = 1_000;
 
 interface StreamSequenceState {
   nextSequenceNumber: number;
   cleanupTimer?: NodeJS.Timeout | undefined;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function sequenceNumberFromEntryId(streamId: string, entryId: string): number {
