@@ -1,11 +1,9 @@
-/**
- * HTTP application: composes the resource routers and serves the OpenAPI
- * document (/openapi.json) and Swagger UI (/docs).
- */
+/** The API: resource routers, the OpenAPI document and Swagger UI, all under /api. */
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnSandboxFactory } from '@truefoundry/utils/agent-session';
 import type { RequestReplyRouter } from '@truefoundry/utils/request-reply';
+import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
@@ -15,7 +13,6 @@ import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
 import { createSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
-import { loadFrontendAssets, wantsAppShell } from './frontend';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { McpStore } from './store/McpStore';
 import type { ModelStore } from './store/ModelStore';
@@ -35,6 +32,11 @@ export function buildOpenApiDocument(app: OpenAPIHono) {
   return app.getOpenAPI31Document(openApiDocConfig);
 }
 
+/** Also used by the UI's fallback for anything that is not a navigation. */
+export function routeNotFound(c: Context) {
+  return c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404);
+}
+
 export interface ServerDeps {
   modelStore: ModelStore;
   mcpStore: McpStore;
@@ -48,8 +50,6 @@ export interface ServerDeps {
   redis: RedisClientType;
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;
-  /** Frontend build to serve; omitted or absent = API only. */
-  frontendDir?: string;
   logger: Logger;
 }
 
@@ -58,12 +58,12 @@ export function createServerApp(deps: ServerDeps) {
 
   app.get('/healthz', c => c.text('OK!'));
 
-  app.route('/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
-  app.route('/v1/models', createModelsRouter(deps.modelStore));
-  app.route('/v1/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
-  app.route('/v1/skills', createSkillsRouter(deps.skillStore));
+  app.route('/api/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
+  app.route('/api/models', createModelsRouter(deps.modelStore));
+  app.route('/api/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
+  app.route('/api/skills', createSkillsRouter(deps.skillStore));
   app.route(
-    '/v1/sessions',
+    '/api/sessions',
     createSessionsRouter({
       sessions: deps.sessions,
       sessionStore: deps.sessionStore,
@@ -76,7 +76,7 @@ export function createServerApp(deps: ServerDeps) {
     }),
   );
   app.route(
-    '/v1/sessions',
+    '/api/sessions',
     createTurnsRouter({
       sessions: deps.sessions,
       activeTurns: deps.activeTurns,
@@ -87,28 +87,10 @@ export function createServerApp(deps: ServerDeps) {
     }),
   );
 
-  app.get('/docs', swaggerUI({ url: '/openapi.json' }));
-  app.get('/openapi.json', c => c.json(buildOpenApiDocument(app)));
+  app.get('/api/docs', swaggerUI({ url: '/api/openapi.json' }));
+  app.get('/api/openapi.json', c => c.json(buildOpenApiDocument(app)));
 
-  // Last, so the API routes above always win.
-  const frontend = deps.frontendDir === undefined ? undefined : loadFrontendAssets(deps.frontendDir);
-  if (deps.frontendDir !== undefined) {
-    deps.logger.info(
-      frontend
-        ? `Serving frontend from ${deps.frontendDir}`
-        : `No frontend build at ${deps.frontendDir}, serving the API only`,
-    );
-  }
-  if (frontend) {
-    app.use('/*', frontend.middleware);
-  }
-
-  app.notFound(c => {
-    if (frontend && wantsAppShell({ method: c.req.method, pathname: c.req.path, accept: c.req.header('accept') })) {
-      return c.html(frontend.indexHtml, 200, { 'Cache-Control': 'no-cache' });
-    }
-    return c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404);
-  });
+  app.notFound(routeNotFound);
 
   app.onError((error, c) => {
     if (error instanceof HTTPException) {

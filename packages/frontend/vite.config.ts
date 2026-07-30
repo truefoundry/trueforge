@@ -49,7 +49,7 @@ export default defineConfig({
     port: 3000,
     // Plain passthrough: harnessFetch already maps SDK paths onto harness routes.
     proxy: {
-      '/v1': apiProxy,
+      '/api': apiProxy,
     },
   },
 });

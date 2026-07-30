@@ -34,34 +34,30 @@ Fill in `MODEL_API_KEY` in `packages/server/.env`, then start the server:
 pnpm dev:server
 ```
 
+That builds the UI first, so `http://localhost:8790` serves both it and the API.
+
 Migrations run automatically on startup. To migrate without starting HTTP:
 
 ```bash
 pnpm --filter @truefoundry/server migrate
 ```
 
-## Run the frontend (local)
-
-With the server on `:8790`:
+## Work on the UI (local)
 
 ```bash
-pnpm dev:frontend
+pnpm dev:frontend   # second terminal: Vite on :3000
 ```
 
-Vite serves the UI on `http://localhost:3000` and proxies `/v1/*` to the server. See [`packages/frontend/README.md`](packages/frontend/README.md).
+Vite serves the UI from source with hot reload and proxies `/api/*` to `:8790`, so UI edits need no
+rebuild or server restart. Use `:3000` for UI work; `:8790` serves the last build. See
+[`packages/frontend/README.md`](packages/frontend/README.md).
 
 ## Serving the UI from the server
 
-The server serves the frontend build itself, so deployments are a single process on a single origin:
-`/v1/*`, `/docs`, `/openapi.json` and `/healthz` are the API, and everything else resolves to the UI.
-`FRONTEND_DIR` points at the build (default `../frontend/dist`, relative to `packages/server`); when it
-does not exist the server logs that and serves the API only, which is what `pnpm dev:server` does.
-
-To run the built app the way a deployment does — one port, no Vite:
-
-```bash
-pnpm preview
-```
+Deployments are one process on one origin: `/api/*` (including `/api/docs` and `/api/openapi.json`) and
+`/healthz` are the API, everything else resolves to the UI. `FRONTEND_DIR` points at the build (default
+`../frontend/dist`; the image sets an absolute path). It is not required: with no build there the server
+logs a warning and serves the API only, which is what running the server behind Vite needs.
 
 ## Docker Compose
 

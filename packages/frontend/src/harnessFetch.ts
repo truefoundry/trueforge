@@ -1,13 +1,12 @@
 /**
- * The gateway SDK is generated against the gateway, where session routes sit under /v1/agents and draft
- * sessions are a separate resource; the harness serves one /v1/sessions surface. Passed to the SDK
- * clients as their `fetch`, this is the only place that knows about the difference.
+ * The gateway SDK targets /v1/agents with draft sessions as a separate resource; the harness serves one
+ * /api/sessions surface. Handed to the SDK clients as their `fetch`, this is the only place that knows.
  */
 
 const SESSION_PATH = /^(https?:\/\/[^/]+)?\/v1\/agents\/(?:draft-)?sessions(?=$|[/?])/;
 
 export function toHarnessUrl(url: string): string {
-  return url.replace(SESSION_PATH, '$1/v1/sessions');
+  return url.replace(SESSION_PATH, '$1/api/sessions');
 }
 
 export const harnessFetch: typeof fetch = (input, init) => {

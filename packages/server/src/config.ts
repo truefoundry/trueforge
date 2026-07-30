@@ -182,7 +182,7 @@ export const buildPostgresConnectionString = (parts: {
 
 export const DEFAULT_PORT = 8790;
 
-/** The image keeps the workspace layout, so this resolves in dev and in the container. */
+/** Relative to the working directory, like REGISTRY_DIR; the image sets an absolute FRONTEND_DIR. */
 const DEFAULT_FRONTEND_DIR = '../frontend/dist';
 
 export interface ServerConfiguration {
@@ -196,9 +196,8 @@ export interface ServerConfiguration {
    */
   REGISTRY_DIR: string;
   /**
-   * Frontend build served alongside the API; relative values resolve against the
-   * working directory. A missing directory is not an error — the server then
-   * serves the API only. Env: `FRONTEND_DIR`.
+   * Frontend build served alongside the API; a missing directory leaves the server API-only.
+   * Env: `FRONTEND_DIR`, defaults to `../frontend/dist` relative to the working directory.
    */
   FRONTEND_DIR: string;
   /**

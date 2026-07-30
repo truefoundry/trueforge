@@ -9,6 +9,7 @@ import { brotliCompressSync, brotliDecompressSync, gunzipSync } from 'node:zlib'
 import { createClient, type RedisClientType } from 'redis';
 import winston from 'winston';
 import { createServerApp } from './app';
+import { mountFrontend } from './frontend';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { McpStore } from './store/McpStore';
 import { ModelStore } from './store/ModelStore';
@@ -34,9 +35,9 @@ function writeFrontendBuild(): string {
 // Unconnected: no request below reaches Redis.
 const redis: RedisClientType = createClient();
 
-function createApp(frontendDir: string | undefined) {
+function createApp(frontendDir: string) {
   const sessionStore = new InMemorySessionStore();
-  return createServerApp({
+  const app = createServerApp({
     modelStore: ModelStore.load(),
     mcpStore: McpStore.load(),
     skillStore: SkillStore.load(),
@@ -45,15 +46,15 @@ function createApp(frontendDir: string | undefined) {
     activeTurns: new ActiveTurnRegistry(),
     redis,
     requestReplyRouter: new RequestReplyRouter(),
-    ...(frontendDir === undefined ? {} : { frontendDir }),
     logger: winston.createLogger({ silent: true }),
   });
+  return { app, mounted: mountFrontend(app, frontendDir) };
 }
 
 const navigation = { headers: { accept: 'text/html,*/*;q=0.8' } };
 
 describe('frontend serving', () => {
-  const app = createApp(writeFrontendBuild());
+  const { app } = createApp(writeFrontendBuild());
 
   it('serves the app shell at the root and for in-app routes', async () => {
     const root = await app.request('/', navigation);
@@ -92,19 +93,24 @@ describe('frontend serving', () => {
   });
 
   it('never compresses API responses, whose streams must flush per event', async () => {
-    const response = await app.request('/v1/models', { headers: { 'accept-encoding': 'gzip, br' } });
+    const response = await app.request('/api/models', { headers: { 'accept-encoding': 'gzip, br' } });
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('content-encoding'), null);
   });
 
   it('keeps unknown API routes as JSON 404s', async () => {
-    const response = await app.request('/v1/nope', navigation);
+    const response = await app.request('/api/nope', navigation);
     assert.equal(response.status, 404);
     assert.equal(response.headers.get('content-type')?.includes('application/json'), true);
   });
 
   it('404s a missing asset instead of returning the shell', async () => {
     const response = await app.request('/assets/gone-000000.js');
+    assert.equal(response.status, 404);
+  });
+
+  it('404s a write to an unknown path, which is never a navigation', async () => {
+    const response = await app.request('/some/app/route', { method: 'POST', ...navigation });
     assert.equal(response.status, 404);
   });
 
@@ -116,10 +122,17 @@ describe('frontend serving', () => {
 });
 
 describe('without a frontend build', () => {
-  const app = createApp(path.join(tmpdir(), 'harness-frontend-absent'));
+  const { app, mounted } = createApp(path.join(tmpdir(), 'harness-frontend-absent'));
 
-  it('404s the root', async () => {
-    const response = await app.request('/', navigation);
-    assert.equal(response.status, 404);
+  it('reports that nothing was mounted', () => {
+    assert.equal(mounted, false);
+  });
+
+  it('still serves the API, so UI work can run Vite separately', async () => {
+    const models = await app.request('/api/models');
+    assert.equal(models.status, 200);
+
+    const navigationToUi = await app.request('/', navigation);
+    assert.equal(navigationToUi.status, 404);
   });
 });

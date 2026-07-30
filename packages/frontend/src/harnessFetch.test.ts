@@ -3,27 +3,27 @@ import { describe, it } from 'node:test';
 import { harnessFetch, toHarnessUrl } from './harnessFetch';
 
 describe('toHarnessUrl', () => {
-  it('maps both session prefixes onto /v1/sessions', () => {
-    assert.equal(toHarnessUrl('/v1/agents/draft-sessions'), '/v1/sessions');
-    assert.equal(toHarnessUrl('/v1/agents/sessions'), '/v1/sessions');
-    assert.equal(toHarnessUrl('/v1/agents/sessions/ses_1/turns'), '/v1/sessions/ses_1/turns');
-    assert.equal(toHarnessUrl('/v1/agents/draft-sessions?limit=10'), '/v1/sessions?limit=10');
+  it('maps both session prefixes onto /api/sessions', () => {
+    assert.equal(toHarnessUrl('/v1/agents/draft-sessions'), '/api/sessions');
+    assert.equal(toHarnessUrl('/v1/agents/sessions'), '/api/sessions');
+    assert.equal(toHarnessUrl('/v1/agents/sessions/ses_1/turns'), '/api/sessions/ses_1/turns');
+    assert.equal(toHarnessUrl('/v1/agents/draft-sessions?limit=10'), '/api/sessions?limit=10');
   });
 
   it('preserves the origin of absolute urls', () => {
     assert.equal(
       toHarnessUrl('http://localhost:8790/v1/agents/sessions/ses_1'),
-      'http://localhost:8790/v1/sessions/ses_1',
+      'http://localhost:8790/api/sessions/ses_1',
     );
   });
 
   it('leaves other paths untouched', () => {
-    assert.equal(toHarnessUrl('/v1/models'), '/v1/models');
-    assert.equal(toHarnessUrl('/v1/sessions/ses_1'), '/v1/sessions/ses_1');
+    assert.equal(toHarnessUrl('/api/models'), '/api/models');
+    assert.equal(toHarnessUrl('/api/sessions/ses_1'), '/api/sessions/ses_1');
     // A longer segment only shares the prefix; it is a different route.
     assert.equal(toHarnessUrl('/v1/agents/sessions-archive'), '/v1/agents/sessions-archive');
     // Only the path is matched, so a prefix inside the query means nothing.
-    assert.equal(toHarnessUrl('/v1/sessions?next=/v1/agents/sessions'), '/v1/sessions?next=/v1/agents/sessions');
+    assert.equal(toHarnessUrl('/api/sessions?next=/v1/agents/sessions'), '/api/sessions?next=/v1/agents/sessions');
   });
 });
 
@@ -45,9 +45,9 @@ describe('harnessFetch', () => {
     }
 
     assert.deepEqual(seen, [
-      '/v1/sessions',
-      'http://localhost:8790/v1/sessions',
-      'http://localhost:8790/v1/sessions/ses_1',
+      '/api/sessions',
+      'http://localhost:8790/api/sessions',
+      'http://localhost:8790/api/sessions/ses_1',
     ]);
   });
 
@@ -59,7 +59,7 @@ describe('harnessFetch', () => {
       return Promise.resolve(new Response('ok'));
     };
 
-    const request = new Request('http://localhost:8790/v1/sessions', { method: 'POST', body: '{"a":1}' });
+    const request = new Request('http://localhost:8790/api/sessions', { method: 'POST', body: '{"a":1}' });
     try {
       await harnessFetch(request);
     } finally {

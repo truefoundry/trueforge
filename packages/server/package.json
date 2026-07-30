@@ -14,8 +14,7 @@
     "openapi:write": "tsx --env-file=.env.test scripts/write-openapi.ts",
     "test": "tsx --env-file=.env.test --test \"src/**/*.test.ts\"",
     "test:store": "jest --config jest.store.config.cjs",
-    "start": "node dist/main.js",
-    "preview": "node --env-file=.env dist/main.js"
+    "start": "node dist/main.js"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.11",

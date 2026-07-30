@@ -17,23 +17,29 @@ RUN corepack enable && pnpm config set store-dir /pnpm/store
 WORKDIR /app
 
 # ---------------------------------------------------------------------------
-# builder: install all deps (incl. dev) and build utils + server.
+# store: the pnpm store, from the lockfile only (stable when manifests churn).
 # ---------------------------------------------------------------------------
-FROM base AS builder
-# Populate the store from the lockfile only (stable when manifests churn).
+FROM base AS store
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches patches
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 
+# ---------------------------------------------------------------------------
+# workspace: install inputs shared by every stage below — the manifests plus the
+# sources the root postinstall hook (build:gen) inlines.
+# ---------------------------------------------------------------------------
+FROM store AS workspace
 COPY package.json .npmrc tsconfig.base.json ./
 COPY packages/harness/package.json packages/harness/package.json
 COPY packages/server/package.json packages/server/package.json
-# Workspace lockfile lists frontend; package.json must exist for install.
 COPY packages/frontend/package.json packages/frontend/package.json
-# The root postinstall hook runs build:gen in @truefoundry/utils, which needs
-# the generator script and the sandbox Python sources it inlines.
 COPY packages/harness/scripts packages/harness/scripts
 COPY packages/harness/src/core/sandbox/scripts packages/harness/src/core/sandbox/scripts
+
+# ---------------------------------------------------------------------------
+# builder: install all deps (incl. dev) and build utils + server.
+# ---------------------------------------------------------------------------
+FROM workspace AS builder
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
   pnpm install --frozen-lockfile --offline --filter @truefoundry/server...
 COPY packages/harness packages/harness
@@ -43,39 +49,16 @@ RUN pnpm --filter @truefoundry/utils build && pnpm --filter @truefoundry/server 
 # ---------------------------------------------------------------------------
 # frontend-builder: build the UI the server serves (parallel to builder above).
 # ---------------------------------------------------------------------------
-FROM base AS frontend-builder
-# Populate the store from the lockfile only (stable when manifests churn).
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY patches patches
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
-
-COPY package.json .npmrc ./
-COPY packages/harness/package.json packages/harness/package.json
-COPY packages/server/package.json packages/server/package.json
-COPY packages/frontend/package.json packages/frontend/package.json
-# Same as builder: the root postinstall hook needs the build:gen inputs.
-COPY packages/harness/scripts packages/harness/scripts
-COPY packages/harness/src/core/sandbox/scripts packages/harness/src/core/sandbox/scripts
+FROM workspace AS frontend-builder
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
   pnpm install --frozen-lockfile --offline --filter frontend...
 COPY packages/frontend packages/frontend
 RUN pnpm --filter frontend build
 
 # ---------------------------------------------------------------------------
-# prod-deps: resolve only production dependencies (no dev tooling).
+# prod-deps: production dependency tree (no dev tooling), resolved offline.
 # ---------------------------------------------------------------------------
-FROM base AS prod-deps
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY patches patches
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch --prod
-
-COPY package.json .npmrc ./
-COPY packages/harness/package.json packages/harness/package.json
-COPY packages/server/package.json packages/server/package.json
-COPY packages/frontend/package.json packages/frontend/package.json
-# Same as builder: the root postinstall hook needs the build:gen inputs.
-COPY packages/harness/scripts packages/harness/scripts
-COPY packages/harness/src/core/sandbox/scripts packages/harness/src/core/sandbox/scripts
+FROM workspace AS prod-deps
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
   pnpm install --frozen-lockfile --offline --prod --filter @truefoundry/server...
 
@@ -98,8 +81,9 @@ COPY --from=builder /app/packages/harness/dist ./packages/harness/dist
 COPY --from=builder /app/packages/server/package.json ./packages/server/package.json
 COPY --from=builder /app/packages/server/dist ./packages/server/dist
 
-# Kept at the workspace path so the default FRONTEND_DIR (../frontend/dist) resolves.
+# The UI, at an absolute path so it resolves from any working directory.
 COPY --from=frontend-builder /app/packages/frontend/dist ./packages/frontend/dist
+ENV FRONTEND_DIR=/app/packages/frontend/dist
 
 WORKDIR /app/packages/server
 
