@@ -42,11 +42,6 @@ export class EventSubscriptionRegistry<T extends object> {
   }
 }
 
-/** Redis/in-memory key for one turn's resumable event stream. */
-export function turnStreamId(tenantId: string, sessionId: string, turnId: string): string {
-  return `agent:turn:${tenantId}:${sessionId}:${turnId}:stream`;
-}
-
 /** Reject new subscriptions when the stream expires within this window. */
 export const SUBSCRIBE_STREAM_THRESHOLD_MS = 60 * 1_000;
 /** Delay between poll iterations while a stream has no new events. */

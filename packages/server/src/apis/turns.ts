@@ -35,7 +35,6 @@ import {
   StreamCorruptEntryError,
   StreamExpiringError,
   StreamGoneError,
-  turnStreamId,
   type EventSubscriptionRegistry,
   type SequencedEvent,
 } from '../runtime/event-subscription';
@@ -151,6 +150,11 @@ function streamTTLSecondsFor(event: TurnStreamingEvent): number | undefined {
     return configuration.TURN_STREAM_POST_COMPLETION_TTL_SECONDS;
   }
   return undefined;
+}
+
+/** Redis/in-memory key for one turn's resumable event stream. */
+function turnStreamId(tenantId: string, sessionId: string, turnId: string): string {
+  return `agent:turn:${tenantId}:${sessionId}:${turnId}:stream`;
 }
 
 /** Resume cursor: explicit body value wins, else the SSE `Last-Event-Id` header. */
