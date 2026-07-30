@@ -26,7 +26,8 @@ export interface EventSubscription<T extends object> {
  * client is supplied, otherwise views over one shared in-process store.
  */
 export class EventSubscriptionRegistry<T extends object> {
-  private memoryStore: InMemoryEventStreamStore<T> | undefined;
+  /** One store for the whole process so producers and subscribers share streams. */
+  private readonly memoryStore = new InMemoryEventStreamStore<T>();
 
   constructor(
     private readonly redis: RedisClientType | undefined,
@@ -37,7 +38,6 @@ export class EventSubscriptionRegistry<T extends object> {
     if (this.redis) {
       return new RedisEventSubscription(this.redis, streamId, this.parseEvent);
     }
-    this.memoryStore ??= new InMemoryEventStreamStore<T>();
     return new InMemoryEventSubscription(this.memoryStore, streamId);
   }
 }
