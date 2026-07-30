@@ -813,12 +813,12 @@ export class AgentThread {
     return requestBody;
   }
 
-  private computeAssistantMessageMetrics(params: {
+  private computeAssistantMessageUsage(params: {
     requestBody: ChatCompletionCreateParamsStreaming;
-    metrics: CompletionUsage;
+    usage: CompletionUsage;
     toolMapping: Map<string, MappedMCPTool>;
   }): ModelMessageUsage {
-    const { requestBody, metrics, toolMapping } = params;
+    const { requestBody, usage, toolMapping } = params;
     // Sub-agents have no <user-instructions> section — their agent.instruction is
     // SUB_AGENT_IDENTITY which is harness content, not user-defined instructions.
     const trimmedInstruction = this.definition.instruction?.trim() ?? '';
@@ -845,13 +845,13 @@ export class AgentThread {
     const harnessEstimate = harnessInstructionTokens + tfyManagedToolTokens;
 
     const estimatedComponentsTotal = harnessEstimate + skillsEstimate + instructionsEstimate + userToolTokens;
-    const messagesEstimate = Math.max(0, metrics.input_tokens - estimatedComponentsTotal);
+    const messagesEstimate = Math.max(0, usage.input_tokens - estimatedComponentsTotal);
 
     return {
-      input_tokens: metrics.input_tokens,
-      output_tokens: metrics.output_tokens,
-      cache_read_tokens: metrics.cache_read_tokens,
-      cache_write_tokens: metrics.cache_write_tokens,
+      input_tokens: usage.input_tokens,
+      output_tokens: usage.output_tokens,
+      cache_read_tokens: usage.cache_read_tokens,
+      cache_write_tokens: usage.cache_write_tokens,
       input_tokens_breakdown: {
         harness: harnessEstimate,
         skills: skillsEstimate,
@@ -1018,9 +1018,9 @@ export class AgentThread {
     while (!result.done) {
       const chunk = result.value;
       if (chunk.usage) {
-        modelMessageUsage = this.computeAssistantMessageMetrics({
+        modelMessageUsage = this.computeAssistantMessageUsage({
           requestBody,
-          metrics: chunk.usage,
+          usage: chunk.usage,
           toolMapping,
         });
       }
@@ -1050,10 +1050,10 @@ export class AgentThread {
       return { outcome: 'exit', modelMessageEventId };
     }
 
-    // should be computed by this point but in case provider never gives out any delta with metrics key, compute it now.
-    modelMessageUsage ??= this.computeAssistantMessageMetrics({
+    // should be computed by this point but in case provider never gives out any delta with usage, compute it now.
+    modelMessageUsage ??= this.computeAssistantMessageUsage({
       requestBody,
-      metrics: result.value.usage,
+      usage: result.value.usage,
       toolMapping,
     });
     const assistantMessage: InternalEnrichedAssistantMessage = await buildContextAssistantMessage(
