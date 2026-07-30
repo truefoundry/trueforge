@@ -2193,15 +2193,12 @@
             "type": "string"
           },
           "output": {
-            "allOf": [
+            "anyOf": [
               {
                 "$ref": "#/components/schemas/ModelMessageEvent"
               },
               {
-                "type": [
-                  "object",
-                  "null"
-                ]
+                "type": "null"
               }
             ]
           },

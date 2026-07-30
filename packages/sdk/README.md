@@ -16,6 +16,7 @@ The harness server has no built-in authentication, so point the client at your o
 - [Request and Response Types](#request-and-response-types)
 - [Exception Handling](#exception-handling)
 - [Streaming Response](#streaming-response)
+- [Pagination](#pagination)
 - [Advanced](#advanced)
   - [Subpackage Exports](#subpackage-exports)
   - [Additional Headers](#additional-headers)
@@ -100,6 +101,29 @@ const response = await client.sessions.createTurn("sessionId");
 for await (const item of response) {
     console.log(item);
 }
+```
+
+## Pagination
+
+List endpoints are paginated. The SDK provides an iterator so that you can simply loop over the items:
+
+```typescript
+import { TrueHarness } from "trueharness";
+
+const client = new TrueHarness({ baseUrl: "YOUR_BASE_URL" });
+const pageableResponse = await client.sessions.list();
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.sessions.list();
+while (page.hasNextPage()) {
+    page = page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
 ```
 
 ## Advanced
