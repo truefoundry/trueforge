@@ -8,13 +8,13 @@ export const TrueFoundrySystemToolInfo: core.serialization.ObjectSchema<
     serializers.TrueFoundrySystemToolInfo.Raw,
     TrueHarness.TrueFoundrySystemToolInfo
 > = core.serialization.object({
-    type: core.serialization.stringLiteral("truefoundry-system"),
     name: core.serialization.string(),
+    type: core.serialization.stringLiteral("truefoundry-system"),
 });
 
 export declare namespace TrueFoundrySystemToolInfo {
     export interface Raw {
-        type: "truefoundry-system";
         name: string;
+        type: "truefoundry-system";
     }
 }

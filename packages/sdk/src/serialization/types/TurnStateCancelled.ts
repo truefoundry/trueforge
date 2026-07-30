@@ -9,15 +9,15 @@ export const TurnStateCancelled: core.serialization.ObjectSchema<
     serializers.TurnStateCancelled.Raw,
     TrueHarness.TurnStateCancelled
 > = core.serialization.object({
-    status: core.serialization.stringLiteral("cancelled"),
-    reason: TurnStateCancelledReason,
     completedAt: core.serialization.property("completed_at", core.serialization.string()),
+    reason: TurnStateCancelledReason,
+    status: core.serialization.stringLiteral("cancelled"),
 });
 
 export declare namespace TurnStateCancelled {
     export interface Raw {
-        status: "cancelled";
-        reason: TurnStateCancelledReason.Raw;
         completed_at: string;
+        reason: TurnStateCancelledReason.Raw;
+        status: "cancelled";
     }
 }

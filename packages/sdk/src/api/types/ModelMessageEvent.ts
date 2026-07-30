@@ -4,15 +4,15 @@ import type * as TrueHarness from "../index.js";
 
 export interface ModelMessageEvent {
     content?: TrueHarness.ModelMessageEventContent | null;
-    name?: string;
-    refusal?: string | null;
-    reasoningContent?: string;
-    toolCalls?: TrueHarness.ToolCall[];
-    type: "model.message";
+    createdAt: string;
+    finishReason?: TrueHarness.FinishReason | null;
     /** Unique identifier for the event */
     id: string;
+    name?: string;
+    reasoningContent?: string;
+    refusal?: string | null;
     threadId: string;
-    finishReason?: TrueHarness.FinishReason | null;
-    createdAt: string;
+    toolCalls?: TrueHarness.ToolCall[];
+    type: "model.message";
     usage?: TrueHarness.ModelMessageUsage;
 }

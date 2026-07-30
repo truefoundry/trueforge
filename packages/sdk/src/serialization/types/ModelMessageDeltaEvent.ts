@@ -12,31 +12,31 @@ export const ModelMessageDeltaEvent: core.serialization.ObjectSchema<
     TrueHarness.ModelMessageDeltaEvent
 > = core.serialization.object({
     content: core.serialization.string().optionalNullable(),
+    createdAt: core.serialization.property("created_at", core.serialization.string().optional()),
+    finishReason: core.serialization.property("finish_reason", FinishReason.optionalNullable()),
+    id: core.serialization.string(),
+    reasoningContent: core.serialization.property("reasoning_content", core.serialization.string().optional()),
     refusal: core.serialization.string().optionalNullable(),
+    threadId: core.serialization.property("thread_id", core.serialization.string()),
     toolCalls: core.serialization.property(
         "tool_calls",
         core.serialization.list(ExtendedChunkDeltaToolCall).optional(),
     ),
-    reasoningContent: core.serialization.property("reasoning_content", core.serialization.string().optional()),
     type: core.serialization.stringLiteral("model.message.delta"),
-    id: core.serialization.string(),
-    threadId: core.serialization.property("thread_id", core.serialization.string()),
-    createdAt: core.serialization.property("created_at", core.serialization.string().optional()),
-    finishReason: core.serialization.property("finish_reason", FinishReason.optionalNullable()),
     usage: ModelMessageUsage.optional(),
 });
 
 export declare namespace ModelMessageDeltaEvent {
     export interface Raw {
         content?: (string | null | undefined) | null;
-        refusal?: (string | null | undefined) | null;
-        tool_calls?: ExtendedChunkDeltaToolCall.Raw[] | null;
-        reasoning_content?: string | null;
-        type: "model.message.delta";
-        id: string;
-        thread_id: string;
         created_at?: string | null;
         finish_reason?: (FinishReason.Raw | null | undefined) | null;
+        id: string;
+        reasoning_content?: string | null;
+        refusal?: (string | null | undefined) | null;
+        thread_id: string;
+        tool_calls?: ExtendedChunkDeltaToolCall.Raw[] | null;
+        type: "model.message.delta";
         usage?: ModelMessageUsage.Raw | null;
     }
 }

@@ -6,15 +6,15 @@ import type * as serializers from "../index.js";
 
 export const FileContent: core.serialization.ObjectSchema<serializers.FileContent.Raw, TrueHarness.FileContent> =
     core.serialization.object({
-        type: core.serialization.stringLiteral("file"),
-        name: core.serialization.string(),
         data: core.serialization.string(),
+        name: core.serialization.string(),
+        type: core.serialization.stringLiteral("file"),
     });
 
 export declare namespace FileContent {
     export interface Raw {
-        type: "file";
-        name: string;
         data: string;
+        name: string;
+        type: "file";
     }
 }

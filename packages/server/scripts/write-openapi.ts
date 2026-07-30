@@ -17,6 +17,25 @@ import { McpStore } from '../src/store/McpStore';
 import { ModelStore } from '../src/store/ModelStore';
 import { SkillStore } from '../src/store/SkillStore';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/**
+ * Sorts object keys so the committed document depends only on the API, not on
+ * the order Zod happened to register schemas in. Arrays keep their order, since
+ * position carries meaning in `required`, `enum` and `anyOf`.
+ */
+function canonicalise(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalise);
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map(key => [key, canonicalise(value[key])]),
+  );
+}
+
 // Unconnected stand-ins suffice: route registration never reads a dependency.
 const sessionStore = new InMemorySessionStore();
 const redis: RedisClientType = createClient();
@@ -35,5 +54,5 @@ const app = createServerApp({
 const document = buildOpenApiDocument(app);
 const outputPath = path.join(import.meta.dirname, '../../../fern/openapi/openapi.json');
 mkdirSync(path.dirname(outputPath), { recursive: true });
-writeFileSync(outputPath, `${JSON.stringify(document, null, 2)}\n`);
+writeFileSync(outputPath, `${JSON.stringify(canonicalise(document), null, 2)}\n`);
 console.log(`Wrote ${String(Object.keys(document.paths ?? {}).length)} paths to ${outputPath}`);

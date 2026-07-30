@@ -3,7 +3,7 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ChatCompletionMessageToolCall {
+    function: TrueHarness.ChatCompletionMessageToolCallFunction;
     id: string;
     type: "function";
-    function: TrueHarness.ChatCompletionMessageToolCallFunction;
 }

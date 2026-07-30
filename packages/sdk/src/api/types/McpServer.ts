@@ -3,10 +3,10 @@
 import type * as TrueHarness from "../index.js";
 
 export interface McpServer {
-    name: string;
-    enableTools?: TrueHarness.McpServerEnableToolsItem[];
     disableTools?: TrueHarness.McpServerDisableToolsItem[];
+    enableTools?: TrueHarness.McpServerEnableToolsItem[];
+    name: string;
+    preload?: boolean;
     preloadTools?: TrueHarness.McpServerPreloadToolsItem[];
     requireApprovalForTools?: TrueHarness.McpServerRequireApprovalForToolsItem[];
-    preload?: boolean;
 }

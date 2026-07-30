@@ -3,6 +3,6 @@
 import type * as TrueHarness from "../index.js";
 
 export type ActionRequiredEvent =
+    | TrueHarness.McpAuthRequiredEvent
     | TrueHarness.ToolApprovalRequiredEvent
-    | TrueHarness.ToolResponseRequiredEvent
-    | TrueHarness.McpAuthRequiredEvent;
+    | TrueHarness.ToolResponseRequiredEvent;

@@ -3,10 +3,10 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ToolApprovalRequiredEvent {
-    type: "tool.approval_required";
+    createdAt: string;
     /** Unique identifier for the event */
     id: string;
-    createdAt: string;
     threadId: string;
     toolCalls: TrueHarness.ToolCallRef[];
+    type: "tool.approval_required";
 }

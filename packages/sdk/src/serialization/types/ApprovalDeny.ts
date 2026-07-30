@@ -6,13 +6,13 @@ import type * as serializers from "../index.js";
 
 export const ApprovalDeny: core.serialization.ObjectSchema<serializers.ApprovalDeny.Raw, TrueHarness.ApprovalDeny> =
     core.serialization.object({
-        status: core.serialization.stringLiteral("deny"),
         reason: core.serialization.string().optional(),
+        status: core.serialization.stringLiteral("deny"),
     });
 
 export declare namespace ApprovalDeny {
     export interface Raw {
-        status: "deny";
         reason?: string | null;
+        status: "deny";
     }
 }

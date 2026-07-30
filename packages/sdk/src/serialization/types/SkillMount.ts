@@ -6,21 +6,21 @@ import type * as serializers from "../index.js";
 
 export const SkillMount: core.serialization.ObjectSchema<serializers.SkillMount.Raw, TrueHarness.SkillMount> =
     core.serialization.object({
+        description: core.serialization.string(),
+        name: core.serialization.string(),
+        path: core.serialization.string().optional(),
+        ref: core.serialization.string(),
         type: core.serialization.stringLiteral("git"),
         url: core.serialization.string(),
-        path: core.serialization.string().optional(),
-        name: core.serialization.string(),
-        description: core.serialization.string(),
-        ref: core.serialization.string(),
     });
 
 export declare namespace SkillMount {
     export interface Raw {
+        description: string;
+        name: string;
+        path?: string | null;
+        ref: string;
         type: "git";
         url: string;
-        path?: string | null;
-        name: string;
-        description: string;
-        ref: string;
     }
 }

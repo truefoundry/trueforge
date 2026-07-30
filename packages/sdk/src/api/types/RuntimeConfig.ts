@@ -3,10 +3,10 @@
 import type * as TrueHarness from "../index.js";
 
 export interface RuntimeConfig {
+    askUserQuestions?: TrueHarness.AskUserQuestionsConfig;
+    contextManagement?: TrueHarness.ContextManagementConfig;
+    dynamicSubAgents?: TrueHarness.DynamicSubAgentsConfig;
+    generativeUi?: TrueHarness.GenerativeUiConfig;
     iterationLimit?: number;
     sandbox?: TrueHarness.SandboxConfig;
-    dynamicSubAgents?: TrueHarness.DynamicSubAgentsConfig;
-    contextManagement?: TrueHarness.ContextManagementConfig;
-    generativeUi?: TrueHarness.GenerativeUiConfig;
-    askUserQuestions?: TrueHarness.AskUserQuestionsConfig;
 }

@@ -20,15 +20,15 @@ export const TurnStreamingEvent: core.serialization.Schema<
     serializers.TurnStreamingEvent.Raw,
     TrueHarness.TurnStreamingEvent
 > = core.serialization.undiscriminatedUnion([
-    ModelMessageEvent,
-    ModelMessageDeltaEvent,
-    ToolResponseEvent,
-    ThreadCreatedEvent,
-    ThreadDoneEvent,
     McpAuthRequiredEvent,
     McpInitializeEvent,
+    ModelMessageEvent,
+    ModelMessageDeltaEvent,
     SandboxCreatedEvent,
+    ThreadCreatedEvent,
+    ThreadDoneEvent,
     ToolApprovalRequiredEvent,
+    ToolResponseEvent,
     ToolResponseRequiredEvent,
     TurnCreatedEvent,
     TurnDoneEvent,
@@ -36,15 +36,15 @@ export const TurnStreamingEvent: core.serialization.Schema<
 
 export declare namespace TurnStreamingEvent {
     export type Raw =
-        | ModelMessageEvent.Raw
-        | ModelMessageDeltaEvent.Raw
-        | ToolResponseEvent.Raw
-        | ThreadCreatedEvent.Raw
-        | ThreadDoneEvent.Raw
         | McpAuthRequiredEvent.Raw
         | McpInitializeEvent.Raw
+        | ModelMessageEvent.Raw
+        | ModelMessageDeltaEvent.Raw
         | SandboxCreatedEvent.Raw
+        | ThreadCreatedEvent.Raw
+        | ThreadDoneEvent.Raw
         | ToolApprovalRequiredEvent.Raw
+        | ToolResponseEvent.Raw
         | ToolResponseRequiredEvent.Raw
         | TurnCreatedEvent.Raw
         | TurnDoneEvent.Raw;

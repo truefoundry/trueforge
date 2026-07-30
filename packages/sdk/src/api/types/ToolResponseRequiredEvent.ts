@@ -3,10 +3,10 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ToolResponseRequiredEvent {
-    type: "tool.response_required";
+    createdAt: string;
     /** Unique identifier for the event */
     id: string;
-    createdAt: string;
     threadId: string;
     toolCalls: TrueHarness.ToolCallRef[];
+    type: "tool.response_required";
 }

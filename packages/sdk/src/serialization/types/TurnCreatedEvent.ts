@@ -10,25 +10,25 @@ export const TurnCreatedEvent: core.serialization.ObjectSchema<
     serializers.TurnCreatedEvent.Raw,
     TrueHarness.TurnCreatedEvent
 > = core.serialization.object({
-    type: core.serialization.stringLiteral("turn.created"),
-    id: core.serialization.string(),
-    turnId: core.serialization.property("turn_id", core.serialization.string()),
-    previousTurnId: core.serialization.property("previous_turn_id", core.serialization.string().nullable()),
-    input: core.serialization.list(TurnInputItem).optional(),
-    state: TurnStateRunning,
     createdAt: core.serialization.property("created_at", core.serialization.string()),
+    id: core.serialization.string(),
+    input: core.serialization.list(TurnInputItem).optional(),
+    previousTurnId: core.serialization.property("previous_turn_id", core.serialization.string().nullable()),
+    state: TurnStateRunning,
     threadId: core.serialization.property("thread_id", core.serialization.string().nullable()),
+    turnId: core.serialization.property("turn_id", core.serialization.string()),
+    type: core.serialization.stringLiteral("turn.created"),
 });
 
 export declare namespace TurnCreatedEvent {
     export interface Raw {
-        type: "turn.created";
-        id: string;
-        turn_id: string;
-        previous_turn_id?: string | null;
-        input?: TurnInputItem.Raw[] | null;
-        state: TurnStateRunning.Raw;
         created_at: string;
+        id: string;
+        input?: TurnInputItem.Raw[] | null;
+        previous_turn_id?: string | null;
+        state: TurnStateRunning.Raw;
         thread_id?: string | null;
+        turn_id: string;
+        type: "turn.created";
     }
 }

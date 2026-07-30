@@ -8,21 +8,21 @@ export const ToolResponseEvent: core.serialization.ObjectSchema<
     serializers.ToolResponseEvent.Raw,
     TrueHarness.ToolResponseEvent
 > = core.serialization.object({
-    toolCallId: core.serialization.property("tool_call_id", core.serialization.string()),
     content: core.serialization.string(),
-    type: core.serialization.stringLiteral("tool.response"),
+    createdAt: core.serialization.property("created_at", core.serialization.string()),
     id: core.serialization.string(),
     threadId: core.serialization.property("thread_id", core.serialization.string()),
-    createdAt: core.serialization.property("created_at", core.serialization.string()),
+    toolCallId: core.serialization.property("tool_call_id", core.serialization.string()),
+    type: core.serialization.stringLiteral("tool.response"),
 });
 
 export declare namespace ToolResponseEvent {
     export interface Raw {
-        tool_call_id: string;
         content: string;
-        type: "tool.response";
+        created_at: string;
         id: string;
         thread_id: string;
-        created_at: string;
+        tool_call_id: string;
+        type: "tool.response";
     }
 }

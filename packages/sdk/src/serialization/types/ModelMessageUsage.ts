@@ -9,19 +9,19 @@ export const ModelMessageUsage: core.serialization.ObjectSchema<
     serializers.ModelMessageUsage.Raw,
     TrueHarness.ModelMessageUsage
 > = core.serialization.object({
-    inputTokens: core.serialization.property("input_tokens", core.serialization.number()),
-    outputTokens: core.serialization.property("output_tokens", core.serialization.number()),
     cacheReadTokens: core.serialization.property("cache_read_tokens", core.serialization.number().optional()),
     cacheWriteTokens: core.serialization.property("cache_write_tokens", core.serialization.number().optional()),
+    inputTokens: core.serialization.property("input_tokens", core.serialization.number()),
     inputTokensBreakdown: core.serialization.property("input_tokens_breakdown", ModelMessageUsageInputTokensBreakdown),
+    outputTokens: core.serialization.property("output_tokens", core.serialization.number()),
 });
 
 export declare namespace ModelMessageUsage {
     export interface Raw {
-        input_tokens: number;
-        output_tokens: number;
         cache_read_tokens?: number | null;
         cache_write_tokens?: number | null;
+        input_tokens: number;
         input_tokens_breakdown: ModelMessageUsageInputTokensBreakdown.Raw;
+        output_tokens: number;
     }
 }

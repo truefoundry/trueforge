@@ -3,6 +3,6 @@
 import type * as TrueHarness from "../index.js";
 
 export interface UserMessage {
-    type: "user.message";
     content: TrueHarness.UserMessageContent;
+    type: "user.message";
 }

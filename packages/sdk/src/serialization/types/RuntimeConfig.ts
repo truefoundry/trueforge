@@ -11,21 +11,21 @@ import { SandboxConfig } from "./SandboxConfig.js";
 
 export const RuntimeConfig: core.serialization.ObjectSchema<serializers.RuntimeConfig.Raw, TrueHarness.RuntimeConfig> =
     core.serialization.object({
+        askUserQuestions: core.serialization.property("ask_user_questions", AskUserQuestionsConfig.optional()),
+        contextManagement: core.serialization.property("context_management", ContextManagementConfig.optional()),
+        dynamicSubAgents: core.serialization.property("dynamic_sub_agents", DynamicSubAgentsConfig.optional()),
+        generativeUi: core.serialization.property("generative_ui", GenerativeUiConfig.optional()),
         iterationLimit: core.serialization.property("iteration_limit", core.serialization.number().optional()),
         sandbox: SandboxConfig.optional(),
-        dynamicSubAgents: core.serialization.property("dynamic_sub_agents", DynamicSubAgentsConfig.optional()),
-        contextManagement: core.serialization.property("context_management", ContextManagementConfig.optional()),
-        generativeUi: core.serialization.property("generative_ui", GenerativeUiConfig.optional()),
-        askUserQuestions: core.serialization.property("ask_user_questions", AskUserQuestionsConfig.optional()),
     });
 
 export declare namespace RuntimeConfig {
     export interface Raw {
+        ask_user_questions?: AskUserQuestionsConfig.Raw | null;
+        context_management?: ContextManagementConfig.Raw | null;
+        dynamic_sub_agents?: DynamicSubAgentsConfig.Raw | null;
+        generative_ui?: GenerativeUiConfig.Raw | null;
         iteration_limit?: number | null;
         sandbox?: SandboxConfig.Raw | null;
-        dynamic_sub_agents?: DynamicSubAgentsConfig.Raw | null;
-        context_management?: ContextManagementConfig.Raw | null;
-        generative_ui?: GenerativeUiConfig.Raw | null;
-        ask_user_questions?: AskUserQuestionsConfig.Raw | null;
     }
 }

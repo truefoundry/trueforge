@@ -3,13 +3,13 @@
 import type * as TrueHarness from "../index.js";
 
 export interface TurnCreatedEvent {
-    type: "turn.created";
+    createdAt: string;
     /** Unique identifier for the event */
     id: string;
-    turnId: string;
-    previousTurnId: string | null;
     input?: TrueHarness.TurnInputItem[];
+    previousTurnId: string | null;
     state: TrueHarness.TurnStateRunning;
-    createdAt: string;
     threadId: string | null;
+    turnId: string;
+    type: "turn.created";
 }

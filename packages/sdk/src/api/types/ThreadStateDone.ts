@@ -3,6 +3,6 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ThreadStateDone {
-    status: "done";
     output: TrueHarness.ModelMessageEvent;
+    status: "done";
 }

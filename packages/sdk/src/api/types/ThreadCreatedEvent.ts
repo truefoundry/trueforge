@@ -3,12 +3,12 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ThreadCreatedEvent {
-    type: "thread.created";
-    /** Unique identifier for the event */
-    id: string;
     agentInfo: TrueHarness.AgentInfo;
     createdAt: string;
+    /** Unique identifier for the event */
+    id: string;
     parent: TrueHarness.AgentParent;
     threadId: string;
     title: string;
+    type: "thread.created";
 }

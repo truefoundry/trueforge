@@ -6,19 +6,19 @@ import type * as serializers from "../index.js";
 
 export const SkillEntry: core.serialization.ObjectSchema<serializers.SkillEntry.Raw, TrueHarness.SkillEntry> =
     core.serialization.object({
+        description: core.serialization.string(),
         name: core.serialization.string(),
-        url: core.serialization.string(),
         path: core.serialization.string().optional(),
         ref: core.serialization.string().optional(),
-        description: core.serialization.string(),
+        url: core.serialization.string(),
     });
 
 export declare namespace SkillEntry {
     export interface Raw {
+        description: string;
         name: string;
-        url: string;
         path?: string | null;
         ref?: string | null;
-        description: string;
+        url: string;
     }
 }

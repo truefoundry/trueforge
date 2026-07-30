@@ -8,13 +8,13 @@ export const ChatCompletionChunkDeltaToolCallFunction: core.serialization.Object
     serializers.ChatCompletionChunkDeltaToolCallFunction.Raw,
     TrueHarness.ChatCompletionChunkDeltaToolCallFunction
 > = core.serialization.object({
-    name: core.serialization.string().optional(),
     arguments: core.serialization.string().optional(),
+    name: core.serialization.string().optional(),
 });
 
 export declare namespace ChatCompletionChunkDeltaToolCallFunction {
     export interface Raw {
-        name?: string | null;
         arguments?: string | null;
+        name?: string | null;
     }
 }

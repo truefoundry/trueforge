@@ -8,13 +8,13 @@ export const ChatCompletionContentPartRefusal: core.serialization.ObjectSchema<
     serializers.ChatCompletionContentPartRefusal.Raw,
     TrueHarness.ChatCompletionContentPartRefusal
 > = core.serialization.object({
-    type: core.serialization.stringLiteral("refusal"),
     refusal: core.serialization.string(),
+    type: core.serialization.stringLiteral("refusal"),
 });
 
 export declare namespace ChatCompletionContentPartRefusal {
     export interface Raw {
-        type: "refusal";
         refusal: string;
+        type: "refusal";
     }
 }

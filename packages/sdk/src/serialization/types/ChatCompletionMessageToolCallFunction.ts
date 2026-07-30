@@ -8,13 +8,13 @@ export const ChatCompletionMessageToolCallFunction: core.serialization.ObjectSch
     serializers.ChatCompletionMessageToolCallFunction.Raw,
     TrueHarness.ChatCompletionMessageToolCallFunction
 > = core.serialization.object({
-    name: core.serialization.string(),
     arguments: core.serialization.string(),
+    name: core.serialization.string(),
 });
 
 export declare namespace ChatCompletionMessageToolCallFunction {
     export interface Raw {
-        name: string;
         arguments: string;
+        name: string;
     }
 }

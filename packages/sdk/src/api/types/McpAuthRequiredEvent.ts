@@ -3,6 +3,6 @@
 import type * as TrueHarness from "../index.js";
 
 export interface McpAuthRequiredEvent extends TrueHarness.BaseMcpAuthRequiredEvent {
-    type: "mcp.auth_required";
     mcpServers: TrueHarness.McpServerAuthInfo[];
+    type: "mcp.auth_required";
 }

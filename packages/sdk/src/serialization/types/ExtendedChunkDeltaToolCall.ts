@@ -11,17 +11,17 @@ export const ExtendedChunkDeltaToolCall: core.serialization.ObjectSchema<
     TrueHarness.ExtendedChunkDeltaToolCall
 > = core.serialization
     .object({
-        toolInfo: core.serialization.property("tool_info", ToolInfo.optional()),
         providerSpecificFields: core.serialization.property(
             "provider_specific_fields",
             core.serialization.record(core.serialization.string(), core.serialization.unknown()).optional(),
         ),
+        toolInfo: core.serialization.property("tool_info", ToolInfo.optional()),
     })
     .extend(ChatCompletionChunkDeltaToolCall);
 
 export declare namespace ExtendedChunkDeltaToolCall {
     export interface Raw extends ChatCompletionChunkDeltaToolCall.Raw {
-        tool_info?: ToolInfo.Raw | null;
         provider_specific_fields?: Record<string, unknown> | null;
+        tool_info?: ToolInfo.Raw | null;
     }
 }

@@ -7,8 +7,8 @@ import { McpToolInfo } from "./McpToolInfo.js";
 import { TrueFoundrySystemToolInfo } from "./TrueFoundrySystemToolInfo.js";
 
 export const ToolInfo: core.serialization.Schema<serializers.ToolInfo.Raw, TrueHarness.ToolInfo> =
-    core.serialization.undiscriminatedUnion([TrueFoundrySystemToolInfo, McpToolInfo]);
+    core.serialization.undiscriminatedUnion([McpToolInfo, TrueFoundrySystemToolInfo]);
 
 export declare namespace ToolInfo {
-    export type Raw = TrueFoundrySystemToolInfo.Raw | McpToolInfo.Raw;
+    export type Raw = McpToolInfo.Raw | TrueFoundrySystemToolInfo.Raw;
 }

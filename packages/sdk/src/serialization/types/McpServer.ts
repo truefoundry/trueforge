@@ -10,15 +10,16 @@ import { McpServerRequireApprovalForToolsItem } from "./McpServerRequireApproval
 
 export const McpServer: core.serialization.ObjectSchema<serializers.McpServer.Raw, TrueHarness.McpServer> =
     core.serialization.object({
-        name: core.serialization.string(),
-        enableTools: core.serialization.property(
-            "enable_tools",
-            core.serialization.list(McpServerEnableToolsItem).optional(),
-        ),
         disableTools: core.serialization.property(
             "disable_tools",
             core.serialization.list(McpServerDisableToolsItem).optional(),
         ),
+        enableTools: core.serialization.property(
+            "enable_tools",
+            core.serialization.list(McpServerEnableToolsItem).optional(),
+        ),
+        name: core.serialization.string(),
+        preload: core.serialization.boolean().optional(),
         preloadTools: core.serialization.property(
             "preload_tools",
             core.serialization.list(McpServerPreloadToolsItem).optional(),
@@ -27,16 +28,15 @@ export const McpServer: core.serialization.ObjectSchema<serializers.McpServer.Ra
             "require_approval_for_tools",
             core.serialization.list(McpServerRequireApprovalForToolsItem).optional(),
         ),
-        preload: core.serialization.boolean().optional(),
     });
 
 export declare namespace McpServer {
     export interface Raw {
-        name: string;
-        enable_tools?: McpServerEnableToolsItem.Raw[] | null;
         disable_tools?: McpServerDisableToolsItem.Raw[] | null;
+        enable_tools?: McpServerEnableToolsItem.Raw[] | null;
+        name: string;
+        preload?: boolean | null;
         preload_tools?: McpServerPreloadToolsItem.Raw[] | null;
         require_approval_for_tools?: McpServerRequireApprovalForToolsItem.Raw[] | null;
-        preload?: boolean | null;
     }
 }

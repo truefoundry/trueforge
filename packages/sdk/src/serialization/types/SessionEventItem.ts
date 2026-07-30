@@ -9,13 +9,13 @@ export const SessionEventItem: core.serialization.ObjectSchema<
     serializers.SessionEventItem.Raw,
     TrueHarness.SessionEventItem
 > = core.serialization.object({
-    turnId: core.serialization.property("turn_id", core.serialization.string()),
     event: SessionEvent,
+    turnId: core.serialization.property("turn_id", core.serialization.string()),
 });
 
 export declare namespace SessionEventItem {
     export interface Raw {
-        turn_id: string;
         event: SessionEvent.Raw;
+        turn_id: string;
     }
 }

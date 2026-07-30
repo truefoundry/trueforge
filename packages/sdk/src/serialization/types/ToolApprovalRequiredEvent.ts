@@ -9,19 +9,19 @@ export const ToolApprovalRequiredEvent: core.serialization.ObjectSchema<
     serializers.ToolApprovalRequiredEvent.Raw,
     TrueHarness.ToolApprovalRequiredEvent
 > = core.serialization.object({
-    type: core.serialization.stringLiteral("tool.approval_required"),
-    id: core.serialization.string(),
     createdAt: core.serialization.property("created_at", core.serialization.string()),
+    id: core.serialization.string(),
     threadId: core.serialization.property("thread_id", core.serialization.string()),
     toolCalls: core.serialization.property("tool_calls", core.serialization.list(ToolCallRef)),
+    type: core.serialization.stringLiteral("tool.approval_required"),
 });
 
 export declare namespace ToolApprovalRequiredEvent {
     export interface Raw {
-        type: "tool.approval_required";
-        id: string;
         created_at: string;
+        id: string;
         thread_id: string;
         tool_calls: ToolCallRef.Raw[];
+        type: "tool.approval_required";
     }
 }

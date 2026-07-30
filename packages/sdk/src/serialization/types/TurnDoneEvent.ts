@@ -7,19 +7,19 @@ import { TurnDoneEventState } from "./TurnDoneEventState.js";
 
 export const TurnDoneEvent: core.serialization.ObjectSchema<serializers.TurnDoneEvent.Raw, TrueHarness.TurnDoneEvent> =
     core.serialization.object({
-        type: core.serialization.stringLiteral("turn.done"),
+        createdAt: core.serialization.property("created_at", core.serialization.string()),
         id: core.serialization.string(),
         state: TurnDoneEventState,
-        createdAt: core.serialization.property("created_at", core.serialization.string()),
         threadId: core.serialization.property("thread_id", core.serialization.string().nullable()),
+        type: core.serialization.stringLiteral("turn.done"),
     });
 
 export declare namespace TurnDoneEvent {
     export interface Raw {
-        type: "turn.done";
+        created_at: string;
         id: string;
         state: TurnDoneEventState.Raw;
-        created_at: string;
         thread_id?: string | null;
+        type: "turn.done";
     }
 }

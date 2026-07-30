@@ -6,17 +6,17 @@ import type * as serializers from "../index.js";
 
 export const McpToolInfo: core.serialization.ObjectSchema<serializers.McpToolInfo.Raw, TrueHarness.McpToolInfo> =
     core.serialization.object({
-        type: core.serialization.stringLiteral("mcp"),
+        name: core.serialization.string(),
         serverId: core.serialization.property("server_id", core.serialization.string()),
         serverName: core.serialization.property("server_name", core.serialization.string()),
-        name: core.serialization.string(),
+        type: core.serialization.stringLiteral("mcp"),
     });
 
 export declare namespace McpToolInfo {
     export interface Raw {
-        type: "mcp";
+        name: string;
         server_id: string;
         server_name: string;
-        name: string;
+        type: "mcp";
     }
 }

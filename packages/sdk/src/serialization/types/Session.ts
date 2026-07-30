@@ -7,19 +7,19 @@ import { AgentSpec } from "./AgentSpec.js";
 
 export const Session: core.serialization.ObjectSchema<serializers.Session.Raw, TrueHarness.Session> =
     core.serialization.object({
-        id: core.serialization.string(),
         agentSpec: core.serialization.property("agent_spec", AgentSpec),
-        title: core.serialization.string().nullable(),
         createdAt: core.serialization.property("created_at", core.serialization.string()),
+        id: core.serialization.string(),
+        title: core.serialization.string().nullable(),
         updatedAt: core.serialization.property("updated_at", core.serialization.string()),
     });
 
 export declare namespace Session {
     export interface Raw {
-        id: string;
         agent_spec: AgentSpec.Raw;
-        title?: string | null;
         created_at: string;
+        id: string;
+        title?: string | null;
         updated_at: string;
     }
 }

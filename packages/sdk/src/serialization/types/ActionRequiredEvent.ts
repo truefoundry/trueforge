@@ -11,11 +11,11 @@ export const ActionRequiredEvent: core.serialization.Schema<
     serializers.ActionRequiredEvent.Raw,
     TrueHarness.ActionRequiredEvent
 > = core.serialization.undiscriminatedUnion([
+    McpAuthRequiredEvent,
     ToolApprovalRequiredEvent,
     ToolResponseRequiredEvent,
-    McpAuthRequiredEvent,
 ]);
 
 export declare namespace ActionRequiredEvent {
-    export type Raw = ToolApprovalRequiredEvent.Raw | ToolResponseRequiredEvent.Raw | McpAuthRequiredEvent.Raw;
+    export type Raw = McpAuthRequiredEvent.Raw | ToolApprovalRequiredEvent.Raw | ToolResponseRequiredEvent.Raw;
 }

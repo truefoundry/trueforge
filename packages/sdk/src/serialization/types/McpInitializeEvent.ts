@@ -9,19 +9,19 @@ export const McpInitializeEvent: core.serialization.ObjectSchema<
     serializers.McpInitializeEvent.Raw,
     TrueHarness.McpInitializeEvent
 > = core.serialization.object({
-    type: core.serialization.stringLiteral("mcp.initialize"),
-    id: core.serialization.string(),
     createdAt: core.serialization.property("created_at", core.serialization.string()),
-    threadId: core.serialization.property("thread_id", core.serialization.string()),
+    id: core.serialization.string(),
     mcpServers: core.serialization.property("mcp_servers", core.serialization.list(McpServerInitInfo)),
+    threadId: core.serialization.property("thread_id", core.serialization.string()),
+    type: core.serialization.stringLiteral("mcp.initialize"),
 });
 
 export declare namespace McpInitializeEvent {
     export interface Raw {
-        type: "mcp.initialize";
-        id: string;
         created_at: string;
-        thread_id: string;
+        id: string;
         mcp_servers: McpServerInitInfo.Raw[];
+        thread_id: string;
+        type: "mcp.initialize";
     }
 }

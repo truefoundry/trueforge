@@ -3,7 +3,7 @@
 import type * as TrueHarness from "../index.js";
 
 export interface SandboxNetworkPolicyAuthInjectItem {
-    type: "git";
-    match: TrueHarness.SandboxNetworkPolicyAuthInjectItemMatch;
     authData: TrueHarness.SandboxNetworkPolicyAuthInjectItemAuthData;
+    match: TrueHarness.SandboxNetworkPolicyAuthInjectItemMatch;
+    type: "git";
 }

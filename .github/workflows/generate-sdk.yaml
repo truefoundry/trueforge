@@ -42,6 +42,8 @@ jobs:
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.head_ref || github.ref_name }}
+          # Full history, so the gate below can diff against the base commit.
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -62,25 +64,56 @@ jobs:
       - name: Write OpenAPI document
         run: pnpm --filter @truefoundry/server openapi:write
 
-      # Pinned in one place so CI and local runs agree; bumps come from upgrade-sdk-toolchain.yaml.
+      # Generation and its Docker pull are the slow part, so skip everything below
+      # when neither the document nor the generator config moved.
+      - name: Decide whether the SDK needs regenerating
+        id: decide
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+
+          reason=""
+          if [ -n "$(git status --porcelain -- fern/openapi/openapi.json)" ]; then
+            reason="the OpenAPI document changed"
+          elif ! git rev-parse --verify --quiet "${BASE_SHA}^{commit}" >/dev/null; then
+            # A branch's first push reports an all-zero base commit.
+            reason="there is no base commit to compare against"
+          elif ! git diff --quiet "$BASE_SHA" HEAD -- fern/generators.yml fern/fern.config.json; then
+            reason="the generator config changed"
+          fi
+
+          if [ -n "$reason" ]; then
+            echo "Regenerating: $reason."
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping: the OpenAPI document and generator config are unchanged."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Pinned in one place so CI and local runs agree; upgrades are manual edits.
       - name: Install Fern
+        if: steps.decide.outputs.needed == 'true'
         run: npm install -g "fern-api@$(jq -r .version fern/fern.config.json)"
 
       - name: Check API is valid
+        if: steps.decide.outputs.needed == 'true'
         run: fern check
 
       # `--generate-tests` is the only thing that makes Fern emit a full package rather than loose sources.
       - name: Generate TypeScript SDK
+        if: steps.decide.outputs.needed == 'true'
         run: fern generate --group ts-sdk --version 0.0.0 --local --generate-tests --log-level debug
 
       # Fern generates no CI for this output mode, so this is what proves the SDK compiles.
       - name: Verify the generated SDK builds
+        if: steps.decide.outputs.needed == 'true'
         working-directory: packages/sdk
         run: bash .fern/verify.sh
 
       # Forks get a read-only token, so only the commit is skipped. TODO: an approval flow that can push to the fork.
       - name: Commit generated output
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        if: steps.decide.outputs.needed == 'true' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
         # Passed as env, never interpolated into the script, so it cannot inject shell.
         env:
           BRANCH: ${{ github.head_ref || github.ref_name }}
@@ -100,6 +133,6 @@ jobs:
           git push origin "HEAD:refs/heads/$BRANCH"
 
       - name: Report skipped commit on fork
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        if: steps.decide.outputs.needed == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |
           echo "::notice::Generation succeeded. The commit was skipped because pull requests from forks cannot push; a maintainer will regenerate after merge."

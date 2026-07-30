@@ -3,6 +3,6 @@
 import type * as TrueHarness from "../index.js";
 
 export type TurnDoneEventState =
-    | TrueHarness.TurnStateDone
     | TrueHarness.TurnStateCancelled
+    | TrueHarness.TurnStateDone
     | TrueHarness.TurnStateError;

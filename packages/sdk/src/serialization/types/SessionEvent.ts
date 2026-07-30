@@ -17,30 +17,30 @@ import { TurnDoneEvent } from "./TurnDoneEvent.js";
 
 export const SessionEvent: core.serialization.Schema<serializers.SessionEvent.Raw, TrueHarness.SessionEvent> =
     core.serialization.undiscriminatedUnion([
-        TurnCreatedEvent,
-        TurnDoneEvent,
-        ModelMessageEvent,
-        ToolResponseEvent,
-        ThreadCreatedEvent,
-        ThreadDoneEvent,
         McpAuthRequiredEvent,
         McpInitializeEvent,
+        ModelMessageEvent,
         SandboxCreatedEvent,
+        ThreadCreatedEvent,
+        ThreadDoneEvent,
         ToolApprovalRequiredEvent,
+        ToolResponseEvent,
         ToolResponseRequiredEvent,
+        TurnCreatedEvent,
+        TurnDoneEvent,
     ]);
 
 export declare namespace SessionEvent {
     export type Raw =
-        | TurnCreatedEvent.Raw
-        | TurnDoneEvent.Raw
-        | ModelMessageEvent.Raw
-        | ToolResponseEvent.Raw
-        | ThreadCreatedEvent.Raw
-        | ThreadDoneEvent.Raw
         | McpAuthRequiredEvent.Raw
         | McpInitializeEvent.Raw
+        | ModelMessageEvent.Raw
         | SandboxCreatedEvent.Raw
+        | ThreadCreatedEvent.Raw
+        | ThreadDoneEvent.Raw
         | ToolApprovalRequiredEvent.Raw
-        | ToolResponseRequiredEvent.Raw;
+        | ToolResponseEvent.Raw
+        | ToolResponseRequiredEvent.Raw
+        | TurnCreatedEvent.Raw
+        | TurnDoneEvent.Raw;
 }

@@ -8,15 +8,15 @@ export const BaseMcpAuthRequiredEvent: core.serialization.ObjectSchema<
     serializers.BaseMcpAuthRequiredEvent.Raw,
     TrueHarness.BaseMcpAuthRequiredEvent
 > = core.serialization.object({
-    id: core.serialization.string(),
     createdAt: core.serialization.property("created_at", core.serialization.string()),
+    id: core.serialization.string(),
     threadId: core.serialization.property("thread_id", core.serialization.string().nullable()),
 });
 
 export declare namespace BaseMcpAuthRequiredEvent {
     export interface Raw {
-        id: string;
         created_at: string;
+        id: string;
         thread_id?: string | null;
     }
 }

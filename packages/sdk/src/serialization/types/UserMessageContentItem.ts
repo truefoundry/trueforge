@@ -9,8 +9,8 @@ import { TextContent } from "./TextContent.js";
 export const UserMessageContentItem: core.serialization.Schema<
     serializers.UserMessageContentItem.Raw,
     TrueHarness.UserMessageContentItem
-> = core.serialization.undiscriminatedUnion([TextContent, FileContent]);
+> = core.serialization.undiscriminatedUnion([FileContent, TextContent]);
 
 export declare namespace UserMessageContentItem {
-    export type Raw = TextContent.Raw | FileContent.Raw;
+    export type Raw = FileContent.Raw | TextContent.Raw;
 }

@@ -40,17 +40,6 @@
             },
             "default": "./dist/cjs/api/resources/server/exports.js"
         },
-        "./models": {
-            "import": {
-                "types": "./dist/esm/api/resources/models/exports.d.mts",
-                "default": "./dist/esm/api/resources/models/exports.mjs"
-            },
-            "require": {
-                "types": "./dist/cjs/api/resources/models/exports.d.ts",
-                "default": "./dist/cjs/api/resources/models/exports.js"
-            },
-            "default": "./dist/cjs/api/resources/models/exports.js"
-        },
         "./mcpServers": {
             "import": {
                 "types": "./dist/esm/api/resources/mcpServers/exports.d.mts",
@@ -62,16 +51,16 @@
             },
             "default": "./dist/cjs/api/resources/mcpServers/exports.js"
         },
-        "./skills": {
+        "./models": {
             "import": {
-                "types": "./dist/esm/api/resources/skills/exports.d.mts",
-                "default": "./dist/esm/api/resources/skills/exports.mjs"
+                "types": "./dist/esm/api/resources/models/exports.d.mts",
+                "default": "./dist/esm/api/resources/models/exports.mjs"
             },
             "require": {
-                "types": "./dist/cjs/api/resources/skills/exports.d.ts",
-                "default": "./dist/cjs/api/resources/skills/exports.js"
+                "types": "./dist/cjs/api/resources/models/exports.d.ts",
+                "default": "./dist/cjs/api/resources/models/exports.js"
             },
-            "default": "./dist/cjs/api/resources/skills/exports.js"
+            "default": "./dist/cjs/api/resources/models/exports.js"
         },
         "./sessions": {
             "import": {
@@ -83,6 +72,17 @@
                 "default": "./dist/cjs/api/resources/sessions/exports.js"
             },
             "default": "./dist/cjs/api/resources/sessions/exports.js"
+        },
+        "./skills": {
+            "import": {
+                "types": "./dist/esm/api/resources/skills/exports.d.mts",
+                "default": "./dist/esm/api/resources/skills/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/skills/exports.d.ts",
+                "default": "./dist/cjs/api/resources/skills/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/skills/exports.js"
         },
         "./package.json": "./package.json"
     },

@@ -3,6 +3,6 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ResponseFormatJsonSchema {
-    type: "json_schema";
     jsonSchema: TrueHarness.ResponseFormatJsonSchemaJsonSchema;
+    type: "json_schema";
 }

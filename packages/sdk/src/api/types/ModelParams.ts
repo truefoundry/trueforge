@@ -2,9 +2,9 @@
 
 export interface ModelParams {
     maxTokens?: number;
-    temperature?: number;
-    topP?: number;
-    topK?: number;
     parallelToolCalls?: boolean;
     reasoningEffort?: string;
+    temperature?: number;
+    topK?: number;
+    topP?: number;
 }

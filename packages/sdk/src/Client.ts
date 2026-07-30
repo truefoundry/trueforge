@@ -18,10 +18,10 @@ export declare namespace TrueHarness {
 export class TrueHarness {
     protected readonly _options: NormalizedClientOptions<TrueHarness.Options>;
     protected _server: ServerClient | undefined;
-    protected _models: ModelsClient | undefined;
     protected _mcpServers: McpServersClient | undefined;
-    protected _skills: SkillsClient | undefined;
+    protected _models: ModelsClient | undefined;
     protected _sessions: SessionsClient | undefined;
+    protected _skills: SkillsClient | undefined;
 
     constructor(options: TrueHarness.Options) {
         this._options = normalizeClientOptions(options);
@@ -31,20 +31,20 @@ export class TrueHarness {
         return (this._server ??= new ServerClient(this._options));
     }
 
-    public get models(): ModelsClient {
-        return (this._models ??= new ModelsClient(this._options));
-    }
-
     public get mcpServers(): McpServersClient {
         return (this._mcpServers ??= new McpServersClient(this._options));
     }
 
-    public get skills(): SkillsClient {
-        return (this._skills ??= new SkillsClient(this._options));
+    public get models(): ModelsClient {
+        return (this._models ??= new ModelsClient(this._options));
     }
 
     public get sessions(): SessionsClient {
         return (this._sessions ??= new SessionsClient(this._options));
+    }
+
+    public get skills(): SkillsClient {
+        return (this._skills ??= new SkillsClient(this._options));
     }
 
     /**

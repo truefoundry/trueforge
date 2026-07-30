@@ -10,23 +10,23 @@ export const ThreadCreatedEvent: core.serialization.ObjectSchema<
     serializers.ThreadCreatedEvent.Raw,
     TrueHarness.ThreadCreatedEvent
 > = core.serialization.object({
-    type: core.serialization.stringLiteral("thread.created"),
-    id: core.serialization.string(),
     agentInfo: core.serialization.property("agent_info", AgentInfo),
     createdAt: core.serialization.property("created_at", core.serialization.string()),
+    id: core.serialization.string(),
     parent: AgentParent,
     threadId: core.serialization.property("thread_id", core.serialization.string()),
     title: core.serialization.string(),
+    type: core.serialization.stringLiteral("thread.created"),
 });
 
 export declare namespace ThreadCreatedEvent {
     export interface Raw {
-        type: "thread.created";
-        id: string;
         agent_info: AgentInfo.Raw;
         created_at: string;
+        id: string;
         parent: AgentParent.Raw;
         thread_id: string;
         title: string;
+        type: "thread.created";
     }
 }

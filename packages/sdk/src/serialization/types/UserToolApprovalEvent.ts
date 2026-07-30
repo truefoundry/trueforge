@@ -9,17 +9,17 @@ export const UserToolApprovalEvent: core.serialization.ObjectSchema<
     serializers.UserToolApprovalEvent.Raw,
     TrueHarness.UserToolApprovalEvent
 > = core.serialization.object({
-    type: core.serialization.stringLiteral("user.tool_approval"),
+    approval: ApprovalDecision,
     threadId: core.serialization.property("thread_id", core.serialization.string()),
     toolCallId: core.serialization.property("tool_call_id", core.serialization.string()),
-    approval: ApprovalDecision,
+    type: core.serialization.stringLiteral("user.tool_approval"),
 });
 
 export declare namespace UserToolApprovalEvent {
     export interface Raw {
-        type: "user.tool_approval";
+        approval: ApprovalDecision.Raw;
         thread_id: string;
         tool_call_id: string;
-        approval: ApprovalDecision.Raw;
+        type: "user.tool_approval";
     }
 }

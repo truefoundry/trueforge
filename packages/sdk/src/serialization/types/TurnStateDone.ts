@@ -8,17 +8,17 @@ import { ModelMessageEvent } from "./ModelMessageEvent.js";
 
 export const TurnStateDone: core.serialization.ObjectSchema<serializers.TurnStateDone.Raw, TrueHarness.TurnStateDone> =
     core.serialization.object({
-        status: core.serialization.stringLiteral("done"),
+        completedAt: core.serialization.property("completed_at", core.serialization.string()),
         output: ModelMessageEvent.optional(),
         requiredActions: core.serialization.property("required_actions", core.serialization.list(ActionRequiredEvent)),
-        completedAt: core.serialization.property("completed_at", core.serialization.string()),
+        status: core.serialization.stringLiteral("done"),
     });
 
 export declare namespace TurnStateDone {
     export interface Raw {
-        status: "done";
+        completed_at: string;
         output?: ModelMessageEvent.Raw | null;
         required_actions: ActionRequiredEvent.Raw[];
-        completed_at: string;
+        status: "done";
     }
 }

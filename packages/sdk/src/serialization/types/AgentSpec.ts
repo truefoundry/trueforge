@@ -12,25 +12,25 @@ import { SkillMount } from "./SkillMount.js";
 
 export const AgentSpec: core.serialization.ObjectSchema<serializers.AgentSpec.Raw, TrueHarness.AgentSpec> =
     core.serialization.object({
-        model: Model,
+        config: RuntimeConfig.optional(),
         instructions: core.serialization.string().optional(),
-        messages: core.serialization.list(AgentSpecUserMessage).optional(),
         mcpServers: core.serialization.property("mcp_servers", core.serialization.list(McpServer).optional()),
+        messages: core.serialization.list(AgentSpecUserMessage).optional(),
+        model: Model,
         responseFormat: core.serialization.property("response_format", ResponseFormat.optional()),
         skills: core.serialization.list(SkillMount).optional(),
-        config: RuntimeConfig.optional(),
         variables: core.serialization.record(core.serialization.string(), core.serialization.string()).optional(),
     });
 
 export declare namespace AgentSpec {
     export interface Raw {
-        model: Model.Raw;
+        config?: RuntimeConfig.Raw | null;
         instructions?: string | null;
-        messages?: AgentSpecUserMessage.Raw[] | null;
         mcp_servers?: McpServer.Raw[] | null;
+        messages?: AgentSpecUserMessage.Raw[] | null;
+        model: Model.Raw;
         response_format?: ResponseFormat.Raw | null;
         skills?: SkillMount.Raw[] | null;
-        config?: RuntimeConfig.Raw | null;
         variables?: Record<string, string> | null;
     }
 }

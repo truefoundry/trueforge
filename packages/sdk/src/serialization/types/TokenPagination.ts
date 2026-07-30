@@ -8,15 +8,15 @@ export const TokenPagination: core.serialization.ObjectSchema<
     serializers.TokenPagination.Raw,
     TrueHarness.TokenPagination
 > = core.serialization.object({
+    limit: core.serialization.number(),
     nextPageToken: core.serialization.property("next_page_token", core.serialization.string().optional()),
     previousPageToken: core.serialization.property("previous_page_token", core.serialization.string().optional()),
-    limit: core.serialization.number(),
 });
 
 export declare namespace TokenPagination {
     export interface Raw {
+        limit: number;
         next_page_token?: string | null;
         previous_page_token?: string | null;
-        limit: number;
     }
 }

@@ -9,15 +9,15 @@ export const ChatCompletionMessageToolCall: core.serialization.ObjectSchema<
     serializers.ChatCompletionMessageToolCall.Raw,
     TrueHarness.ChatCompletionMessageToolCall
 > = core.serialization.object({
+    function: ChatCompletionMessageToolCallFunction,
     id: core.serialization.string(),
     type: core.serialization.stringLiteral("function"),
-    function: ChatCompletionMessageToolCallFunction,
 });
 
 export declare namespace ChatCompletionMessageToolCall {
     export interface Raw {
+        function: ChatCompletionMessageToolCallFunction.Raw;
         id: string;
         type: "function";
-        function: ChatCompletionMessageToolCallFunction.Raw;
     }
 }

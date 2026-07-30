@@ -9,15 +9,15 @@ export const ThreadStateError: core.serialization.ObjectSchema<
     serializers.ThreadStateError.Raw,
     TrueHarness.ThreadStateError
 > = core.serialization.object({
-    status: core.serialization.stringLiteral("error"),
     error: core.serialization.string(),
     output: ModelMessageEvent.optional(),
+    status: core.serialization.stringLiteral("error"),
 });
 
 export declare namespace ThreadStateError {
     export interface Raw {
-        status: "error";
         error: string;
         output?: ModelMessageEvent.Raw | null;
+        status: "error";
     }
 }

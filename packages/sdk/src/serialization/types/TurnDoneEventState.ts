@@ -10,8 +10,8 @@ import { TurnStateError } from "./TurnStateError.js";
 export const TurnDoneEventState: core.serialization.Schema<
     serializers.TurnDoneEventState.Raw,
     TrueHarness.TurnDoneEventState
-> = core.serialization.undiscriminatedUnion([TurnStateDone, TurnStateCancelled, TurnStateError]);
+> = core.serialization.undiscriminatedUnion([TurnStateCancelled, TurnStateDone, TurnStateError]);
 
 export declare namespace TurnDoneEventState {
-    export type Raw = TurnStateDone.Raw | TurnStateCancelled.Raw | TurnStateError.Raw;
+    export type Raw = TurnStateCancelled.Raw | TurnStateDone.Raw | TurnStateError.Raw;
 }

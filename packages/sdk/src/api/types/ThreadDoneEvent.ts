@@ -3,9 +3,9 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ThreadDoneEvent extends TrueHarness.BaseThreadDoneEvent {
-    type: "thread.done";
+    createdAt: string;
     /** Unique identifier for the event */
     id: string;
-    createdAt: string;
     state: TrueHarness.ThreadState;
+    type: "thread.done";
 }

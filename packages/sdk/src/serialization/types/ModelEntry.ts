@@ -6,18 +6,18 @@ import type * as serializers from "../index.js";
 
 export const ModelEntry: core.serialization.ObjectSchema<serializers.ModelEntry.Raw, TrueHarness.ModelEntry> =
     core.serialization.object({
+        maxOutputTokens: core.serialization.property("max_output_tokens", core.serialization.number()),
         name: core.serialization.string(),
         reasoningEfforts: core.serialization.property(
             "reasoning_efforts",
             core.serialization.list(core.serialization.string()).optional(),
         ),
-        maxOutputTokens: core.serialization.property("max_output_tokens", core.serialization.number()),
     });
 
 export declare namespace ModelEntry {
     export interface Raw {
+        max_output_tokens: number;
         name: string;
         reasoning_efforts?: string[] | null;
-        max_output_tokens: number;
     }
 }

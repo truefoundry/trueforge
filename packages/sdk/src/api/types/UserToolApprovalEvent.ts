@@ -3,8 +3,8 @@
 import type * as TrueHarness from "../index.js";
 
 export interface UserToolApprovalEvent {
-    type: "user.tool_approval";
+    approval: TrueHarness.ApprovalDecision;
     threadId: string;
     toolCallId: string;
-    approval: TrueHarness.ApprovalDecision;
+    type: "user.tool_approval";
 }

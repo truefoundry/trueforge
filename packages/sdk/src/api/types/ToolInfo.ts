@@ -2,4 +2,4 @@
 
 import type * as TrueHarness from "../index.js";
 
-export type ToolInfo = TrueHarness.TrueFoundrySystemToolInfo | TrueHarness.McpToolInfo;
+export type ToolInfo = TrueHarness.McpToolInfo | TrueHarness.TrueFoundrySystemToolInfo;

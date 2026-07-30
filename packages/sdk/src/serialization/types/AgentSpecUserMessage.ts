@@ -8,13 +8,13 @@ export const AgentSpecUserMessage: core.serialization.ObjectSchema<
     serializers.AgentSpecUserMessage.Raw,
     TrueHarness.AgentSpecUserMessage
 > = core.serialization.object({
-    type: core.serialization.stringLiteral("user.message"),
     content: core.serialization.string(),
+    type: core.serialization.stringLiteral("user.message"),
 });
 
 export declare namespace AgentSpecUserMessage {
     export interface Raw {
-        type: "user.message";
         content: string;
+        type: "user.message";
     }
 }

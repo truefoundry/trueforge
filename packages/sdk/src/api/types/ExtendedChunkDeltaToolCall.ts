@@ -3,6 +3,6 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ExtendedChunkDeltaToolCall extends TrueHarness.ChatCompletionChunkDeltaToolCall {
-    toolInfo?: TrueHarness.ToolInfo;
     providerSpecificFields?: Record<string, unknown>;
+    toolInfo?: TrueHarness.ToolInfo;
 }

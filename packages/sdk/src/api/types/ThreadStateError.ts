@@ -3,7 +3,7 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ThreadStateError {
-    status: "error";
     error: string;
     output?: TrueHarness.ModelMessageEvent;
+    status: "error";
 }

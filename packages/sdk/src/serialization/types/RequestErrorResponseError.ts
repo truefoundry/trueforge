@@ -8,17 +8,17 @@ export const RequestErrorResponseError: core.serialization.ObjectSchema<
     serializers.RequestErrorResponseError.Raw,
     TrueHarness.RequestErrorResponseError
 > = core.serialization.object({
-    message: core.serialization.string(),
-    type: core.serialization.string().optional(),
     code: core.serialization.string().optionalNullable(),
+    message: core.serialization.string(),
     param: core.serialization.string().optionalNullable(),
+    type: core.serialization.string().optional(),
 });
 
 export declare namespace RequestErrorResponseError {
     export interface Raw {
-        message: string;
-        type?: string | null;
         code?: (string | null | undefined) | null;
+        message: string;
         param?: (string | null | undefined) | null;
+        type?: string | null;
     }
 }

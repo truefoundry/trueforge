@@ -3,10 +3,10 @@
 import type * as TrueHarness from "../index.js";
 
 export interface TurnDoneEvent {
-    type: "turn.done";
+    createdAt: string;
     /** Unique identifier for the event */
     id: string;
     state: TrueHarness.TurnDoneEventState;
-    createdAt: string;
     threadId: string | null;
+    type: "turn.done";
 }

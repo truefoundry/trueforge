@@ -8,16 +8,16 @@ export const ResponseFormatJsonSchemaJsonSchema: core.serialization.ObjectSchema
     serializers.ResponseFormatJsonSchemaJsonSchema.Raw,
     TrueHarness.ResponseFormatJsonSchemaJsonSchema
 > = core.serialization.object({
-    name: core.serialization.string(),
     description: core.serialization.string().optional(),
+    name: core.serialization.string(),
     schema: core.serialization.record(core.serialization.string(), core.serialization.unknown()).optional(),
     strict: core.serialization.boolean().optionalNullable(),
 });
 
 export declare namespace ResponseFormatJsonSchemaJsonSchema {
     export interface Raw {
-        name: string;
         description?: string | null;
+        name: string;
         schema?: Record<string, unknown> | null;
         strict?: (boolean | null | undefined) | null;
     }

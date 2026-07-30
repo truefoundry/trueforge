@@ -12,14 +12,14 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    id: "id",
                     agent_spec: { model: { name: "name" } },
-                    title: "title",
                     created_at: "created_at",
+                    id: "id",
+                    title: "title",
                     updated_at: "updated_at",
                 },
             ],
-            pagination: { next_page_token: "next_page_token", previous_page_token: "previous_page_token", limit: 1 },
+            pagination: { limit: 1, next_page_token: "next_page_token", previous_page_token: "previous_page_token" },
         };
 
         server
@@ -33,21 +33,21 @@ describe("SessionsClient", () => {
         const expected = {
             data: [
                 {
-                    id: "id",
                     agentSpec: {
                         model: {
                             name: "name",
                         },
                     },
-                    title: "title",
                     createdAt: "created_at",
+                    id: "id",
+                    title: "title",
                     updatedAt: "updated_at",
                 },
             ],
             pagination: {
+                limit: 1,
                 nextPageToken: "next_page_token",
                 previousPageToken: "previous_page_token",
-                limit: 1,
             },
         };
         const page = await client.sessions.list();
@@ -77,18 +77,18 @@ describe("SessionsClient", () => {
         const rawRequestBody = { agent_spec: { model: { name: "name" } } };
         const rawResponseBody = {
             data: {
-                id: "id",
                 agent_spec: {
-                    model: { name: "name" },
                     instructions: "instructions",
-                    messages: [{ type: "user.message", content: "content" }],
                     mcp_servers: [{ name: "name" }],
+                    messages: [{ content: "content", type: "user.message" }],
+                    model: { name: "name" },
                     response_format: { type: "text" },
-                    skills: [{ type: "git", url: "url", name: "name", description: "description", ref: "ref" }],
+                    skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
                     variables: { key: "value" },
                 },
-                title: "title",
                 created_at: "created_at",
+                id: "id",
+                title: "title",
                 updated_at: "updated_at",
             },
         };
@@ -111,41 +111,41 @@ describe("SessionsClient", () => {
         });
         expect(response).toEqual({
             data: {
-                id: "id",
                 agentSpec: {
-                    model: {
-                        name: "name",
-                    },
                     instructions: "instructions",
-                    messages: [
-                        {
-                            type: "user.message",
-                            content: "content",
-                        },
-                    ],
                     mcpServers: [
                         {
                             name: "name",
                         },
                     ],
+                    messages: [
+                        {
+                            content: "content",
+                            type: "user.message",
+                        },
+                    ],
+                    model: {
+                        name: "name",
+                    },
                     responseFormat: {
                         type: "text",
                     },
                     skills: [
                         {
+                            description: "description",
+                            name: "name",
+                            ref: "ref",
                             type: "git",
                             url: "url",
-                            name: "name",
-                            description: "description",
-                            ref: "ref",
                         },
                     ],
                     variables: {
                         key: "value",
                     },
                 },
-                title: "title",
                 createdAt: "created_at",
+                id: "id",
+                title: "title",
                 updatedAt: "updated_at",
             },
         });
@@ -209,18 +209,18 @@ describe("SessionsClient", () => {
 
         const rawResponseBody = {
             data: {
-                id: "id",
                 agent_spec: {
-                    model: { name: "name" },
                     instructions: "instructions",
-                    messages: [{ type: "user.message", content: "content" }],
                     mcp_servers: [{ name: "name" }],
+                    messages: [{ content: "content", type: "user.message" }],
+                    model: { name: "name" },
                     response_format: { type: "text" },
-                    skills: [{ type: "git", url: "url", name: "name", description: "description", ref: "ref" }],
+                    skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
                     variables: { key: "value" },
                 },
-                title: "title",
                 created_at: "created_at",
+                id: "id",
+                title: "title",
                 updated_at: "updated_at",
             },
         };
@@ -236,41 +236,41 @@ describe("SessionsClient", () => {
         const response = await client.sessions.get("sessionId");
         expect(response).toEqual({
             data: {
-                id: "id",
                 agentSpec: {
-                    model: {
-                        name: "name",
-                    },
                     instructions: "instructions",
-                    messages: [
-                        {
-                            type: "user.message",
-                            content: "content",
-                        },
-                    ],
                     mcpServers: [
                         {
                             name: "name",
                         },
                     ],
+                    messages: [
+                        {
+                            content: "content",
+                            type: "user.message",
+                        },
+                    ],
+                    model: {
+                        name: "name",
+                    },
                     responseFormat: {
                         type: "text",
                     },
                     skills: [
                         {
+                            description: "description",
+                            name: "name",
+                            ref: "ref",
                             type: "git",
                             url: "url",
-                            name: "name",
-                            description: "description",
-                            ref: "ref",
                         },
                     ],
                     variables: {
                         key: "value",
                     },
                 },
-                title: "title",
                 createdAt: "created_at",
+                id: "id",
+                title: "title",
                 updatedAt: "updated_at",
             },
         });
@@ -301,18 +301,18 @@ describe("SessionsClient", () => {
         const rawRequestBody = {};
         const rawResponseBody = {
             data: {
-                id: "id",
                 agent_spec: {
-                    model: { name: "name" },
                     instructions: "instructions",
-                    messages: [{ type: "user.message", content: "content" }],
                     mcp_servers: [{ name: "name" }],
+                    messages: [{ content: "content", type: "user.message" }],
+                    model: { name: "name" },
                     response_format: { type: "text" },
-                    skills: [{ type: "git", url: "url", name: "name", description: "description", ref: "ref" }],
+                    skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
                     variables: { key: "value" },
                 },
-                title: "title",
                 created_at: "created_at",
+                id: "id",
+                title: "title",
                 updated_at: "updated_at",
             },
         };
@@ -329,41 +329,41 @@ describe("SessionsClient", () => {
         const response = await client.sessions.update("sessionId");
         expect(response).toEqual({
             data: {
-                id: "id",
                 agentSpec: {
-                    model: {
-                        name: "name",
-                    },
                     instructions: "instructions",
-                    messages: [
-                        {
-                            type: "user.message",
-                            content: "content",
-                        },
-                    ],
                     mcpServers: [
                         {
                             name: "name",
                         },
                     ],
+                    messages: [
+                        {
+                            content: "content",
+                            type: "user.message",
+                        },
+                    ],
+                    model: {
+                        name: "name",
+                    },
                     responseFormat: {
                         type: "text",
                     },
                     skills: [
                         {
+                            description: "description",
+                            name: "name",
+                            ref: "ref",
                             type: "git",
                             url: "url",
-                            name: "name",
-                            description: "description",
-                            ref: "ref",
                         },
                     ],
                     variables: {
                         key: "value",
                     },
                 },
-                title: "title",
                 createdAt: "created_at",
+                id: "id",
+                title: "title",
                 updatedAt: "updated_at",
             },
         });
@@ -495,19 +495,17 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    turn_id: "turn_id",
                     event: {
-                        type: "turn.created",
-                        id: "id",
-                        turn_id: "turn_id",
-                        previous_turn_id: null,
-                        state: { status: "running" },
                         created_at: "created_at",
+                        id: "id",
                         thread_id: null,
+                        mcp_servers: [{ auth_url: "auth_url", id: "id", name: "name" }],
+                        type: "mcp.auth_required",
                     },
+                    turn_id: "turn_id",
                 },
             ],
-            pagination: { next_page_token: "next_page_token", previous_page_token: "previous_page_token", limit: 1 },
+            pagination: { limit: 1, next_page_token: "next_page_token", previous_page_token: "previous_page_token" },
         };
 
         server
@@ -521,24 +519,26 @@ describe("SessionsClient", () => {
         const expected = {
             data: [
                 {
-                    turnId: "turn_id",
                     event: {
-                        type: "turn.created",
-                        id: "id",
-                        turnId: "turn_id",
-                        previousTurnId: null,
-                        state: {
-                            status: "running",
-                        },
                         createdAt: "created_at",
+                        id: "id",
                         threadId: null,
+                        mcpServers: [
+                            {
+                                authUrl: "auth_url",
+                                id: "id",
+                                name: "name",
+                            },
+                        ],
+                        type: "mcp.auth_required",
                     },
+                    turnId: "turn_id",
                 },
             ],
             pagination: {
+                limit: 1,
                 nextPageToken: "next_page_token",
                 previousPageToken: "previous_page_token",
-                limit: 1,
             },
         };
         const page = await client.sessions.listEvents("sessionId");
@@ -594,15 +594,15 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    id: "id",
-                    session_id: "session_id",
-                    previous_turn_id: "previous_turn_id",
-                    input: [{ type: "user.message", content: "content" }],
-                    state: { status: "running" },
                     created_at: "created_at",
+                    id: "id",
+                    input: [{ content: "content", type: "user.message" }],
+                    previous_turn_id: "previous_turn_id",
+                    session_id: "session_id",
+                    state: { completed_at: "completed_at", reason: "server-execution-timeout", status: "cancelled" },
                 },
             ],
-            pagination: { next_page_token: "next_page_token", previous_page_token: "previous_page_token", limit: 1 },
+            pagination: { limit: 1, next_page_token: "next_page_token", previous_page_token: "previous_page_token" },
         };
 
         server
@@ -616,25 +616,27 @@ describe("SessionsClient", () => {
         const expected = {
             data: [
                 {
+                    createdAt: "created_at",
                     id: "id",
-                    sessionId: "session_id",
-                    previousTurnId: "previous_turn_id",
                     input: [
                         {
-                            type: "user.message",
                             content: "content",
+                            type: "user.message",
                         },
                     ],
+                    previousTurnId: "previous_turn_id",
+                    sessionId: "session_id",
                     state: {
-                        status: "running",
+                        completedAt: "completed_at",
+                        reason: "server-execution-timeout",
+                        status: "cancelled",
                     },
-                    createdAt: "created_at",
                 },
             ],
             pagination: {
+                limit: 1,
                 nextPageToken: "next_page_token",
                 previousPageToken: "previous_page_token",
-                limit: 1,
             },
         };
         const page = await client.sessions.listTurns("sessionId");
@@ -688,7 +690,7 @@ describe("SessionsClient", () => {
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody =
-            'event: \ndata: {"content":"content","name":"name","refusal":"refusal","reasoning_content":"reasoning_content","tool_calls":[{"id":"id","type":"function","function":{"name":"name","arguments":"arguments"},"provider_specific_fields":{"key":"value"},"tool_info":{"type":"truefoundry-system","name":"name"}}],"type":"model.message","id":"id","thread_id":"thread_id","finish_reason":"stop","created_at":"created_at","usage":{"input_tokens":1,"output_tokens":1,"cache_read_tokens":1,"cache_write_tokens":1,"input_tokens_breakdown":{"harness":1,"skills":1,"instructions":1,"tool_definitions":1,"messages":1}}}\n\n';
+            'event: \ndata: {"created_at":"created_at","id":"id","thread_id":"thread_id","mcp_servers":[{"auth_url":"auth_url","id":"id","name":"name"}],"type":"mcp.auth_required"}\n\n';
 
         server
             .mockEndpoint()
@@ -706,45 +708,17 @@ describe("SessionsClient", () => {
         }
         expect(events).toEqual([
             {
-                content: "content",
-                name: "name",
-                refusal: "refusal",
-                reasoningContent: "reasoning_content",
-                toolCalls: [
-                    {
-                        id: "id",
-                        type: "function",
-                        function: {
-                            name: "name",
-                            arguments: "arguments",
-                        },
-                        providerSpecificFields: {
-                            key: "value",
-                        },
-                        toolInfo: {
-                            type: "truefoundry-system",
-                            name: "name",
-                        },
-                    },
-                ],
-                type: "model.message",
+                createdAt: "created_at",
                 id: "id",
                 threadId: "thread_id",
-                finishReason: "stop",
-                createdAt: "created_at",
-                usage: {
-                    inputTokens: 1,
-                    outputTokens: 1,
-                    cacheReadTokens: 1,
-                    cacheWriteTokens: 1,
-                    inputTokensBreakdown: {
-                        harness: 1,
-                        skills: 1,
-                        instructions: 1,
-                        toolDefinitions: 1,
-                        messages: 1,
+                mcpServers: [
+                    {
+                        authUrl: "auth_url",
+                        id: "id",
+                        name: "name",
                     },
-                },
+                ],
+                type: "mcp.auth_required",
             },
         ]);
     });
@@ -815,12 +789,12 @@ describe("SessionsClient", () => {
 
         const rawResponseBody = {
             data: {
-                id: "id",
-                session_id: "session_id",
-                previous_turn_id: "previous_turn_id",
-                input: [{ type: "user.message", content: "content" }],
-                state: { status: "running" },
                 created_at: "created_at",
+                id: "id",
+                input: [{ content: "content", type: "user.message" }],
+                previous_turn_id: "previous_turn_id",
+                session_id: "session_id",
+                state: { completed_at: "completed_at", reason: "server-execution-timeout", status: "cancelled" },
             },
         };
 
@@ -835,19 +809,21 @@ describe("SessionsClient", () => {
         const response = await client.sessions.getTurn("sessionId", "turnId");
         expect(response).toEqual({
             data: {
+                createdAt: "created_at",
                 id: "id",
-                sessionId: "session_id",
-                previousTurnId: "previous_turn_id",
                 input: [
                     {
-                        type: "user.message",
                         content: "content",
+                        type: "user.message",
                     },
                 ],
+                previousTurnId: "previous_turn_id",
+                sessionId: "session_id",
                 state: {
-                    status: "running",
+                    completedAt: "completed_at",
+                    reason: "server-execution-timeout",
+                    status: "cancelled",
                 },
-                createdAt: "created_at",
             },
         });
     });
@@ -878,17 +854,14 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    type: "turn.created",
-                    id: "id",
-                    turn_id: "turn_id",
-                    previous_turn_id: "previous_turn_id",
-                    input: [{ type: "user.message", content: "content" }],
-                    state: { status: "running" },
                     created_at: "created_at",
+                    id: "id",
                     thread_id: "thread_id",
+                    mcp_servers: [{ auth_url: "auth_url", id: "id", name: "name" }],
+                    type: "mcp.auth_required",
                 },
             ],
-            pagination: { next_page_token: "next_page_token", previous_page_token: "previous_page_token", limit: 1 },
+            pagination: { limit: 1, next_page_token: "next_page_token", previous_page_token: "previous_page_token" },
         };
 
         server
@@ -902,27 +875,23 @@ describe("SessionsClient", () => {
         const expected = {
             data: [
                 {
-                    type: "turn.created",
+                    createdAt: "created_at",
                     id: "id",
-                    turnId: "turn_id",
-                    previousTurnId: "previous_turn_id",
-                    input: [
+                    threadId: "thread_id",
+                    mcpServers: [
                         {
-                            type: "user.message",
-                            content: "content",
+                            authUrl: "auth_url",
+                            id: "id",
+                            name: "name",
                         },
                     ],
-                    state: {
-                        status: "running",
-                    },
-                    createdAt: "created_at",
-                    threadId: "thread_id",
+                    type: "mcp.auth_required",
                 },
             ],
             pagination: {
+                limit: 1,
                 nextPageToken: "next_page_token",
                 previousPageToken: "previous_page_token",
-                limit: 1,
             },
         };
         const page = await client.sessions.listTurnEvents("sessionId", "turnId");

@@ -3,9 +3,9 @@
 import type * as TrueHarness from "../index.js";
 
 export interface Session {
-    id: string;
     agentSpec: TrueHarness.AgentSpec;
-    title: string | null;
     createdAt: string;
+    id: string;
+    title: string | null;
     updatedAt: string;
 }

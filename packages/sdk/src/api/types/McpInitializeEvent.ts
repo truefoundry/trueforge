@@ -3,10 +3,10 @@
 import type * as TrueHarness from "../index.js";
 
 export interface McpInitializeEvent {
-    type: "mcp.initialize";
+    createdAt: string;
     /** Unique identifier for the event */
     id: string;
-    createdAt: string;
-    threadId: string;
     mcpServers: TrueHarness.McpServerInitInfo[];
+    threadId: string;
+    type: "mcp.initialize";
 }

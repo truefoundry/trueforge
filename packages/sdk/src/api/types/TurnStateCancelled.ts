@@ -3,7 +3,7 @@
 import type * as TrueHarness from "../index.js";
 
 export interface TurnStateCancelled {
-    status: "cancelled";
-    reason: TrueHarness.TurnStateCancelledReason;
     completedAt: string;
+    reason: TrueHarness.TurnStateCancelledReason;
+    status: "cancelled";
 }

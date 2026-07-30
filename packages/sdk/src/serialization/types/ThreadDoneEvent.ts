@@ -11,18 +11,18 @@ export const ThreadDoneEvent: core.serialization.ObjectSchema<
     TrueHarness.ThreadDoneEvent
 > = core.serialization
     .object({
-        type: core.serialization.stringLiteral("thread.done"),
-        id: core.serialization.string(),
         createdAt: core.serialization.property("created_at", core.serialization.string()),
+        id: core.serialization.string(),
         state: ThreadState,
+        type: core.serialization.stringLiteral("thread.done"),
     })
     .extend(BaseThreadDoneEvent);
 
 export declare namespace ThreadDoneEvent {
     export interface Raw extends BaseThreadDoneEvent.Raw {
-        type: "thread.done";
-        id: string;
         created_at: string;
+        id: string;
         state: ThreadState.Raw;
+        type: "thread.done";
     }
 }

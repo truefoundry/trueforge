@@ -6,12 +6,12 @@ import type * as TrueHarness from "../index.js";
  * Agent Definition
  */
 export interface AgentSpec {
-    model: TrueHarness.Model;
+    config?: TrueHarness.RuntimeConfig;
     instructions?: string;
-    messages?: TrueHarness.AgentSpecUserMessage[];
     mcpServers?: TrueHarness.McpServer[];
+    messages?: TrueHarness.AgentSpecUserMessage[];
+    model: TrueHarness.Model;
     responseFormat?: TrueHarness.ResponseFormat;
     skills?: TrueHarness.SkillMount[];
-    config?: TrueHarness.RuntimeConfig;
     variables?: Record<string, string>;
 }

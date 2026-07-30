@@ -9,7 +9,7 @@ describe("SkillsClient", () => {
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
         const rawResponseBody = {
-            data: [{ name: "name", url: "url", path: "path", ref: "ref", description: "description" }],
+            data: [{ description: "description", name: "name", path: "path", ref: "ref", url: "url" }],
         };
 
         server.mockEndpoint().get("/v1/skills").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
@@ -18,11 +18,11 @@ describe("SkillsClient", () => {
         expect(response).toEqual({
             data: [
                 {
+                    description: "description",
                     name: "name",
-                    url: "url",
                     path: "path",
                     ref: "ref",
-                    description: "description",
+                    url: "url",
                 },
             ],
         });

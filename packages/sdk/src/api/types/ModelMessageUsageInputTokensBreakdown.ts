@@ -2,8 +2,8 @@
 
 export interface ModelMessageUsageInputTokensBreakdown {
     harness: number;
-    skills: number;
     instructions: number;
-    toolDefinitions: number;
     messages: number;
+    skills: number;
+    toolDefinitions: number;
 }

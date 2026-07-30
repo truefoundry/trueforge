@@ -4,14 +4,14 @@ import type * as TrueHarness from "../index.js";
 
 export interface ModelMessageDeltaEvent {
     content?: string | null;
-    refusal?: string | null;
-    toolCalls?: TrueHarness.ExtendedChunkDeltaToolCall[];
-    reasoningContent?: string;
-    type: "model.message.delta";
-    /** Unique identifier for the event */
-    id: string;
-    threadId: string;
     createdAt?: string;
     finishReason?: TrueHarness.FinishReason | null;
+    /** Unique identifier for the event */
+    id: string;
+    reasoningContent?: string;
+    refusal?: string | null;
+    threadId: string;
+    toolCalls?: TrueHarness.ExtendedChunkDeltaToolCall[];
+    type: "model.message.delta";
     usage?: TrueHarness.ModelMessageUsage;
 }

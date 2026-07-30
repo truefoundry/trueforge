@@ -3,6 +3,6 @@
 import type * as TrueHarness from "../index.js";
 
 export interface SessionEventItem {
-    turnId: string;
     event: TrueHarness.SessionEvent;
+    turnId: string;
 }

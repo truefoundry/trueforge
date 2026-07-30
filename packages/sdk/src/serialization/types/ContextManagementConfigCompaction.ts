@@ -8,16 +8,16 @@ export const ContextManagementConfigCompaction: core.serialization.ObjectSchema<
     serializers.ContextManagementConfigCompaction.Raw,
     TrueHarness.ContextManagementConfigCompaction
 > = core.serialization.object({
-    enabled: core.serialization.boolean().optional(),
     compactionThresholdTokens: core.serialization.property(
         "compaction_threshold_tokens",
         core.serialization.number().optional(),
     ),
+    enabled: core.serialization.boolean().optional(),
 });
 
 export declare namespace ContextManagementConfigCompaction {
     export interface Raw {
-        enabled?: boolean | null;
         compaction_threshold_tokens?: number | null;
+        enabled?: boolean | null;
     }
 }

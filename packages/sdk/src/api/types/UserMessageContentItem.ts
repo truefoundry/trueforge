@@ -2,4 +2,4 @@
 
 import type * as TrueHarness from "../index.js";
 
-export type UserMessageContentItem = TrueHarness.TextContent | TrueHarness.FileContent;
+export type UserMessageContentItem = TrueHarness.FileContent | TrueHarness.TextContent;

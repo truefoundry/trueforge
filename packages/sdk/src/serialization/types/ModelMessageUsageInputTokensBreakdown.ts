@@ -9,18 +9,18 @@ export const ModelMessageUsageInputTokensBreakdown: core.serialization.ObjectSch
     TrueHarness.ModelMessageUsageInputTokensBreakdown
 > = core.serialization.object({
     harness: core.serialization.number(),
-    skills: core.serialization.number(),
     instructions: core.serialization.number(),
-    toolDefinitions: core.serialization.property("tool_definitions", core.serialization.number()),
     messages: core.serialization.number(),
+    skills: core.serialization.number(),
+    toolDefinitions: core.serialization.property("tool_definitions", core.serialization.number()),
 });
 
 export declare namespace ModelMessageUsageInputTokensBreakdown {
     export interface Raw {
         harness: number;
-        skills: number;
         instructions: number;
-        tool_definitions: number;
         messages: number;
+        skills: number;
+        tool_definitions: number;
     }
 }

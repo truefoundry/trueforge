@@ -3,14 +3,14 @@
 import type * as TrueHarness from "../index.js";
 
 export type SessionEvent =
-    | TrueHarness.TurnCreatedEvent
-    | TrueHarness.TurnDoneEvent
-    | TrueHarness.ModelMessageEvent
-    | TrueHarness.ToolResponseEvent
-    | TrueHarness.ThreadCreatedEvent
-    | TrueHarness.ThreadDoneEvent
     | TrueHarness.McpAuthRequiredEvent
     | TrueHarness.McpInitializeEvent
+    | TrueHarness.ModelMessageEvent
     | TrueHarness.SandboxCreatedEvent
+    | TrueHarness.ThreadCreatedEvent
+    | TrueHarness.ThreadDoneEvent
     | TrueHarness.ToolApprovalRequiredEvent
-    | TrueHarness.ToolResponseRequiredEvent;
+    | TrueHarness.ToolResponseEvent
+    | TrueHarness.ToolResponseRequiredEvent
+    | TrueHarness.TurnCreatedEvent
+    | TrueHarness.TurnDoneEvent;

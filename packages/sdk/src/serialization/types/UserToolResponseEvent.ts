@@ -8,17 +8,17 @@ export const UserToolResponseEvent: core.serialization.ObjectSchema<
     serializers.UserToolResponseEvent.Raw,
     TrueHarness.UserToolResponseEvent
 > = core.serialization.object({
-    type: core.serialization.stringLiteral("user.tool_response"),
+    content: core.serialization.string(),
     threadId: core.serialization.property("thread_id", core.serialization.string()),
     toolCallId: core.serialization.property("tool_call_id", core.serialization.string()),
-    content: core.serialization.string(),
+    type: core.serialization.stringLiteral("user.tool_response"),
 });
 
 export declare namespace UserToolResponseEvent {
     export interface Raw {
-        type: "user.tool_response";
+        content: string;
         thread_id: string;
         tool_call_id: string;
-        content: string;
+        type: "user.tool_response";
     }
 }

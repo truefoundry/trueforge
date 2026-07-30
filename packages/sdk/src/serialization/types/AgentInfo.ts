@@ -6,17 +6,17 @@ import type * as serializers from "../index.js";
 
 export const AgentInfo: core.serialization.ObjectSchema<serializers.AgentInfo.Raw, TrueHarness.AgentInfo> =
     core.serialization.object({
-        type: core.serialization.stringLiteral("dynamic"),
-        name: core.serialization.string(),
         input: core.serialization.string(),
         model: core.serialization.string().optional(),
+        name: core.serialization.string(),
+        type: core.serialization.stringLiteral("dynamic"),
     });
 
 export declare namespace AgentInfo {
     export interface Raw {
-        type: "dynamic";
-        name: string;
         input: string;
         model?: string | null;
+        name: string;
+        type: "dynamic";
     }
 }

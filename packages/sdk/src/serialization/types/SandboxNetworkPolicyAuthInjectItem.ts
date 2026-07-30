@@ -10,15 +10,15 @@ export const SandboxNetworkPolicyAuthInjectItem: core.serialization.ObjectSchema
     serializers.SandboxNetworkPolicyAuthInjectItem.Raw,
     TrueHarness.SandboxNetworkPolicyAuthInjectItem
 > = core.serialization.object({
-    type: core.serialization.stringLiteral("git"),
-    match: SandboxNetworkPolicyAuthInjectItemMatch,
     authData: core.serialization.property("auth_data", SandboxNetworkPolicyAuthInjectItemAuthData),
+    match: SandboxNetworkPolicyAuthInjectItemMatch,
+    type: core.serialization.stringLiteral("git"),
 });
 
 export declare namespace SandboxNetworkPolicyAuthInjectItem {
     export interface Raw {
-        type: "git";
-        match: SandboxNetworkPolicyAuthInjectItemMatch.Raw;
         auth_data: SandboxNetworkPolicyAuthInjectItemAuthData.Raw;
+        match: SandboxNetworkPolicyAuthInjectItemMatch.Raw;
+        type: "git";
     }
 }

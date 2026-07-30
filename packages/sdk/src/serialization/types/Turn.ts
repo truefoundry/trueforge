@@ -7,21 +7,21 @@ import { TurnInputItem } from "./TurnInputItem.js";
 import { TurnState } from "./TurnState.js";
 
 export const Turn: core.serialization.ObjectSchema<serializers.Turn.Raw, TrueHarness.Turn> = core.serialization.object({
-    id: core.serialization.string(),
-    sessionId: core.serialization.property("session_id", core.serialization.string()),
-    previousTurnId: core.serialization.property("previous_turn_id", core.serialization.string().nullable()),
-    input: core.serialization.list(TurnInputItem).optional(),
-    state: TurnState,
     createdAt: core.serialization.property("created_at", core.serialization.string()),
+    id: core.serialization.string(),
+    input: core.serialization.list(TurnInputItem).optional(),
+    previousTurnId: core.serialization.property("previous_turn_id", core.serialization.string().nullable()),
+    sessionId: core.serialization.property("session_id", core.serialization.string()),
+    state: TurnState,
 });
 
 export declare namespace Turn {
     export interface Raw {
-        id: string;
-        session_id: string;
-        previous_turn_id?: string | null;
-        input?: TurnInputItem.Raw[] | null;
-        state: TurnState.Raw;
         created_at: string;
+        id: string;
+        input?: TurnInputItem.Raw[] | null;
+        previous_turn_id?: string | null;
+        session_id: string;
+        state: TurnState.Raw;
     }
 }

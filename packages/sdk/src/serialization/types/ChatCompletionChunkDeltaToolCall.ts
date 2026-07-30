@@ -9,17 +9,17 @@ export const ChatCompletionChunkDeltaToolCall: core.serialization.ObjectSchema<
     serializers.ChatCompletionChunkDeltaToolCall.Raw,
     TrueHarness.ChatCompletionChunkDeltaToolCall
 > = core.serialization.object({
-    index: core.serialization.number(),
-    id: core.serialization.string().optional(),
-    type: core.serialization.stringLiteral("function").optional(),
     function: ChatCompletionChunkDeltaToolCallFunction.optional(),
+    id: core.serialization.string().optional(),
+    index: core.serialization.number(),
+    type: core.serialization.stringLiteral("function").optional(),
 });
 
 export declare namespace ChatCompletionChunkDeltaToolCall {
     export interface Raw {
-        index: number;
-        id?: string | null;
-        type?: "function" | null;
         function?: ChatCompletionChunkDeltaToolCallFunction.Raw | null;
+        id?: string | null;
+        index: number;
+        type?: "function" | null;
     }
 }

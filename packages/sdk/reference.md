@@ -55,62 +55,6 @@ await client.server.getCapabilities();
 </dl>
 </details>
 
-## Models
-<details><summary><code>client.models.<a href="/src/api/resources/models/client/Client.ts">list</a>() -> TrueHarness.ListModelsResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Models declared in models.yaml, reachable through the OpenAI-compatible API at the file's base_url.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.models.list();
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**requestOptions:** `ModelsClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
 ## McpServers
 <details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">list</a>() -> TrueHarness.ListMcpServersResponse</code></summary>
 <dl>
@@ -230,8 +174,8 @@ await client.mcpServers.listTools("name");
 </dl>
 </details>
 
-## Skills
-<details><summary><code>client.skills.<a href="/src/api/resources/skills/client/Client.ts">list</a>() -> TrueHarness.ListSkillsResponse</code></summary>
+## Models
+<details><summary><code>client.models.<a href="/src/api/resources/models/client/Client.ts">list</a>() -> TrueHarness.ListModelsResponse</code></summary>
 <dl>
 <dd>
 
@@ -243,7 +187,7 @@ await client.mcpServers.listTools("name");
 <dl>
 <dd>
 
-Agent skills declared in skills.yaml.
+Models declared in models.yaml, reachable through the OpenAI-compatible API at the file's base_url.
 </dd>
 </dl>
 </dd>
@@ -258,7 +202,7 @@ Agent skills declared in skills.yaml.
 <dd>
 
 ```typescript
-await client.skills.list();
+await client.models.list();
 
 ```
 </dd>
@@ -274,7 +218,7 @@ await client.skills.list();
 <dl>
 <dd>
 
-**requestOptions:** `SkillsClient.RequestOptions` 
+**requestOptions:** `ModelsClient.RequestOptions` 
     
 </dd>
 </dl>
@@ -980,6 +924,62 @@ await client.sessions.listTurnEvents("sessionId", "turnId");
 <dd>
 
 **requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Skills
+<details><summary><code>client.skills.<a href="/src/api/resources/skills/client/Client.ts">list</a>() -> TrueHarness.ListSkillsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Agent skills declared in skills.yaml.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.skills.list();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `SkillsClient.RequestOptions` 
     
 </dd>
 </dl>

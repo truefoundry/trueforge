@@ -8,15 +8,15 @@ export const McpServerAuthInfo: core.serialization.ObjectSchema<
     serializers.McpServerAuthInfo.Raw,
     TrueHarness.McpServerAuthInfo
 > = core.serialization.object({
+    authUrl: core.serialization.property("auth_url", core.serialization.string()),
     id: core.serialization.string(),
     name: core.serialization.string(),
-    authUrl: core.serialization.property("auth_url", core.serialization.string()),
 });
 
 export declare namespace McpServerAuthInfo {
     export interface Raw {
+        auth_url: string;
         id: string;
         name: string;
-        auth_url: string;
     }
 }

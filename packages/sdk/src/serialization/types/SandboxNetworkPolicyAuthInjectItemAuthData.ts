@@ -8,15 +8,15 @@ export const SandboxNetworkPolicyAuthInjectItemAuthData: core.serialization.Obje
     serializers.SandboxNetworkPolicyAuthInjectItemAuthData.Raw,
     TrueHarness.SandboxNetworkPolicyAuthInjectItemAuthData
 > = core.serialization.object({
+    password: core.serialization.string(),
     type: core.serialization.stringLiteral("basic"),
     username: core.serialization.string(),
-    password: core.serialization.string(),
 });
 
 export declare namespace SandboxNetworkPolicyAuthInjectItemAuthData {
     export interface Raw {
+        password: string;
         type: "basic";
         username: string;
-        password: string;
     }
 }

@@ -9,19 +9,19 @@ export const ToolResponseRequiredEvent: core.serialization.ObjectSchema<
     serializers.ToolResponseRequiredEvent.Raw,
     TrueHarness.ToolResponseRequiredEvent
 > = core.serialization.object({
-    type: core.serialization.stringLiteral("tool.response_required"),
-    id: core.serialization.string(),
     createdAt: core.serialization.property("created_at", core.serialization.string()),
+    id: core.serialization.string(),
     threadId: core.serialization.property("thread_id", core.serialization.string()),
     toolCalls: core.serialization.property("tool_calls", core.serialization.list(ToolCallRef)),
+    type: core.serialization.stringLiteral("tool.response_required"),
 });
 
 export declare namespace ToolResponseRequiredEvent {
     export interface Raw {
-        type: "tool.response_required";
-        id: string;
         created_at: string;
+        id: string;
         thread_id: string;
         tool_calls: ToolCallRef.Raw[];
+        type: "tool.response_required";
     }
 }

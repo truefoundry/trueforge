@@ -3,9 +3,9 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ModelMessageUsage {
-    inputTokens: number;
-    outputTokens: number;
     cacheReadTokens?: number;
     cacheWriteTokens?: number;
+    inputTokens: number;
     inputTokensBreakdown: TrueHarness.ModelMessageUsageInputTokensBreakdown;
+    outputTokens: number;
 }

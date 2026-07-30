@@ -3,8 +3,8 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ChatCompletionChunkDeltaToolCall {
-    index: number;
-    id?: string;
-    type?: "function";
     function?: TrueHarness.ChatCompletionChunkDeltaToolCallFunction;
+    id?: string;
+    index: number;
+    type?: "function";
 }

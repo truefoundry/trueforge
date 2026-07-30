@@ -3,10 +3,10 @@
 import type * as TrueHarness from "../index.js";
 
 export interface Turn {
-    id: string;
-    sessionId: string;
-    previousTurnId: string | null;
-    input?: TrueHarness.TurnInputItem[];
-    state: TrueHarness.TurnState;
     createdAt: string;
+    id: string;
+    input?: TrueHarness.TurnInputItem[];
+    previousTurnId: string | null;
+    sessionId: string;
+    state: TrueHarness.TurnState;
 }
