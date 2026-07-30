@@ -29,14 +29,11 @@ export class EventSubscriptionRegistry<T extends object> {
   /** One store for the whole process so producers and subscribers share streams. */
   private readonly memoryStore = new InMemoryEventStreamStore<T>();
 
-  constructor(
-    private readonly redis: RedisClientType | undefined,
-    private readonly parseEvent: (raw: unknown) => T,
-  ) {}
+  constructor(private readonly redis: RedisClientType | undefined) {}
 
   get(streamId: string): EventSubscription<T> {
     if (this.redis) {
-      return new RedisEventSubscription(this.redis, streamId, this.parseEvent);
+      return new RedisEventSubscription<T>(this.redis, streamId);
     }
     return new InMemoryEventSubscription(this.memoryStore, streamId);
   }

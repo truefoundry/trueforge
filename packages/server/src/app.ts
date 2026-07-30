@@ -4,7 +4,7 @@
  */
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { ISessionStore, Sessions, TurnSandboxFactory } from '@truefoundry/utils/agent-session';
+import type { ISessionStore, Sessions, TurnSandboxFactory, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import type { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
@@ -17,7 +17,6 @@ import { createSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
-import type { StoredTurnStreamingEvent } from './schemas/events';
 import type { McpStore } from './store/McpStore';
 import type { ModelStore } from './store/ModelStore';
 import type { SkillStore } from './store/SkillStore';
@@ -50,7 +49,7 @@ export interface ServerDeps {
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;
   /** Hands out each turn's resumable event stream to the create and subscribe handlers. */
-  eventSubscriptions: EventSubscriptionRegistry<StoredTurnStreamingEvent>;
+  eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
 }
 

@@ -39,7 +39,6 @@ import {
   type SequencedEvent,
 } from '../runtime/event-subscription';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
-import type { StoredTurnStreamingEvent } from '../schemas/events';
 import type { McpStore } from '../store/McpStore';
 import type { ModelStore } from '../store/ModelStore';
 import { TENANT_ID } from './sessions';
@@ -61,7 +60,7 @@ export interface TurnsRouterDeps {
   modelStore: ModelStore;
   mcpStore: McpStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
-  eventSubscriptions: EventSubscriptionRegistry<StoredTurnStreamingEvent>;
+  eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
   sandboxFactory?: TurnSandboxFactory;
   logger: Logger;
@@ -131,7 +130,7 @@ function deriveSessionTitle(input: TurnInputItem[] | undefined): string | undefi
 }
 
 /** SSE payload: `id` carries the per-stream sequence number; the body is not numbered. */
-function turnEventSsePayload(event: StoredTurnStreamingEvent, sequenceNumber: number): { id: string; data: string } {
+function turnEventSsePayload(event: TurnStreamingEvent, sequenceNumber: number): { id: string; data: string } {
   return {
     id: String(sequenceNumber),
     data: JSON.stringify(event),
@@ -363,7 +362,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
     // Pre-flight: force the generator's stream checks (gone/expiring/corrupt)
     // to run before SSE headers are sent, so they can still map to HTTP 412.
-    let iterResult: IteratorResult<SequencedEvent<StoredTurnStreamingEvent>, void>;
+    let iterResult: IteratorResult<SequencedEvent<TurnStreamingEvent>, void>;
     try {
       iterResult = await generator.next();
     } catch (error) {

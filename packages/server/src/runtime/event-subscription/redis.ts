@@ -33,7 +33,6 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
   constructor(
     private readonly redis: RedisClientType,
     private readonly streamId: string,
-    private readonly parseEvent: (raw: unknown) => T,
   ) {}
 
   async put(event: T, options?: EventSubscriptionPutOptions): Promise<number> {
@@ -81,18 +80,12 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
           throw new StreamCorruptEntryError(this.streamId, id, 'missing data field');
         }
 
-        let raw: unknown;
-        try {
-          raw = JSON.parse(data);
-        } catch (error) {
-          throw new StreamCorruptEntryError(this.streamId, id, 'data is not valid JSON', { cause: error });
-        }
-
         let event: T;
         try {
-          event = this.parseEvent(raw);
+          // Own writes read back; trusted without validation, as in the gateway.
+          event = JSON.parse(data) as T;
         } catch (error) {
-          throw new StreamCorruptEntryError(this.streamId, id, 'data has an invalid event shape', { cause: error });
+          throw new StreamCorruptEntryError(this.streamId, id, 'data is not valid JSON', { cause: error });
         }
         yield { ...event, sequence_number: sequenceNumberFromEntryId(this.streamId, id) };
       }

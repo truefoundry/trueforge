@@ -4,6 +4,7 @@
  * Any config, migration, or store error aborts startup.
  */
 import { serve } from '@hono/node-server';
+import type { TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import winston from 'winston';
 
 try {
@@ -22,7 +23,6 @@ try {
     { RequestReplyExecutor, RequestReplyRouter },
     { PostgresSessionStore },
     { EventSubscriptionRegistry },
-    { parseStoredTurnStreamingEvent },
   ] = await Promise.all([
     import('./app'),
     import('./config'),
@@ -38,7 +38,6 @@ try {
     import('@truefoundry/utils/request-reply'),
     import('./db/postgres/session-store/PostgresSessionStore'),
     import('./runtime/event-subscription'),
-    import('./schemas/events'),
   ]);
 
   // Console logger shared by the server runtime (harness components require one).
@@ -62,7 +61,7 @@ try {
   logger.info(`Executor id: ${configuration.EXECUTOR_ID}`);
   const redis = await connectRedis({ url: configuration.REDIS_URL, logger });
   const requestReplyRouter = new RequestReplyRouter();
-  const eventSubscriptions = new EventSubscriptionRegistry(redis, parseStoredTurnStreamingEvent);
+  const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
 
   const app = createServerApp({
     modelStore: ModelStore.load(),

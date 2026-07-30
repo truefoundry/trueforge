@@ -5,6 +5,7 @@
  * spec cannot drift from what the server serves. Nothing listens or dials out:
  * `.env.test` supplies dummy connection strings and the registry fixtures.
  */
+import type { TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import { InMemorySessionStore, Sessions } from '@truefoundry/utils/agent-session';
 import { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -14,7 +15,6 @@ import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../src/runtime/event-subscription';
-import { parseStoredTurnStreamingEvent } from '../src/schemas/events';
 import { McpStore } from '../src/store/McpStore';
 import { ModelStore } from '../src/store/ModelStore';
 import { SkillStore } from '../src/store/SkillStore';
@@ -50,7 +50,7 @@ const app = createServerApp({
   activeTurns: new ActiveTurnRegistry(),
   redis,
   requestReplyRouter: new RequestReplyRouter(),
-  eventSubscriptions: new EventSubscriptionRegistry(redis, parseStoredTurnStreamingEvent),
+  eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(redis),
   logger: winston.createLogger({ silent: true }),
 });
 
