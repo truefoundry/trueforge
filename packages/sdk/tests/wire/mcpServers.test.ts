@@ -11,7 +11,7 @@ describe("McpServersClient", () => {
 
         const rawResponseBody = { data: [{ name: "name", url: "url" }] };
 
-        server.mockEndpoint().get("/v1/mcp-servers").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
+        server.mockEndpoint().get("/api/mcp-servers").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
 
         const response = await client.mcpServers.list();
         expect(response).toEqual({
@@ -32,7 +32,7 @@ describe("McpServersClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/mcp-servers/name/tools")
+            .get("/api/mcp-servers/name/tools")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -56,7 +56,7 @@ describe("McpServersClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/mcp-servers/name/tools")
+            .get("/api/mcp-servers/name/tools")
             .respondWith()
             .statusCode(401)
             .jsonBody(rawResponseBody)
@@ -75,7 +75,7 @@ describe("McpServersClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/mcp-servers/name/tools")
+            .get("/api/mcp-servers/name/tools")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
@@ -94,7 +94,7 @@ describe("McpServersClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/mcp-servers/name/tools")
+            .get("/api/mcp-servers/name/tools")
             .respondWith()
             .statusCode(502)
             .jsonBody(rawResponseBody)

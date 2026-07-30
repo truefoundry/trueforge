@@ -10,7 +10,7 @@ describe("ServerClient", () => {
 
         const rawResponseBody = { data: { sandbox: { enabled: true } } };
 
-        server.mockEndpoint().get("/v1/capabilities").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
+        server.mockEndpoint().get("/api/capabilities").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
 
         const response = await client.server.getCapabilities();
         expect(response).toEqual({
