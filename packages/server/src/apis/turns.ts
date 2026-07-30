@@ -346,7 +346,20 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
 
-    const deadlineMs = Date.now() + configuration.TURN_SUBSCRIBE_TIMEOUT_MS;
+    // Server-side subscribe timeout (gateway pattern): a timer aborts this
+    // controller and the SSE loop checks the signal between events.
+    const timeoutAbortController = new AbortController();
+    const timeoutMs = configuration.TURN_SUBSCRIBE_TIMEOUT_MS;
+    const timeoutHandler = setTimeout(() => {
+      deps.logger.info('Subscribe turn stream server-side timeout reached, closing stream', {
+        sessionId,
+        turnId,
+        afterSequenceNumber,
+        timeoutMs,
+      });
+      timeoutAbortController.abort(new Error('subscribe-timeout'));
+    }, timeoutMs);
+
     const generator = deps.eventSubscription.poll(turnStreamId(TENANT_ID, sessionId, turnId), afterSequenceNumber);
 
     // Pre-flight: force the generator's stream checks (gone/expiring/corrupt)
@@ -355,6 +368,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     try {
       iterResult = await generator.next();
     } catch (error) {
+      clearTimeout(timeoutHandler);
       if (
         error instanceof StreamGoneError ||
         error instanceof StreamExpiringError ||
@@ -369,7 +383,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       try {
         while (!iterResult.done) {
           const { sequence_number: sequenceNumber, ...event } = iterResult.value;
-          if (stream.closed || stream.aborted || Date.now() >= deadlineMs) {
+          if (stream.closed || stream.aborted || timeoutAbortController.signal.aborted) {
             break;
           }
           await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
@@ -381,6 +395,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       } catch (error) {
         deps.logger.error('Unexpected error in turn subscribe SSE loop', extractErrorLogFields(error));
       } finally {
+        clearTimeout(timeoutHandler);
         // Poll loops forever by design; the handler owns termination.
         await generator.return(undefined);
         await stream.close();
