@@ -115,8 +115,11 @@ export type {
   ThreadDoneEvent,
   ThreadOverwriteContextEvent,
 } from './events/schema';
+export { CompletionUsageSchema } from './llm/LLMTypes';
+export type { CompletionUsage } from './llm/LLMTypes';
 export { InternalEventType } from './runtime/AgentThread.types';
 export type { AgentThreadSendBatch, ContextMessage } from './runtime/AgentThread.types';
+export { AgentThreadMetricsSchema } from './runtime/metrics';
 export type { AgentThreadMetrics } from './runtime/metrics';
 
 // Tracing

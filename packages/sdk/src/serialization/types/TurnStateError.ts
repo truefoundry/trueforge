@@ -3,6 +3,7 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { TurnMetrics } from "./TurnMetrics.js";
 
 export const TurnStateError: core.serialization.ObjectSchema<
     serializers.TurnStateError.Raw,
@@ -10,6 +11,7 @@ export const TurnStateError: core.serialization.ObjectSchema<
 > = core.serialization.object({
     completedAt: core.serialization.property("completed_at", core.serialization.string()),
     message: core.serialization.string(),
+    metrics: TurnMetrics.optional(),
     status: core.serialization.stringLiteral("error"),
 });
 
@@ -17,6 +19,7 @@ export declare namespace TurnStateError {
     export interface Raw {
         completed_at: string;
         message: string;
+        metrics?: TurnMetrics.Raw | null;
         status: "error";
     }
 }

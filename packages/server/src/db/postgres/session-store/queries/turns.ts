@@ -22,9 +22,9 @@ import {
 } from '@truefoundry/utils/agent-session/store/SessionStoreErrors';
 import type { CapabilityState, JsonValue } from '@truefoundry/utils/core/capabilities/AgentCapability';
 import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/utils/core/events/schema';
-import type { CompletionUsage } from '@truefoundry/utils/core/llm/LLMTypes';
-import { getEmptyUsage } from '@truefoundry/utils/core/llm/LLMTypes';
 import type { AgentThreadSnapshot, ContextMessage } from '@truefoundry/utils/core/runtime/AgentThread.types';
+import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
+import { getEmptyCurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { SandboxInfo } from '@truefoundry/utils/core/sandbox/Sandbox';
 import { sql, type Kysely, type QueryCreator, type RawBuilder, type Transaction } from 'kysely';
 import { isUniqueViolation } from '../../client';
@@ -63,7 +63,7 @@ export interface TurnKeys {
 export interface NewContextAppend {
   thread_id: string;
   context: ContextMessage[];
-  current_context_usage: CompletionUsage | null;
+  current_context_usage: CurrentContextUsage | null;
 }
 
 export interface CreateTurnTurnFields {
@@ -265,7 +265,7 @@ async function assembleTurnRecord(
     {
       checkpoint: TurnThreadCheckpoint;
       agent_info: AgentInfo | null;
-      current_context_usage: CompletionUsage;
+      current_context_usage: CurrentContextUsage;
     }
   >();
 
@@ -355,7 +355,7 @@ interface TurnThreadInsertRow {
   thread_id: string;
   checkpoint: TurnThreadCheckpoint;
   agent_info: RawBuilder<AgentInfo> | null;
-  current_context_usage: CompletionUsage;
+  current_context_usage: CurrentContextUsage;
   context_ids: number[];
   updated_at: Date;
 }
@@ -415,7 +415,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         thread_id: string;
         checkpoint: TurnThreadCheckpoint;
         agent_info: AgentInfo | null;
-        current_context_usage: CompletionUsage;
+        current_context_usage: CurrentContextUsage;
         context_ids: number[];
       }[] = [];
 
@@ -541,7 +541,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         }
       }
 
-      const appendUsageByThread = new Map<string, CompletionUsage>();
+      const appendUsageByThread = new Map<string, CurrentContextUsage>();
       for (const append of input.new_context_appends) {
         if (append.current_context_usage !== null) {
           appendUsageByThread.set(append.thread_id, append.current_context_usage);
@@ -569,7 +569,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
 
       for (const nt of input.new_threads) {
         const newIds = newIdsByThread.get(nt.thread_id) ?? [];
-        const usage = appendUsageByThread.get(nt.thread_id) ?? getEmptyUsage();
+        const usage = appendUsageByThread.get(nt.thread_id) ?? getEmptyCurrentContextUsage();
         const threadCheckpoint: TurnThreadCheckpoint = {
           parent: nt.parent,
           completion: null,

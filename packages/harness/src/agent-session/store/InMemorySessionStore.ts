@@ -1,5 +1,5 @@
-import { getEmptyUsage } from '../../core/llm/LLMTypes';
 import type { AgentThreadSnapshot } from '../../core/runtime/AgentThread.types';
+import { getEmptyCurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
@@ -74,7 +74,7 @@ function newThreadSnapshot(thread: NewThreadInit): AgentThreadSnapshot {
     agent_info: thread.agent_info ?? null,
     capability_state: null,
     context: [],
-    current_context_usage: getEmptyUsage(),
+    current_context_usage: getEmptyCurrentContextUsage(),
     completion: null,
   };
 }

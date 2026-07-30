@@ -25,16 +25,11 @@ import type {
   UserToolApprovalMessage,
   UserToolResponseMessage,
 } from '../events/schema';
-import type {
-  CompletionUsage,
-  InternalEnrichedAssistantMessage,
-  LLMToolMessage,
-  LLMUserMessage,
-} from '../llm/LLMTypes';
+import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
 import type { Sandbox } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import type { AgentDefinition } from './AgentDefinition';
-import type { AgentThreadMetrics } from './metrics';
+import type { CurrentContextUsage } from './contextUsage';
 
 export type { AgentInfo, AgentParent };
 
@@ -107,7 +102,7 @@ export interface AgentThreadAppendContext {
   thread_id: string;
   context: ContextMessage[];
   output: AgentOutputEvent[];
-  current_context_usage?: CompletionUsage | undefined;
+  current_context_usage?: CurrentContextUsage | undefined;
   completion?: SubAgentCompletionMarker | undefined;
 }
 
@@ -144,7 +139,6 @@ export interface AgentThreadExecutionResult {
   output: ModelMessageEvent | null;
   required_actions: ActionRequiredEvent[];
   root_agent_error?: Pick<ThreadStateError, 'error' | 'output'> | undefined;
-  metrics: { total: AgentThreadMetrics };
 }
 
 /** Public send items plus internal LLM tool messages (child→parent delivery). */
@@ -156,7 +150,7 @@ export type AgentThreadRuntimeSendBatch = AgentThreadSendBatch | LLMToolMessage[
 export interface AgentThreadSnapshot {
   thread_id: string;
   context: ContextMessage[];
-  current_context_usage: CompletionUsage;
+  current_context_usage: CurrentContextUsage;
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
   completion: SubAgentCompletionMarker | null;
@@ -171,7 +165,7 @@ export interface AgentThreadConstructorInput {
   parent?: AgentParent | undefined;
   agentInfo?: AgentInfo | undefined;
   context?: ContextMessage[] | undefined;
-  currentContextUsage?: CompletionUsage | undefined;
+  currentContextUsage?: CurrentContextUsage | undefined;
   preComputedCompletion?: SubAgentCompletionMarker | undefined;
   sandbox?: Sandbox | undefined;
   capabilities?: readonly AgentCapability[] | undefined;

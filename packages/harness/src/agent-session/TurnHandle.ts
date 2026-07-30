@@ -4,7 +4,6 @@
 import { AgentHarnessError } from '../core/errors';
 import type { MCPAuthRequiredEvent, ModelMessageDeltaEvent, ThreadDoneEvent } from '../core/events/schema';
 import { EventType as HarnessEventType, newEventId } from '../core/events/schema';
-import { getEmptyUsage } from '../core/llm/LLMTypes';
 import {
   InternalEventType,
   type AgentThreadExecutionEvent,
@@ -13,12 +12,19 @@ import {
   type InternalThreadDoneEvent,
 } from '../core/runtime/AgentThread.types';
 import type { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
-import { createEmptyAgentThreadMetrics } from '../core/runtime/metrics';
+import { getEmptyCurrentContextUsage } from '../core/runtime/contextUsage';
+import type { AgentThreadMetrics } from '../core/runtime/metrics';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
 import { EventType, type PersistedTurnEvent, type TurnCreatedEvent, type TurnDoneEvent } from './schemas/events';
 import type { TokenPagination } from './schemas/pagination';
-import { CancellationReason, type TerminalTurnState, type TurnInputItem, type TurnState } from './schemas/turn';
+import {
+  CancellationReason,
+  type TerminalTurnState,
+  type TurnInputItem,
+  type TurnMetrics,
+  type TurnState,
+} from './schemas/turn';
 import type { ISessionStore } from './store/ISessionStore';
 import { TurnNotRunningError } from './store/SessionStoreErrors';
 
@@ -64,6 +70,18 @@ function toMCPAuthRequiredEvent(event: InternalMCPAuthRequiredEvent): MCPAuthReq
       void thread_ids;
       return server;
     }),
+  };
+}
+
+function turnMetricsFromAgentThreadMetrics(metrics: AgentThreadMetrics): TurnMetrics {
+  return {
+    total_input_tokens: metrics.total_input_tokens,
+    total_output_tokens: metrics.total_output_tokens,
+    total_tokens: metrics.total_tokens,
+    total_cache_read_tokens: metrics.total_cache_read_tokens,
+    total_cache_write_tokens: metrics.total_cache_write_tokens,
+    total_reasoning_tokens: metrics.total_reasoning_tokens,
+    total_cost_in_usd: metrics.total_cost_in_usd,
   };
 }
 
@@ -214,17 +232,21 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             const emptyResult: AgentThreadExecutionResult = {
               output: null,
               required_actions: [],
-              metrics: { total: createEmptyAgentThreadMetrics() },
             };
             await generator.return(emptyResult);
             // Cleared so the finally block does not close the generator a second time.
             generator = undefined;
-            this.turn = { ...this.turn, state: error.state, updated_at: new Date().toISOString() };
+            const createdAt = new Date().toISOString();
+            const state: TerminalTurnState = {
+              ...error.state,
+              metrics: turnMetricsFromAgentThreadMetrics(orchestrator.getMetrics()),
+            };
+            this.turn = { ...this.turn, state, updated_at: createdAt };
             yield {
               type: EventType.TURN_DONE,
               id: newEventId(),
-              created_at: new Date().toISOString(),
-              state: error.state,
+              created_at: createdAt,
+              state,
               thread_id: null,
             };
             return;
@@ -241,30 +263,33 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         const emptyResult: AgentThreadExecutionResult = {
           output: null,
           required_actions: [],
-          metrics: { total: createEmptyAgentThreadMetrics() },
         };
         await generator.return(emptyResult);
       }
 
       const createdAt = new Date().toISOString();
+      const metrics = turnMetricsFromAgentThreadMetrics(orchestrator.getMetrics());
       let terminalState: TerminalTurnState;
       if (signal.aborted) {
         terminalState = {
           status: 'cancelled',
           reason: cancellationReasonFromAbortReason(signal.reason),
           completed_at: createdAt,
+          metrics,
         };
       } else if (caughtError) {
         terminalState = {
           status: 'error',
           message: caughtError.message,
           completed_at: createdAt,
+          metrics,
         };
       } else if (executeResult?.root_agent_error) {
         terminalState = {
           status: 'error',
           message: executeResult.root_agent_error.error,
           completed_at: createdAt,
+          metrics,
         };
       } else if (executeResult === undefined) {
         // Consumer abandoned the generator (break/return) without aborting —
@@ -273,6 +298,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           status: 'cancelled',
           reason: CancellationReason.ClientCancelled,
           completed_at: createdAt,
+          metrics,
         };
       } else {
         terminalState = {
@@ -281,6 +307,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           ...(executeResult.output && { output: executeResult.output }),
           required_actions: executeResult.required_actions,
           completed_at: createdAt,
+          metrics,
         };
       }
 
@@ -304,7 +331,8 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           this.turn = { ...this.turn, state: terminalState, updated_at: createdAt };
         } catch (persistError) {
           if (persistError instanceof TurnNotRunningError) {
-            this.turn = { ...this.turn, state: persistError.state, updated_at: createdAt };
+            const state: TerminalTurnState = { ...persistError.state, metrics };
+            this.turn = { ...this.turn, state, updated_at: createdAt };
             await resolver.close().catch(() => {
               /* no-op */
             });
@@ -312,7 +340,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
               type: EventType.TURN_DONE,
               id: newEventId(),
               created_at: createdAt,
-              state: persistError.state,
+              state,
               thread_id: null,
             };
             // eslint-disable-next-line no-unsafe-finally -- deliberate: a concurrent freeze during the terminal write makes the store's state authoritative, so the stream ends here
@@ -448,7 +476,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
               parent: event.parent,
               agent_info: event.agent_info,
               context: [],
-              current_context_usage: getEmptyUsage(),
+              current_context_usage: getEmptyCurrentContextUsage(),
               completion: null,
               capability_state: null,
             },

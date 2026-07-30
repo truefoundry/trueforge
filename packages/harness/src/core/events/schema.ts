@@ -10,6 +10,7 @@ import {
   LLMToolMessageSchema,
   LLMUserMessageSchema,
 } from '../llm/LLMTypes';
+import { CurrentContextUsageSchema } from '../runtime/contextUsage';
 
 /**
  * Process-local monotonic ULIDs preserve event creation order, including
@@ -244,10 +245,8 @@ export const ThreadOverwriteContextEventSchema = z.object({
   // NOTE: add other reasons here.
   reason: z.literal('compaction'),
   context: z.array(ContextMessageSchema),
-  // Estimated token usage of the new (compacted) context for the next LLM call's budget
-  current_context_usage: CompletionUsageSchema,
-  // Actual token usage consumed by the compaction LLM call itself
-  compaction_llm_usage: CompletionUsageSchema,
+  current_context_usage: CurrentContextUsageSchema,
+  usage: CompletionUsageSchema,
 });
 
 export const MCPServerAuthInfoSchema = z

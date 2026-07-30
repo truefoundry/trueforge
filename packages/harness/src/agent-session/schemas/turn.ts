@@ -30,11 +30,25 @@ export const TurnStateCancelledReasonSchema = z
   .describe('Reason for the cancellation.')
   .openapi('TurnStateCancelledReason');
 
+/** Billable aggregate for one turn. */
+export const TurnMetricsSchema = z
+  .object({
+    total_input_tokens: z.number().int().nonnegative().optional(),
+    total_output_tokens: z.number().int().nonnegative().optional(),
+    total_tokens: z.number().int().nonnegative().optional(),
+    total_cache_read_tokens: z.number().int().nonnegative().optional(),
+    total_cache_write_tokens: z.number().int().nonnegative().optional(),
+    total_reasoning_tokens: z.number().int().nonnegative().optional(),
+    total_cost_in_usd: z.number().nonnegative().optional(),
+  })
+  .openapi('TurnMetrics');
+
 export const TurnStateCancelledSchema = z
   .object({
     status: z.literal('cancelled'),
     reason: TurnStateCancelledReasonSchema,
     completed_at: z.string(),
+    metrics: TurnMetricsSchema.optional(),
   })
   .openapi('TurnStateCancelled');
 
@@ -43,6 +57,7 @@ export const TurnStateErrorSchema = z
     status: z.literal('error'),
     message: z.string(),
     completed_at: z.string(),
+    metrics: TurnMetricsSchema.optional(),
   })
   .openapi('TurnStateError');
 
@@ -53,6 +68,7 @@ export const TurnStateDoneSchema = z
     output: ModelMessageEventSchema.optional(),
     required_actions: z.array(ActionRequiredEventSchema),
     completed_at: z.string(),
+    metrics: TurnMetricsSchema.optional(),
   })
   .openapi('TurnStateDone');
 
@@ -115,3 +131,4 @@ export type Turn = z.infer<typeof TurnSchema>;
 export type TurnInputItem = z.infer<typeof TurnInputItemSchema>;
 export type TurnState = z.infer<typeof TurnStateSchema>;
 export type TerminalTurnState = Exclude<TurnState, { status: 'running' }>;
+export type TurnMetrics = z.infer<typeof TurnMetricsSchema>;

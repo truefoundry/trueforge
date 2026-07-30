@@ -15,6 +15,7 @@ import {
 import { newEventId } from '../../../src/core/events/schema';
 import { getEmptyUsage } from '../../../src/core/llm/LLMTypes';
 import type { ContextMessage } from '../../../src/core/runtime/AgentThread.types';
+import { getEmptyCurrentContextUsage } from '../../../src/core/runtime/contextUsage';
 import {
   makeAgentSpec,
   makeCancelledTurnState,
@@ -279,7 +280,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             {
               thread_id: MAIN_THREAD_ID,
               context: [userMessage('shared')],
-              current_context_usage: getEmptyUsage(),
+              current_context_usage: getEmptyCurrentContextUsage(),
             },
           ],
         }),
@@ -296,7 +297,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
               {
                 thread_id: MAIN_THREAD_ID,
                 context: [userMessage('a-only')],
-                current_context_usage: getEmptyUsage(),
+                current_context_usage: getEmptyCurrentContextUsage(),
               },
             ],
           }),
@@ -311,7 +312,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
               {
                 thread_id: MAIN_THREAD_ID,
                 context: [userMessage('b-only')],
-                current_context_usage: getEmptyUsage(),
+                current_context_usage: getEmptyCurrentContextUsage(),
               },
             ],
           }),
@@ -381,7 +382,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             {
               thread_id: MAIN_THREAD_ID,
               context: [userMessage('L1a'), userMessage('L1b')],
-              current_context_usage: { ...getEmptyUsage(), total_tokens: 2 },
+              current_context_usage: { ...getEmptyCurrentContextUsage(), prompt_tokens: 2 },
             },
           ],
         }),
@@ -407,7 +408,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             {
               thread_id: MAIN_THREAD_ID,
               context: [userMessage('L2')],
-              current_context_usage: { ...getEmptyUsage(), total_tokens: 3 },
+              current_context_usage: { ...getEmptyCurrentContextUsage(), prompt_tokens: 3 },
             },
           ],
         }),
@@ -416,7 +417,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const t2 = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 't2' });
       const main = mustGet(t2).snapshot.threads[MAIN_THREAD_ID];
       expect(contextContents(main?.context)).toEqual(['L1a', 'L1b', 'L2']);
-      expect(main?.current_context_usage.total_tokens).toBe(3);
+      expect(main?.current_context_usage.prompt_tokens).toBe(3);
       expect(main?.capability_state).toEqual({ 'tfy.plan': { step: 2 } });
     });
 
@@ -469,7 +470,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             {
               thread_id: MAIN_THREAD_ID,
               context: [userMessage('from-t1')],
-              current_context_usage: getEmptyUsage(),
+              current_context_usage: getEmptyCurrentContextUsage(),
             },
           ],
         }),
@@ -486,7 +487,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             {
               thread_id: MAIN_THREAD_ID,
               context: [userMessage('from-t2')],
-              current_context_usage: getEmptyUsage(),
+              current_context_usage: getEmptyCurrentContextUsage(),
             },
           ],
         }),
@@ -502,8 +503,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           thread_id: MAIN_THREAD_ID,
           reason: 'compaction',
           context: [userMessage('t2-summary-only')],
-          current_context_usage: getEmptyUsage(),
-          compaction_llm_usage: getEmptyUsage(),
+          current_context_usage: getEmptyCurrentContextUsage(),
+          usage: getEmptyUsage(),
         },
       });
       await finishTurn(store, 't2');
@@ -518,7 +519,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             {
               thread_id: MAIN_THREAD_ID,
               context: [userMessage('fork-append')],
-              current_context_usage: getEmptyUsage(),
+              current_context_usage: getEmptyCurrentContextUsage(),
             },
           ],
         }),
@@ -565,17 +566,17 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             {
               thread_id: MAIN_THREAD_ID,
               context: [userMessage('main-msg')],
-              current_context_usage: getEmptyUsage(),
+              current_context_usage: getEmptyCurrentContextUsage(),
             },
             {
               thread_id: 'child-a',
               context: [userMessage('a-msg')],
-              current_context_usage: { ...getEmptyUsage(), total_tokens: 1 },
+              current_context_usage: { ...getEmptyCurrentContextUsage(), prompt_tokens: 1 },
             },
             {
               thread_id: 'child-b',
               context: [userMessage('b-msg-1'), userMessage('b-msg-2')],
-              current_context_usage: { ...getEmptyUsage(), total_tokens: 2 },
+              current_context_usage: { ...getEmptyCurrentContextUsage(), prompt_tokens: 2 },
             },
           ],
         }),
@@ -601,7 +602,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         input: 'task-a',
       });
       expect(threads['child-a']?.capability_state).toEqual({ 'tfy.plan': { step: 1 } });
-      expect(threads['child-b']?.current_context_usage.total_tokens).toBe(2);
+      expect(threads['child-b']?.current_context_usage.prompt_tokens).toBe(2);
     });
   });
 
@@ -653,8 +654,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
               thread_id: MAIN_THREAD_ID,
               reason: 'compaction',
               context: [userMessage('late-overwrite')],
-              current_context_usage: getEmptyUsage(),
-              compaction_llm_usage: getEmptyUsage(),
+              current_context_usage: getEmptyCurrentContextUsage(),
+              usage: getEmptyUsage(),
             },
           }),
         () =>
@@ -664,7 +665,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
               {
                 thread_id: 'child',
                 context: [],
-                current_context_usage: getEmptyUsage(),
+                current_context_usage: getEmptyCurrentContextUsage(),
                 parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
                 agent_info: { type: 'dynamic', name: 'child', input: 'do work' },
                 completion: null,
@@ -895,7 +896,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           {
             thread_id: 'child',
             context: [],
-            current_context_usage: getEmptyUsage(),
+            current_context_usage: getEmptyCurrentContextUsage(),
             parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
             agent_info: { type: 'dynamic', name: 'child', input: 'do work' },
             completion: null,
@@ -926,8 +927,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           thread_id: 'child',
           reason: 'compaction',
           context: [{ role: 'user', content: 'replaced' }],
-          current_context_usage: getEmptyUsage(),
-          compaction_llm_usage: getEmptyUsage(),
+          current_context_usage: getEmptyCurrentContextUsage(),
+          usage: getEmptyUsage(),
         },
       });
       turn = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' });
@@ -958,7 +959,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             {
               thread_id: MAIN_THREAD_ID,
               context: firstBatch,
-              current_context_usage: getEmptyUsage(),
+              current_context_usage: getEmptyCurrentContextUsage(),
             },
           ],
         }),
@@ -1065,7 +1066,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             {
               thread_id: MAIN_THREAD_ID,
               context: [userMessage('hello')],
-              current_context_usage: getEmptyUsage(),
+              current_context_usage: getEmptyCurrentContextUsage(),
             },
           ],
         }),
