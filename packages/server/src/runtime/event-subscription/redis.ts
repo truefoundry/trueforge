@@ -1,6 +1,5 @@
 import type { RedisClientType } from 'redis';
 import {
-  StreamCorruptEntryError,
   StreamGoneError,
   SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS,
   SUBSCRIBE_STREAM_THRESHOLD_MS,
@@ -17,7 +16,7 @@ function sequenceNumberFromEntryId(streamId: string, entryId: string): number {
   const raw = separator === -1 ? entryId : entryId.slice(0, separator);
   const sequenceNumber = Number(raw);
   if (!Number.isSafeInteger(sequenceNumber) || sequenceNumber < 0) {
-    throw new StreamCorruptEntryError(streamId, entryId, 'invalid sequence number');
+    throw new Error(`Corrupt stream entry ${entryId} on ${streamId}: invalid sequence number`);
   }
   return sequenceNumber;
 }
@@ -78,7 +77,7 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
         cursor = id;
         const data = message['data'];
         if (data === undefined) {
-          throw new StreamCorruptEntryError(this.streamId, id, 'missing data field');
+          throw new Error(`Corrupt stream entry ${id} on ${this.streamId}: missing data field`);
         }
 
         let event: T;
@@ -86,7 +85,9 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
           // Own writes read back; trusted without validation, as in the gateway.
           event = JSON.parse(data) as T;
         } catch (error) {
-          throw new StreamCorruptEntryError(this.streamId, id, 'data is not valid JSON', { cause: error });
+          throw new Error(`Corrupt stream entry ${id} on ${this.streamId}: data is not valid JSON`, {
+            cause: error,
+          });
         }
         yield { ...event, sequence_number: sequenceNumberFromEntryId(this.streamId, id) };
       }

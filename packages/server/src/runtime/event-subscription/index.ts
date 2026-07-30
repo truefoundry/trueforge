@@ -54,19 +54,3 @@ export class StreamGoneError extends Error {
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
-
-/** A stored entry violates the event-subscription wire format (map to HTTP 412). */
-export class StreamCorruptEntryError extends Error {
-  readonly code = 'STREAM_CORRUPT_ENTRY' as const;
-
-  constructor(
-    readonly streamId: string,
-    readonly entryId: string,
-    detail: string,
-    options?: { cause?: unknown },
-  ) {
-    super(`Corrupt stream entry ${entryId} on ${streamId}: ${detail}`, options);
-    this.name = 'StreamCorruptEntryError';
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-}

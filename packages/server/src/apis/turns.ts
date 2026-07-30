@@ -31,12 +31,7 @@ import {
   subscribeTurnRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import {
-  StreamCorruptEntryError,
-  StreamGoneError,
-  type EventSubscriptionRegistry,
-  type SequencedEvent,
-} from '../runtime/event-subscription';
+import { StreamGoneError, type EventSubscriptionRegistry, type SequencedEvent } from '../runtime/event-subscription';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
 import type { McpStore } from '../store/McpStore';
 import type { ModelStore } from '../store/ModelStore';
@@ -359,14 +354,14 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
     const generator = deps.eventSubscriptions.get(turnStreamId(TENANT_ID, sessionId, turnId)).poll(afterSequenceNumber);
 
-    // Pre-flight: force the generator's stream checks (gone/expiring/corrupt)
-    // to run before SSE headers are sent, so they can still map to HTTP 412.
+    // Pre-flight: force the generator's stream-gone check to run before SSE
+    // headers are sent, so it can still map to HTTP 412.
     let iterResult: IteratorResult<SequencedEvent<TurnStreamingEvent>, void>;
     try {
       iterResult = await generator.next();
     } catch (error) {
       clearTimeout(timeoutHandler);
-      if (error instanceof StreamGoneError || error instanceof StreamCorruptEntryError) {
+      if (error instanceof StreamGoneError) {
         throw new HTTPException(412, { message: error.message, cause: error });
       }
       throw error;
