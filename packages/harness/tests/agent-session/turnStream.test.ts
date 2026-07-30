@@ -51,14 +51,14 @@ describe('TurnHandle.stream()', () => {
     expect(types[types.length - 1]).toBe(EventType.TURN_DONE);
     expect(turn.state).toMatchObject({
       status: 'done',
-      usage: {},
+      metrics: {},
     });
     if (turn.state.status === 'done') {
-      expect(turn.state.usage?.total_input_tokens).toBeUndefined();
-      expect(turn.state.usage?.total_output_tokens).toBeUndefined();
-      expect(turn.state.usage?.total_tokens).toBeUndefined();
-      expect(turn.state.usage?.total_cache_read_tokens).toBeUndefined();
-      expect(turn.state.usage?.total_cost_in_usd).toBeUndefined();
+      expect(turn.state.metrics?.total_input_tokens).toBeUndefined();
+      expect(turn.state.metrics?.total_output_tokens).toBeUndefined();
+      expect(turn.state.metrics?.total_tokens).toBeUndefined();
+      expect(turn.state.metrics?.total_cache_read_tokens).toBeUndefined();
+      expect(turn.state.metrics?.total_cost_in_usd).toBeUndefined();
     }
 
     const { data } = await turn.listEvents({ limit: 50 });
@@ -96,7 +96,7 @@ describe('TurnHandle.stream()', () => {
 
     expect(turn.state).toMatchObject({
       status: 'done',
-      usage: {
+      metrics: {
         total_input_tokens: 12,
         total_output_tokens: 5,
         total_tokens: 17,
@@ -128,7 +128,7 @@ describe('TurnHandle.stream()', () => {
     for await (const event of turn1.stream()) void event;
     expect(turn1.state).toMatchObject({
       status: 'done',
-      usage: {
+      metrics: {
         total_input_tokens: 100,
         total_output_tokens: 50,
         total_tokens: 150,
@@ -156,7 +156,7 @@ describe('TurnHandle.stream()', () => {
 
     expect(turn2.state).toMatchObject({
       status: 'done',
-      usage: {
+      metrics: {
         total_input_tokens: 7,
         total_output_tokens: 3,
         total_tokens: 10,
@@ -165,7 +165,7 @@ describe('TurnHandle.stream()', () => {
       },
     });
     // Explicitly not a sum with turn 1.
-    expect(turn2.state.status === 'done' && turn2.state.usage).not.toMatchObject({
+    expect(turn2.state.status === 'done' && turn2.state.metrics).not.toMatchObject({
       total_input_tokens: 107,
       total_output_tokens: 53,
       total_tokens: 160,
@@ -195,7 +195,7 @@ describe('TurnHandle.stream()', () => {
 
     expect(turn.state).toMatchObject({
       status: 'done',
-      usage: { total_cache_read_tokens: 4 },
+      metrics: { total_cache_read_tokens: 4 },
     });
   });
 

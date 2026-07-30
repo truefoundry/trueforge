@@ -95,7 +95,7 @@ import {
   toToolCallInfo,
 } from './contextUtils';
 import { DeferredTool } from './DeferredTool';
-import { addCompletionUsageToMetrics, createEmptyAgentThreadMetrics, type AgentThreadMetrics } from './metrics';
+import { addCompletionUsage, createEmptyAgentThreadMetrics, type AgentThreadMetrics } from './metrics';
 import { getClosableOpenToolCallIds, OpenToolCallCloser } from './OpenToolCallCloser';
 import { isEmptyMessageContent, processAgentUserInput, type AgentInputUserMessage } from './UserInputMessage';
 
@@ -659,10 +659,10 @@ export class AgentThread {
     /** When set, replaces the live context budget; otherwise estimate-merge appended messages. */
     currentContextUsage?: CurrentContextUsage | undefined;
     /** Per-call metrics delta folded into this thread's aggregate metrics. */
-    metricsDelta?: CompletionUsage | undefined;
+    usageDelta?: CompletionUsage | undefined;
     completion?: SubAgentCompletionMarker | undefined;
   }): Generator<AgentThreadAppendContext, void, unknown> {
-    const { context, output, currentContextUsage, metricsDelta, completion } = opts;
+    const { context, output, currentContextUsage, usageDelta, completion } = opts;
 
     const newCurrentContextUsage =
       currentContextUsage ??
@@ -678,8 +678,8 @@ export class AgentThread {
     };
 
     // Update metrics before yield so we still count it if the stream stops here.
-    if (metricsDelta) {
-      addCompletionUsageToMetrics(this.metrics, metricsDelta);
+    if (usageDelta) {
+      addCompletionUsage(this.metrics, usageDelta);
     }
 
     yield event;
@@ -696,7 +696,7 @@ export class AgentThread {
       ...payload,
     };
     // Update metrics before yield so we still count it if the stream stops here.
-    addCompletionUsageToMetrics(this.metrics, payload.usage);
+    addCompletionUsage(this.metrics, payload.usage);
 
     yield event;
     this.context = payload.context;
@@ -811,12 +811,12 @@ export class AgentThread {
     return requestBody;
   }
 
-  private computeAssistantMessageUsage(params: {
+  private computeAssistantMessageMetrics(params: {
     requestBody: ChatCompletionCreateParamsStreaming;
-    usage: CompletionUsage;
+    metrics: CompletionUsage;
     toolMapping: Map<string, MappedMCPTool>;
   }): ModelMessageUsage {
-    const { requestBody, usage, toolMapping } = params;
+    const { requestBody, metrics, toolMapping } = params;
     // Sub-agents have no <user-instructions> section — their agent.instruction is
     // SUB_AGENT_IDENTITY which is harness content, not user-defined instructions.
     const trimmedInstruction = this.definition.instruction?.trim() ?? '';
@@ -843,16 +843,15 @@ export class AgentThread {
     const harnessEstimate = harnessInstructionTokens + tfyManagedToolTokens;
 
     const estimatedComponentsTotal = harnessEstimate + skillsEstimate + instructionsEstimate + userToolTokens;
-    const messagesEstimate = Math.max(0, (usage.input_tokens ?? 0) - estimatedComponentsTotal);
+    const messagesEstimate = Math.max(0, (metrics.input_tokens ?? 0) - estimatedComponentsTotal);
 
     return {
-      input_tokens: usage.input_tokens,
-      output_tokens: usage.output_tokens,
-      total_tokens: usage.total_tokens,
-      cache_read_tokens: usage.cache_read_tokens,
-      cache_write_tokens: usage.cache_write_tokens,
-      reasoning_tokens: usage.reasoning_tokens,
-      cost_in_usd: usage.cost_in_usd,
+      // The SSE contract requires numbers here, so fall back to 0 when the provider
+      // reported nothing. Aggregates keep unreported values undefined instead.
+      input_tokens: metrics.input_tokens ?? 0,
+      output_tokens: metrics.output_tokens ?? 0,
+      cache_read_tokens: metrics.cache_read_tokens,
+      cache_write_tokens: metrics.cache_write_tokens,
       input_tokens_breakdown: {
         harness: harnessEstimate,
         skills: skillsEstimate,
@@ -1014,13 +1013,13 @@ export class AgentThread {
 
     let firstDeltaTimestamped = false;
     let result = await llmStream.next();
-    let usage: ModelMessageUsage | undefined = undefined;
+    let modelMessageUsage: ModelMessageUsage | undefined = undefined;
     while (!result.done) {
       const chunk = result.value;
       if (chunk.usage) {
-        usage = this.computeAssistantMessageUsage({
+        modelMessageUsage = this.computeAssistantMessageMetrics({
           requestBody,
-          usage: chunk.usage,
+          metrics: chunk.usage,
           toolMapping,
         });
       }
@@ -1028,7 +1027,7 @@ export class AgentThread {
         chunk,
         threadId: this.threadId,
         toolMapping,
-        usage,
+        usage: modelMessageUsage,
         id: modelMessageEventId,
         logger: this.logger,
       });
@@ -1050,8 +1049,12 @@ export class AgentThread {
       return { outcome: 'exit', modelMessageEventId };
     }
 
-    // should be computed by this point but in case provider never gives out any delta with usage key, compute it now.
-    usage ??= this.computeAssistantMessageUsage({ requestBody, usage: result.value.usage, toolMapping });
+    // should be computed by this point but in case provider never gives out any delta with metrics key, compute it now.
+    modelMessageUsage ??= this.computeAssistantMessageMetrics({
+      requestBody,
+      metrics: result.value.usage,
+      toolMapping,
+    });
     const assistantMessage: InternalEnrichedAssistantMessage = await buildContextAssistantMessage(
       result.value.output,
       toolMapping,
@@ -1061,7 +1064,7 @@ export class AgentThread {
       assistantMessage,
       threadId: this.threadId,
       finishReason,
-      usage,
+      usage: modelMessageUsage,
       id: modelMessageEventId,
     });
 
@@ -1092,7 +1095,7 @@ export class AgentThread {
       context: [assistantMessage],
       output: [agentAssistantMessage],
       currentContextUsage: currentContextUsageFromCompletion(result.value.usage),
-      metricsDelta: result.value.usage,
+      usageDelta: result.value.usage,
       completion,
     });
 

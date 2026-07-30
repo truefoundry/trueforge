@@ -22,8 +22,8 @@ import {
   CancellationReason,
   type TerminalTurnState,
   type TurnInputItem,
+  type TurnMetrics,
   type TurnState,
-  type TurnUsage,
 } from './schemas/turn';
 import type { ISessionStore } from './store/ISessionStore';
 import { TurnNotRunningError } from './store/SessionStoreErrors';
@@ -73,7 +73,7 @@ function toMCPAuthRequiredEvent(event: InternalMCPAuthRequiredEvent): MCPAuthReq
   };
 }
 
-function turnUsageFromMetrics(metrics: AgentThreadMetrics): TurnUsage {
+function turnMetricsFromAgentThreadMetrics(metrics: AgentThreadMetrics): TurnMetrics {
   return {
     total_input_tokens: metrics.total_input_tokens,
     total_output_tokens: metrics.total_output_tokens,
@@ -239,7 +239,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             const createdAt = new Date().toISOString();
             const state: TerminalTurnState = {
               ...error.state,
-              usage: turnUsageFromMetrics(orchestrator.getMetrics()),
+              metrics: turnMetricsFromAgentThreadMetrics(orchestrator.getMetrics()),
             };
             this.turn = { ...this.turn, state, updated_at: createdAt };
             yield {
@@ -268,28 +268,28 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       }
 
       const createdAt = new Date().toISOString();
-      const usage = turnUsageFromMetrics(orchestrator.getMetrics());
+      const metrics = turnMetricsFromAgentThreadMetrics(orchestrator.getMetrics());
       let terminalState: TerminalTurnState;
       if (signal.aborted) {
         terminalState = {
           status: 'cancelled',
           reason: cancellationReasonFromAbortReason(signal.reason),
           completed_at: createdAt,
-          usage,
+          metrics,
         };
       } else if (caughtError) {
         terminalState = {
           status: 'error',
           message: caughtError.message,
           completed_at: createdAt,
-          usage,
+          metrics,
         };
       } else if (executeResult?.root_agent_error) {
         terminalState = {
           status: 'error',
           message: executeResult.root_agent_error.error,
           completed_at: createdAt,
-          usage,
+          metrics,
         };
       } else if (executeResult === undefined) {
         // Consumer abandoned the generator (break/return) without aborting —
@@ -298,7 +298,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           status: 'cancelled',
           reason: CancellationReason.ClientCancelled,
           completed_at: createdAt,
-          usage,
+          metrics,
         };
       } else {
         terminalState = {
@@ -306,7 +306,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           output: executeResult.output,
           required_actions: executeResult.required_actions,
           completed_at: createdAt,
-          usage,
+          metrics,
         };
       }
 
@@ -330,7 +330,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           this.turn = { ...this.turn, state: terminalState, updated_at: createdAt };
         } catch (persistError) {
           if (persistError instanceof TurnNotRunningError) {
-            const state: TerminalTurnState = { ...persistError.state, usage };
+            const state: TerminalTurnState = { ...persistError.state, metrics };
             this.turn = { ...this.turn, state, updated_at: createdAt };
             await resolver.close().catch(() => {
               /* no-op */

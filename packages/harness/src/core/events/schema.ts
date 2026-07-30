@@ -10,6 +10,7 @@ import {
   LLMToolMessageSchema,
   LLMUserMessageSchema,
 } from '../llm/LLMTypes';
+import { CurrentContextUsageSchema } from '../runtime/contextUsage';
 
 /**
  * Process-local monotonic ULIDs preserve event creation order, including
@@ -133,10 +134,15 @@ export const InputTokensBreakdownSchema = z.object({
   messages: z.number().int().nonnegative(),
 });
 
-/** Billable per-call usage on model.message, plus input_tokens_breakdown. */
-export const ModelMessageUsageSchema = CompletionUsageSchema.extend({
-  input_tokens_breakdown: InputTokensBreakdownSchema,
-}).openapi('ModelMessageUsage');
+export const ModelMessageUsageSchema = z
+  .object({
+    input_tokens: z.number().int().nonnegative(),
+    output_tokens: z.number().int().nonnegative(),
+    cache_read_tokens: z.number().int().nonnegative().optional(),
+    cache_write_tokens: z.number().int().nonnegative().optional(),
+    input_tokens_breakdown: InputTokensBreakdownSchema,
+  })
+  .openapi('ModelMessageUsage');
 
 export const ModelMessageEventSchema = EnrichedAssistantMessageSchema.omit({ role: true })
   .extend({
@@ -239,12 +245,7 @@ export const ThreadOverwriteContextEventSchema = z.object({
   // NOTE: add other reasons here.
   reason: z.literal('compaction'),
   context: z.array(ContextMessageSchema),
-  // Legacy persisted field names — see CurrentContextUsage in runtime/contextUsage.
-  current_context_usage: z.object({
-    prompt_tokens: z.number().int().nonnegative(),
-    completion_tokens: z.number().int().nonnegative(),
-    total_tokens: z.number().int().nonnegative(),
-  }),
+  current_context_usage: CurrentContextUsageSchema,
   usage: CompletionUsageSchema,
 });
 

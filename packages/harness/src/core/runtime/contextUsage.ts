@@ -1,18 +1,22 @@
+import { z } from '@hono/zod-openapi';
 import type { CompletionUsage } from '../llm/LLMTypes';
 
 /**
- * Live — context budget for the next LLM call (not billable).
+ * Live context budget for the next LLM call (not billable). The legacy
+ * `prompt_tokens`/`completion_tokens` names are load-bearing: this shape is persisted per
+ * thread, so renaming them would make already-stored rows load as missing fields.
  *
- * Keeps the legacy `prompt_tokens`/`completion_tokens` names on purpose: this shape is
- * persisted per thread and carried forward across turns, so renaming it to input/output
- * would make already-stored rows load as missing fields. Public contracts (CompletionUsage,
- * AgentThreadMetrics, SSE) use input/output — translate at the boundary, never here.
+ * Zod is needed here mainly so ThreadOverwriteContextEventSchema can reuse the shape.
  */
-export interface CurrentContextUsage {
-  prompt_tokens: number;
-  completion_tokens: number;
-  total_tokens: number;
-}
+export const CurrentContextUsageSchema = z
+  .object({
+    prompt_tokens: z.number().int().nonnegative(),
+    completion_tokens: z.number().int().nonnegative(),
+    total_tokens: z.number().int().nonnegative(),
+  })
+  .openapi('CurrentContextUsage');
+
+export type CurrentContextUsage = z.infer<typeof CurrentContextUsageSchema>;
 
 export function getEmptyCurrentContextUsage(): CurrentContextUsage {
   return { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };

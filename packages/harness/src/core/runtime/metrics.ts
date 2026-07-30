@@ -36,8 +36,8 @@ export function createEmptyAgentThreadMetrics(): AgentThreadMetrics {
   };
 }
 
-/** Fold one per-call usage into aggregated thread metrics. */
-export function addCompletionUsageToMetrics(target: AgentThreadMetrics, usage: CompletionUsage): void {
+/** Fold one per-call completion usage into aggregated thread metrics. */
+export function addCompletionUsage(target: AgentThreadMetrics, usage: CompletionUsage): void {
   target.total_input_tokens = sumOptional(target.total_input_tokens, usage.input_tokens);
   target.total_output_tokens = sumOptional(target.total_output_tokens, usage.output_tokens);
   target.total_tokens = sumOptional(target.total_tokens, usage.total_tokens);
