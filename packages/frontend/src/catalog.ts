@@ -42,21 +42,21 @@ async function fetchJson<T>(path: string): Promise<T> {
 }
 
 export async function listModels(): Promise<ModelEntry[]> {
-  const body = await fetchJson<ListEnvelope<ModelEntry>>('/api/models');
+  const body = await fetchJson<ListEnvelope<ModelEntry>>('/api/v1/models');
   return body.data;
 }
 
 export async function listMcpServers(): Promise<McpServerEntry[]> {
-  const body = await fetchJson<ListEnvelope<McpServerEntry>>('/api/mcp-servers');
+  const body = await fetchJson<ListEnvelope<McpServerEntry>>('/api/v1/mcp-servers');
   return body.data;
 }
 
 export async function listSkills(): Promise<SkillEntry[]> {
-  const body = await fetchJson<ListEnvelope<SkillEntry>>('/api/skills');
+  const body = await fetchJson<ListEnvelope<SkillEntry>>('/api/v1/skills');
   return body.data;
 }
 
 export async function getCapabilities(): Promise<ServerCapabilities> {
-  const body = await fetchJson<DataEnvelope<ServerCapabilities>>('/api/capabilities');
+  const body = await fetchJson<DataEnvelope<ServerCapabilities>>('/api/v1/capabilities');
   return body.data;
 }

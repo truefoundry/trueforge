@@ -8,7 +8,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { routeNotFound } from './app';
 
-/** Routes the server answers itself; never served from the build. */
+/** Routes the server answers itself; never served from the build. /api covers every version below it. */
 const SERVER_PATH_PREFIXES = ['/api', '/healthz'];
 
 /** Only Vite's hashed asset names can be cached forever. */

@@ -15,12 +15,12 @@ describe('api error interceptor', () => {
   it('records failed responses with status and body, and keeps the body readable', async () => {
     stubbedResponse = () =>
       new Response(JSON.stringify({ message: 'boom' }), { status: 500, statusText: 'Internal Server Error' });
-    const response = await fetch('/api/models', { method: 'POST' });
+    const response = await fetch('/api/v1/models', { method: 'POST' });
 
     const [record] = getApiErrorsSnapshot();
     assert.ok(record);
     assert.equal(record.method, 'POST');
-    assert.equal(record.url, '/api/models');
+    assert.equal(record.url, '/api/v1/models');
     assert.equal(record.status, 500);
     assert.equal(record.statusText, 'Internal Server Error');
     assert.equal(record.body, '{"message":"boom"}');
@@ -29,7 +29,7 @@ describe('api error interceptor', () => {
 
   it('ignores successful responses', async () => {
     stubbedResponse = () => new Response('ok', { status: 200 });
-    await fetch('/api/models');
+    await fetch('/api/v1/models');
     assert.equal(getApiErrorsSnapshot().length, 0);
   });
 
@@ -37,7 +37,7 @@ describe('api error interceptor', () => {
     stubbedResponse = () => {
       throw new Error('connection refused');
     };
-    await assert.rejects(fetch('/api/skills'), /connection refused/);
+    await assert.rejects(fetch('/api/v1/skills'), /connection refused/);
 
     const [record] = getApiErrorsSnapshot();
     assert.ok(record);

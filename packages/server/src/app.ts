@@ -1,4 +1,4 @@
-/** The API: resource routers, the OpenAPI document and Swagger UI, all under /api. */
+/** The API: resource routers, the OpenAPI document and Swagger UI, all under /api/v1. */
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnSandboxFactory } from '@truefoundry/utils/agent-session';
@@ -58,12 +58,12 @@ export function createServerApp(deps: ServerDeps) {
 
   app.get('/healthz', c => c.text('OK!'));
 
-  app.route('/api/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
-  app.route('/api/models', createModelsRouter(deps.modelStore));
-  app.route('/api/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
-  app.route('/api/skills', createSkillsRouter(deps.skillStore));
+  app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
+  app.route('/api/v1/models', createModelsRouter(deps.modelStore));
+  app.route('/api/v1/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
+  app.route('/api/v1/skills', createSkillsRouter(deps.skillStore));
   app.route(
-    '/api/sessions',
+    '/api/v1/sessions',
     createSessionsRouter({
       sessions: deps.sessions,
       sessionStore: deps.sessionStore,
@@ -76,7 +76,7 @@ export function createServerApp(deps: ServerDeps) {
     }),
   );
   app.route(
-    '/api/sessions',
+    '/api/v1/sessions',
     createTurnsRouter({
       sessions: deps.sessions,
       activeTurns: deps.activeTurns,
@@ -87,8 +87,8 @@ export function createServerApp(deps: ServerDeps) {
     }),
   );
 
-  app.get('/api/docs', swaggerUI({ url: '/api/openapi.json' }));
-  app.get('/api/openapi.json', c => c.json(buildOpenApiDocument(app)));
+  app.get('/api/v1/docs', swaggerUI({ url: '/api/v1/openapi.json' }));
+  app.get('/api/v1/openapi.json', c => c.json(buildOpenApiDocument(app)));
 
   app.notFound(routeNotFound);
 

@@ -97,13 +97,13 @@ describe('frontend serving', () => {
   });
 
   it('never compresses API responses, whose streams must flush per event', async () => {
-    const response = await app.request('/api/models', { headers: { 'accept-encoding': 'gzip, br' } });
+    const response = await app.request('/api/v1/models', { headers: { 'accept-encoding': 'gzip, br' } });
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('content-encoding'), null);
   });
 
   it('keeps unknown API routes as JSON 404s', async () => {
-    const response = await app.request('/api/nope', navigation);
+    const response = await app.request('/api/v1/nope', navigation);
     assert.equal(response.status, 404);
     assert.equal(response.headers.get('content-type')?.includes('application/json'), true);
   });
@@ -111,6 +111,8 @@ describe('frontend serving', () => {
   it('404s a missing asset instead of returning the shell', async () => {
     const response = await app.request('/assets/gone-000000.js');
     assert.equal(response.status, 404);
+    // A cacheable 404 under /assets/ would pin the miss for a year, outliving the deploy that fixes it.
+    assert.equal(response.headers.get('cache-control'), null);
   });
 
   it('404s a write to an unknown path, which is never a navigation', async () => {
@@ -183,7 +185,7 @@ describe('without a frontend build', () => {
   });
 
   it('still serves the API, so UI work can run Vite separately', async () => {
-    const models = await app.request('/api/models');
+    const models = await app.request('/api/v1/models');
     assert.equal(models.status, 200);
 
     const navigationToUi = await app.request('/', navigation);

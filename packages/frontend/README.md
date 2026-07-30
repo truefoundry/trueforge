@@ -28,13 +28,13 @@ its own is fine too — with no build in `dist/` it logs a warning and serves th
 ### Session paths
 
 The gateway SDK's session routes sit under `/v1/agents`, with draft sessions as a separate resource. The
-harness serves one `/api/sessions` surface, so [`src/harnessFetch.ts`](src/harnessFetch.ts) rewrites
+harness serves one `/api/v1/sessions` surface, so [`src/harnessFetch.ts`](src/harnessFetch.ts) rewrites
 requests on their way out and is handed to both clients as their `fetch`:
 
-| SDK request                  | Harness route    |
-| ---------------------------- | ---------------- |
-| `/v1/agents/draft-sessions*` | `/api/sessions*` |
-| `/v1/agents/sessions*`       | `/api/sessions*` |
+| SDK request                  | Harness route       |
+| ---------------------------- | ------------------- |
+| `/v1/agents/draft-sessions*` | `/api/v1/sessions*` |
+| `/v1/agents/sessions*`       | `/api/v1/sessions*` |
 
 It runs in the browser, so the mapping is identical in dev and production; the dev proxy just forwards.
 
@@ -53,10 +53,10 @@ docker compose up --build   # UI + API on http://localhost:8790
 
 The SDK has no catalog client. On boot the app:
 
-1. `GET /api/models` → seeds `defaultAgentSpec.model.name`
+1. `GET /api/v1/models` → seeds `defaultAgentSpec.model.name`
 2. Renders custom `ComposerRightSection` controls that `fetch` models/MCP and call `updateAgentSpec`
 
-Skills: catalog UI lists `GET /api/skills` (empty state when none). Selection is local-only — session admission still rejects `agent_spec.skills`.
+Skills: catalog UI lists `GET /api/v1/skills` (empty state when none). Selection is local-only — session admission still rejects `agent_spec.skills`.
 
 ## Gaps
 

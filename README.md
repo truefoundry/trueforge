@@ -54,7 +54,7 @@ rebuild or server restart. Use `:3000` for UI work; `:8790` serves the last buil
 
 ## Serving the UI from the server
 
-Deployments are one process on one origin: `/api/*` (including `/api/docs` and `/api/openapi.json`) and
+Deployments are one process on one origin: `/api/*` (including `/api/v1/docs` and `/api/v1/openapi.json`) and
 `/healthz` are the API, everything else resolves to the UI. `FRONTEND_DIR` points at the build (default
 `../frontend/dist`; the image sets an absolute path). It is not required: with no build there the server
 logs a warning and serves the API only, which is what running the server behind Vite needs.
