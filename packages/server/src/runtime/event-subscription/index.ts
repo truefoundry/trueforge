@@ -1,3 +1,7 @@
+import type { RedisClientType } from 'redis';
+import { InMemoryEventStreamStore, InMemoryEventSubscription } from './inMemory';
+import { RedisEventSubscription } from './redis';
+
 export interface EventSubscriptionPutOptions {
   /** Sets the lifetime of the whole stream after this append. */
   streamTTLSeconds?: number | undefined;
@@ -5,12 +9,37 @@ export interface EventSubscriptionPutOptions {
 
 export type SequencedEvent<T extends object> = T & { sequence_number: number };
 
+/**
+ * One turn's resumable event stream, obtained from {@link EventSubscriptionRegistry.get}.
+ * Per-stream state (e.g. the sequence counter) lives on the instance and is freed with it.
+ */
 export interface EventSubscription<T extends object> {
   /** Appends an event, assigns its sequence number, and returns that number. */
-  put(streamId: string, event: T, options?: EventSubscriptionPutOptions): Promise<number>;
+  put(event: T, options?: EventSubscriptionPutOptions): Promise<number>;
 
   /** Yields events strictly after the supplied sequence, or from the start when omitted. */
-  poll(streamId: string, afterSequenceNumber?: number): AsyncGenerator<SequencedEvent<T>, void, unknown>;
+  poll(afterSequenceNumber?: number): AsyncGenerator<SequencedEvent<T>, void, unknown>;
+}
+
+/**
+ * Hands out stream-scoped {@link EventSubscription}s: Redis-backed when a
+ * client is supplied, otherwise views over one shared in-process store.
+ */
+export class EventSubscriptionRegistry<T extends object> {
+  private memoryStore: InMemoryEventStreamStore<T> | undefined;
+
+  constructor(
+    private readonly redis: RedisClientType | undefined,
+    private readonly parseEvent: (raw: unknown) => T,
+  ) {}
+
+  get(streamId: string): EventSubscription<T> {
+    if (this.redis) {
+      return new RedisEventSubscription(this.redis, streamId, this.parseEvent);
+    }
+    this.memoryStore ??= new InMemoryEventStreamStore<T>();
+    return new InMemoryEventSubscription(this.memoryStore, streamId);
+  }
 }
 
 /** Redis/in-memory key for one turn's resumable event stream. */

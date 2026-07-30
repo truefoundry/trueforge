@@ -36,7 +36,7 @@ import {
   StreamExpiringError,
   StreamGoneError,
   turnStreamId,
-  type EventSubscription,
+  type EventSubscriptionRegistry,
   type SequencedEvent,
 } from '../runtime/event-subscription';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
@@ -62,7 +62,7 @@ export interface TurnsRouterDeps {
   modelStore: ModelStore;
   mcpStore: McpStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
-  eventSubscription: EventSubscription<StoredTurnStreamingEvent>;
+  eventSubscriptions: EventSubscriptionRegistry<StoredTurnStreamingEvent>;
   /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
   sandboxFactory?: TurnSandboxFactory;
   logger: Logger;
@@ -131,11 +131,7 @@ function deriveSessionTitle(input: TurnInputItem[] | undefined): string | undefi
   return trimmed.slice(0, MAX_SESSION_TITLE_LENGTH);
 }
 
-/**
- * SSE payload for one turn event. The `id` field carries the per-stream
- * sequence number; the event body itself is not numbered (yield order is
- * persist order, so the transport boundary stamps).
- */
+/** SSE payload: `id` carries the per-stream sequence number; the body is not numbered. */
 function turnEventSsePayload(event: StoredTurnStreamingEvent, sequenceNumber: number): { id: string; data: string } {
   return {
     id: String(sequenceNumber),
@@ -144,9 +140,8 @@ function turnEventSsePayload(event: StoredTurnStreamingEvent, sequenceNumber: nu
 }
 
 /**
- * Stream TTL applied on put: turn.created arms the active-run TTL, turn.done
- * shortens it to the post-completion drain window. Mid-run events leave the
- * TTL untouched.
+ * turn.created arms the active-run TTL, turn.done shortens it to the
+ * post-completion drain window; mid-run events leave the TTL untouched.
  */
 function streamTTLSecondsFor(event: TurnStreamingEvent): number | undefined {
   if (event.type === EventType.TURN_CREATED) {
@@ -297,7 +292,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     });
 
     let shouldWriteToSSEStream = true;
-    const streamId = turnStreamId(TENANT_ID, sessionId, turn.id);
+    // Held for the whole turn; the stream's sequence counter dies with it.
+    const turnEventStream = deps.eventSubscriptions.get(turnStreamId(TENANT_ID, sessionId, turn.id));
     return streamSSE(c, async stream => {
       // On client disconnect stop writing but keep draining, so the turn
       // completes and its events persist.
@@ -311,7 +307,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         for await (const event of trackedStream) {
           // Dual-write before SSE so subscribers can resume even after the
           // creating client disconnects; the returned sequence is the SSE id.
-          const sequenceNumber = await deps.eventSubscription.put(streamId, event, {
+          const sequenceNumber = await turnEventStream.put(event, {
             streamTTLSeconds: streamTTLSecondsFor(event),
           });
           if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
@@ -346,8 +342,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
 
-    // Server-side subscribe timeout (gateway pattern): a timer aborts this
-    // controller and the SSE loop checks the signal between events.
+    // Server-side subscribe timeout; the SSE loop checks the signal between events.
     const timeoutAbortController = new AbortController();
     const timeoutMs = configuration.TURN_SUBSCRIBE_TIMEOUT_MS;
     const timeoutHandler = setTimeout(() => {
@@ -360,7 +355,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       timeoutAbortController.abort(new Error('subscribe-timeout'));
     }, timeoutMs);
 
-    const generator = deps.eventSubscription.poll(turnStreamId(TENANT_ID, sessionId, turnId), afterSequenceNumber);
+    const generator = deps.eventSubscriptions.get(turnStreamId(TENANT_ID, sessionId, turnId)).poll(afterSequenceNumber);
 
     // Pre-flight: force the generator's stream checks (gone/expiring/corrupt)
     // to run before SSE headers are sent, so they can still map to HTTP 412.

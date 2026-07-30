@@ -1,8 +1,7 @@
 /**
- * Single-process EventSubscription backend with RedisEventSubscription
- * semantics: dense 0-based sequences minted on put, whole-stream TTL applied
- * per put, poll-forever generators, and the same gone/expiring errors. For a
- * future Redis-less boot mode; resume only works within one server replica.
+ * Single-process backend mirroring RedisEventSubscription semantics (dense
+ * sequences, whole-stream TTL, poll-forever generators, same errors).
+ * Resume only works within one replica.
  */
 import {
   sleep,
@@ -23,50 +22,29 @@ interface InMemoryStream<T extends object> {
   expiryTimer?: NodeJS.Timeout | undefined;
 }
 
-export class InMemoryEventSubscription<T extends object> implements EventSubscription<T> {
+/**
+ * Owns the stream logs and their TTLs; the expiry timer is the in-process
+ * equivalent of Redis key eviction.
+ */
+export class InMemoryEventStreamStore<T extends object> {
   private readonly streams = new Map<string, InMemoryStream<T>>();
 
-  put(streamId: string, event: T, options?: EventSubscriptionPutOptions): Promise<number> {
+  append(streamId: string, event: T, streamTTLSeconds?: number): number {
     const stream = this.getLiveStream(streamId) ?? { events: [] };
     this.streams.set(streamId, stream);
 
     const sequenceNumber = stream.events.length;
     stream.events.push({ ...event, sequence_number: sequenceNumber });
 
-    if (options?.streamTTLSeconds && options.streamTTLSeconds > 0) {
-      stream.expiresAtMs = Date.now() + options.streamTTLSeconds * 1_000;
+    if (streamTTLSeconds && streamTTLSeconds > 0) {
+      stream.expiresAtMs = Date.now() + streamTTLSeconds * 1_000;
       this.scheduleExpiry(streamId, stream);
     }
-    return Promise.resolve(sequenceNumber);
-  }
-
-  async *poll(streamId: string, afterSequenceNumber?: number): AsyncGenerator<SequencedEvent<T>, void, unknown> {
-    const stream = this.getLiveStream(streamId);
-    if (!stream) {
-      throw new StreamGoneError(streamId);
-    }
-    if (stream.expiresAtMs !== undefined && stream.expiresAtMs - Date.now() < SUBSCRIBE_STREAM_THRESHOLD_MS) {
-      throw new StreamExpiringError(streamId, stream.expiresAtMs);
-    }
-
-    let cursor = afterSequenceNumber === undefined ? 0 : afterSequenceNumber + 1;
-    for (;;) {
-      const live = this.getLiveStream(streamId);
-      if (!live) {
-        throw new StreamGoneError(streamId);
-      }
-      const batch = live.events.slice(cursor);
-      if (batch.length === 0) {
-        await sleep(SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS);
-        continue;
-      }
-      cursor += batch.length;
-      yield* batch;
-    }
+    return sequenceNumber;
   }
 
   /** Returns the stream if it exists and has not passed its TTL; drops it lazily otherwise. */
-  private getLiveStream(streamId: string): InMemoryStream<T> | undefined {
+  getLiveStream(streamId: string): InMemoryStream<T> | undefined {
     const stream = this.streams.get(streamId);
     if (!stream) {
       return undefined;
@@ -78,7 +56,6 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
     return stream;
   }
 
-  /** Frees the log once the TTL passes so finished streams are not retained until next access. */
   private scheduleExpiry(streamId: string, stream: InMemoryStream<T>): void {
     if (stream.expiryTimer) {
       clearTimeout(stream.expiryTimer);
@@ -92,5 +69,42 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
       }
     }, stream.expiresAtMs - Date.now());
     stream.expiryTimer.unref();
+  }
+}
+
+/** Stream-scoped view over the shared store; implements the transport contract. */
+export class InMemoryEventSubscription<T extends object> implements EventSubscription<T> {
+  constructor(
+    private readonly store: InMemoryEventStreamStore<T>,
+    private readonly streamId: string,
+  ) {}
+
+  put(event: T, options?: EventSubscriptionPutOptions): Promise<number> {
+    return Promise.resolve(this.store.append(this.streamId, event, options?.streamTTLSeconds));
+  }
+
+  async *poll(afterSequenceNumber?: number): AsyncGenerator<SequencedEvent<T>, void, unknown> {
+    const stream = this.store.getLiveStream(this.streamId);
+    if (!stream) {
+      throw new StreamGoneError(this.streamId);
+    }
+    if (stream.expiresAtMs !== undefined && stream.expiresAtMs - Date.now() < SUBSCRIBE_STREAM_THRESHOLD_MS) {
+      throw new StreamExpiringError(this.streamId, stream.expiresAtMs);
+    }
+
+    let cursor = afterSequenceNumber === undefined ? 0 : afterSequenceNumber + 1;
+    for (;;) {
+      const live = this.store.getLiveStream(this.streamId);
+      if (!live) {
+        throw new StreamGoneError(this.streamId);
+      }
+      const batch = live.events.slice(cursor);
+      if (batch.length === 0) {
+        await sleep(SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS);
+        continue;
+      }
+      cursor += batch.length;
+      yield* batch;
+    }
   }
 }

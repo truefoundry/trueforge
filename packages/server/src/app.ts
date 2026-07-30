@@ -16,7 +16,7 @@ import { createSessionsRouter } from './apis/sessions';
 import { createSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
-import type { EventSubscription } from './runtime/event-subscription';
+import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 import type { StoredTurnStreamingEvent } from './schemas/events';
 import type { McpStore } from './store/McpStore';
 import type { ModelStore } from './store/ModelStore';
@@ -49,8 +49,8 @@ export interface ServerDeps {
   redis: RedisClientType;
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;
-  /** Resumable live turn-event transport shared by create and subscribe handlers. */
-  eventSubscription: EventSubscription<StoredTurnStreamingEvent>;
+  /** Hands out each turn's resumable event stream to the create and subscribe handlers. */
+  eventSubscriptions: EventSubscriptionRegistry<StoredTurnStreamingEvent>;
   logger: Logger;
 }
 
@@ -83,7 +83,7 @@ export function createServerApp(deps: ServerDeps) {
       activeTurns: deps.activeTurns,
       modelStore: deps.modelStore,
       mcpStore: deps.mcpStore,
-      eventSubscription: deps.eventSubscription,
+      eventSubscriptions: deps.eventSubscriptions,
       ...(deps.sandboxFactory ? { sandboxFactory: deps.sandboxFactory } : {}),
       logger: deps.logger,
     }),

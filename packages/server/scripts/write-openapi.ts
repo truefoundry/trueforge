@@ -13,7 +13,7 @@ import { createClient, type RedisClientType } from 'redis';
 import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
-import { RedisEventSubscription } from '../src/runtime/event-subscription/redis';
+import { EventSubscriptionRegistry } from '../src/runtime/event-subscription';
 import { parseStoredTurnStreamingEvent } from '../src/schemas/events';
 import { McpStore } from '../src/store/McpStore';
 import { ModelStore } from '../src/store/ModelStore';
@@ -50,7 +50,7 @@ const app = createServerApp({
   activeTurns: new ActiveTurnRegistry(),
   redis,
   requestReplyRouter: new RequestReplyRouter(),
-  eventSubscription: new RedisEventSubscription(redis, parseStoredTurnStreamingEvent),
+  eventSubscriptions: new EventSubscriptionRegistry(redis, parseStoredTurnStreamingEvent),
   logger: winston.createLogger({ silent: true }),
 });
 

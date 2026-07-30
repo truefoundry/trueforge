@@ -21,7 +21,7 @@ try {
     { connectRedis },
     { RequestReplyExecutor, RequestReplyRouter },
     { PostgresSessionStore },
-    { RedisEventSubscription },
+    { EventSubscriptionRegistry },
     { parseStoredTurnStreamingEvent },
   ] = await Promise.all([
     import('./app'),
@@ -37,7 +37,7 @@ try {
     import('./runtime/redis'),
     import('@truefoundry/utils/request-reply'),
     import('./db/postgres/session-store/PostgresSessionStore'),
-    import('./runtime/event-subscription/redis'),
+    import('./runtime/event-subscription'),
     import('./schemas/events'),
   ]);
 
@@ -62,7 +62,7 @@ try {
   logger.info(`Executor id: ${configuration.EXECUTOR_ID}`);
   const redis = await connectRedis({ url: configuration.REDIS_URL, logger });
   const requestReplyRouter = new RequestReplyRouter();
-  const eventSubscription = new RedisEventSubscription(redis, parseStoredTurnStreamingEvent);
+  const eventSubscriptions = new EventSubscriptionRegistry(redis, parseStoredTurnStreamingEvent);
 
   const app = createServerApp({
     modelStore: ModelStore.load(),
@@ -74,7 +74,7 @@ try {
     ...(sandboxFactory ? { sandboxFactory } : {}),
     redis,
     requestReplyRouter,
-    eventSubscription,
+    eventSubscriptions,
     logger,
   });
 
