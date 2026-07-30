@@ -79,14 +79,11 @@ jobs:
         with:
           filters: |
             store:
-              - 'packages/server/src/db/session-store/**'
+              - 'packages/server/src/db/**'
+              - 'packages/server/tsup.config.ts'
               - 'packages/server/tests/**'
               - 'packages/harness/src/agent-session/**'
               - 'packages/harness/tests/agent-session/**'
-              - 'packages/server/src/db/migrations/**'
-              - 'packages/server/src/db/migrate.ts'
-              - 'packages/server/src/db/types.ts'
-              - 'packages/server/src/db/client.ts'
 
       - name: Skip — no session-store changes
         if: steps.filter.outputs.store != 'true'
