@@ -211,8 +211,8 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
         // This is not taking into account that the original request had
         // tool definition in them.
         // This will get refreshed in the next LLM call.
-        input_tokens: (response.usage.input_tokens ?? 0) + CONTINUATION_MESSAGE_TOKENS,
-        output_tokens: 0,
+        prompt_tokens: (response.usage.input_tokens ?? 0) + CONTINUATION_MESSAGE_TOKENS,
+        completion_tokens: 0,
       },
       usage: response.usage,
     };

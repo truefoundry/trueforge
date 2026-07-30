@@ -239,9 +239,10 @@ export const ThreadOverwriteContextEventSchema = z.object({
   // NOTE: add other reasons here.
   reason: z.literal('compaction'),
   context: z.array(ContextMessageSchema),
+  // Legacy persisted field names — see CurrentContextUsage in runtime/contextUsage.
   current_context_usage: z.object({
-    input_tokens: z.number().int().nonnegative(),
-    output_tokens: z.number().int().nonnegative(),
+    prompt_tokens: z.number().int().nonnegative(),
+    completion_tokens: z.number().int().nonnegative(),
     total_tokens: z.number().int().nonnegative(),
   }),
   usage: CompletionUsageSchema,
