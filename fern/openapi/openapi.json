@@ -1091,10 +1091,7 @@
           "thread_id",
           "created_at"
         ],
-        "type": [
-          "object",
-          "null"
-        ]
+        "type": "object"
       },
       "ModelMessageUsage": {
         "properties": {
@@ -1515,14 +1512,7 @@
             "$ref": "#/components/schemas/TurnDoneEvent"
           },
           {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ModelMessageEvent"
-              },
-              {
-                "type": "object"
-              }
-            ]
+            "$ref": "#/components/schemas/ModelMessageEvent"
           },
           {
             "$ref": "#/components/schemas/ToolResponseEvent"
@@ -1764,14 +1754,7 @@
       "ThreadStateDone": {
         "properties": {
           "output": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ModelMessageEvent"
-              },
-              {
-                "type": "object"
-              }
-            ]
+            "$ref": "#/components/schemas/ModelMessageEvent"
           },
           "status": {
             "enum": [
@@ -1792,14 +1775,7 @@
             "type": "string"
           },
           "output": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ModelMessageEvent"
-              },
-              {
-                "type": "object"
-              }
-            ]
+            "$ref": "#/components/schemas/ModelMessageEvent"
           },
           "status": {
             "enum": [
@@ -2243,7 +2219,6 @@
         },
         "required": [
           "status",
-          "output",
           "required_actions",
           "completed_at"
         ],
@@ -2305,14 +2280,7 @@
         },
         "oneOf": [
           {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ModelMessageEvent"
-              },
-              {
-                "type": "object"
-              }
-            ]
+            "$ref": "#/components/schemas/ModelMessageEvent"
           },
           {
             "$ref": "#/components/schemas/ModelMessageDeltaEvent"
