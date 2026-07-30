@@ -278,10 +278,10 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   };
 
   const router = new OpenAPIHono();
+  router.openapi(createAndExecuteTurnRoute, createAndExecuteTurnHandler);
   router.openapi(listTurnsRoute, listTurnsHandler);
   router.openapi(getTurnRoute, getTurnHandler);
   router.openapi(listTurnEventsRoute, listTurnEventsHandler);
-  router.openapi(createAndExecuteTurnRoute, createAndExecuteTurnHandler);
   // subscribeTurnRoute (routes/turnRoutes.ts) is defined but not registered:
   // re-subscribing to a running turn needs a live-stream registry that this
   // single-process server does not have yet.
