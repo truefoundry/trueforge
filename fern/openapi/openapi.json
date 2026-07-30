@@ -1,0 +1,3374 @@
+{
+  "components": {
+    "parameters": {},
+    "schemas": {
+      "ActionRequiredEvent": {
+        "discriminator": {
+          "mapping": {
+            "mcp.auth_required": "#/components/schemas/MCPAuthRequiredEvent",
+            "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
+            "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ToolApprovalRequiredEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ToolResponseRequiredEvent"
+          },
+          {
+            "$ref": "#/components/schemas/MCPAuthRequiredEvent"
+          }
+        ]
+      },
+      "AgentInfo": {
+        "properties": {
+          "input": {
+            "type": "string"
+          },
+          "model": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "dynamic"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "input"
+        ],
+        "type": "object"
+      },
+      "AgentParent": {
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "tool_call_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "thread_id",
+          "tool_call_id"
+        ],
+        "type": "object"
+      },
+      "AgentSpec": {
+        "description": "Agent Definition",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/RuntimeConfig"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "mcp_servers": {
+            "items": {
+              "$ref": "#/components/schemas/MCPServer"
+            },
+            "type": "array"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AgentSpecUserMessage"
+            },
+            "type": "array"
+          },
+          "model": {
+            "$ref": "#/components/schemas/Model"
+          },
+          "response_format": {
+            "$ref": "#/components/schemas/ResponseFormat"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillMount"
+            },
+            "type": "array"
+          },
+          "variables": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "model"
+        ],
+        "type": "object"
+      },
+      "AgentSpecUserMessage": {
+        "properties": {
+          "content": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "user.message"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "content"
+        ],
+        "type": "object"
+      },
+      "ApprovalAllow": {
+        "properties": {
+          "status": {
+            "enum": [
+              "allow"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "ApprovalDecision": {
+        "discriminator": {
+          "mapping": {
+            "allow": "#/components/schemas/ApprovalAllow",
+            "deny": "#/components/schemas/ApprovalDeny"
+          },
+          "propertyName": "status"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ApprovalAllow"
+          },
+          {
+            "$ref": "#/components/schemas/ApprovalDeny"
+          }
+        ]
+      },
+      "ApprovalDeny": {
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "deny"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "AskUserQuestionsConfig": {
+        "properties": {
+          "enabled": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "BaseMCPAuthRequiredEvent": {
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event",
+            "type": "string"
+          },
+          "thread_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "thread_id"
+        ],
+        "type": "object"
+      },
+      "BaseThreadDoneEvent": {
+        "properties": {
+          "parent": {
+            "$ref": "#/components/schemas/AgentParent"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "thread_id",
+          "title"
+        ],
+        "type": "object"
+      },
+      "CancelSessionRequest": {
+        "properties": {},
+        "type": "object"
+      },
+      "CancelSessionResponse": {
+        "properties": {},
+        "type": "object"
+      },
+      "ChatCompletionChunkDeltaToolCall": {
+        "properties": {
+          "function": {
+            "properties": {
+              "arguments": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "id": {
+            "type": "string"
+          },
+          "index": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "function"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "index"
+        ],
+        "type": "object"
+      },
+      "ChatCompletionContentPartRefusal": {
+        "properties": {
+          "refusal": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "refusal"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "refusal"
+        ],
+        "type": "object"
+      },
+      "ChatCompletionContentPartText": {
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "text"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "text"
+        ],
+        "type": "object"
+      },
+      "ChatCompletionMessageToolCall": {
+        "properties": {
+          "function": {
+            "properties": {
+              "arguments": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "arguments"
+            ],
+            "type": "object"
+          },
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "function"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "function"
+        ],
+        "type": "object"
+      },
+      "ContextManagementConfig": {
+        "default": {
+          "compaction": {
+            "enabled": true
+          },
+          "large_tool_response": {
+            "enabled": true
+          }
+        },
+        "properties": {
+          "compaction": {
+            "default": {
+              "enabled": true
+            },
+            "properties": {
+              "compaction_threshold_tokens": {
+                "default": 50000,
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              "enabled": {
+                "default": true,
+                "type": "boolean"
+              }
+            },
+            "type": "object"
+          },
+          "large_tool_response": {
+            "$ref": "#/components/schemas/LargeToolResponseConfig"
+          }
+        },
+        "type": "object"
+      },
+      "CreateSessionRequest": {
+        "properties": {
+          "agent_spec": {
+            "$ref": "#/components/schemas/AgentSpec"
+          }
+        },
+        "required": [
+          "agent_spec"
+        ],
+        "type": "object"
+      },
+      "CreateTurnRequest": {
+        "properties": {
+          "input": {
+            "items": {
+              "$ref": "#/components/schemas/TurnInputItem"
+            },
+            "type": "array"
+          },
+          "previous_turn_id": {
+            "$ref": "#/components/schemas/PreviousTurnIdInput"
+          }
+        },
+        "type": "object"
+      },
+      "DynamicSubAgentsConfig": {
+        "properties": {
+          "enabled": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ExtendedChunkDeltaToolCall": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChatCompletionChunkDeltaToolCall"
+          },
+          {
+            "properties": {
+              "provider_specific_fields": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "tool_info": {
+                "$ref": "#/components/schemas/ToolInfo"
+              }
+            },
+            "type": "object"
+          }
+        ]
+      },
+      "FileContent": {
+        "properties": {
+          "data": {
+            "description": "Data URI: `data:<mime>;base64,<payload>`. MIME type is parsed from the URI.",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "file"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "data"
+        ],
+        "type": "object"
+      },
+      "FinishReason": {
+        "enum": [
+          "stop",
+          "length",
+          "tool_calls",
+          "content_filter",
+          "function_call"
+        ],
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "GenerativeUIConfig": {
+        "properties": {
+          "enabled": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "GetCapabilitiesResponse": {
+        "properties": {
+          "data": {
+            "properties": {
+              "sandbox": {
+                "properties": {
+                  "enabled": {
+                    "description": "Whether this server has a sandbox provider configured.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "sandbox"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetSessionResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Session"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetTurnResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Turn"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "LargeToolResponseConfig": {
+        "default": {
+          "enabled": true
+        },
+        "properties": {
+          "enabled": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ListMcpServersResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/McpServerEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListMcpToolsResponse": {
+        "properties": {
+          "data": {
+            "description": "MCP `tools/list` entries, passed through verbatim from the MCP server.",
+            "items": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListModelsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListSessionEventsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SessionEventItem"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "ListSessionsOrder": {
+        "default": "desc",
+        "description": "Sort sessions by creation time. Defaults to \"desc\".",
+        "enum": [
+          "asc",
+          "desc"
+        ],
+        "type": "string"
+      },
+      "ListSessionsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Session"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "ListSkillsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SkillEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListTurnEventsOrder": {
+        "default": "asc",
+        "description": "Sort events by insertion order. Defaults to \"asc\".",
+        "enum": [
+          "asc",
+          "desc"
+        ],
+        "type": "string"
+      },
+      "ListTurnEventsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SessionEvent"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "ListTurnsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Turn"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "MCPAuthRequiredEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseMCPAuthRequiredEvent"
+          },
+          {
+            "properties": {
+              "mcp_servers": {
+                "items": {
+                  "$ref": "#/components/schemas/MCPServerAuthInfo"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": [
+                  "mcp.auth_required"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "mcp_servers"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "MCPInitializeEvent": {
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event",
+            "type": "string"
+          },
+          "mcp_servers": {
+            "items": {
+              "$ref": "#/components/schemas/MCPServerInitInfo"
+            },
+            "type": "array"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "mcp.initialize"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "mcp_servers"
+        ],
+        "type": "object"
+      },
+      "MCPServer": {
+        "properties": {
+          "disable_tools": {
+            "default": [],
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "@all",
+                    "@read-only"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "enable_tools": {
+            "default": [
+              "@all"
+            ],
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "@all",
+                    "@read-only"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "preload": {
+            "default": false,
+            "type": "boolean"
+          },
+          "preload_tools": {
+            "default": [],
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "@all",
+                    "@read-only"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "require_approval_for_tools": {
+            "default": [
+              "@write",
+              "@destructive"
+            ],
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "@all",
+                    "@write",
+                    "@destructive"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "MCPServerAuthInfo": {
+        "properties": {
+          "auth_url": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "auth_url"
+        ],
+        "type": "object"
+      },
+      "MCPServerInitInfo": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "transport_type": {
+            "enum": [
+              "streamable-http",
+              "sse"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "MCPToolInfo": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "server_id": {
+            "type": "string"
+          },
+          "server_name": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "mcp"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "server_id",
+          "server_name",
+          "name"
+        ],
+        "type": "object"
+      },
+      "McpServerEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url"
+        ],
+        "type": "object"
+      },
+      "Model": {
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "params": {
+            "$ref": "#/components/schemas/ModelParams"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "ModelEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "max_output_tokens"
+        ],
+        "type": "object"
+      },
+      "ModelMessageDeltaEvent": {
+        "properties": {
+          "content": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "finish_reason": {
+            "$ref": "#/components/schemas/FinishReason"
+          },
+          "id": {
+            "description": "Unique identifier for the event",
+            "type": "string"
+          },
+          "reasoning_content": {
+            "type": "string"
+          },
+          "refusal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "tool_calls": {
+            "items": {
+              "$ref": "#/components/schemas/ExtendedChunkDeltaToolCall"
+            },
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "model.message.delta"
+            ],
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/ModelMessageUsage"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "thread_id"
+        ],
+        "type": "object"
+      },
+      "ModelMessageEvent": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ChatCompletionContentPartText"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ChatCompletionContentPartRefusal"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "finish_reason": {
+            "$ref": "#/components/schemas/FinishReason"
+          },
+          "id": {
+            "description": "Unique identifier for the event",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reasoning_content": {
+            "type": "string"
+          },
+          "refusal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "tool_calls": {
+            "items": {
+              "$ref": "#/components/schemas/ToolCall"
+            },
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "model.message"
+            ],
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/ModelMessageUsage"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "thread_id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "ModelMessageUsage": {
+        "properties": {
+          "cache_read_tokens": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "cache_write_tokens": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "input_tokens": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "input_tokens_breakdown": {
+            "properties": {
+              "harness": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "instructions": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "messages": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "skills": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "tool_definitions": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "harness",
+              "skills",
+              "instructions",
+              "tool_definitions",
+              "messages"
+            ],
+            "type": "object"
+          },
+          "output_tokens": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_tokens",
+          "output_tokens",
+          "input_tokens_breakdown"
+        ],
+        "type": "object"
+      },
+      "ModelParams": {
+        "properties": {
+          "max_tokens": {
+            "type": "number"
+          },
+          "parallel_tool_calls": {
+            "type": "boolean"
+          },
+          "reasoning_effort": {
+            "type": "string"
+          },
+          "temperature": {
+            "type": "number"
+          },
+          "top_k": {
+            "type": "number"
+          },
+          "top_p": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "PreviousTurnIdInput": {
+        "anyOf": [
+          {
+            "enum": [
+              "auto"
+            ],
+            "type": "string"
+          },
+          {
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": "auto",
+        "description": "Defaults to 'auto' (chain to session last turn). Use 'null' for the session's first turn."
+      },
+      "RawToolCall": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChatCompletionMessageToolCall"
+          },
+          {
+            "properties": {
+              "provider_specific_fields": {
+                "additionalProperties": {},
+                "type": "object"
+              }
+            },
+            "type": "object"
+          }
+        ]
+      },
+      "RequestErrorResponse": {
+        "properties": {
+          "error": {
+            "properties": {
+              "code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "param": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "message"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "type": "object"
+      },
+      "ResponseFormat": {
+        "oneOf": [
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "text"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "json_object"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "json_schema": {
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "schema": {
+                    "additionalProperties": {},
+                    "type": "object"
+                  },
+                  "strict": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              },
+              "type": {
+                "enum": [
+                  "json_schema"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "json_schema"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "RuntimeConfig": {
+        "properties": {
+          "ask_user_questions": {
+            "$ref": "#/components/schemas/AskUserQuestionsConfig"
+          },
+          "context_management": {
+            "$ref": "#/components/schemas/ContextManagementConfig"
+          },
+          "dynamic_sub_agents": {
+            "$ref": "#/components/schemas/DynamicSubAgentsConfig"
+          },
+          "generative_ui": {
+            "$ref": "#/components/schemas/GenerativeUIConfig"
+          },
+          "iteration_limit": {
+            "default": 100,
+            "exclusiveMinimum": 0,
+            "maximum": 1024,
+            "type": "integer"
+          },
+          "sandbox": {
+            "$ref": "#/components/schemas/SandboxConfig"
+          }
+        },
+        "type": "object"
+      },
+      "SandboxConfig": {
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "file_downloads": {
+            "default": true,
+            "type": "boolean"
+          },
+          "network_policy": {
+            "$ref": "#/components/schemas/SandboxNetworkPolicy"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "SandboxCreatedEvent": {
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event",
+            "type": "string"
+          },
+          "sandbox_id": {
+            "type": "string"
+          },
+          "thread_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "enum": [
+              "sandbox.created"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "sandbox_id",
+          "thread_id"
+        ],
+        "type": "object"
+      },
+      "SandboxNetworkPolicy": {
+        "properties": {
+          "auth_inject": {
+            "items": {
+              "properties": {
+                "auth_data": {
+                  "properties": {
+                    "password": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "basic"
+                      ],
+                      "type": "string"
+                    },
+                    "username": {
+                      "pattern": "^\\S+$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "username",
+                    "password"
+                  ],
+                  "type": "object"
+                },
+                "match": {
+                  "properties": {
+                    "hosts": {
+                      "items": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "hosts"
+                  ],
+                  "type": "object"
+                },
+                "type": {
+                  "enum": [
+                    "git"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "match",
+                "auth_data"
+              ],
+              "type": "object"
+            },
+            "maxItems": 1,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "Session": {
+        "properties": {
+          "agent_spec": {
+            "$ref": "#/components/schemas/AgentSpec"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "agent_spec",
+          "title",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "SessionEvent": {
+        "discriminator": {
+          "mapping": {
+            "mcp.auth_required": "#/components/schemas/MCPAuthRequiredEvent",
+            "mcp.initialize": "#/components/schemas/MCPInitializeEvent",
+            "model.message": "#/components/schemas/ModelMessageEvent",
+            "sandbox.created": "#/components/schemas/SandboxCreatedEvent",
+            "thread.created": "#/components/schemas/ThreadCreatedEvent",
+            "thread.done": "#/components/schemas/ThreadDoneEvent",
+            "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
+            "tool.response": "#/components/schemas/ToolResponseEvent",
+            "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
+            "turn.created": "#/components/schemas/TurnCreatedEvent",
+            "turn.done": "#/components/schemas/TurnDoneEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TurnCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/TurnDoneEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ModelMessageEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ToolResponseEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadDoneEvent"
+          },
+          {
+            "$ref": "#/components/schemas/MCPAuthRequiredEvent"
+          },
+          {
+            "$ref": "#/components/schemas/MCPInitializeEvent"
+          },
+          {
+            "$ref": "#/components/schemas/SandboxCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ToolApprovalRequiredEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ToolResponseRequiredEvent"
+          }
+        ]
+      },
+      "SessionEventItem": {
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/SessionEvent"
+          },
+          "turn_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn_id",
+          "event"
+        ],
+        "type": "object"
+      },
+      "SkillEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "ref": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url",
+          "description"
+        ],
+        "type": "object"
+      },
+      "SkillMount": {
+        "properties": {
+          "description": {
+            "description": "Concise guidance for when the agent should use the skill.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "description": "Name for the skill, used as directory name in sandbox.",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._-]+$",
+            "type": "string"
+          },
+          "path": {
+            "description": "Path to the skill directory within the repository. Omit to use the repository root.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "ref": {
+            "description": "Git ref — branch name, tag, or commit SHA.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "git"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "description": "Full HTTPS URL of a GitHub or GitLab repository.",
+            "minLength": 1,
+            "pattern": "^https:\\/\\/(github\\.com\\/[A-Za-z0-9._-]+\\/[A-Za-z0-9._-]+|gitlab\\.com\\/[A-Za-z0-9._-]+(?:\\/[A-Za-z0-9._-]+)+)(\\/|\\.git)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "url",
+          "name",
+          "description",
+          "ref"
+        ],
+        "type": "object"
+      },
+      "TextContent": {
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "text"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "text"
+        ],
+        "type": "object"
+      },
+      "ThreadCreatedEvent": {
+        "properties": {
+          "agent_info": {
+            "$ref": "#/components/schemas/AgentInfo"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event",
+            "type": "string"
+          },
+          "parent": {
+            "$ref": "#/components/schemas/AgentParent"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "thread.created"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "agent_info",
+          "created_at",
+          "parent",
+          "thread_id",
+          "title"
+        ],
+        "type": "object"
+      },
+      "ThreadDoneEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseThreadDoneEvent"
+          },
+          {
+            "properties": {
+              "created_at": {
+                "type": "string"
+              },
+              "id": {
+                "description": "Unique identifier for the event",
+                "type": "string"
+              },
+              "state": {
+                "$ref": "#/components/schemas/ThreadState"
+              },
+              "type": {
+                "enum": [
+                  "thread.done"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "id",
+              "created_at",
+              "state"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "ThreadState": {
+        "discriminator": {
+          "mapping": {
+            "done": "#/components/schemas/ThreadStateDone",
+            "error": "#/components/schemas/ThreadStateError"
+          },
+          "propertyName": "status"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ThreadStateDone"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadStateError"
+          }
+        ]
+      },
+      "ThreadStateDone": {
+        "properties": {
+          "output": {
+            "$ref": "#/components/schemas/ModelMessageEvent"
+          },
+          "status": {
+            "enum": [
+              "done"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "ThreadStateError": {
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "output": {
+            "$ref": "#/components/schemas/ModelMessageEvent"
+          },
+          "status": {
+            "enum": [
+              "error"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "error"
+        ],
+        "type": "object"
+      },
+      "TokenPagination": {
+        "properties": {
+          "limit": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "next_page_token": {
+            "type": "string"
+          },
+          "previous_page_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "limit"
+        ],
+        "type": "object"
+      },
+      "ToolApprovalRequiredEvent": {
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event",
+            "type": "string"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "tool_calls": {
+            "items": {
+              "$ref": "#/components/schemas/ToolCallRef"
+            },
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "tool.approval_required"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "tool_calls"
+        ],
+        "type": "object"
+      },
+      "ToolCall": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RawToolCall"
+          },
+          {
+            "properties": {
+              "tool_info": {
+                "$ref": "#/components/schemas/ToolInfo"
+              }
+            },
+            "required": [
+              "tool_info"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "ToolCallRef": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "source_event_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source_event_id"
+        ],
+        "type": "object"
+      },
+      "ToolInfo": {
+        "discriminator": {
+          "mapping": {
+            "mcp": "#/components/schemas/MCPToolInfo",
+            "truefoundry-system": "#/components/schemas/TrueFoundrySystemToolInfo"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TrueFoundrySystemToolInfo"
+          },
+          {
+            "$ref": "#/components/schemas/MCPToolInfo"
+          }
+        ]
+      },
+      "ToolResponseEvent": {
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event",
+            "type": "string"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "tool_call_id": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "tool.response"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_call_id",
+          "content",
+          "type",
+          "id",
+          "thread_id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "ToolResponseRequiredEvent": {
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event",
+            "type": "string"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "tool_calls": {
+            "items": {
+              "$ref": "#/components/schemas/ToolCallRef"
+            },
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "tool.response_required"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "tool_calls"
+        ],
+        "type": "object"
+      },
+      "TrueFoundrySystemToolInfo": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "truefoundry-system"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name"
+        ],
+        "type": "object"
+      },
+      "Turn": {
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "input": {
+            "items": {
+              "$ref": "#/components/schemas/TurnInputItem"
+            },
+            "type": "array"
+          },
+          "previous_turn_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/TurnState"
+          }
+        },
+        "required": [
+          "id",
+          "session_id",
+          "previous_turn_id",
+          "state",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "TurnCreatedEvent": {
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event",
+            "type": "string"
+          },
+          "input": {
+            "items": {
+              "$ref": "#/components/schemas/TurnInputItem"
+            },
+            "type": "array"
+          },
+          "previous_turn_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/TurnStateRunning"
+          },
+          "thread_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "turn_id": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "turn.created"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "turn_id",
+          "previous_turn_id",
+          "state",
+          "created_at",
+          "thread_id"
+        ],
+        "type": "object"
+      },
+      "TurnDoneEvent": {
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event",
+            "type": "string"
+          },
+          "state": {
+            "discriminator": {
+              "mapping": {
+                "cancelled": "#/components/schemas/TurnStateCancelled",
+                "done": "#/components/schemas/TurnStateDone",
+                "error": "#/components/schemas/TurnStateError"
+              },
+              "propertyName": "status"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TurnStateDone"
+              },
+              {
+                "$ref": "#/components/schemas/TurnStateCancelled"
+              },
+              {
+                "$ref": "#/components/schemas/TurnStateError"
+              }
+            ]
+          },
+          "thread_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "enum": [
+              "turn.done"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "state",
+          "created_at",
+          "thread_id"
+        ],
+        "type": "object"
+      },
+      "TurnInputItem": {
+        "discriminator": {
+          "mapping": {
+            "user.message": "#/components/schemas/UserMessage",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
+            "user.tool_response": "#/components/schemas/UserToolResponseEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UserMessage"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseEvent"
+          }
+        ]
+      },
+      "TurnState": {
+        "discriminator": {
+          "mapping": {
+            "cancelled": "#/components/schemas/TurnStateCancelled",
+            "done": "#/components/schemas/TurnStateDone",
+            "error": "#/components/schemas/TurnStateError",
+            "running": "#/components/schemas/TurnStateRunning"
+          },
+          "propertyName": "status"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TurnStateRunning"
+          },
+          {
+            "$ref": "#/components/schemas/TurnStateDone"
+          },
+          {
+            "$ref": "#/components/schemas/TurnStateCancelled"
+          },
+          {
+            "$ref": "#/components/schemas/TurnStateError"
+          }
+        ]
+      },
+      "TurnStateCancelled": {
+        "properties": {
+          "completed_at": {
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/TurnStateCancelledReason"
+          },
+          "status": {
+            "enum": [
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "reason",
+          "completed_at"
+        ],
+        "type": "object"
+      },
+      "TurnStateCancelledReason": {
+        "description": "Reason for the cancellation.",
+        "enum": [
+          "server-execution-timeout",
+          "client-cancelled",
+          "cancelled-for-next-turn",
+          "abandoned"
+        ],
+        "type": "string"
+      },
+      "TurnStateDone": {
+        "properties": {
+          "completed_at": {
+            "type": "string"
+          },
+          "output": {
+            "$ref": "#/components/schemas/ModelMessageEvent"
+          },
+          "required_actions": {
+            "items": {
+              "$ref": "#/components/schemas/ActionRequiredEvent"
+            },
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "done"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "required_actions",
+          "completed_at"
+        ],
+        "type": "object"
+      },
+      "TurnStateError": {
+        "properties": {
+          "completed_at": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "error"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "completed_at"
+        ],
+        "type": "object"
+      },
+      "TurnStateRunning": {
+        "properties": {
+          "status": {
+            "enum": [
+              "running"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "TurnStreamingEvent": {
+        "discriminator": {
+          "mapping": {
+            "mcp.auth_required": "#/components/schemas/MCPAuthRequiredEvent",
+            "mcp.initialize": "#/components/schemas/MCPInitializeEvent",
+            "model.message": "#/components/schemas/ModelMessageEvent",
+            "model.message.delta": "#/components/schemas/ModelMessageDeltaEvent",
+            "sandbox.created": "#/components/schemas/SandboxCreatedEvent",
+            "thread.created": "#/components/schemas/ThreadCreatedEvent",
+            "thread.done": "#/components/schemas/ThreadDoneEvent",
+            "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
+            "tool.response": "#/components/schemas/ToolResponseEvent",
+            "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
+            "turn.created": "#/components/schemas/TurnCreatedEvent",
+            "turn.done": "#/components/schemas/TurnDoneEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ModelMessageEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ModelMessageDeltaEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ToolResponseEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadDoneEvent"
+          },
+          {
+            "$ref": "#/components/schemas/MCPAuthRequiredEvent"
+          },
+          {
+            "$ref": "#/components/schemas/MCPInitializeEvent"
+          },
+          {
+            "$ref": "#/components/schemas/SandboxCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ToolApprovalRequiredEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ToolResponseRequiredEvent"
+          },
+          {
+            "$ref": "#/components/schemas/TurnCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/TurnDoneEvent"
+          }
+        ]
+      },
+      "UpdateSessionRequest": {
+        "properties": {
+          "agent_spec": {
+            "$ref": "#/components/schemas/AgentSpec"
+          }
+        },
+        "type": "object"
+      },
+      "UserMessage": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/UserMessageContentItem"
+                },
+                "type": "array"
+              }
+            ]
+          },
+          "type": {
+            "enum": [
+              "user.message"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "content"
+        ],
+        "type": "object"
+      },
+      "UserMessageContentItem": {
+        "discriminator": {
+          "mapping": {
+            "file": "#/components/schemas/FileContent",
+            "text": "#/components/schemas/TextContent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TextContent"
+          },
+          {
+            "$ref": "#/components/schemas/FileContent"
+          }
+        ]
+      },
+      "UserToolApprovalEvent": {
+        "properties": {
+          "approval": {
+            "$ref": "#/components/schemas/ApprovalDecision"
+          },
+          "thread_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "tool_call_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "user.tool_approval"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "thread_id",
+          "tool_call_id",
+          "approval"
+        ],
+        "type": "object"
+      },
+      "UserToolResponseEvent": {
+        "properties": {
+          "content": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "thread_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "tool_call_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "user.tool_response"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "thread_id",
+          "tool_call_id",
+          "content"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Agent server exposing models, MCP servers and skills from local YAML config.",
+    "title": "Agent Server",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/capabilities": {
+      "get": {
+        "description": "Report optional runtime capabilities available in this server deployment.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetCapabilitiesResponse"
+                }
+              }
+            },
+            "description": "Server capabilities."
+          }
+        },
+        "summary": "Get server capabilities",
+        "tags": [
+          "Capabilities"
+        ],
+        "x-fern-sdk-group-name": [
+          "server"
+        ],
+        "x-fern-sdk-method-name": "get_capabilities"
+      }
+    },
+    "/v1/mcp-servers": {
+      "get": {
+        "description": "MCP servers declared in mcp.yaml. Auth headers are configured via env vars and never returned.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMcpServersResponse"
+                }
+              }
+            },
+            "description": "All configured MCP servers."
+          }
+        },
+        "summary": "List MCP servers",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "mcp_servers"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/v1/mcp-servers/{name}/tools": {
+      "get": {
+        "description": "All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call. No agent-spec tool selectors are applied — this is the raw server catalog.",
+        "parameters": [
+          {
+            "description": "MCP server name from mcp.yaml.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "MCP server name from mcp.yaml.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMcpToolsResponse"
+                }
+              }
+            },
+            "description": "All tools of the MCP server."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The MCP server requires authentication (configure MCP_HEADERS / MCP_{NAME}_HEADERS)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not declared in mcp.yaml."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The MCP server could not be reached or returned an error."
+          }
+        },
+        "summary": "List tools of an MCP server",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "mcp_servers"
+        ],
+        "x-fern-sdk-method-name": "list_tools"
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "description": "Models declared in models.yaml, reachable through the OpenAI-compatible API at the file's base_url.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListModelsResponse"
+                }
+              }
+            },
+            "description": "All configured models."
+          }
+        },
+        "summary": "List models",
+        "tags": [
+          "Models"
+        ],
+        "x-fern-sdk-group-name": [
+          "models"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/v1/sessions": {
+      "get": {
+        "description": "List sessions (newest first by default), token-paginated. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "parameters": [
+          {
+            "description": "Page size. Defaults to 10, max 100.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "description": "Page size. Defaults to 10, max 100.",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Sort sessions by creation time. Defaults to \"desc\".",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ListSessionsOrder"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive lower bound on `created_at` (ISO-8601).",
+            "in": "query",
+            "name": "start_timestamp",
+            "required": false,
+            "schema": {
+              "description": "Inclusive lower bound on `created_at` (ISO-8601).",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive upper bound on `created_at` (ISO-8601).",
+            "in": "query",
+            "name": "end_timestamp",
+            "required": false,
+            "schema": {
+              "description": "Inclusive upper bound on `created_at` (ISO-8601).",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSessionsResponse"
+                }
+              }
+            },
+            "description": "Paginated sessions."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
+          }
+        },
+        "summary": "List sessions",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "list"
+      },
+      "post": {
+        "description": "Create a session holding an inline agent spec. Turns are executed against this spec.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The agent spec is valid but requires a capability this server does not provide (e.g. sandbox or skills)."
+          }
+        },
+        "summary": "Create a session",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "create"
+      }
+    },
+    "/v1/sessions/{sessionId}": {
+      "get": {
+        "description": "Fetch a session by ID.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session data."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session not found."
+          }
+        },
+        "summary": "Get a session",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "get"
+      },
+      "patch": {
+        "description": "Update a session's inline agent spec. An empty body is a valid no-op that refreshes `updated_at`.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session updated."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The agent spec is valid but requires a capability this server does not provide (e.g. sandbox or skills)."
+          }
+        },
+        "summary": "Update a session",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "update"
+      }
+    },
+    "/v1/sessions/{sessionId}/cancel": {
+      "post": {
+        "description": "Cancel the running last turn for a session.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelSessionRequest"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelSessionResponse"
+                }
+              }
+            },
+            "description": "Turn cancelled."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session not found."
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Requested action cannot be performed on the session because it is no longer usable, or the executor owning the running turn is unreachable."
+          }
+        },
+        "summary": "Cancel a running turn in a session",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "cancel"
+      }
+    },
+    "/v1/sessions/{sessionId}/events": {
+      "get": {
+        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Pagination cursor from `pagination.next_page_token`. It retains the branch anchor turn and returns older events toward the session start.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Pagination cursor from `pagination.next_page_token`. It retains the branch anchor turn and returns older events toward the session start.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Newest turn in the listing window (initial load only; ignored when `page_token` is set). Lists that turn and its ancestors, newest events first. Omit to use the session last turn.",
+            "in": "query",
+            "name": "last_turn_id",
+            "required": false,
+            "schema": {
+              "description": "Newest turn in the listing window (initial load only; ignored when `page_token` is set). Lists that turn and its ancestors, newest events first. Omit to use the session last turn.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Max events per response. Default 100, max 100.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Max events per response. Default 100, max 100.",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSessionEventsResponse"
+                }
+              }
+            },
+            "description": "Paginated session events."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid page token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session not found."
+          }
+        },
+        "summary": "List session events",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "list_events"
+      }
+    },
+    "/v1/sessions/{sessionId}/turns": {
+      "get": {
+        "description": "List turns for a session (newest first by default), token-paginated.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size. Defaults to 10, max 100.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "description": "Page size. Defaults to 10, max 100.",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListTurnsResponse"
+                }
+              }
+            },
+            "description": "Paginated turns."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid page token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session not found."
+          }
+        },
+        "summary": "List turns in a session",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "list_turns"
+      },
+      "post": {
+        "description": "Create a turn within a session and stream its execution as Server-Sent Events.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`).",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTurnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnStreamingEvent"
+                }
+              }
+            },
+            "description": "Server-Sent Events stream of turn events."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session or prior turn not found."
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Requested action cannot be performed on the session because it is no longer usable."
+          }
+        },
+        "summary": "Create and execute a turn in a session",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "create_turn",
+        "x-fern-streaming": {
+          "format": "sse",
+          "resumable": false
+        }
+      }
+    },
+    "/v1/sessions/{sessionId}/turns/{turnId}": {
+      "get": {
+        "description": "Fetch a single turn by ID.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Turn identifier.",
+            "in": "path",
+            "name": "turnId",
+            "required": true,
+            "schema": {
+              "description": "Turn identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTurnResponse"
+                }
+              }
+            },
+            "description": "Turn data."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session or turn not found."
+          }
+        },
+        "summary": "Get a turn",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "get_turn"
+      }
+    },
+    "/v1/sessions/{sessionId}/turns/{turnId}/events": {
+      "get": {
+        "description": "Paginated persisted events for a turn (insertion order by default).",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Turn identifier.",
+            "in": "path",
+            "name": "turnId",
+            "required": true,
+            "schema": {
+              "description": "Turn identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Max events per response. Default 25, max 100.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "description": "Max events per response. Default 25, max 100.",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sort events by insertion order. Defaults to \"asc\".",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ListTurnEventsOrder"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListTurnEventsResponse"
+                }
+              }
+            },
+            "description": "Paginated turn events."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid page token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session or turn not found."
+          }
+        },
+        "summary": "List turn events",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "list_turn_events"
+      }
+    },
+    "/v1/skills": {
+      "get": {
+        "description": "Agent skills declared in skills.yaml.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSkillsResponse"
+                }
+              }
+            },
+            "description": "All configured skills."
+          }
+        },
+        "summary": "List skills",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    }
+  },
+  "webhooks": {}
+}

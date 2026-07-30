@@ -12,6 +12,8 @@ export const listSkillsRoute = createRoute({
   path: '/',
   tags: ['Skills'],
   summary: 'List skills',
+  'x-fern-sdk-group-name': ['skills'],
+  'x-fern-sdk-method-name': 'list',
   description: 'Agent skills declared in skills.yaml.',
   responses: {
     200: {

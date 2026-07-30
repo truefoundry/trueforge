@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=https://schema.buildwithfern.dev/generators-yml.json
+#
+# openapi/openapi.json is committed by `pnpm openapi:write`, so Fern never needs the server.
+readme:
+  introduction: >
+    TypeScript client for the TrueFoundry agent harness server: a self-hosted
+    runtime that executes agent turns and streams them over Server-Sent Events.
+
+
+    The harness server has no built-in authentication, so point the client at
+    your own deployment's base URL.
+  # Fern keys this lookup on the stream flag, so the string form misses and fails.
+  defaultEndpoint:
+    method: POST
+    path: /v1/sessions/{sessionId}/turns
+    stream: true
+api:
+  specs:
+    - openapi: openapi/openapi.json
+      settings:
+        title-as-schema-name: false
+        prefer-undiscriminated-unions-with-literals: true
+        only-include-referenced-schemas: true
+        type-dates-as-strings: true
+        object-query-parameters: false
+        idiomatic-request-names: true
+        respect-nullable-schemas: true
+        wrap-references-to-nullable-in-optional: false
+        coerce-optional-schemas-to-nullable: false
+        inline-path-parameters: false
+        coerce-enums-to-literals: true
+        respect-forward-compatible-enums: true
+groups:
+  # `local-file-system` allows no `github` block, so the workflow commits the result itself.
+  ts-sdk:
+    generators:
+      - name: fernapi/fern-typescript-node-sdk
+        version: 3.85.0
+        output:
+          location: local-file-system
+          path: ../packages/sdk
+        config:
+          # TODO: settle the public name before the first publish.
+          packageJson:
+            name: trueharness
+          allowExtraFields: true
+          allowCustomFetcher: true
+          enableInlineTypes: false
+          fetchSupport: native
+          fileResponseType: binary-response
+          formDataSupport: Node18
+          includeApiReference: true
+          inlineFileProperties: true
+          inlinePathParameters: true
+          naming:
+            namespace: TrueHarness
+            client: TrueHarness
+          noSerdeLayer: false
+          omitUndefined: true
+          retainOriginalCasing: false
+          skipResponseValidation: true
+          streamType: web
+          useDefaultRequestParameterValues: true
+        smart-casing: true

@@ -1,5 +1,8 @@
 node_modules/
 dist/
+# Fern-generated: formatted by the generator, not by this repo's config.
+packages/sdk/
+fern/openapi/
 coverage/
 .turbo/
 pnpm-lock.yaml
