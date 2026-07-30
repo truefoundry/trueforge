@@ -14,6 +14,7 @@ import type {
   RawAssistantMessageWithUsage,
 } from '../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
+import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import type { Sandbox } from '../../src/core/sandbox/Sandbox';
 import { makeMockILLM, makeSilentLogger } from '../core/harnessMocks';
 
@@ -217,7 +218,7 @@ export function makeRunningTurnRecord(input: {
         [MAIN_THREAD_ID]: {
           thread_id: MAIN_THREAD_ID,
           context: [],
-          current_context_usage: getEmptyUsage(),
+          current_context_usage: getEmptyCurrentContextUsage(),
           parent: null,
           agent_info: null,
           completion: null,

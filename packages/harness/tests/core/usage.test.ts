@@ -1,5 +1,6 @@
 import { CompletionUsageSchema, getEmptyUsage } from '../../src/core/llm/LLMTypes';
 import { mergeUsage } from '../../src/core/llm/usage';
+import { addAgentThreadMetrics, createEmptyAgentThreadMetrics } from '../../src/core/runtime/metrics';
 
 describe('CompletionUsage', () => {
   it('accepts the canonical harness usage shape', () => {
@@ -51,10 +52,19 @@ describe('mergeUsage', () => {
     expect(merged.cost_in_usd).toBeGreaterThan(0);
   });
 
-  it('treats a missing cost as zero', () => {
+  it('preserves a missing cost as absent until a call reports one', () => {
     const merged = mergeUsage(getEmptyUsage(), { ...getEmptyUsage(), cost_in_usd: 0.5 });
 
     expect(merged.cost_in_usd).toBe(0.5);
+  });
+
+  it('keeps optional fields undefined when neither side reports them', () => {
+    const merged = mergeUsage(getEmptyUsage(), getEmptyUsage());
+
+    expect(merged.cache_read_tokens).toBeUndefined();
+    expect(merged.cache_write_tokens).toBeUndefined();
+    expect(merged.reasoning_tokens).toBeUndefined();
+    expect(merged.cost_in_usd).toBeUndefined();
   });
 
   it('sums flat cache, reasoning, and cost fields', () => {
@@ -66,5 +76,18 @@ describe('mergeUsage', () => {
     expect(merged.cache_write_tokens).toBe(5);
     expect(merged.reasoning_tokens).toBe(8);
     expect(merged.cost_in_usd).toBe(0.1 + 0.2);
+  });
+});
+
+describe('AgentThreadMetrics', () => {
+  it('keeps unreported aggregate usage undefined', () => {
+    const target = createEmptyAgentThreadMetrics();
+    addAgentThreadMetrics(target, createEmptyAgentThreadMetrics());
+
+    expect(target.total_input_tokens).toBeUndefined();
+    expect(target.total_output_tokens).toBeUndefined();
+    expect(target.total_tokens).toBeUndefined();
+    expect(target.total_cache_read_tokens).toBeUndefined();
+    expect(target.total_cost_in_usd).toBeUndefined();
   });
 });

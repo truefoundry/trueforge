@@ -1,11 +1,12 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat';
-import type { CurrentContextUsage, ThreadOverwriteContextEvent } from '../events/schema';
+import type { ThreadOverwriteContextEvent } from '../events/schema';
 import type {
   AgentThreadAppendContext,
   ContextMessage,
   InternalCapabilityStateEvent,
   InternalPassthroughEvent,
 } from '../runtime/AgentThread.types';
+import type { CurrentContextUsage } from '../runtime/contextUsage';
 import type { Sandbox } from '../sandbox/Sandbox';
 
 /** Ambient thread snapshot passed Readonly to every capability processor hook. */

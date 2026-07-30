@@ -21,14 +21,10 @@ import {
   TurnNotRunningError,
 } from '@truefoundry/utils/agent-session/store/SessionStoreErrors';
 import type { CapabilityState, JsonValue } from '@truefoundry/utils/core/capabilities/AgentCapability';
-import type {
-  AgentInfo,
-  AgentParent,
-  CurrentContextUsage,
-  MCPServerInitInfo,
-} from '@truefoundry/utils/core/events/schema';
+import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/utils/core/events/schema';
 import { getEmptyUsage } from '@truefoundry/utils/core/llm/LLMTypes';
 import type { AgentThreadSnapshot, ContextMessage } from '@truefoundry/utils/core/runtime/AgentThread.types';
+import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { SandboxInfo } from '@truefoundry/utils/core/sandbox/Sandbox';
 import { sql, type Kysely, type QueryCreator, type RawBuilder, type Transaction } from 'kysely';
 import { isUniqueViolation } from '../../client';

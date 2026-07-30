@@ -1,10 +1,11 @@
 import type { JsonValue } from '../../core/capabilities/AgentCapability';
-import type { CurrentContextUsage, MCPServerInitInfo, ThreadOverwriteContextEvent } from '../../core/events/schema';
+import type { MCPServerInitInfo, ThreadOverwriteContextEvent } from '../../core/events/schema';
 import type {
   AgentThreadSnapshot,
   ContextMessage,
   SubAgentCompletionMarker,
 } from '../../core/runtime/AgentThread.types';
+import type { CurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { SandboxInfo } from '../../core/sandbox/Sandbox';
 import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord } from '../models/TurnRecord';

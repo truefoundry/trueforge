@@ -18,37 +18,44 @@ import {
 } from './LLMTypes';
 
 /** Gateway wire usage. Private; normalized once into CompletionUsage. */
+const OptionalGatewayTokenCountSchema = z.number().int().nonnegative().optional().catch(undefined);
+const OptionalGatewayCostSchema = z.number().nonnegative().optional().catch(undefined);
+
 const GatewayChatCompletionUsageSchema = z.object({
-  completion_tokens: z.number().int().nonnegative(),
-  prompt_tokens: z.number().int().nonnegative(),
-  total_tokens: z.number().int().nonnegative(),
+  completion_tokens: OptionalGatewayTokenCountSchema,
+  prompt_tokens: OptionalGatewayTokenCountSchema,
+  total_tokens: OptionalGatewayTokenCountSchema,
   completion_tokens_details: z
     .object({
-      reasoning_tokens: z.number().int().nonnegative().optional(),
+      reasoning_tokens: OptionalGatewayTokenCountSchema,
     })
-    .optional(),
+    .optional()
+    .catch(undefined),
   prompt_tokens_details: z
     .object({
-      cached_tokens: z.number().int().nonnegative().optional(),
+      cached_tokens: OptionalGatewayTokenCountSchema,
     })
-    .optional(),
-  cache_read_input_tokens: z.number().int().nonnegative().optional(),
-  cache_creation_input_tokens: z.number().int().nonnegative().optional(),
-  costInUSD: z.number().nonnegative().optional(),
+    .optional()
+    .catch(undefined),
+  cache_read_input_tokens: OptionalGatewayTokenCountSchema,
+  cache_creation_input_tokens: OptionalGatewayTokenCountSchema,
+  costInUSD: OptionalGatewayCostSchema,
 });
 
 type GatewayChatCompletionUsage = z.infer<typeof GatewayChatCompletionUsageSchema>;
 
 /** One-shot translation: gateway wire → canonical harness CompletionUsage. */
-function normalizeGatewayUsage(usage: GatewayChatCompletionUsage): CompletionUsage {
+function normalizeGatewayUsage(usage: unknown): CompletionUsage {
+  const result = GatewayChatCompletionUsageSchema.safeParse(usage);
+  const parsed: GatewayChatCompletionUsage = result.success ? result.data : {};
   return {
-    input_tokens: usage.prompt_tokens,
-    output_tokens: usage.completion_tokens,
-    total_tokens: usage.total_tokens,
-    cache_read_tokens: usage.cache_read_input_tokens ?? usage.prompt_tokens_details?.cached_tokens ?? 0,
-    cache_write_tokens: usage.cache_creation_input_tokens ?? 0,
-    reasoning_tokens: usage.completion_tokens_details?.reasoning_tokens ?? 0,
-    cost_in_usd: usage.costInUSD ?? 0,
+    input_tokens: parsed.prompt_tokens,
+    output_tokens: parsed.completion_tokens,
+    total_tokens: parsed.total_tokens,
+    cache_read_tokens: parsed.cache_read_input_tokens ?? parsed.prompt_tokens_details?.cached_tokens,
+    cache_write_tokens: parsed.cache_creation_input_tokens,
+    reasoning_tokens: parsed.completion_tokens_details?.reasoning_tokens,
+    cost_in_usd: parsed.costInUSD,
   };
 }
 
@@ -59,7 +66,7 @@ function toHarnessChunk(event: ChatCompletionChunk): ExtendedChatCompletionChunk
   }
   return {
     ...rest,
-    usage: normalizeGatewayUsage(GatewayChatCompletionUsageSchema.parse(usage)),
+    usage: normalizeGatewayUsage(usage),
   };
 }
 

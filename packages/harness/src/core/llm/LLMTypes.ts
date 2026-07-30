@@ -137,9 +137,9 @@ export const LLMToolMessageSchema = ChatCompletionToolMessageParamSchema.omit({ 
 /** Billable — one normalized LLM call (no `total_*`). */
 export const CompletionUsageSchema = z
   .object({
-    input_tokens: z.number().int().nonnegative(),
-    output_tokens: z.number().int().nonnegative(),
-    total_tokens: z.number().int().nonnegative(),
+    input_tokens: z.number().int().nonnegative().optional(),
+    output_tokens: z.number().int().nonnegative().optional(),
+    total_tokens: z.number().int().nonnegative().optional(),
     cache_read_tokens: z.number().int().nonnegative().optional(),
     cache_write_tokens: z.number().int().nonnegative().optional(),
     reasoning_tokens: z.number().int().nonnegative().optional(),
@@ -168,15 +168,7 @@ export type CompletionUsage = z.infer<typeof CompletionUsageSchema>;
 export type FinishReason = z.infer<typeof FinishReasonSchema>;
 
 export function getEmptyUsage(): CompletionUsage {
-  return {
-    input_tokens: 0,
-    output_tokens: 0,
-    total_tokens: 0,
-    cache_read_tokens: 0,
-    cache_write_tokens: 0,
-    reasoning_tokens: 0,
-    cost_in_usd: 0,
-  };
+  return {};
 }
 
 /**

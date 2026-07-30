@@ -33,13 +33,13 @@ export const TurnStateCancelledReasonSchema = z
 /** Billable aggregate for one turn. */
 export const TurnUsageSchema = z
   .object({
-    total_input_tokens: z.number().int().nonnegative(),
-    total_output_tokens: z.number().int().nonnegative(),
-    total_tokens: z.number().int().nonnegative(),
-    total_cache_read_tokens: z.number().int().nonnegative(),
-    total_cache_write_tokens: z.number().int().nonnegative(),
-    total_reasoning_tokens: z.number().int().nonnegative(),
-    total_cost_in_usd: z.number().nonnegative(),
+    total_input_tokens: z.number().int().nonnegative().optional(),
+    total_output_tokens: z.number().int().nonnegative().optional(),
+    total_tokens: z.number().int().nonnegative().optional(),
+    total_cache_read_tokens: z.number().int().nonnegative().optional(),
+    total_cache_write_tokens: z.number().int().nonnegative().optional(),
+    total_reasoning_tokens: z.number().int().nonnegative().optional(),
+    total_cost_in_usd: z.number().nonnegative().optional(),
   })
   .openapi('TurnUsage');
 

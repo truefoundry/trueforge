@@ -18,7 +18,6 @@ import { SUB_AGENT_IDENTITY } from '../capabilities/builtins/DynamicSubAgents';
 import type { ToolResponseProcessor } from '../capabilities/ToolResponseProcessor';
 import { AgentHarnessError, InvalidAgentSendInputError } from '../errors';
 import type { RegisteredPassthroughEvent } from '../events/PassthroughEvents';
-import type { CurrentContextUsage } from '../events/schema';
 import {
   EventType,
   newEventId,
@@ -41,7 +40,6 @@ import {
 } from '../events/schema';
 import { InstructionBuilder, ROOT_AGENT_IDENTITY } from '../InstructionBuilder';
 import {
-  getEmptyUsage,
   type CompletionUsage,
   type ExtendedChatCompletionChunk,
   type FinishReason,
@@ -53,7 +51,7 @@ import {
 } from '../llm/LLMTypes';
 import { toOpenAIResponseFormat } from '../llm/responseFormat';
 import { toOpenAIChatMessage } from '../llm/toOpenAIChatMessage';
-import { estimateTokensForString, mergeUsage } from '../llm/usage';
+import { estimateTokensForString } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
@@ -80,6 +78,7 @@ import {
   currentContextUsageFromCompletion,
   getEmptyCurrentContextUsage,
   mergeCurrentContextUsage,
+  type CurrentContextUsage,
 } from './contextUsage';
 import {
   assistantMessageContentToStringForSubAgent,
@@ -96,7 +95,7 @@ import {
   toToolCallInfo,
 } from './contextUtils';
 import { DeferredTool } from './DeferredTool';
-import { agentThreadMetricsFromUsage, type AgentThreadMetrics } from './metrics';
+import { addCompletionUsageToMetrics, createEmptyAgentThreadMetrics, type AgentThreadMetrics } from './metrics';
 import { getClosableOpenToolCallIds, OpenToolCallCloser } from './OpenToolCallCloser';
 import { isEmptyMessageContent, processAgentUserInput, type AgentInputUserMessage } from './UserInputMessage';
 
@@ -488,11 +487,7 @@ export class AgentThread {
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
 
-  private _iterations = 0;
-  private _totalToolCalls = 0;
-  private _totalSummarizations = 0;
-  private _totalSubAgents = 0;
-  private _cumulativeUsage: CompletionUsage = getEmptyUsage();
+  private metrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
   private tfyManagedServerNames = new Set<string>();
 
   private contextBusy = false;
@@ -663,11 +658,11 @@ export class AgentThread {
     output: AgentOutputEvent[];
     /** When set, replaces the live context budget; otherwise estimate-merge appended messages. */
     currentContextUsage?: CurrentContextUsage | undefined;
-    /** When set, adds this per-call billable usage into turn aggregates. */
-    billableUsage?: CompletionUsage | undefined;
+    /** Per-call metrics delta folded into this thread's aggregate metrics. */
+    metricsDelta?: CompletionUsage | undefined;
     completion?: SubAgentCompletionMarker | undefined;
   }): Generator<AgentThreadAppendContext, void, unknown> {
-    const { context, output, currentContextUsage, billableUsage, completion } = opts;
+    const { context, output, currentContextUsage, metricsDelta, completion } = opts;
 
     const newCurrentContextUsage =
       currentContextUsage ??
@@ -682,9 +677,9 @@ export class AgentThread {
       ...(completion && { completion }),
     };
 
-    // Update usage before yield so we still count it if the stream stops here.
-    if (billableUsage) {
-      this._cumulativeUsage = mergeUsage(this._cumulativeUsage, billableUsage);
+    // Update metrics before yield so we still count it if the stream stops here.
+    if (metricsDelta) {
+      addCompletionUsageToMetrics(this.metrics, metricsDelta);
     }
 
     yield event;
@@ -700,13 +695,13 @@ export class AgentThread {
       thread_id: this.threadId,
       ...payload,
     };
-    // Update usage before yield so we still count it if the stream stops here.
-    this._cumulativeUsage = mergeUsage(this._cumulativeUsage, payload.usage);
+    // Update metrics before yield so we still count it if the stream stops here.
+    addCompletionUsageToMetrics(this.metrics, payload.usage);
 
     yield event;
     this.context = payload.context;
     this.currentContextUsage = payload.current_context_usage;
-    this._totalSummarizations++;
+    this.metrics.total_summarizations++;
   }
 
   private generateErrorEvent(message: string, output?: ModelMessageEvent): InternalThreadDoneEvent {
@@ -760,20 +755,11 @@ export class AgentThread {
   }
 
   public getAgentThreadMetrics(): AgentThreadMetrics {
-    return agentThreadMetricsFromUsage(this._cumulativeUsage, {
-      iterations: this._iterations,
-      total_tool_calls: this._totalToolCalls,
-      total_summarizations: this._totalSummarizations,
-      total_sub_agents: this._totalSubAgents,
-    });
+    return { ...this.metrics };
   }
 
-  public resetTurnUsage(): void {
-    this._cumulativeUsage = getEmptyUsage();
-    this._iterations = 0;
-    this._totalToolCalls = 0;
-    this._totalSummarizations = 0;
-    this._totalSubAgents = 0;
+  private resetMetrics(): void {
+    this.metrics = createEmptyAgentThreadMetrics();
   }
 
   private transformToLLMRequest(tools: ChatCompletionTool[]): ChatCompletionCreateParamsStreaming {
@@ -857,7 +843,7 @@ export class AgentThread {
     const harnessEstimate = harnessInstructionTokens + tfyManagedToolTokens;
 
     const estimatedComponentsTotal = harnessEstimate + skillsEstimate + instructionsEstimate + userToolTokens;
-    const messagesEstimate = Math.max(0, usage.input_tokens - estimatedComponentsTotal);
+    const messagesEstimate = Math.max(0, (usage.input_tokens ?? 0) - estimatedComponentsTotal);
 
     return {
       input_tokens: usage.input_tokens,
@@ -1106,7 +1092,7 @@ export class AgentThread {
       context: [assistantMessage],
       output: [agentAssistantMessage],
       currentContextUsage: currentContextUsageFromCompletion(result.value.usage),
-      billableUsage: result.value.usage,
+      metricsDelta: result.value.usage,
       completion,
     });
 
@@ -1167,8 +1153,8 @@ export class AgentThread {
     if (approvalRequiredToolCalls.length > 0) {
       throw new Error('Unreachable');
     }
-    this._totalToolCalls += toolCallResults.length;
-    this._totalSubAgents += createThreadEvents.length;
+    this.metrics.total_tool_calls += toolCallResults.length;
+    this.metrics.total_sub_agents += createThreadEvents.length;
 
     if (initializationInfo.length > 0) {
       yield buildMCPInitializeEvent(initializationInfo, this.threadId);
@@ -1290,6 +1276,7 @@ export class AgentThread {
   }): AsyncGenerator<AgentThreadEvent, void, unknown> {
     const signal = options?.signal;
 
+    this.resetMetrics();
     this.throwIfContextBusy();
     this.contextBusy = true;
     this.currentState = null;
@@ -1341,13 +1328,13 @@ export class AgentThread {
           case 'llm-call-required': {
             // Cancel only before network/side-effecting steps (LLM call, tool execution), never before 'user-input-required', so the required event is always emitted once the assistant message is committed.
             if (signal?.aborted) return;
-            if (this._iterations >= iterationLimit) {
+            if (this.metrics.iterations >= iterationLimit) {
               yield this.generateErrorEvent(
                 `You have reached iteration limit of ${String(iterationLimit)}, please request again`,
               );
               return;
             }
-            this._iterations++;
+            this.metrics.iterations++;
 
             const llmResult = yield* this.stepLLMCall(tools, toolMapping, signal);
             outcome = llmResult.outcome;

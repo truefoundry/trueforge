@@ -7,8 +7,9 @@ import type {
   RemoveThreadsInput,
 } from '@truefoundry/utils/agent-session/store/ISessionStore';
 import type { JsonValue } from '@truefoundry/utils/core/capabilities/AgentCapability';
-import type { AgentInfo, CurrentContextUsage } from '@truefoundry/utils/core/events/schema';
+import type { AgentInfo } from '@truefoundry/utils/core/events/schema';
 import type { ContextMessage, SubAgentCompletionMarker } from '@truefoundry/utils/core/runtime/AgentThread.types';
+import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
 import type { Database, TurnThreadCheckpoint } from '../../types';
 import { json, jsonbSet, values } from '../sqlExpressions';

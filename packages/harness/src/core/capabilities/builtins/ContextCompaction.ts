@@ -206,12 +206,12 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
       reason: 'compaction',
       context: context,
       current_context_usage: {
-        total_tokens: response.usage.total_tokens + CONTINUATION_MESSAGE_TOKENS,
+        total_tokens: (response.usage.total_tokens ?? 0) + CONTINUATION_MESSAGE_TOKENS,
         // NOTE(agent): This is not really correct.
         // This is not taking into account that the original request had
         // tool definition in them.
         // This will get refreshed in the next LLM call.
-        input_tokens: response.usage.input_tokens + CONTINUATION_MESSAGE_TOKENS,
+        input_tokens: (response.usage.input_tokens ?? 0) + CONTINUATION_MESSAGE_TOKENS,
         output_tokens: 0,
       },
       usage: response.usage,

@@ -1,5 +1,5 @@
 import dedent from 'dedent';
-import type { ApprovalDecision, CurrentContextUsage } from '../events/schema';
+import type { ApprovalDecision } from '../events/schema';
 import {
   EventType,
   type AgentApprovalDecisionMessage,
@@ -22,6 +22,7 @@ import type {
   InternalThreadDoneEvent,
   LLMContextMessage,
 } from './AgentThread.types';
+import type { CurrentContextUsage } from './contextUsage';
 import type { AgentInputUserMessage } from './UserInputMessage';
 
 export const SYSTEM_TAG_START = '<tfy-internal>';

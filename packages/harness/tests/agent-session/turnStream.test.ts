@@ -51,14 +51,15 @@ describe('TurnHandle.stream()', () => {
     expect(types[types.length - 1]).toBe(EventType.TURN_DONE);
     expect(turn.state).toMatchObject({
       status: 'done',
-      usage: {
-        total_input_tokens: 0,
-        total_output_tokens: 0,
-        total_tokens: 0,
-        total_cache_read_tokens: 0,
-        total_cost_in_usd: 0,
-      },
+      usage: {},
     });
+    if (turn.state.status === 'done') {
+      expect(turn.state.usage?.total_input_tokens).toBeUndefined();
+      expect(turn.state.usage?.total_output_tokens).toBeUndefined();
+      expect(turn.state.usage?.total_tokens).toBeUndefined();
+      expect(turn.state.usage?.total_cache_read_tokens).toBeUndefined();
+      expect(turn.state.usage?.total_cost_in_usd).toBeUndefined();
+    }
 
     const { data } = await turn.listEvents({ limit: 50 });
     expect(data.some(e => e.type === EventType.TURN_CREATED)).toBe(true);

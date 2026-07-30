@@ -133,15 +133,6 @@ export const InputTokensBreakdownSchema = z.object({
   messages: z.number().int().nonnegative(),
 });
 
-/** Live — context budget for the next LLM call (not billable). */
-export const CurrentContextUsageSchema = z
-  .object({
-    input_tokens: z.number().int().nonnegative(),
-    output_tokens: z.number().int().nonnegative(),
-    total_tokens: z.number().int().nonnegative(),
-  })
-  .openapi('CurrentContextUsage');
-
 /** Billable per-call usage on model.message, plus input_tokens_breakdown. */
 export const ModelMessageUsageSchema = CompletionUsageSchema.extend({
   input_tokens_breakdown: InputTokensBreakdownSchema,
@@ -248,7 +239,11 @@ export const ThreadOverwriteContextEventSchema = z.object({
   // NOTE: add other reasons here.
   reason: z.literal('compaction'),
   context: z.array(ContextMessageSchema),
-  current_context_usage: CurrentContextUsageSchema,
+  current_context_usage: z.object({
+    input_tokens: z.number().int().nonnegative(),
+    output_tokens: z.number().int().nonnegative(),
+    total_tokens: z.number().int().nonnegative(),
+  }),
   usage: CompletionUsageSchema,
 });
 
@@ -360,7 +355,6 @@ export type UserToolApprovalMessage = z.infer<typeof UserToolApprovalMessageSche
 export type UserToolResponseMessage = z.infer<typeof UserToolResponseMessageSchema>;
 export type AgentApprovalDecisionMessage = z.infer<typeof AgentApprovalDecisionMessageSchema>;
 export type InputTokensBreakdown = z.infer<typeof InputTokensBreakdownSchema>;
-export type CurrentContextUsage = z.infer<typeof CurrentContextUsageSchema>;
 export type ModelMessageUsage = z.infer<typeof ModelMessageUsageSchema>;
 export type ModelMessageEvent = z.infer<typeof ModelMessageEventSchema>;
 export type ModelMessageDeltaEvent = z.infer<typeof ModelMessageDeltaEventSchema>;

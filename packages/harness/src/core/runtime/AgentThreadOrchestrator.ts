@@ -229,7 +229,7 @@ export class AgentThreadOrchestrator {
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
-  // Finished sub-agents removed from `agentThreads`; kept so turn totals still include them.
+  // Finished sub-agents removed from `agentThreads`; kept so totals still include them.
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
 
   constructor(params: AgentThreadOrchestratorInput) {
@@ -414,11 +414,8 @@ export class AgentThreadOrchestrator {
   }): AsyncGenerator<AgentThreadExecutionEvent, AgentThreadExecutionResult, unknown> {
     const { agentThreads } = this;
 
-    // Reset turn-scoped metrics for all threads
+    // Reset orchestrator-scoped metrics for finished sub-agents removed from the map.
     this.finishedSubAgentMetrics = createEmptyAgentThreadMetrics();
-    for (const thread of agentThreads.values()) {
-      thread.resetTurnUsage();
-    }
 
     let shouldStopExecution = false;
     let caughtError: unknown;

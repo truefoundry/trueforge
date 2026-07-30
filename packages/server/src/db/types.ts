@@ -7,12 +7,12 @@ import type {
   AgentInfo,
   AgentParent,
   ContextMessage,
-  CurrentContextUsage,
   JsonValue,
   MCPServerInitInfo,
   SandboxInfo,
   SubAgentCompletionMarker,
 } from '@truefoundry/utils/core';
+import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 
 /**

@@ -11,7 +11,6 @@ import type {
   AgentParent,
   BaseMCPAuthRequiredEvent,
   BaseThreadDoneEvent,
-  CurrentContextUsage,
   MCPInitializeEvent,
   MCPServerAuthInfo,
   ModelMessageDeltaEvent,
@@ -30,6 +29,7 @@ import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage }
 import type { Sandbox } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import type { AgentDefinition } from './AgentDefinition';
+import type { CurrentContextUsage } from './contextUsage';
 
 export type { AgentInfo, AgentParent };
 
