@@ -33,8 +33,8 @@ export function mergeCurrentContextUsage(a: CurrentContextUsage, b: CurrentConte
 /** Project per-call billable usage onto the live context budget fields. */
 export function currentContextUsageFromCompletion(usage: CompletionUsage): CurrentContextUsage {
   return {
-    prompt_tokens: usage.input_tokens ?? 0,
-    completion_tokens: usage.output_tokens ?? 0,
-    total_tokens: usage.total_tokens ?? 0,
+    prompt_tokens: usage.input_tokens,
+    completion_tokens: usage.output_tokens,
+    total_tokens: usage.total_tokens,
   };
 }

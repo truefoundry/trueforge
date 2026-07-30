@@ -54,9 +54,11 @@ describe('TurnHandle.stream()', () => {
       metrics: {},
     });
     if (turn.state.status === 'done') {
-      expect(turn.state.metrics?.total_input_tokens).toBeUndefined();
-      expect(turn.state.metrics?.total_output_tokens).toBeUndefined();
-      expect(turn.state.metrics?.total_tokens).toBeUndefined();
+      // Token counts are always reported, so an unbilled turn aggregates to 0. Cost and the
+      // cache counts stay undefined until a provider actually reports them.
+      expect(turn.state.metrics?.total_input_tokens).toBe(0);
+      expect(turn.state.metrics?.total_output_tokens).toBe(0);
+      expect(turn.state.metrics?.total_tokens).toBe(0);
       expect(turn.state.metrics?.total_cache_read_tokens).toBeUndefined();
       expect(turn.state.metrics?.total_cost_in_usd).toBeUndefined();
     }

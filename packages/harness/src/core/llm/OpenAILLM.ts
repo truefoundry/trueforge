@@ -49,9 +49,9 @@ function normalizeGatewayUsage(usage: unknown): CompletionUsage {
   const result = GatewayChatCompletionUsageSchema.safeParse(usage);
   const parsed: GatewayChatCompletionUsage = result.success ? result.data : {};
   return {
-    input_tokens: parsed.prompt_tokens,
-    output_tokens: parsed.completion_tokens,
-    total_tokens: parsed.total_tokens,
+    input_tokens: parsed.prompt_tokens ?? 0,
+    output_tokens: parsed.completion_tokens ?? 0,
+    total_tokens: parsed.total_tokens ?? 0,
     cache_read_tokens: parsed.cache_read_input_tokens ?? parsed.prompt_tokens_details?.cached_tokens,
     cache_write_tokens: parsed.cache_creation_input_tokens,
     reasoning_tokens: parsed.completion_tokens_details?.reasoning_tokens,

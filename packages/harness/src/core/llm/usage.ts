@@ -13,9 +13,9 @@ function sumOptional(a: number | undefined, b: number | undefined): number | und
 
 export function mergeUsage(a: CompletionUsage, b: CompletionUsage): CompletionUsage {
   return {
-    input_tokens: sumOptional(a.input_tokens, b.input_tokens),
-    output_tokens: sumOptional(a.output_tokens, b.output_tokens),
-    total_tokens: sumOptional(a.total_tokens, b.total_tokens),
+    input_tokens: a.input_tokens + b.input_tokens,
+    output_tokens: a.output_tokens + b.output_tokens,
+    total_tokens: a.total_tokens + b.total_tokens,
     cache_read_tokens: sumOptional(a.cache_read_tokens, b.cache_read_tokens),
     cache_write_tokens: sumOptional(a.cache_write_tokens, b.cache_write_tokens),
     reasoning_tokens: sumOptional(a.reasoning_tokens, b.reasoning_tokens),

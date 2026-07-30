@@ -136,9 +136,9 @@ export const LLMToolMessageSchema = ChatCompletionToolMessageParamSchema.omit({ 
 
 export const CompletionUsageSchema = z
   .object({
-    input_tokens: z.number().int().nonnegative().optional(),
-    output_tokens: z.number().int().nonnegative().optional(),
-    total_tokens: z.number().int().nonnegative().optional(),
+    input_tokens: z.number().int().nonnegative(),
+    output_tokens: z.number().int().nonnegative(),
+    total_tokens: z.number().int().nonnegative(),
     cache_read_tokens: z.number().int().nonnegative().optional(),
     cache_write_tokens: z.number().int().nonnegative().optional(),
     reasoning_tokens: z.number().int().nonnegative().optional(),
@@ -167,7 +167,7 @@ export type CompletionUsage = z.infer<typeof CompletionUsageSchema>;
 export type FinishReason = z.infer<typeof FinishReasonSchema>;
 
 export function getEmptyUsage(): CompletionUsage {
-  return {};
+  return { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
 }
 
 /**

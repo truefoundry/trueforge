@@ -95,7 +95,7 @@ import {
   toToolCallInfo,
 } from './contextUtils';
 import { DeferredTool } from './DeferredTool';
-import { addCompletionUsage, createEmptyAgentThreadMetrics, type AgentThreadMetrics } from './metrics';
+import { createEmptyAgentThreadMetrics, updateMetricsFromUsage, type AgentThreadMetrics } from './metrics';
 import { getClosableOpenToolCallIds, OpenToolCallCloser } from './OpenToolCallCloser';
 import { isEmptyMessageContent, processAgentUserInput, type AgentInputUserMessage } from './UserInputMessage';
 
@@ -625,12 +625,16 @@ export class AgentThread {
         yield* this.appendToContext({
           context: [...approvalContext, ...toolResponseContext],
           output: [],
+          currentContextUsage: undefined,
+          usage: undefined,
         });
       }
       if (contextMessages.length > 0) {
         yield* this.appendToContext({
           context: contextMessages,
           output: [],
+          currentContextUsage: undefined,
+          usage: undefined,
         });
       }
     } finally {
@@ -656,13 +660,11 @@ export class AgentThread {
   private *appendToContext(opts: {
     context: ContextMessage[];
     output: AgentOutputEvent[];
-    /** When set, replaces the live context budget; otherwise estimate-merge appended messages. */
-    currentContextUsage?: CurrentContextUsage | undefined;
-    /** Per-call metrics delta folded into this thread's aggregate metrics. */
-    usageDelta?: CompletionUsage | undefined;
+    currentContextUsage: CurrentContextUsage | undefined;
+    usage: CompletionUsage | undefined;
     completion?: SubAgentCompletionMarker | undefined;
   }): Generator<AgentThreadAppendContext, void, unknown> {
-    const { context, output, currentContextUsage, usageDelta, completion } = opts;
+    const { context, output, currentContextUsage, usage, completion } = opts;
 
     const newCurrentContextUsage =
       currentContextUsage ??
@@ -678,8 +680,8 @@ export class AgentThread {
     };
 
     // Update metrics before yield so we still count it if the stream stops here.
-    if (usageDelta) {
-      addCompletionUsage(this.metrics, usageDelta);
+    if (usage) {
+      updateMetricsFromUsage(this.metrics, usage);
     }
 
     yield event;
@@ -696,7 +698,7 @@ export class AgentThread {
       ...payload,
     };
     // Update metrics before yield so we still count it if the stream stops here.
-    addCompletionUsage(this.metrics, payload.usage);
+    updateMetricsFromUsage(this.metrics, payload.usage);
 
     yield event;
     this.context = payload.context;
@@ -843,13 +845,11 @@ export class AgentThread {
     const harnessEstimate = harnessInstructionTokens + tfyManagedToolTokens;
 
     const estimatedComponentsTotal = harnessEstimate + skillsEstimate + instructionsEstimate + userToolTokens;
-    const messagesEstimate = Math.max(0, (metrics.input_tokens ?? 0) - estimatedComponentsTotal);
+    const messagesEstimate = Math.max(0, metrics.input_tokens - estimatedComponentsTotal);
 
     return {
-      // The SSE contract requires numbers here, so fall back to 0 when the provider
-      // reported nothing. Aggregates keep unreported values undefined instead.
-      input_tokens: metrics.input_tokens ?? 0,
-      output_tokens: metrics.output_tokens ?? 0,
+      input_tokens: metrics.input_tokens,
+      output_tokens: metrics.output_tokens,
       cache_read_tokens: metrics.cache_read_tokens,
       cache_write_tokens: metrics.cache_write_tokens,
       input_tokens_breakdown: {
@@ -915,6 +915,7 @@ export class AgentThread {
               context: response.context,
               output: response.output,
               currentContextUsage: response.current_context_usage ?? this.currentContextUsage,
+              usage: undefined,
             });
             break;
           case EventType.AGENT_CONTEXT_OVERWRITE:
@@ -1095,7 +1096,7 @@ export class AgentThread {
       context: [assistantMessage],
       output: [agentAssistantMessage],
       currentContextUsage: currentContextUsageFromCompletion(result.value.usage),
-      usageDelta: result.value.usage,
+      usage: result.value.usage,
       completion,
     });
 
@@ -1214,6 +1215,8 @@ export class AgentThread {
     yield* this.appendToContext({
       context: toolCallResults.map(t => t.message),
       output: [],
+      currentContextUsage: undefined,
+      usage: undefined,
     });
 
     if (authRequirementInfo.length > 0) {
