@@ -1,6 +1,10 @@
 import { CompletionUsageSchema, getEmptyUsage } from '../../src/core/llm/LLMTypes';
 import { mergeUsage } from '../../src/core/llm/usage';
-import { addAgentThreadMetrics, createEmptyAgentThreadMetrics } from '../../src/core/runtime/metrics';
+import {
+  addAgentThreadMetrics,
+  createEmptyAgentThreadMetrics,
+  updateMetricsFromUsage,
+} from '../../src/core/runtime/metrics';
 
 describe('CompletionUsage', () => {
   it('accepts the canonical harness usage shape', () => {
@@ -14,6 +18,18 @@ describe('CompletionUsage', () => {
       cost_in_usd: 0.12,
     };
     expect(CompletionUsageSchema.parse(usage)).toEqual(usage);
+  });
+
+  it('requires input, output, and total token counts', () => {
+    expect(CompletionUsageSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('uses zero for required token counts in empty usage', () => {
+    expect(getEmptyUsage()).toEqual({
+      input_tokens: 0,
+      output_tokens: 0,
+      total_tokens: 0,
+    });
   });
 });
 
@@ -88,6 +104,20 @@ describe('AgentThreadMetrics', () => {
     expect(target.total_output_tokens).toBeUndefined();
     expect(target.total_tokens).toBeUndefined();
     expect(target.total_cache_read_tokens).toBeUndefined();
+    expect(target.total_cost_in_usd).toBeUndefined();
+  });
+
+  it('materializes required token aggregates after folding usage', () => {
+    const target = createEmptyAgentThreadMetrics();
+
+    updateMetricsFromUsage(target, getEmptyUsage());
+
+    expect(target.total_input_tokens).toBe(0);
+    expect(target.total_output_tokens).toBe(0);
+    expect(target.total_tokens).toBe(0);
+    expect(target.total_cache_read_tokens).toBeUndefined();
+    expect(target.total_cache_write_tokens).toBeUndefined();
+    expect(target.total_reasoning_tokens).toBeUndefined();
     expect(target.total_cost_in_usd).toBeUndefined();
   });
 });
