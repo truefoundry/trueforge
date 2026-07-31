@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import type { RequestOptions } from 'openai/core';
 import type { ChatCompletionCreateParams, ChatCompletionCreateParamsStreaming } from 'openai/resources/chat';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../util/errorLogFields';
@@ -50,7 +49,7 @@ export class OpenAILLM implements ILLM {
     this.onServedModelContextLength = config.onServedModelContextLength;
   }
 
-  private buildRequestOptions(): RequestOptions {
+  private buildRequestOptions(): OpenAI.RequestOptions {
     return {
       headers: typeof this.headers === 'function' ? this.headers() : this.headers,
       signal: this.signal,

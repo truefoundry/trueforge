@@ -9,7 +9,6 @@ export type { AgentSpec, SkillMount } from './schemas/agentSpec';
 export {
   CancellationReason,
   CreateTurnRequestSchema,
-  PreviousTurnIdInputSchema,
   TurnInputItemSchema,
   TurnSchema,
   TurnStateCancelledReasonSchema,

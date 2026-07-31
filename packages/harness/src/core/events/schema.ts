@@ -148,7 +148,7 @@ export const ModelMessageEventSchema = EnrichedAssistantMessageSchema.omit({ rol
     type: z.literal(EventType.MODEL_MESSAGE),
     id: EventIdSchema,
     thread_id: z.string(),
-    finish_reason: FinishReasonSchema.optional(),
+    finish_reason: z.union([FinishReasonSchema, z.null()]).optional(),
     created_at: z.string(),
     usage: ModelMessageUsageSchema.optional(),
   })
@@ -164,7 +164,7 @@ export const ModelMessageDeltaEventSchema = ExtendedChunkDeltaSchema.omit({
     id: EventIdSchema,
     thread_id: z.string(),
     created_at: z.string().optional(),
-    finish_reason: FinishReasonSchema.optional(),
+    finish_reason: z.union([FinishReasonSchema, z.null()]).optional(),
     usage: ModelMessageUsageSchema.optional(),
   })
   .openapi('ModelMessageDeltaEvent');
@@ -201,7 +201,7 @@ export const ThreadStateErrorSchema = z
   .object({
     status: z.literal('error'),
     error: z.string(),
-    output: ModelMessageEventSchema.optional(),
+    output: z.optional(ModelMessageEventSchema),
   })
   .openapi('ThreadStateError');
 

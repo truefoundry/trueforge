@@ -59,26 +59,6 @@ export function createServerApp(deps: ServerDeps) {
   app.route('/v1/models', createModelsRouter(deps.modelStore));
   app.route('/v1/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
   app.route('/v1/skills', createSkillsRouter(deps.skillStore));
-  // Register turns router first before sessions router
-  // We have a subtle bug in zod openapi generation
-  // where calling .nullable() on a shared component pushes down the nullable inside the schema ref itself
-  // that means we cannot reliably use T and T.nullable() in different schemas
-  // e.g. ModelMessageEventSchema, in create turn sse response events union it is not nullable, but in the turn state done it can be nullable
-  // if we place the turns router first then generator locks ModelMessageEventSchema first cleanly
-  // and then reuses that ref in list events api  as anyOf {ModelMessageEventSchema, null}
-  // TODO: remove this brittle reliance on ordering
-  // instead we will do z.union([T, null]) eveywhere instead of T.nullable()
-  app.route(
-    '/v1/sessions',
-    createTurnsRouter({
-      sessions: deps.sessions,
-      activeTurns: deps.activeTurns,
-      modelStore: deps.modelStore,
-      mcpStore: deps.mcpStore,
-      ...(deps.sandboxFactory ? { sandboxFactory: deps.sandboxFactory } : {}),
-      logger: deps.logger,
-    }),
-  );
   app.route(
     '/v1/sessions',
     createSessionsRouter({
@@ -90,6 +70,17 @@ export function createServerApp(deps: ServerDeps) {
       sandboxSupported: deps.sandboxFactory !== undefined,
       redis: deps.redis,
       requestReplyRouter: deps.requestReplyRouter,
+    }),
+  );
+  app.route(
+    '/v1/sessions',
+    createTurnsRouter({
+      sessions: deps.sessions,
+      activeTurns: deps.activeTurns,
+      modelStore: deps.modelStore,
+      mcpStore: deps.mcpStore,
+      ...(deps.sandboxFactory ? { sandboxFactory: deps.sandboxFactory } : {}),
+      logger: deps.logger,
     }),
   );
 

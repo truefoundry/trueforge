@@ -19,7 +19,7 @@
   "dependencies": {
     "@hono/node-server": "^2.0.11",
     "@hono/swagger-ui": "^0.2.1",
-    "@hono/zod-openapi": "^0.19.10",
+    "@hono/zod-openapi": "^1.5.1",
     "@truefoundry/utils": "workspace:*",
     "hono": "^4.12.31",
     "kysely": "^0.29.4",
@@ -28,7 +28,7 @@
     "ulid": "^3.0.2",
     "winston": "^3.13.0",
     "yaml": "^2.9.0",
-    "zod": "^3.24.3"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@swc/core": "^1.11.0",

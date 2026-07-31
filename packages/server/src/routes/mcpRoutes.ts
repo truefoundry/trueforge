@@ -34,7 +34,7 @@ export const listMcpServersRoute = createRoute({
 const ListMcpToolsResponseSchema = z
   .object({
     data: z
-      .array(z.record(z.unknown()))
+      .array(z.record(z.string(), z.unknown()))
       .describe('MCP `tools/list` entries, passed through verbatim from the MCP server.'),
   })
   .openapi('ListMcpToolsResponse');
