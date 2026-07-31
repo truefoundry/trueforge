@@ -7,7 +7,6 @@ import {
   type UserToolResponseMessage,
 } from '../events/schema';
 import type {
-  CompletionUsage,
   EnrichedToolCall,
   InternalEnrichedToolCall,
   InternalToolCallInfo,
@@ -23,6 +22,7 @@ import type {
   InternalThreadDoneEvent,
   LLMContextMessage,
 } from './AgentThread.types';
+import type { CurrentContextUsage } from './contextUsage';
 import type { AgentInputUserMessage } from './UserInputMessage';
 
 export const SYSTEM_TAG_START = '<tfy-internal>';
@@ -139,7 +139,7 @@ export function getThreadId(): string {
   return crypto.randomUUID();
 }
 
-export function estimateTokensForContextMessages(messages: ContextMessage[]): CompletionUsage {
+export function estimateTokensForContextMessages(messages: ContextMessage[]): CurrentContextUsage {
   let tokenCount = 0;
 
   for (const b of messages) {
@@ -170,6 +170,5 @@ export function estimateTokensForContextMessages(messages: ContextMessage[]): Co
   return {
     prompt_tokens: tokenCount,
     completion_tokens: 0,
-    total_tokens: tokenCount,
   };
 }

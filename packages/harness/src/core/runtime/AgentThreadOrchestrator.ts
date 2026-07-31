@@ -32,7 +32,7 @@ import {
   isInternalThreadDoneError,
 } from './contextUtils';
 import type { CreateDynamicSubAgentThread } from './CreateDynamicSubAgentThread';
-import { addAgentThreadMetrics, createEmptyAgentThreadMetrics } from './metrics';
+import { addAgentThreadMetrics, createEmptyAgentThreadMetrics, type AgentThreadMetrics } from './metrics';
 
 const MAX_PARALLEL_SUB_AGENTS = 5;
 
@@ -229,12 +229,28 @@ export class AgentThreadOrchestrator {
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
+  // Finished sub-agents removed from `agentThreads`; kept so totals still include them.
+  private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
 
   constructor(params: AgentThreadOrchestratorInput) {
     this.agentThreads = params.agentThreads;
     this.createDynamicSubAgentThread = params.createDynamicSubAgentThread;
     this.tracing = params.tracing;
     this.logger = params.logger.child({ module: 'AgentThreadOrchestrator' });
+  }
+
+  /**
+   * Turn-wide metrics so far: live threads plus finished sub-agents.
+   * Safe mid-flight and after cancel/error (`execute()` may not return).
+   * Each thread is counted once — a sub-agent moves from live → finished atomically.
+   */
+  public getMetrics(): AgentThreadMetrics {
+    const total = createEmptyAgentThreadMetrics();
+    addAgentThreadMetrics(total, this.finishedSubAgentMetrics);
+    for (const thread of this.agentThreads.values()) {
+      addAgentThreadMetrics(total, thread.getAgentThreadMetrics());
+    }
+    return total;
   }
 
   public async *send(messages: AgentThreadSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
@@ -345,6 +361,9 @@ export class AgentThreadOrchestrator {
             yield* this.sendToThread(chunk.parent.thread_id, [chunk.send_to_parent]);
           }
           yield chunk;
+          // Move metrics to the finished bucket and drop the live entry with no `yield` between,
+          // so getMetrics() counts this sub-agent once. After `yield chunk` per durable-state.
+          addAgentThreadMetrics(this.finishedSubAgentMetrics, currentThread.getAgentThreadMetrics());
           this.agentThreads.delete(chunk.thread_id);
           return { shouldStopExecution: false };
         }
@@ -394,13 +413,13 @@ export class AgentThreadOrchestrator {
     signal: AbortSignal;
   }): AsyncGenerator<AgentThreadExecutionEvent, AgentThreadExecutionResult, unknown> {
     const { agentThreads } = this;
+
     let shouldStopExecution = false;
     let caughtError: unknown;
     let output: ModelMessageEvent | null = null;
     const requiredActions: ActionRequiredEvent[] = [];
     let rootAgentError: AgentThreadExecutionResult['root_agent_error'];
     const pendingAuthEvents: InternalMCPAuthRequiredEvent[] = [];
-    const totalMetrics = createEmptyAgentThreadMetrics();
     const mainThread = [...agentThreads.values()].find(e => !e.parent);
     if (!mainThread) {
       throw new Error('Unreachable: no root thread found');
@@ -432,17 +451,10 @@ export class AgentThreadOrchestrator {
               shouldStopExecution = true;
               continue;
             }
-            if (chunk.type === InternalEventType.AGENT_DONE) {
-              if (chunk.parent) {
-                const completedThread = agentThreads.get(chunk.thread_id);
-                if (completedThread) {
-                  addAgentThreadMetrics(totalMetrics, completedThread.getAgentThreadMetrics());
-                }
-              } else {
-                // Root-thread only — sub-agent AGENT_DONE would overwrite root trace output /
-                // leave a stale error; sub-agent spans finalize in wrapWithSubAgentSpan.
-                rootSpan.setOutputFromEvent(chunk);
-              }
+            if (chunk.type === InternalEventType.AGENT_DONE && !chunk.parent) {
+              // Root-thread only — sub-agent AGENT_DONE would overwrite root trace output /
+              // leave a stale error; sub-agent spans finalize in wrapWithSubAgentSpan.
+              rootSpan.setOutputFromEvent(chunk);
             }
 
             const result = yield* this.processAgentStreamChunk(chunk, signal);
@@ -469,7 +481,6 @@ export class AgentThreadOrchestrator {
       caughtError = error;
       throw error;
     } finally {
-      addAgentThreadMetrics(totalMetrics, mainThread.getAgentThreadMetrics());
       rootSpan.finalize(mainThread, caughtError);
       rootSpan.end();
     }
@@ -494,7 +505,6 @@ export class AgentThreadOrchestrator {
       output,
       required_actions: requiredActions,
       root_agent_error: rootAgentError,
-      metrics: { total: totalMetrics },
     };
   }
 }

@@ -8,8 +8,13 @@ import type { CreateTurnInput, NewThreadInit, TurnContextAppend } from '../../sr
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import { newEventId } from '../../src/core/events/schema';
-import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../src/core/llm/LLMTypes';
+import type {
+  CompletionUsage,
+  ExtendedChatCompletionChunk,
+  RawAssistantMessageWithUsage,
+} from '../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
+import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import type { Sandbox } from '../../src/core/sandbox/Sandbox';
 import { makeMockILLM, makeSilentLogger } from '../core/harnessMocks';
 
@@ -55,11 +60,9 @@ export function makeAgentSpec(
 }
 
 // eslint-disable-next-line @typescript-eslint/require-await -- async generator fixture, not awaiting I/O
-export async function* emptyLlmStream(): AsyncGenerator<
-  ExtendedChatCompletionChunk,
-  RawAssistantMessageWithUsage,
-  unknown
-> {
+export async function* emptyLlmStream(
+  usage: CompletionUsage = getEmptyUsage(),
+): AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown> {
   yield {
     id: 'chunk-1',
     object: 'chat.completion.chunk',
@@ -69,7 +72,7 @@ export async function* emptyLlmStream(): AsyncGenerator<
   };
   return {
     output: { role: 'assistant', content: 'ok' },
-    usage: getEmptyUsage(),
+    usage,
     finish_reason: 'stop',
   };
 }
@@ -78,9 +81,10 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
   extraCapabilities?: AgentCapability[];
   sandbox?: Sandbox;
   close?: () => Promise<void>;
+  usage?: CompletionUsage;
 }): ITurnResourceResolver<TTurnCustom> {
   const llm = makeMockILLM({
-    create: jest.fn().mockImplementation(() => emptyLlmStream()),
+    create: jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),
   });
   const base = new TurnResourceResolver<TTurnCustom>({
     llm: () => llm,
@@ -214,7 +218,7 @@ export function makeRunningTurnRecord(input: {
         [MAIN_THREAD_ID]: {
           thread_id: MAIN_THREAD_ID,
           context: [],
-          current_context_usage: getEmptyUsage(),
+          current_context_usage: getEmptyCurrentContextUsage(),
           parent: null,
           agent_info: null,
           completion: null,

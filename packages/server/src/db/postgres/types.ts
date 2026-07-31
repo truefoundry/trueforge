@@ -12,7 +12,7 @@ import type {
   SandboxInfo,
   SubAgentCompletionMarker,
 } from '@truefoundry/utils/core';
-import type { CompletionUsage } from '@truefoundry/utils/core/llm/LLMTypes';
+import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 
 /**
@@ -157,7 +157,7 @@ export interface TurnThreadTable {
    *      (ranges / writer-filter), move this back onto
    *      thread_context_log rows (previously validated design).
    */
-  current_context_usage: JSONColumnType<CompletionUsage, CompletionUsage, CompletionUsage>;
+  current_context_usage: JSONColumnType<CurrentContextUsage, CurrentContextUsage, CurrentContextUsage>;
   /**
    * top: THE context — log append_ids in context order. Hot
    *      concat target (`||`), typed bigint[] operator; dominant

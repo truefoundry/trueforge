@@ -4,19 +4,21 @@ export function estimateTokensForString(s: string): number {
   return s.length / 4;
 }
 
+function sumOptional(a: number | undefined, b: number | undefined): number | undefined {
+  if (a === undefined && b === undefined) {
+    return undefined;
+  }
+  return (a ?? 0) + (b ?? 0);
+}
+
 export function mergeUsage(a: CompletionUsage, b: CompletionUsage): CompletionUsage {
   return {
-    prompt_tokens: a.prompt_tokens + b.prompt_tokens,
-    completion_tokens: a.completion_tokens + b.completion_tokens,
+    input_tokens: a.input_tokens + b.input_tokens,
+    output_tokens: a.output_tokens + b.output_tokens,
     total_tokens: a.total_tokens + b.total_tokens,
-    cache_read_input_tokens: (a.cache_read_input_tokens ?? 0) + (b.cache_read_input_tokens ?? 0),
-    cache_creation_input_tokens: (a.cache_creation_input_tokens ?? 0) + (b.cache_creation_input_tokens ?? 0),
-    prompt_tokens_details: {
-      cached_tokens: (a.prompt_tokens_details?.cached_tokens ?? 0) + (b.prompt_tokens_details?.cached_tokens ?? 0),
-    },
-    completion_tokens_details: {
-      reasoning_tokens:
-        (a.completion_tokens_details?.reasoning_tokens ?? 0) + (b.completion_tokens_details?.reasoning_tokens ?? 0),
-    },
+    cache_read_tokens: sumOptional(a.cache_read_tokens, b.cache_read_tokens),
+    cache_write_tokens: sumOptional(a.cache_write_tokens, b.cache_write_tokens),
+    reasoning_tokens: sumOptional(a.reasoning_tokens, b.reasoning_tokens),
+    cost_in_usd: sumOptional(a.cost_in_usd, b.cost_in_usd),
   };
 }
