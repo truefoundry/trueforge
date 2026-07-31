@@ -44,15 +44,29 @@ function uniqueEnvNames(entries: { name: string }[], ctx: z.RefinementCtx): void
   }
 }
 
-/**
- * OpenAI-compatible providers that need an explicit `base_url` because they
- * have no canonical well-known endpoint, or where the endpoint is
- * deployment-specific (LiteLLM, TrueFoundry, generic compat).
- */
-const CompatProviderSchema = z.enum(['openai-compatible', 'litellm', 'truefoundry']);
-
 const ModelEntryBaseSchema = z.object({
-  name: z.string().min(1),
+  /**
+   * Display name / alias used to reference the model in the API, env vars, and
+   * the registry. Constrained to lowercase letters, digits, hyphens, and dots so
+   * it can be safely embedded in env var names without ambiguity.
+   * When `model_id` is absent this value is also sent to the provider as the
+   * model identifier.
+   */
+  name: z
+    .string()
+    .min(1)
+    .regex(
+      /^[a-z0-9][a-z0-9.-]*$/,
+      'name must start with a letter or digit and contain only lowercase a-z, 0-9, hyphens, and dots',
+    ),
+  /**
+   * The model identifier sent to the provider (e.g. `anthropic/claude-sonnet-4-6`
+   * for a gateway, or `claude-sonnet-4-6` for a direct Anthropic call).
+   * When absent, `name` is used as the provider model identifier.
+   * Use this when the provider-facing ID contains characters (slashes, colons, …)
+   * that are not valid in a `name`.
+   */
+  model_id: z.string().min(1).optional(),
   max_output_tokens: z.number().int().positive(),
   reasoning_efforts: z.array(z.string().min(1)).min(1).optional(),
   /**
@@ -79,45 +93,38 @@ const ModelEntryBaseSchema = z.object({
   headers: z.record(z.string()).optional(),
 });
 
-/**
- * OpenAI provider entry. Supports `openai_api` to select between the Responses
- * API (default, required for o-series reasoning models) and the Chat Completions
- * API (opt-in for legacy deployments or models that don't support Responses).
- */
+/** OpenAI provider entry — always uses the Responses API. */
 const OpenAIProviderEntrySchema = ModelEntryBaseSchema.extend({
   provider: z.literal('openai'),
   /** Override the default OpenAI base URL (e.g. Azure OpenAI endpoint). */
   base_url: z.string().url().optional(),
-  /**
-   * Which OpenAI API to use. Defaults to 'responses' (the Responses API, which
-   * supports reasoning models and stateless multi-turn via encrypted content).
-   * Use 'chat' for models or deployments that don't support the Responses API.
-   */
-  openai_api: z.enum(['responses', 'chat']).optional(),
 }).strict();
 
-/** All other first-party providers with Vercel AI SDK support. */
-const OtherKnownProviderEntrySchema = ModelEntryBaseSchema.extend({
-  provider: z.enum(['anthropic', 'google', 'mistral', 'openrouter', 'portkey', 'kimi']),
+/** First-party providers backed by dedicated Vercel AI SDK adapters. */
+const FirstPartyProviderEntrySchema = ModelEntryBaseSchema.extend({
+  provider: z.enum(['anthropic', 'google']),
   /** Override the provider's default base URL (e.g. point at a local proxy). */
   base_url: z.string().url().optional(),
 }).strict();
 
-const CompatProviderEntrySchema = ModelEntryBaseSchema.extend({
-  provider: CompatProviderSchema,
-  /** Deployment-specific base URL — required for compat providers. */
+/**
+ * Generic OpenAI-compatible provider. Requires an explicit `base_url` since
+ * there is no canonical endpoint.
+ */
+const GenericProviderEntrySchema = ModelEntryBaseSchema.extend({
+  provider: z.literal('generic'),
+  /** Deployment-specific base URL — required. */
   base_url: z.string().url(),
   /**
-   * Which OpenAI API surface to use. Defaults to 'chat' (Chat Completions),
-   * which works with any OpenAI-compatible gateway. Use 'responses' only for
-   * gateways that expose the OpenAI Responses API endpoint (enables `store: false`
-   * and stateless multi-turn reasoning via encrypted content).
+   * API format used by this endpoint. Only `openai-chat-completions` is
+   * supported today; additional formats will be added here when implemented.
+   * Defaults to `openai-chat-completions` when absent.
    */
-  openai_api: z.enum(['responses', 'chat']).optional(),
+  api_format: z.literal('openai-chat-completions').optional(),
 }).strict();
 
 export const ModelEntrySchema = z
-  .union([OpenAIProviderEntrySchema, OtherKnownProviderEntrySchema, CompatProviderEntrySchema])
+  .union([OpenAIProviderEntrySchema, FirstPartyProviderEntrySchema, GenericProviderEntrySchema])
   .openapi('ModelEntry');
 
 export const ModelsFileSchema = z

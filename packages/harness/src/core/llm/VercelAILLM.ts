@@ -1,10 +1,10 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogle } from '@ai-sdk/google';
-import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type {
   AssistantContent,
+  FilePart,
   LanguageModel,
   ModelMessage,
   ProviderMetadata,
@@ -41,6 +41,49 @@ import {
 type ProviderOptions = ProviderMetadata;
 
 /**
+ * Local mirrors of the OpenAI SDK's cross-module namespace types. ESLint's
+ * TypeScript resolver cannot follow `Namespace.Member` references across module
+ * boundaries, so these locally-declared interfaces with `in`-based type guards
+ * give ESLint resolvable types without any assertion escapes.
+ */
+interface ToolCallFn {
+  name: string;
+  arguments: string;
+}
+interface ToolDefinitionFn {
+  name: string;
+  description?: string | undefined;
+  parameters?: Record<string, unknown> | undefined;
+}
+
+/** Returns true for any non-null, non-array object — narrows to an indexable record. */
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isToolCallFn(v: unknown): v is ToolCallFn {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    'name' in v &&
+    'arguments' in v &&
+    typeof v.name === 'string' &&
+    typeof v.arguments === 'string'
+  );
+}
+
+function isToolDefinitionFn(v: unknown): v is ToolDefinitionFn {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    'name' in v &&
+    typeof v.name === 'string' &&
+    (!('description' in v) || typeof v.description === 'string') &&
+    (!('parameters' in v) || isPlainObject(v.parameters))
+  );
+}
+
+/**
  * Reasoning content part for multi-turn assistant message history.
  * Structurally matches ReasoningPart from @ai-sdk/provider-utils.
  */
@@ -53,18 +96,22 @@ interface ReasoningPart {
 /** Structural config accepted by VercelAILLM; compatible with server's ProviderConfig. */
 export interface VercelAIProviderConfig {
   provider: string;
+  /** Display name / alias. Also used as the provider model identifier when `model_id` is absent. */
   name: string;
+  /**
+   * Provider-facing model identifier (e.g. `anthropic/claude-sonnet-4-6` for a
+   * gateway). When present, this is sent to the provider instead of `name`.
+   */
+  model_id?: string | undefined;
   /** Optional base URL override. Explicitly includes `undefined` for Zod-derived type compat. */
   base_url?: string | undefined;
   apiKey: string;
   headers: Record<string, string>;
   /**
-   * Which OpenAI API surface to use. Only applies when `provider === 'openai'`.
-   * Defaults to 'responses' (supports reasoning models and stateless multi-turn
-   * via encrypted content). Use 'chat' for deployments or models that don't
-   * support the Responses API.
+   * API format for the `generic` provider. Only `openai-chat-completions` is
+   * supported today. Defaults to `openai-chat-completions` when absent.
    */
-  openai_api?: 'responses' | 'chat' | undefined;
+  api_format?: 'openai-chat-completions' | undefined;
 }
 
 export interface VercelAILLMConfig {
@@ -73,28 +120,9 @@ export interface VercelAILLMConfig {
   signal?: AbortSignal;
 }
 
-/** Well-known base URLs for gateway providers that have a canonical endpoint. */
-const GATEWAY_BASE_URLS: Record<string, string> = {
-  openrouter: 'https://openrouter.ai/api/v1',
-  portkey: 'https://api.portkey.ai/v1',
-  kimi: 'https://api.moonshot.cn/v1',
-};
-
-/**
- * Returns whether the effective OpenAI API surface is the Responses API.
- *
- * - `openai` provider defaults to `responses`; opt out with `openai_api: chat`.
- * - All other providers default to `chat`; opt in with `openai_api: responses`.
- */
-function isResponsesApi(config: VercelAIProviderConfig): boolean {
-  if (config.provider === 'openai') {
-    return config.openai_api !== 'chat';
-  }
-  return config.openai_api === 'responses';
-}
-
 function buildLanguageModel(config: VercelAIProviderConfig): LanguageModel {
-  const { provider, name: modelId, base_url, apiKey, headers } = config;
+  const { provider, name, model_id, base_url, apiKey, headers } = config;
+  const modelId = model_id ?? name;
   const extraHeaders = Object.keys(headers).length > 0 ? headers : undefined;
 
   switch (provider) {
@@ -104,10 +132,7 @@ function buildLanguageModel(config: VercelAIProviderConfig): LanguageModel {
         ...(base_url !== undefined ? { baseURL: base_url } : {}),
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
-      // Default to Responses API (required for o-series reasoning models).
-      // Opt in to Chat Completions API explicitly for models or deployments
-      // that don't support the Responses API.
-      return isResponsesApi(config) ? client.responses(modelId) : client.chat(modelId);
+      return client.responses(modelId);
     }
     case 'anthropic': {
       const client = createAnthropic({
@@ -125,39 +150,20 @@ function buildLanguageModel(config: VercelAIProviderConfig): LanguageModel {
       });
       return client(modelId);
     }
-    case 'mistral': {
-      const client = createMistral({
+    case 'generic': {
+      if (base_url === undefined) {
+        throw new Error('Provider "generic" requires a base_url in models.yaml');
+      }
+      const client = createOpenAICompatible({
+        name: 'generic',
+        baseURL: base_url,
         apiKey,
-        ...(base_url !== undefined ? { baseURL: base_url } : {}),
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
       return client(modelId);
     }
     default: {
-      // openai-compatible, litellm, truefoundry; plus named gateways with known URLs
-      const resolvedBaseUrl = base_url ?? GATEWAY_BASE_URLS[provider];
-      if (resolvedBaseUrl === undefined) {
-        throw new Error(
-          `Provider "${provider}" requires a base_url in models.yaml (no well-known endpoint registered for this provider)`,
-        );
-      }
-      if (isResponsesApi(config)) {
-        // Compat provider explicitly opted in to the Responses API: use
-        // @ai-sdk/openai with a custom base URL so we get responses() support.
-        const client = createOpenAI({
-          apiKey,
-          baseURL: resolvedBaseUrl,
-          ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
-        });
-        return client.responses(modelId);
-      }
-      const client = createOpenAICompatible({
-        name: provider,
-        baseURL: resolvedBaseUrl,
-        apiKey,
-        ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
-      });
-      return client(modelId);
+      throw new Error(`Unknown provider "${provider}" — supported providers are: openai, anthropic, google, generic`);
     }
   }
 }
@@ -206,21 +212,13 @@ function mapFinishReason(reason: string): RawAssistantMessageWithUsage['finish_r
 /** Builds provider-specific options for reasoning/thinking budget. */
 function buildProviderOptions(config: VercelAIProviderConfig, reasoningEffort: string | undefined): ProviderOptions {
   const options: ProviderOptions = {};
-  if (isResponsesApi(config)) {
+  if (config.provider === 'openai') {
     // Always disable server-side storage and request the encrypted reasoning
     // token so multi-turn conversations can replay reasoning statelessly.
     // `include` is a harmless no-op for non-reasoning models.
-    //
-    // For compat providers (openai-compatible, litellm, …) with openai_api: responses,
-    // buildLanguageModel routes through @ai-sdk/openai with a custom baseURL. That SDK
-    // internally calls getOpenAILanguageModelCapabilities(modelId) and matches the model
-    // ID against ^gpt-(\d+) and ^o(\d+). Gateway-prefixed IDs like "openai-main/gpt-5.5"
-    // fail both patterns, so the SDK would silently drop reasoningEffort and ignore
-    // reasoning.encrypted_content. forceReasoning: true bypasses the model-ID check.
     options['openai'] = {
       store: false,
       include: ['reasoning.encrypted_content'],
-      ...(config.provider !== 'openai' ? { forceReasoning: true } : {}),
       ...(reasoningEffort !== undefined ? { reasoningEffort } : {}),
     };
   } else if (config.provider === 'anthropic' && reasoningEffort !== undefined) {
@@ -229,6 +227,32 @@ function buildProviderOptions(config: VercelAIProviderConfig, reasoningEffort: s
     options['anthropic'] = { thinking: { type: 'enabled', budgetTokens } };
   }
   return options;
+}
+
+/**
+ * Parses the MIME type from a data URI (`data:<mime>;base64,...`).
+ * Returns `undefined` when the URI is not a data URI or has no MIME segment.
+ */
+function parseMimeFromDataUri(uri: string): string | undefined {
+  const match = /^data:([^;,]+)/.exec(uri);
+  return match?.[1];
+}
+
+/**
+ * Builds a Vercel AI SDK FilePart from an OpenAI-format file content part.
+ * Returns `undefined` when the part carries no usable data (e.g. file_id only,
+ * which requires a server-side lookup we don't support here).
+ */
+function toFilePart(file: { file_data?: string | undefined; filename?: string | undefined }): FilePart | undefined {
+  const { file_data, filename } = file;
+  if (!file_data) return undefined;
+  const mediaType = parseMimeFromDataUri(file_data) ?? 'application/octet-stream';
+  return {
+    type: 'file',
+    data: file_data,
+    mediaType,
+    ...(filename !== undefined ? { filename } : {}),
+  };
 }
 
 /** Converts a user content array from OpenAI format to Vercel AI SDK UserContent. */
@@ -243,10 +267,22 @@ function toUserContent(content: string | ChatCompletionContentPart[]): UserConte
       continue;
     }
     if (part.type === 'image_url') {
-      parts.push({ type: 'image', image: part.image_url.url });
+      // Map image URLs/data-URIs as FilePart with image/* mediaType.
+      // ImagePart ({ type: 'image' }) is deprecated in favour of FilePart.
+      const url = part.image_url.url;
+      const mediaType = parseMimeFromDataUri(url) ?? 'image/*';
+      parts.push({ type: 'file', data: url, mediaType });
       continue;
     }
-    // input_audio, file — not universally supported across providers; omit.
+    if (part.type === 'file') {
+      const filePart = toFilePart(part.file);
+      if (filePart !== undefined) {
+        parts.push(filePart);
+      }
+      // file_id-only parts are unsupported (require server-side lookup); skip.
+      continue;
+    }
+    // input_audio — not universally supported across providers; omit.
   }
   return parts;
 }
@@ -319,11 +355,13 @@ function toAssistantModelMessage(
 
   if (msg.tool_calls?.length) {
     for (const tc of msg.tool_calls) {
+      const rawFn: unknown = tc.function;
+      if (!isToolCallFn(rawFn)) continue;
       let input: Record<string, unknown> = {};
       try {
-        const parsed: unknown = JSON.parse(tc.function.arguments || '{}');
-        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          input = parsed as Record<string, unknown>;
+        const parsed: unknown = JSON.parse(rawFn.arguments);
+        if (isPlainObject(parsed)) {
+          input = parsed;
         }
       } catch {
         // malformed arguments — leave empty record
@@ -331,7 +369,7 @@ function toAssistantModelMessage(
       const toolCallPart: ToolCallPart = {
         type: 'tool-call',
         toolCallId: tc.id,
-        toolName: tc.function.name,
+        toolName: rawFn.name,
         input,
       };
       parts.push(toolCallPart);
@@ -362,7 +400,10 @@ function convertMessages(
   for (const msg of messages) {
     if (msg.role === 'assistant' && msg.tool_calls) {
       for (const tc of msg.tool_calls) {
-        toolNameById.set(tc.id, tc.function.name);
+        const rawFn: unknown = tc.function;
+        if (isToolCallFn(rawFn)) {
+          toolNameById.set(tc.id, rawFn.name);
+        }
       }
     }
   }
@@ -410,9 +451,11 @@ function convertTools(tools: ChatCompletionTool[] | undefined): ToolSet | undefi
   }
   const toolSet: ToolSet = {};
   for (const t of tools) {
-    toolSet[t.function.name] = {
-      inputSchema: jsonSchema(t.function.parameters ?? { type: 'object', properties: {} }),
-      ...(t.function.description !== undefined ? { description: t.function.description } : {}),
+    const rawFn: unknown = t.function;
+    if (!isToolDefinitionFn(rawFn)) continue;
+    toolSet[rawFn.name] = {
+      inputSchema: jsonSchema(rawFn.parameters ?? { type: 'object', properties: {} }),
+      ...(rawFn.description !== undefined ? { description: rawFn.description } : {}),
     };
   }
   return Object.keys(toolSet).length > 0 ? toolSet : undefined;
@@ -444,11 +487,12 @@ export class VercelAILLM implements ILLM {
     const model = buildLanguageModel(providerConfig);
 
     // Which providerOptions key to use when replaying reasoning tokens in multi-turn history.
-    const replayKey: 'openai' | 'anthropic' | undefined = isResponsesApi(providerConfig)
-      ? 'openai'
-      : providerConfig.provider === 'anthropic'
-        ? 'anthropic'
-        : undefined;
+    const replayKey: 'openai' | 'anthropic' | undefined =
+      providerConfig.provider === 'openai'
+        ? 'openai'
+        : providerConfig.provider === 'anthropic'
+          ? 'anthropic'
+          : undefined;
 
     const messages = convertMessages(body.messages, replayKey);
     const tools = convertTools(body.tools ?? undefined);
