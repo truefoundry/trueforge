@@ -210,9 +210,17 @@ function buildProviderOptions(config: VercelAIProviderConfig, reasoningEffort: s
     // Always disable server-side storage and request the encrypted reasoning
     // token so multi-turn conversations can replay reasoning statelessly.
     // `include` is a harmless no-op for non-reasoning models.
+    //
+    // For compat providers (openai-compatible, litellm, …) with openai_api: responses,
+    // buildLanguageModel routes through @ai-sdk/openai with a custom baseURL. That SDK
+    // internally calls getOpenAILanguageModelCapabilities(modelId) and matches the model
+    // ID against ^gpt-(\d+) and ^o(\d+). Gateway-prefixed IDs like "openai-main/gpt-5.5"
+    // fail both patterns, so the SDK would silently drop reasoningEffort and ignore
+    // reasoning.encrypted_content. forceReasoning: true bypasses the model-ID check.
     options['openai'] = {
       store: false,
       include: ['reasoning.encrypted_content'],
+      ...(config.provider !== 'openai' ? { forceReasoning: true } : {}),
       ...(reasoningEffort !== undefined ? { reasoningEffort } : {}),
     };
   } else if (config.provider === 'anthropic' && reasoningEffort !== undefined) {
