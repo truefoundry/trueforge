@@ -24,10 +24,10 @@ let failures = 0;
 for (const modulePath of modulePaths) {
   const base = path.join(pkgRoot, modulePath);
   try {
-    require(`${base}.js`);
-    await import(pathToFileURL(`${base}.mjs`).href);
+    require(`${base}.cjs`);
+    await import(pathToFileURL(`${base}.js`).href);
     if (!fs.existsSync(`${base}.d.ts`)) throw new Error('missing .d.ts');
-    console.log(`ok ${modulePath}.{js,mjs,d.ts}`);
+    console.log(`ok ${modulePath}.{cjs,js,d.ts}`);
   } catch (error) {
     failures += 1;
     console.error(`FAIL ${modulePath}: ${error instanceof Error ? error.message : String(error)}`);
@@ -44,6 +44,10 @@ if (!fs.existsSync(distPkgPath)) {
   if (staged.includes('./dist/')) {
     failures += 1;
     console.error('FAIL dist/package.json still references ./dist/ paths');
+  }
+  if (staged.includes('"development"')) {
+    failures += 1;
+    console.error('FAIL dist/package.json still contains "development" export conditions (src/ not published)');
   }
 }
 

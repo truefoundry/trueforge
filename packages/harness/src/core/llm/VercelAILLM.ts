@@ -142,7 +142,7 @@ function buildLanguageModel(config: VercelAIProviderConfig): LanguageModel {
       });
       return client(modelId);
     }
-    case 'google': {
+    case 'google-gemini': {
       const client = createGoogle({
         apiKey,
         ...(base_url !== undefined ? { baseURL: base_url } : {}),
@@ -163,7 +163,9 @@ function buildLanguageModel(config: VercelAIProviderConfig): LanguageModel {
       return client(modelId);
     }
     default: {
-      throw new Error(`Unknown provider "${provider}" — supported providers are: openai, anthropic, google, generic`);
+      throw new Error(
+        `Unknown provider "${provider}" — supported providers are: openai, anthropic, google-gemini, generic`,
+      );
     }
   }
 }
@@ -392,10 +394,21 @@ function toAssistantModelMessage(
  * `replayKey` is threaded into assistant message conversion so that reasoning
  * replay tokens are placed under the correct providerOptions key.
  */
+interface ConvertedMessages {
+  instructions: string | undefined;
+  messages: ModelMessage[];
+}
+
+/**
+ * Splits an OpenAI message list into Vercel AI SDK format.
+ * System messages are extracted into `instructions` because the Vercel AI SDK v7
+ * no longer accepts `{ role: 'system' }` entries in the messages array.
+ * Multiple system messages are joined with a blank line.
+ */
 function convertMessages(
   messages: ChatCompletionMessageParam[],
   replayKey: 'openai' | 'anthropic' | undefined,
-): ModelMessage[] {
+): ConvertedMessages {
   const toolNameById = new Map<string, string>();
   for (const msg of messages) {
     if (msg.role === 'assistant' && msg.tool_calls) {
@@ -408,11 +421,12 @@ function convertMessages(
     }
   }
 
+  const systemParts: string[] = [];
   const result: ModelMessage[] = [];
   for (const msg of messages) {
     if (msg.role === 'system') {
       const content = typeof msg.content === 'string' ? msg.content : msg.content.map(p => p.text).join('');
-      result.push({ role: 'system', content });
+      systemParts.push(content);
       continue;
     }
     if (msg.role === 'user') {
@@ -441,7 +455,7 @@ function convertMessages(
     }
     // 'developer' / 'function' roles — not used in the harness pipeline; skip.
   }
-  return result;
+  return { instructions: systemParts.length > 0 ? systemParts.join('\n\n') : undefined, messages: result };
 }
 
 /** Converts OpenAI tool definitions to the Vercel AI SDK ToolSet. */
@@ -494,7 +508,7 @@ export class VercelAILLM implements ILLM {
           ? 'anthropic'
           : undefined;
 
-    const messages = convertMessages(body.messages, replayKey);
+    const { instructions, messages } = convertMessages(body.messages, replayKey);
     const tools = convertTools(body.tools ?? undefined);
 
     // reasoning_effort is injected by AgentThread via Object.assign; not in the SDK type.
@@ -506,6 +520,7 @@ export class VercelAILLM implements ILLM {
     try {
       streamResult = streamText({
         model,
+        ...(instructions !== undefined ? { instructions } : {}),
         messages,
         ...(tools !== undefined ? { tools } : {}),
         // Prefer max_completion_tokens; fall back to max_tokens (deprecated on the OpenAI type,

@@ -1,6 +1,6 @@
 import type { MCPServerInitInfo } from '../../core/events/schema';
 import type { AgentThreadSnapshot } from '../../core/runtime/AgentThread.types';
-import type { SandboxInfo } from '../../core/sandbox/Sandbox';
+import type { SandboxInfo } from '../../core/sandbox/SandboxInfo';
 import type { TurnInputItem, TurnState } from '../schemas/turn';
 
 /** Root thread id for every session. */

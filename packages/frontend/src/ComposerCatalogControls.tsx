@@ -198,8 +198,9 @@ export function ComposerCatalogControls({
                 {models.map(entry => {
                   const nextReasoningEffort = entry.reasoning_efforts?.[0];
                   const nextParams = { ...agentSpec?.model.params };
-                  if (nextReasoningEffort) nextParams.reasoningEffort = nextReasoningEffort;
-                  else delete nextParams.reasoningEffort;
+                  // Assign undefined (not delete) so the spread in mergeAgentSpec
+                  // overrides the base value; a deleted key leaves the base intact.
+                  nextParams.reasoningEffort = nextReasoningEffort;
                   return (
                     <button
                       key={entry.name}

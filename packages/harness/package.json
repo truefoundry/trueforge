@@ -5,43 +5,47 @@
   "author": "Truefoundry",
   "license": "UNLICENSED",
   "private": false,
-  "type": "commonjs",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "development": "./src/index.ts",
       "types": "./dist/index.d.ts",
-      "require": "./dist/index.js",
-      "default": "./dist/index.mjs"
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
     },
     "./core": {
+      "development": "./src/core/index.ts",
       "types": "./dist/core/index.d.ts",
-      "require": "./dist/core/index.js",
-      "default": "./dist/core/index.mjs"
+      "require": "./dist/core/index.cjs",
+      "default": "./dist/core/index.js"
     },
     "./agent-session": {
+      "development": "./src/agent-session/index.ts",
       "types": "./dist/agent-session/index.d.ts",
-      "require": "./dist/agent-session/index.js",
-      "default": "./dist/agent-session/index.mjs"
+      "require": "./dist/agent-session/index.cjs",
+      "default": "./dist/agent-session/index.js"
     },
     "./request-reply": {
+      "development": "./src/request-reply/index.ts",
       "types": "./dist/request-reply/index.d.ts",
-      "require": "./dist/request-reply/index.js",
-      "default": "./dist/request-reply/index.mjs"
+      "require": "./dist/request-reply/index.cjs",
+      "default": "./dist/request-reply/index.js"
     },
     "./*.mjs": {
       "types": "./dist/*.d.ts",
-      "default": "./dist/*.mjs"
-    },
-    "./*.js": {
-      "types": "./dist/*.d.ts",
       "default": "./dist/*.js"
+    },
+    "./*.cjs": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.cjs"
     },
     "./*": {
       "types": "./dist/*.d.ts",
-      "require": "./dist/*.js",
-      "default": "./dist/*.mjs"
+      "require": "./dist/*.cjs",
+      "default": "./dist/*.js"
     },
     "./package.json": "./package.json"
   },

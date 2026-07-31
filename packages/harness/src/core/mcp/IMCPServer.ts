@@ -2,7 +2,7 @@ import type { CallToolRequest, CallToolResult, ListToolsResult } from '@modelcon
 import type { RegisteredPassthroughEvent } from '../events/PassthroughEvents';
 import type { AgentInfo, ApprovalDecision, MCPServerAuthInfo, MCPServerInitInfo } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
-import type { SandboxInfo } from '../sandbox/Sandbox';
+import type { SandboxInfo } from '../sandbox/SandboxInfo';
 
 export interface MCPAuthRequired {
   servers: MCPServerAuthInfo[];

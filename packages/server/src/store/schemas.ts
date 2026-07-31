@@ -102,7 +102,7 @@ const OpenAIProviderEntrySchema = ModelEntryBaseSchema.extend({
 
 /** First-party providers backed by dedicated Vercel AI SDK adapters. */
 const FirstPartyProviderEntrySchema = ModelEntryBaseSchema.extend({
-  provider: z.enum(['anthropic', 'google']),
+  provider: z.enum(['anthropic', 'google-gemini']),
   /** Override the provider's default base URL (e.g. point at a local proxy). */
   base_url: z.string().url().optional(),
 }).strict();

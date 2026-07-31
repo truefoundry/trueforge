@@ -22,7 +22,7 @@
 #        ({NAME} = name uppercased, non-alphanumerics → "_")
 #
 # Supported providers:
-#   First-party (Vercel AI SDK):  openai | anthropic | google
+#   First-party (Vercel AI SDK):  openai | anthropic | google-gemini
 #   Generic (requires base_url): generic
 #
 # base_url is optional for first-party providers (overrides the default endpoint)
@@ -71,8 +71,8 @@ models:
 
   # --- Direct Google ---
   - name: gemini-2.5-flash
-    provider: google
-    api_key: "${GOOGLE_API_KEY}"
+    provider: google-gemini
+    api_key: "${GOOGLE_GEMINI_API_KEY}"
     max_output_tokens: 8192
 
   # --- Generic gateway (e.g. LiteLLM / TrueFoundry / any OpenAI-compat proxy) ---

@@ -4,7 +4,7 @@ import type { InternalEnrichedAssistantMessage, InternalEnrichedToolCall, LLMToo
 import type { MCPAuthRequired } from '../mcp/IMCPServer';
 import type { AgentThreadCreateSubAgent } from '../runtime/AgentThread.types';
 import { InternalEventType } from '../runtime/AgentThread.types';
-import type { SandboxInfo } from '../sandbox/Sandbox';
+import type { SandboxInfo } from '../sandbox/SandboxInfo';
 import type { MappedMCPTool } from './convertMCPServers';
 import {
   isApprovalRequiredResponse,

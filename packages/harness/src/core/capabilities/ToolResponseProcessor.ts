@@ -1,6 +1,6 @@
 import type { RegisteredPassthroughEvent } from '../events/PassthroughEvents';
 import type { ToolCallResult } from '../mcp/executeToolCalls';
-import type { SandboxInfo } from '../sandbox/Sandbox';
+import type { SandboxInfo } from '../sandbox/SandboxInfo';
 import type { AgentThreadExecutionContext } from './AgentContextProcessor';
 
 export interface ToolResponseProcessorResult {

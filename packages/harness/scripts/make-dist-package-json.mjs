@@ -18,12 +18,26 @@ function stripDistPrefix(value) {
   return value;
 }
 
+// Remove the `development` condition: it points to src/ which is not published.
+function stripDevelopmentCondition(exports) {
+  if (!exports || typeof exports !== 'object') return exports;
+  return Object.fromEntries(
+    Object.entries(exports).map(([key, entry]) => {
+      if (entry && typeof entry === 'object') {
+        const { development: _dev, ...rest } = entry;
+        return [key, rest];
+      }
+      return [key, entry];
+    }),
+  );
+}
+
 const distPkg = {
   ...pkg,
   main: stripDistPrefix(pkg.main),
   module: stripDistPrefix(pkg.module),
   types: stripDistPrefix(pkg.types),
-  exports: stripDistPrefix(pkg.exports),
+  exports: stripDevelopmentCondition(stripDistPrefix(pkg.exports)),
   files: ['**/*'],
 };
 delete distPkg.scripts;

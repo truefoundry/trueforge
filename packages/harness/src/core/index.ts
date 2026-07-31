@@ -147,8 +147,8 @@ export type { DaytonaSandboxSettings } from './sandbox/provider/DaytonaProvider'
 export type { SandboxExecParams, SandboxInit, SandboxProvider } from './sandbox/provider/Provider';
 export { TFYSandboxProvider } from './sandbox/provider/TFYSandboxProvider';
 export { SKILL_DOWNLOAD_TIMEOUT_SECONDS, Sandbox, buildWriteAndRunScriptCommand } from './sandbox/Sandbox';
-export type { SandboxInfo } from './sandbox/Sandbox';
 export { SandboxError } from './sandbox/SandboxErrors';
+export type { SandboxInfo } from './sandbox/SandboxInfo';
 
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources
 export { InstructionBuilder } from './InstructionBuilder';

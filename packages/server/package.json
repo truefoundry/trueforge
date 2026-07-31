@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && tsup",
-    "dev": "tsx --env-file=.env src/main.ts",
+    "dev": "tsx --conditions development --env-file=.env src/main.ts",
     "migrate": "tsx --env-file=.env src/db/postgres/migrate-cli.ts",
     "typecheck": "tsc --noEmit",
     "openapi:write": "tsx --env-file=.env.test scripts/write-openapi.ts",

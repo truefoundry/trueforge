@@ -1,6 +1,5 @@
-import type { Logger } from 'winston';
 import { z } from 'zod';
-import type { AgentCapability, CapabilityState, JsonValue } from '../capabilities/AgentCapability';
+import type { CapabilityState, JsonValue } from '../capabilities/CapabilityState';
 import type { RegisteredPassthroughEvent, WithRegisteredPassthrough } from '../events/PassthroughEvents';
 import type {
   ActionRequiredEvent,
@@ -26,9 +25,6 @@ import type {
   UserToolResponseMessage,
 } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
-import type { Sandbox } from '../sandbox/Sandbox';
-import type { AgentTracing } from '../tracing/AgentTracing';
-import type { AgentDefinition } from './AgentDefinition';
 import type { CurrentContextUsage } from './contextUsage';
 
 export type { AgentInfo, AgentParent };
@@ -156,24 +152,4 @@ export interface AgentThreadSnapshot {
   completion: SubAgentCompletionMarker | null;
   /** Cross-turn capability KV. Keys: capability.state.key; `tfy.` reserved for builtins. */
   capability_state: CapabilityState | null;
-}
-
-export interface AgentThreadConstructorInput {
-  definition: AgentDefinition;
-  threadId: string;
-  title: string;
-  parent?: AgentParent | undefined;
-  agentInfo?: AgentInfo | undefined;
-  context?: ContextMessage[] | undefined;
-  currentContextUsage?: CurrentContextUsage | undefined;
-  preComputedCompletion?: SubAgentCompletionMarker | undefined;
-  sandbox?: Sandbox | undefined;
-  capabilities?: readonly AgentCapability[] | undefined;
-  /**
-   * Previous turn's capability_state for hydration. Optional — omit on first
-   * turn / fresh sub-agent. The constructor is the sole hydration site.
-   */
-  capabilityState?: CapabilityState | undefined;
-  tracing: AgentTracing;
-  logger: Logger;
 }
