@@ -32,8 +32,7 @@ export function buildOpenApiDocument(app: OpenAPIHono) {
   return app.getOpenAPI31Document(openApiDocConfig);
 }
 
-/** Also used by the UI's fallback for anything that is not a navigation. */
-export function routeNotFound(c: Context) {
+function routeNotFound(c: Context) {
   return c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404);
 }
 
