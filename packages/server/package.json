@@ -12,7 +12,7 @@
     "migrate": "tsx --env-file=.env src/db/postgres/migrate-cli.ts",
     "typecheck": "tsc --noEmit",
     "openapi:write": "tsx --env-file=.env.test scripts/write-openapi.ts",
-    "test": "tsx --env-file=.env.test --test \"src/**/*.test.ts\"",
+    "test": "tsx --env-file=.env.test --test \"tests/unit/**/*.test.ts\"",
     "test:store:postgres": "jest --config jest.store.postgres.config.cjs",
     "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs",
     "start": "node dist/main.js"

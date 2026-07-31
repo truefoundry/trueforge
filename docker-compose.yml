@@ -40,6 +40,10 @@ services:
       PORT: 8790
       # Compose network hostname; credentials still come from env_file.
       POSTGRES_HOST: postgres
+      # Compose runs one replica but keeps peering on so the peered cancel path
+      # stays exercised in development. A single-replica deployment can set this
+      # to true and drop the redis service entirely.
+      SINGLE_REPLICA: 'false'
       REDIS_URL: redis://redis:6379
     # Environment variables (MODEL_API_KEY, POSTGRES_*, etc.) are read from this file.
     # Copy packages/server/.env.example to packages/server/.env and fill it in.

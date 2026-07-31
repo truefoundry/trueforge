@@ -5,6 +5,7 @@
  * SQLite migrations are packaged under dist/ but are not run at startup.
  */
 import { serve } from '@hono/node-server';
+import type { RedisClientType } from 'redis';
 import winston from 'winston';
 
 try {
@@ -56,10 +57,18 @@ try {
   const sandboxFactory = createServerSandboxFactory({ logger });
   const activeTurns = new ActiveTurnRegistry();
 
-  // Executor peering: this process's identity is embedded into turn ids so
-  // any replica can route a cancel to the owner over Redis request-reply.
-  logger.info(`Executor id: ${configuration.EXECUTOR_ID}`);
-  const redis = await connectRedis({ url: configuration.REDIS_URL, logger });
+  // Peering embeds this process's id in the turn ids it mints so any replica can route a
+  // cancel to the owner. Config leaves REDIS_URL undefined unless peering is on.
+  const connectPeeringRedis = async (): Promise<RedisClientType | undefined> => {
+    if (configuration.REDIS_URL === undefined) {
+      logger.info('Single-replica mode: executor peering disabled and Redis unused');
+      return undefined;
+    }
+    const client = await connectRedis({ url: configuration.REDIS_URL, logger });
+    logger.info(`Executor peering enabled; executor id: ${configuration.EXECUTOR_ID}`);
+    return client;
+  };
+  const redis = await connectPeeringRedis();
   const requestReplyRouter = new RequestReplyRouter();
 
   const app = createServerApp({
@@ -84,29 +93,48 @@ try {
     );
   }
 
-  // After createServerApp so every request-reply route is registered before
-  // the executor starts consuming messages. The executor needs a dedicated
-  // subscriber connection (a subscribed client cannot issue normal commands);
-  // this process owns its lifecycle. Connect before init() so init() awaits
-  // the initial subscribe + heartbeat — the replica is reachable for peering
-  // before the HTTP server starts.
-  const requestReplySubscriber = redis.duplicate();
-  requestReplySubscriber.on('error', (error: Error) => {
-    logger.error('[RedisSubscriber] Client error', { error: error.message });
-  });
-  await requestReplySubscriber.connect();
-  const requestReplyExecutor = new RequestReplyExecutor({
-    executorId: configuration.EXECUTOR_ID,
-    redis,
-    subscriberClient: requestReplySubscriber,
-    requestHandler: requestReplyRouter.createRequestHandler(),
-    logger,
-    options: {
-      heartbeatIntervalMs: configuration.REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS,
-      replyTtlMs: configuration.REDIS_REQUEST_REPLY_REPLY_TTL_MS,
-    },
-  });
-  await requestReplyExecutor.init();
+  const closeQuietly = async (label: string, client: RedisClientType) => {
+    await client.close().catch((error: unknown) => {
+      logger.warn(`[Redis] Error closing ${label} during shutdown`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+
+  // After createServerApp so every request-reply route is registered before the executor
+  // consumes messages, and before serve() so peers can reach this replica from the start.
+  const startPeering = async (client: RedisClientType | undefined) => {
+    if (client === undefined) {
+      return undefined;
+    }
+    // A subscribed client cannot issue normal commands, so the executor gets its own.
+    const subscriber = client.duplicate();
+    subscriber.on('error', (error: Error) => {
+      logger.error('[RedisSubscriber] Client error', { error: error.message });
+    });
+    await subscriber.connect();
+    const executor = new RequestReplyExecutor({
+      executorId: configuration.EXECUTOR_ID,
+      redis: client,
+      subscriberClient: subscriber,
+      requestHandler: requestReplyRouter.createRequestHandler(),
+      logger,
+      options: {
+        heartbeatIntervalMs: configuration.REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS,
+        replyTtlMs: configuration.REDIS_REQUEST_REPLY_REPLY_TTL_MS,
+      },
+    });
+    await executor.init();
+    return {
+      // Stop serving peer requests, waiting for in-flight replies, before closing the clients.
+      close: async () => {
+        await executor.drain();
+        await closeQuietly('subscriber client', subscriber);
+        await closeQuietly('client', client);
+      },
+    };
+  };
+  const peering = await startPeering(redis);
 
   const server = serve({ fetch: app.fetch, port: configuration.PORT }, info => {
     console.log(`Agent server listening on http://localhost:${String(info.port)} (docs at /api/v1/docs)`);
@@ -144,19 +172,7 @@ try {
     // closed covers the gap where the registry is empty before that late track().
     await activeTurns.shutdownAndWait(CancellationReason.Abandoned);
     await closed;
-    // Stop serving peer requests (waits for in-flight replies), then close
-    // the clients this process owns: the subscriber duplicate and the primary.
-    await requestReplyExecutor.drain();
-    await requestReplySubscriber.close().catch((error: unknown) => {
-      logger.warn('[Redis] Error closing subscriber client during shutdown', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-    await redis.close().catch((error: unknown) => {
-      logger.warn('[Redis] Error closing client during shutdown', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
+    await peering?.close();
     await db.destroy();
     process.exit(0);
   };
