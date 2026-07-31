@@ -16,45 +16,47 @@ No login (`auth: false`). Skills are not wired in v1.
 ## Local development
 
 ```bash
-# terminal 1 — harness API (default :8790)
-pnpm --filter @truefoundry/server dev
-
-# terminal 2 — Vite UI (:3000) with path proxy
-pnpm --filter frontend dev
-# or: pnpm dev:frontend
+pnpm dev            # API on :8790 and Vite on :3000 together
+pnpm dev:frontend   # or Vite alone, against an API that is already up
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000`: Vite serves the UI from source (edits hot-reload, no rebuild or server
+restart) and proxies `/api/*` to `VITE_SERVER_URL`, default `http://localhost:8790`. `FRONTEND_PORT`
+moves Vite off `:3000`. That proxy is the only dev-specific wiring and lives entirely in
+[`vite.config.ts`](vite.config.ts); the server needs no build to answer the API.
 
-### Vite proxy map
+### Session paths
 
-| Browser                                          | Upstream (`localhost:8790`) |
-| ------------------------------------------------ | --------------------------- |
-| `/v1/agents/draft-sessions*`                     | `/v1/sessions*`             |
-| `/v1/agents/sessions*`                           | `/v1/sessions*`             |
-| `/v1/models*`, `/v1/mcp-servers*`, `/v1/skills*` | passthrough                 |
+The gateway SDK's session routes sit under `/v1/agents`, with draft sessions as a separate resource. The
+harness serves one `/api/v1/sessions` surface, so [`src/harnessFetch.ts`](src/harnessFetch.ts) rewrites
+requests on their way out and is handed to both clients as their `fetch`:
 
-## Docker Compose
+| SDK request                  | Harness route       |
+| ---------------------------- | ------------------- |
+| `/v1/agents/draft-sessions*` | `/api/v1/sessions*` |
+| `/v1/agents/sessions*`       | `/api/v1/sessions*` |
 
-Requires `packages/server/.env` and `packages/server/registry/` (see server docs).
+It runs in the browser, so the mapping is identical in dev and production; the dev proxy just forwards.
+
+## Production
+
+There is no frontend image. `pnpm build` writes `dist/` plus `.br`/`.gz` siblings
+(`vite-plugin-compression2`) that the server serves from `FRONTEND_DIR`, sharing one origin with the API.
+The Monaco workers land outside Vite's asset pipeline and cannot be precompressed, so the server gzips
+those on the fly.
 
 ```bash
-docker compose up --build
+docker compose up --build   # UI + API on http://localhost:8790
 ```
-
-- UI: `http://localhost:3000` (`FRONTEND_PORT`)
-- API: `http://localhost:8790` (direct) or same-origin `/v1/...` via Caddy in the frontend container
-
-Caddy uses the same path rewrite as Vite and disables buffering for SSE.
 
 ## Catalogs (model + MCP)
 
 The SDK has no catalog client. On boot the app:
 
-1. `GET /v1/models` → seeds `defaultAgentSpec.model.name`
+1. `GET /api/v1/models` → seeds `defaultAgentSpec.model.name`
 2. Renders custom `ComposerRightSection` controls that `fetch` models/MCP and call `updateAgentSpec`
 
-Skills: catalog UI lists `GET /v1/skills` (empty state when none). Selection is local-only — session admission still rejects `agent_spec.skills`.
+Skills: catalog UI lists `GET /api/v1/skills` (empty state when none). Selection is local-only — session admission still rejects `agent_spec.skills`.
 
 ## Gaps
 

@@ -24,7 +24,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint({ once: false })
-            .get("/v1/sessions")
+            .get("/api/v1/sessions")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -64,7 +64,7 @@ describe("SessionsClient", () => {
 
         const rawResponseBody = { error: { message: "message" } };
 
-        server.mockEndpoint().get("/v1/sessions").respondWith().statusCode(400).jsonBody(rawResponseBody).build();
+        server.mockEndpoint().get("/api/v1/sessions").respondWith().statusCode(400).jsonBody(rawResponseBody).build();
 
         await expect(async () => {
             return await client.sessions.list();
@@ -95,7 +95,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/v1/sessions")
+            .post("/api/v1/sessions")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
@@ -159,7 +159,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/v1/sessions")
+            .post("/api/v1/sessions")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(400)
@@ -185,7 +185,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/v1/sessions")
+            .post("/api/v1/sessions")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(422)
@@ -227,7 +227,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/sessions/sessionId")
+            .get("/api/v1/sessions/sessionId")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -284,7 +284,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/sessions/sessionId")
+            .get("/api/v1/sessions/sessionId")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
@@ -319,7 +319,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .patch("/v1/sessions/sessionId")
+            .patch("/api/v1/sessions/sessionId")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
@@ -377,7 +377,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .patch("/v1/sessions/sessionId")
+            .patch("/api/v1/sessions/sessionId")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(400)
@@ -397,7 +397,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .patch("/v1/sessions/sessionId")
+            .patch("/api/v1/sessions/sessionId")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(404)
@@ -417,7 +417,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .patch("/v1/sessions/sessionId")
+            .patch("/api/v1/sessions/sessionId")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(422)
@@ -437,7 +437,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/v1/sessions/sessionId/cancel")
+            .post("/api/v1/sessions/sessionId/cancel")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
@@ -456,7 +456,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/v1/sessions/sessionId/cancel")
+            .post("/api/v1/sessions/sessionId/cancel")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(404)
@@ -476,7 +476,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/v1/sessions/sessionId/cancel")
+            .post("/api/v1/sessions/sessionId/cancel")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(412)
@@ -510,7 +510,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint({ once: false })
-            .get("/v1/sessions/sessionId/events")
+            .get("/api/v1/sessions/sessionId/events")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -557,7 +557,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/sessions/sessionId/events")
+            .get("/api/v1/sessions/sessionId/events")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)
@@ -576,7 +576,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/sessions/sessionId/events")
+            .get("/api/v1/sessions/sessionId/events")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
@@ -607,7 +607,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint({ once: false })
-            .get("/v1/sessions/sessionId/turns")
+            .get("/api/v1/sessions/sessionId/turns")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -655,7 +655,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/sessions/sessionId/turns")
+            .get("/api/v1/sessions/sessionId/turns")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)
@@ -674,7 +674,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/sessions/sessionId/turns")
+            .get("/api/v1/sessions/sessionId/turns")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
@@ -694,7 +694,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/v1/sessions/sessionId/turns")
+            .post("/api/v1/sessions/sessionId/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
@@ -731,7 +731,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/v1/sessions/sessionId/turns")
+            .post("/api/v1/sessions/sessionId/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(400)
@@ -751,7 +751,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/v1/sessions/sessionId/turns")
+            .post("/api/v1/sessions/sessionId/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(404)
@@ -771,7 +771,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/v1/sessions/sessionId/turns")
+            .post("/api/v1/sessions/sessionId/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(412)
@@ -800,7 +800,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/sessions/sessionId/turns/turnId")
+            .get("/api/v1/sessions/sessionId/turns/turnId")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -836,7 +836,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/sessions/sessionId/turns/turnId")
+            .get("/api/v1/sessions/sessionId/turns/turnId")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
@@ -866,7 +866,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint({ once: false })
-            .get("/v1/sessions/sessionId/turns/turnId/events")
+            .get("/api/v1/sessions/sessionId/turns/turnId/events")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -910,7 +910,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/sessions/sessionId/turns/turnId/events")
+            .get("/api/v1/sessions/sessionId/turns/turnId/events")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)
@@ -929,7 +929,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/v1/sessions/sessionId/turns/turnId/events")
+            .get("/api/v1/sessions/sessionId/turns/turnId/events")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)

@@ -68,7 +68,7 @@ export class SessionsClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        "v1/sessions",
+                        "api/v1/sessions",
                     ),
                     method: "GET",
                     headers: _headers,
@@ -116,7 +116,7 @@ export class SessionsClient {
                             });
                     }
                 }
-                return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/v1/sessions");
+                return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/sessions");
             },
         );
         const dataWithRawResponse = await list(request).withRawResponse();
@@ -169,7 +169,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "v1/sessions",
+                "api/v1/sessions",
             ),
             method: "POST",
             headers: _headers,
@@ -237,7 +237,7 @@ export class SessionsClient {
             }
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "POST", "/v1/sessions");
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "POST", "/api/v1/sessions");
     }
 
     /**
@@ -269,7 +269,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `v1/sessions/${core.url.encodePathParam(sessionId)}`,
+                `api/v1/sessions/${core.url.encodePathParam(sessionId)}`,
             ),
             method: "GET",
             headers: _headers,
@@ -315,7 +315,7 @@ export class SessionsClient {
             }
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/v1/sessions/{sessionId}");
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/sessions/{sessionId}");
     }
 
     /**
@@ -352,7 +352,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `v1/sessions/${core.url.encodePathParam(sessionId)}`,
+                `api/v1/sessions/${core.url.encodePathParam(sessionId)}`,
             ),
             method: "PATCH",
             headers: _headers,
@@ -431,7 +431,12 @@ export class SessionsClient {
             }
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "PATCH", "/v1/sessions/{sessionId}");
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "PATCH",
+            "/api/v1/sessions/{sessionId}",
+        );
     }
 
     /**
@@ -467,7 +472,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `v1/sessions/${core.url.encodePathParam(sessionId)}/cancel`,
+                `api/v1/sessions/${core.url.encodePathParam(sessionId)}/cancel`,
             ),
             method: "POST",
             headers: _headers,
@@ -539,7 +544,7 @@ export class SessionsClient {
             _response.error,
             _response.rawResponse,
             "POST",
-            "/v1/sessions/{sessionId}/cancel",
+            "/api/v1/sessions/{sessionId}/cancel",
         );
     }
 
@@ -581,7 +586,7 @@ export class SessionsClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        `v1/sessions/${core.url.encodePathParam(sessionId)}/events`,
+                        `api/v1/sessions/${core.url.encodePathParam(sessionId)}/events`,
                     ),
                     method: "GET",
                     headers: _headers,
@@ -644,7 +649,7 @@ export class SessionsClient {
                     _response.error,
                     _response.rawResponse,
                     "GET",
-                    "/v1/sessions/{sessionId}/events",
+                    "/api/v1/sessions/{sessionId}/events",
                 );
             },
         );
@@ -699,7 +704,7 @@ export class SessionsClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        `v1/sessions/${core.url.encodePathParam(sessionId)}/turns`,
+                        `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns`,
                     ),
                     method: "GET",
                     headers: _headers,
@@ -762,7 +767,7 @@ export class SessionsClient {
                     _response.error,
                     _response.rawResponse,
                     "GET",
-                    "/v1/sessions/{sessionId}/turns",
+                    "/api/v1/sessions/{sessionId}/turns",
                 );
             },
         );
@@ -802,7 +807,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `v1/sessions/${core.url.encodePathParam(sessionId)}/turns`,
+                `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns`,
             ),
             method: "POST",
             headers: _headers,
@@ -895,7 +900,7 @@ export class SessionsClient {
             _response.error,
             _response.rawResponse,
             "POST",
-            "/v1/sessions/{sessionId}/turns",
+            "/api/v1/sessions/{sessionId}/turns",
         );
     }
 
@@ -931,7 +936,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}`,
+                `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}`,
             ),
             method: "GET",
             headers: _headers,
@@ -981,7 +986,7 @@ export class SessionsClient {
             _response.error,
             _response.rawResponse,
             "GET",
-            "/v1/sessions/{sessionId}/turns/{turnId}",
+            "/api/v1/sessions/{sessionId}/turns/{turnId}",
         );
     }
 
@@ -1033,7 +1038,7 @@ export class SessionsClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        `v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}/events`,
+                        `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}/events`,
                     ),
                     method: "GET",
                     headers: _headers,
@@ -1096,7 +1101,7 @@ export class SessionsClient {
                     _response.error,
                     _response.rawResponse,
                     "GET",
-                    "/v1/sessions/{sessionId}/turns/{turnId}/events",
+                    "/api/v1/sessions/{sessionId}/turns/{turnId}/events",
                 );
             },
         );

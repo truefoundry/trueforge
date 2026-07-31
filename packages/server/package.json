@@ -12,7 +12,7 @@
     "migrate": "tsx --env-file=.env src/db/postgres/migrate-cli.ts",
     "typecheck": "tsc --noEmit",
     "openapi:write": "tsx --env-file=.env.test scripts/write-openapi.ts",
-    "test": "tsx --env-file=.env.test --test src/**/*.test.ts",
+    "test": "tsx --env-file=.env.test --test \"src/**/*.test.ts\"",
     "test:store": "jest --config jest.store.config.cjs",
     "start": "node dist/main.js"
   },

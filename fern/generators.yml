@@ -12,7 +12,7 @@ readme:
   # Fern keys this lookup on the stream flag, so the string form misses and fails.
   defaultEndpoint:
     method: POST
-    path: /v1/sessions/{sessionId}/turns
+    path: /api/v1/sessions/{sessionId}/turns
     stream: true
 api:
   specs:

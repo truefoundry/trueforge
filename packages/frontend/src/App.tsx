@@ -9,6 +9,7 @@ import { ApiErrorCard } from './ApiErrorCard';
 import { ServerCapabilitiesProvider } from './capabilities';
 import { getCapabilities, listModels, type ServerCapabilities } from './catalog';
 import { AppComposerShell } from './ComposerShell';
+import { harnessFetch } from './harnessFetch';
 import { PanelLeftIcon } from './icons';
 import { AppWelcomeScreen } from './slots';
 import { ThreadHeader } from './ThreadHeader';
@@ -17,11 +18,13 @@ import { ThreadSidebar } from './ThreadSidebar';
 const client = new AgentSessionClient({
   baseUrl: '/',
   auth: false,
+  fetch: harnessFetch,
 });
 
 const privateClient = new PrivateAgentSessionClient({
   baseUrl: '/',
   auth: false,
+  fetch: harnessFetch,
 });
 
 const slotOverrides = {
@@ -134,7 +137,7 @@ export function App() {
         const [models, serverCapabilities] = await Promise.all([listModels(), getCapabilities()]);
         const first = models[0];
         if (!first) {
-          throw new Error('No models in GET /v1/models — check models.yaml');
+          throw new Error('No models in GET /api/v1/models — check models.yaml');
         }
         if (!state.cancelled) {
           const defaultReasoningEffort = first.reasoning_efforts?.[0];

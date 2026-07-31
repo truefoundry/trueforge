@@ -11,7 +11,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "tsx --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "@assistant-ui/core": "0.2.21",
@@ -33,6 +33,7 @@
     "tsx": "^4.16.2",
     "typescript": "^5.9.3",
     "vite": "^6.3.5",
+    "vite-plugin-compression2": "^2.5.3",
     "vite-plugin-monaco-editor-esm": "^2.0.2"
   }
 }

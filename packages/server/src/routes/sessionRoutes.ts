@@ -1,5 +1,5 @@
 /**
- * Session route definitions (mounted at /v1/sessions). A session holds an
+ * Session route definitions (mounted at /api/v1/sessions). A session holds an
  * inline agent spec. Handlers are registered in apis/sessions.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
