@@ -3,13 +3,13 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ModelEntryApiKey } from "./ModelEntryApiKey.js";
+import { ModelEntryApiFormat } from "./ModelEntryApiFormat.js";
 import { ModelEntryOne } from "./ModelEntryOne.js";
 import { ModelEntryZero } from "./ModelEntryZero.js";
 
 export const ModelEntry: core.serialization.Schema<serializers.ModelEntry.Raw, TrueHarness.ModelEntry> =
-    core.serialization.undiscriminatedUnion([ModelEntryZero, ModelEntryOne, ModelEntryApiKey]);
+    core.serialization.undiscriminatedUnion([ModelEntryZero, ModelEntryOne, ModelEntryApiFormat]);
 
 export declare namespace ModelEntry {
-    export type Raw = ModelEntryZero.Raw | ModelEntryOne.Raw | ModelEntryApiKey.Raw;
+    export type Raw = ModelEntryZero.Raw | ModelEntryOne.Raw | ModelEntryApiFormat.Raw;
 }

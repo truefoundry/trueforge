@@ -963,15 +963,13 @@
                 "exclusiveMinimum": 0,
                 "type": "integer"
               },
-              "name": {
+              "model_id": {
                 "minLength": 1,
                 "type": "string"
               },
-              "openai_api": {
-                "enum": [
-                  "responses",
-                  "chat"
-                ],
+              "name": {
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9.-]*$",
                 "type": "string"
               },
               "provider": {
@@ -1017,18 +1015,19 @@
                 "exclusiveMinimum": 0,
                 "type": "integer"
               },
+              "model_id": {
+                "minLength": 1,
+                "type": "string"
+              },
               "name": {
                 "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9.-]*$",
                 "type": "string"
               },
               "provider": {
                 "enum": [
                   "anthropic",
-                  "google",
-                  "mistral",
-                  "openrouter",
-                  "portkey",
-                  "kimi"
+                  "google"
                 ],
                 "type": "string"
               },
@@ -1051,6 +1050,12 @@
           {
             "additionalProperties": false,
             "properties": {
+              "api_format": {
+                "enum": [
+                  "openai-chat-completions"
+                ],
+                "type": "string"
+              },
               "api_key": {
                 "minLength": 1,
                 "type": "string"
@@ -1069,22 +1074,18 @@
                 "exclusiveMinimum": 0,
                 "type": "integer"
               },
-              "name": {
+              "model_id": {
                 "minLength": 1,
                 "type": "string"
               },
-              "openai_api": {
-                "enum": [
-                  "responses",
-                  "chat"
-                ],
+              "name": {
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9.-]*$",
                 "type": "string"
               },
               "provider": {
                 "enum": [
-                  "openai-compatible",
-                  "litellm",
-                  "truefoundry"
+                  "generic"
                 ],
                 "type": "string"
               },
@@ -2790,22 +2791,24 @@
             }
           },
           {
-            "description": "Inclusive lower bound on `created_at` (ISO-8601).",
+            "description": "Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339).",
             "in": "query",
             "name": "start_timestamp",
             "required": false,
             "schema": {
-              "description": "Inclusive lower bound on `created_at` (ISO-8601).",
+              "description": "Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339).",
+              "format": "date-time",
               "type": "string"
             }
           },
           {
-            "description": "Inclusive upper bound on `created_at` (ISO-8601).",
+            "description": "Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339).",
             "in": "query",
             "name": "end_timestamp",
             "required": false,
             "schema": {
-              "description": "Inclusive upper bound on `created_at` (ISO-8601).",
+              "description": "Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339).",
+              "format": "date-time",
               "type": "string"
             }
           }

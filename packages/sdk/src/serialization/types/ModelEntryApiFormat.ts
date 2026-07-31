@@ -3,35 +3,38 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ModelEntryApiKeyOpenaiApi } from "./ModelEntryApiKeyOpenaiApi.js";
-import { ModelEntryApiKeyProvider } from "./ModelEntryApiKeyProvider.js";
 
-export const ModelEntryApiKey: core.serialization.ObjectSchema<
-    serializers.ModelEntryApiKey.Raw,
-    TrueHarness.ModelEntryApiKey
+export const ModelEntryApiFormat: core.serialization.ObjectSchema<
+    serializers.ModelEntryApiFormat.Raw,
+    TrueHarness.ModelEntryApiFormat
 > = core.serialization.object({
+    apiFormat: core.serialization.property(
+        "api_format",
+        core.serialization.stringLiteral("openai-chat-completions").optional(),
+    ),
     apiKey: core.serialization.property("api_key", core.serialization.string().optional()),
     baseUrl: core.serialization.property("base_url", core.serialization.string()),
     headers: core.serialization.record(core.serialization.string(), core.serialization.string()).optional(),
     maxOutputTokens: core.serialization.property("max_output_tokens", core.serialization.number()),
+    modelId: core.serialization.property("model_id", core.serialization.string().optional()),
     name: core.serialization.string(),
-    openaiApi: core.serialization.property("openai_api", ModelEntryApiKeyOpenaiApi.optional()),
-    provider: ModelEntryApiKeyProvider,
+    provider: core.serialization.stringLiteral("generic"),
     reasoningEfforts: core.serialization.property(
         "reasoning_efforts",
         core.serialization.list(core.serialization.string()).optional(),
     ),
 });
 
-export declare namespace ModelEntryApiKey {
+export declare namespace ModelEntryApiFormat {
     export interface Raw {
+        api_format?: "openai-chat-completions" | null;
         api_key?: string | null;
         base_url: string;
         headers?: Record<string, string> | null;
         max_output_tokens: number;
+        model_id?: string | null;
         name: string;
-        openai_api?: ModelEntryApiKeyOpenaiApi.Raw | null;
-        provider: ModelEntryApiKeyProvider.Raw;
+        provider: "generic";
         reasoning_efforts?: string[] | null;
     }
 }
