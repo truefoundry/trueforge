@@ -55,6 +55,28 @@ const ModelEntryBaseSchema = z.object({
   name: z.string().min(1),
   max_output_tokens: z.number().int().positive(),
   reasoning_efforts: z.array(z.string().min(1)).min(1).optional(),
+  /**
+   * API key for this model. Supports `${ENV_VAR}` substitution — the server
+   * resolves the env var at startup. Use this instead of the MODEL_{NAME}_API_KEY
+   * env var convention when you need direct control over which env var is read.
+   *
+   * Example: `api_key: "${ANTHROPIC_API_KEY}"`
+   *
+   * Falls back to MODEL_{NAME}_API_KEY, then MODEL_API_KEY when absent.
+   */
+  api_key: z.string().min(1).optional(),
+  /**
+   * Extra HTTP headers sent with every request to this model.
+   * Header values support `${ENV_VAR}` substitution.
+   *
+   * Example:
+   *   headers:
+   *     X-Custom-Header: "literal"
+   *     Authorization: "Bearer ${MY_TOKEN}"
+   *
+   * Merged on top of MODEL_HEADERS and MODEL_{NAME}_HEADERS env var headers.
+   */
+  headers: z.record(z.string()).optional(),
 });
 
 /**

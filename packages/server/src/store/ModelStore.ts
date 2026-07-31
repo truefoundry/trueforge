@@ -10,6 +10,21 @@ import configuration, { CONFIG_FILES, normalizeEnvName } from '../config';
 import { loadYamlFile } from './loadYaml';
 import { ModelsFileSchema, type ModelEntry } from './schemas';
 
+/**
+ * Resolves `${VAR_NAME}` placeholders in a template string using `process.env`.
+ * Throws clearly if a referenced variable is not set so misconfiguration is
+ * caught at startup rather than silently producing empty credentials.
+ */
+function substituteEnvVars(template: string): string {
+  return template.replace(/\$\{([^}]+)\}/g, (_, varName: string) => {
+    const value = process.env[varName];
+    if (value === undefined) {
+      throw new Error(`Environment variable "${varName}" is not set (referenced in models.yaml api_key or headers)`);
+    }
+    return value;
+  });
+}
+
 /** ModelEntry merged with the runtime credentials for that model. */
 export type ProviderConfig = ModelEntry & {
   apiKey: string;
@@ -37,20 +52,42 @@ export class ModelStore {
     return this.models.find(model => model.name === name);
   }
 
-  /** API key for the given model: MODEL_{NAME}_API_KEY override, else MODEL_API_KEY. */
+  /**
+   * API key for the given model.
+   *
+   * Resolution order (first match wins):
+   *   1. `api_key` field in models.yaml (supports `${VAR}` substitution)
+   *   2. `MODEL_{NAME}_API_KEY` env var
+   *   3. `MODEL_API_KEY` env var (global default)
+   */
   getApiKey(name: string): string {
+    const entry = this.get(name);
+    if (entry?.api_key !== undefined) {
+      return substituteEnvVars(entry.api_key);
+    }
     return configuration.MODEL_API_KEY_BY_NAME[normalizeEnvName(name)] ?? configuration.MODEL_API_KEY;
   }
 
   /**
-   * Extra headers for requests to the given model: MODEL_HEADERS plus
-   * per-model MODEL_{NAME}_HEADERS overrides. Auth is not included — the API
-   * key is passed separately via getApiKey().
+   * Extra headers for requests to the given model.
+   *
+   * Merged in ascending priority order:
+   *   1. `MODEL_HEADERS` env var (global)
+   *   2. `MODEL_{NAME}_HEADERS` env var (per-model)
+   *   3. `headers` field in models.yaml (supports `${VAR}` substitution in values)
    */
   getHeaders(name: string): Record<string, string> {
+    const entry = this.get(name);
+    const inlineHeaders: Record<string, string> = {};
+    if (entry?.headers !== undefined) {
+      for (const [key, value] of Object.entries(entry.headers)) {
+        inlineHeaders[key] = substituteEnvVars(value);
+      }
+    }
     return {
       ...configuration.MODEL_HEADERS,
       ...configuration.MODEL_HEADERS_BY_NAME[normalizeEnvName(name)],
+      ...inlineHeaders,
     };
   }
 
