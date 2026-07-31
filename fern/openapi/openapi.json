@@ -2649,22 +2649,24 @@
             }
           },
           {
-            "description": "Inclusive lower bound on `created_at` (ISO-8601).",
+            "description": "Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339).",
             "in": "query",
             "name": "start_timestamp",
             "required": false,
             "schema": {
-              "description": "Inclusive lower bound on `created_at` (ISO-8601).",
+              "description": "Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339).",
+              "format": "date-time",
               "type": "string"
             }
           },
           {
-            "description": "Inclusive upper bound on `created_at` (ISO-8601).",
+            "description": "Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339).",
             "in": "query",
             "name": "end_timestamp",
             "required": false,
             "schema": {
-              "description": "Inclusive upper bound on `created_at` (ISO-8601).",
+              "description": "Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339).",
+              "format": "date-time",
               "type": "string"
             }
           }
