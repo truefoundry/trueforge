@@ -3,7 +3,6 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ModelEntryZeroOpenaiApi } from "./ModelEntryZeroOpenaiApi.js";
 
 export const ModelEntryZero: core.serialization.ObjectSchema<
     serializers.ModelEntryZero.Raw,
@@ -13,8 +12,8 @@ export const ModelEntryZero: core.serialization.ObjectSchema<
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     headers: core.serialization.record(core.serialization.string(), core.serialization.string()).optional(),
     maxOutputTokens: core.serialization.property("max_output_tokens", core.serialization.number()),
+    modelId: core.serialization.property("model_id", core.serialization.string().optional()),
     name: core.serialization.string(),
-    openaiApi: core.serialization.property("openai_api", ModelEntryZeroOpenaiApi.optional()),
     provider: core.serialization.stringLiteral("openai"),
     reasoningEfforts: core.serialization.property(
         "reasoning_efforts",
@@ -28,8 +27,8 @@ export declare namespace ModelEntryZero {
         base_url?: string | null;
         headers?: Record<string, string> | null;
         max_output_tokens: number;
+        model_id?: string | null;
         name: string;
-        openai_api?: ModelEntryZeroOpenaiApi.Raw | null;
         provider: "openai";
         reasoning_efforts?: string[] | null;
     }

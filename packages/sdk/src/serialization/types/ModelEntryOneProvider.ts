@@ -7,8 +7,8 @@ import type * as serializers from "../index.js";
 export const ModelEntryOneProvider: core.serialization.Schema<
     serializers.ModelEntryOneProvider.Raw,
     TrueHarness.ModelEntryOneProvider
-> = core.serialization.enum_(["anthropic", "google", "mistral", "openrouter", "portkey", "kimi"]);
+> = core.serialization.enum_(["anthropic", "google"]);
 
 export declare namespace ModelEntryOneProvider {
-    export type Raw = "anthropic" | "google" | "mistral" | "openrouter" | "portkey" | "kimi";
+    export type Raw = "anthropic" | "google";
 }

@@ -3,9 +3,5 @@
 export const ModelEntryOneProvider = {
     Anthropic: "anthropic",
     Google: "google",
-    Mistral: "mistral",
-    Openrouter: "openrouter",
-    Portkey: "portkey",
-    Kimi: "kimi",
 } as const;
 export type ModelEntryOneProvider = (typeof ModelEntryOneProvider)[keyof typeof ModelEntryOneProvider];

@@ -11,6 +11,7 @@ export const ModelEntryOne: core.serialization.ObjectSchema<serializers.ModelEnt
         baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
         headers: core.serialization.record(core.serialization.string(), core.serialization.string()).optional(),
         maxOutputTokens: core.serialization.property("max_output_tokens", core.serialization.number()),
+        modelId: core.serialization.property("model_id", core.serialization.string().optional()),
         name: core.serialization.string(),
         provider: ModelEntryOneProvider,
         reasoningEfforts: core.serialization.property(
@@ -25,6 +26,7 @@ export declare namespace ModelEntryOne {
         base_url?: string | null;
         headers?: Record<string, string> | null;
         max_output_tokens: number;
+        model_id?: string | null;
         name: string;
         provider: ModelEntryOneProvider.Raw;
         reasoning_efforts?: string[] | null;

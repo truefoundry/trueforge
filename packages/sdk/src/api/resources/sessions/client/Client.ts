@@ -57,8 +57,8 @@ export class SessionsClient {
                               })
                             : undefined,
                     page_token: pageToken,
-                    start_timestamp: startTimestamp,
-                    end_timestamp: endTimestamp,
+                    start_timestamp: startTimestamp != null ? startTimestamp?.toISOString() : undefined,
+                    end_timestamp: endTimestamp != null ? endTimestamp?.toISOString() : undefined,
                 };
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
                     this._options?.headers,

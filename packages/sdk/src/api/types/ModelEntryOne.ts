@@ -7,6 +7,7 @@ export interface ModelEntryOne {
     baseUrl?: string;
     headers?: Record<string, string>;
     maxOutputTokens: number;
+    modelId?: string;
     name: string;
     provider: TrueHarness.ModelEntryOneProvider;
     reasoningEfforts?: string[];

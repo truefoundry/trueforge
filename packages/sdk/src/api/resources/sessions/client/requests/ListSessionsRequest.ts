@@ -13,8 +13,8 @@ export interface ListSessionsRequest {
     order?: TrueHarness.ListSessionsOrder;
     /** Opaque token from a previous response `next_page_token`. */
     pageToken?: string;
-    /** Inclusive lower bound on `created_at` (ISO-8601). */
-    startTimestamp?: string;
-    /** Inclusive upper bound on `created_at` (ISO-8601). */
-    endTimestamp?: string;
+    /** Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339). */
+    startTimestamp?: Date;
+    /** Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339). */
+    endTimestamp?: Date;
 }
