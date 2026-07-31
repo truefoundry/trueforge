@@ -27,10 +27,10 @@ import type { AgentThreadSnapshot, ContextMessage } from '@truefoundry/utils/cor
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import { getEmptyCurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { SandboxInfo } from '@truefoundry/utils/core/sandbox/Sandbox';
-import { sql, type Kysely, type QueryCreator, type RawBuilder, type Transaction } from 'kysely';
+import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
 import { isUniqueViolation } from '../../client';
 import type { Database, TurnCheckpoint, TurnThreadCheckpoint } from '../../types';
-import { json, lateralUnnestBigintArrayWithOrdinality } from '../sqlExpressions';
+import { jsonbBind, jsonText, nowIso, sortedByAppendId } from '../sqlExpressions';
 
 type TurnCustom = Record<string, never>;
 
@@ -112,7 +112,6 @@ export interface ListTurnsResult {
 }
 
 type DbOrTrx = Kysely<Database> | Transaction<Database>;
-type TurnFenceDb = DbOrTrx | QueryCreator<Database>;
 
 function terminalTurnState(state: TurnState, turn_id: string): TerminalTurnState {
   switch (state.status) {
@@ -125,82 +124,47 @@ function terminalTurnState(state: TurnState, turn_id: string): TerminalTurnState
   }
 }
 
-/**
- * Locking CTE body for single-statement turn-scoped writes: fence + write in one
- * network call. Under READ COMMITTED, FOR SHARE re-checks the predicate after a
- * lock wait, so a committed freeze empties the fence and the write inserts 0 rows;
- * error classification happens on that rare 0-row path.
- *
- * Multi-statement turn-scoped writes use {@link assertTurnRunning} instead.
- */
-export function turnRunningFence(db: TurnFenceDb, keys: TurnKeys) {
-  return db
-    .selectFrom('turn')
-    .select(sql`1`.as('one'))
-    .where('tenant_id', '=', keys.tenant_id)
-    .where('session_id', '=', keys.session_id)
-    .where('turn_id', '=', keys.turn_id)
-    .where(sql`state->>'status'`, '=', 'running')
-    .forShare();
-}
-
-/** Classify a 0-row fenced write: missing turn vs frozen/non-running turn. */
-export async function classifyTurnFenceWriteFailure(db: Kysely<Database>, keys: TurnKeys): Promise<never> {
+async function loadTurnState(db: DbOrTrx, keys: TurnKeys): Promise<TurnState | undefined> {
   const row = await db
     .selectFrom('turn')
-    .select('state')
+    .select([jsonText<TurnState>(sql.ref('state')).as('state')])
     .where('tenant_id', '=', keys.tenant_id)
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
     .executeTakeFirst();
+  return row?.state;
+}
 
-  if (!row) {
+/** Classify a 0-row fenced write: missing turn vs frozen/non-running turn. */
+export async function classifyTurnFenceWriteFailure(db: DbOrTrx, keys: TurnKeys): Promise<never> {
+  const state = await loadTurnState(db, keys);
+  if (!state) {
     throw new TurnNotFoundError(keys.turn_id);
   }
-  throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
+  throw new TurnNotRunningError(keys.turn_id, terminalTurnState(state, keys.turn_id));
 }
 
 /**
  * Classify a 0-row fenced turn_thread UPDATE: turn missing/terminal vs thread row missing.
  */
-export async function classifyTurnThreadWriteFailure(
-  db: Kysely<Database>,
-  keys: TurnKeys,
-  thread_id: string,
-): Promise<never> {
-  const row = await db
-    .selectFrom('turn')
-    .select('state')
-    .where('tenant_id', '=', keys.tenant_id)
-    .where('session_id', '=', keys.session_id)
-    .where('turn_id', '=', keys.turn_id)
-    .executeTakeFirst();
-
-  if (!row) {
+export async function classifyTurnThreadWriteFailure(db: DbOrTrx, keys: TurnKeys, thread_id: string): Promise<never> {
+  const state = await loadTurnState(db, keys);
+  if (!state) {
     throw new TurnNotFoundError(keys.turn_id);
   }
-  if (row.state.status !== 'running') {
-    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
+  if (state.status !== 'running') {
+    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(state, keys.turn_id));
   }
   throw new SessionStoreInvariantError(`thread ${thread_id} not found in turn ${keys.turn_id}`);
 }
 
 export async function assertTurnRunning(db: DbOrTrx, keys: TurnKeys): Promise<void> {
-  // SELECT ... FOR SHARE serializes against freezeAndGetTurn's state UPDATE.
-  const row = await db
-    .selectFrom('turn')
-    .select('state')
-    .where('tenant_id', '=', keys.tenant_id)
-    .where('session_id', '=', keys.session_id)
-    .where('turn_id', '=', keys.turn_id)
-    .forShare()
-    .executeTakeFirst();
-
-  if (!row) {
+  const state = await loadTurnState(db, keys);
+  if (!state) {
     throw new TurnNotFoundError(keys.turn_id);
   }
-  if (row.state.status !== 'running') {
-    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
+  if (state.status !== 'running') {
+    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(state, keys.turn_id));
   }
 }
 
@@ -215,7 +179,20 @@ async function assembleTurnRecord(
 ): Promise<TurnRecord<TurnCustom> | undefined> {
   const turn = await db
     .selectFrom('turn')
-    .selectAll()
+    .select([
+      'tenant_id',
+      'session_id',
+      'turn_id',
+      'first_turn_id',
+      'previous_turn_id',
+      jsonText<string[]>(sql.ref('ancestor_ids')).as('ancestor_ids'),
+      jsonText<TurnInputItem[]>(sql.ref('input')).as('input'),
+      jsonText<TurnState>(sql.ref('state')).as('state'),
+      jsonText<TurnCheckpoint>(sql.ref('checkpoint')).as('checkpoint'),
+      jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
+      'created_at',
+      'updated_at',
+    ])
     .where('tenant_id', '=', args.tenant_id)
     .where('session_id', '=', args.session_id)
     .where('turn_id', '=', args.turn_id)
@@ -223,29 +200,45 @@ async function assembleTurnRecord(
 
   if (!turn) return undefined;
 
-  // LEFT JOIN LATERAL unnest so empty-context threads still appear; LEFT JOIN log
-  // because a null lateral append_id (empty array) must not drop the turn_thread row.
+  // LEFT JOIN turn_thread + turn_thread_context ORDER BY pos to assemble context per thread.
+  // Empty-context threads emit one row with null pos/append_id from the LEFT JOIN.
   const contextRows = await db
     .selectFrom('turn_thread as tt')
-    .leftJoin(lateralUnnestBigintArrayWithOrdinality(sql<number[]>`tt.context_ids`, 'c'), join => join.onTrue())
+    .leftJoin('turn_thread_context as ttc', join =>
+      join
+        .on('ttc.tenant_id', '=', args.tenant_id)
+        .on('ttc.session_id', '=', args.session_id)
+        .on('ttc.turn_id', '=', args.turn_id)
+        .onRef('ttc.thread_id', '=', 'tt.thread_id'),
+    )
     .leftJoin('thread_context_log as l', join =>
       join
         .on('l.tenant_id', '=', args.tenant_id)
         .on('l.session_id', '=', args.session_id)
         .onRef('l.thread_id', '=', 'tt.thread_id')
-        .onRef('l.append_id', '=', 'c.append_id'),
+        .onRef('l.append_id', '=', 'ttc.append_id'),
     )
-    .select(['tt.thread_id', 'tt.checkpoint', 'tt.agent_info', 'tt.current_context_usage', 'l.body', 'c.pos'])
+    .select([
+      'tt.thread_id',
+      jsonText<TurnThreadCheckpoint>(sql.ref('tt.checkpoint')).as('checkpoint'),
+      jsonText<AgentInfo | null>(sql.ref('tt.agent_info')).as('agent_info'),
+      jsonText<CurrentContextUsage>(sql.ref('tt.current_context_usage')).as('current_context_usage'),
+      jsonText<ContextMessage | null>(sql.ref('l.body')).as('body'),
+      'ttc.pos',
+    ])
     .where('tt.tenant_id', '=', args.tenant_id)
     .where('tt.session_id', '=', args.session_id)
     .where('tt.turn_id', '=', args.turn_id)
     .orderBy('tt.thread_id')
-    .orderBy('c.pos')
+    .orderBy('ttc.pos')
     .execute();
 
   const capabilityRows: CapabilityAggRow[] = await db
     .selectFrom('thread_capability_state')
-    .select(['thread_id', sql<Record<string, JsonValue> | null>`jsonb_object_agg(key, state)`.as('capability_state')])
+    .select([
+      'thread_id',
+      sql<Record<string, JsonValue> | null>`json(jsonb_group_object(key, json(state)))`.as('capability_state'),
+    ])
     .where('tenant_id', '=', args.tenant_id)
     .where('session_id', '=', args.session_id)
     .where('turn_id', '=', args.turn_id)
@@ -303,7 +296,7 @@ async function assembleTurnRecord(
     threads[threadId] = snap;
   }
 
-  const checkpoint: TurnCheckpoint = turn.checkpoint;
+  const checkpoint = turn.checkpoint;
   const snapshot: TurnSnapshot = {
     threads,
     mcp_servers: checkpoint.mcp_servers,
@@ -319,110 +312,62 @@ async function assembleTurnRecord(
     state: turn.state,
     input: turn.input,
     snapshot,
-    created_at: turn.created_at,
-    updated_at: turn.updated_at,
+    created_at: new Date(turn.created_at),
+    updated_at: new Date(turn.updated_at),
     custom: parseTurnCustom(turn.custom),
   };
 }
 
-interface TurnInsertValues {
-  tenant_id: string;
-  session_id: string;
-  turn_id: string;
-  first_turn_id: string;
-  previous_turn_id: string | null;
-  ancestor_ids: string[];
-  input: RawBuilder<CreateTurnInput['turn']['input']>;
-  state: CreateTurnInput['turn']['state'];
-  checkpoint: TurnCheckpoint;
-  custom: RawBuilder<Record<string, unknown>> | null;
-  created_at: Date;
-  updated_at: Date;
-}
-
-interface LogInsertRow {
-  tenant_id: string;
-  session_id: string;
-  thread_id: string;
-  turn_id: string;
-  body: RawBuilder<ContextMessage>;
-  created_at: Date;
-}
-
-interface TurnThreadInsertRow {
-  tenant_id: string;
-  session_id: string;
-  turn_id: string;
-  thread_id: string;
-  checkpoint: TurnThreadCheckpoint;
-  agent_info: RawBuilder<AgentInfo> | null;
-  current_context_usage: CurrentContextUsage;
-  context_ids: number[];
-  updated_at: Date;
-}
-
-interface CapabilityStateInsertRow {
-  tenant_id: string;
-  session_id: string;
-  turn_id: string;
-  thread_id: string;
-  key: string;
-  state: RawBuilder<JsonValue>;
-  updated_at: Date;
-}
-
 /**
- * createTurn — READ COMMITTED tx. Fork and linear are THE SAME pointer-copy path:
- * child turn_thread rows copy the parent's arrays and concat new append ids.
- * Tip bump uses SELECT ... FOR UPDATE then UPDATE (safe on PG17; the one-statement
- * CTE tip-bump is PROVEN UNSAFE under EvalPlanQual — a blocked second writer gets
- * the stale pre-commit tip because the CTE keeps the statement snapshot).
+ * createTurn — IMMEDIATE tx (BEGIN IMMEDIATE covers write locking; no FOR UPDATE/FOR SHARE).
+ * Context order lives in turn_thread_context (pos, append_id); no context_ids array.
  */
 export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): Promise<void> {
   try {
     await db.transaction().execute(async trx => {
-      // step1: lock session tip, bump. Two statements on purpose — see PROVEN-UNSAFE-CTE note above.
+      // Step 1: read session tip; no FOR UPDATE (BEGIN IMMEDIATE is the lock).
       const locked = await trx
         .selectFrom('session')
         .select(['last_turn_id'])
         .where('tenant_id', '=', input.tenant_id)
         .where('session_id', '=', input.session_id)
-        .forUpdate()
         .executeTakeFirst();
 
       if (!locked) throw new SessionNotFoundError(input.session_id);
 
-      await trx
+      // Step 2: bump session tip + optional title coalesce.
+      let sessionUpdate = trx
         .updateTable('session')
         .set({
           last_turn_id: input.turn.turn_id,
-          updated_at: sql`now()`,
+          updated_at: nowIso(),
           last_activity_timestamp_ms: input.last_activity_timestamp_ms,
-          ...(input.update_session_title_if_not_exist !== null
-            ? {
-                title: sql`COALESCE(title, ${input.update_session_title_if_not_exist})`,
-              }
-            : {}),
         })
         .where('tenant_id', '=', input.tenant_id)
-        .where('session_id', '=', input.session_id)
-        .execute();
+        .where('session_id', '=', input.session_id);
+
+      if (input.update_session_title_if_not_exist !== null) {
+        const titleValue = input.update_session_title_if_not_exist;
+        sessionUpdate = sessionUpdate.set({
+          title: sql<string>`COALESCE(title, ${titleValue})`,
+        });
+      }
+
+      await sessionUpdate.execute();
 
       const prevTurnId = input.turn.previous_turn_id;
 
-      // step2: previous turn state + its turn_thread rows (pointer-copy source).
       let prevCheckpoint: TurnCheckpoint | null = null;
       const prevThreadRows: {
         thread_id: string;
         checkpoint: TurnThreadCheckpoint;
         agent_info: AgentInfo | null;
         current_context_usage: CurrentContextUsage;
-        context_ids: number[];
+        context_pos_max: number;
       }[] = [];
 
       if (prevTurnId != null) {
-        // One round-trip: previous turn metadata + its turn_thread rows.
-        // Unknown previous_turn_id is allowed (relaxed): treat as no inheritance.
+        // Read previous turn + its turn_thread rows in one join.
         const prevRows = await trx
           .selectFrom('turn as t')
           .leftJoin('turn_thread as tt', join =>
@@ -431,14 +376,25 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
               .onRef('tt.session_id', '=', 't.session_id')
               .onRef('tt.turn_id', '=', 't.turn_id'),
           )
+          .leftJoin(
+            db
+              .selectFrom('turn_thread_context')
+              .select(['thread_id', 'turn_id', sql<number>`MAX(pos)`.as('max_pos')])
+              .where('tenant_id', '=', input.tenant_id)
+              .where('session_id', '=', input.session_id)
+              .where('turn_id', '=', prevTurnId)
+              .groupBy(['thread_id', 'turn_id'])
+              .as('tc_agg'),
+            join => join.onRef('tc_agg.thread_id', '=', 'tt.thread_id').onRef('tc_agg.turn_id', '=', 'tt.turn_id'),
+          )
           .select([
-            't.checkpoint as turn_checkpoint',
-            't.state as turn_state',
+            jsonText<TurnCheckpoint>(sql.ref('t.checkpoint')).as('turn_checkpoint'),
+            jsonText<TurnState>(sql.ref('t.state')).as('turn_state'),
             'tt.thread_id',
-            'tt.checkpoint as thread_checkpoint',
-            'tt.agent_info',
-            'tt.current_context_usage',
-            'tt.context_ids',
+            jsonText<TurnThreadCheckpoint | null>(sql.ref('tt.checkpoint')).as('thread_checkpoint'),
+            jsonText<AgentInfo | null>(sql.ref('tt.agent_info')).as('agent_info'),
+            jsonText<CurrentContextUsage | null>(sql.ref('tt.current_context_usage')).as('current_context_usage'),
+            'tc_agg.max_pos',
           ])
           .where('t.tenant_id', '=', input.tenant_id)
           .where('t.session_id', '=', input.session_id)
@@ -454,7 +410,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
 
           for (const row of prevRows) {
             if (row.thread_id === null) continue;
-            if (row.thread_checkpoint === null || row.current_context_usage === null || row.context_ids === null) {
+            if (row.thread_checkpoint === null || row.current_context_usage === null) {
               throw new SessionStoreInvariantError(`previous turn_thread row for ${row.thread_id} is incomplete`);
             }
             prevThreadRows.push({
@@ -462,7 +418,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
               checkpoint: row.thread_checkpoint,
               agent_info: row.agent_info,
               current_context_usage: row.current_context_usage,
-              context_ids: row.context_ids,
+              context_pos_max: row.max_pos ?? 0,
             });
           }
         }
@@ -480,29 +436,39 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         sandbox_info: input.sandbox_info ?? prevCheckpoint?.sandbox_info ?? null,
       };
 
-      const now = new Date();
+      const now = nowIso();
 
       const turnCustom = input.turn.custom ?? null;
 
-      // step3: turn row
-      const turnValues: TurnInsertValues = {
-        tenant_id: input.tenant_id,
-        session_id: input.session_id,
-        turn_id: input.turn.turn_id,
-        first_turn_id: input.turn.first_turn_id,
-        previous_turn_id: input.turn.previous_turn_id ?? null,
-        ancestor_ids: input.turn.ancestor_ids,
-        input: json(input.turn.input),
-        state: input.turn.state,
-        checkpoint,
-        custom: turnCustom !== null ? json(turnCustom) : null,
-        created_at: now,
-        updated_at: now,
-      };
-      await trx.insertInto('turn').values(turnValues).execute();
+      // Step 3: insert turn row.
+      await trx
+        .insertInto('turn')
+        .values({
+          tenant_id: input.tenant_id,
+          session_id: input.session_id,
+          turn_id: input.turn.turn_id,
+          first_turn_id: input.turn.first_turn_id,
+          previous_turn_id: input.turn.previous_turn_id ?? null,
+          ancestor_ids: jsonbBind(input.turn.ancestor_ids),
+          input: jsonbBind(input.turn.input),
+          state: jsonbBind(input.turn.state),
+          checkpoint: jsonbBind(checkpoint),
+          custom: turnCustom !== null ? jsonbBind(turnCustom) : null,
+          created_at: now,
+          updated_at: now,
+        })
+        .execute();
 
-      // step4: new_context_appends bodies; RETURNING feeds the arrays app-side.
-      const logRows: LogInsertRow[] = [];
+      // Step 4: insert new context log rows.
+      const logRows: {
+        tenant_id: string;
+        session_id: string;
+        thread_id: string;
+        turn_id: string;
+        body: RawBuilder<string>;
+        created_at: string;
+      }[] = [];
+
       for (const append of input.new_context_appends) {
         for (const body of append.context) {
           logRows.push({
@@ -510,7 +476,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
             session_id: input.session_id,
             thread_id: append.thread_id,
             turn_id: input.turn.turn_id,
-            body: json(body),
+            body: jsonbBind(body),
             created_at: now,
           });
         }
@@ -523,7 +489,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           .values(logRows)
           .returning(['thread_id', 'append_id'])
           .execute();
-        for (const row of inserted) {
+        for (const row of sortedByAppendId(inserted)) {
           const list = newIdsByThread.get(row.thread_id);
           if (list === undefined) {
             newIdsByThread.set(row.thread_id, [row.append_id]);
@@ -540,25 +506,89 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         }
       }
 
-      // step5: child turn_thread rows — carried = parent || new ids; new = fresh row.
-      const turnThreadRows: TurnThreadInsertRow[] = [];
+      // Step 5: insert turn_thread rows for carried-forward and new threads.
+      const turnThreadRows: {
+        tenant_id: string;
+        session_id: string;
+        turn_id: string;
+        thread_id: string;
+        checkpoint: RawBuilder<string>;
+        agent_info: RawBuilder<string> | null;
+        current_context_usage: RawBuilder<string>;
+        updated_at: string;
+      }[] = [];
+
+      const turnThreadContextRows: {
+        tenant_id: string;
+        session_id: string;
+        turn_id: string;
+        thread_id: string;
+        pos: number;
+        append_id: number;
+      }[] = [];
 
       for (const parent of prevThreadRows) {
-        const newIds = newIdsByThread.get(parent.thread_id) ?? [];
         const usage = appendUsageByThread.get(parent.thread_id) ?? parent.current_context_usage;
         turnThreadRows.push({
           tenant_id: input.tenant_id,
           session_id: input.session_id,
           turn_id: input.turn.turn_id,
           thread_id: parent.thread_id,
-          checkpoint: parent.checkpoint,
-          agent_info: parent.agent_info !== null ? json(parent.agent_info) : null,
-          current_context_usage: usage,
-          context_ids: parent.context_ids.concat(newIds),
+          checkpoint: jsonbBind(parent.checkpoint),
+          agent_info: parent.agent_info !== null ? jsonbBind(parent.agent_info) : null,
+          current_context_usage: jsonbBind(usage),
           updated_at: now,
         });
       }
 
+      // One SELECT for all parent context mappings (not N+1 per thread).
+      if (prevTurnId != null && prevThreadRows.length > 0) {
+        const parentContextRows = await trx
+          .selectFrom('turn_thread_context')
+          .select(['thread_id', 'pos', 'append_id'])
+          .where('tenant_id', '=', input.tenant_id)
+          .where('session_id', '=', input.session_id)
+          .where('turn_id', '=', prevTurnId)
+          .where(
+            'thread_id',
+            'in',
+            prevThreadRows.map(r => r.thread_id),
+          )
+          .orderBy('thread_id')
+          .orderBy('pos')
+          .execute();
+
+        for (const cr of parentContextRows) {
+          turnThreadContextRows.push({
+            tenant_id: input.tenant_id,
+            session_id: input.session_id,
+            turn_id: input.turn.turn_id,
+            thread_id: cr.thread_id,
+            pos: cr.pos,
+            append_id: cr.append_id,
+          });
+        }
+      }
+
+      for (const parent of prevThreadRows) {
+        const newIds = newIdsByThread.get(parent.thread_id) ?? [];
+        const basePos = parent.context_pos_max;
+        for (let i = 0; i < newIds.length; i++) {
+          const appendId = newIds[i];
+          if (appendId !== undefined) {
+            turnThreadContextRows.push({
+              tenant_id: input.tenant_id,
+              session_id: input.session_id,
+              turn_id: input.turn.turn_id,
+              thread_id: parent.thread_id,
+              pos: basePos + i + 1,
+              append_id: appendId,
+            });
+          }
+        }
+      }
+
+      // Step 5b: new threads — fresh turn_thread + mapping rows.
       for (const nt of input.new_threads) {
         const newIds = newIdsByThread.get(nt.thread_id) ?? [];
         const usage = appendUsageByThread.get(nt.thread_id) ?? getEmptyCurrentContextUsage();
@@ -571,20 +601,46 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           session_id: input.session_id,
           turn_id: input.turn.turn_id,
           thread_id: nt.thread_id,
-          checkpoint: threadCheckpoint,
-          agent_info: nt.agent_info !== null ? json(nt.agent_info) : null,
-          current_context_usage: usage,
-          context_ids: newIds,
+          checkpoint: jsonbBind(threadCheckpoint),
+          agent_info: nt.agent_info !== null ? jsonbBind(nt.agent_info) : null,
+          current_context_usage: jsonbBind(usage),
           updated_at: now,
         });
+
+        for (let i = 0; i < newIds.length; i++) {
+          const appendId = newIds[i];
+          if (appendId !== undefined) {
+            turnThreadContextRows.push({
+              tenant_id: input.tenant_id,
+              session_id: input.session_id,
+              turn_id: input.turn.turn_id,
+              thread_id: nt.thread_id,
+              pos: i + 1,
+              append_id: appendId,
+            });
+          }
+        }
       }
 
       if (turnThreadRows.length > 0) {
         await trx.insertInto('turn_thread').values(turnThreadRows).execute();
       }
 
-      // Complete per-turn capability maps (thread coverage asserted above).
-      const capabilityStateRows: CapabilityStateInsertRow[] = [];
+      if (turnThreadContextRows.length > 0) {
+        await trx.insertInto('turn_thread_context').values(turnThreadContextRows).execute();
+      }
+
+      // Step 6: insert capability state rows (thread coverage asserted above).
+      const capabilityStateRows: {
+        tenant_id: string;
+        session_id: string;
+        turn_id: string;
+        thread_id: string;
+        key: string;
+        state: RawBuilder<string> | null;
+        updated_at: string;
+      }[] = [];
+
       for (const capability of input.capability_states) {
         if (capability.capability_state === null) continue;
         for (const [key, state] of Object.entries(capability.capability_state)) {
@@ -594,7 +650,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
             turn_id: input.turn.turn_id,
             thread_id: capability.thread_id,
             key,
-            state: json(state),
+            state: state !== null ? jsonbBind(state) : null,
             updated_at: now,
           });
         }
@@ -606,13 +662,13 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
     });
   } catch (err) {
     if (err instanceof SessionStoreNotFoundError || err instanceof SessionStoreConflictError) throw err;
-    if (isUniqueViolation(err)) throw new TurnAlreadyExistsError(input.turn.turn_id);
+    if (isUniqueViolation(err)) throw new TurnAlreadyExistsError(input.turn.turn_id, { cause: err });
     throw err;
   }
 }
 
 /**
- * freezeAndGetTurn — cancel if still running (fencing future writes), then return the record.
+ * freezeAndGetTurn — cancel if still running, then return the assembled record.
  * Terminal turns are returned unchanged (freeze is a plain read).
  */
 export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGetTurnInput): Promise<TurnRecord> {
@@ -620,16 +676,14 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
     const cancelledState: TerminalTurnState = {
       status: 'cancelled',
       reason: CancellationReason.CancelledForNextTurn,
-      completed_at: new Date().toISOString(),
+      completed_at: nowIso(),
     };
 
-    // UPDATE waits for in-flight turn-scoped writes (FOR SHARE on this row) to
-    // commit; assembly below then includes every committed straggler.
     const updateResult = await trx
       .updateTable('turn')
       .set({
-        state: cancelledState,
-        updated_at: sql`now()`,
+        state: jsonbBind(cancelledState),
+        updated_at: nowIso(),
       })
       .where('tenant_id', '=', input.tenant_id)
       .where('session_id', '=', input.session_id)
@@ -645,8 +699,8 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
           session_id: input.session_id,
           turn_id: input.turn_id,
           event_id: input.turn_done_event.id,
-          event: json(input.turn_done_event),
-          created_at: new Date(input.turn_done_event.created_at),
+          event: jsonbBind(input.turn_done_event),
+          created_at: input.turn_done_event.created_at,
         })
         .execute();
     }
@@ -658,26 +712,35 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
 }
 
 /**
- * getTurn — read-only REPEATABLE READ tx.
- * Concurrent appends after the first SELECT are invisible to later SELECTs in the same tx.
+ * getTurn — deferred read tx so assembleTurnRecord's SELECTs share one snapshot.
+ * ImmediateSqliteDriver maps setAccessMode('read only') → BEGIN (not IMMEDIATE).
  */
 export async function getTurn(db: Kysely<Database>, input: GetTurnInput): Promise<TurnRecord<TurnCustom> | undefined> {
-  return await db
+  return db
     .transaction()
-    .setIsolationLevel('repeatable read')
-    .execute(async trx => {
-      return assembleTurnRecord(trx, input);
-    });
+    .setAccessMode('read only')
+    .execute(trx => assembleTurnRecord(trx, input));
 }
 
 /**
- * listTurns — ORDER BY created_at, turn_id; LIMIT limit+1 OFFSET offset; numeric-offset tokens.
+ * listTurns — ORDER BY created_at, turn_id; LIMIT limit+1 OFFSET offset.
  * Returns turn rows only (no snapshot assembly); use getTurn for full TurnRecord.
  */
 export async function listTurns(db: Kysely<Database>, input: ListTurnsInput): Promise<ListTurnsResult> {
   const rows = await db
     .selectFrom('turn')
-    .selectAll()
+    .select([
+      'session_id',
+      'turn_id',
+      'first_turn_id',
+      'previous_turn_id',
+      jsonText<string[]>(sql.ref('ancestor_ids')).as('ancestor_ids'),
+      jsonText<TurnInputItem[]>(sql.ref('input')).as('input'),
+      jsonText<TurnState>(sql.ref('state')).as('state'),
+      jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
+      'created_at',
+      'updated_at',
+    ])
     .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
     .orderBy('created_at', 'asc')
@@ -697,8 +760,8 @@ export async function listTurns(db: Kysely<Database>, input: ListTurnsInput): Pr
     previous_turn_id: row.previous_turn_id,
     state: row.state,
     input: row.input,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
+    created_at: new Date(row.created_at),
+    updated_at: new Date(row.updated_at),
     custom: parseTurnCustom(row.custom),
   }));
 
@@ -717,8 +780,8 @@ export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnSta
     const result = await trx
       .updateTable('turn')
       .set({
-        state: input.state,
-        updated_at: sql`now()`,
+        state: jsonbBind(input.state),
+        updated_at: nowIso(),
       })
       .where('tenant_id', '=', input.tenant_id)
       .where('session_id', '=', input.session_id)
@@ -730,7 +793,7 @@ export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnSta
     if (numUpdated === 0) {
       const existing = await trx
         .selectFrom('turn')
-        .select('state')
+        .select([jsonText<TurnState>(sql.ref('state')).as('state')])
         .where('tenant_id', '=', input.tenant_id)
         .where('session_id', '=', input.session_id)
         .where('turn_id', '=', input.turn_id)
@@ -747,8 +810,8 @@ export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnSta
         session_id: input.session_id,
         turn_id: input.turn_id,
         event_id: input.turn_done_event.id,
-        event: json(input.turn_done_event),
-        created_at: new Date(input.turn_done_event.created_at),
+        event: jsonbBind(input.turn_done_event),
+        created_at: input.turn_done_event.created_at,
       })
       .execute();
   });

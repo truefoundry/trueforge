@@ -22,10 +22,10 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    * listing anchors. Advanced only by `createTurn` (atomic link).
    */
   last_turn_id: string | null;
-  /** ISO-8601 UTC datetime string (for example, `2026-07-24T02:45:00.000Z`). */
-  created_at: string;
-  /** ISO-8601 UTC datetime string (for example, `2026-07-24T02:45:00.000Z`). */
-  updated_at: string;
+  /** Instant the session was created (store domain). Wire/API serialize as ISO-8601. */
+  created_at: Date;
+  /** Instant the session was last updated (store domain). Wire/API serialize as ISO-8601. */
+  updated_at: Date;
   /**
    * Liveness clock (ms since epoch). The store bumps it on createSession,
    * updateSession, and createTurn — never on reads.

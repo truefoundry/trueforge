@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Starts an ephemeral Postgres container (same defaults as CI) and runs the
-# session-store contract tests. The container is removed on exit.
+# Local session-store contract tests: ephemeral Postgres (same defaults as CI)
+# then always-on SQLite. Postgres container is removed on exit.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -51,5 +51,8 @@ until docker exec "$CONTAINER" pg_isready -U "$PGUSER" -d "$PGDATABASE" >/dev/nu
 done
 
 export SESSION_STORE_TEST_PG_URL="$URL"
-echo "Postgres ready. Running store tests (${URL})..."
-pnpm --dir packages/server test:store "$@"
+echo "Postgres ready. Running Postgres store tests (${URL})..."
+pnpm --dir packages/server test:store:postgres "$@"
+
+echo "Running SQLite store tests..."
+pnpm --dir packages/server test:store:sqlite "$@"

@@ -40,8 +40,10 @@ export interface ListSessionsInput {
   limit: number;
   page_token: string | undefined;
   order: 'asc' | 'desc' | undefined;
-  start_timestamp: string | undefined;
-  end_timestamp: string | undefined;
+  /** Inclusive lower bound on `created_at` (instant). */
+  start_timestamp: Date | undefined;
+  /** Inclusive upper bound on `created_at` (instant). */
+  end_timestamp: Date | undefined;
 }
 
 /** Turn row fields without assembled snapshot (create input / listTurns). */
@@ -233,7 +235,7 @@ export interface ISessionStore<
   /**
    * Paginated list of the tenant's sessions ordered by `created_at`
    * (`order` defaults to `desc`). `start_timestamp` / `end_timestamp` are
-   * inclusive ISO-8601 bounds on `created_at`.
+   * inclusive instant bounds on `created_at`.
    * Does **not** bump `last_activity_timestamp_ms` (read path).
    */
   listSessions(

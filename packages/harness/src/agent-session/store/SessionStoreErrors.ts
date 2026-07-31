@@ -2,24 +2,24 @@ import type { TerminalTurnState } from '../schemas/turn';
 
 /** Store conflict (e.g. first-terminal-wins violation, concurrent createTurn). */
 export abstract class SessionStoreConflictError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'SessionStoreConflictError';
   }
 }
 
 /** Store not-found (session or turn missing). */
 export abstract class SessionStoreNotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'SessionStoreNotFoundError';
   }
 }
 
 /** Implementation bug or thread misuse — not mapped to 4xx by API handlers. */
 export class SessionStoreInvariantError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'SessionStoreInvariantError';
   }
 }
@@ -47,8 +47,8 @@ export class TurnNotFoundError extends SessionStoreNotFoundError {
 export class SessionAlreadyExistsError extends SessionStoreConflictError {
   readonly session_id: string;
 
-  constructor(session_id: string) {
-    super(`Session already exists: ${session_id}`);
+  constructor(session_id: string, options?: ErrorOptions) {
+    super(`Session already exists: ${session_id}`, options);
     this.name = 'SessionAlreadyExistsError';
     this.session_id = session_id;
   }
@@ -57,8 +57,8 @@ export class SessionAlreadyExistsError extends SessionStoreConflictError {
 export class TurnAlreadyExistsError extends SessionStoreConflictError {
   readonly turn_id: string;
 
-  constructor(turn_id: string) {
-    super(`Turn already exists: ${turn_id}`);
+  constructor(turn_id: string, options?: ErrorOptions) {
+    super(`Turn already exists: ${turn_id}`, options);
     this.name = 'TurnAlreadyExistsError';
     this.turn_id = turn_id;
   }

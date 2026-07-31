@@ -1,7 +1,8 @@
 /**
- * Server entry point: validates config, migrates the database, loads the YAML
+ * Server entry point: validates config, migrates Postgres, loads the YAML
  * stores, wires the Postgres session store and starts the HTTP server.
  * Any config, migration, or store error aborts startup.
+ * SQLite migrations are packaged under dist/ but are not run at startup.
  */
 import { serve } from '@hono/node-server';
 import winston from 'winston';

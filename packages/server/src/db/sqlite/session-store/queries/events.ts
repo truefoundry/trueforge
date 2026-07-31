@@ -12,51 +12,46 @@ import {
   type SessionEventPageCursor,
 } from '@truefoundry/utils/agent-session/store/SessionEventPageToken';
 import { SessionNotFoundError, TurnNotFoundError } from '@truefoundry/utils/agent-session/store/SessionStoreErrors';
-import type { Kysely } from 'kysely';
-import { sql } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { Database } from '../../types';
-import { json, unnestWithOrdinality, values } from '../sqlExpressions';
-import { classifyTurnFenceWriteFailure, turnRunningFence } from './turns';
+import { jsonbBind, jsonText } from '../sqlExpressions';
+import { classifyTurnFenceWriteFailure, type TurnKeys } from './turns';
 
 export async function appendToEvents(db: Kysely<Database>, input: AppendToEventsInput): Promise<void> {
   if (input.events.length === 0) return;
 
-  const keys = {
+  const keys: TurnKeys = {
     tenant_id: input.tenant_id,
     session_id: input.session_id,
     turn_id: input.turn_id,
   };
 
-  const eventRows = input.events.map(event => ({
-    event_id: event.id,
-    event: json(event),
-    // VALUES parameters default to text; cast the event's required timestamp.
-    created_at: sql<Date>`${event.created_at}::timestamptz`,
-  }));
+  // Fence check first inside BEGIN IMMEDIATE; then batched insert.
+  await db.transaction().execute(async trx => {
+    const fenceRow = await trx
+      .selectFrom('turn')
+      .select(sql`1`.as('one'))
+      .where('tenant_id', '=', keys.tenant_id)
+      .where('session_id', '=', keys.session_id)
+      .where('turn_id', '=', keys.turn_id)
+      .where(sql<boolean>`state->>'status' = 'running'`)
+      .executeTakeFirst();
 
-  const inserted = await db
-    .with('turn_fence', qb => turnRunningFence(qb, keys))
-    .insertInto('session_event')
-    .columns(['tenant_id', 'session_id', 'turn_id', 'event_id', 'event', 'created_at'])
-    .expression(eb =>
-      eb
-        .selectFrom(values(eventRows, 'ev'))
-        .select([
-          sql<string>`${input.tenant_id}`.as('tenant_id'),
-          sql<string>`${input.session_id}`.as('session_id'),
-          sql<string>`${input.turn_id}`.as('turn_id'),
-          'ev.event_id',
-          'ev.event',
-          'ev.created_at',
-        ])
-        .where(wb => wb.exists(wb.selectFrom('turn_fence').select(sql`1`.as('one')))),
-    )
-    .returning('event_id')
-    .execute();
+    if (!fenceRow) {
+      await classifyTurnFenceWriteFailure(trx, keys);
+    }
 
-  if (inserted.length === 0) {
-    await classifyTurnFenceWriteFailure(db, keys);
-  }
+    const eventRows = input.events.map(event => ({
+      tenant_id: input.tenant_id,
+      session_id: input.session_id,
+      turn_id: input.turn_id,
+      event_id: event.id,
+      event: jsonbBind(event),
+      created_at: event.created_at,
+    }));
+
+    await trx.insertInto('session_event').values(eventRows).execute();
+  });
 }
 
 /**
@@ -77,7 +72,13 @@ export async function listTurnEvents(
       eb =>
         eb
           .selectFrom('session_event')
-          .select(['tenant_id', 'session_id', 'turn_id', 'event_id', 'event'])
+          .select([
+            'tenant_id',
+            'session_id',
+            'turn_id',
+            'event_id',
+            jsonText<PersistedTurnEvent>(sql.ref('event')).as('event'),
+          ])
           .where('tenant_id', '=', input.tenant_id)
           .where('session_id', '=', input.session_id)
           .where('turn_id', '=', input.turn_id)
@@ -112,6 +113,44 @@ export async function listTurnEvents(
   return paginateOffsetRows(events, limit, offset);
 }
 
+/** Anchor turn fields needed for chain resolution. */
+export interface AnchorTurn {
+  turn_id: string;
+  ancestor_ids: string[];
+}
+
+/**
+ * Full chain (oldest first, anchor last). `ancestor_ids` may be only the
+ * previous N ancestors, so spill through the oldest ancestor's own window
+ * until a root or gap. A missing turn or repeated id ends the walk.
+ */
+export async function resolveAncestorChain(
+  db: Kysely<Database>,
+  tenant: string,
+  sessionId: string,
+  anchor: AnchorTurn,
+): Promise<string[]> {
+  const chain = [...anchor.ancestor_ids, anchor.turn_id];
+  const seen = new Set(chain);
+  let oldestId = chain[0];
+  while (oldestId && oldestId !== anchor.turn_id) {
+    const oldest = await db
+      .selectFrom('turn')
+      .select([jsonText<string[]>(sql.ref('ancestor_ids')).as('ancestor_ids')])
+      .where('tenant_id', '=', tenant)
+      .where('session_id', '=', sessionId)
+      .where('turn_id', '=', oldestId)
+      .executeTakeFirst();
+    if (!oldest) break;
+    const older = oldest.ancestor_ids.filter(id => !seen.has(id));
+    if (older.length === 0) break;
+    chain.unshift(...older);
+    for (const id of older) seen.add(id);
+    oldestId = older[0];
+  }
+  return chain;
+}
+
 export async function listSessionEvents(
   db: Kysely<Database>,
   input: ListSessionEventsInput,
@@ -140,7 +179,7 @@ export async function listSessionEvents(
 
   const anchor = await db
     .selectFrom('turn')
-    .select(['turn_id', 'ancestor_ids'])
+    .select(['turn_id', jsonText<string[]>(sql.ref('ancestor_ids')).as('ancestor_ids')])
     .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
     .where('turn_id', '=', cursor.last_turn_id)
@@ -149,59 +188,28 @@ export async function listSessionEvents(
     throw new TurnNotFoundError(cursor.last_turn_id);
   }
 
-  const chainIds = await resolveAncestorChain(db, input.tenant_id, input.session_id, anchor);
+  const chainIds = await resolveAncestorChain(db, input.tenant_id, input.session_id, {
+    turn_id: anchor.turn_id,
+    ancestor_ids: anchor.ancestor_ids,
+  });
+
+  // Bind the ancestor chain as a JSON array; json_each gives (key=index, value=turn_id).
+  const chainJson = JSON.stringify(chainIds);
+
   const rows = await db
-    .selectFrom(unnestWithOrdinality(chainIds, 'c'))
+    .selectFrom(sql<{ key: number; value: string }>`json_each(${chainJson})`.as('c'))
     .innerJoin('session_event as e', join =>
       join
         .on('e.tenant_id', '=', input.tenant_id)
         .on('e.session_id', '=', input.session_id)
-        .onRef('e.turn_id', '=', 'c.turn_id'),
+        .on(sql<boolean>`e.turn_id = c.value`),
     )
-    .select(['e.turn_id as turn_id', 'e.event as event'])
-    .orderBy('c.pos', 'desc')
+    .select([sql<string>`c.value`.as('turn_id'), jsonText<SessionEventItem['event']>(sql.ref('e.event')).as('event')])
+    .orderBy(sql`c.key`, 'desc')
     .orderBy('e.event_id', 'desc')
     .limit(limit + 1)
     .offset(cursor.offset)
     .execute();
 
   return paginateSessionEventRows(rows, limit, cursor);
-}
-
-/** Anchor turn fields needed for chain resolution. */
-export interface AnchorTurn {
-  turn_id: string;
-  ancestor_ids: string[];
-}
-
-/**
- * Full chain (oldest first, anchor last). `ancestor_ids` may be only the
- * previous N ancestors, so spill through the oldest ancestor's own window
- * until a root or gap. A missing turn or repeated id ends the walk.
- */
-export async function resolveAncestorChain(
-  db: Kysely<Database>,
-  tenant: string,
-  sessionId: string,
-  anchor: AnchorTurn,
-): Promise<string[]> {
-  const chain = [...anchor.ancestor_ids, anchor.turn_id];
-  const seen = new Set(chain);
-  let oldestId = chain[0];
-  while (oldestId && oldestId !== anchor.turn_id) {
-    const oldest = await db
-      .selectFrom('turn')
-      .select(['ancestor_ids'])
-      .where('tenant_id', '=', tenant)
-      .where('session_id', '=', sessionId)
-      .where('turn_id', '=', oldestId)
-      .executeTakeFirst();
-    if (!oldest) break;
-    const older = oldest.ancestor_ids.filter(id => !seen.has(id));
-    if (older.length === 0) break;
-    chain.unshift(...older);
-    for (const id of older) seen.add(id);
-    oldestId = older[0];
-  }
-  return chain;
 }

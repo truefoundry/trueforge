@@ -1,0 +1,1 @@
+- JSON projection aliases MUST be listed in `client.ts`'s `JSON_RESULT_COLUMNS`.

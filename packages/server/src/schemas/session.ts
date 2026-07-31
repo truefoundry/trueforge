@@ -13,6 +13,13 @@ export { CreateSessionRequestSchema, UpdateSessionRequestSchema };
 export const DEFAULT_SESSIONS_LIMIT = 10;
 export const SESSIONS_MAX_LIMIT = 100;
 
+/** Wire ISO-8601 (RFC 3339, offsets allowed) → Date for the store. */
+const IsoTimestampQueryParam = z
+  .string()
+  .datetime({ offset: true })
+  .openapi({ type: 'string', format: 'date-time' })
+  .transform(s => new Date(s));
+
 export const ListSessionsRequestQuerySchema = z
   .object({
     limit: z.coerce
@@ -30,8 +37,12 @@ export const ListSessionsRequestQuerySchema = z
       .describe('Sort sessions by creation time. Defaults to "desc".')
       .openapi('ListSessionsOrder'),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
-    start_timestamp: z.string().optional().describe('Inclusive lower bound on `created_at` (ISO-8601).'),
-    end_timestamp: z.string().optional().describe('Inclusive upper bound on `created_at` (ISO-8601).'),
+    start_timestamp: IsoTimestampQueryParam.optional().describe(
+      'Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339).',
+    ),
+    end_timestamp: IsoTimestampQueryParam.optional().describe(
+      'Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339).',
+    ),
   })
   .openapi('ListSessionsRequestQuery');
 

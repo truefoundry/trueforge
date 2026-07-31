@@ -11,7 +11,7 @@
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\" --cache --error-on-unmatched-pattern --config .prettierrc",
     "format:fix": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\" --cache --config .prettierrc",
     "test": "pnpm --filter @truefoundry/utils test && pnpm --filter @truefoundry/server test && pnpm --filter frontend test",
-    "test:store:local": "bash scripts/test-store-with-postgres.sh",
+    "test:store:local": "bash scripts/test-store-local.sh",
     "dev": "pnpm --parallel --filter @truefoundry/server --filter frontend dev",
     "dev:server": "pnpm --filter @truefoundry/server dev",
     "dev:frontend": "pnpm --filter frontend dev",

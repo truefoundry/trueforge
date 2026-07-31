@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "openapi:write": "tsx --env-file=.env.test scripts/write-openapi.ts",
     "test": "tsx --env-file=.env.test --test \"src/**/*.test.ts\"",
-    "test:store": "jest --config jest.store.config.cjs",
+    "test:store:postgres": "jest --config jest.store.postgres.config.cjs",
+    "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs",
     "start": "node dist/main.js"
   },
   "dependencies": {
@@ -21,6 +22,7 @@
     "@hono/swagger-ui": "^0.2.1",
     "@hono/zod-openapi": "^0.19.10",
     "@truefoundry/utils": "workspace:*",
+    "better-sqlite3": "^13.0.2",
     "hono": "^4.12.31",
     "kysely": "^0.29.4",
     "pg": "^8.22.0",
@@ -33,6 +35,7 @@
   "devDependencies": {
     "@swc/core": "^1.11.0",
     "@swc/jest": "^0.2.37",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/jest": "^29.5.14",
     "@types/node": "^24.12.0",
     "@types/pg": "^8.20.0",
