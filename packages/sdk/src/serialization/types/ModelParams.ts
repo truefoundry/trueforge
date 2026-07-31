@@ -5,14 +5,19 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
 export const ModelParams: core.serialization.ObjectSchema<serializers.ModelParams.Raw, TrueHarness.ModelParams> =
-    core.serialization.object({
-        maxTokens: core.serialization.property("max_tokens", core.serialization.number().optional()),
-        parallelToolCalls: core.serialization.property("parallel_tool_calls", core.serialization.boolean().optional()),
-        reasoningEffort: core.serialization.property("reasoning_effort", core.serialization.string().optional()),
-        temperature: core.serialization.number().optional(),
-        topK: core.serialization.property("top_k", core.serialization.number().optional()),
-        topP: core.serialization.property("top_p", core.serialization.number().optional()),
-    });
+    core.serialization
+        .object({
+            maxTokens: core.serialization.property("max_tokens", core.serialization.number().optional()),
+            parallelToolCalls: core.serialization.property(
+                "parallel_tool_calls",
+                core.serialization.boolean().optional(),
+            ),
+            reasoningEffort: core.serialization.property("reasoning_effort", core.serialization.string().optional()),
+            temperature: core.serialization.number().optional(),
+            topK: core.serialization.property("top_k", core.serialization.number().optional()),
+            topP: core.serialization.property("top_p", core.serialization.number().optional()),
+        })
+        .passthrough();
 
 export declare namespace ModelParams {
     export interface Raw {
@@ -22,5 +27,6 @@ export declare namespace ModelParams {
         temperature?: number | null;
         top_k?: number | null;
         top_p?: number | null;
+        [key: string]: any;
     }
 }

@@ -3,13 +3,13 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { ResponseFormatJsonObject } from "./ResponseFormatJsonObject.js";
 import { ResponseFormatJsonSchema } from "./ResponseFormatJsonSchema.js";
-import { ResponseFormatOne } from "./ResponseFormatOne.js";
-import { ResponseFormatZero } from "./ResponseFormatZero.js";
+import { ResponseFormatText } from "./ResponseFormatText.js";
 
 export const ResponseFormat: core.serialization.Schema<serializers.ResponseFormat.Raw, TrueHarness.ResponseFormat> =
-    core.serialization.undiscriminatedUnion([ResponseFormatZero, ResponseFormatOne, ResponseFormatJsonSchema]);
+    core.serialization.undiscriminatedUnion([ResponseFormatJsonObject, ResponseFormatJsonSchema, ResponseFormatText]);
 
 export declare namespace ResponseFormat {
-    export type Raw = ResponseFormatZero.Raw | ResponseFormatOne.Raw | ResponseFormatJsonSchema.Raw;
+    export type Raw = ResponseFormatJsonObject.Raw | ResponseFormatJsonSchema.Raw | ResponseFormatText.Raw;
 }

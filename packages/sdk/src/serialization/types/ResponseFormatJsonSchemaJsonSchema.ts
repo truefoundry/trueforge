@@ -7,12 +7,14 @@ import type * as serializers from "../index.js";
 export const ResponseFormatJsonSchemaJsonSchema: core.serialization.ObjectSchema<
     serializers.ResponseFormatJsonSchemaJsonSchema.Raw,
     TrueHarness.ResponseFormatJsonSchemaJsonSchema
-> = core.serialization.object({
-    description: core.serialization.string().optional(),
-    name: core.serialization.string(),
-    schema: core.serialization.record(core.serialization.string(), core.serialization.unknown()).optional(),
-    strict: core.serialization.boolean().optionalNullable(),
-});
+> = core.serialization
+    .object({
+        description: core.serialization.string().optional(),
+        name: core.serialization.string(),
+        schema: core.serialization.record(core.serialization.string(), core.serialization.unknown()).optional(),
+        strict: core.serialization.boolean().optionalNullable(),
+    })
+    .passthrough();
 
 export declare namespace ResponseFormatJsonSchemaJsonSchema {
     export interface Raw {
@@ -20,5 +22,6 @@ export declare namespace ResponseFormatJsonSchemaJsonSchema {
         name: string;
         schema?: Record<string, unknown> | null;
         strict?: (boolean | null | undefined) | null;
+        [key: string]: any;
     }
 }

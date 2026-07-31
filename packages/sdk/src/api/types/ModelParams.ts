@@ -7,4 +7,6 @@ export interface ModelParams {
     temperature?: number;
     topK?: number;
     topP?: number;
+    /** Accepts any additional properties */
+    [key: string]: any;
 }

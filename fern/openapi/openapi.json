@@ -352,7 +352,6 @@
             },
             "properties": {
               "compaction_threshold_tokens": {
-                "default": 50000,
                 "exclusiveMinimum": 0,
                 "type": "integer"
               },
@@ -453,10 +452,7 @@
           "content_filter",
           "function_call"
         ],
-        "type": [
-          "string",
-          "null"
-        ]
+        "type": "string"
       },
       "GenerativeUIConfig": {
         "properties": {
@@ -978,7 +974,14 @@
             "type": "string"
           },
           "finish_reason": {
-            "$ref": "#/components/schemas/FinishReason"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FinishReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "description": "Unique identifier for the event",
@@ -1048,7 +1051,14 @@
             "type": "string"
           },
           "finish_reason": {
-            "$ref": "#/components/schemas/FinishReason"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FinishReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "description": "Unique identifier for the event",
@@ -1152,6 +1162,7 @@
         "type": "object"
       },
       "ModelParams": {
+        "additionalProperties": {},
         "properties": {
           "max_tokens": {
             "type": "number"
@@ -1244,75 +1255,96 @@
         "type": "object"
       },
       "ResponseFormat": {
+        "discriminator": {
+          "mapping": {
+            "json_object": "#/components/schemas/ResponseFormatJsonObject",
+            "json_schema": "#/components/schemas/ResponseFormatJsonSchema",
+            "text": "#/components/schemas/ResponseFormatText"
+          },
+          "propertyName": "type"
+        },
         "oneOf": [
           {
-            "properties": {
-              "type": {
-                "enum": [
-                  "text"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/ResponseFormatText"
           },
           {
-            "properties": {
-              "type": {
-                "enum": [
-                  "json_object"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/ResponseFormatJsonObject"
           },
           {
-            "properties": {
-              "json_schema": {
-                "properties": {
-                  "description": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "schema": {
-                    "additionalProperties": {},
-                    "type": "object"
-                  },
-                  "strict": {
-                    "type": [
-                      "boolean",
-                      "null"
-                    ]
-                  }
-                },
-                "required": [
-                  "name"
-                ],
-                "type": "object"
-              },
-              "type": {
-                "enum": [
-                  "json_schema"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "json_schema"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/ResponseFormatJsonSchema"
           }
         ]
+      },
+      "ResponseFormatJsonObject": {
+        "additionalProperties": {},
+        "properties": {
+          "type": {
+            "enum": [
+              "json_object"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "ResponseFormatJsonSchema": {
+        "additionalProperties": {},
+        "properties": {
+          "json_schema": {
+            "additionalProperties": {},
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "schema": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "strict": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "enum": [
+              "json_schema"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "json_schema"
+        ],
+        "type": "object"
+      },
+      "ResponseFormatText": {
+        "additionalProperties": {},
+        "properties": {
+          "type": {
+            "enum": [
+              "text"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
       },
       "RuntimeConfig": {
         "properties": {

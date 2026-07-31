@@ -258,19 +258,7 @@ List sessions (newest first by default), token-paginated. Pass `page_token` to f
 <dd>
 
 ```typescript
-const pageableResponse = await client.sessions.list();
-for await (const item of pageableResponse) {
-    console.log(item);
-}
-
-// Or you can manually iterate page-by-page
-let page = await client.sessions.list();
-while (page.hasNextPage()) {
-    page = page.getNextPage();
-}
-
-// You can also access the underlying response
-const response = page.response;
+await client.sessions.list();
 
 ```
 </dd>
@@ -607,19 +595,7 @@ List session events as `{ turn_id, event }` across the active turn branch (newes
 <dd>
 
 ```typescript
-const pageableResponse = await client.sessions.listEvents("sessionId");
-for await (const item of pageableResponse) {
-    console.log(item);
-}
-
-// Or you can manually iterate page-by-page
-let page = await client.sessions.listEvents("sessionId");
-while (page.hasNextPage()) {
-    page = page.getNextPage();
-}
-
-// You can also access the underlying response
-const response = page.response;
+await client.sessions.listEvents("sessionId");
 
 ```
 </dd>
@@ -690,19 +666,7 @@ List turns for a session (newest first by default), token-paginated.
 <dd>
 
 ```typescript
-const pageableResponse = await client.sessions.listTurns("sessionId");
-for await (const item of pageableResponse) {
-    console.log(item);
-}
-
-// Or you can manually iterate page-by-page
-let page = await client.sessions.listTurns("sessionId");
-while (page.hasNextPage()) {
-    page = page.getNextPage();
-}
-
-// You can also access the underlying response
-const response = page.response;
+await client.sessions.listTurns("sessionId");
 
 ```
 </dd>
@@ -919,19 +883,7 @@ Paginated persisted events for a turn (insertion order by default).
 <dd>
 
 ```typescript
-const pageableResponse = await client.sessions.listTurnEvents("sessionId", "turnId");
-for await (const item of pageableResponse) {
-    console.log(item);
-}
-
-// Or you can manually iterate page-by-page
-let page = await client.sessions.listTurnEvents("sessionId", "turnId");
-while (page.hasNextPage()) {
-    page = page.getNextPage();
-}
-
-// You can also access the underlying response
-const response = page.response;
+await client.sessions.listTurnEvents("sessionId", "turnId");
 
 ```
 </dd>

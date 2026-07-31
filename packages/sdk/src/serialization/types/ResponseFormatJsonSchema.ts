@@ -8,14 +8,17 @@ import { ResponseFormatJsonSchemaJsonSchema } from "./ResponseFormatJsonSchemaJs
 export const ResponseFormatJsonSchema: core.serialization.ObjectSchema<
     serializers.ResponseFormatJsonSchema.Raw,
     TrueHarness.ResponseFormatJsonSchema
-> = core.serialization.object({
-    jsonSchema: core.serialization.property("json_schema", ResponseFormatJsonSchemaJsonSchema),
-    type: core.serialization.stringLiteral("json_schema"),
-});
+> = core.serialization
+    .object({
+        jsonSchema: core.serialization.property("json_schema", ResponseFormatJsonSchemaJsonSchema),
+        type: core.serialization.stringLiteral("json_schema"),
+    })
+    .passthrough();
 
 export declare namespace ResponseFormatJsonSchema {
     export interface Raw {
         json_schema: ResponseFormatJsonSchemaJsonSchema.Raw;
         type: "json_schema";
+        [key: string]: any;
     }
 }
