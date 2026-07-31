@@ -1,4 +1,4 @@
-import { z } from '@hono/zod-openapi';
+import { z } from 'zod';
 import type { CompletionUsage } from '../llm/LLMTypes';
 
 /**
@@ -6,7 +6,9 @@ import type { CompletionUsage } from '../llm/LLMTypes';
  * `prompt_tokens`/`completion_tokens` names are load-bearing: this shape is persisted per
  * thread, so renaming them would make already-stored rows load as missing fields.
  *
- * We Need Zod mainly for ThreadOverwriteContextEventSchema
+ * Plain zod (not @hono/zod-openapi) so z.infer resolves to a concrete type.
+ * The schema is embedded inline in ThreadOverwriteContextEventSchema; it does
+ * not need a top-level OpenAPI component name.
  */
 export const CurrentContextUsageSchema = z
   .object({

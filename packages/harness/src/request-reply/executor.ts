@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
+import z from 'zod';
 import { ReplyError } from './errors';
 import type { JSONReply, RequestHandler } from './types';
 import { publishedRequestSchema } from './types';
@@ -199,7 +200,7 @@ export class RequestReplyExecutor {
     const parsedRequest = publishedRequestSchema.safeParse(raw);
     if (!parsedRequest.success) {
       // Drop the request, this should never happen
-      const zodError = parsedRequest.error.flatten();
+      const zodError = z.treeifyError(parsedRequest.error);
       this.logger.warn('[RequestReplyExecutor] Invalid request message shape', {
         executorId: this.executorId,
         zod: zodError,

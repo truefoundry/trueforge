@@ -14,7 +14,7 @@ function uniqueNames(entries: { name: string }[], ctx: z.RefinementCtx): void {
   for (const entry of entries) {
     if (seen.has(entry.name)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: `Duplicate name "${entry.name}" — names must be unique`,
       });
     }
@@ -35,7 +35,7 @@ function uniqueEnvNames(entries: { name: string }[], ctx: z.RefinementCtx): void
     const existing = seenByEnvName.get(envName);
     if (existing && existing !== entry.name) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: `Names "${existing}" and "${entry.name}" both map to the "${envName}" env var segment — rename one so they can be configured separately`,
       });
     } else {
@@ -55,10 +55,7 @@ export const ModelEntrySchema = z
 
 export const ModelsFileSchema = z
   .object({
-    base_url: z
-      .string()
-      .url()
-      .transform(url => url.replace(/\/$/, '')),
+    base_url: z.url().transform(url => url.replace(/\/$/, '')),
     models: z.array(ModelEntrySchema),
   })
   .strict()
@@ -70,7 +67,7 @@ export const ModelsFileSchema = z
 export const McpServerEntrySchema = z
   .object({
     name: z.string().min(1),
-    url: z.string().url(),
+    url: z.url(),
   })
   .strict()
   .openapi('McpServerEntry');
@@ -89,7 +86,7 @@ export const SkillEntrySchema = z
   .object({
     name: z.string().min(1),
     // Public git repository containing the skill.
-    url: z.string().url(),
+    url: z.url(),
     // Directory inside the repository containing SKILL.md. Repo root if omitted.
     path: z.string().min(1).optional(),
     // Branch, tag, or commit SHA to pin. Default branch if omitted.

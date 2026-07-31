@@ -4,7 +4,7 @@ import { decodePageToken, encodePageToken } from './PageToken';
 
 export const OffsetPageCursorSchema = z
   .object({
-    offset: z.number().int().nonnegative().safe(),
+    offset: z.number().int().nonnegative(),
   })
   .strict();
 
