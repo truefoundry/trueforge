@@ -941,30 +941,171 @@
         "type": "object"
       },
       "ModelEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "max_output_tokens": {
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "name": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "reasoning_efforts": {
-            "items": {
-              "minLength": 1,
-              "type": "string"
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "api_key": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "base_url": {
+                "format": "uri",
+                "type": "string"
+              },
+              "headers": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "max_output_tokens": {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              "name": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "openai_api": {
+                "enum": [
+                  "responses",
+                  "chat"
+                ],
+                "type": "string"
+              },
+              "provider": {
+                "enum": [
+                  "openai"
+                ],
+                "type": "string"
+              },
+              "reasoning_efforts": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
             },
-            "minItems": 1,
-            "type": "array"
+            "required": [
+              "name",
+              "max_output_tokens",
+              "provider"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "api_key": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "base_url": {
+                "format": "uri",
+                "type": "string"
+              },
+              "headers": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "max_output_tokens": {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              "name": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "provider": {
+                "enum": [
+                  "anthropic",
+                  "google",
+                  "mistral",
+                  "openrouter",
+                  "portkey",
+                  "kimi"
+                ],
+                "type": "string"
+              },
+              "reasoning_efforts": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "max_output_tokens",
+              "provider"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "api_key": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "base_url": {
+                "format": "uri",
+                "type": "string"
+              },
+              "headers": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "max_output_tokens": {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              "name": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "openai_api": {
+                "enum": [
+                  "responses",
+                  "chat"
+                ],
+                "type": "string"
+              },
+              "provider": {
+                "enum": [
+                  "openai-compatible",
+                  "litellm",
+                  "truefoundry"
+                ],
+                "type": "string"
+              },
+              "reasoning_efforts": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "max_output_tokens",
+              "provider",
+              "base_url"
+            ],
+            "type": "object"
           }
-        },
-        "required": [
-          "name",
-          "max_output_tokens"
-        ],
-        "type": "object"
+        ]
       },
       "ModelMessageDeltaEvent": {
         "properties": {
