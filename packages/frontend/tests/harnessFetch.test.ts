@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { harnessFetch, toHarnessUrl } from './harnessFetch';
+import { harnessFetch, toHarnessUrl } from '../src/harnessFetch';
 
 describe('toHarnessUrl', () => {
   it('maps both session prefixes onto /api/v1/sessions', () => {

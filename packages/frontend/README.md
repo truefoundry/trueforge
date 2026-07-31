@@ -16,14 +16,14 @@ No login (`auth: false`). Skills are not wired in v1.
 ## Local development
 
 ```bash
-pnpm dev:server     # terminal 1 — builds this package, then the harness API on :8790
-pnpm dev:frontend   # terminal 2 — Vite UI on :3000
+pnpm dev            # API on :8790 and Vite on :3000 together
+pnpm dev:frontend   # or Vite alone, against an API that is already up
 ```
 
 Open `http://localhost:3000`: Vite serves the UI from source (edits hot-reload, no rebuild or server
-restart) and proxies `/api/*` to `VITE_SERVER_URL`, default `http://localhost:8790`. That proxy is the
-only dev-specific wiring and lives entirely in [`vite.config.ts`](vite.config.ts). Running the server on
-its own is fine too — with no build in `dist/` it logs a warning and serves the API only.
+restart) and proxies `/api/*` to `VITE_SERVER_URL`, default `http://localhost:8790`. `FRONTEND_PORT`
+moves Vite off `:3000`. That proxy is the only dev-specific wiring and lives entirely in
+[`vite.config.ts`](vite.config.ts); the server needs no build to answer the API.
 
 ### Session paths
 

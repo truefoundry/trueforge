@@ -32,7 +32,6 @@ services:
   server:
     build:
       context: .
-      dockerfile: packages/server/Dockerfile
     image: truefoundry-server:latest
     ports:
       - '${PORT:-8790}:8790'

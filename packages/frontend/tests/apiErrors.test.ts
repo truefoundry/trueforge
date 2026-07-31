@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
-import { clearApiErrors, getApiErrorsSnapshot, installApiErrorInterceptor, subscribeApiErrors } from './apiErrors';
+import { clearApiErrors, getApiErrorsSnapshot, installApiErrorInterceptor, subscribeApiErrors } from '../src/apiErrors';
 
 let stubbedResponse: () => Response | Promise<Response>;
 

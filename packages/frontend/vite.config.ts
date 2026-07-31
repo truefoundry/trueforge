@@ -6,6 +6,10 @@ import { compression } from 'vite-plugin-compression2';
 import monacoEditorPlugin from 'vite-plugin-monaco-editor-esm';
 
 const SERVER = process.env.VITE_SERVER_URL ?? 'http://localhost:8790';
+const PORT = Number(process.env.FRONTEND_PORT ?? 3000);
+if (!Number.isInteger(PORT)) {
+  throw new Error(`FRONTEND_PORT must be an integer, got "${process.env.FRONTEND_PORT}"`);
+}
 
 const apiProxy: ProxyOptions = {
   target: SERVER,
@@ -46,7 +50,7 @@ export default defineConfig({
     ],
   },
   server: {
-    port: 3000,
+    port: PORT,
     // Plain passthrough: harnessFetch already maps SDK paths onto harness routes.
     proxy: {
       '/api': apiProxy,

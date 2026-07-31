@@ -28,13 +28,20 @@ cp packages/server/.env.example packages/server/.env
 cp -R packages/server/registry-example packages/server/registry
 ```
 
-Fill in `MODEL_API_KEY` in `packages/server/.env`, then start the server:
+Fill in `MODEL_API_KEY` in `packages/server/.env`, then start both dev servers:
 
 ```bash
-pnpm dev:server
+pnpm dev            # API on :8790 and Vite on :3000, one terminal
 ```
 
-That builds the UI first, so `http://localhost:8790` serves both it and the API.
+| Script               | Runs                                                   |
+| -------------------- | ------------------------------------------------------ |
+| `pnpm dev`           | Both of the below, in parallel                         |
+| `pnpm dev:server`    | API only on `:8790`; never rebuilds the UI             |
+| `pnpm dev:frontend`  | Vite only on `:3000`, proxying `/api/*` to the API     |
+| `pnpm dev:server:ui` | Rebuilds the UI, then the API serves it too on `:8790` |
+
+Open `:3000` for UI work. `:8790` serves the UI only when a build exists in `packages/frontend/dist`.
 
 Migrations run automatically on startup. To migrate without starting HTTP:
 
@@ -44,13 +51,9 @@ pnpm --filter @truefoundry/server migrate
 
 ## Work on the UI (local)
 
-```bash
-pnpm dev:frontend   # second terminal: Vite on :3000
-```
-
 Vite serves the UI from source with hot reload and proxies `/api/*` to `:8790`, so UI edits need no
-rebuild or server restart. Use `:3000` for UI work; `:8790` serves the last build. See
-[`packages/frontend/README.md`](packages/frontend/README.md).
+rebuild or server restart. `FRONTEND_PORT` moves it off `:3000`, `VITE_SERVER_URL` points it at another
+API. See [`packages/frontend/README.md`](packages/frontend/README.md).
 
 ## Serving the UI from the server
 

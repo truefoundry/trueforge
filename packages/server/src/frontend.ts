@@ -20,8 +20,8 @@ function isServerPath(pathname: string): boolean {
   return SERVER_PATH_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-/** Only a browser navigating to a client-side route gets the shell; scripts and fetches keep their 404. */
-function wantsAppShell(c: Context): boolean {
+/** Only a browser navigating to a client-side route gets index.html; scripts and fetches keep their 404. */
+function isUiNavigation(c: Context): boolean {
   if (c.req.method !== 'GET' && c.req.method !== 'HEAD') return false;
   if (isServerPath(c.req.path)) return false;
   return c.req.header('accept')?.toLowerCase().includes('text/html') ?? false;
@@ -34,16 +34,16 @@ function wantsAppShell(c: Context): boolean {
 export function mountFrontend(app: OpenAPIHono, dir: string): boolean {
   const indexPath = path.join(dir, 'index.html');
   if (!existsSync(indexPath)) return false;
-  let lastShell = readFileSync(indexPath, 'utf8');
+  let lastIndexHtml = readFileSync(indexPath, 'utf8');
 
   /** Fresh per navigation, so a rebuild needs no restart to stop serving stale asset hashes. */
-  function readShell(): string {
+  function readIndexHtml(): string {
     try {
-      lastShell = readFileSync(indexPath, 'utf8');
+      lastIndexHtml = readFileSync(indexPath, 'utf8');
     } catch {
-      // A rebuild empties the directory first, so the previous shell beats failing the navigation.
+      // A rebuild empties the directory first, so the previous copy beats failing the navigation.
     }
-    return lastShell;
+    return lastIndexHtml;
   }
 
   // serveStatic joins `root` with the request path, so an absolute dir is working-directory proof.
@@ -78,10 +78,12 @@ export function mountFrontend(app: OpenAPIHono, dir: string): boolean {
 
   app.use('/*', serveBuild);
 
-  // Vary because compress() above may encode the shell without advertising it.
-  const shellHeaders = { 'Cache-Control': REVALIDATE_CACHE_CONTROL, Vary: 'Accept-Encoding' };
+  // Vary because compress() above may encode index.html without advertising it.
+  const indexHtmlHeaders = { 'Cache-Control': REVALIDATE_CACHE_CONTROL, Vary: 'Accept-Encoding' };
 
-  app.notFound(c => (wantsAppShell(c) ? c.html(readShell(), 200, shellHeaders) : routeNotFound(c)));
+  // A client-side route like /sessions/ses_1 has no file on disk, so a reload or a shared link would 404
+  // without this; index.html boots the app and its router then renders the path the browser asked for.
+  app.notFound(c => (isUiNavigation(c) ? c.html(readIndexHtml(), 200, indexHtmlHeaders) : routeNotFound(c)));
 
   return true;
 }

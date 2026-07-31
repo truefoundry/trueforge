@@ -2,9 +2,8 @@
 #
 # Multi-stage build for @truefoundry/server, which also serves the UI: the only image the stack needs.
 #
-# The build context must be the repository root (this is a pnpm workspace and
-# the server depends on the workspace package @truefoundry/utils). See the
-# docker-compose.yml / build command at the repo root.
+# Lives at the repository root because the build needs the whole pnpm workspace
+# as its context: the server depends on the workspace package @truefoundry/utils.
 #
 # Dependency install uses pnpm fetch (lockfile-only) then install --offline so
 # the download layer stays cached when only package.json / scripts change.
