@@ -1,9 +1,9 @@
 import type { ISessionStore } from '@truefoundry/utils/agent-session/store/ISessionStore';
 
-import { runStoreContractSuite } from '../../../../harness/tests/agent-session/store/storeContractSuite';
+import { runStoreContractSuite } from '../../../../../harness/tests/agent-session/store/storeContractSuite';
 import { createPostgresStoreEnvironment } from './helpers';
 
-const describePg = process.env.PG_STORE_TESTS_ENABLED === '1' ? describe : describe.skip;
+const describePg = process.env['PG_STORE_TESTS_ENABLED'] === '1' ? describe : describe.skip;
 
 describePg('PostgresSessionStore (ISessionStore contract)', () => {
   let env: Awaited<ReturnType<typeof createPostgresStoreEnvironment>>;

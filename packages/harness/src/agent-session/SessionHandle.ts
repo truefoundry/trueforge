@@ -234,7 +234,7 @@ export class SessionHandle<
       const new_context_appends = await collectContextAppends(orchestrator.send(sendBatch));
 
       const turnId = input.turn_id;
-      const now = new Date().toISOString();
+      const now = new Date();
 
       const new_threads: NewThreadInit[] = [];
       if (!previous) {

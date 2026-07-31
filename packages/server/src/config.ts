@@ -182,6 +182,9 @@ export const buildPostgresConnectionString = (parts: {
 
 export const DEFAULT_PORT = 8790;
 
+/** Relative to the working directory, like REGISTRY_DIR; the image sets an absolute FRONTEND_DIR. */
+const DEFAULT_FRONTEND_DIR = '../frontend/dist';
+
 export interface ServerConfiguration {
   /** HTTP port the server listens on. Env: `PORT`. */
   PORT: number;
@@ -192,6 +195,11 @@ export interface ServerConfiguration {
    * `./registry`.
    */
   REGISTRY_DIR: string;
+  /**
+   * Frontend build served alongside the API; a missing directory leaves the server API-only.
+   * Env: `FRONTEND_DIR`, defaults to `../frontend/dist` relative to the working directory.
+   */
+  FRONTEND_DIR: string;
   /**
    * Default API key for the OpenAI-compatible API at models.yaml's base_url,
    * sent as `Authorization: Bearer <key>` on every model request.
@@ -301,6 +309,7 @@ const postgresPort = parsePositiveInt({
 const configuration: ServerConfiguration = {
   PORT: parsePort(getEnv('PORT')),
   REGISTRY_DIR: path.resolve(getEnv('REGISTRY_DIR', { defaultValue: 'registry' }) ?? 'registry'),
+  FRONTEND_DIR: path.resolve(getEnv('FRONTEND_DIR', { defaultValue: DEFAULT_FRONTEND_DIR }) ?? DEFAULT_FRONTEND_DIR),
   MODEL_API_KEY: getEnv('MODEL_API_KEY', { required: true }) ?? '',
   MODEL_API_KEY_BY_NAME: parseApiKeysByName(),
   MODEL_HEADERS: parseHeaders('MODEL_HEADERS', getEnv('MODEL_HEADERS')),

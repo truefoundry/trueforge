@@ -34,7 +34,7 @@ function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
     previous_turn_id: record.previous_turn_id,
     input: record.input,
     state: record.state,
-    created_at: record.created_at,
+    created_at: record.created_at.toISOString(),
   };
 }
 

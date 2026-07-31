@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { SkillEntry } from './catalog';
-import { DEFAULT_SKILL_REF, selectedSkillNamesFromSpec, skillMountsFromNames, toGitSkillMount } from './skillMounts';
+import type { SkillEntry } from '../src/catalog';
+import {
+  DEFAULT_SKILL_REF,
+  selectedSkillNamesFromSpec,
+  skillMountsFromNames,
+  toGitSkillMount,
+} from '../src/skillMounts';
 
 const entry: SkillEntry = {
   name: 'pr-review',

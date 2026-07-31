@@ -12,7 +12,7 @@ describe("ModelsClient", () => {
             data: [{ max_output_tokens: 1, name: "name", reasoning_efforts: ["reasoning_efforts"] }],
         };
 
-        server.mockEndpoint().get("/v1/models").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
+        server.mockEndpoint().get("/api/v1/models").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
 
         const response = await client.models.list();
         expect(response).toEqual({

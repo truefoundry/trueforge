@@ -2469,7 +2469,7 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/v1/capabilities": {
+    "/api/v1/capabilities": {
       "get": {
         "description": "Report optional runtime capabilities available in this server deployment.",
         "responses": {
@@ -2494,7 +2494,7 @@
         "x-fern-sdk-method-name": "get_capabilities"
       }
     },
-    "/v1/mcp-servers": {
+    "/api/v1/mcp-servers": {
       "get": {
         "description": "MCP servers declared in mcp.yaml. Auth headers are configured via env vars and never returned.",
         "responses": {
@@ -2519,7 +2519,7 @@
         "x-fern-sdk-method-name": "list"
       }
     },
-    "/v1/mcp-servers/{name}/tools": {
+    "/api/v1/mcp-servers/{name}/tools": {
       "get": {
         "description": "All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call. No agent-spec tool selectors are applied — this is the raw server catalog.",
         "parameters": [
@@ -2587,7 +2587,7 @@
         "x-fern-sdk-method-name": "list_tools"
       }
     },
-    "/v1/models": {
+    "/api/v1/models": {
       "get": {
         "description": "Models declared in models.yaml, reachable through the OpenAI-compatible API at the file's base_url.",
         "responses": {
@@ -2612,7 +2612,7 @@
         "x-fern-sdk-method-name": "list"
       }
     },
-    "/v1/sessions": {
+    "/api/v1/sessions": {
       "get": {
         "description": "List sessions (newest first by default), token-paginated. Pass `page_token` to fetch the next page, keeping the other query params constant.",
         "parameters": [
@@ -2759,7 +2759,7 @@
         "x-fern-sdk-method-name": "create"
       }
     },
-    "/v1/sessions/{sessionId}": {
+    "/api/v1/sessions/{sessionId}": {
       "get": {
         "description": "Fetch a session by ID.",
         "parameters": [
@@ -2885,7 +2885,7 @@
         "x-fern-sdk-method-name": "update"
       }
     },
-    "/v1/sessions/{sessionId}/cancel": {
+    "/api/v1/sessions/{sessionId}/cancel": {
       "post": {
         "description": "Cancel the running last turn for a session.",
         "parameters": [
@@ -2954,7 +2954,7 @@
         "x-fern-sdk-method-name": "cancel"
       }
     },
-    "/v1/sessions/{sessionId}/events": {
+    "/api/v1/sessions/{sessionId}/events": {
       "get": {
         "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor.",
         "parameters": [
@@ -3051,7 +3051,7 @@
         "x-fern-sdk-method-name": "list_events"
       }
     },
-    "/v1/sessions/{sessionId}/turns": {
+    "/api/v1/sessions/{sessionId}/turns": {
       "get": {
         "description": "List turns for a session (newest first by default), token-paginated.",
         "parameters": [
@@ -3219,7 +3219,7 @@
         }
       }
     },
-    "/v1/sessions/{sessionId}/turns/{turnId}": {
+    "/api/v1/sessions/{sessionId}/turns/{turnId}": {
       "get": {
         "description": "Fetch a single turn by ID.",
         "parameters": [
@@ -3279,7 +3279,7 @@
         "x-fern-sdk-method-name": "get_turn"
       }
     },
-    "/v1/sessions/{sessionId}/turns/{turnId}/events": {
+    "/api/v1/sessions/{sessionId}/turns/{turnId}/events": {
       "get": {
         "description": "Paginated persisted events for a turn (insertion order by default).",
         "parameters": [
@@ -3386,7 +3386,7 @@
         "x-fern-sdk-method-name": "list_turn_events"
       }
     },
-    "/v1/skills": {
+    "/api/v1/skills": {
       "get": {
         "description": "Agent skills declared in skills.yaml.",
         "responses": {

@@ -12,7 +12,7 @@ describe("SkillsClient", () => {
             data: [{ description: "description", name: "name", path: "path", ref: "ref", url: "url" }],
         };
 
-        server.mockEndpoint().get("/v1/skills").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
+        server.mockEndpoint().get("/api/v1/skills").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
 
         const response = await client.skills.list();
         expect(response).toEqual({

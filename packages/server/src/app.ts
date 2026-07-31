@@ -1,11 +1,9 @@
-/**
- * HTTP application: composes the resource routers and serves the OpenAPI
- * document (/openapi.json) and Swagger UI (/docs).
- */
+/** The API: resource routers, the OpenAPI document and Swagger UI, all under /api/v1. */
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnSandboxFactory } from '@truefoundry/utils/agent-session';
 import type { RequestReplyRouter } from '@truefoundry/utils/request-reply';
+import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
@@ -34,6 +32,10 @@ export function buildOpenApiDocument(app: OpenAPIHono) {
   return app.getOpenAPI31Document(openApiDocConfig);
 }
 
+function routeNotFound(c: Context) {
+  return c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404);
+}
+
 export interface ServerDeps {
   modelStore: ModelStore;
   mcpStore: McpStore;
@@ -53,14 +55,14 @@ export interface ServerDeps {
 export function createServerApp(deps: ServerDeps) {
   const app = new OpenAPIHono();
 
-  app.get('/', c => c.text('OK!'));
+  app.get('/healthz', c => c.text('OK!'));
 
-  app.route('/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
-  app.route('/v1/models', createModelsRouter(deps.modelStore));
-  app.route('/v1/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
-  app.route('/v1/skills', createSkillsRouter(deps.skillStore));
+  app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
+  app.route('/api/v1/models', createModelsRouter(deps.modelStore));
+  app.route('/api/v1/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
+  app.route('/api/v1/skills', createSkillsRouter(deps.skillStore));
   app.route(
-    '/v1/sessions',
+    '/api/v1/sessions',
     createSessionsRouter({
       sessions: deps.sessions,
       sessionStore: deps.sessionStore,
@@ -73,7 +75,7 @@ export function createServerApp(deps: ServerDeps) {
     }),
   );
   app.route(
-    '/v1/sessions',
+    '/api/v1/sessions',
     createTurnsRouter({
       sessions: deps.sessions,
       activeTurns: deps.activeTurns,
@@ -84,10 +86,10 @@ export function createServerApp(deps: ServerDeps) {
     }),
   );
 
-  app.get('/docs', swaggerUI({ url: '/openapi.json' }));
-  app.get('/openapi.json', c => c.json(buildOpenApiDocument(app)));
+  app.get('/api/v1/docs', swaggerUI({ url: '/api/v1/openapi.json' }));
+  app.get('/api/v1/openapi.json', c => c.json(buildOpenApiDocument(app)));
 
-  app.notFound(c => c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404));
+  app.notFound(routeNotFound);
 
   app.onError((error, c) => {
     if (error instanceof HTTPException) {

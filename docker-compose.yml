@@ -28,10 +28,10 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Serves both the API and the UI on one port.
   server:
     build:
       context: .
-      dockerfile: packages/server/Dockerfile
     image: truefoundry-server:latest
     ports:
       - '${PORT:-8790}:8790'
@@ -55,14 +55,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # Probes existing GET / (plain text OK!); node is already in the image.
+    # Probes GET /healthz (plain text OK!); node is already in the image.
     healthcheck:
       test:
         [
           'CMD',
           'node',
           '-e',
-          "fetch('http://127.0.0.1:8790/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:8790/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 5s
       timeout: 5s
@@ -71,16 +71,4 @@ services:
     # Above the app's default GRACEFUL_TIMEOUT_SECONDS (30) so SIGKILL does not
     # cut off turn drain.
     stop_grace_period: 35s
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: .
-      dockerfile: packages/frontend/Dockerfile
-    image: truefoundry-frontend:latest
-    ports:
-      - '${FRONTEND_PORT:-3000}:80'
-    depends_on:
-      server:
-        condition: service_healthy
     restart: unless-stopped

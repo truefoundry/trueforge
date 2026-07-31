@@ -1,7 +1,8 @@
 /**
- * Server entry point: validates config, migrates the database, loads the YAML
+ * Server entry point: validates config, migrates Postgres, loads the YAML
  * stores, wires the Postgres session store and starts the HTTP server.
  * Any config, migration, or store error aborts startup.
+ * SQLite migrations are packaged under dist/ but are not run at startup.
  */
 import { serve } from '@hono/node-server';
 import winston from 'winston';
@@ -9,6 +10,7 @@ import winston from 'winston';
 try {
   const [
     { createServerApp },
+    { mountFrontend },
     { default: configuration },
     { createDb },
     { migrateToLatest },
@@ -23,6 +25,7 @@ try {
     { PostgresSessionStore },
   ] = await Promise.all([
     import('./app'),
+    import('./frontend'),
     import('./config'),
     import('./db/postgres/client'),
     import('./db/migratePostgres'),
@@ -72,6 +75,15 @@ try {
     logger,
   });
 
+  if (mountFrontend(app, configuration.FRONTEND_DIR)) {
+    logger.info(`Serving frontend from ${configuration.FRONTEND_DIR}`);
+  } else {
+    logger.warn(
+      `No frontend build at ${configuration.FRONTEND_DIR}: serving the API only. ` +
+        'Run `pnpm --filter frontend build` to serve the UI from here, or `pnpm dev:frontend` for UI work.',
+    );
+  }
+
   // After createServerApp so every request-reply route is registered before
   // the executor starts consuming messages. The executor needs a dedicated
   // subscriber connection (a subscribed client cannot issue normal commands);
@@ -97,7 +109,7 @@ try {
   await requestReplyExecutor.init();
 
   const server = serve({ fetch: app.fetch, port: configuration.PORT }, info => {
-    console.log(`Agent server listening on http://localhost:${String(info.port)} (docs at /docs)`);
+    console.log(`Agent server listening on http://localhost:${String(info.port)} (docs at /api/v1/docs)`);
   });
 
   server.on('error', (error: unknown) => {

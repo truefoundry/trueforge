@@ -2,11 +2,11 @@
 
 pnpm workspace with:
 
-| Package               | Path                                     | Role                                             |
-| --------------------- | ---------------------------------------- | ------------------------------------------------ |
-| `@truefoundry/utils`  | [`packages/harness`](packages/harness)   | Published library (`core` + `agent-session`)     |
-| `@truefoundry/server` | [`packages/server`](packages/server)     | HTTP server (private; depends on utils)          |
-| `frontend`            | [`packages/frontend`](packages/frontend) | Private draft-only agent chat UI (not published) |
+| Package               | Path                                     | Role                                              |
+| --------------------- | ---------------------------------------- | ------------------------------------------------- |
+| `@truefoundry/utils`  | [`packages/harness`](packages/harness)   | Published library (`core` + `agent-session`)      |
+| `@truefoundry/server` | [`packages/server`](packages/server)     | HTTP server + UI host (private; depends on utils) |
+| `frontend`            | [`packages/frontend`](packages/frontend) | Private draft-only agent chat UI (not published)  |
 
 ## Develop
 
@@ -28,11 +28,20 @@ cp packages/server/.env.example packages/server/.env
 cp -R packages/server/registry-example packages/server/registry
 ```
 
-Fill in `MODEL_API_KEY` in `packages/server/.env`, then start the server:
+Fill in `MODEL_API_KEY` in `packages/server/.env`, then start both dev servers:
 
 ```bash
-pnpm dev:server
+pnpm dev            # API on :8790 and Vite on :3000, one terminal
 ```
+
+| Script               | Runs                                                   |
+| -------------------- | ------------------------------------------------------ |
+| `pnpm dev`           | Both of the below, in parallel                         |
+| `pnpm dev:server`    | API only on `:8790`; never rebuilds the UI             |
+| `pnpm dev:frontend`  | Vite only on `:3000`, proxying `/api/*` to the API     |
+| `pnpm dev:server:ui` | Rebuilds the UI, then the API serves it too on `:8790` |
+
+Open `:3000` for UI work. `:8790` serves the UI only when a build exists in `packages/frontend/dist`.
 
 Migrations run automatically on startup. To migrate without starting HTTP:
 
@@ -40,15 +49,18 @@ Migrations run automatically on startup. To migrate without starting HTTP:
 pnpm --filter @truefoundry/server migrate
 ```
 
-## Run the frontend (local)
+## Work on the UI (local)
 
-With the server on `:8790`:
+Vite serves the UI from source with hot reload and proxies `/api/*` to `:8790`, so UI edits need no
+rebuild or server restart. `FRONTEND_PORT` moves it off `:3000`, `VITE_SERVER_URL` points it at another
+API. See [`packages/frontend/README.md`](packages/frontend/README.md).
 
-```bash
-pnpm dev:frontend
-```
+## Serving the UI from the server
 
-Vite serves the UI on `http://localhost:3000` and proxies `/v1/agents/*` → `/v1/sessions*` plus catalog routes. See [`packages/frontend/README.md`](packages/frontend/README.md).
+Deployments are one process on one origin: `/api/*` (including `/api/v1/docs` and `/api/v1/openapi.json`) and
+`/healthz` are the API, everything else resolves to the UI. `FRONTEND_DIR` points at the build (default
+`../frontend/dist`; the image sets an absolute path). It is not required: with no build there the server
+logs a warning and serves the API only, which is what running the server behind Vite needs.
 
 ## Docker Compose
 
@@ -56,10 +68,9 @@ Vite serves the UI on `http://localhost:3000` and proxies `/v1/agents/*` → `/v
 docker compose up --build
 ```
 
-Starts Postgres 17 (data in `./data/postgres`), the API, and the frontend. The server waits for Postgres to be healthy, runs migrations, then listens.
-
-- API: `http://localhost:8790`
-- UI: `http://localhost:3000` (Caddy proxies same-origin `/v1/...` to `server:8790`)
+One image serves both the UI and the API. Compose starts Postgres 17 (data in `./data/postgres`) and
+Redis, and the server waits for both to be healthy, runs migrations, then listens on
+`http://localhost:8790`.
 
 The local `.env` file, `packages/server/registry/`, and `data/` are ignored by Git. Docker Compose requires `packages/server/.env` and mounts the registry read-only into the server container.
 
