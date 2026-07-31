@@ -44,21 +44,62 @@ function uniqueEnvNames(entries: { name: string }[], ctx: z.RefinementCtx): void
   }
 }
 
+/**
+ * OpenAI-compatible providers that need an explicit `base_url` because they
+ * have no canonical well-known endpoint, or where the endpoint is
+ * deployment-specific (LiteLLM, TrueFoundry, generic compat).
+ */
+const CompatProviderSchema = z.enum(['openai-compatible', 'litellm', 'truefoundry']);
+
+const ModelEntryBaseSchema = z.object({
+  name: z.string().min(1),
+  max_output_tokens: z.number().int().positive(),
+  reasoning_efforts: z.array(z.string().min(1)).min(1).optional(),
+});
+
+/**
+ * OpenAI provider entry. Supports `openai_api` to select between the Responses
+ * API (default, required for o-series reasoning models) and the Chat Completions
+ * API (opt-in for legacy deployments or models that don't support Responses).
+ */
+const OpenAIProviderEntrySchema = ModelEntryBaseSchema.extend({
+  provider: z.literal('openai'),
+  /** Override the default OpenAI base URL (e.g. Azure OpenAI endpoint). */
+  base_url: z.string().url().optional(),
+  /**
+   * Which OpenAI API to use. Defaults to 'responses' (the Responses API, which
+   * supports reasoning models and stateless multi-turn via encrypted content).
+   * Use 'chat' for models or deployments that don't support the Responses API.
+   */
+  openai_api: z.enum(['responses', 'chat']).optional(),
+}).strict();
+
+/** All other first-party providers with Vercel AI SDK support. */
+const OtherKnownProviderEntrySchema = ModelEntryBaseSchema.extend({
+  provider: z.enum(['anthropic', 'google', 'mistral', 'openrouter', 'portkey', 'kimi']),
+  /** Override the provider's default base URL (e.g. point at a local proxy). */
+  base_url: z.string().url().optional(),
+}).strict();
+
+const CompatProviderEntrySchema = ModelEntryBaseSchema.extend({
+  provider: CompatProviderSchema,
+  /** Deployment-specific base URL — required for compat providers. */
+  base_url: z.string().url(),
+  /**
+   * Which OpenAI API surface to use. Defaults to 'chat' (Chat Completions),
+   * which works with any OpenAI-compatible gateway. Use 'responses' only for
+   * gateways that expose the OpenAI Responses API endpoint (enables `store: false`
+   * and stateless multi-turn reasoning via encrypted content).
+   */
+  openai_api: z.enum(['responses', 'chat']).optional(),
+}).strict();
+
 export const ModelEntrySchema = z
-  .object({
-    name: z.string().min(1),
-    reasoning_efforts: z.array(z.string().min(1)).min(1).optional(),
-    max_output_tokens: z.number().int().positive(),
-  })
-  .strict()
+  .union([OpenAIProviderEntrySchema, OtherKnownProviderEntrySchema, CompatProviderEntrySchema])
   .openapi('ModelEntry');
 
 export const ModelsFileSchema = z
   .object({
-    base_url: z
-      .string()
-      .url()
-      .transform(url => url.replace(/\/$/, '')),
     models: z.array(ModelEntrySchema),
   })
   .strict()

@@ -1,19 +1,76 @@
-# Models reachable through the OpenAI-compatible API at base_url.
+# Each model declares its own provider so direct vendors and gateways can be
+# mixed freely in the same registry.
 #
-# Auth headers are configured via env vars, never in this file:
-#   MODEL_API_KEY         - default API key for base_url (required)
-#   MODEL_{NAME}_API_KEY  - per-model API key override
-#   MODEL_HEADERS         - extra default headers for every model
-#   MODEL_{NAME}_HEADERS  - per-model overrides ({NAME} = model name,
-#                           uppercased, non-alphanumerics replaced by "_")
-# TODO(oss): replace internal endpoint with a placeholder before the repo
-# goes public.
-base_url: https://internal.devtest.truefoundry.tech/api/llm
+# Auth is configured via env vars, never in this file:
+#   MODEL_API_KEY              - default API key (used when no per-model override exists)
+#   MODEL_{NAME}_API_KEY       - per-model API key override
+#   MODEL_HEADERS              - extra default headers for every model
+#   MODEL_{NAME}_HEADERS       - per-model header overrides
+#   ({NAME} = model name, uppercased, non-alphanumerics replaced by "_")
+#
+# Supported providers:
+#   First-party (Vercel AI SDK):  openai | anthropic | google | mistral
+#   Named gateways (well-known base URL): openrouter | portkey | kimi
+#   Compat (requires base_url): openai-compatible | litellm | truefoundry
+#
+# base_url is optional for first-party providers (overrides the default endpoint)
+# and required for compat providers.
+#
+# openai_api selects the OpenAI API surface (openai provider only):
+#   responses  - OpenAI Responses API (default); required for o-series reasoning models.
+#                Enables store: false (no server-side storage) and retrieves
+#                reasoning.encrypted_content for stateless multi-turn reasoning.
+#   chat       - Chat Completions API; use for models or deployments that don't
+#                support the Responses API.
 
 models:
-  - name: anthropic/claude-sonnet-4-6
+  # --- Direct Anthropic ---
+  - name: claude-sonnet-4-6
+    provider: anthropic
+    max_output_tokens: 32768
     reasoning_efforts:
       - low
       - medium
       - high
+
+  # --- Direct OpenAI (Chat Completions API) ---
+  - name: gpt-4o
+    provider: openai
+    openai_api: chat
+    max_output_tokens: 16384
+
+  # --- Direct OpenAI (Responses API — o-series reasoning models) ---
+  - name: o4-mini
+    provider: openai
+    openai_api: responses
     max_output_tokens: 32768
+    reasoning_efforts:
+      - low
+      - medium
+      - high
+
+  - name: o3
+    provider: openai
+    openai_api: responses
+    max_output_tokens: 32768
+    reasoning_efforts:
+      - low
+      - medium
+      - high
+
+  # --- Direct Google ---
+  - name: gemini-2.5-flash
+    provider: google
+    max_output_tokens: 8192
+
+  # --- OpenAI-compatible gateway (e.g. LiteLLM / TrueFoundry / any OpenAI-compat proxy) ---
+  # openai_api defaults to 'chat' for compat providers; set 'responses' only if the
+  # gateway exposes the OpenAI Responses API endpoint.
+  - name: anthropic/claude-sonnet-4-6
+    provider: openai-compatible
+    base_url: https://internal.devtest.truefoundry.tech/api/llm
+    max_output_tokens: 32768
+    reasoning_efforts:
+      - low
+      - medium
+      - high
