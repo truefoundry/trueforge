@@ -15,8 +15,11 @@ No login (`auth: false`). Skills are not wired in v1.
 
 ## Local development
 
+For the full host workflow (Compose Postgres/Redis, then API + Vite), see the root
+[`README.md`](../../README.md#development).
+
 ```bash
-pnpm dev            # API on :8790 and Vite on :3000 together
+pnpm dev            # API on :8790 and Vite on :3000 together (after `pnpm dev:infra`)
 pnpm dev:frontend   # or Vite alone, against an API that is already up
 ```
 
@@ -46,7 +49,7 @@ The Monaco workers land outside Vite's asset pipeline and cannot be precompresse
 those on the fly.
 
 ```bash
-docker compose up --build   # UI + API on http://localhost:8790
+docker compose up --build   # UI + API on http://localhost:8791
 ```
 
 ## Catalogs (model + MCP)

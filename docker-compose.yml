@@ -1,11 +1,17 @@
+# Full-stack smoke test. Reads packages/server/.env for secrets (e.g.
+# MODEL_API_KEY) and credentials; host ports and in-network DB/Redis targets
+# are opinionated here so they do not collide with or inherit host-dev values.
+name: harness
+
 services:
   postgres:
     image: postgres:17
     env_file:
       - path: packages/server/.env
         required: true
+    # Host 5433 avoids conflict with docker-compose.dev.yml on 5432.
     ports:
-      - '5432:5432'
+      - '5433:5432'
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
@@ -19,8 +25,9 @@ services:
   # turn cancel via request-reply).
   redis:
     image: redis:7-alpine
+    # Host 6380 avoids conflict with docker-compose.dev.yml on 6379.
     ports:
-      - '${REDIS_PORT:-6379}:6379'
+      - '6380:6379'
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -34,15 +41,19 @@ services:
       context: .
     image: truefoundry-server:latest
     ports:
-      - '${PORT:-8790}:8790'
+      # Host 8791 avoids conflict with host `pnpm dev` on 8790.
+      - '8791:8790'
     environment:
-      # PORT the server listens on inside the container (defaults to 8790).
+      # Wins over env_file / image defaults so a host .env cannot flip this.
+      NODE_ENV: production
+      # Inside the container; host mapping above is 8791.
       PORT: 8790
-      # Compose network hostname; credentials still come from env_file.
+      # Compose network hosts — do not use packages/server/.env localhost values.
       POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
       REDIS_URL: redis://redis:6379
-    # Environment variables (MODEL_API_KEY, POSTGRES_*, etc.) are read from this file.
-    # Copy packages/server/.env.example to packages/server/.env and fill it in.
+    # Secrets and Postgres credentials (MODEL_API_KEY, POSTGRES_USER, …).
+    # `environment` above overrides any colliding keys from this file.
     env_file:
       - path: packages/server/.env
         required: true
