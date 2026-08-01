@@ -176,7 +176,6 @@ export async function cancelSessionTurn(
     return;
   }
 
-  // Not running here, so it belongs to a peer or to a process that is gone (TURN-CANCELLATION-ISSUES.md).
   const owner = executorFromTurnId(turnId);
   if (owner === configuration.EXECUTOR_ID) {
     return;
