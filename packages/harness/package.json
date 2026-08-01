@@ -5,27 +5,43 @@
   "author": "Truefoundry",
   "license": "UNLICENSED",
   "private": false,
-  "type": "commonjs",
+  "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "development": {
+        "types": "./src/index.ts",
+        "default": "./src/index.ts"
+      },
       "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
       "default": "./dist/index.mjs"
     },
     "./core": {
+      "development": {
+        "types": "./src/core/index.ts",
+        "default": "./src/core/index.ts"
+      },
       "types": "./dist/core/index.d.ts",
       "require": "./dist/core/index.js",
       "default": "./dist/core/index.mjs"
     },
     "./agent-session": {
+      "development": {
+        "types": "./src/agent-session/index.ts",
+        "default": "./src/agent-session/index.ts"
+      },
       "types": "./dist/agent-session/index.d.ts",
       "require": "./dist/agent-session/index.js",
       "default": "./dist/agent-session/index.mjs"
     },
     "./request-reply": {
+      "development": {
+        "types": "./src/request-reply/index.ts",
+        "default": "./src/request-reply/index.ts"
+      },
       "types": "./dist/request-reply/index.d.ts",
       "require": "./dist/request-reply/index.js",
       "default": "./dist/request-reply/index.mjs"
@@ -39,6 +55,10 @@
       "default": "./dist/*.js"
     },
     "./*": {
+      "development": {
+        "types": "./src/*.ts",
+        "default": "./src/*.ts"
+      },
       "types": "./dist/*.d.ts",
       "require": "./dist/*.js",
       "default": "./dist/*.mjs"

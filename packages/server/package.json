@@ -8,14 +8,14 @@
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && tsup",
-    "dev": "tsx --env-file=.env src/main.ts",
-    "migrate": "tsx --env-file=.env src/db/postgres/migrate-cli.ts",
-    "typecheck": "tsc --noEmit",
-    "openapi:write": "tsx --env-file=.env.test scripts/write-openapi.ts",
-    "test": "tsx --env-file=.env.test --test \"src/**/*.test.ts\"",
+    "dev": "NODE_OPTIONS='--conditions=development' NODE_ENV=development tsx watch --env-file=.env src/main.ts",
+    "dev:no-watch": "NODE_OPTIONS='--conditions=development' NODE_ENV=production tsx --env-file=.env src/main.ts",
+    "migrate": "NODE_OPTIONS='--conditions=development' tsx --env-file=.env src/db/postgres/migrate-cli.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tests/tsconfig.json",
+    "openapi:write": "NODE_OPTIONS='--conditions=development' tsx --env-file=.env.test scripts/write-openapi.ts",
+    "test": "NODE_OPTIONS='--conditions=development' tsx --env-file=.env.test --test \"src/**/*.test.ts\"",
     "test:store:postgres": "jest --config jest.store.postgres.config.cjs",
-    "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs",
-    "start": "node dist/main.js"
+    "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.11",

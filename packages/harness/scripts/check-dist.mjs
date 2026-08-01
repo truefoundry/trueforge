@@ -41,9 +41,17 @@ if (!fs.existsSync(distPkgPath)) {
 } else {
   const distPkg = JSON.parse(fs.readFileSync(distPkgPath, 'utf-8'));
   const staged = JSON.stringify(distPkg);
+  if (distPkg.type !== 'commonjs') {
+    failures += 1;
+    console.error('FAIL dist/package.json type must be "commonjs"');
+  }
   if (staged.includes('./dist/')) {
     failures += 1;
     console.error('FAIL dist/package.json still references ./dist/ paths');
+  }
+  if (staged.includes('./src/') || staged.includes('"development"')) {
+    failures += 1;
+    console.error('FAIL dist/package.json must not ship development → src/ export conditions');
   }
 }
 

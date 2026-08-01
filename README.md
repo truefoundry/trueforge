@@ -8,52 +8,61 @@ pnpm workspace with:
 | `@truefoundry/server` | [`packages/server`](packages/server)     | HTTP server + UI host (private; depends on utils) |
 | `frontend`            | [`packages/frontend`](packages/frontend) | Private draft-only agent chat UI (not published)  |
 
-## Develop
+## Development
+
+The API and frontend run on the host with hot reload. Postgres and Redis run in Docker.
+
+### One-time setup
 
 ```bash
 pnpm install
-pnpm build
-pnpm test
-pnpm typecheck
-```
-
-Root `build` / `typecheck` (and CI) include utils, server, and frontend.
-
-## Run the server
-
-Create the local environment and registry files from the tracked examples:
-
-```bash
 cp packages/server/.env.example packages/server/.env
 cp -R packages/server/registry-example packages/server/registry
 ```
 
-Fill in `MODEL_API_KEY` in `packages/server/.env`, then start both dev servers:
+Fill in `MODEL_API_KEY` in `packages/server/.env`. The copied defaults already connect the host server to the Compose services.
+
+### Day-to-day
+
+Terminal 1:
 
 ```bash
-pnpm dev            # API on :8790 and Vite on :3000, one terminal
+pnpm dev:infra   # Postgres + Redis (data in ./data/dev/postgres); Ctrl+C stops them
 ```
 
-| Script               | Runs                                                   |
-| -------------------- | ------------------------------------------------------ |
-| `pnpm dev`           | Both of the below, in parallel                         |
-| `pnpm dev:server`    | API only on `:8790`; never rebuilds the UI             |
-| `pnpm dev:frontend`  | Vite only on `:3000`, proxying `/api/*` to the API     |
-| `pnpm dev:server:ui` | Rebuilds the UI, then the API serves it too on `:8790` |
+Terminal 2:
 
-Open `:3000` for UI work. `:8790` serves the UI only when a build exists in `packages/frontend/dist`.
+```bash
+pnpm dev         # API on :8790 and Vite on :3000
+```
 
-Migrations run automatically on startup. To migrate without starting HTTP:
+Open `http://localhost:3000`. Frontend changes update through Vite HMR; server changes automatically restart the API on `:8790`. Vite proxies `/api/*` to the API. Local server scripts resolve `@truefoundry/utils` from source (`exports.development`), so a utils `dist/` build is not required for `pnpm dev`. For drain testing without server hot reload, use `pnpm dev:no-watch` instead of `pnpm dev`.
+
+The workspace utils package is ESM so the host server and source schemas share one ESM dependency graph. `NODE_OPTIONS=--conditions=development` selects `src/` at runtime, and TypeScript uses the same condition for source-based static analysis. Development, lint, typecheck, tests, OpenAPI generation, and migrations do not read or recreate `packages/harness/dist`; release builds, package checks, and Docker smoke tests create it intentionally.
+
+| Script              | Runs                                                                               |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| `pnpm dev:infra`    | Postgres + Redis in the foreground                                                 |
+| `pnpm dev`          | Server (`tsx watch`) + Vite                                                        |
+| `pnpm dev:no-watch` | Same, but API without hot reload (`NODE_ENV=production`) so Ctrl+C exercises drain |
+| `pnpm clean`        | Workspace build outputs and the ESLint cache                                       |
+| `pnpm clean:all`    | The same outputs plus all workspace `node_modules` directories                     |
+
+Migrations run automatically on server startup. To migrate without starting HTTP:
 
 ```bash
 pnpm --filter @truefoundry/server migrate
 ```
 
-## Work on the UI (local)
+Workspace checks:
 
-Vite serves the UI from source with hot reload and proxies `/api/*` to `:8790`, so UI edits need no
-rebuild or server restart. `FRONTEND_PORT` moves it off `:3000`, `VITE_SERVER_URL` points it at another
-API. See [`packages/frontend/README.md`](packages/frontend/README.md).
+```bash
+pnpm build
+pnpm test
+pnpm typecheck
+```
+
+Root `build` / `typecheck` (and CI) include utils, server, and frontend. `FRONTEND_PORT` moves Vite off `:3000`, `VITE_SERVER_URL` points it at another API. See [`packages/frontend/README.md`](packages/frontend/README.md).
 
 ## Serving the UI from the server
 
@@ -62,17 +71,18 @@ Deployments are one process on one origin: `/api/*` (including `/api/v1/docs` an
 `../frontend/dist`; the image sets an absolute path). It is not required: with no build there the server
 logs a warning and serves the API only, which is what running the server behind Vite needs.
 
-## Docker Compose
+## Docker Compose smoke test
+
+Full stack in containers — built server image serves API + UI (no Vite HMR):
 
 ```bash
-docker compose up --build
+pnpm smoke       # build, wait for healthy services, then check /healthz and the UI app shell
+pnpm smoke:down  # stop the stack
 ```
 
-One image serves both the UI and the API. Compose starts Postgres 17 (data in `./data/postgres`) and
-Redis, and the server waits for both to be healthy, runs migrations, then listens on
-`http://localhost:8790`.
+Open `http://localhost:8791`. Secrets and Postgres credentials come from `packages/server/.env` (`MODEL_API_KEY`, etc.). Host ports and in-network DB/Redis targets are fixed in Compose so they do not collide with development: Postgres `:5433`, Redis `:6380`, app `:8791` (vs `pnpm dev:infra` on `:5432`/`:6379` and `pnpm dev` on `:8790`/`:3000`).
 
-The local `.env` file, `packages/server/registry/`, and `data/` are ignored by Git. Docker Compose requires `packages/server/.env` and mounts the registry read-only into the server container.
+Requires `packages/server/.env` and a `packages/server/registry/` directory (mounted read-only). `.env`, `registry/`, and `data/` are gitignored. Development infra stores Postgres under `./data/dev/postgres`.
 
 ## SDK generation
 
@@ -98,5 +108,7 @@ Or namespaced:
 ```ts
 import { core, agentSession } from '@truefoundry/utils';
 ```
+
+Workspace-only `development` exports are removed from the published package. Its staged `dist/package.json` remains CommonJS so `require()` uses `.js`, while ESM consumers use `.mjs`. This preserves existing consumers such as `tfy-llm-gateway`; they do not need source changes. Consumer compatibility is checked against a packed artifact, including root, barrel, deep skill imports, and both CJS and ESM loading.
 
 Server-only deps (`hono`, `@hono/node-server`, `@hono/swagger-ui`, `yaml`) live in `packages/server` and never reach library consumers.
