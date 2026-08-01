@@ -117,11 +117,9 @@ try {
     process.exit(1);
   });
 
-  // Graceful drain only when NODE_ENV=production (image/compose, or local
-  // `dev:no-watch`). Default `tsx watch` skips handlers so restarts are not
-  // force-killed mid-drain. In the container (PID 1), without this docker
-  // stop escalates to SIGKILL.
-  if (process.env['NODE_ENV'] === 'production') {
+  // Graceful drain is the safe default for built and direct execution.
+  // Development watch mode opts out so tsx can restart without waiting for a drain.
+  if (process.env['NODE_ENV'] !== 'development') {
     let shuttingDown = false;
     const shutdown = async (signal: NodeJS.Signals) => {
       if (shuttingDown) return;
