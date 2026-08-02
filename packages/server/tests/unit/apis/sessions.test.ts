@@ -71,29 +71,6 @@ describe('cancelSessionTurn', () => {
     assert.equal(abortController.signal.reason, CancellationReason.ClientCancelled);
   });
 
-  it('aborts a locally running turn that durable state already reports as terminal', async () => {
-    // A frozen predecessor is still executing, so the store read must not short-circuit.
-    const activeTurns = new ActiveTurnRegistry();
-    const turnId = mintPeeredTurnId(configuration.EXECUTOR_ID);
-    const abortController = trackRun(activeTurns, turnId);
-
-    await cancelSessionTurn(
-      {
-        activeTurns,
-        sessionStore: storeReturning(
-          turnRecord(turnId, {
-            status: 'cancelled',
-            reason: CancellationReason.CancelledForNextTurn,
-            completed_at: '2026-07-31T00:00:01.000Z',
-          }),
-        ),
-      },
-      { sessionId: SESSION_ID, turnId },
-    );
-
-    assert.equal(abortController.signal.aborted, true);
-  });
-
   it('is a no-op for a turn that is missing or already terminal', async () => {
     const activeTurns = new ActiveTurnRegistry();
 

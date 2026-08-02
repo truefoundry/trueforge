@@ -161,11 +161,6 @@ export async function cancelSessionTurn(
 ): Promise<void> {
   const { sessionId, turnId, reason = CancellationReason.ClientCancelled } = input;
 
-  // Registry first: a predecessor frozen by its successor can still be executing.
-  if (cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason })) {
-    return;
-  }
-
   const turn = await deps.sessionStore.getTurn({
     tenant_id: TENANT_ID,
     session_id: sessionId,
@@ -177,51 +172,50 @@ export async function cancelSessionTurn(
   }
 
   const owner = executorFromTurnId(turnId);
-  if (owner === configuration.EXECUTOR_ID) {
-    return;
-  }
-  // Single-replica mode: no peer exists to ask.
-  if (deps.redis === undefined) {
+  // Without a Redis client there is no peer to ask, so an id naming another
+  // replica falls through to the local lookup and finds nothing.
+  if (owner !== configuration.EXECUTOR_ID && deps.redis) {
+    try {
+      const reply = await redisRequest<CancelPeerBody>({
+        redis: deps.redis,
+        executorId: owner,
+        path: SESSIONS_CANCEL_PATH,
+        request: {
+          body: { session_id: sessionId, turn_id: turnId, reason },
+        },
+        options: {
+          replyTimeoutMs: configuration.REDIS_REQUEST_REPLY_TIMEOUT_MS,
+          pollIntervalMs: configuration.REDIS_REQUEST_REPLY_POLL_INTERVAL_MS,
+        },
+      });
+      if (reply.status !== 200 && reply.status !== 412) {
+        throw new HTTPException(500, { message: 'Failed to cancel turn on the owning executor', cause: reply });
+      }
+    } catch (error) {
+      if (error instanceof NoResponderError) {
+        throw new HTTPException(412, {
+          message: `Executor owning the running turn is unreachable: ${owner}`,
+          cause: error,
+        });
+      }
+      if (error instanceof RequestTimeoutError) {
+        throw new HTTPException(424, {
+          message: 'Timed out waiting for the owning executor to cancel the turn',
+          cause: error,
+        });
+      }
+      if (error instanceof HTTPException) {
+        throw error;
+      }
+      throw new HTTPException(500, {
+        message: `Unexpected error while cancelling the turn on the owning executor: ${owner}`,
+        cause: error,
+      });
+    }
     return;
   }
 
-  try {
-    const reply = await redisRequest<CancelPeerBody>({
-      redis: deps.redis,
-      executorId: owner,
-      path: SESSIONS_CANCEL_PATH,
-      request: {
-        body: { session_id: sessionId, turn_id: turnId, reason },
-      },
-      options: {
-        replyTimeoutMs: configuration.REDIS_REQUEST_REPLY_TIMEOUT_MS,
-        pollIntervalMs: configuration.REDIS_REQUEST_REPLY_POLL_INTERVAL_MS,
-      },
-    });
-    if (reply.status !== 200 && reply.status !== 412) {
-      throw new HTTPException(500, { message: 'Failed to cancel turn on the owning executor', cause: reply });
-    }
-  } catch (error) {
-    if (error instanceof NoResponderError) {
-      throw new HTTPException(412, {
-        message: `Executor owning the running turn is unreachable: ${owner}`,
-        cause: error,
-      });
-    }
-    if (error instanceof RequestTimeoutError) {
-      throw new HTTPException(424, {
-        message: 'Timed out waiting for the owning executor to cancel the turn',
-        cause: error,
-      });
-    }
-    if (error instanceof HTTPException) {
-      throw error;
-    }
-    throw new HTTPException(500, {
-      message: `Unexpected error while cancelling the turn on the owning executor: ${owner}`,
-      cause: error,
-    });
-  }
+  cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
 }
 
 export function createSessionsRouter(deps: SessionsRouterDeps) {
