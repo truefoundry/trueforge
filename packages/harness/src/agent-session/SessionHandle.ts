@@ -272,7 +272,7 @@ export class SessionHandle<
         },
       };
 
-      await this.store.createTurn({
+      this.session = await this.store.createTurn({
         tenant_id: this.tenant_id,
         turn: turnInit,
         new_threads,
@@ -283,14 +283,6 @@ export class SessionHandle<
         })),
         update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
       });
-
-      const refreshed = await this.store.getSession({
-        tenant_id: this.tenant_id,
-        session_id: this.session.session_id,
-      });
-      if (refreshed) {
-        this.session = refreshed;
-      }
 
       return new TurnHandle({
         store: this.store,
@@ -312,18 +304,11 @@ export class SessionHandle<
 
   /** Returns the turn handle (store-backed; not executable), or undefined if not found. */
   async getTurn(turn_id: string): Promise<TurnHandle<TTurnCustom> | undefined> {
-    const turn = await this.store.getTurn({
+    return TurnHandle.fromIds({
+      store: this.store,
       tenant_id: this.tenant_id,
       session_id: this.session.session_id,
       turn_id,
-    });
-    if (!turn) {
-      return undefined;
-    }
-    return TurnHandle.fromRecord({
-      store: this.store,
-      tenantId: this.tenant_id,
-      turn,
     });
   }
 

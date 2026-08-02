@@ -34,7 +34,7 @@ function parseSessionCustom(value: Record<string, unknown> | null): SessionCusto
   return value;
 }
 
-function mapRowToSessionRecord(row: {
+export function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
   agent_spec: AgentSpec;

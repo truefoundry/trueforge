@@ -1,6 +1,7 @@
 import { EventType } from '../../src/agent-session/schemas/events';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
+import { TurnHandle } from '../../src/agent-session/TurnHandle';
 import { makeAgentSpec, makeTestResolver, mintTestTurnId } from './testHelpers';
 
 describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
@@ -31,6 +32,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       session_id: 's1',
       agent_spec: makeAgentSpec(),
     });
+    const getSession = jest.spyOn(store, 'getSession');
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
@@ -41,6 +43,9 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     });
     expect(turn.state.status).toBe('running');
     expect(turn.input).toHaveLength(1);
+    expect(getSession).not.toHaveBeenCalled();
+    expect(session.record.title).toBe('From first message');
+    expect(session.record.last_turn_id).toBe(turn.id);
 
     const stored = await store.getTurn({
       tenant_id: tenant,
@@ -51,6 +56,90 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const sessionRecord = await store.getSession({ tenant_id: tenant, session_id: 's1' });
     expect(sessionRecord?.title).toBe('From first message');
     expect(sessionRecord?.last_turn_id).toBe(turn.id);
+  });
+
+  it('loads a turn handle directly from tenant, session, and turn ids', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: tenant,
+      session_id: 's1',
+      agent_spec: makeAgentSpec(),
+    });
+    const created = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      previous_turn_id: null,
+      signal: new AbortController().signal,
+      resolver: makeTestResolver(),
+    });
+    const getSession = jest.spyOn(store, 'getSession');
+
+    const loaded = await TurnHandle.fromIds({
+      store,
+      tenant_id: tenant,
+      session_id: 's1',
+      turn_id: created.id,
+    });
+
+    expect(loaded?.id).toBe(created.id);
+    expect(getSession).not.toHaveBeenCalled();
+
+    const missing = await TurnHandle.fromIds({
+      store,
+      tenant_id: tenant,
+      session_id: 's1',
+      turn_id: 'missing-turn',
+    });
+    expect(missing).toBeUndefined();
+    expect(getSession).not.toHaveBeenCalled();
+  });
+
+  it('getTurn loads without a session read', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: tenant,
+      session_id: 's1',
+      agent_spec: makeAgentSpec(),
+    });
+    const created = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      previous_turn_id: null,
+      signal: new AbortController().signal,
+      resolver: makeTestResolver(),
+    });
+    const getSession = jest.spyOn(store, 'getSession');
+
+    const loaded = await session.getTurn(created.id);
+    expect(loaded?.id).toBe(created.id);
+    expect(await session.getTurn('missing-turn')).toBeUndefined();
+    expect(getSession).not.toHaveBeenCalled();
+  });
+
+  it('keeps the handle synchronized with the authoritative session update', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: tenant,
+      session_id: 's1',
+      agent_spec: makeAgentSpec(),
+    });
+    await store.updateSession({
+      tenant_id: tenant,
+      session_id: 's1',
+      agent_spec: undefined,
+      title: 'Existing title',
+    });
+
+    await session.createTurn({
+      turn_id: mintTestTurnId(),
+      previous_turn_id: null,
+      signal: new AbortController().signal,
+      resolver: makeTestResolver(),
+      update_session_title_if_not_exist: 'New title',
+    });
+
+    expect(session.record.title).toBe('Existing title');
   });
 
   it('custom value vs merge-fn', async () => {

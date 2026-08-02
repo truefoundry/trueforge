@@ -220,7 +220,7 @@ export class InMemorySessionStore<
     return { data: deepCopy(page.data), pagination: page.pagination };
   }
 
-  async createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void> {
+  async createTurn(input: CreateTurnInput<TTurnCustom>): Promise<SessionRecord<TSessionCustom>> {
     // Atomicity is free here: this body is fully synchronous, so Node's
     // run-to-completion guarantees it. Real backends must still use their own
     // locking/transactions to satisfy the ISessionStore createTurn contract.
@@ -271,6 +271,7 @@ export class InMemorySessionStore<
     if (input.update_session_title_if_not_exist !== null && stored.record.title === null) {
       stored.record.title = input.update_session_title_if_not_exist;
     }
+    return deepCopy(stored.record);
   }
 
   async freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>> {

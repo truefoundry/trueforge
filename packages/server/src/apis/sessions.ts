@@ -308,12 +308,10 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   const listSessionEventsHandler: RouteHandler<typeof listSessionEventsRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
-    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
-    if (!session) {
-      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
-    }
     try {
-      const { data, pagination } = await session.listEvents({
+      const { data, pagination } = await deps.sessionStore.listSessionEvents({
+        tenant_id: TENANT_ID,
+        session_id: sessionId,
         limit: query.limit,
         page_token: query.page_token,
         last_turn_id: query.last_turn_id,

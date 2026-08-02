@@ -1,9 +1,10 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { Sessions, Turn, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
+import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import {
   CancellationReason,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
+  TurnHandle,
   TurnResourceResolver,
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
@@ -40,6 +41,7 @@ function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
 
 export interface TurnsRouterDeps {
   sessions: Sessions;
+  sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
   modelStore: ModelStore;
   mcpStore: McpStore;
@@ -127,17 +129,18 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
-    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
-    if (!session) {
-      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
-    }
     try {
-      const { data, pagination } = await session.listTurns({
+      const { data, pagination } = await deps.sessionStore.listTurns({
+        tenant_id: TENANT_ID,
+        session_id: sessionId,
         limit: query.limit,
         page_token: query.page_token,
       });
       return c.json({ data: data.map(toWireTurn), pagination }, 200);
     } catch (error) {
+      if (error instanceof SessionStoreNotFoundError) {
+        return c.json({ error: { message: error.message } }, 404);
+      }
       if (error instanceof SessionStoreConflictError) {
         return c.json({ error: { message: error.message } }, 400);
       }
@@ -147,11 +150,12 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
   const getTurnHandler: RouteHandler<typeof getTurnRoute> = async c => {
     const { sessionId, turnId } = c.req.valid('param');
-    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
-    if (!session) {
-      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
-    }
-    const turn = await session.getTurn(turnId);
+    const turn = await TurnHandle.fromIds({
+      store: deps.sessionStore,
+      tenant_id: TENANT_ID,
+      session_id: sessionId,
+      turn_id: turnId,
+    });
     if (!turn) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
@@ -161,11 +165,12 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   const listTurnEventsHandler: RouteHandler<typeof listTurnEventsRoute> = async c => {
     const { sessionId, turnId } = c.req.valid('param');
     const query = c.req.valid('query');
-    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
-    if (!session) {
-      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
-    }
-    const turn = await session.getTurn(turnId);
+    const turn = await TurnHandle.fromIds({
+      store: deps.sessionStore,
+      tenant_id: TENANT_ID,
+      session_id: sessionId,
+      turn_id: turnId,
+    });
     if (!turn) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }

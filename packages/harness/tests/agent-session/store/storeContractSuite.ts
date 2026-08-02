@@ -220,8 +220,9 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       const before = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       await new Promise(r => setTimeout(r, 5));
-      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const updated = await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       const after = await store.getSession({ tenant_id: tenant, session_id: sessionId });
+      expect(updated).toEqual(mustGet(after));
       expect(mustGet(after).last_turn_id).toBe('turn-1');
       expect(mustGet(after).last_activity_timestamp_ms).toBeGreaterThan(mustGet(before).last_activity_timestamp_ms);
     });
@@ -1214,6 +1215,58 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         page_token: page1.pagination.next_page_token,
       });
       expect(page2.data.map(t => t.turn_id)).toEqual(['t3']);
+    });
+
+    it('listTurns rejects a missing session', async () => {
+      const store = createStore();
+      await expect(
+        store.listTurns({
+          tenant_id: tenant,
+          session_id: 'missing',
+          limit: 10,
+          page_token: undefined,
+        }),
+      ).rejects.toBeInstanceOf(SessionStoreNotFoundError);
+    });
+
+    it('listTurns on an empty session returns an empty page', async () => {
+      const store = createStore();
+      await seedSession(store);
+      const page = await store.listTurns({
+        tenant_id: tenant,
+        session_id: sessionId,
+        limit: 10,
+        page_token: undefined,
+      });
+      expect(page.data).toEqual([]);
+      expect(page.pagination.next_page_token).toBeUndefined();
+    });
+
+    it('listSessionEvents rejects a missing session', async () => {
+      const store = createStore();
+      await expect(
+        store.listSessionEvents({
+          tenant_id: tenant,
+          session_id: 'missing',
+          limit: 10,
+          page_token: undefined,
+          last_turn_id: undefined,
+        }),
+      ).rejects.toBeInstanceOf(SessionStoreNotFoundError);
+    });
+
+    it('listSessionEvents on an empty session returns an empty page', async () => {
+      const store = createStore();
+      await seedSession(store);
+      const page = await store.listSessionEvents({
+        tenant_id: tenant,
+        session_id: sessionId,
+        limit: 10,
+        page_token: undefined,
+        last_turn_id: undefined,
+      });
+      expect(page.data).toEqual([]);
+      expect(page.pagination.next_page_token).toBeUndefined();
     });
 
     it('listTurnEvents supports desc order', async () => {

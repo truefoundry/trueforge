@@ -119,6 +119,28 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return new TurnHandle(options);
   }
 
+  /** Loads a store-only handle directly from its durable scope. */
+  static async fromIds<TCustom extends object = Record<string, never>>(options: {
+    store: ISessionStore<object, TCustom>;
+    tenant_id: string;
+    session_id: string;
+    turn_id: string;
+  }): Promise<TurnHandle<TCustom> | undefined> {
+    const turn = await options.store.getTurn({
+      tenant_id: options.tenant_id,
+      session_id: options.session_id,
+      turn_id: options.turn_id,
+    });
+    if (!turn) {
+      return undefined;
+    }
+    return TurnHandle.fromRecord({
+      store: options.store,
+      tenantId: options.tenant_id,
+      turn,
+    });
+  }
+
   get id(): string {
     return this.turn.turn_id;
   }
