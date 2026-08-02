@@ -7,24 +7,28 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "sdk:build": "pnpm --pm-on-fail=ignore --dir ../sdk build",
+    "predev": "pnpm run sdk:build",
     "dev": "trap 'exit 0' INT TERM; vite",
     "dev:no-watch": "pnpm run dev",
+    "prebuild": "pnpm run sdk:build",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "pretypecheck": "pnpm run sdk:build",
     "typecheck": "tsc --noEmit",
+    "pretest": "pnpm run sdk:build",
     "test": "tsx --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
-    "@assistant-ui/core": "0.2.21",
+    "@assistant-ui/core": "0.2.22",
     "@assistant-ui/react": "^0.14.24",
-    "@assistant-ui/store": "0.2.20",
-    "@truefoundry/agent-ui-sdk": "0.0.8",
-    "@truefoundry/assistant-ui-runtime": "0.1.4",
+    "@assistant-ui/store": "0.2.21",
+    "@truefoundry/agent-ui-sdk": "^0.1.2-rc.0",
+    "@truefoundry/assistant-ui-runtime": "file:./vendor/truefoundry-assistant-ui-runtime-0.1.6-rc.2.tgz",
     "monaco-editor": "^0.52.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "tfy-web-components": "^0.0.31",
-    "truefoundry-gateway-sdk": "0.4.0-rc.2"
+    "trueharness": "link:../sdk"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

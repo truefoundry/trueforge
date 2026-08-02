@@ -27,6 +27,8 @@ RUN apt-get update \
 FROM build-base AS store
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches patches
+# Local file: deps (e.g. assistant-ui-runtime tarball) must exist before fetch.
+COPY packages/frontend/vendor packages/frontend/vendor
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 
 # ---------------------------------------------------------------------------
@@ -58,6 +60,13 @@ FROM workspace AS frontend-builder
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
   pnpm install --frozen-lockfile --offline --filter frontend...
 COPY packages/frontend packages/frontend
+# trueharness is linked from packages/sdk (outside the pnpm workspace).
+COPY packages/sdk/package.json packages/sdk/pnpm-lock.yaml packages/sdk/pnpm-workspace.yaml packages/sdk/
+COPY packages/sdk/scripts packages/sdk/scripts
+COPY packages/sdk/src packages/sdk/src
+COPY packages/sdk/tsconfig*.json packages/sdk/
+RUN --mount=type=cache,id=pnpm-sdk,target=/pnpm/store \
+  cd packages/sdk && pnpm install --frozen-lockfile
 RUN pnpm --filter frontend build
 
 # ---------------------------------------------------------------------------

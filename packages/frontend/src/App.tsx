@@ -1,126 +1,28 @@
-import { AssistantRuntimeProvider, useAui, useAuiState } from '@assistant-ui/react';
-import { ErrorToasterProvider, SlotsProvider, Thread } from '@truefoundry/agent-ui-sdk';
-import { useTrueFoundryAgentRuntime, type AgentSpec } from '@truefoundry/assistant-ui-runtime';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ThemeProvider } from 'tfy-web-components/components/theme/useTheme';
-import { AgentSessionClient } from 'truefoundry-gateway-sdk/agents';
-import { PrivateAgentSessionClient } from 'truefoundry-gateway-sdk/agents/private';
+import { createTrueFoundryServer, TrueFoundryAssistantUI } from '@truefoundry/agent-ui-sdk';
+import { useEffect, useMemo, useState } from 'react';
 import { ApiErrorCard } from './ApiErrorCard';
-import { ServerCapabilitiesProvider } from './capabilities';
-import { getCapabilities, listModels, type ServerCapabilities } from './catalog';
-import { AppComposerShell } from './ComposerShell';
-import { harnessFetch } from './harnessFetch';
-import { PanelLeftIcon } from './icons';
-import { AppWelcomeScreen } from './slots';
-import { ThreadHeader } from './ThreadHeader';
-import { ThreadSidebar } from './ThreadSidebar';
+import { getCapabilities, listMcpServers, listModels } from './catalog';
+import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';
 
-const client = new AgentSessionClient({
-  baseUrl: '/',
-  auth: false,
-  fetch: harnessFetch,
-});
-
-const privateClient = new PrivateAgentSessionClient({
-  baseUrl: '/',
-  auth: false,
-  fetch: harnessFetch,
-});
-
-const slotOverrides = {
-  WelcomeScreen: AppWelcomeScreen,
-  ComposerShell: AppComposerShell,
-  ComposerRightSection: () => null,
-  ComposerLeftSection: () => null,
-  ComposerSendButton: () => null,
-};
-
-/**
- * The backend generates the session title once the first turn streams. Reload
- * the thread list when streaming starts and ends so the sidebar and header
- * (both read from `threads.threadItems`) pick up the new title.
- */
-function ThreadTitleSync() {
-  const aui = useAui();
-  const isRunning = useAuiState(state => state.threads.main.isRunning);
-  const mountedRef = useRef(false);
-  useEffect(() => {
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      return;
-    }
-    void aui.threads().reload();
-  }, [aui, isRunning]);
-  return null;
+/** Harness model names are `provider/model`. */
+function providerOf(name: string): string {
+  return name.split('/')[0] ?? name;
 }
 
-function ChatApp({
-  defaultAgentSpec,
-  capabilities,
-}: {
-  defaultAgentSpec: AgentSpec;
-  capabilities: ServerCapabilities;
-}) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const runtime = useTrueFoundryAgentRuntime({
-    client,
-    privateClient,
-    agent: {
-      mode: 'draft',
-      defaultAgentSpec,
-    },
-  });
-
-  return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <ServerCapabilitiesProvider capabilities={capabilities}>
-        <ThemeProvider theme="dark">
-          <SlotsProvider theme="dark" overrides={slotOverrides}>
-            <ErrorToasterProvider>
-              <ThreadTitleSync />
-              <div className="app-shell">
-                {sidebarOpen ? (
-                  <aside className="app-sidebar">
-                    <div className="sidebar-top">
-                      <span className="sidebar-brand">Harness</span>
-                      <button
-                        type="button"
-                        className="icon-btn"
-                        aria-label="Collapse sidebar"
-                        onClick={() => {
-                          setSidebarOpen(false);
-                        }}
-                      >
-                        <PanelLeftIcon />
-                      </button>
-                    </div>
-                    <ThreadSidebar />
-                  </aside>
-                ) : null}
-                <div className="app-main">
-                  <ThreadHeader
-                    sidebarCollapsed={!sidebarOpen}
-                    onExpandSidebar={() => {
-                      setSidebarOpen(true);
-                    }}
-                  />
-                  <div className="app-thread-body">
-                    <Thread />
-                  </div>
-                  <ApiErrorCard />
-                </div>
-              </div>
-            </ErrorToasterProvider>
-          </SlotsProvider>
-        </ThemeProvider>
-      </ServerCapabilitiesProvider>
-    </AssistantRuntimeProvider>
-  );
-}
+const server = createTrueFoundryServer<HarnessAgentSpec>({
+  chatServer: createHarnessChatServer(),
+  getModels: async () => (await listModels()).map(model => ({ name: model.name, provider: providerOf(model.name) })),
+  // The SDK's skill picker writes gateway mounts (`fqn`, `preload`) while Harness
+  // admission requires git mounts (`type`, `url`, `ref`), so skills stay unlisted.
+  getSkills: () => Promise.resolve([]),
+  getMcp: async () =>
+    (await listMcpServers()).map(server => ({ id: server.name, name: server.name, description: server.url })),
+  searchAgents: () => Promise.resolve([]),
+  saveAgent: () => Promise.reject(new Error('Harness has no agent registry — sessions are draft-only')),
+});
 
 export function App() {
-  const [defaultAgentSpec, setDefaultAgentSpec] = useState<AgentSpec | null>(null);
-  const [capabilities, setCapabilities] = useState<ServerCapabilities | null>(null);
+  const [defaultAgentSpec, setDefaultAgentSpec] = useState<HarnessAgentSpec | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -134,7 +36,7 @@ export function App() {
     const state = { cancelled: false };
     void (async () => {
       try {
-        const [models, serverCapabilities] = await Promise.all([listModels(), getCapabilities()]);
+        const [models, capabilities] = await Promise.all([listModels(), getCapabilities()]);
         const first = models[0];
         if (!first) {
           throw new Error('No models in GET /api/v1/models — check models.yaml');
@@ -146,9 +48,8 @@ export function App() {
               name: first.name,
               ...(defaultReasoningEffort ? { params: { reasoningEffort: defaultReasoningEffort } } : {}),
             },
-            config: { sandbox: { enabled: serverCapabilities.sandbox.enabled } },
+            config: { sandbox: { enabled: capabilities.sandbox.enabled } },
           });
-          setCapabilities(serverCapabilities);
         }
       } catch (err) {
         if (!state.cancelled) {
@@ -161,10 +62,7 @@ export function App() {
     };
   }, []);
 
-  const loading = useMemo(
-    () => (defaultAgentSpec == null || capabilities == null) && bootError == null,
-    [defaultAgentSpec, capabilities, bootError],
-  );
+  const loading = useMemo(() => defaultAgentSpec == null && bootError == null, [defaultAgentSpec, bootError]);
 
   if (bootError) {
     return (
@@ -175,7 +73,7 @@ export function App() {
     );
   }
 
-  if (loading || defaultAgentSpec == null || capabilities == null) {
+  if (loading || defaultAgentSpec == null) {
     return (
       <div className="boot-screen">
         Loading application…
@@ -184,5 +82,16 @@ export function App() {
     );
   }
 
-  return <ChatApp defaultAgentSpec={defaultAgentSpec} capabilities={capabilities} />;
+  return (
+    <div className="app-root">
+      <TrueFoundryAssistantUI
+        server={server}
+        layout="sidebar"
+        defaultAgentSpec={defaultAgentSpec}
+        theme={{ mode: 'dark' }}
+        className="app-assistant"
+      />
+      <ApiErrorCard />
+    </div>
+  );
 }

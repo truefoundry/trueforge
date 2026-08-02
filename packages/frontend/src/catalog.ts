@@ -11,14 +11,6 @@ export interface McpServerEntry {
   url: string;
 }
 
-export interface SkillEntry {
-  name: string;
-  url: string;
-  path?: string;
-  ref?: string;
-  description: string;
-}
-
 export interface ServerCapabilities {
   sandbox: {
     enabled: boolean;
@@ -48,11 +40,6 @@ export async function listModels(): Promise<ModelEntry[]> {
 
 export async function listMcpServers(): Promise<McpServerEntry[]> {
   const body = await fetchJson<ListEnvelope<McpServerEntry>>('/api/v1/mcp-servers');
-  return body.data;
-}
-
-export async function listSkills(): Promise<SkillEntry[]> {
-  const body = await fetchJson<ListEnvelope<SkillEntry>>('/api/v1/skills');
   return body.data;
 }
 
