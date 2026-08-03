@@ -47,15 +47,10 @@ export {
 } from './capabilities/builtins/LargeToolResponse';
 export { openUI } from './capabilities/builtins/OpenUI';
 
-// Generic OAuth state store (not MCP-specific; MCP orchestration below is one caller of this)
+// Generic OAuth state store (pending authorization + token only — no client/server registration,
+// see core/auth/IOAuthTokenStore.ts's doc comment). MCP's own store composes this.
 export { InMemoryOAuthTokenStore } from './auth/InMemoryOAuthTokenStore';
-export type {
-  IOAuthTokenStore,
-  OAuthClient,
-  OAuthPendingAuthorization,
-  OAuthServer,
-  OAuthToken,
-} from './auth/IOAuthTokenStore';
+export type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from './auth/IOAuthTokenStore';
 
 // MCP contracts
 export type { ApprovalDecision } from './events/schema';

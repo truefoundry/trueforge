@@ -9,15 +9,13 @@ import type {
   ContextMessage,
   JsonValue,
   MCPServerInitInfo,
-  OAuthClient,
-  OAuthPendingAuthorization,
-  OAuthServer,
   SandboxInfo,
   SubAgentCompletionMarker,
 } from '@truefoundry/utils/core';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../store/schemas';
+import type { McpOAuthPendingAuthorizationData, McpOAuthToken, OAuthClient, OAuthServer } from '../mcpOAuthTypes';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -318,7 +316,7 @@ export interface OAuthTokenTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
   /** access_token, refresh_token, expires_at, scope. */
-  token: JSONColumnType<OAuthToken, OAuthToken, OAuthToken>;
+  token: JSONColumnType<McpOAuthToken, McpOAuthToken, McpOAuthToken>;
   updated_at: Date;
 }
 
@@ -332,7 +330,12 @@ export interface OAuthPendingAuthorizationTable {
   id: string;
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
-  auth_data: JSONColumnType<OAuthPendingAuthorization, OAuthPendingAuthorization, OAuthPendingAuthorization>;
+  /** { codeVerifier?, redirectUrl? } — `state`/`serverId` live in `id`/`oauth_server_id` columns, not this blob. */
+  auth_data: JSONColumnType<
+    McpOAuthPendingAuthorizationData,
+    McpOAuthPendingAuthorizationData,
+    McpOAuthPendingAuthorizationData
+  >;
   /** used for TTL expiry on read, no sweep job */
   created_at: Date;
 }
