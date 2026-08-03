@@ -6,9 +6,16 @@ import type {
   PreLLMEphemeralAgentContextProcessor,
   PreSendContextProcessor,
 } from './AgentContextProcessor';
-import type { JsonValue } from './CapabilityState';
 import type { ToolResponseProcessor } from './ToolResponseProcessor';
-export type { CapabilityState, JsonValue } from './CapabilityState';
+
+/**
+ * JSON-serializable value. Excludes `undefined` — durability is jsonb/JSON, so
+ * clears use `null` and absent data omits the key or the map.
+ */
+export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+
+/** Cross-turn capability KV map. Keys: capability.state.key; `tfy.` reserved for builtins. */
+export type CapabilityState = Record<string, JsonValue>;
 
 export interface AgentCapability {
   readonly systemToolSets?: readonly IToolSet[] | undefined;

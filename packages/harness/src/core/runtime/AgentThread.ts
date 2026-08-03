@@ -4,7 +4,7 @@ import type {
   ChatCompletionTool,
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
-import type { AgentCapability } from '../capabilities/AgentCapability';
+import type { AgentCapability, CapabilityState } from '../capabilities/AgentCapability';
 import type {
   AgentContextProcessorOutput,
   AgentContextProcessorOverwriteContext,
@@ -15,7 +15,6 @@ import type {
   PreSendContextProcessor,
 } from '../capabilities/AgentContextProcessor';
 import { SUB_AGENT_IDENTITY } from '../capabilities/builtins/DynamicSubAgents';
-import type { CapabilityState } from '../capabilities/CapabilityState';
 import type { ToolResponseProcessor } from '../capabilities/ToolResponseProcessor';
 import { AgentHarnessError, InvalidAgentSendInputError } from '../errors';
 import type { RegisteredPassthroughEvent } from '../events/PassthroughEvents';
@@ -56,11 +55,11 @@ import { estimateTokensForString } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
-import type { Sandbox } from '../sandbox/Sandbox';
-import type { SandboxInfo } from '../sandbox/SandboxInfo';
+import type { Sandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import type { AgentDefinition } from './AgentDefinition';
 import type {
+  AgentThreadConstructorInput,
   AgentThreadRuntimeSendBatch,
   AgentThreadRuntimeSendInput,
   AgentThreadSnapshot,
@@ -99,26 +98,6 @@ import { DeferredTool } from './DeferredTool';
 import { createEmptyAgentThreadMetrics, updateMetricsFromUsage, type AgentThreadMetrics } from './metrics';
 import { getClosableOpenToolCallIds, OpenToolCallCloser } from './OpenToolCallCloser';
 import { isEmptyMessageContent, processAgentUserInput, type AgentInputUserMessage } from './UserInputMessage';
-
-export interface AgentThreadConstructorInput {
-  definition: AgentDefinition;
-  threadId: string;
-  title: string;
-  parent?: AgentParent | undefined;
-  agentInfo?: AgentInfo | undefined;
-  context?: ContextMessage[] | undefined;
-  currentContextUsage?: CurrentContextUsage | undefined;
-  preComputedCompletion?: SubAgentCompletionMarker | undefined;
-  sandbox?: Sandbox | undefined;
-  capabilities?: readonly AgentCapability[] | undefined;
-  /**
-   * Previous turn's capability_state for hydration. Optional — omit on first
-   * turn / fresh sub-agent. The constructor is the sole hydration site.
-   */
-  capabilityState?: CapabilityState | undefined;
-  tracing: AgentTracing;
-  logger: Logger;
-}
 
 const DEFAULT_ITERATION_LIMIT = 25;
 

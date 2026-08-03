@@ -8,8 +8,7 @@ import {
   type UserContentPart,
 } from '../events/schema';
 import type { LLMUserMessage } from '../llm/LLMTypes';
-import type { Sandbox } from '../sandbox/Sandbox';
-import type { SandboxInfo } from '../sandbox/SandboxInfo';
+import type { Sandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentSendInput } from './AgentThread.types';
 import { internalSystemTag } from './contextUtils';
 

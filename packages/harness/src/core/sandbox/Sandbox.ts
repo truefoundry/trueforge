@@ -18,13 +18,15 @@ import { extractErrorLogFields } from '../util/errorLogFields';
 import { SANDBOX_FILE_UPLOADS_DIR, SANDBOX_NATS_WS_PORT } from './constants';
 import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
 import { validateNoPathTraversal, validateSandboxOwnedByTenant } from './SandboxErrors';
-import type { SandboxInfo } from './SandboxInfo';
 import { SandboxNatsBridge } from './SandboxNatsBridge';
 import { sandboxScripts } from './sandboxScripts.gen';
-export type { SandboxInfo } from './SandboxInfo';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
 import { SKILLS_DIR } from './skills/constants';
 import type { ISkillMounter } from './skills/ISkillMounter';
+
+export interface SandboxInfo {
+  sandbox_id: string;
+}
 
 // Downloader/setup scripts can run longer than a normal exec.
 export const SKILL_DOWNLOAD_TIMEOUT_SECONDS = 180;

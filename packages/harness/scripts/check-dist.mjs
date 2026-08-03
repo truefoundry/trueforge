@@ -24,10 +24,10 @@ let failures = 0;
 for (const modulePath of modulePaths) {
   const base = path.join(pkgRoot, modulePath);
   try {
-    require(`${base}.cjs`);
-    await import(pathToFileURL(`${base}.js`).href);
+    require(`${base}.js`);
+    await import(pathToFileURL(`${base}.mjs`).href);
     if (!fs.existsSync(`${base}.d.ts`)) throw new Error('missing .d.ts');
-    console.log(`ok ${modulePath}.{cjs,js,d.ts}`);
+    console.log(`ok ${modulePath}.{js,mjs,d.ts}`);
   } catch (error) {
     failures += 1;
     console.error(`FAIL ${modulePath}: ${error instanceof Error ? error.message : String(error)}`);

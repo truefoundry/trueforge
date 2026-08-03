@@ -16,8 +16,8 @@
         "default": "./src/index.ts"
       },
       "types": "./dist/index.d.ts",
-      "require": "./dist/index.cjs",
-      "default": "./dist/index.js"
+      "require": "./dist/index.js",
+      "default": "./dist/index.mjs"
     },
     "./core": {
       "development": {
@@ -25,8 +25,8 @@
         "default": "./src/core/index.ts"
       },
       "types": "./dist/core/index.d.ts",
-      "require": "./dist/core/index.cjs",
-      "default": "./dist/core/index.js"
+      "require": "./dist/core/index.js",
+      "default": "./dist/core/index.mjs"
     },
     "./agent-session": {
       "development": {
@@ -34,8 +34,8 @@
         "default": "./src/agent-session/index.ts"
       },
       "types": "./dist/agent-session/index.d.ts",
-      "require": "./dist/agent-session/index.cjs",
-      "default": "./dist/agent-session/index.js"
+      "require": "./dist/agent-session/index.js",
+      "default": "./dist/agent-session/index.mjs"
     },
     "./request-reply": {
       "development": {
@@ -43,16 +43,16 @@
         "default": "./src/request-reply/index.ts"
       },
       "types": "./dist/request-reply/index.d.ts",
-      "require": "./dist/request-reply/index.cjs",
-      "default": "./dist/request-reply/index.js"
+      "require": "./dist/request-reply/index.js",
+      "default": "./dist/request-reply/index.mjs"
     },
     "./*.mjs": {
       "types": "./dist/*.d.ts",
-      "default": "./dist/*.js"
+      "default": "./dist/*.mjs"
     },
-    "./*.cjs": {
+    "./*.js": {
       "types": "./dist/*.d.ts",
-      "default": "./dist/*.cjs"
+      "default": "./dist/*.js"
     },
     "./*": {
       "development": {
@@ -60,8 +60,8 @@
         "default": "./src/*.ts"
       },
       "types": "./dist/*.d.ts",
-      "require": "./dist/*.cjs",
-      "default": "./dist/*.js"
+      "require": "./dist/*.js",
+      "default": "./dist/*.mjs"
     },
     "./package.json": "./package.json"
   },

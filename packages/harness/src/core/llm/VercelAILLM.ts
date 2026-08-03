@@ -9,6 +9,7 @@ import type {
   ModelMessage,
   ProviderMetadata,
   TextPart,
+  TextStreamPart,
   ToolCallPart,
   ToolContent,
   ToolSet,
@@ -120,7 +121,7 @@ export interface VercelAILLMConfig {
   signal?: AbortSignal;
 }
 
-function buildLanguageModel(config: VercelAIProviderConfig): LanguageModel {
+export function buildLanguageModel(config: VercelAIProviderConfig): LanguageModel {
   const { provider, name, model_id, base_url, apiKey, headers } = config;
   const modelId = model_id ?? name;
   const extraHeaders = Object.keys(headers).length > 0 ? headers : undefined;
@@ -171,7 +172,7 @@ function buildLanguageModel(config: VercelAIProviderConfig): LanguageModel {
 }
 
 /** Maps Vercel AI SDK LanguageModelUsage → harness CompletionUsage. */
-function normalizeUsage(usage: {
+export function normalizeUsage(usage: {
   inputTokens: number | undefined;
   outputTokens: number | undefined;
   inputTokenDetails: {
@@ -196,7 +197,7 @@ function normalizeUsage(usage: {
   };
 }
 
-function mapFinishReason(reason: string): RawAssistantMessageWithUsage['finish_reason'] {
+export function mapFinishReason(reason: string): RawAssistantMessageWithUsage['finish_reason'] {
   switch (reason) {
     case 'stop':
       return 'stop';
@@ -212,7 +213,10 @@ function mapFinishReason(reason: string): RawAssistantMessageWithUsage['finish_r
 }
 
 /** Builds provider-specific options for reasoning/thinking budget. */
-function buildProviderOptions(config: VercelAIProviderConfig, reasoningEffort: string | undefined): ProviderOptions {
+export function buildProviderOptions(
+  config: VercelAIProviderConfig,
+  reasoningEffort: string | undefined,
+): ProviderOptions {
   const options: ProviderOptions = {};
   if (config.provider === 'openai') {
     // Always disable server-side storage and request the encrypted reasoning
@@ -239,7 +243,7 @@ function buildProviderOptions(config: VercelAIProviderConfig, reasoningEffort: s
  * Parses the MIME type from a data URI (`data:<mime>;base64,...`).
  * Returns `undefined` when the URI is not a data URI or has no MIME segment.
  */
-function parseMimeFromDataUri(uri: string): string | undefined {
+export function parseMimeFromDataUri(uri: string): string | undefined {
   const match = /^data:([^;,]+)/.exec(uri);
   return match?.[1];
 }
@@ -249,7 +253,10 @@ function parseMimeFromDataUri(uri: string): string | undefined {
  * Returns `undefined` when the part carries no usable data (e.g. file_id only,
  * which requires a server-side lookup we don't support here).
  */
-function toFilePart(file: { file_data?: string | undefined; filename?: string | undefined }): FilePart | undefined {
+export function toFilePart(file: {
+  file_data?: string | undefined;
+  filename?: string | undefined;
+}): FilePart | undefined {
   const { file_data, filename } = file;
   if (!file_data) return undefined;
   const mediaType = parseMimeFromDataUri(file_data) ?? 'application/octet-stream';
@@ -262,7 +269,7 @@ function toFilePart(file: { file_data?: string | undefined; filename?: string | 
 }
 
 /** Converts a user content array from OpenAI format to Vercel AI SDK UserContent. */
-function toUserContent(content: string | ChatCompletionContentPart[]): UserContent {
+export function toUserContent(content: string | ChatCompletionContentPart[]): UserContent {
   if (typeof content === 'string') {
     return content;
   }
@@ -305,7 +312,7 @@ function toUserContent(content: string | ChatCompletionContentPart[]): UserConte
  * - `'anthropic'`  → `providerOptions.anthropic.signature`
  * - `undefined`    → no provider token (provider doesn't support reasoning replay)
  */
-function toAssistantModelMessage(
+export function toAssistantModelMessage(
   msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }>,
   replayKey: 'openai' | 'anthropic' | 'generic' | undefined,
 ): ModelMessage {
@@ -398,7 +405,7 @@ function toAssistantModelMessage(
  * `replayKey` is threaded into assistant message conversion so that reasoning
  * replay tokens are placed under the correct providerOptions key.
  */
-interface ConvertedMessages {
+export interface ConvertedMessages {
   instructions: string | undefined;
   messages: ModelMessage[];
 }
@@ -409,7 +416,7 @@ interface ConvertedMessages {
  * no longer accepts `{ role: 'system' }` entries in the messages array.
  * Multiple system messages are joined with a blank line.
  */
-function convertMessages(
+export function convertMessages(
   messages: ChatCompletionMessageParam[],
   replayKey: 'openai' | 'anthropic' | 'generic' | undefined,
 ): ConvertedMessages {
@@ -463,7 +470,7 @@ function convertMessages(
 }
 
 /** Converts OpenAI tool definitions to the Vercel AI SDK ToolSet. */
-function convertTools(tools: ChatCompletionTool[] | undefined): ToolSet | undefined {
+export function convertTools(tools: ChatCompletionTool[] | undefined): ToolSet | undefined {
   if (!tools?.length) {
     return undefined;
   }
@@ -484,6 +491,201 @@ interface ToolCallState {
   id: string;
   name: string;
   arguments: string;
+}
+
+/** Synthetic chunk fields shared by every chunk emitted for a single stream. */
+interface ChunkMeta {
+  id: string;
+  created: number;
+  model: string;
+}
+
+/**
+ * Converts a Vercel AI SDK stream of `TextStreamPart`s into harness-format
+ * `ExtendedChatCompletionChunk`s, returning the final aggregated assistant
+ * message once the stream completes.
+ *
+ * Pure data transformation — takes a plain `AsyncIterable`, so it accepts
+ * either a real `streamText().stream` or hand-built fixtures in tests.
+ */
+export async function* mapStreamToChunks(
+  stream: AsyncIterable<TextStreamPart<ToolSet>>,
+  chunkMeta: ChunkMeta,
+): AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown> {
+  const makeBase = (): Omit<ExtendedChatCompletionChunk, 'choices' | 'usage'> => ({
+    id: chunkMeta.id,
+    object: 'chat.completion.chunk' as const,
+    created: chunkMeta.created,
+    model: chunkMeta.model,
+  });
+
+  const toolCallStates = new Map<string, ToolCallState>();
+  let nextToolIndex = 0;
+  let accumulatedText = '';
+  const accumulatedThinking: ThinkingBlock[] = [];
+  let currentThinkingBlock: ThinkingBlock | null = null;
+  let finalUsage: CompletionUsage = getEmptyUsage();
+  let finalFinishReason: RawAssistantMessageWithUsage['finish_reason'] = 'stop';
+
+  for await (const part of stream) {
+    switch (part.type) {
+      case 'text-delta': {
+        accumulatedText += part.text;
+        yield {
+          ...makeBase(),
+          choices: [
+            {
+              index: 0,
+              delta: { content: part.text, role: 'assistant' },
+              finish_reason: null,
+              logprobs: null,
+            },
+          ],
+        };
+        break;
+      }
+
+      case 'reasoning-start': {
+        currentThinkingBlock = { type: 'thinking', thinking: '' };
+        accumulatedThinking.push(currentThinkingBlock);
+        break;
+      }
+
+      case 'reasoning-delta': {
+        if (currentThinkingBlock !== null) {
+          currentThinkingBlock.thinking += part.text;
+        }
+        yield {
+          ...makeBase(),
+          choices: [
+            {
+              index: 0,
+              delta: {
+                thinking_blocks: [{ type: 'thinking', thinking: part.text }],
+                reasoning_content: part.text,
+              } satisfies ExtendedChatCompletionChunk['choices'][0]['delta'],
+              finish_reason: null,
+              logprobs: null,
+            },
+          ],
+        };
+        break;
+      }
+
+      case 'reasoning-end': {
+        if (currentThinkingBlock !== null && part.providerMetadata !== undefined) {
+          // Scan all provider namespace values — only the active provider's key will
+          // be populated, so this is provider-agnostic without coupling to replayKey.
+          for (const meta of Object.values(part.providerMetadata)) {
+            if ('reasoningEncryptedContent' in meta && typeof meta['reasoningEncryptedContent'] === 'string') {
+              currentThinkingBlock.signature = meta['reasoningEncryptedContent'];
+              break;
+            }
+          }
+        }
+        currentThinkingBlock = null;
+        break;
+      }
+
+      case 'tool-input-start': {
+        const idx = nextToolIndex++;
+        toolCallStates.set(part.id, {
+          index: idx,
+          id: part.id,
+          name: part.toolName,
+          arguments: '',
+        });
+        yield {
+          ...makeBase(),
+          choices: [
+            {
+              index: 0,
+              delta: {
+                tool_calls: [
+                  {
+                    index: idx,
+                    id: part.id,
+                    type: 'function',
+                    function: { name: part.toolName, arguments: '' },
+                  },
+                ],
+              },
+              finish_reason: null,
+              logprobs: null,
+            },
+          ],
+        };
+        break;
+      }
+
+      case 'tool-input-delta': {
+        const state = toolCallStates.get(part.id);
+        if (state !== undefined) {
+          state.arguments += part.delta;
+        }
+        const idx = state?.index ?? 0;
+        yield {
+          ...makeBase(),
+          choices: [
+            {
+              index: 0,
+              delta: {
+                tool_calls: [{ index: idx, function: { arguments: part.delta } }],
+              },
+              finish_reason: null,
+              logprobs: null,
+            },
+          ],
+        };
+        break;
+      }
+
+      case 'finish-step': {
+        finalUsage = normalizeUsage(part.usage);
+        finalFinishReason = mapFinishReason(part.finishReason);
+        yield {
+          ...makeBase(),
+          choices: [
+            {
+              index: 0,
+              delta: {},
+              finish_reason: finalFinishReason,
+              logprobs: null,
+            },
+          ],
+          usage: finalUsage,
+        };
+        break;
+      }
+
+      case 'error': {
+        const raw = part.error;
+        const err = raw instanceof Error ? raw : new Error(String(raw));
+        throw new Error('LLM stream error', { cause: err });
+      }
+
+      // 'start', 'text-start', 'text-end', 'reasoning-file', 'tool-input-end',
+      // 'tool-call', 'tool-result', 'finish', 'source', 'custom', 'raw', etc.
+      // are structural bookkeeping events — no harness chunk is emitted for these.
+    }
+  }
+
+  const toolCalls = [...toolCallStates.values()]
+    .sort((a, b) => a.index - b.index)
+    .map(tc => ({
+      id: tc.id,
+      type: 'function' as const,
+      function: { name: tc.name, arguments: tc.arguments },
+    }));
+
+  const output: RawAssistantMessage = {
+    role: 'assistant',
+    content: accumulatedText || null,
+    ...(accumulatedThinking.length > 0 ? { thinking_blocks: accumulatedThinking } : {}),
+    ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+  };
+
+  return { usage: finalUsage, output, finish_reason: finalFinishReason };
 }
 
 /** ILLM implementation backed by Vercel AI SDK, supporting multiple LLM providers. */
@@ -553,169 +755,14 @@ export class VercelAILLM implements ILLM {
     }
 
     // Synthetic chunk fields; id is unique per stream instance.
-    const chunkId = `vc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-    const chunkCreated = Math.floor(Date.now() / 1000);
-    const chunkModel = body.model;
-
-    const makeBase = (): Omit<ExtendedChatCompletionChunk, 'choices' | 'usage'> => ({
-      id: chunkId,
-      object: 'chat.completion.chunk' as const,
-      created: chunkCreated,
-      model: chunkModel,
-    });
-
-    // Per-stream accumulation
-    const toolCallStates = new Map<string, ToolCallState>();
-    let nextToolIndex = 0;
-    let accumulatedText = '';
-    const accumulatedThinking: ThinkingBlock[] = [];
-    let currentThinkingBlock: ThinkingBlock | null = null;
-    let finalUsage: CompletionUsage = getEmptyUsage();
-    let finalFinishReason: RawAssistantMessageWithUsage['finish_reason'] = 'stop';
+    const chunkMeta: ChunkMeta = {
+      id: `vc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      created: Math.floor(Date.now() / 1000),
+      model: body.model,
+    };
 
     try {
-      for await (const part of streamResult.stream) {
-        switch (part.type) {
-          case 'text-delta': {
-            accumulatedText += part.text;
-            yield {
-              ...makeBase(),
-              choices: [
-                {
-                  index: 0,
-                  delta: { content: part.text, role: 'assistant' },
-                  finish_reason: null,
-                  logprobs: null,
-                },
-              ],
-            };
-            break;
-          }
-
-          case 'reasoning-start': {
-            currentThinkingBlock = { type: 'thinking', thinking: '' };
-            accumulatedThinking.push(currentThinkingBlock);
-            break;
-          }
-
-          case 'reasoning-delta': {
-            if (currentThinkingBlock !== null) {
-              currentThinkingBlock.thinking += part.text;
-            }
-            yield {
-              ...makeBase(),
-              choices: [
-                {
-                  index: 0,
-                  delta: {
-                    thinking_blocks: [{ type: 'thinking', thinking: part.text }],
-                    reasoning_content: part.text,
-                  } satisfies ExtendedChatCompletionChunk['choices'][0]['delta'],
-                  finish_reason: null,
-                  logprobs: null,
-                },
-              ],
-            };
-            break;
-          }
-
-          case 'reasoning-end': {
-            if (currentThinkingBlock !== null && part.providerMetadata !== undefined) {
-              // Scan all provider namespace values — only the active provider's key will
-              // be populated, so this is provider-agnostic without coupling to replayKey.
-              for (const meta of Object.values(part.providerMetadata)) {
-                if ('reasoningEncryptedContent' in meta && typeof meta['reasoningEncryptedContent'] === 'string') {
-                  currentThinkingBlock.signature = meta['reasoningEncryptedContent'];
-                  break;
-                }
-              }
-            }
-            currentThinkingBlock = null;
-            break;
-          }
-
-          case 'tool-input-start': {
-            const idx = nextToolIndex++;
-            toolCallStates.set(part.id, {
-              index: idx,
-              id: part.id,
-              name: part.toolName,
-              arguments: '',
-            });
-            yield {
-              ...makeBase(),
-              choices: [
-                {
-                  index: 0,
-                  delta: {
-                    tool_calls: [
-                      {
-                        index: idx,
-                        id: part.id,
-                        type: 'function',
-                        function: { name: part.toolName, arguments: '' },
-                      },
-                    ],
-                  },
-                  finish_reason: null,
-                  logprobs: null,
-                },
-              ],
-            };
-            break;
-          }
-
-          case 'tool-input-delta': {
-            const state = toolCallStates.get(part.id);
-            if (state !== undefined) {
-              state.arguments += part.delta;
-            }
-            const idx = state?.index ?? 0;
-            yield {
-              ...makeBase(),
-              choices: [
-                {
-                  index: 0,
-                  delta: {
-                    tool_calls: [{ index: idx, function: { arguments: part.delta } }],
-                  },
-                  finish_reason: null,
-                  logprobs: null,
-                },
-              ],
-            };
-            break;
-          }
-
-          case 'finish-step': {
-            finalUsage = normalizeUsage(part.usage);
-            finalFinishReason = mapFinishReason(part.finishReason);
-            yield {
-              ...makeBase(),
-              choices: [
-                {
-                  index: 0,
-                  delta: {},
-                  finish_reason: finalFinishReason,
-                  logprobs: null,
-                },
-              ],
-              usage: finalUsage,
-            };
-            break;
-          }
-
-          case 'error': {
-            const raw = part.error;
-            const err = raw instanceof Error ? raw : new Error(String(raw));
-            throw new Error('LLM stream error', { cause: err });
-          }
-
-          // 'start', 'text-start', 'text-end', 'reasoning-file', 'tool-input-end',
-          // 'tool-call', 'tool-result', 'finish', 'source', 'custom', 'raw', etc.
-          // are structural bookkeeping events — no harness chunk is emitted for these.
-        }
-      }
+      return yield* mapStreamToChunks(streamResult.stream, chunkMeta);
     } catch (error) {
       if (this.signal?.aborted) {
         this.logger.debug('LLM stream aborted', extractErrorLogFields(error));
@@ -724,23 +771,6 @@ export class VercelAILLM implements ILLM {
       }
       throw error;
     }
-
-    const toolCalls = [...toolCallStates.values()]
-      .sort((a, b) => a.index - b.index)
-      .map(tc => ({
-        id: tc.id,
-        type: 'function' as const,
-        function: { name: tc.name, arguments: tc.arguments },
-      }));
-
-    const output: RawAssistantMessage = {
-      role: 'assistant',
-      content: accumulatedText || null,
-      ...(accumulatedThinking.length > 0 ? { thinking_blocks: accumulatedThinking } : {}),
-      ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
-    };
-
-    return { usage: finalUsage, output, finish_reason: finalFinishReason };
   }
 
   async createNonStream(body: ChatCompletionCreateParams): Promise<RawAssistantMessageWithUsage> {
