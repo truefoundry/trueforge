@@ -1,18 +1,19 @@
 import type { OAuthToken } from '@truefoundry/utils/core';
 import type { Kysely } from 'kysely';
+import type { McpOAuthToken as OAuthTokenRow } from '../../../mcpOAuthTypes';
 import { json, now } from '../../sqlExpressions';
-import type { Database, McpOAuthToken as OAuthTokenRow } from '../../types';
+import type { Database } from '../../types';
 
-// DB row (`McpOAuthToken`, `?:`) and harness domain (`OAuthToken`, `| null`) use different
-// absence conventions on purpose — see mcpOAuthTypes.ts / IOAuthTokenStore.ts doc comments —
-// so undefined<->null is converted explicitly at this boundary rather than sharing one type.
+// DB row (`McpOAuthToken`, `?:` for absence) and harness domain (`OAuthToken`, `null` for
+// absence) use different conventions on purpose — see mcpOAuthTypes.ts / IOAuthTokenStore.ts doc
+// comments — so null<->undefined is converted explicitly at this boundary.
 
 function toRow(token: OAuthToken): OAuthTokenRow {
   return {
     accessToken: token.accessToken,
-    refreshToken: token.refreshToken ?? undefined,
+    ...(token.refreshToken !== null ? { refreshToken: token.refreshToken } : {}),
     expiresAt: token.expiresAt,
-    scope: token.scope ?? undefined,
+    ...(token.scope !== null ? { scope: token.scope } : {}),
   };
 }
 

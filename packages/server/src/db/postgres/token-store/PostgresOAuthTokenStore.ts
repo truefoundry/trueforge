@@ -3,14 +3,14 @@ import type { Kysely } from 'kysely';
 import type { Database } from '../types';
 import { deleteResource } from './queries/deleteResource';
 import { getPendingAuthorization, savePendingAuthorization } from './queries/pendingAuthorization';
-import { getToken, saveToken } from './queries/token';
+import { deleteToken, getToken, saveToken } from './queries/token';
 
 /**
- * Generic, Postgres-backed `IOAuthTokenStore` (RFC 7591 DCR token + pending-authorization state).
+ * Generic, Postgres-backed `IOAuthTokenStore` (RFC 7591 DCR pending-authorization + token state).
  * Not MCP-specific — backs `oauth_token` / `oauth_pending_authorization`, both FK'd to
  * `mcp_server.id` today (FK constraint aside, nothing here knows about MCP). Client/server
- * registration (`mcp_server.oauth_server` / `.oauth_client`) is owned by the MCP server store,
- * not this class.
+ * registration (`mcp_server.oauth_server` / `.oauth_client`) is `PostgresOAuthClientStore`'s job,
+ * not this class's — see `IOAuthClientStore`.
  */
 export class PostgresOAuthTokenStore implements IOAuthTokenStore {
   constructor(private readonly db: Kysely<Database>) {}
@@ -23,15 +23,19 @@ export class PostgresOAuthTokenStore implements IOAuthTokenStore {
     return getPendingAuthorization(this.db, params);
   }
 
-  saveToken(params: { server_id: string; token: OAuthToken }): Promise<void> {
+  saveToken(params: { id: string; token: OAuthToken }): Promise<void> {
     return saveToken(this.db, params);
   }
 
-  getToken(params: { server_id: string }): Promise<OAuthToken | undefined> {
+  getToken(params: { id: string }): Promise<OAuthToken | undefined> {
     return getToken(this.db, params);
   }
 
-  delete(params: { server_id: string }): Promise<void> {
+  deleteToken(params: { id: string }): Promise<void> {
+    return deleteToken(this.db, params);
+  }
+
+  delete(params: { id: string }): Promise<void> {
     return deleteResource(this.db, params);
   }
 }

@@ -47,9 +47,13 @@ export {
 } from './capabilities/builtins/LargeToolResponse';
 export { openUI } from './capabilities/builtins/OpenUI';
 
-// Generic OAuth state store (pending authorization + token only — no client/server registration,
-// see core/auth/IOAuthTokenStore.ts's doc comment). MCP's own store composes this.
+// Generic OAuth state stores. Deliberately two separate interfaces, not one: `IOAuthTokenStore`
+// (pending authorization + token) and `IOAuthClientStore` (DCR client + AS endpoints) — MCP
+// composes both into one param rather than getting a combined, MCP-flavored interface of its own
+// (see core/mcp/auth/mcpDcr.ts's `McpTokenStore` type alias).
+export { InMemoryOAuthClientStore } from './auth/InMemoryOAuthClientStore';
 export { InMemoryOAuthTokenStore } from './auth/InMemoryOAuthTokenStore';
+export type { IOAuthClientStore, OAuthClientRecord } from './auth/IOAuthClientStore';
 export type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from './auth/IOAuthTokenStore';
 
 // MCP contracts
@@ -140,10 +144,10 @@ export type {
 export { AgentHarnessError, McpConnectionError } from './errors';
 export { extractErrorLogFields } from './util/errorLogFields';
 
-// MCP OAuth / DCR (token store contract + registration + auth URL + resolve)
+// MCP OAuth / DCR orchestration (registration + auth URL + resolve). No MCP-specific store type —
+// these take one object satisfying both generic `core/auth` store contracts (see McpTokenStore).
 export {
   DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
-  InMemoryMcpTokenStore,
   MCP_OAUTH_CALLBACK_PATH,
   McpAuthStatus,
   buildMcpAuthorizationUrl,
@@ -155,13 +159,7 @@ export {
   mcpOAuthCallbackUrl,
   resolveMcpAuth,
 } from './mcp/auth';
-export type {
-  IMcpTokenStore,
-  McpOAuthClientRecord,
-  McpOAuthPendingAuthorization,
-  McpOAuthToken,
-  ResolveMcpAuthResult,
-} from './mcp/auth';
+export type { McpTokenStore, ResolveMcpAuthResult } from './mcp/auth';
 
 // Sandbox (concrete implementation; provider details exported for composition)
 export {

@@ -1,7 +1,15 @@
 import type { OAuthPendingAuthorization } from '@truefoundry/utils/core';
 import { sql, type Kysely } from 'kysely';
+import type { McpOAuthPendingAuthorizationData } from '../../../mcpOAuthTypes';
 import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database } from '../../types';
+
+function toAuthData(pending: OAuthPendingAuthorization): McpOAuthPendingAuthorizationData {
+  return {
+    ...(pending.codeVerifier !== null ? { codeVerifier: pending.codeVerifier } : {}),
+    ...(pending.redirectUrl !== null ? { redirectUrl: pending.redirectUrl } : {}),
+  };
+}
 
 export async function savePendingAuthorization(
   db: Kysely<Database>,
@@ -11,8 +19,8 @@ export async function savePendingAuthorization(
     .insertInto('oauth_pending_authorization')
     .values({
       id: pending.state,
-      oauth_server_id: pending.server_id,
-      auth_data: jsonbBind(pending),
+      oauth_server_id: pending.id,
+      auth_data: jsonbBind(toAuthData(pending)),
       created_at: nowIso(),
     })
     .onConflict(oc =>
@@ -31,9 +39,18 @@ export async function getPendingAuthorization(
 ): Promise<OAuthPendingAuthorization | undefined> {
   const row = await db
     .selectFrom('oauth_pending_authorization')
-    .select(jsonText<OAuthPendingAuthorization>(sql.ref('auth_data')).as('auth_data'))
+    .select(['oauth_server_id', jsonText<McpOAuthPendingAuthorizationData>(sql.ref('auth_data')).as('auth_data')])
     .where('id', '=', params.state)
     .executeTakeFirst();
 
-  return row?.auth_data;
+  if (row === undefined) {
+    return undefined;
+  }
+
+  return {
+    state: params.state,
+    id: row.oauth_server_id,
+    codeVerifier: row.auth_data.codeVerifier ?? null,
+    redirectUrl: row.auth_data.redirectUrl ?? null,
+  };
 }

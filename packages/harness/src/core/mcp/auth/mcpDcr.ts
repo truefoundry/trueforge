@@ -11,15 +11,16 @@ import type {
   OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { randomBytes } from 'node:crypto';
+import type { IOAuthClientStore, OAuthClientRecord } from '../../auth/IOAuthClientStore';
+import type { IOAuthTokenStore, OAuthToken } from '../../auth/IOAuthTokenStore';
 import { McpConnectionError } from '../../errors';
-import type { IMcpTokenStore } from './IMcpTokenStore';
 import {
   mcpAuthorizationServerMetadata,
   mcpAuthorizationServerOrigin,
   mcpClientInformation,
   mcpOAuthCallbackUrl,
 } from './mcpOAuthHelpers';
-import { McpAuthStatus, type McpOAuthClientRecord, type McpOAuthToken } from './types';
+import { McpAuthStatus } from './types';
 
 export type ResolveMcpAuthResult =
   | { status: McpAuthStatus.Authenticated; headers: Record<string, string> }
@@ -30,6 +31,14 @@ export type ResolveMcpAuthResult =
  * the saved token is not treated as already expired on the next `resolveMcpAuth`.
  */
 export const DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS = 3600;
+
+/**
+ * No MCP-specific store interface — every function below takes one object satisfying both
+ * generic store contracts (`core/auth`). A single DB-backed class commonly implements both;
+ * `InMemoryOAuthTokenStore`/`InMemoryOAuthClientStore` can also be composed with
+ * `Object.assign({}, tokenStore, clientStore)` for tests, or a small wrapper class.
+ */
+export type McpTokenStore = IOAuthTokenStore & IOAuthClientStore;
 
 /**
  * Prefer `client_secret_post` (confidential). Authorization servers that only issue public
@@ -43,7 +52,7 @@ async function registerMcpClientWithAuthMethodFallback(params: {
   mcpServerName: string;
   authorizationEndpoint: string;
   tokenEndpoint: string;
-}): Promise<McpOAuthClientRecord> {
+}): Promise<OAuthClientRecord> {
   const { authorizationServerUrl, metadata, clientMetadata, mcpServerName, authorizationEndpoint, tokenEndpoint } =
     params;
 
@@ -90,7 +99,7 @@ export async function createMcpOAuthClient(params: {
   mcpServerName: string;
   redirectUri: string;
   clientName: string;
-}): Promise<McpOAuthClientRecord> {
+}): Promise<OAuthClientRecord> {
   const { mcpServerUrl, mcpServerName, redirectUri, clientName } = params;
 
   const { authorizationServerUrl, authorizationServerMetadata: metadata } = await discoverOAuthServerInfo(mcpServerUrl);
@@ -125,14 +134,14 @@ export async function createMcpOAuthClient(params: {
 }
 
 export async function ensureMcpClientRegistered(params: {
-  tokenStore: IMcpTokenStore;
+  store: McpTokenStore;
   serverId: string;
   mcpServerUrl: string;
   mcpServerName: string;
   publicBaseUrl: string;
   clientName: string;
-}): Promise<McpOAuthClientRecord> {
-  const existing = await params.tokenStore.getOAuthClient({ serverId: params.serverId });
+}): Promise<OAuthClientRecord> {
+  const existing = await params.store.getClient({ id: params.serverId });
   if (existing) {
     return existing;
   }
@@ -144,12 +153,12 @@ export async function ensureMcpClientRegistered(params: {
     clientName: params.clientName,
   });
 
-  await params.tokenStore.saveOAuthClient({ serverId: params.serverId, record });
+  await params.store.saveClient({ id: params.serverId, record });
   return record;
 }
 
 export async function buildMcpAuthorizationUrl(params: {
-  tokenStore: IMcpTokenStore;
+  store: McpTokenStore;
   serverId: string;
   mcpServerUrl: string;
   mcpServerName: string;
@@ -159,7 +168,7 @@ export async function buildMcpAuthorizationUrl(params: {
   redirectUrl?: string;
 }): Promise<URL> {
   const client = await ensureMcpClientRegistered({
-    tokenStore: params.tokenStore,
+    store: params.store,
     serverId: params.serverId,
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
@@ -177,9 +186,9 @@ export async function buildMcpAuthorizationUrl(params: {
     state,
   });
 
-  await params.tokenStore.savePendingAuthorization({
+  await params.store.savePendingAuthorization({
     state,
-    serverId: params.serverId,
+    id: params.serverId,
     codeVerifier,
     redirectUrl: params.redirectUrl ?? null,
   });
@@ -192,11 +201,7 @@ function isMcpAccessTokenUsable(expiresAtIso: string, nowMs: number): boolean {
   return !Number.isNaN(expiresAtMs) && expiresAtMs > nowMs;
 }
 
-function oauthTokensToMcpOAuthToken(
-  tokens: OAuthTokens,
-  nowMs: number,
-  fallbackRefreshToken: string | null,
-): McpOAuthToken {
+function oauthTokensToOAuthToken(tokens: OAuthTokens, nowMs: number, fallbackRefreshToken: string | null): OAuthToken {
   const expiresInSeconds = tokens.expires_in ?? DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS;
   const expiresAtMs = nowMs + expiresInSeconds * 1000;
   return {
@@ -208,7 +213,7 @@ function oauthTokensToMcpOAuthToken(
 }
 
 export async function resolveMcpAuth(params: {
-  tokenStore: IMcpTokenStore;
+  store: McpTokenStore;
   serverId: string;
   mcpServerUrl: string;
   mcpServerName: string;
@@ -219,7 +224,7 @@ export async function resolveMcpAuth(params: {
   nowMs?: number;
 }): Promise<ResolveMcpAuthResult> {
   const nowMs = params.nowMs ?? Date.now();
-  const token = await params.tokenStore.getToken({ serverId: params.serverId });
+  const token = await params.store.getToken({ id: params.serverId });
 
   if (token && isMcpAccessTokenUsable(token.expiresAt, nowMs)) {
     return {
@@ -229,7 +234,7 @@ export async function resolveMcpAuth(params: {
   }
 
   if (token?.refreshToken) {
-    const client = await params.tokenStore.getOAuthClient({ serverId: params.serverId });
+    const client = await params.store.getClient({ id: params.serverId });
     if (client) {
       try {
         const refreshed = await refreshAuthorization(mcpAuthorizationServerOrigin(client), {
@@ -238,8 +243,8 @@ export async function resolveMcpAuth(params: {
           refreshToken: token.refreshToken,
           resource: resourceUrlFromServerUrl(params.mcpServerUrl),
         });
-        const saved = oauthTokensToMcpOAuthToken(refreshed, nowMs, token.refreshToken);
-        await params.tokenStore.saveToken({ serverId: params.serverId, token: saved });
+        const saved = oauthTokensToOAuthToken(refreshed, nowMs, token.refreshToken);
+        await params.store.saveToken({ id: params.serverId, token: saved });
         return {
           status: McpAuthStatus.Authenticated,
           headers: { Authorization: `Bearer ${saved.accessToken}` },
@@ -251,11 +256,11 @@ export async function resolveMcpAuth(params: {
   }
 
   if (token) {
-    await params.tokenStore.deleteToken({ serverId: params.serverId });
+    await params.store.deleteToken({ id: params.serverId });
   }
 
   const authUrl = await buildMcpAuthorizationUrl({
-    tokenStore: params.tokenStore,
+    store: params.store,
     serverId: params.serverId,
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
