@@ -12,7 +12,13 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    agent_spec: { model: { name: "name" } },
+                    agent_spec: {
+                        model: {
+                            model_id: "model_id",
+                            name: "name",
+                            properties: { context_length: 1, max_output_tokens: 1 },
+                        },
+                    },
                     created_at: "created_at",
                     id: "id",
                     title: "title",
@@ -35,7 +41,12 @@ describe("SessionsClient", () => {
                 {
                     agentSpec: {
                         model: {
+                            modelId: "model_id",
                             name: "name",
+                            properties: {
+                                contextLength: 1,
+                                maxOutputTokens: 1,
+                            },
                         },
                     },
                     createdAt: "created_at",
@@ -74,14 +85,22 @@ describe("SessionsClient", () => {
     test("create (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = { agent_spec: { model: { name: "name" } } };
+        const rawRequestBody = {
+            agent_spec: {
+                model: { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
+            },
+        };
         const rawResponseBody = {
             data: {
                 agent_spec: {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: { name: "name" },
+                    model: {
+                        model_id: "model_id",
+                        name: "name",
+                        properties: { context_length: 1, max_output_tokens: 1 },
+                    },
                     response_format: { type: "text" },
                     skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
                     variables: { key: "value" },
@@ -105,7 +124,12 @@ describe("SessionsClient", () => {
         const response = await client.sessions.create({
             agentSpec: {
                 model: {
+                    modelId: "model_id",
                     name: "name",
+                    properties: {
+                        contextLength: 1,
+                        maxOutputTokens: 1,
+                    },
                 },
             },
         });
@@ -125,7 +149,12 @@ describe("SessionsClient", () => {
                         },
                     ],
                     model: {
+                        modelId: "model_id",
                         name: "name",
+                        properties: {
+                            contextLength: 1,
+                            maxOutputTokens: 1,
+                        },
                     },
                     responseFormat: {
                         type: "text",
@@ -154,7 +183,11 @@ describe("SessionsClient", () => {
     test("create (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = { agent_spec: { model: { name: "x" } } };
+        const rawRequestBody = {
+            agent_spec: {
+                model: { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
+            },
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -170,7 +203,12 @@ describe("SessionsClient", () => {
             return await client.sessions.create({
                 agentSpec: {
                     model: {
-                        name: "x",
+                        modelId: "model_id",
+                        name: "name",
+                        properties: {
+                            contextLength: 1,
+                            maxOutputTokens: 1,
+                        },
                     },
                 },
             });
@@ -180,7 +218,11 @@ describe("SessionsClient", () => {
     test("create (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = { agent_spec: { model: { name: "x" } } };
+        const rawRequestBody = {
+            agent_spec: {
+                model: { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
+            },
+        };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -196,7 +238,12 @@ describe("SessionsClient", () => {
             return await client.sessions.create({
                 agentSpec: {
                     model: {
-                        name: "x",
+                        modelId: "model_id",
+                        name: "name",
+                        properties: {
+                            contextLength: 1,
+                            maxOutputTokens: 1,
+                        },
                     },
                 },
             });
@@ -213,7 +260,11 @@ describe("SessionsClient", () => {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: { name: "name" },
+                    model: {
+                        model_id: "model_id",
+                        name: "name",
+                        properties: { context_length: 1, max_output_tokens: 1 },
+                    },
                     response_format: { type: "text" },
                     skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
                     variables: { key: "value" },
@@ -250,7 +301,12 @@ describe("SessionsClient", () => {
                         },
                     ],
                     model: {
+                        modelId: "model_id",
                         name: "name",
+                        properties: {
+                            contextLength: 1,
+                            maxOutputTokens: 1,
+                        },
                     },
                     responseFormat: {
                         type: "text",
@@ -305,7 +361,11 @@ describe("SessionsClient", () => {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: { name: "name" },
+                    model: {
+                        model_id: "model_id",
+                        name: "name",
+                        properties: { context_length: 1, max_output_tokens: 1 },
+                    },
                     response_format: { type: "text" },
                     skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
                     variables: { key: "value" },
@@ -343,7 +403,12 @@ describe("SessionsClient", () => {
                         },
                     ],
                     model: {
+                        modelId: "model_id",
                         name: "name",
+                        properties: {
+                            contextLength: 1,
+                            maxOutputTokens: 1,
+                        },
                     },
                     responseFormat: {
                         type: "text",

@@ -26,7 +26,7 @@
         "streamType": "web",
         "useDefaultRequestParameterValues": true
     },
-    "originGitCommit": "c4bd4f7de2af782b3f6b977060eaae948d76d75d",
+    "originGitCommit": "d2e8efb0eb9ca994f52f6fcc13753e34354c66f7",
     "originGitCommitIsDirty": true,
     "invokedBy": "ci",
     "requestedVersion": "0.0.0",
