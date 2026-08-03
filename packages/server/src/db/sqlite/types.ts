@@ -39,7 +39,7 @@ export interface TurnCheckpoint {
 type JsonbColumn<T extends object | null> = JSONColumnType<T, T | string, T | string>;
 
 /**
- * PRIMARY KEY (tenant_id, session_id)
+ * PRIMARY KEY (session_id)
  * CREATE INDEX session_list_idx ON session (tenant_id, created_at, session_id)
  */
 export interface SessionTable {
@@ -55,11 +55,10 @@ export interface SessionTable {
 }
 
 /**
- * PRIMARY KEY (tenant_id, session_id, turn_id)
- * CREATE INDEX turn_list_idx ON turn (tenant_id, session_id, created_at, turn_id)
+ * PRIMARY KEY (session_id, turn_id)
+ * CREATE INDEX turn_list_idx ON turn (session_id, created_at, turn_id)
  */
 export interface TurnTable {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   first_turn_id: string;
@@ -77,10 +76,9 @@ export interface TurnTable {
 /**
  * Complete state of one thread at one turn.
  * Context order lives in `turn_thread_context` (no context_ids column).
- * PRIMARY KEY (tenant_id, session_id, turn_id, thread_id)
+ * PRIMARY KEY (session_id, turn_id, thread_id)
  */
 export interface TurnThreadTable {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   thread_id: string;
@@ -92,10 +90,9 @@ export interface TurnThreadTable {
 
 /**
  * Ordered mapping from a turn_thread to append-only log rows.
- * PRIMARY KEY (tenant_id, session_id, turn_id, thread_id, pos)
+ * PRIMARY KEY (session_id, turn_id, thread_id, pos)
  */
 export interface TurnThreadContextTable {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   thread_id: string;
@@ -105,10 +102,9 @@ export interface TurnThreadContextTable {
 
 /**
  * Pure immutable client-facing event log.
- * PRIMARY KEY (tenant_id, session_id, turn_id, event_id)
+ * PRIMARY KEY (session_id, turn_id, event_id)
  */
 export interface SessionEventTable {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   event_id: string;
@@ -122,7 +118,6 @@ export interface SessionEventTable {
  */
 export interface ThreadContextLogTable {
   append_id: Generated<number>;
-  tenant_id: string;
   session_id: string;
   thread_id: string;
   turn_id: string;
@@ -132,10 +127,9 @@ export interface ThreadContextLogTable {
 
 /**
  * Per-turn KV snapshot, latest-wins per (turn, thread, key).
- * PRIMARY KEY (tenant_id, session_id, turn_id, thread_id, key)
+ * PRIMARY KEY (session_id, turn_id, thread_id, key)
  */
 export interface ThreadCapabilityStateTable {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   thread_id: string;

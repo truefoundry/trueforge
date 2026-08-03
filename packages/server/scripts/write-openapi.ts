@@ -9,7 +9,6 @@ import { InMemorySessionStore, Sessions } from '@truefoundry/utils/agent-session
 import { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { createClient, type RedisClientType } from 'redis';
 import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
@@ -38,7 +37,6 @@ function canonicalise(value: unknown): unknown {
 
 // Unconnected stand-ins suffice: route registration never reads a dependency.
 const sessionStore = new InMemorySessionStore();
-const redis: RedisClientType = createClient();
 const app = createServerApp({
   modelStore: ModelStore.load(),
   mcpStore: McpStore.load(),
@@ -46,7 +44,6 @@ const app = createServerApp({
   sessionStore,
   sessions: new Sessions({ sessionStore }),
   activeTurns: new ActiveTurnRegistry(),
-  redis,
   requestReplyRouter: new RequestReplyRouter(),
   logger: winston.createLogger({ silent: true }),
 });

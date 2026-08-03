@@ -21,7 +21,6 @@ export async function appendToEvents(db: Kysely<Database>, input: AppendToEvents
   if (input.events.length === 0) return;
 
   const keys: TurnKeys = {
-    tenant_id: input.tenant_id,
     session_id: input.session_id,
     turn_id: input.turn_id,
   };
@@ -31,7 +30,6 @@ export async function appendToEvents(db: Kysely<Database>, input: AppendToEvents
     const fenceRow = await trx
       .selectFrom('turn')
       .select(sql`1`.as('one'))
-      .where('tenant_id', '=', keys.tenant_id)
       .where('session_id', '=', keys.session_id)
       .where('turn_id', '=', keys.turn_id)
       .where(sql<boolean>`state->>'status' = 'running'`)
@@ -42,7 +40,6 @@ export async function appendToEvents(db: Kysely<Database>, input: AppendToEvents
     }
 
     const eventRows = input.events.map(event => ({
-      tenant_id: input.tenant_id,
       session_id: input.session_id,
       turn_id: input.turn_id,
       event_id: event.id,
@@ -72,28 +69,16 @@ export async function listTurnEvents(
       eb =>
         eb
           .selectFrom('session_event')
-          .select([
-            'tenant_id',
-            'session_id',
-            'turn_id',
-            'event_id',
-            jsonText<PersistedTurnEvent>(sql.ref('event')).as('event'),
-          ])
-          .where('tenant_id', '=', input.tenant_id)
+          .select(['session_id', 'turn_id', 'event_id', jsonText<PersistedTurnEvent>(sql.ref('event')).as('event')])
           .where('session_id', '=', input.session_id)
           .where('turn_id', '=', input.turn_id)
           .orderBy('event_id', eventOrder)
           .limit(limit + 1)
           .offset(offset)
           .as('e'),
-      join =>
-        join
-          .onRef('e.tenant_id', '=', 't.tenant_id')
-          .onRef('e.session_id', '=', 't.session_id')
-          .onRef('e.turn_id', '=', 't.turn_id'),
+      join => join.onRef('e.session_id', '=', 't.session_id').onRef('e.turn_id', '=', 't.turn_id'),
     )
     .select(['t.turn_id', 'e.event'])
-    .where('t.tenant_id', '=', input.tenant_id)
     .where('t.session_id', '=', input.session_id)
     .where('t.turn_id', '=', input.turn_id)
     .orderBy('e.event_id', eventOrder)
@@ -126,7 +111,6 @@ export interface AnchorTurn {
  */
 export async function resolveAncestorChain(
   db: Kysely<Database>,
-  tenant: string,
   sessionId: string,
   anchor: AnchorTurn,
 ): Promise<string[]> {
@@ -137,7 +121,6 @@ export async function resolveAncestorChain(
     const oldest = await db
       .selectFrom('turn')
       .select([jsonText<string[]>(sql.ref('ancestor_ids')).as('ancestor_ids')])
-      .where('tenant_id', '=', tenant)
       .where('session_id', '=', sessionId)
       .where('turn_id', '=', oldestId)
       .executeTakeFirst();
@@ -160,7 +143,6 @@ export async function listSessionEvents(
   const session = await db
     .selectFrom('session')
     .select('last_turn_id')
-    .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
     .executeTakeFirst();
   if (!session) {
@@ -180,7 +162,6 @@ export async function listSessionEvents(
   const anchor = await db
     .selectFrom('turn')
     .select(['turn_id', jsonText<string[]>(sql.ref('ancestor_ids')).as('ancestor_ids')])
-    .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
     .where('turn_id', '=', cursor.last_turn_id)
     .executeTakeFirst();
@@ -188,7 +169,7 @@ export async function listSessionEvents(
     throw new TurnNotFoundError(cursor.last_turn_id);
   }
 
-  const chainIds = await resolveAncestorChain(db, input.tenant_id, input.session_id, {
+  const chainIds = await resolveAncestorChain(db, input.session_id, {
     turn_id: anchor.turn_id,
     ancestor_ids: anchor.ancestor_ids,
   });
@@ -199,10 +180,7 @@ export async function listSessionEvents(
   const rows = await db
     .selectFrom(sql<{ key: number; value: string }>`json_each(${chainJson})`.as('c'))
     .innerJoin('session_event as e', join =>
-      join
-        .on('e.tenant_id', '=', input.tenant_id)
-        .on('e.session_id', '=', input.session_id)
-        .on(sql<boolean>`e.turn_id = c.value`),
+      join.on('e.session_id', '=', input.session_id).on(sql<boolean>`e.turn_id = c.value`),
     )
     .select([sql<string>`c.value`.as('turn_id'), jsonText<SessionEventItem['event']>(sql.ref('e.event')).as('event')])
     .orderBy(sql`c.key`, 'desc')

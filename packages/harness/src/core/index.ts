@@ -82,9 +82,10 @@ export { ToolSet } from './mcp/ToolSet';
 
 // LLM contracts
 export type { AgentMetadata, ILLM } from './llm/ILLM';
-export { OpenAILLM } from './llm/OpenAILLM';
 export { ResponseFormatSchema, toOpenAIResponseFormat } from './llm/responseFormat';
 export type { ResponseFormat } from './llm/responseFormat';
+export { VercelAILLM } from './llm/VercelAILLM';
+export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } from './llm/VercelAILLM';
 
 // Event contracts
 export {

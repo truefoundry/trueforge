@@ -23,10 +23,9 @@ function uniqueNames(entries: { name: string }[], ctx: z.RefinementCtx): void {
 }
 
 /**
- * Adds a validation issue if two distinct names normalize to the same
- * `{NAME}` env var segment (e.g. "foo-bar" and "foo_bar"), since they could
- * not be given separate per-name overrides (headers, API keys). Only applied
- * to entries with per-name env vars (models, MCP servers).
+ * Adds a validation issue if two names normalize to the same `{NAME}` env var
+ * segment (e.g. "foo-bar" and "foo_bar"), since they couldn't get separate
+ * per-name overrides.
  */
 function uniqueEnvNames(entries: { name: string }[], ctx: z.RefinementCtx): void {
   const seenByEnvName = new Map<string, string>();
@@ -44,21 +43,89 @@ function uniqueEnvNames(entries: { name: string }[], ctx: z.RefinementCtx): void
   }
 }
 
-export const ModelEntrySchema = z
-  .object({
-    name: z.string().min(1),
-    reasoning_efforts: z.array(z.string().min(1)).min(1).optional(),
-    max_output_tokens: z.number().int().positive(),
-  })
+const ModelEntryBaseSchema = z.object({
+  /**
+   * Display name / alias used in the API, env vars, and the registry.
+   * Also sent to the provider as the model identifier when `model_id` is absent.
+   */
+  name: z
+    .string()
+    .min(1)
+    .regex(
+      /^[a-z0-9][a-z0-9.-]*$/,
+      'name must start with a letter or digit and contain only lowercase a-z, 0-9, hyphens, and dots',
+    ),
+  /**
+   * The model identifier sent to the provider (e.g. `anthropic/claude-sonnet-4-6`
+   * for a gateway). Use when the provider-facing ID isn't a valid `name`.
+   */
+  model_id: z.string().min(1).optional(),
+  max_output_tokens: z.number().int().positive(),
+  reasoning_efforts: z.array(z.string().min(1)).min(1).optional(),
+  /**
+   * API key for this model, supports `${ENV_VAR}` substitution.
+   * Falls back to MODEL_{NAME}_API_KEY, then MODEL_API_KEY when absent.
+   */
+  api_key: z.string().min(1).optional(),
+  /**
+   * Extra HTTP headers for requests to this model, supports `${ENV_VAR}` substitution.
+   * Merged on top of MODEL_HEADERS and MODEL_{NAME}_HEADERS env var headers.
+   */
+  headers: z.record(z.string()).optional(),
+});
+
+/** OpenAI provider entry — always uses the Responses API. */
+const OpenAIProviderEntrySchema = ModelEntryBaseSchema.extend({
+  provider: z.literal('openai'),
+  /** Override the default OpenAI base URL (e.g. Azure OpenAI endpoint). */
+  base_url: z.string().url().optional(),
+})
   .strict()
+  .openapi('OpenAIProviderModelEntry');
+
+/** Anthropic provider entry — backed by the dedicated Vercel AI SDK adapter. */
+const AnthropicProviderEntrySchema = ModelEntryBaseSchema.extend({
+  provider: z.literal('anthropic'),
+  /** Override the provider's default base URL (e.g. point at a local proxy). */
+  base_url: z.string().url().optional(),
+})
+  .strict()
+  .openapi('AnthropicProviderModelEntry');
+
+/** Google Gemini provider entry — backed by the dedicated Vercel AI SDK adapter. */
+const GoogleGeminiProviderEntrySchema = ModelEntryBaseSchema.extend({
+  provider: z.literal('google-gemini'),
+  /** Override the provider's default base URL (e.g. point at a local proxy). */
+  base_url: z.string().url().optional(),
+})
+  .strict()
+  .openapi('GoogleGeminiProviderModelEntry');
+
+/**
+ * Generic OpenAI-compatible provider. Requires an explicit `base_url` since
+ * there is no canonical endpoint.
+ */
+const GenericProviderEntrySchema = ModelEntryBaseSchema.extend({
+  provider: z.literal('generic'),
+  /** Deployment-specific base URL — required. */
+  base_url: z.string().url(),
+  /** API format used by this endpoint. Only option today; defaults when absent. */
+  api_format: z.literal('openai-chat-completions').optional(),
+})
+  .strict()
+  .openapi('GenericProviderModelEntry');
+
+export const ModelEntrySchema = z
+  .discriminatedUnion('provider', [
+    OpenAIProviderEntrySchema,
+    AnthropicProviderEntrySchema,
+    GoogleGeminiProviderEntrySchema,
+    GenericProviderEntrySchema,
+  ])
   .openapi('ModelEntry');
 
 export const ModelsFileSchema = z
   .object({
-    base_url: z
-      .string()
-      .url()
-      .transform(url => url.replace(/\/$/, '')),
     models: z.array(ModelEntrySchema),
   })
   .strict()
