@@ -4,6 +4,7 @@
 import type { IMcpTokenStore } from './IMcpTokenStore';
 import type { McpOAuthClientRecord, McpOAuthPendingAuthorization, McpOAuthToken } from './types';
 
+/* eslint-disable @typescript-eslint/require-await -- in-memory store is synchronous; methods stay async for IMcpTokenStore callers */
 export class InMemoryMcpTokenStore implements IMcpTokenStore {
   private readonly clients = new Map<string, McpOAuthClientRecord>();
   private readonly tokens = new Map<string, McpOAuthToken>();
@@ -47,3 +48,4 @@ export class InMemoryMcpTokenStore implements IMcpTokenStore {
     }
   }
 }
+/* eslint-enable @typescript-eslint/require-await */
