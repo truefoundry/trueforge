@@ -2,7 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { McpServerEntrySchema } from '../legacy-registry-store/schemas';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 
-const MCP_SERVERS_TAG = 'MCP Servers';
+const MCP_SERVERS_TAG = 'Legacy MCP Servers';
 
 // Extends the yaml-validation schema with a response-only field — `auth_status` isn't a valid
 // mcp.yaml key, so it's added here rather than on McpServerEntrySchema itself.
@@ -30,7 +30,7 @@ export const listMcpServersRoute = createRoute({
   description:
     'MCP servers declared in mcp.yaml, each with a passive auth_status snapshot. Auth headers are ' +
     'configured via env vars and never returned.',
-  'x-fern-sdk-group-name': ['mcp_servers'],
+  'x-fern-sdk-group-name': ['legacy', 'mcp_servers'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
@@ -62,7 +62,7 @@ export const listMcpToolsRoute = createRoute({
   path: '/{name}/tools',
   tags: [MCP_SERVERS_TAG],
   summary: 'List tools of an MCP server',
-  'x-fern-sdk-group-name': ['mcp_servers'],
+  'x-fern-sdk-group-name': ['legacy', 'mcp_servers'],
   'x-fern-sdk-method-name': 'list_tools',
   description:
     'All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call. No agent-spec tool selectors are applied — this is the raw server catalog.',
@@ -105,7 +105,7 @@ export const authorizeMcpServerRoute = createRoute({
   path: '/{name}/authorize',
   tags: [MCP_SERVERS_TAG],
   summary: 'Start (or short-circuit) the auth flow for an MCP server',
-  'x-fern-sdk-group-name': ['mcp_servers'],
+  'x-fern-sdk-group-name': ['legacy', 'mcp_servers'],
   'x-fern-sdk-method-name': 'authorize',
   description:
     'Registers a DCR client for this server if none exists yet, then returns an authorization URL to ' +

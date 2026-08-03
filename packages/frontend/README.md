@@ -56,10 +56,10 @@ docker compose up --build   # UI + API on http://localhost:8791
 
 The SDK has no catalog client. On boot the app:
 
-1. `GET /api/v1/models` → seeds `defaultAgentSpec.model.name`
+1. `GET /api/v1/legacy/models` → seeds `defaultAgentSpec.model.name`
 2. Renders custom `ComposerRightSection` controls that `fetch` models/MCP and call `updateAgentSpec`
 
-Skills: catalog UI lists `GET /api/v1/skills` (empty state when none). Selection is local-only — session admission still rejects `agent_spec.skills`.
+Skills: catalog UI lists `GET /api/v1/legacy/skills` (empty state when none). Selection is local-only — session admission still rejects `agent_spec.skills`.
 
 ## Gaps
 

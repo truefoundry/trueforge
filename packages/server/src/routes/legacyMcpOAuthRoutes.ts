@@ -1,7 +1,7 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 
-const MCP_OAUTH_TAG = 'MCP OAuth';
+const MCP_OAUTH_TAG = 'Legacy MCP OAuth';
 
 const McpOAuthCallbackQuerySchema = z.object({
   state: z.string().min(1).describe('Opaque token; correlates this callback to its pending authorization.'),

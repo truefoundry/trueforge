@@ -2,9 +2,9 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/utils/core';
 import type { Logger } from 'winston';
 import type { McpStore } from '../legacy-registry-store/McpStore';
-import { authorizeMcpServerRoute, listMcpServersRoute, listMcpToolsRoute } from '../routes/mcpRoutes';
+import { authorizeMcpServerRoute, listMcpServersRoute, listMcpToolsRoute } from '../routes/legacyMcpRoutes';
 
-export interface McpRouterDeps {
+export interface LegacyMcpRouterDeps {
   mcpStore: McpStore;
   logger: Logger;
 }
@@ -20,7 +20,7 @@ function omitUndefinedEntries(obj: Record<string, unknown>): Record<string, unkn
   return out;
 }
 
-export function createMcpRouter(deps: McpRouterDeps) {
+export function createLegacyMcpRouter(deps: LegacyMcpRouterDeps) {
   // auth_status here is a passive check only (no live refresh attempt); `authentication_required`
   // vs `not_required` — see route description.
   // TODO(mcp-dcr): once IMcpTokenStore lands, batch-check stored tokens for all DCR-configured

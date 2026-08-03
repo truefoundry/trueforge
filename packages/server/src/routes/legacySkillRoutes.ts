@@ -10,9 +10,9 @@ const ListSkillsResponseSchema = z
 export const listSkillsRoute = createRoute({
   method: 'get',
   path: '/',
-  tags: ['Skills'],
+  tags: ['Legacy Skills'],
   summary: 'List skills',
-  'x-fern-sdk-group-name': ['skills'],
+  'x-fern-sdk-group-name': ['legacy', 'skills'],
   'x-fern-sdk-method-name': 'list',
   description: 'Agent skills declared in skills.yaml.',
   responses: {

@@ -8,12 +8,13 @@ import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { createCapabilitiesRouter } from './apis/capabilities';
-import { createMcpRouter } from './apis/mcp';
-import { createMcpOAuthRouter } from './apis/mcpOAuth';
+import { createLegacyMcpRouter } from './apis/legacyMcp';
+import { createLegacyMcpOAuthRouter } from './apis/legacyMcpOAuth';
+import { createLegacyModelsRouter } from './apis/legacyModels';
+import { createLegacySkillsRouter } from './apis/legacySkills';
 import { createModelProvidersRouter } from './apis/modelProviders';
-import { createModelsRouter, createOldModelsRouter } from './apis/models';
+import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
-import { createSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { IModelProviderStore } from './db/modelProviderStore';
@@ -65,15 +66,15 @@ export function createServerApp(deps: ServerDeps) {
 
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
-  // The YAML-backed flow (models.yaml) the runtime still uses, relocated so the DB-backed view owns /models.
-  app.route('/api/v1/old/models', createOldModelsRouter(deps.modelStore));
   app.route(
     '/api/v1/model-providers',
     createModelProvidersRouter({ modelCatalog: deps.modelCatalog, modelProviderStore: deps.modelProviderStore }),
   );
-  app.route('/api/v1/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
-  app.route('/api/v1/mcp-servers/oauth', createMcpOAuthRouter({ logger: deps.logger }));
-  app.route('/api/v1/skills', createSkillsRouter(deps.skillStore));
+  // YAML registry surfaces — non-legacy paths reserved for future DB-backed CRUD.
+  app.route('/api/v1/legacy/models', createLegacyModelsRouter(deps.modelStore));
+  app.route('/api/v1/legacy/mcp-servers', createLegacyMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
+  app.route('/api/v1/legacy/mcp-servers/oauth', createLegacyMcpOAuthRouter({ logger: deps.logger }));
+  app.route('/api/v1/legacy/skills', createLegacySkillsRouter(deps.skillStore));
   app.route(
     '/api/v1/sessions',
     createSessionsRouter({
