@@ -56,6 +56,18 @@ export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandbo
     return undefined;
   }
 
+  // Validate the sandbox exec timeout against the MCP timeouts.
+  const mcpBoundTimeoutMs = configuration.MCP_REQUEST_TIMEOUT_MS + configuration.MCP_CONNECT_TIMEOUT_MS;
+
+  if (configuration.SANDBOX_EXEC_TIMEOUT_MS <= mcpBoundTimeoutMs) {
+    throw new Error(
+      `SANDBOX_EXEC_TIMEOUT_MS (${String(configuration.SANDBOX_EXEC_TIMEOUT_MS)}) must exceed ` +
+        `MCP_REQUEST_TIMEOUT_MS + MCP_CONNECT_TIMEOUT_MS (${String(mcpBoundTimeoutMs)})`,
+    );
+  }
+  const execTimeoutSeconds = Math.ceil(configuration.SANDBOX_EXEC_TIMEOUT_MS / 1000);
+  const natsRequestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000);
+
   const settings = parseSandboxSettings(configuration.SANDBOX_SETTINGS);
   const logger = deps.logger.child({ module: 'sandboxFactory' });
   const provider = createSandboxProvider({
@@ -80,10 +92,6 @@ export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandbo
             })),
           )
         : undefined;
-    const natsRequestTimeoutSeconds = Math.ceil(
-      (configuration.MCP_REQUEST_TIMEOUT_MS + configuration.MCP_CONNECT_TIMEOUT_MS) / 1000,
-    );
-    const execTimeoutSeconds = Math.ceil(configuration.SANDBOX_EXEC_TIMEOUT_MS / 1000);
     return Promise.resolve(
       new Sandbox({
         provider,

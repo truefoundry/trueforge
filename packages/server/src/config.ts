@@ -298,7 +298,10 @@ export interface ServerConfiguration {
    * Env: `SANDBOX_PREVIEW_URL_EXPIRY_SECONDS`. Default 1 hour.
    */
   SANDBOX_PREVIEW_URL_EXPIRY_SECONDS: number;
-  /** Max milliseconds for one sandbox exec. Env: `SANDBOX_EXEC_TIMEOUT_MS`. Default 5 minutes. */
+  /**
+   * Max milliseconds for one sandbox exec. Env: `SANDBOX_EXEC_TIMEOUT_MS`. Default 5 minutes.
+   * Must exceed `MCP_REQUEST_TIMEOUT_MS` + `MCP_CONNECT_TIMEOUT_MS` (enforced at boot in sandboxFactory).
+   */
   SANDBOX_EXEC_TIMEOUT_MS: number;
   /**
    * Max seconds to wait for turn cancellation + connection drain on SIGTERM/SIGINT.
