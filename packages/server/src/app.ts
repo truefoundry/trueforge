@@ -12,12 +12,18 @@ import { createLegacyMcpRouter } from './apis/legacyMcp';
 import { createLegacyMcpOAuthRouter } from './apis/legacyMcpOAuth';
 import { createLegacyModelsRouter } from './apis/legacyModels';
 import { createLegacySkillsRouter } from './apis/legacySkills';
+import { createAvailableMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
+import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
+import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
+import type { SkillCatalog } from './catalog/SkillCatalog';
+import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
+import type { ISkillStore } from './db/skillStore';
 import type { McpStore } from './legacy-registry-store/McpStore';
 import type { ModelStore } from './legacy-registry-store/ModelStore';
 import type { SkillStore } from './legacy-registry-store/SkillStore';
@@ -45,8 +51,12 @@ export interface ServerDeps {
   modelStore: ModelStore;
   modelCatalog: ModelCatalog;
   modelProviderStore: IModelProviderStore;
+  mcpCatalog: McpCatalog;
+  mcpServerStore: IMcpServerStore;
   mcpStore: McpStore;
-  skillStore: SkillStore;
+  skillCatalog: SkillCatalog;
+  skillStore: ISkillStore;
+  legacySkillStore: SkillStore;
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
@@ -66,15 +76,25 @@ export function createServerApp(deps: ServerDeps) {
 
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
+  app.route('/api/v1/mcp-servers', createAvailableMcpServersRouter(deps.mcpServerStore));
+  app.route('/api/v1/skills', createAvailableSkillsRouter(deps.skillStore));
   app.route(
     '/api/v1/settings',
-    createSettingsRouter({ modelCatalog: deps.modelCatalog, modelProviderStore: deps.modelProviderStore }),
+    createSettingsRouter({
+      modelCatalog: deps.modelCatalog,
+      modelProviderStore: deps.modelProviderStore,
+      mcpCatalog: deps.mcpCatalog,
+      mcpServerStore: deps.mcpServerStore,
+      skillCatalog: deps.skillCatalog,
+      skillStore: deps.skillStore,
+      logger: deps.logger,
+    }),
   );
-  // YAML registry surfaces — non-legacy paths reserved for future DB-backed CRUD.
+  // YAML registry surfaces — still used by sessions/turns and the legacy UI paths.
   app.route('/api/v1/legacy/models', createLegacyModelsRouter(deps.modelStore));
   app.route('/api/v1/legacy/mcp-servers', createLegacyMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
   app.route('/api/v1/legacy/mcp-servers/oauth', createLegacyMcpOAuthRouter({ logger: deps.logger }));
-  app.route('/api/v1/legacy/skills', createLegacySkillsRouter(deps.skillStore));
+  app.route('/api/v1/legacy/skills', createLegacySkillsRouter(deps.legacySkillStore));
   app.route(
     '/api/v1/sessions',
     createSessionsRouter({

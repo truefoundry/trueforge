@@ -11,9 +11,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
+import { McpCatalog } from '../src/catalog/McpCatalog';
 import { ModelCatalog } from '../src/catalog/ModelCatalog';
+import { SkillCatalog } from '../src/catalog/SkillCatalog';
 import { createSqliteDb } from '../src/db/sqlite/client';
+import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
 import { McpStore } from '../src/legacy-registry-store/McpStore';
 import { ModelStore } from '../src/legacy-registry-store/ModelStore';
 import { SkillStore } from '../src/legacy-registry-store/SkillStore';
@@ -40,12 +44,17 @@ function canonicalise(value: unknown): unknown {
 
 // Unconnected stand-ins suffice: route registration never reads a dependency.
 const sessionStore = new InMemorySessionStore();
+const db = createSqliteDb(':memory:');
 const app = createServerApp({
   modelStore: ModelStore.load(),
   modelCatalog: ModelCatalog.load(),
-  modelProviderStore: new SqliteModelProviderStore(createSqliteDb(':memory:')),
+  modelProviderStore: new SqliteModelProviderStore(db),
+  mcpCatalog: McpCatalog.load(),
+  mcpServerStore: new SqliteMcpServerStore(db),
   mcpStore: McpStore.load(),
-  skillStore: SkillStore.load(),
+  skillCatalog: SkillCatalog.load(),
+  skillStore: new SqliteSkillStore(db),
+  legacySkillStore: SkillStore.load(),
   sessionStore,
   sessions: new Sessions({ sessionStore }),
   activeTurns: new ActiveTurnRegistry(),

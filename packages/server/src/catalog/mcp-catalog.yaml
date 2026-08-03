@@ -1,0 +1,12 @@
+# Shipped MCP catalog: server presets offered by
+# GET /api/v1/settings/mcp-servers/catalog for the settings UI to copy into
+# PUT /api/v1/settings/mcp-servers bodies. Discovery-only — never executed against.
+mcp_servers:
+  - type: remote
+    name: linear
+    url: https://mcp.linear.app/mcp
+    auth:
+      type: dcr
+  - type: remote
+    name: deepwiki
+    url: https://mcp.deepwiki.com/mcp
