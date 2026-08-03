@@ -3,21 +3,19 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { ModelProperties } from "./ModelProperties.js";
 
 export const ModelEntry: core.serialization.ObjectSchema<serializers.ModelEntry.Raw, TrueHarness.ModelEntry> =
     core.serialization.object({
-        maxOutputTokens: core.serialization.property("max_output_tokens", core.serialization.number()),
+        modelId: core.serialization.property("model_id", core.serialization.string()),
         name: core.serialization.string(),
-        reasoningEfforts: core.serialization.property(
-            "reasoning_efforts",
-            core.serialization.list(core.serialization.string()).optional(),
-        ),
+        properties: ModelProperties,
     });
 
 export declare namespace ModelEntry {
     export interface Raw {
-        max_output_tokens: number;
+        model_id: string;
         name: string;
-        reasoning_efforts?: string[] | null;
+        properties: ModelProperties.Raw;
     }
 }

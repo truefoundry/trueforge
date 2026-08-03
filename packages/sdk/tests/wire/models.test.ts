@@ -9,7 +9,7 @@ describe("ModelsClient", () => {
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
         const rawResponseBody = {
-            data: [{ max_output_tokens: 1, name: "name", reasoning_efforts: ["reasoning_efforts"] }],
+            data: [{ model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } }],
         };
 
         server.mockEndpoint().get("/api/v1/models").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
@@ -18,9 +18,12 @@ describe("ModelsClient", () => {
         expect(response).toEqual({
             data: [
                 {
-                    maxOutputTokens: 1,
+                    modelId: "model_id",
                     name: "name",
-                    reasoningEfforts: ["reasoning_efforts"],
+                    properties: {
+                        contextLength: 1,
+                        maxOutputTokens: 1,
+                    },
                 },
             ],
         });
