@@ -77,8 +77,7 @@ export const McpServerEntrySchema = z
     url: z.string().url(),
     auth: McpServerAuthSettingsSchema.optional(),
   })
-  .strict()
-  .openapi('McpServerEntry');
+  .strict();
 
 /**
  * `mcp_server.manifest` JSONB shape — the full mcp.yaml entry, including `name` (also kept as its

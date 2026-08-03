@@ -6,7 +6,7 @@ const MCP_SERVERS_TAG = 'MCP Servers';
 
 // Extends the yaml-validation schema with a response-only field — `auth_status` isn't a valid
 // mcp.yaml key, so it's added here rather than on McpServerEntrySchema itself.
-const McpServerListEntrySchema = McpServerEntrySchema.extend({
+const McpServerResponseSchema = McpServerEntrySchema.extend({
   auth_status: z
     .enum(['authenticated', 'authentication_required', 'not_required'])
     .describe(
@@ -14,11 +14,11 @@ const McpServerListEntrySchema = McpServerEntrySchema.extend({
         'so an expired-but-refreshable token still reads as `authentication_required` here — call `/authorize` to ' +
         'actually resolve it. `not_required` for servers without `auth` configured.',
     ),
-}).openapi('McpServerListEntry');
+}).openapi('McpServerResponse');
 
 const ListMcpServersResponseSchema = z
   .object({
-    data: z.array(McpServerListEntrySchema),
+    data: z.array(McpServerResponseSchema),
   })
   .openapi('ListMcpServersResponse');
 

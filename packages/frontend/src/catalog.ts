@@ -7,7 +7,9 @@ export interface ModelEntry {
 }
 
 /** Mirrors `McpServerAuthSettingsSchema` in packages/server/src/store/schemas.ts. */
-export type McpServerAuthSettings = { type: 'dcr' };
+export interface McpServerAuthSettings {
+  type: 'dcr';
+}
 
 export interface McpServerEntry {
   name: string;

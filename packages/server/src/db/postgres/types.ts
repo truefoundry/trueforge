@@ -48,6 +48,7 @@ export interface McpOAuthToken {
   refreshToken?: string;
   /** ISO 8601; always filled — see "missing expires_in" fallback in the design doc */
   expiresAt: string;
+  /** scope is a single space-delimited case-sensitive string, not a list. */
   scope?: string;
 }
 

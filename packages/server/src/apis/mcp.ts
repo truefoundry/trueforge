@@ -28,8 +28,7 @@ export function createMcpRouter(deps: McpRouterDeps) {
   const listMcpServersHandler: RouteHandler<typeof listMcpServersRoute> = c => {
     const data = deps.mcpStore.list().map(entry => ({
       ...entry,
-      auth_status: (entry.auth ? 'authentication_required' : 'not_required') as
-        'authentication_required' | 'not_required',
+      auth_status: entry.auth ? ('authentication_required' as const) : ('not_required' as const),
     }));
     return c.json({ data }, 200);
   };
