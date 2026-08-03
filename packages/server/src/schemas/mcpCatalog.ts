@@ -3,11 +3,18 @@
  * configured MCP server manifests in mcpServer.ts.
  */
 import { z } from '@hono/zod-openapi';
-import { uniqueNames } from './common';
-import { McpServerManifestObjectSchema, type McpServerManifest } from './mcpServer';
+import { NameSchema, uniqueNames } from './common';
+import { McpServerAuthSettingsSchema } from './mcpServer';
 
-/** Catalog entry — same fields as the configured manifest. */
-export const CatalogMcpServerSchema = McpServerManifestObjectSchema.openapi('CatalogMcpServer');
+/** Catalog entry — discovery preset the settings UI copies into a PUT body. */
+export const CatalogMcpServerSchema = z
+  .object({
+    name: NameSchema,
+    url: z.string().url().describe('URL of the remote MCP server.'),
+    auth: McpServerAuthSettingsSchema.optional(),
+  })
+  .strict()
+  .openapi('CatalogMcpServer');
 
 export const McpCatalogFileSchema = z
   .object({
@@ -24,5 +31,5 @@ export const GetMcpServerCatalogResponseSchema = z
   })
   .openapi('GetMcpServerCatalogResponse');
 
-export type CatalogMcpServer = McpServerManifest;
+export type CatalogMcpServer = z.infer<typeof CatalogMcpServerSchema>;
 export type McpCatalogFile = z.infer<typeof McpCatalogFileSchema>;
