@@ -142,7 +142,7 @@ export function App() {
         const [models, serverCapabilities] = await Promise.all([listModels(), getCapabilities()]);
         const first = models[0];
         if (!first) {
-          throw new Error('No models in GET /api/v1/models — check models.yaml');
+          throw new Error('No models in GET /api/v1/legacy/models — check models.yaml');
         }
         if (!state.cancelled) {
           const defaultReasoningEffort = first.reasoning_efforts?.[0];

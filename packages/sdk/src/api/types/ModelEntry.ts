@@ -2,8 +2,10 @@
 
 import type * as TrueHarness from "../index.js";
 
-export type ModelEntry =
-    | TrueHarness.AnthropicProviderModelEntry
-    | TrueHarness.GenericProviderModelEntry
-    | TrueHarness.GoogleGeminiProviderModelEntry
-    | TrueHarness.OpenAiProviderModelEntry;
+export interface ModelEntry {
+    /** Upstream, provider-specific identifier sent to the provider API. */
+    modelId: string;
+    /** Internal identifier; forms the fully qualified name `name/model_name`. */
+    name: string;
+    properties: TrueHarness.ModelProperties;
+}

@@ -55,198 +55,6 @@ await client.server.getCapabilities();
 </dl>
 </details>
 
-## McpServers
-<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">list</a>() -> TrueHarness.ListMcpServersResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-MCP servers declared in mcp.yaml, each with a passive auth_status snapshot. Auth headers are configured via env vars and never returned.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.mcpServers.list();
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**requestOptions:** `McpServersClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">authorize</a>(name, { ...params }) -> TrueHarness.McpAuthorizeResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Registers a DCR client for this server if none exists yet, then returns an authorization URL to redirect the user to so they can complete the OAuth consent flow. Short-circuits to `{status: authenticated}` with no URL if the server is already connected.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.mcpServers.authorize("name", {
-    redirectUrl: "redirect_url"
-});
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**name:** `string` — MCP server name from mcp.yaml.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request:** `TrueHarness.AuthorizeMcpServersRequest` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**requestOptions:** `McpServersClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">listTools</a>(name) -> TrueHarness.ListMcpToolsResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call. No agent-spec tool selectors are applied — this is the raw server catalog.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.mcpServers.listTools("name");
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**name:** `string` — MCP server name from mcp.yaml.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**requestOptions:** `McpServersClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
 ## Models
 <details><summary><code>client.models.<a href="/src/api/resources/models/client/Client.ts">list</a>() -> TrueHarness.ListModelsResponse</code></summary>
 <dl>
@@ -260,7 +68,7 @@ await client.mcpServers.listTools("name");
 <dl>
 <dd>
 
-Models declared in models.yaml, reachable through the OpenAI-compatible API at the file's base_url.
+Models across all configured model providers, addressed by fully qualified name `name/model_name`.
 </dd>
 </dl>
 </dd>
@@ -397,7 +205,12 @@ Create a session holding an inline agent spec. Turns are executed against this s
 await client.sessions.create({
     agentSpec: {
         model: {
-            name: "name"
+            modelId: "model_id",
+            name: "name",
+            properties: {
+                contextLength: 1,
+                maxOutputTokens: 1
+            }
         }
     }
 });
@@ -1008,8 +821,256 @@ await client.sessions.listTurnEvents("sessionId", "turnId");
 </dl>
 </details>
 
-## Skills
-<details><summary><code>client.skills.<a href="/src/api/resources/skills/client/Client.ts">list</a>() -> TrueHarness.ListSkillsResponse</code></summary>
+## Legacy McpServers
+<details><summary><code>client.legacy.mcpServers.<a href="/src/api/resources/legacy/resources/mcpServers/client/Client.ts">list</a>() -> TrueHarness.ListMcpServersResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+MCP servers declared in mcp.yaml, each with a passive auth_status snapshot. Auth headers are configured via env vars and never returned.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.legacy.mcpServers.list();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `McpServersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.legacy.mcpServers.<a href="/src/api/resources/legacy/resources/mcpServers/client/Client.ts">authorize</a>(name, { ...params }) -> TrueHarness.McpAuthorizeResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Registers a DCR client for this server if none exists yet, then returns an authorization URL to redirect the user to so they can complete the OAuth consent flow. Short-circuits to `{status: authenticated}` with no URL if the server is already connected.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.legacy.mcpServers.authorize("name", {
+    redirectUrl: "redirect_url"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**name:** `string` — MCP server name from mcp.yaml.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueHarness.legacy.AuthorizeMcpServersRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `McpServersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.legacy.mcpServers.<a href="/src/api/resources/legacy/resources/mcpServers/client/Client.ts">listTools</a>(name) -> TrueHarness.ListMcpToolsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call. No agent-spec tool selectors are applied — this is the raw server catalog.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.legacy.mcpServers.listTools("name");
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**name:** `string` — MCP server name from mcp.yaml.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `McpServersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Legacy Models
+<details><summary><code>client.legacy.models.<a href="/src/api/resources/legacy/resources/models/client/Client.ts">list</a>() -> TrueHarness.ListLegacyModelsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Models declared in models.yaml — the registry the runtime still uses for turns.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.legacy.models.list();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `ModelsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Legacy Skills
+<details><summary><code>client.legacy.skills.<a href="/src/api/resources/legacy/resources/skills/client/Client.ts">list</a>() -> TrueHarness.ListSkillsResponse</code></summary>
 <dl>
 <dd>
 
@@ -1036,7 +1097,7 @@ Agent skills declared in skills.yaml.
 <dd>
 
 ```typescript
-await client.skills.list();
+await client.legacy.skills.list();
 
 ```
 </dd>
@@ -1053,6 +1114,195 @@ await client.skills.list();
 <dd>
 
 **requestOptions:** `SkillsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Settings ModelProviders
+<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">list</a>() -> TrueHarness.ListModelProvidersResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+All configured providers with their models.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.settings.modelProviders.list();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `ModelProvidersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">upsert</a>({ ...params }) -> TrueHarness.PutModelProviderResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.settings.modelProviders.upsert({
+    auth: {
+        apiKey: "api_key"
+    },
+    baseUrl: "base_url",
+    models: [{
+            modelId: "model_id",
+            name: "name",
+            properties: {
+                contextLength: 1,
+                maxOutputTokens: 1
+            }
+        }],
+    name: "name",
+    type: "openai"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueHarness.ModelProvider` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `ModelProvidersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">catalog</a>() -> TrueHarness.GetModelProviderCatalogResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: copy an entry into PUT /settings/model-providers to configure it. Custom providers are not listed here.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.settings.modelProviders.catalog();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `ModelProvidersClient.RequestOptions` 
     
 </dd>
 </dl>

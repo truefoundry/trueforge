@@ -1,5 +1,5 @@
 /**
- * Shared Kysely SQL expression helpers for the SQLite session store.
+ * Shared Kysely SQL expression helpers for SQLite stores.
  * JSON authority: SQLite JSON1 — bind text via jsonb(?); read via json(column).
  * ParseJSONResultsPlugin parses top-level json() columns only (see createSqliteDb).
  */
@@ -29,12 +29,4 @@ export function jsonText<T>(column: Expression<unknown>): RawBuilder<T> {
 /** Current UTC instant as ISO-8601 text for TEXT timestamp columns. */
 export function nowIso(): string {
   return new Date().toISOString();
-}
-
-/**
- * SQLite RETURNING row order is unspecified. Multi-row INSERT assigns increasing
- * append_id in VALUES order — sort on that before mapping to pos / per-thread lists.
- */
-export function sortedByAppendId<T extends { append_id: number }>(rows: readonly T[]): T[] {
-  return [...rows].sort((a, b) => a.append_id - b.append_id);
 }

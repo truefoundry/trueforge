@@ -11,10 +11,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
+import { ModelCatalog } from '../src/catalog/ModelCatalog';
+import { createSqliteDb } from '../src/db/sqlite/client';
+import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { McpStore } from '../src/legacy-registry-store/McpStore';
+import { ModelStore } from '../src/legacy-registry-store/ModelStore';
+import { SkillStore } from '../src/legacy-registry-store/SkillStore';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
-import { McpStore } from '../src/store/McpStore';
-import { ModelStore } from '../src/store/ModelStore';
-import { SkillStore } from '../src/store/SkillStore';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -39,6 +42,8 @@ function canonicalise(value: unknown): unknown {
 const sessionStore = new InMemorySessionStore();
 const app = createServerApp({
   modelStore: ModelStore.load(),
+  modelCatalog: ModelCatalog.load(),
+  modelProviderStore: new SqliteModelProviderStore(createSqliteDb(':memory:')),
   mcpStore: McpStore.load(),
   skillStore: SkillStore.load(),
   sessionStore,

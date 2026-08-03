@@ -49,17 +49,17 @@ async function fetchJson<T>(path: string): Promise<T> {
 }
 
 export async function listModels(): Promise<ModelEntry[]> {
-  const body = await fetchJson<ListEnvelope<ModelEntry>>('/api/v1/models');
+  const body = await fetchJson<ListEnvelope<ModelEntry>>('/api/v1/legacy/models');
   return body.data;
 }
 
 export async function listMcpServers(): Promise<McpServerEntry[]> {
-  const body = await fetchJson<ListEnvelope<McpServerEntry>>('/api/v1/mcp-servers');
+  const body = await fetchJson<ListEnvelope<McpServerEntry>>('/api/v1/legacy/mcp-servers');
   return body.data;
 }
 
 export async function listSkills(): Promise<SkillEntry[]> {
-  const body = await fetchJson<ListEnvelope<SkillEntry>>('/api/v1/skills');
+  const body = await fetchJson<ListEnvelope<SkillEntry>>('/api/v1/legacy/skills');
   return body.data;
 }
 

@@ -3,17 +3,19 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ModelParams } from "./ModelParams.js";
+import { ModelProperties } from "./ModelProperties.js";
 
 export const Model: core.serialization.ObjectSchema<serializers.Model.Raw, TrueHarness.Model> =
     core.serialization.object({
+        modelId: core.serialization.property("model_id", core.serialization.string()),
         name: core.serialization.string(),
-        params: ModelParams.optional(),
+        properties: ModelProperties,
     });
 
 export declare namespace Model {
     export interface Raw {
+        model_id: string;
         name: string;
-        params?: ModelParams.Raw | null;
+        properties: ModelProperties.Raw;
     }
 }
