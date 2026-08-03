@@ -40,6 +40,8 @@ Open `http://localhost:3000`. Frontend changes update through Vite HMR; server c
 
 The workspace utils package is ESM so the host server and source schemas share one ESM dependency graph. `NODE_OPTIONS=--conditions=development` selects `src/` at runtime, and TypeScript uses the same condition for source-based static analysis. Development, lint, typecheck, tests, OpenAPI generation, and migrations do not read or recreate `packages/harness/dist`; release builds, package checks, and Docker smoke tests create it intentionally.
 
+Server dev scripts regenerate the embedded sandbox Python helpers before startup. This writes a generated TypeScript source module and does not build `dist`.
+
 | Script              | Runs                                                                               |
 | ------------------- | ---------------------------------------------------------------------------------- |
 | `pnpm dev:infra`    | Postgres + Redis in the foreground                                                 |
