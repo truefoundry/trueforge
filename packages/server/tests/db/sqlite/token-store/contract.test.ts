@@ -4,7 +4,7 @@ import { runOAuthTokenStoreContractSuite, type OAuthTokenStoreHarness } from '..
 import { createSqliteTestDatabase, type SqliteTestDatabase } from '../testDatabase';
 
 describe('SqliteOAuthTokenStore (IOAuthTokenStore contract)', () => {
-  let env: SqliteTestDatabase;
+  let env: SqliteTestDatabase | undefined;
 
   beforeEach(async () => {
     env = await createSqliteTestDatabase();
@@ -12,31 +12,38 @@ describe('SqliteOAuthTokenStore (IOAuthTokenStore contract)', () => {
 
   afterEach(async () => {
     await env?.teardown();
+    env = undefined;
   });
 
-  runOAuthTokenStoreContractSuite((): OAuthTokenStoreHarness => ({
-    store: new SqliteOAuthTokenStore(env.db),
-    async seedResource(id) {
-      await env.db
-        .insertInto('mcp_server')
-        .values({
-          id,
-          tenant_id: 'default',
-          name: id,
-          manifest: jsonbBind({}),
-          oauth_server: null,
-          oauth_client: null,
-          created_at: nowIso(),
-          updated_at: nowIso(),
-        })
-        .execute();
-    },
-    async expirePending(state) {
-      await env.db
-        .updateTable('oauth_pending_authorization')
-        .set({ created_at: new Date(Date.now() - 3_600_000).toISOString() })
-        .where('id', '=', state)
-        .execute();
-    },
-  }));
+  runOAuthTokenStoreContractSuite((): OAuthTokenStoreHarness => {
+    if (env === undefined) {
+      throw new Error('SQLite test database not initialized');
+    }
+    const db = env.db;
+    return {
+      store: new SqliteOAuthTokenStore(db),
+      async seedResource(id) {
+        await db
+          .insertInto('mcp_server')
+          .values({
+            id,
+            tenant_id: 'default',
+            name: id,
+            manifest: jsonbBind({}),
+            oauth_server: null,
+            oauth_client: null,
+            created_at: nowIso(),
+            updated_at: nowIso(),
+          })
+          .execute();
+      },
+      async expirePending(state) {
+        await db
+          .updateTable('oauth_pending_authorization')
+          .set({ created_at: new Date(Date.now() - 3_600_000).toISOString() })
+          .where('id', '=', state)
+          .execute();
+      },
+    };
+  });
 });

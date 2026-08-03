@@ -1,5 +1,5 @@
 import type { OAuthPendingAuthorization } from '@truefoundry/utils/core';
-import { sql, type Kysely } from 'kysely';
+import type { Kysely } from 'kysely';
 import { PENDING_AUTHORIZATION_TTL_MS, type OAuthPendingAuthorizationData } from '../../../mcpOAuthTypes';
 import { json, now, nowMinusMs } from '../../sqlExpressions';
 import type { Database } from '../../types';
@@ -22,13 +22,6 @@ export async function savePendingAuthorization(
       auth_data: json(authData),
       created_at: now(),
     })
-    .onConflict(oc =>
-      oc.column('id').doUpdateSet({
-        oauth_server_id: sql`excluded.oauth_server_id`,
-        auth_data: sql`excluded.auth_data`,
-        created_at: sql`excluded.created_at`,
-      }),
-    )
     .execute();
 }
 

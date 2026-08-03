@@ -15,6 +15,7 @@ export interface OAuthTokenStoreHarness {
 }
 
 const RESOURCE_ID = 'mcp-server-1';
+const OTHER_RESOURCE_ID = 'mcp-server-2';
 
 function token(overrides: Partial<OAuthToken> = {}): OAuthToken {
   return {
@@ -68,6 +69,20 @@ export function runOAuthTokenStoreContractSuite(getHarness: () => OAuthTokenStor
     expect(await h.store.getToken({ id: RESOURCE_ID })).toBeUndefined();
   });
 
+  it('tokens are scoped per resource', async () => {
+    const h = getHarness();
+    await h.seedResource(RESOURCE_ID);
+    await h.seedResource(OTHER_RESOURCE_ID);
+    const other = token({ accessToken: 'access-other' });
+    await h.store.saveToken({ id: RESOURCE_ID, token: token() });
+    await h.store.saveToken({ id: OTHER_RESOURCE_ID, token: other });
+
+    await h.store.deleteToken({ id: RESOURCE_ID });
+
+    expect(await h.store.getToken({ id: RESOURCE_ID })).toBeUndefined();
+    expect(await h.store.getToken({ id: OTHER_RESOURCE_ID })).toEqual(other);
+  });
+
   it('savePendingAuthorization round-trips, including null fields', async () => {
     const h = getHarness();
     await h.seedResource(RESOURCE_ID);
@@ -91,6 +106,20 @@ export function runOAuthTokenStoreContractSuite(getHarness: () => OAuthTokenStor
     await h.store.deletePendingAuthorization({ state: 'state-1' });
 
     expect(await h.store.getPendingAuthorization({ state: 'state-1' })).toBeUndefined();
+  });
+
+  it('pending authorizations are keyed by state, not by resource', async () => {
+    const h = getHarness();
+    await h.seedResource(RESOURCE_ID);
+    await h.seedResource(OTHER_RESOURCE_ID);
+    const other = pending({ state: 'state-2', id: OTHER_RESOURCE_ID, codeVerifier: 'verifier-2' });
+    await h.store.savePendingAuthorization(pending());
+    await h.store.savePendingAuthorization(other);
+
+    await h.store.deletePendingAuthorization({ state: 'state-1' });
+
+    expect(await h.store.getPendingAuthorization({ state: 'state-1' })).toBeUndefined();
+    expect(await h.store.getPendingAuthorization({ state: 'state-2' })).toEqual(other);
   });
 
   it('getPendingAuthorization drops a row past its TTL', async () => {

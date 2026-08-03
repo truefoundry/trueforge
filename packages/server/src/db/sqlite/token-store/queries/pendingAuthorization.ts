@@ -22,13 +22,6 @@ export async function savePendingAuthorization(
       auth_data: jsonbBind(authData),
       created_at: nowIso(),
     })
-    .onConflict(oc =>
-      oc.column('id').doUpdateSet({
-        oauth_server_id: sql`excluded.oauth_server_id`,
-        auth_data: sql`excluded.auth_data`,
-        created_at: sql`excluded.created_at`,
-      }),
-    )
     .execute();
 }
 
