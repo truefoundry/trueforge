@@ -40,5 +40,6 @@ export default defineConfig({
     const destDir = path.join(packageDir, 'dist/catalog');
     mkdirSync(destDir, { recursive: true });
     copyFileSync(path.join(packageDir, 'src/catalog/model-catalog.yaml'), path.join(destDir, 'model-catalog.yaml'));
+    return Promise.resolve();
   },
 });
