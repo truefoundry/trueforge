@@ -18,7 +18,6 @@ export const CatalogProviderSchema = z
 
 export const ModelCatalogFileSchema = z
   .object({
-    type: z.literal('model-catalog'),
     providers: z.array(CatalogProviderSchema),
   })
   .strict()

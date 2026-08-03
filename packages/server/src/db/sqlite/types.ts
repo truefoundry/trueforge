@@ -17,9 +17,10 @@ import type {
 } from '@truefoundry/utils/core';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
-import type { McpServerManifest } from '../../legacy-registry-store/schemas';
+import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ProviderManifest } from '../../schemas/modelProvider';
-import type { McpOAuthPendingAuthorizationData, McpOAuthToken, OAuthClient, OAuthServer } from '../mcpOAuthTypes';
+import type { SkillManifest } from '../../schemas/skill';
+import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpOAuthTypes';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -154,6 +155,20 @@ export interface ModelProviderTable {
 }
 
 /**
+ * Configured skills — mirrors the Postgres `skill` table.
+ * PRIMARY KEY (tenant_id, name)
+ */
+export interface SkillTable {
+  tenant_id: string;
+  /** key: natural key within tenant; also duplicated inside `manifest` */
+  name: string;
+  /** SkillManifest document; replaced whole on every upsert */
+  manifest: JsonbColumn<SkillManifest>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * PRIMARY KEY (id)
  * UNIQUE (tenant_id, name) — the natural lookup key;
  */
@@ -161,7 +176,7 @@ export interface McpServerTable {
   /** application-generated (ulid); FK target, never re-derived from tenant_id/name */
   id: string;
   tenant_id: string;
-  /** the uniqueness target; also duplicated inside `manifest` (the full mcp.yaml entry) */
+  /** the uniqueness target; also duplicated inside `manifest` */
   name: string;
   manifest: JsonbColumn<McpServerManifest>;
   /**
@@ -185,7 +200,7 @@ export interface McpServerTable {
 export interface OAuthTokenTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
-  token: JsonbColumn<McpOAuthToken>;
+  token: JsonbColumn<OAuthToken>;
   updated_at: string;
 }
 
@@ -197,7 +212,7 @@ export interface OAuthPendingAuthorizationTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
   /** { codeVerifier?, redirectUrl? } — same writer/lifecycle for both, so merged into one column */
-  auth_data: JsonbColumn<McpOAuthPendingAuthorizationData>;
+  auth_data: JsonbColumn<OAuthPendingAuthorizationData>;
   created_at: string;
 }
 
@@ -210,6 +225,7 @@ export interface Database {
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
+  skill: SkillTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;

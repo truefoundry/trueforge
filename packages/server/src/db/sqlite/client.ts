@@ -137,6 +137,10 @@ const JSON_RESULT_COLUMNS = new Set([
   'thread_checkpoint',
   'event',
   'manifest',
+  'oauth_server',
+  'oauth_client',
+  'token',
+  'auth_data',
 ]);
 
 /** Top-level row field only — `$[0]."body"`, not `$[0]."body"."content"`. */

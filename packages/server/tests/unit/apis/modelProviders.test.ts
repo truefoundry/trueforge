@@ -1,9 +1,14 @@
+import winston from 'winston';
 import { createModelsRouter } from '../../../src/apis/models';
 import { createSettingsRouter } from '../../../src/apis/settings';
+import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
+import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 
 const putBody = {
   type: 'anthropic',
@@ -35,7 +40,15 @@ describe('settings model-providers and models routers', () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
-    settingsRouter = createSettingsRouter({ modelCatalog: ModelCatalog.load(), modelProviderStore });
+    settingsRouter = createSettingsRouter({
+      modelCatalog: ModelCatalog.load(),
+      modelProviderStore,
+      mcpCatalog: McpCatalog.load(),
+      mcpServerStore: new SqliteMcpServerStore(db),
+      skillCatalog: SkillCatalog.load(),
+      skillStore: new SqliteSkillStore(db),
+      logger: winston.createLogger({ silent: true }),
+    });
     modelsRouter = createModelsRouter(modelProviderStore);
   });
 
