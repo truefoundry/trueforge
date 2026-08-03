@@ -733,6 +733,8 @@ interface ToolCallState {
   id: string;
   name: string;
   arguments: string;
+  /** Gemini `thoughtSignature` from `providerMetadata.google` on the `tool-input-start` part. */
+  thoughtSignature: string | undefined;
 }
 
 /** Synthetic chunk fields shared by every chunk emitted for a single stream. */
@@ -818,9 +820,15 @@ export async function* mapStreamToChunks({
         if (currentThinkingBlock !== null && part.providerMetadata !== undefined) {
           // Scan all provider namespace values — only the active provider's key will
           // be populated, so this is provider-agnostic without coupling to replayKey.
+          // OpenAI Responses API → meta.reasoningEncryptedContent
+          // Anthropic              → meta.signature
           for (const meta of Object.values(part.providerMetadata)) {
             if ('reasoningEncryptedContent' in meta && typeof meta['reasoningEncryptedContent'] === 'string') {
               currentThinkingBlock.signature = meta['reasoningEncryptedContent'];
+              break;
+            }
+            if ('signature' in meta && typeof meta['signature'] === 'string') {
+              currentThinkingBlock.signature = meta['signature'];
               break;
             }
           }
@@ -831,11 +839,21 @@ export async function* mapStreamToChunks({
 
       case 'tool-input-start': {
         const idx = nextToolIndex++;
+        // @ai-sdk/google sets providerMetadata.google.thoughtSignature on tool-input-start for
+        // Gemini thinking models. Capture it here so the finalized tool_call can carry
+        // provider_specific_fields.thought_signature — the field toAssistantModelMessage reads
+        // when replaying tool calls in multi-turn conversations.
+        const googleMeta = part.providerMetadata?.['google'];
+        const thoughtSignature =
+          googleMeta !== undefined && typeof googleMeta['thoughtSignature'] === 'string'
+            ? googleMeta['thoughtSignature']
+            : undefined;
         toolCallStates.set(part.id, {
           index: idx,
           id: part.id,
           name: part.toolName,
           arguments: '',
+          thoughtSignature,
         });
         yield {
           ...makeBase(),
@@ -940,6 +958,9 @@ export async function* mapStreamToChunks({
       id: tc.id,
       type: 'function' as const,
       function: { name: tc.name, arguments: tc.arguments },
+      ...(tc.thoughtSignature !== undefined
+        ? { provider_specific_fields: { thought_signature: tc.thoughtSignature } }
+        : {}),
     }));
 
   const output: RawAssistantMessage = {

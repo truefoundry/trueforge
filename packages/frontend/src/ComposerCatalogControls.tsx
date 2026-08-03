@@ -202,6 +202,9 @@ export function ComposerCatalogControls({
                   const nextParams = { ...agentSpec?.model.params };
                   // Assign undefined (not delete) so the spread in mergeAgentSpec
                   // overrides the base value; a deleted key leaves the base intact.
+                  // TODO (chiragjn): look into SDK generation, if we can have a more robust way to do this.
+                  // @ts-expect-error -- ModelParams.reasoningEffort is `string?` (exactOptionalPropertyTypes),
+                  // but we intentionally write undefined here so the JS spread overwrites any prior value.
                   nextParams.reasoningEffort = nextReasoningEffort;
                   return (
                     <button

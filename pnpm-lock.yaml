@@ -115,9 +115,6 @@ importers:
       '@ai-sdk/google':
         specifier: ^4.0.29
         version: 4.0.29(zod@3.25.76)
-      '@ai-sdk/mistral':
-        specifier: ^4.0.18
-        version: 4.0.18(zod@3.25.76)
       '@ai-sdk/openai':
         specifier: ^4.0.25
         version: 4.0.25(zod@3.25.76)
@@ -293,12 +290,6 @@ packages:
 
   '@ai-sdk/google@4.0.29':
     resolution: {integrity: sha512-JpFlWrQUJ2xJY4j1NWVZlcPlK9TEPyNwy5n0blWa8mW1juqasyEdHva3yBGD9iFFJ0enChtDUr+FB6ZurRr4Sg==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/mistral@4.0.18':
-    resolution: {integrity: sha512-4zHnuQbstR5CGN3DFl7U6ks3dEEZFGya+/ajG0YD9ti8k9puxZJQBlYZdSXvd7DJKPIXavhHJ/vJNSzDEibocw==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -6432,12 +6423,6 @@ snapshots:
       zod: 3.25.76
 
   '@ai-sdk/google@4.0.29(zod@3.25.76)':
-    dependencies:
-      '@ai-sdk/provider': 4.0.4
-      '@ai-sdk/provider-utils': 5.0.16(zod@3.25.76)
-      zod: 3.25.76
-
-  '@ai-sdk/mistral@4.0.18(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 4.0.4
       '@ai-sdk/provider-utils': 5.0.16(zod@3.25.76)

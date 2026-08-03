@@ -84,7 +84,6 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.25",
     "@ai-sdk/google": "^4.0.29",
-    "@ai-sdk/mistral": "^4.0.18",
     "@ai-sdk/openai": "^4.0.25",
     "@ai-sdk/openai-compatible": "^3.0.18",
     "@daytona/sdk": "^0.190.0",

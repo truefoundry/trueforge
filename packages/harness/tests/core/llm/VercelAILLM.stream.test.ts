@@ -162,7 +162,7 @@ describe('mapStreamToChunks', () => {
     expect(final.output.thinking_blocks).toEqual([{ type: 'thinking', thinking: 'step one' }]);
   });
 
-  it('attaches signature from providerMetadata.*.reasoningEncryptedContent on reasoning-end', async () => {
+  it('attaches signature from providerMetadata.*.reasoningEncryptedContent on reasoning-end (OpenAI)', async () => {
     const providerMetadata: ProviderMetadata = { openai: { reasoningEncryptedContent: 'enc-sig' } };
     const { final } = await drainStream(
       mapStreamToChunks({
@@ -180,6 +180,27 @@ describe('mapStreamToChunks', () => {
       type: 'thinking',
       thinking: 'thought',
       signature: 'enc-sig',
+    });
+  });
+
+  it('attaches signature from providerMetadata.*.signature on reasoning-end (Anthropic)', async () => {
+    const providerMetadata: ProviderMetadata = { anthropic: { signature: 'ant-sig' } };
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: 'r1' },
+          { type: 'reasoning-delta', id: 'r1', text: 'thought' },
+          { type: 'reasoning-end', id: 'r1', providerMetadata },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.thinking_blocks?.[0]).toMatchObject({
+      type: 'thinking',
+      thinking: 'thought',
+      signature: 'ant-sig',
     });
   });
 
@@ -222,6 +243,42 @@ describe('mapStreamToChunks', () => {
       { id: 'call-1', type: 'function', function: { name: 'search', arguments: '{"q":"hi"}' } },
     ]);
     expect(final.finish_reason).toBe('tool_calls');
+  });
+
+  it('captures google thoughtSignature from tool-input-start providerMetadata into provider_specific_fields', async () => {
+    const providerMetadata: ProviderMetadata = { google: { thoughtSignature: 'google-sig-abc' } };
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'tool-input-start', id: 'call-g', toolName: 'search_tool', providerMetadata },
+          { type: 'tool-input-delta', id: 'call-g', delta: '{"q":"test"}' },
+          makeFinishStep('tool-calls'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.tool_calls?.[0]).toMatchObject({
+      id: 'call-g',
+      type: 'function',
+      function: { name: 'search_tool', arguments: '{"q":"test"}' },
+      provider_specific_fields: { thought_signature: 'google-sig-abc' },
+    });
+  });
+
+  it('omits provider_specific_fields when no thoughtSignature is present on tool-input-start', async () => {
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'tool-input-start', id: 'call-x', toolName: 'noop' },
+          { type: 'tool-input-delta', id: 'call-x', delta: '{}' },
+          makeFinishStep('tool-calls'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.tool_calls?.[0]).not.toHaveProperty('provider_specific_fields');
   });
 
   it('emits a finish chunk with usage and sets the final message finish_reason', async () => {
