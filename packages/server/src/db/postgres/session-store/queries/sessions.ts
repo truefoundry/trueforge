@@ -1,6 +1,7 @@
 import type { SessionRecord } from '@truefoundry/utils/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
+  DeleteSessionInput,
   GetSessionInput,
   ListSessionsInput,
   UpdateSessionInput,
@@ -12,8 +13,8 @@ import {
   SessionStoreInvariantError,
 } from '@truefoundry/utils/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
+import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
-import { json } from '../sqlExpressions';
 
 function isPgUniqueViolation(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) {
@@ -89,6 +90,14 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
     }
     throw error;
   }
+}
+
+export async function deleteSession(db: Kysely<Database>, input: DeleteSessionInput): Promise<void> {
+  await db
+    .deleteFrom('session')
+    .where('tenant_id', '=', input.tenant_id)
+    .where('session_id', '=', input.session_id)
+    .execute();
 }
 
 export async function getSession(

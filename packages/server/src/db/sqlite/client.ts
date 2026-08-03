@@ -136,6 +136,7 @@ const JSON_RESULT_COLUMNS = new Set([
   'turn_state',
   'thread_checkpoint',
   'event',
+  'manifest',
 ]);
 
 /** Top-level row field only — `$[0]."body"`, not `$[0]."body"."content"`. */

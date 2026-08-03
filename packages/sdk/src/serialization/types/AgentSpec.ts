@@ -3,9 +3,9 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { AgentSpecModel } from "./AgentSpecModel.js";
 import { AgentSpecUserMessage } from "./AgentSpecUserMessage.js";
 import { McpServer } from "./McpServer.js";
-import { Model } from "./Model.js";
 import { ResponseFormat } from "./ResponseFormat.js";
 import { RuntimeConfig } from "./RuntimeConfig.js";
 import { SkillMount } from "./SkillMount.js";
@@ -16,7 +16,7 @@ export const AgentSpec: core.serialization.ObjectSchema<serializers.AgentSpec.Ra
         instructions: core.serialization.string().optional(),
         mcpServers: core.serialization.property("mcp_servers", core.serialization.list(McpServer).optional()),
         messages: core.serialization.list(AgentSpecUserMessage).optional(),
-        model: Model,
+        model: AgentSpecModel,
         responseFormat: core.serialization.property("response_format", ResponseFormat.optional()),
         skills: core.serialization.list(SkillMount).optional(),
         variables: core.serialization.record(core.serialization.string(), core.serialization.string()).optional(),
@@ -28,7 +28,7 @@ export declare namespace AgentSpec {
         instructions?: string | null;
         mcp_servers?: McpServer.Raw[] | null;
         messages?: AgentSpecUserMessage.Raw[] | null;
-        model: Model.Raw;
+        model: AgentSpecModel.Raw;
         response_format?: ResponseFormat.Raw | null;
         skills?: SkillMount.Raw[] | null;
         variables?: Record<string, string> | null;

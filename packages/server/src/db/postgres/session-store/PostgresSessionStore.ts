@@ -8,6 +8,7 @@ import type {
   AppendToThreadContextInput,
   CreateSessionInput,
   CreateTurnInput,
+  DeleteSessionInput,
   FreezeAndGetTurnInput,
   GetSessionInput,
   GetTurnInput,
@@ -36,6 +37,7 @@ import {
 } from './queries/events';
 import {
   createSession as createSessionQuery,
+  deleteSession as deleteSessionQuery,
   getSession as getSessionQuery,
   listSessions as listSessionsQuery,
   updateSession as updateSessionQuery,
@@ -74,9 +76,11 @@ type TurnCustom = Record<string, never>;
  *
  * Hard invariants (violations proven by failing tests during prototyping —
  * see the freeze/fence tests):
- * 1. Only the session tip can be running. `createTurn` rejects a running
- *    previous turn; callers must `freezeAndGetTurn` first (barge-in IS the
- *    cancellation of the predecessor).
+ * 1. A turn cannot be used as `previous_turn_id` while it is still `running` —
+ *    `createTurn` rejects that with PreviousTurnRunningError; callers must
+ *    `freezeAndGetTurn` first (barge-in IS cancellation of that predecessor).
+ *    Tip-equality is NOT required: new roots and concurrent forks from a
+ *    finished tip can leave more than one turn `running` at once.
  * 2. Every turn-scoped write is fenced on `state->>'status' = 'running'`.
  * 3. Terminal turns are IMMUTABLE — a terminal read is a final read.
  */
@@ -85,6 +89,10 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
 
   createSession(input: CreateSessionInput<SessionCustom>): Promise<void> {
     return createSessionQuery(this.db, input);
+  }
+
+  deleteSession(input: DeleteSessionInput): Promise<void> {
+    return deleteSessionQuery(this.db, input);
   }
 
   getSession(input: GetSessionInput): Promise<SessionRecord<SessionCustom> | undefined> {
@@ -110,7 +118,6 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
 
   createTurn(input: CreateTurnInput<TurnCustom>): Promise<SessionRecord<SessionCustom>> {
     return createTurnQuery(this.db, {
-      tenant_id: input.tenant_id,
       session_id: input.turn.session_id,
       turn: {
         turn_id: input.turn.turn_id,
@@ -148,7 +155,6 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
   ): Promise<{ data: TurnRecordWithoutSnapshot<TurnCustom>[]; pagination: TokenPagination }> {
     const offset = decodeOffsetPageToken(input.page_token);
     const result = await listTurnsQuery(this.db, {
-      tenant_id: input.tenant_id,
       session_id: input.session_id,
       limit: input.limit,
       offset,

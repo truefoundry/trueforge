@@ -48,7 +48,6 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(session.record.last_turn_id).toBe(turn.id);
 
     const stored = await store.getTurn({
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -58,7 +57,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(sessionRecord?.last_turn_id).toBe(turn.id);
   });
 
-  it('loads a turn handle directly from tenant, session, and turn ids', async () => {
+  it('loads a turn handle directly from session and turn ids', async () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
@@ -76,7 +75,6 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
 
     const loaded = await TurnHandle.fromIds({
       store,
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: created.id,
     });
@@ -86,7 +84,6 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
 
     const missing = await TurnHandle.fromIds({
       store,
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: 'missing-turn',
     });
@@ -229,7 +226,6 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       }),
     ).rejects.toThrow();
     const turns = await store.listTurns({
-      tenant_id: tenant,
       session_id: 's1',
       limit: 10,
       page_token: undefined,

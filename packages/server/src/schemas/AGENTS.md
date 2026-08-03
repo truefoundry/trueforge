@@ -1,0 +1,1 @@
+- Breaking changes to Zod schemas that back persisted JSON (e.g. `model_provider.manifest`) MUST include a data migration or rewrite for existing rows.

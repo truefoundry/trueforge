@@ -148,7 +148,12 @@ export class SessionsClient {
      *     await client.sessions.create({
      *         agentSpec: {
      *             model: {
-     *                 name: "name"
+     *                 modelId: "model_id",
+     *                 name: "name",
+     *                 properties: {
+     *                     contextLength: 1,
+     *                     maxOutputTokens: 1
+     *                 }
      *             }
      *         }
      *     })

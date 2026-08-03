@@ -37,7 +37,7 @@ describe('api error interceptor', () => {
     stubbedResponse = () => {
       throw new Error('connection refused');
     };
-    await assert.rejects(fetch('/api/v1/skills'), /connection refused/);
+    await assert.rejects(fetch('/api/v1/legacy/skills'), /connection refused/);
 
     const [record] = getApiErrorsSnapshot();
     assert.ok(record);

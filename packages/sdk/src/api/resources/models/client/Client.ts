@@ -23,7 +23,7 @@ export class ModelsClient {
     }
 
     /**
-     * Models declared in models.yaml, reachable through the OpenAI-compatible API at the file's base_url.
+     * Models across all configured model providers, addressed by fully qualified name `name/model_name`.
      *
      * @param {ModelsClient.RequestOptions} requestOptions - Request-specific configuration.
      *

@@ -3,6 +3,9 @@
 import type * as TrueHarness from "../index.js";
 
 export interface Model {
+    /** Upstream, provider-specific identifier sent to the provider API. */
+    modelId: string;
+    /** Fully qualified name `name/model_name`, e.g. "openai/gpt-5-6-sol". */
     name: string;
-    params?: TrueHarness.ModelParams;
+    properties: TrueHarness.ModelProperties;
 }

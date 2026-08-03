@@ -31,8 +31,9 @@ import { getEmptyCurrentContextUsage } from '@truefoundry/utils/core/runtime/con
 import type { SandboxInfo } from '@truefoundry/utils/core/sandbox/Sandbox';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
 import { isUniqueViolation } from '../../client';
+import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database, TurnCheckpoint, TurnThreadCheckpoint } from '../../types';
-import { jsonbBind, jsonText, nowIso, sortedByAppendId } from '../sqlExpressions';
+import { sortedByAppendId } from '../sqlExpressions';
 import { mapRowToSessionRecord } from './sessions';
 
 type SessionCustom = Record<string, never>;
@@ -60,7 +61,6 @@ export interface NewThreadRegistration {
 }
 
 export interface TurnKeys {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
 }
@@ -82,7 +82,6 @@ export interface CreateTurnTurnFields {
 }
 
 export interface CreateTurnInput {
-  tenant_id: string;
   session_id: string;
   turn: CreateTurnTurnFields;
   new_threads: NewThreadRegistration[];
@@ -98,13 +97,11 @@ export interface CreateTurnInput {
 }
 
 export interface GetTurnInput {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
 }
 
 export interface ListTurnsInput {
-  tenant_id: string;
   session_id: string;
   limit: number;
   offset: number;
@@ -132,7 +129,6 @@ async function loadTurnState(db: DbOrTrx, keys: TurnKeys): Promise<TurnState | u
   const row = await db
     .selectFrom('turn')
     .select([jsonText<TurnState>(sql.ref('state')).as('state')])
-    .where('tenant_id', '=', keys.tenant_id)
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
     .executeTakeFirst();
@@ -179,12 +175,11 @@ interface CapabilityAggRow {
 
 async function assembleTurnRecord(
   db: DbOrTrx,
-  args: { tenant_id: string; session_id: string; turn_id: string },
+  args: { session_id: string; turn_id: string },
 ): Promise<TurnRecord<TurnCustom> | undefined> {
   const turn = await db
     .selectFrom('turn')
     .select([
-      'tenant_id',
       'session_id',
       'turn_id',
       'first_turn_id',
@@ -197,7 +192,6 @@ async function assembleTurnRecord(
       'created_at',
       'updated_at',
     ])
-    .where('tenant_id', '=', args.tenant_id)
     .where('session_id', '=', args.session_id)
     .where('turn_id', '=', args.turn_id)
     .executeTakeFirst();
@@ -210,14 +204,12 @@ async function assembleTurnRecord(
     .selectFrom('turn_thread as tt')
     .leftJoin('turn_thread_context as ttc', join =>
       join
-        .on('ttc.tenant_id', '=', args.tenant_id)
         .on('ttc.session_id', '=', args.session_id)
         .on('ttc.turn_id', '=', args.turn_id)
         .onRef('ttc.thread_id', '=', 'tt.thread_id'),
     )
     .leftJoin('thread_context_log as l', join =>
       join
-        .on('l.tenant_id', '=', args.tenant_id)
         .on('l.session_id', '=', args.session_id)
         .onRef('l.thread_id', '=', 'tt.thread_id')
         .onRef('l.append_id', '=', 'ttc.append_id'),
@@ -230,7 +222,6 @@ async function assembleTurnRecord(
       jsonText<ContextMessage | null>(sql.ref('l.body')).as('body'),
       'ttc.pos',
     ])
-    .where('tt.tenant_id', '=', args.tenant_id)
     .where('tt.session_id', '=', args.session_id)
     .where('tt.turn_id', '=', args.turn_id)
     .orderBy('tt.thread_id')
@@ -243,7 +234,6 @@ async function assembleTurnRecord(
       'thread_id',
       sql<Record<string, JsonValue> | null>`json(jsonb_group_object(key, json(state)))`.as('capability_state'),
     ])
-    .where('tenant_id', '=', args.tenant_id)
     .where('session_id', '=', args.session_id)
     .where('turn_id', '=', args.turn_id)
     .groupBy('thread_id')
@@ -333,7 +323,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       const locked = await trx
         .selectFrom('session')
         .select(['last_turn_id'])
-        .where('tenant_id', '=', input.tenant_id)
         .where('session_id', '=', input.session_id)
         .executeTakeFirst();
 
@@ -347,7 +336,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           updated_at: nowIso(),
           last_activity_timestamp_ms: input.last_activity_timestamp_ms,
         })
-        .where('tenant_id', '=', input.tenant_id)
         .where('session_id', '=', input.session_id);
 
       if (input.update_session_title_if_not_exist !== null) {
@@ -387,16 +375,12 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         const prevRows = await trx
           .selectFrom('turn as t')
           .leftJoin('turn_thread as tt', join =>
-            join
-              .onRef('tt.tenant_id', '=', 't.tenant_id')
-              .onRef('tt.session_id', '=', 't.session_id')
-              .onRef('tt.turn_id', '=', 't.turn_id'),
+            join.onRef('tt.session_id', '=', 't.session_id').onRef('tt.turn_id', '=', 't.turn_id'),
           )
           .leftJoin(
             db
               .selectFrom('turn_thread_context')
               .select(['thread_id', 'turn_id', sql<number>`MAX(pos)`.as('max_pos')])
-              .where('tenant_id', '=', input.tenant_id)
               .where('session_id', '=', input.session_id)
               .where('turn_id', '=', prevTurnId)
               .groupBy(['thread_id', 'turn_id'])
@@ -412,7 +396,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
             jsonText<CurrentContextUsage | null>(sql.ref('tt.current_context_usage')).as('current_context_usage'),
             'tc_agg.max_pos',
           ])
-          .where('t.tenant_id', '=', input.tenant_id)
           .where('t.session_id', '=', input.session_id)
           .where('t.turn_id', '=', prevTurnId)
           .execute();
@@ -460,7 +443,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       await trx
         .insertInto('turn')
         .values({
-          tenant_id: input.tenant_id,
           session_id: input.session_id,
           turn_id: input.turn.turn_id,
           first_turn_id: input.turn.first_turn_id,
@@ -477,7 +459,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
 
       // Step 4: insert new context log rows.
       const logRows: {
-        tenant_id: string;
         session_id: string;
         thread_id: string;
         turn_id: string;
@@ -488,7 +469,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       for (const append of input.new_context_appends) {
         for (const body of append.context) {
           logRows.push({
-            tenant_id: input.tenant_id,
             session_id: input.session_id,
             thread_id: append.thread_id,
             turn_id: input.turn.turn_id,
@@ -524,7 +504,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
 
       // Step 5: insert turn_thread rows for carried-forward and new threads.
       const turnThreadRows: {
-        tenant_id: string;
         session_id: string;
         turn_id: string;
         thread_id: string;
@@ -535,7 +514,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       }[] = [];
 
       const turnThreadContextRows: {
-        tenant_id: string;
         session_id: string;
         turn_id: string;
         thread_id: string;
@@ -546,7 +524,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       for (const parent of prevThreadRows) {
         const usage = appendUsageByThread.get(parent.thread_id) ?? parent.current_context_usage;
         turnThreadRows.push({
-          tenant_id: input.tenant_id,
           session_id: input.session_id,
           turn_id: input.turn.turn_id,
           thread_id: parent.thread_id,
@@ -562,7 +539,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         const parentContextRows = await trx
           .selectFrom('turn_thread_context')
           .select(['thread_id', 'pos', 'append_id'])
-          .where('tenant_id', '=', input.tenant_id)
           .where('session_id', '=', input.session_id)
           .where('turn_id', '=', prevTurnId)
           .where(
@@ -576,7 +552,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
 
         for (const cr of parentContextRows) {
           turnThreadContextRows.push({
-            tenant_id: input.tenant_id,
             session_id: input.session_id,
             turn_id: input.turn.turn_id,
             thread_id: cr.thread_id,
@@ -593,7 +568,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           const appendId = newIds[i];
           if (appendId !== undefined) {
             turnThreadContextRows.push({
-              tenant_id: input.tenant_id,
               session_id: input.session_id,
               turn_id: input.turn.turn_id,
               thread_id: parent.thread_id,
@@ -613,7 +587,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           completion: null,
         };
         turnThreadRows.push({
-          tenant_id: input.tenant_id,
           session_id: input.session_id,
           turn_id: input.turn.turn_id,
           thread_id: nt.thread_id,
@@ -627,7 +600,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           const appendId = newIds[i];
           if (appendId !== undefined) {
             turnThreadContextRows.push({
-              tenant_id: input.tenant_id,
               session_id: input.session_id,
               turn_id: input.turn.turn_id,
               thread_id: nt.thread_id,
@@ -648,7 +620,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
 
       // Step 6: insert capability state rows (thread coverage asserted above).
       const capabilityStateRows: {
-        tenant_id: string;
         session_id: string;
         turn_id: string;
         thread_id: string;
@@ -661,7 +632,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         if (capability.capability_state === null) continue;
         for (const [key, state] of Object.entries(capability.capability_state)) {
           capabilityStateRows.push({
-            tenant_id: input.tenant_id,
             session_id: input.session_id,
             turn_id: input.turn.turn_id,
             thread_id: capability.thread_id,
@@ -702,7 +672,6 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
         state: jsonbBind(cancelledState),
         updated_at: nowIso(),
       })
-      .where('tenant_id', '=', input.tenant_id)
       .where('session_id', '=', input.session_id)
       .where('turn_id', '=', input.turn_id)
       .where(sql<boolean>`state->>'status' = 'running'`)
@@ -712,7 +681,6 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
       await trx
         .insertInto('session_event')
         .values({
-          tenant_id: input.tenant_id,
           session_id: input.session_id,
           turn_id: input.turn_id,
           event_id: input.turn_done_event.id,
@@ -744,7 +712,6 @@ export async function listTurns(db: Kysely<Database>, input: ListTurnsInput): Pr
   const pageQuery = db
     .selectFrom('turn')
     .selectAll()
-    .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
     .orderBy('created_at', 'asc')
     .orderBy('turn_id', 'asc')
@@ -754,9 +721,7 @@ export async function listTurns(db: Kysely<Database>, input: ListTurnsInput): Pr
 
   const rows = await db
     .selectFrom('session as scope')
-    .leftJoin(pageQuery, join =>
-      join.onRef('page.tenant_id', '=', 'scope.tenant_id').onRef('page.session_id', '=', 'scope.session_id'),
-    )
+    .leftJoin(pageQuery, join => join.onRef('page.session_id', '=', 'scope.session_id'))
     .select([
       'page.session_id',
       'page.turn_id',
@@ -769,7 +734,6 @@ export async function listTurns(db: Kysely<Database>, input: ListTurnsInput): Pr
       'page.created_at',
       'page.updated_at',
     ])
-    .where('scope.tenant_id', '=', input.tenant_id)
     .where('scope.session_id', '=', input.session_id)
     .orderBy('page.created_at', 'asc')
     .orderBy('page.turn_id', 'asc')
@@ -828,7 +792,6 @@ export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnSta
         state: jsonbBind(input.state),
         updated_at: nowIso(),
       })
-      .where('tenant_id', '=', input.tenant_id)
       .where('session_id', '=', input.session_id)
       .where('turn_id', '=', input.turn_id)
       .where(sql<boolean>`state->>'status' = 'running'`)
@@ -839,7 +802,6 @@ export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnSta
       const existing = await trx
         .selectFrom('turn')
         .select([jsonText<TurnState>(sql.ref('state')).as('state')])
-        .where('tenant_id', '=', input.tenant_id)
         .where('session_id', '=', input.session_id)
         .where('turn_id', '=', input.turn_id)
         .executeTakeFirst();
@@ -851,7 +813,6 @@ export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnSta
     await trx
       .insertInto('session_event')
       .values({
-        tenant_id: input.tenant_id,
         session_id: input.session_id,
         turn_id: input.turn_id,
         event_id: input.turn_done_event.id,

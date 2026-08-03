@@ -35,6 +35,11 @@ export interface GetSessionInput {
   session_id: string;
 }
 
+export interface DeleteSessionInput {
+  tenant_id: string;
+  session_id: string;
+}
+
 export interface ListSessionsInput {
   tenant_id: string;
   limit: number;
@@ -69,7 +74,6 @@ export interface TurnContextAppend {
 }
 
 export interface CreateTurnInput<TTurnCustom extends object = Record<string, never>> {
-  tenant_id: string;
   turn: TurnRecordWithoutSnapshot<TTurnCustom>;
   /** Threads absent on the previous turn (turn 1: the root thread; else empty). */
   new_threads: NewThreadInit[];
@@ -91,7 +95,6 @@ export interface CreateTurnInput<TTurnCustom extends object = Record<string, nev
 }
 
 export interface FreezeAndGetTurnInput {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   /** Caller-built cancelled turn.done event; store persists atomically with state flip when it cancels. */
@@ -99,20 +102,17 @@ export interface FreezeAndGetTurnInput {
 }
 
 export interface GetTurnInput {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
 }
 
 export interface ListTurnsInput {
-  tenant_id: string;
   session_id: string;
   limit: number;
   page_token: string | undefined;
 }
 
 export interface UpdateTurnStateInput {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   state: TerminalTurnState;
@@ -121,28 +121,24 @@ export interface UpdateTurnStateInput {
 }
 
 export interface AppendToEventsInput {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   events: PersistedTurnEvent[];
 }
 
 export interface AddThreadsInput {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   threads: AgentThreadSnapshot[];
 }
 
 export interface RemoveThreadsInput {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   thread_ids: string[];
 }
 
 export interface AppendToThreadContextInput {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   thread_id: string;
@@ -152,28 +148,24 @@ export interface AppendToThreadContextInput {
 }
 
 export interface OverwriteThreadContextInput {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   event: ThreadOverwriteContextEvent;
 }
 
 export interface PatchMCPServersInput {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   mcp_servers: MCPServerInitInfo[];
 }
 
 export interface PatchSandboxInfoInput {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   sandbox_info: SandboxInfo;
 }
 
 export interface PatchThreadCapabilityStateInput {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   thread_id: string;
@@ -182,7 +174,6 @@ export interface PatchThreadCapabilityStateInput {
 }
 
 export interface ListTurnEventsInput {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   limit: number;
@@ -191,7 +182,6 @@ export interface ListTurnEventsInput {
 }
 
 export interface ListSessionEventsInput {
-  tenant_id: string;
   session_id: string;
   limit: number;
   page_token: string | undefined;
@@ -200,7 +190,8 @@ export interface ListSessionEventsInput {
 
 /**
  * Session/turn persistence contract. Pure durability: no streaming, SSE, or
- * subscription members. Turn-scoped ops take session_id (membership check).
+ * subscription members. Callers authorize the parent session before using
+ * turn-scoped operations, which rely on globally unique session_id values.
  * Capability maps are initialized atomically by createTurn and subsequently
  * updated through patchThreadCapabilityState. Agent binding is session-scoped:
  * reads always return a hydrated agent_spec even if the backend persists a uri/id.
@@ -212,9 +203,13 @@ export interface ISessionStore<
   /**
    * Accepts a hydrated AgentSpec. Impl may persist the blob and/or a uri/id derived
    * from it — callers do not pass a bare pointer through this API.
+   * `session_id` is globally unique across tenants.
    * Sets `last_activity_timestamp_ms` (= now) on create.
    */
   createSession(input: CreateSessionInput<TSessionCustom>): Promise<void>;
+
+  /** Permanently removes a session and all related data; missing sessions are a no-op. */
+  deleteSession(input: DeleteSessionInput): Promise<void>;
 
   /**
    * MUST return SessionRecord with `agent_spec` fully hydrated, even if the backend

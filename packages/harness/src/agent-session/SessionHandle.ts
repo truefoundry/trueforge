@@ -181,7 +181,6 @@ export class SessionHandle<
     const previousTurnId = resolvePreviousTurnId(input.previous_turn_id, this.session.last_turn_id);
     const previous = previousTurnId
       ? await this.store.freezeAndGetTurn({
-          tenant_id: this.tenant_id,
           session_id: this.session.session_id,
           turn_id: previousTurnId,
           turn_done_event: cancelledTurnDoneEvent(),
@@ -273,7 +272,6 @@ export class SessionHandle<
       };
 
       this.session = await this.store.createTurn({
-        tenant_id: this.tenant_id,
         turn: turnInit,
         new_threads,
         new_context_appends,
@@ -286,7 +284,6 @@ export class SessionHandle<
 
       return new TurnHandle({
         store: this.store,
-        tenantId: this.tenant_id,
         turn: turnRecord,
         orchestrator,
         resolver: input.resolver,
@@ -306,7 +303,6 @@ export class SessionHandle<
   async getTurn(turn_id: string): Promise<TurnHandle<TTurnCustom> | undefined> {
     return TurnHandle.fromIds({
       store: this.store,
-      tenant_id: this.tenant_id,
       session_id: this.session.session_id,
       turn_id,
     });
@@ -318,7 +314,6 @@ export class SessionHandle<
     page_token?: string | undefined;
   }): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }> {
     return this.store.listTurns({
-      tenant_id: this.tenant_id,
       session_id: this.session.session_id,
       limit: input.limit,
       page_token: input.page_token,
@@ -339,7 +334,6 @@ export class SessionHandle<
     pagination: TokenPagination;
   }> {
     return this.store.listSessionEvents({
-      tenant_id: this.tenant_id,
       session_id: this.session.session_id,
       limit: input.limit,
       page_token: input.page_token,
