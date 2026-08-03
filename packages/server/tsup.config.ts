@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,12 +34,4 @@ export default defineConfig({
   clean: true,
   target: 'esnext',
   outDir: 'dist',
-  // Shipped beside dist/main.js so ModelCatalog resolves
-  // `import.meta.dirname/catalog/model-catalog.yaml` without a Docker COPY.
-  onSuccess() {
-    const destDir = path.join(packageDir, 'dist/catalog');
-    mkdirSync(destDir, { recursive: true });
-    copyFileSync(path.join(packageDir, 'src/catalog/model-catalog.yaml'), path.join(destDir, 'model-catalog.yaml'));
-    return Promise.resolve();
-  },
 });
