@@ -9,3 +9,6 @@ mcp_servers:
     # TODO(oss): replace internal endpoint with a placeholder before the repo
     # goes public.
     url: https://internal.devtest.truefoundry.tech/api/llm/truefoundry/mcp/github-remote/server
+  # Optional `auth` field.
+  #   auth:
+  #     type: dcr
