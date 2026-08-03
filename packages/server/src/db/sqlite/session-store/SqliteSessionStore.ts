@@ -8,6 +8,7 @@ import type {
   AppendToThreadContextInput,
   CreateSessionInput,
   CreateTurnInput,
+  DeleteSessionInput,
   FreezeAndGetTurnInput,
   GetSessionInput,
   GetTurnInput,
@@ -36,6 +37,7 @@ import {
 } from './queries/events';
 import {
   createSession as createSessionQuery,
+  deleteSession as deleteSessionQuery,
   getSession as getSessionQuery,
   listSessions as listSessionsQuery,
   updateSession as updateSessionQuery,
@@ -72,8 +74,10 @@ type TurnCustom = Record<string, never>;
  * late appends touch only its OWN rows — structural leaks are impossible.
  *
  * Hard invariants:
- * 1. Only the session tip can be running. `createTurn` rejects a running
- *    previous turn; callers must `freezeAndGetTurn` first.
+ * 1. A turn cannot be used as `previous_turn_id` while it is still `running` —
+ *    `createTurn` rejects that; callers must `freezeAndGetTurn` first.
+ *    Tip-equality is NOT required: new roots and concurrent forks from a
+ *    finished tip can leave more than one turn `running` at once.
  * 2. Every turn-scoped write is fenced on `state->>'status' = 'running'`.
  * 3. Terminal turns are IMMUTABLE — a terminal read is a final read.
  * 4. BEGIN IMMEDIATE provides write locking (no FOR SHARE / FOR UPDATE).
@@ -83,6 +87,10 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
 
   createSession(input: CreateSessionInput<SessionCustom>): Promise<void> {
     return createSessionQuery(this.db, input);
+  }
+
+  deleteSession(input: DeleteSessionInput): Promise<void> {
+    return deleteSessionQuery(this.db, input);
   }
 
   getSession(input: GetSessionInput): Promise<SessionRecord<SessionCustom> | undefined> {
