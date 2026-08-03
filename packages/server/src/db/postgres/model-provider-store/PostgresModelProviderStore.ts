@@ -6,7 +6,7 @@ import {
   type ModelProviderRecord,
   type ModelReadEntry,
 } from '../../modelProviderStore';
-import { json, now } from '../session-store/sqlExpressions';
+import { json, now } from '../sqlExpressions';
 import type { Database, ModelProviderTable } from '../types';
 
 function toRecord(row: Selectable<ModelProviderTable>): ModelProviderRecord {

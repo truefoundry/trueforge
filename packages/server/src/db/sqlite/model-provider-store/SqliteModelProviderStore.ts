@@ -6,7 +6,7 @@ import {
   type ModelProviderRecord,
   type ModelReadEntry,
 } from '../../modelProviderStore';
-import { jsonbBind, jsonText, nowIso } from '../session-store/sqlExpressions';
+import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
 /** Column list projecting the JSONB manifest as parsed JSON (see JSON_RESULT_COLUMNS). */

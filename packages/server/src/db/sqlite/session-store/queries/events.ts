@@ -13,8 +13,8 @@ import {
 } from '@truefoundry/utils/agent-session/store/SessionEventPageToken';
 import { SessionNotFoundError, TurnNotFoundError } from '@truefoundry/utils/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
+import { jsonbBind, jsonText } from '../../sqlExpressions';
 import type { Database } from '../../types';
-import { jsonbBind, jsonText } from '../sqlExpressions';
 import { classifyTurnFenceWriteFailure, type TurnKeys } from './turns';
 
 export async function appendToEvents(db: Kysely<Database>, input: AppendToEventsInput): Promise<void> {

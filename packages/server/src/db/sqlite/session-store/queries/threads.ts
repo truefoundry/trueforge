@@ -9,8 +9,9 @@ import type {
 import type { ContextMessage, SubAgentCompletionMarker } from '@truefoundry/utils/core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
+import { jsonbBind, jsonbSet, nowIso } from '../../sqlExpressions';
 import type { Database, TurnThreadCheckpoint } from '../../types';
-import { jsonbBind, jsonbSet, nowIso, sortedByAppendId } from '../sqlExpressions';
+import { sortedByAppendId } from '../sqlExpressions';
 import {
   assertTurnRunning,
   classifyTurnFenceWriteFailure,
