@@ -86,25 +86,7 @@
             "type": "array"
           },
           "model": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Model"
-              },
-              {
-                "properties": {
-                  "name": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "params": {
-                    "$ref": "#/components/schemas/ModelParams"
-                  }
-                },
-                "required": [
-                  "name"
-                ]
-              }
-            ]
+            "$ref": "#/components/schemas/Model"
           },
           "response_format": {
             "$ref": "#/components/schemas/ResponseFormat"
@@ -302,67 +284,6 @@
       },
       "CancelSessionResponse": {
         "properties": {},
-        "type": "object"
-      },
-      "CatalogProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "models": {
-            "items": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/ModelEntry"
-                },
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "model_id": {
-                      "description": "Upstream, provider-specific identifier sent to the provider API.",
-                      "minLength": 1,
-                      "type": "string"
-                    },
-                    "name": {
-                      "allOf": [
-                        {
-                          "$ref": "#/components/schemas/ResourceName"
-                        },
-                        {
-                          "description": "Internal identifier; forms the fully qualified name `provider_name/model_name`."
-                        }
-                      ]
-                    },
-                    "properties": {
-                      "$ref": "#/components/schemas/ModelProperties"
-                    }
-                  },
-                  "required": [
-                    "model_id",
-                    "name",
-                    "properties"
-                  ],
-                  "type": "object"
-                }
-              ]
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "enum": [
-              "openai",
-              "anthropic"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "name",
-          "models"
-        ],
         "type": "object"
       },
       "ChatCompletionChunkDeltaToolCall": {
@@ -685,20 +606,6 @@
         ],
         "type": "object"
       },
-      "GetModelProviderCatalogResponse": {
-        "properties": {
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/CatalogProvider"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "type": "object"
-      },
       "GetSessionResponse": {
         "properties": {
           "data": {
@@ -815,35 +722,7 @@
         ],
         "type": "object"
       },
-      "ListModelProvidersResponse": {
-        "properties": {
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/ModelProvider"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "type": "object"
-      },
       "ListModelsResponse": {
-        "properties": {
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/Model"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "type": "object"
-      },
-      "ListOldModelsResponse": {
         "properties": {
           "data": {
             "items": {
@@ -1261,24 +1140,17 @@
         "type": "object"
       },
       "Model": {
-        "additionalProperties": false,
         "properties": {
-          "model_id": {
-            "description": "Upstream, provider-specific identifier sent to the provider API.",
-            "type": "string"
-          },
           "name": {
-            "description": "Fully qualified name `provider_name/model_name`, e.g. \"openai/gpt-5-6-sol\".",
+            "minLength": 1,
             "type": "string"
           },
-          "properties": {
-            "$ref": "#/components/schemas/ModelProperties"
+          "params": {
+            "$ref": "#/components/schemas/ModelParams"
           }
         },
         "required": [
-          "name",
-          "model_id",
-          "properties"
+          "name"
         ],
         "type": "object"
       },
@@ -1515,126 +1387,6 @@
         },
         "type": "object"
       },
-      "ModelProperties": {
-        "additionalProperties": false,
-        "properties": {
-          "context_length": {
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "max_output_tokens": {
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "reasoning_efforts": {
-            "items": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "minItems": 1,
-            "type": "array"
-          }
-        },
-        "required": [
-          "context_length",
-          "max_output_tokens"
-        ],
-        "type": "object"
-      },
-      "ModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuthStatus"
-          },
-          "base_url": {
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/ModelEntry"
-                },
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "model_id": {
-                      "description": "Upstream, provider-specific identifier sent to the provider API.",
-                      "minLength": 1,
-                      "type": "string"
-                    },
-                    "name": {
-                      "allOf": [
-                        {
-                          "$ref": "#/components/schemas/ResourceName"
-                        },
-                        {
-                          "description": "Internal identifier; forms the fully qualified name `provider_name/model_name`."
-                        }
-                      ]
-                    },
-                    "properties": {
-                      "$ref": "#/components/schemas/ModelProperties"
-                    }
-                  },
-                  "required": [
-                    "model_id",
-                    "name",
-                    "properties"
-                  ],
-                  "type": "object"
-                }
-              ]
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "$ref": "#/components/schemas/ProviderType"
-          }
-        },
-        "required": [
-          "type",
-          "name",
-          "base_url",
-          "auth",
-          "models"
-        ],
-        "type": "object"
-      },
-      "ModelProviderAuth": {
-        "additionalProperties": false,
-        "properties": {
-          "api_key": {
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "api_key"
-        ],
-        "type": "object"
-      },
-      "ModelProviderAuthStatus": {
-        "additionalProperties": false,
-        "properties": {
-          "api_key_set": {
-            "enum": [
-              true
-            ],
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "api_key_set"
-        ],
-        "type": "object"
-      },
       "OpenAIProviderModelEntry": {
         "additionalProperties": false,
         "properties": {
@@ -1706,92 +1458,6 @@
         "default": "auto",
         "description": "Defaults to 'auto' (chain to session last turn). Use 'null' for the session's first turn."
       },
-      "ProviderType": {
-        "enum": [
-          "openai",
-          "anthropic",
-          "custom"
-        ],
-        "type": "string"
-      },
-      "PutModelProviderRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "description": "Base URL of the provider's API.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/ModelEntry"
-                },
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "model_id": {
-                      "description": "Upstream, provider-specific identifier sent to the provider API.",
-                      "minLength": 1,
-                      "type": "string"
-                    },
-                    "name": {
-                      "allOf": [
-                        {
-                          "$ref": "#/components/schemas/ResourceName"
-                        },
-                        {
-                          "description": "Internal identifier; forms the fully qualified name `provider_name/model_name`."
-                        }
-                      ]
-                    },
-                    "properties": {
-                      "$ref": "#/components/schemas/ModelProperties"
-                    }
-                  },
-                  "required": [
-                    "model_id",
-                    "name",
-                    "properties"
-                  ],
-                  "type": "object"
-                }
-              ]
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "$ref": "#/components/schemas/ProviderType"
-          }
-        },
-        "required": [
-          "type",
-          "base_url",
-          "auth",
-          "models",
-          "name"
-        ],
-        "type": "object"
-      },
-      "PutModelProviderResponse": {
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/ModelProvider"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "type": "object"
-      },
       "RawToolCall": {
         "allOf": [
           {
@@ -1841,12 +1507,6 @@
           "error"
         ],
         "type": "object"
-      },
-      "ResourceName": {
-        "maxLength": 64,
-        "minLength": 2,
-        "pattern": "^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$",
-        "type": "string"
       },
       "ResponseFormat": {
         "oneOf": [
@@ -3317,102 +2977,9 @@
         "x-fern-sdk-method-name": "list_tools"
       }
     },
-    "/api/v1/model-providers": {
-      "get": {
-        "description": "All configured providers with their models. API keys are redacted to `auth.api_key_set`.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListModelProvidersResponse"
-                }
-              }
-            },
-            "description": "All configured model providers."
-          }
-        },
-        "summary": "List configured model providers",
-        "tags": [
-          "Model Providers"
-        ],
-        "x-fern-sdk-group-name": [
-          "modelProviders"
-        ],
-        "x-fern-sdk-method-name": "list"
-      },
-      "put": {
-        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PutModelProviderRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PutModelProviderResponse"
-                }
-              }
-            },
-            "description": "The saved provider, with `auth` redacted."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid request body."
-          }
-        },
-        "summary": "Create or replace a model provider",
-        "tags": [
-          "Model Providers"
-        ],
-        "x-fern-sdk-group-name": [
-          "modelProviders"
-        ],
-        "x-fern-sdk-method-name": "upsert"
-      }
-    },
-    "/api/v1/model-providers/catalog": {
-      "get": {
-        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: copy an entry into PUT /model-providers to configure it. Custom providers are not listed here.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetModelProviderCatalogResponse"
-                }
-              }
-            },
-            "description": "The shipped catalog, verbatim."
-          }
-        },
-        "summary": "Get the model catalog",
-        "tags": [
-          "Model Providers"
-        ],
-        "x-fern-sdk-group-name": [
-          "modelProviders"
-        ],
-        "x-fern-sdk-method-name": "catalog"
-      }
-    },
     "/api/v1/models": {
       "get": {
-        "description": "Models across all configured model providers, addressed by fully qualified name `provider_name/model_name`.",
+        "description": "Models declared in models.yaml, reachable through the OpenAI-compatible API at the file's base_url.",
         "responses": {
           "200": {
             "content": {
@@ -3422,7 +2989,7 @@
                 }
               }
             },
-            "description": "All models of all configured providers."
+            "description": "All configured models."
           }
         },
         "summary": "List models",
@@ -3430,32 +2997,6 @@
           "Models"
         ],
         "x-fern-sdk-group-name": [
-          "models"
-        ],
-        "x-fern-sdk-method-name": "list"
-      }
-    },
-    "/api/v1/old/models": {
-      "get": {
-        "description": "Models declared in models.yaml, reachable through the OpenAI-compatible API at the file's base_url.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListOldModelsResponse"
-                }
-              }
-            },
-            "description": "All configured models."
-          }
-        },
-        "summary": "List models (models.yaml)",
-        "tags": [
-          "Models"
-        ],
-        "x-fern-sdk-group-name": [
-          "old",
           "models"
         ],
         "x-fern-sdk-method-name": "list"
