@@ -158,7 +158,7 @@ export async function ensureMcpClientRegistered(params: {
     clientName: params.clientName,
   });
 
-  await params.clientStore.saveClient({ id: params.serverId, registration: client });
+  await params.clientStore.saveClient({ id: params.serverId, record: client });
   return client;
 }
 

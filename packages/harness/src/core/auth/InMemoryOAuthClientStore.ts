@@ -8,16 +8,12 @@ import type { IOAuthClientStore, OAuthClientRecord } from './IOAuthClientStore';
 export class InMemoryOAuthClientStore implements IOAuthClientStore {
   private readonly clients = new Map<string, OAuthClientRecord>();
 
-  async saveClient(params: { id: string; registration: OAuthClientRecord }): Promise<void> {
-    this.clients.set(params.id, params.registration);
+  async saveClient(params: { id: string; record: OAuthClientRecord }): Promise<void> {
+    this.clients.set(params.id, params.record);
   }
 
   async getClient(params: { id: string }): Promise<OAuthClientRecord | undefined> {
     return this.clients.get(params.id);
-  }
-
-  async deleteClient(params: { id: string }): Promise<void> {
-    this.clients.delete(params.id);
   }
 }
 /* eslint-enable @typescript-eslint/require-await */

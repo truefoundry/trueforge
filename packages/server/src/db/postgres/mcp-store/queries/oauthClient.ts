@@ -6,9 +6,9 @@ import type { Database } from '../../types';
 
 export async function saveClient(
   db: Kysely<Database>,
-  params: { id: string; registration: OAuthClientRecord },
+  params: { id: string; record: OAuthClientRecord },
 ): Promise<void> {
-  const { server, client } = params.registration;
+  const { server, client } = params.record;
   const oauthServer: OAuthServer = {
     authorizationEndpoint: server.authorizationEndpoint,
     tokenEndpoint: server.tokenEndpoint,

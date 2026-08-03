@@ -5,7 +5,7 @@ import { getClient, saveClient } from './queries/oauthClient';
 export class PostgresMCPOAuthClientStore implements IOAuthClientStore {
   constructor(private readonly db: Kysely<Database>) {}
 
-  saveClient(params: { id: string; registration: OAuthClientRecord }): Promise<void> {
+  saveClient(params: { id: string; record: OAuthClientRecord }): Promise<void> {
     return saveClient(this.db, params);
   }
 

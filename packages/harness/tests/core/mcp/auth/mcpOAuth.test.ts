@@ -154,7 +154,7 @@ describe('resourceUrlFromServerUrl (SDK)', () => {
 describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
   it('returns the cached client without discovery or registration', async () => {
     const { clientStore } = newStores();
-    await clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
+    await clientStore.saveClient({ id: SERVER_ID, record: sampleClient });
     const { registerCallCount } = stubOauthFetch({});
 
     const result = await ensureMcpClientRegistered({
@@ -271,7 +271,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
 describe('buildMcpAuthorizationUrl', () => {
   it('saves pending authorization with state and returns a URL object', async () => {
     const { tokenStore, clientStore } = newStores();
-    await clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
+    await clientStore.saveClient({ id: SERVER_ID, record: sampleClient });
     stubOauthFetch({});
 
     const authUrl = await buildMcpAuthorizationUrl({
@@ -335,7 +335,7 @@ describe('resolveMcpAuth', () => {
 
   it('refreshes an expired token when a refresh_token is stored', async () => {
     const stores = newStores();
-    await stores.clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
+    await stores.clientStore.saveClient({ id: SERVER_ID, record: sampleClient });
     await stores.tokenStore.saveToken({
       id: SERVER_ID,
       token: {
@@ -369,7 +369,7 @@ describe('resolveMcpAuth', () => {
 
   it('uses a default TTL when the token response omits expires_in', async () => {
     const stores = newStores();
-    await stores.clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
+    await stores.clientStore.saveClient({ id: SERVER_ID, record: sampleClient });
     await stores.tokenStore.saveToken({
       id: SERVER_ID,
       token: {
@@ -400,7 +400,7 @@ describe('resolveMcpAuth', () => {
 
   it('returns authentication_required and clears token when refresh fails', async () => {
     const stores = newStores();
-    await stores.clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
+    await stores.clientStore.saveClient({ id: SERVER_ID, record: sampleClient });
     await stores.tokenStore.saveToken({
       id: SERVER_ID,
       token: {
@@ -423,7 +423,7 @@ describe('resolveMcpAuth', () => {
 
   it('returns authentication_required and clears expired token without refresh_token', async () => {
     const stores = newStores();
-    await stores.clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
+    await stores.clientStore.saveClient({ id: SERVER_ID, record: sampleClient });
     await stores.tokenStore.saveToken({
       id: SERVER_ID,
       token: {
@@ -447,7 +447,7 @@ describe('resolveMcpAuth', () => {
 
   it('returns authentication_required when no token exists', async () => {
     const stores = newStores();
-    await stores.clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
+    await stores.clientStore.saveClient({ id: SERVER_ID, record: sampleClient });
     stubOauthFetch({});
 
     const result = await resolveMcpAuth(resolveParams(stores));
