@@ -1,15 +1,17 @@
+import { setTimeout as sleep } from 'node:timers/promises';
 import type { RedisClientType } from 'redis';
 import {
   StreamGoneError,
-  SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS,
   SUBSCRIBE_STREAM_THRESHOLD_MS,
   type EventSubscription,
+  type EventSubscriptionPollOptions,
   type EventSubscriptionPutOptions,
   type SequencedEvent,
 } from '.';
-import { sleep } from '../../utils';
 
 const SUBSCRIBE_STREAM_POLL_ITEMS_COUNT = 100;
+/** Delay between XREAD polls while a stream has no new events (a blocking XREAD would monopolize the shared connection). */
+const SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS = 1_000;
 
 function sequenceNumberFromEntryId(streamId: string, entryId: string): number {
   const separator = entryId.indexOf('-');
@@ -48,7 +50,7 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
     return sequenceNumber;
   }
 
-  async *poll(afterSequenceNumber?: number): AsyncGenerator<SequencedEvent<T>, void, unknown> {
+  async assertSubscribable(): Promise<void> {
     const expiresAtMs = await this.redis.pExpireTime(this.streamId);
     if (expiresAtMs === -2) {
       throw new StreamGoneError(this.streamId);
@@ -58,9 +60,18 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
     if (expiresAtMs >= 0 && expiresAtMs - Date.now() < SUBSCRIBE_STREAM_THRESHOLD_MS) {
       throw new StreamGoneError(this.streamId);
     }
+  }
 
+  async *poll(
+    afterSequenceNumber?: number,
+    options?: EventSubscriptionPollOptions,
+  ): AsyncGenerator<SequencedEvent<T>, void, unknown> {
+    const signal = options?.signal;
     let cursor = afterSequenceNumber === undefined ? '0-0' : `${String(afterSequenceNumber + 1)}-0`;
     for (;;) {
+      if (signal?.aborted) {
+        return;
+      }
       if ((await this.redis.exists(this.streamId)) === 0) {
         throw new StreamGoneError(this.streamId);
       }
@@ -69,7 +80,14 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
       });
       const messages = reply?.[0]?.messages ?? [];
       if (messages.length === 0) {
-        await sleep(SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS);
+        try {
+          await sleep(SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS, undefined, { signal });
+        } catch (error) {
+          if (signal?.aborted) {
+            return;
+          }
+          throw error;
+        }
         continue;
       }
 

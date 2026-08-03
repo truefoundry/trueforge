@@ -31,7 +31,7 @@ import {
   subscribeTurnRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { StreamGoneError, type EventSubscriptionRegistry, type SequencedEvent } from '../runtime/event-subscription';
+import { StreamGoneError, type EventSubscriptionRegistry } from '../runtime/event-subscription';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
 import type { McpStore } from '../store/McpStore';
 import type { ModelStore } from '../store/ModelStore';
@@ -339,8 +339,22 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
 
-    // Server-side subscribe timeout; the SSE loop checks the signal between events.
-    const timeoutAbortController = new AbortController();
+    const turnEventStream = deps.eventSubscriptions.get(turnStreamId(TENANT_ID, sessionId, turnId));
+
+    // Admission check before SSE headers are sent, so it can still map to HTTP 412.
+    try {
+      await turnEventStream.assertSubscribable();
+    } catch (error) {
+      if (error instanceof StreamGoneError) {
+        throw new HTTPException(412, { message: error.message, cause: error });
+      }
+      throw error;
+    }
+
+    // One lifecycle controller: server-side timeout, client disconnect, and
+    // normal teardown all abort it, which ends poll even while it is parked
+    // waiting for events.
+    const subscribeAbort = new AbortController();
     const timeoutMs = configuration.TURN_SUBSCRIBE_TIMEOUT_MS;
     const timeoutHandler = setTimeout(() => {
       deps.logger.info('Subscribe turn stream server-side timeout reached, closing stream', {
@@ -349,42 +363,31 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         afterSequenceNumber,
         timeoutMs,
       });
-      timeoutAbortController.abort(new Error('subscribe-timeout'));
+      subscribeAbort.abort(new Error('subscribe-timeout'));
     }, timeoutMs);
 
-    const generator = deps.eventSubscriptions.get(turnStreamId(TENANT_ID, sessionId, turnId)).poll(afterSequenceNumber);
-
-    // Pre-flight: force the generator's stream-gone check to run before SSE
-    // headers are sent, so it can still map to HTTP 412.
-    let iterResult: IteratorResult<SequencedEvent<TurnStreamingEvent>, void>;
-    try {
-      iterResult = await generator.next();
-    } catch (error) {
-      clearTimeout(timeoutHandler);
-      if (error instanceof StreamGoneError) {
-        throw new HTTPException(412, { message: error.message, cause: error });
-      }
-      throw error;
-    }
-
     return streamSSE(c, async stream => {
+      stream.onAbort(() => {
+        subscribeAbort.abort(new Error('client-disconnected'));
+      });
+
+      const generator = turnEventStream.poll(afterSequenceNumber, { signal: subscribeAbort.signal });
       try {
-        while (!iterResult.done) {
-          const { sequence_number: sequenceNumber, ...event } = iterResult.value;
-          if (stream.closed || stream.aborted || timeoutAbortController.signal.aborted) {
-            break;
-          }
+        for await (const { sequence_number: sequenceNumber, ...event } of generator) {
           await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
           if (event.type === EventType.TURN_DONE) {
             break;
           }
-          iterResult = await generator.next();
         }
       } catch (error) {
-        deps.logger.error('Unexpected error in turn subscribe SSE loop', extractErrorLogFields(error));
+        if (!subscribeAbort.signal.aborted) {
+          deps.logger.error('Unexpected error in turn subscribe SSE loop', extractErrorLogFields(error));
+        }
       } finally {
         clearTimeout(timeoutHandler);
-        // Poll loops forever by design; the handler owns termination.
+        // Poll loops forever by design; aborting releases a parked generator
+        // immediately so the return() below settles right away.
+        subscribeAbort.abort();
         await generator.return(undefined);
         await stream.close();
       }

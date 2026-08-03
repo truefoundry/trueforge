@@ -9,6 +9,11 @@ export interface EventSubscriptionPutOptions {
 
 export type SequencedEvent<T extends object> = T & { sequence_number: number };
 
+export interface EventSubscriptionPollOptions {
+  /** Ends the generator promptly on abort, releasing any parked idle wait. */
+  signal?: AbortSignal | undefined;
+}
+
 /**
  * One turn's resumable event stream, obtained from {@link EventSubscriptionRegistry.get}.
  * Per-stream state (e.g. the sequence counter) lives on the instance and is freed with it.
@@ -17,8 +22,18 @@ export interface EventSubscription<T extends object> {
   /** Appends an event, assigns its sequence number, and returns that number. */
   put(event: T, options?: EventSubscriptionPutOptions): Promise<number>;
 
+  /**
+   * Subscription admission check, run before SSE headers are sent: rejects with
+   * {@link StreamGoneError} when the stream is missing or expires within
+   * {@link SUBSCRIBE_STREAM_THRESHOLD_MS}.
+   */
+  assertSubscribable(): Promise<void>;
+
   /** Yields events strictly after the supplied sequence, or from the start when omitted. */
-  poll(afterSequenceNumber?: number): AsyncGenerator<SequencedEvent<T>, void, unknown>;
+  poll(
+    afterSequenceNumber?: number,
+    options?: EventSubscriptionPollOptions,
+  ): AsyncGenerator<SequencedEvent<T>, void, unknown>;
 }
 
 /**
@@ -41,8 +56,6 @@ export class EventSubscriptionRegistry<T extends object> {
 
 /** Reject new subscriptions when the stream expires within this window. */
 export const SUBSCRIBE_STREAM_THRESHOLD_MS = 60 * 1_000;
-/** Delay between poll iterations while a stream has no new events. */
-export const SUBSCRIBE_STREAM_POLL_SLEEP_INTERVAL_MS = 1_000;
 
 /** The stream expired or was never created (map to HTTP 412). */
 export class StreamGoneError extends Error {
