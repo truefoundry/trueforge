@@ -1,0 +1,101 @@
+/**
+ * Configured skill domain + wire schemas: the `skill.manifest` JSONB document
+ * and admin/chat list projections. Catalog file schemas live in skillCatalog.ts.
+ *
+ * Git field rules mirror harness SkillMount (GitHub/GitLab HTTPS url, path/ref
+ * constraints) so settings documents stay mount-compatible. Identity uses
+ * NameSchema like model providers / MCP servers. Legacy YAML SkillEntry stays
+ * on legacy-registry-store — not this schema.
+ */
+import { z } from '@hono/zod-openapi';
+import { NameSchema } from './common';
+
+/** Kind of skill. Extend when non-git kinds ship. */
+export const SkillTypeSchema = z.enum(['git']).openapi('SkillType');
+
+// GitHub is exactly owner/repo; GitLab allows subgroups (group[/subgroup...]/project, ≥2 segments).
+const GIT_URL_REGEX =
+  /^https:\/\/(github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+|gitlab\.com\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)+)(\/|\.git)?$/;
+const GIT_REF_REGEX = /^[A-Za-z0-9._\-/]+$/;
+const SKILL_PATH_REGEX = /^[A-Za-z0-9._\-/]+$/;
+const hasParentTraversal = (value: string): boolean => value.split('/').includes('..');
+
+/** Shared with catalog presets — GitHub/GitLab HTTPS only. */
+export const SkillGitUrlSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .regex(GIT_URL_REGEX, 'Must be a GitHub or GitLab HTTPS URL')
+  .refine(v => !hasParentTraversal(v), 'URL must not contain ".." segments')
+  .describe('Full HTTPS URL of a GitHub or GitLab repository.');
+
+/** Shared with catalog presets. Omit to use the repository root. */
+export const SkillGitPathSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .regex(SKILL_PATH_REGEX, 'Path may only contain letters, numbers, ".", "_", "-", and "/"')
+  .refine(v => !hasParentTraversal(v), 'Path must not contain ".." segments')
+  .refine(v => !v.split('/').includes('.'), 'Path must not contain "." segments')
+  .refine(v => v.replace(/^\/+|\/+$/g, '').length > 0, 'Path must reference a subdirectory, not only slashes')
+  .describe('Path to the skill directory within the repository. Omit to use the repository root.');
+
+/**
+ * Shared with catalog presets. Optional on configured/catalog rows; composer
+ * defaults omitted refs to HEAD when building a SkillMount.
+ */
+export const SkillGitRefSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .regex(GIT_REF_REGEX, 'Ref may only contain letters, numbers, ".", "_", "-", and "/"')
+  .refine(v => !hasParentTraversal(v), 'Ref must not contain ".." segments')
+  .refine(v => v.replace(/^\/+|\/+$/g, '').length > 0, 'Ref must not consist only of slashes')
+  .describe('Git ref — branch name, tag, or commit SHA.');
+
+export const SkillDescriptionSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .describe('Concise guidance for when the agent should use the skill.');
+
+/** Configured skill document persisted as `skill.manifest`. */
+export const SkillManifestObjectSchema = z
+  .object({
+    type: SkillTypeSchema,
+    name: NameSchema,
+    url: SkillGitUrlSchema,
+    path: SkillGitPathSchema.optional(),
+    ref: SkillGitRefSchema.optional(),
+    description: SkillDescriptionSchema,
+  })
+  .strict();
+
+export const SkillManifestSchema = SkillManifestObjectSchema.openapi('SkillManifest');
+
+/** Admin/settings wire view — same fields as the stored manifest (no auth_status). */
+export const ConfiguredSkillSchema = SkillManifestSchema;
+
+export const PutSkillRequestSchema = SkillManifestSchema;
+export const PutSkillResponseSchema = z.object({ data: ConfiguredSkillSchema }).openapi('PutSkillResponse');
+export const ListConfiguredSkillsResponseSchema = z
+  .object({ data: z.array(ConfiguredSkillSchema) })
+  .openapi('ListConfiguredSkillsResponse');
+
+/** Chat/composer read view — discovery fields only. */
+export const SkillReadEntrySchema = z
+  .object({
+    name: NameSchema,
+    description: SkillDescriptionSchema,
+  })
+  .strict()
+  .openapi('SkillReadEntry');
+
+export const ListAvailableSkillsResponseSchema = z
+  .object({ data: z.array(SkillReadEntrySchema) })
+  .openapi('ListAvailableSkillsResponse');
+
+export type SkillType = z.infer<typeof SkillTypeSchema>;
+export type SkillManifest = z.infer<typeof SkillManifestSchema>;
+export type ConfiguredSkill = z.infer<typeof ConfiguredSkillSchema>;
+export type SkillReadEntry = z.infer<typeof SkillReadEntrySchema>;
