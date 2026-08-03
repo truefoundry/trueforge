@@ -100,7 +100,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }
-    // Header global (and no auth): credentials already on the row — no browser flow.
+    // Header auth (and no auth): credentials already on the row — no browser flow.
     if (record.manifest.auth?.type !== 'dcr') {
       return c.json({ status: 'authenticated' as const }, 200);
     }

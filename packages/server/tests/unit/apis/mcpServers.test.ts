@@ -23,7 +23,6 @@ const putBodyWithHeaderAuth = {
   url: 'https://mcp.example.com/mcp',
   auth: {
     type: 'header' as const,
-    auth_level: 'global' as const,
     headers: { Authorization: 'Bearer test-token' },
   },
 };
@@ -86,7 +85,7 @@ describe('mcp-servers routers', () => {
     });
   });
 
-  it('PUT with header global auth stores headers and reports authenticated', async () => {
+  it('PUT with header auth stores headers and reports authenticated', async () => {
     const response = await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {
@@ -110,26 +109,12 @@ describe('mcp-servers routers', () => {
     const badName = await settingsRouter.request('/', putInit({ ...putBody, name: 'Not A Slug' }));
     assert.equal(badName.status, 400);
 
-    const perUser = await settingsRouter.request(
-      '/',
-      putInit({
-        ...putBodyWithHeaderAuth,
-        name: 'bad-per-user',
-        auth: {
-          type: 'header',
-          auth_level: 'per_user',
-          headers: { Authorization: 'Bearer x' },
-        },
-      }),
-    );
-    assert.equal(perUser.status, 400);
-
     const emptyHeaders = await settingsRouter.request(
       '/',
       putInit({
         ...putBodyWithHeaderAuth,
         name: 'bad-empty-headers',
-        auth: { type: 'header', auth_level: 'global', headers: {} },
+        auth: { type: 'header', headers: {} },
       }),
     );
     assert.equal(emptyHeaders.status, 400);

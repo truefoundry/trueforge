@@ -3,10 +3,10 @@
  * document, admin/chat list projections, and auth_status. Catalog file schemas
  * live in mcpCatalog.ts.
  *
- * Auth mirrors gateway MCP header/DCR shapes in reduced form: `header` +
- * `auth_level: global` stores shared request headers on the row; `dcr` is the
- * OAuth/DCR stub until real token exchange lands. Legacy YAML still uses
- * MCP_HEADERS / MCP_{NAME}_HEADERS env vars — not this schema.
+ * Auth mirrors gateway MCP header/DCR shapes in reduced form: `header` stores
+ * shared request headers on the row; `dcr` is the OAuth/DCR stub until real
+ * token exchange lands. Legacy YAML still uses MCP_HEADERS /
+ * MCP_{NAME}_HEADERS env vars — not this schema.
  */
 import { z } from '@hono/zod-openapi';
 import { NameSchema } from './common';
@@ -14,8 +14,6 @@ import { NameSchema } from './common';
 const McpServerHeaderAuthSchema = z
   .object({
     type: z.literal('header'),
-    /** Shared credentials for every caller. `per_user` is not supported yet. */
-    auth_level: z.literal('global'),
     headers: z
       .record(z.string().min(1), z.string().min(1))
       .refine(headers => Object.keys(headers).length > 0, {
@@ -93,8 +91,8 @@ export type McpServerReadEntry = z.infer<typeof McpServerReadEntrySchema>;
 
 /**
  * Headers for live MCP calls against a configured server.
- * Only `auth.type === 'header'` + `auth_level: 'global'` contributes; DCR uses
- * tokens later, not env MCP_HEADERS (those remain on the legacy YAML path).
+ * Only `auth.type === 'header'` contributes; DCR uses tokens later, not env
+ * MCP_HEADERS (those remain on the legacy YAML path).
  */
 export function resolveConfiguredMcpRequestHeaders(manifest: McpServerManifest): Record<string, string> {
   if (manifest.auth?.type === 'header') {
@@ -105,7 +103,7 @@ export function resolveConfiguredMcpRequestHeaders(manifest: McpServerManifest):
 
 /**
  * Stub auth_status until OAuth/token store backs a real check.
- * Header global credentials are already on the row → authenticated.
+ * Header credentials are already on the row → authenticated.
  * DCR still needs a user authorize flow → auth_required.
  */
 export function toStubAuthStatus(manifest: McpServerManifest): McpAuthStatus {
