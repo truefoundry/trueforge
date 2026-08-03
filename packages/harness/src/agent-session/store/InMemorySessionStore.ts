@@ -179,15 +179,14 @@ export class InMemorySessionStore<
 
   async deleteSession(input: DeleteSessionInput): Promise<void> {
     const sKey = sessionKey(input.session_id);
-    if (this.sessions.get(sKey)?.record.tenant_id !== input.tenant_id) {
+    const stored = this.sessions.get(sKey);
+    if (stored?.record.tenant_id !== input.tenant_id) {
       return;
     }
-    const turnPrefix = `${sKey}:`;
-    for (const key of this.turns.keys()) {
-      if (key.startsWith(turnPrefix)) {
-        this.turns.delete(key);
-        this.events.delete(key);
-      }
+    for (const turnId of stored.turnIds) {
+      const tKey = turnKey(input.session_id, turnId);
+      this.turns.delete(tKey);
+      this.events.delete(tKey);
     }
     this.sessions.delete(sKey);
   }

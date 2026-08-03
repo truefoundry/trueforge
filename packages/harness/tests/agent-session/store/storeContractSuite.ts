@@ -384,6 +384,29 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       ).rejects.toBeInstanceOf(SessionStoreNotFoundError);
     });
 
+    it('leaves sessions whose id extends the deleted id untouched', async () => {
+      const store = createStore();
+      const nested = `${sessionId}:nested`;
+      await seedSession(store);
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: nested,
+        agent_spec: makeAgentSpec(),
+        custom: null,
+      });
+      await store.createTurn(makeCreateTurnInput({ sessionId: nested, turnId: 'turn-1' }));
+      const nestedKeys = { tenant_id: tenant, session_id: nested, turn_id: 'turn-1' };
+      await store.appendToEvents({ ...nestedKeys, events: [makeTurnCreatedEvent('turn-1')] });
+
+      await store.deleteSession({ tenant_id: tenant, session_id: sessionId });
+
+      expect(await store.getSession({ tenant_id: tenant, session_id: nested })).toBeDefined();
+      expect(await store.getTurn(nestedKeys)).toBeDefined();
+      expect(
+        (await store.listTurnEvents({ ...nestedKeys, limit: 10, page_token: undefined, order: 'asc' })).data,
+      ).toHaveLength(1);
+    });
+
     it('child appends that race deleteSession fail cleanly and leave no orphans', async () => {
       const store = createStore();
       await seedSession(store);
