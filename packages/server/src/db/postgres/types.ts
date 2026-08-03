@@ -68,7 +68,7 @@ export interface TurnCheckpoint {
 }
 
 /**
- * PRIMARY KEY (tenant_id, session_id)
+ * PRIMARY KEY (session_id)
  * WITH (fillfactor = 85); headroom so the per-turn bump stays HOT (no index churn)
  * CREATE INDEX session_list_idx ON session (tenant_id, created_at, session_id)
  */
@@ -104,13 +104,11 @@ export interface SessionTable {
 }
 
 /**
- * PRIMARY KEY (tenant_id, session_id, turn_id)
+ * PRIMARY KEY (session_id, turn_id)
  * WITH (fillfactor = 85); headroom for the state flip + rare checkpoint patches
- * CREATE INDEX turn_list_idx ON turn (tenant_id, session_id, created_at, turn_id)
+ * CREATE INDEX turn_list_idx ON turn (session_id, created_at, turn_id)
  */
 export interface TurnTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /** key (ulid) */
@@ -151,13 +149,11 @@ export interface TurnTable {
 
 /**
  * the complete STATE of one thread at one turn
- * PRIMARY KEY (tenant_id, session_id, turn_id, thread_id)
+ * PRIMARY KEY (session_id, turn_id, thread_id)
  * WITH (fillfactor = 70); the ONE deliberately-hot table: rewritten 5–10x while its
  * turn runs; immutable once the turn is terminal (fence)
  */
 export interface TurnThreadTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /** key */
@@ -211,12 +207,10 @@ export interface TurnThreadTable {
 
 /**
  * pure immutable client-facing event log
- * PRIMARY KEY (tenant_id, session_id, turn_id, event_id)
+ * PRIMARY KEY (session_id, turn_id, event_id)
  * pure INSERT → fillfactor 100
  */
 export interface SessionEventTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /** top: every read is turn-scoped or turn-attributed (envelope) */
@@ -249,13 +243,11 @@ export interface SessionEventTable {
 
 /**
  * pure immutable CONTENT; no state → no checkpoint field
- * PRIMARY KEY (tenant_id, session_id, thread_id, append_id)
+ * PRIMARY KEY (session_id, thread_id, append_id)
  * pure INSERT → default fillfactor 100, zero dead tuples;
  * cleanup is whole-session delete only
  */
 export interface ThreadContextLogTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /** key */
@@ -292,7 +284,7 @@ export interface ThreadContextLogTable {
 
 /**
  * PER-TURN KV snapshot, latest-wins per (turn, thread, key)
- * PRIMARY KEY (tenant_id, session_id, turn_id, thread_id, key)
+ * PRIMARY KEY (session_id, turn_id, thread_id, key)
  * WITH (fillfactor = 85); single-statement fenced upsert per CAPABILITY_STATE event
  *
  * Capability history is per-turn on purpose: createTurn carries the previous
@@ -301,8 +293,6 @@ export interface ThreadContextLogTable {
  * A cross-turn latest-wins PK was tried and REVERTED for the fork reason.
  */
 export interface ThreadCapabilityStateTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /**

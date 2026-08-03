@@ -13,7 +13,6 @@ export async function patchThreadCapabilityState(
   input: PatchThreadCapabilityStateInput,
 ): Promise<void> {
   const keys = {
-    tenant_id: input.tenant_id,
     session_id: input.session_id,
     turn_id: input.turn_id,
   };
@@ -21,12 +20,11 @@ export async function patchThreadCapabilityState(
   const rows = await db
     .with('turn_fence', qb => turnRunningFence(qb, keys))
     .insertInto('thread_capability_state')
-    .columns(['tenant_id', 'session_id', 'turn_id', 'thread_id', 'key', 'state', 'updated_at'])
+    .columns(['session_id', 'turn_id', 'thread_id', 'key', 'state', 'updated_at'])
     .expression(eb =>
       eb
         .selectFrom(values([{ one: 1 }], 'src'))
         .select([
-          sql<string>`${input.tenant_id}`.as('tenant_id'),
           sql<string>`${input.session_id}`.as('session_id'),
           sql<string>`${input.turn_id}`.as('turn_id'),
           sql<string>`${input.thread_id}`.as('thread_id'),
@@ -37,7 +35,7 @@ export async function patchThreadCapabilityState(
         .where(wb => wb.exists(wb.selectFrom('turn_fence').select(sql`1`.as('one')))),
     )
     .onConflict(oc =>
-      oc.columns(['tenant_id', 'session_id', 'turn_id', 'thread_id', 'key']).doUpdateSet({
+      oc.columns(['session_id', 'turn_id', 'thread_id', 'key']).doUpdateSet({
         state: sql`excluded.state`,
         updated_at: sql`now()`,
       }),

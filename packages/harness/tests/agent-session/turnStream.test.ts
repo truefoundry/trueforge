@@ -68,7 +68,6 @@ describe('TurnHandle.stream()', () => {
     expect(data.some(e => e.type === EventType.TURN_DONE)).toBe(true);
 
     const stored = await store.getTurn({
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -267,7 +266,6 @@ describe('TurnHandle.stream()', () => {
     }
     expect(closeCalls).toBe(1);
     const stored = await store.getTurn({
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -294,7 +292,6 @@ describe('TurnHandle.stream()', () => {
       expect(turn.state.reason).toBe(CancellationReason.ClientCancelled);
     }
     const stored = await store.getTurn({
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -320,7 +317,6 @@ describe('TurnHandle.stream()', () => {
       expect(turn.state.reason).toBe(CancellationReason.Abandoned);
     }
     const stored = await store.getTurn({
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -349,7 +345,6 @@ describe('TurnHandle.stream()', () => {
       expect(turn.state.reason).toBe(CancellationReason.ServerExecutionTimeout);
     }
     const stored = await store.getTurn({
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -381,7 +376,6 @@ describe('TurnHandle.stream()', () => {
     expect(closeCalls).toBe(1);
     expect(turn.state.status).toBe('done');
     const stored = await store.getTurn({
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
