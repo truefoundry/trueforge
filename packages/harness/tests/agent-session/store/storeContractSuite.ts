@@ -8,8 +8,10 @@ import { decodeSessionEventPageToken } from '../../../src/agent-session/store/Se
 import {
   PreviousTurnRunningError,
   SessionStoreConflictError,
+  SessionStoreInvariantError,
   SessionStoreNotFoundError,
   TurnAlreadyExistsError,
+  TurnNotFoundError,
   TurnNotRunningError,
 } from '../../../src/agent-session/store/SessionStoreErrors';
 import { newEventId } from '../../../src/core/events/schema';
@@ -1014,6 +1016,25 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(turn?.snapshot.threads[MAIN_THREAD_ID]?.capability_state).toEqual({ 'tfy.plan': { v: 2 } });
     });
 
+    // InMemory rejects unknown thread_id; Postgres/SQLite only fence on a running turn and
+    // will upsert an orphan capability row. Production callers (TurnHandle) only patch threads
+    // that already exist on the turn — not enforced at the SQL store boundary yet.
+    it.skip('patchThreadCapabilityState rejects a thread_id not present on the turn', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await expect(
+        store.patchThreadCapabilityState({
+          tenant_id: tenant,
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          thread_id: 'missing-thread',
+          key: 'tfy.plan',
+          state: { v: 1 },
+        }),
+      ).rejects.toBeInstanceOf(SessionStoreInvariantError);
+    });
+
     it('capability state is per-turn: patching the successor does not change a frozen predecessor', async () => {
       const store = createStore();
       await seedSession(store);
@@ -1077,9 +1098,48 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         turn_id: 'turn-1',
       });
       // Totality: JSON round-trip must not drop keys (undefined is stripped by stringify).
-      const revived = JSON.parse(JSON.stringify(turn)) as unknown;
-      expect(revived).toEqual(turn);
-      expect(JSON.stringify(turn)).toBe(JSON.stringify(revived));
+      // Store timestamps are Date; wire form is ISO string after stringify.
+      const record = mustGet(turn);
+      const revived = JSON.parse(JSON.stringify(record)) as unknown;
+      expect(revived).toEqual({
+        ...record,
+        created_at: record.created_at.toISOString(),
+        updated_at: record.updated_at.toISOString(),
+      });
+    });
+
+    it('JSON-looking strings remain strings', async () => {
+      const store = createStore();
+      const jsonLooking = '{"x":1}';
+      await seedSession(store, makeAgentSpec({ instructions: jsonLooking }));
+      await store.updateSession({
+        tenant_id: tenant,
+        session_id: sessionId,
+        agent_spec: undefined,
+        title: jsonLooking,
+      });
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 'turn-1',
+          new_context_appends: [
+            {
+              thread_id: MAIN_THREAD_ID,
+              context: [userMessage(jsonLooking)],
+              current_context_usage: getEmptyCurrentContextUsage(),
+            },
+          ],
+        }),
+      );
+      const turn = await store.getTurn({
+        tenant_id: tenant,
+        session_id: sessionId,
+        turn_id: 'turn-1',
+      });
+      const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(session.title).toBe(jsonLooking);
+      expect(session.agent_spec.instructions).toBe(jsonLooking);
+      expect(mustGet(turn).snapshot.threads[MAIN_THREAD_ID]?.context).toEqual([{ role: 'user', content: jsonLooking }]);
     });
 
     it('patchMCPServers and patchSandboxInfo', async () => {
@@ -1101,6 +1161,28 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const turn = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' });
       expect(turn?.snapshot.mcp_servers?.['svc']?.session_id).toBe('mcp-1');
       expect(mustGet(turn).snapshot.sandbox_info?.sandbox_id).toBe('sbx-1');
+    });
+
+    it('patchMCPServers replaces each server id wholesale (omitted fields do not linger)', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.patchMCPServers({
+        tenant_id: tenant,
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        mcp_servers: [{ id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' }],
+      });
+      await store.patchMCPServers({
+        tenant_id: tenant,
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        mcp_servers: [{ id: 'svc', name: 'svc', transport_type: 'sse' }],
+      });
+      const turn = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).snapshot.mcp_servers).toEqual({
+        svc: { id: 'svc', name: 'svc', transport_type: 'sse' },
+      });
     });
   });
 
@@ -1153,6 +1235,37 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         page_token: undefined,
       });
       expect(data[0]?.type).toBe(EventType.MODEL_MESSAGE);
+    });
+
+    it('listTurnEvents missing turn → not found', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await expect(
+        store.listTurnEvents({
+          tenant_id: tenant,
+          session_id: sessionId,
+          turn_id: 'missing',
+          limit: 10,
+          page_token: undefined,
+          order: undefined,
+        }),
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
+    });
+
+    it('listTurnEvents on a turn with no events returns an empty page', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const page = await store.listTurnEvents({
+        tenant_id: tenant,
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+      });
+      expect(page.data).toEqual([]);
+      expect(page.pagination.next_page_token).toBeUndefined();
     });
 
     it('listSessionEvents includes running turns and is newest-first', async () => {

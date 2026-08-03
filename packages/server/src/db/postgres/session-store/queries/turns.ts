@@ -5,6 +5,7 @@ import {
   type TurnInputItem,
   type TurnState,
 } from '@truefoundry/utils/agent-session/schemas/turn';
+import { assertCreateTurnThreadDelta } from '@truefoundry/utils/agent-session/store/assertCreateTurnThreadDelta';
 import type {
   FreezeAndGetTurnInput,
   TurnRecordWithoutSnapshot,
@@ -318,8 +319,8 @@ async function assembleTurnRecord(
     state: turn.state,
     input: turn.input,
     snapshot,
-    created_at: turn.created_at.toISOString(),
-    updated_at: turn.updated_at.toISOString(),
+    created_at: turn.created_at,
+    updated_at: turn.updated_at,
     custom: parseTurnCustom(turn.custom),
   };
 }
@@ -467,21 +468,12 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         }
       }
 
-      const newThreadIds = new Set(input.new_threads.map(t => t.thread_id));
-      for (const nt of input.new_threads) {
-        if (prevThreadRows.some(p => p.thread_id === nt.thread_id)) {
-          throw new SessionStoreInvariantError(
-            `new_threads must only contain threads absent on the previous turn; thread '${nt.thread_id}' already exists`,
-          );
-        }
-      }
-
-      const knownThreadIds = new Set([...prevThreadRows.map(r => r.thread_id), ...newThreadIds]);
-      for (const append of input.new_context_appends) {
-        if (!knownThreadIds.has(append.thread_id)) {
-          throw new SessionStoreInvariantError(`new_context_appends references unknown thread ${append.thread_id}`);
-        }
-      }
+      assertCreateTurnThreadDelta({
+        previousThreadIds: new Set(prevThreadRows.map(r => r.thread_id)),
+        new_threads: input.new_threads,
+        new_context_appends: input.new_context_appends,
+        capability_states: input.capability_states,
+      });
 
       const checkpoint: TurnCheckpoint = {
         mcp_servers: input.mcp_servers ?? prevCheckpoint?.mcp_servers ?? null,
@@ -591,19 +583,9 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         await trx.insertInto('turn_thread').values(turnThreadRows).execute();
       }
 
-      // Complete per-turn capability maps are supplied by the caller. Persist
-      // them directly; copying parent rows only to replace them is wasted work.
-      const seenCapabilityThreads = new Set<string>();
+      // Complete per-turn capability maps (thread coverage asserted above).
       const capabilityStateRows: CapabilityStateInsertRow[] = [];
       for (const capability of input.capability_states) {
-        if (!knownThreadIds.has(capability.thread_id)) {
-          throw new SessionStoreInvariantError(`capability_states references unknown thread ${capability.thread_id}`);
-        }
-        if (seenCapabilityThreads.has(capability.thread_id)) {
-          throw new SessionStoreInvariantError(`capability_states contains duplicate thread ${capability.thread_id}`);
-        }
-        seenCapabilityThreads.add(capability.thread_id);
-
         if (capability.capability_state === null) continue;
         for (const [key, state] of Object.entries(capability.capability_state)) {
           capabilityStateRows.push({
@@ -615,12 +597,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
             state: json(state),
             updated_at: now,
           });
-        }
-      }
-
-      for (const threadId of knownThreadIds) {
-        if (!seenCapabilityThreads.has(threadId)) {
-          throw new SessionStoreInvariantError(`capability_states is missing thread ${threadId}`);
         }
       }
 
@@ -721,8 +697,8 @@ export async function listTurns(db: Kysely<Database>, input: ListTurnsInput): Pr
     previous_turn_id: row.previous_turn_id,
     state: row.state,
     input: row.input,
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
     custom: parseTurnCustom(row.custom),
   }));
 

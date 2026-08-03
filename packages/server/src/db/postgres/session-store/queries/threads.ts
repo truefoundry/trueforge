@@ -147,38 +147,48 @@ export async function addThreads(db: Kysely<Database>, input: AddThreadsInput): 
 }
 
 /**
- * removeThreads — fenced tx: DELETE this turn's turn_thread rows + this turn's
- * capability rows. Older turns keep their per-turn maps. Log rows stay
- * (ancestor arrays reference them).
+ * removeThreads — one statement: fence FOR SHARE + delete turn_thread + capability rows.
+ * Older turns keep their maps; log rows stay. Empty thread_ids is a no-op.
  */
 export async function removeThreads(db: Kysely<Database>, input: RemoveThreadsInput): Promise<void> {
-  await db.transaction().execute(async trx => {
-    await assertTurnRunning(trx, {
-      tenant_id: input.tenant_id,
-      session_id: input.session_id,
-      turn_id: input.turn_id,
-    });
+  if (input.thread_ids.length === 0) {
+    return;
+  }
 
-    if (input.thread_ids.length === 0) {
-      return;
-    }
+  const keys: TurnKeys = {
+    tenant_id: input.tenant_id,
+    session_id: input.session_id,
+    turn_id: input.turn_id,
+  };
+  const onFence = sql<boolean>`EXISTS (SELECT 1 FROM turn_fence)`;
 
-    await trx
-      .deleteFrom('turn_thread')
-      .where('tenant_id', '=', input.tenant_id)
-      .where('session_id', '=', input.session_id)
-      .where('turn_id', '=', input.turn_id)
-      .where('thread_id', 'in', input.thread_ids)
-      .execute();
+  const fence = await db
+    .with('turn_fence', qb => turnRunningFence(qb, keys))
+    .with('del_cap', qb =>
+      qb
+        .deleteFrom('thread_capability_state')
+        .where('tenant_id', '=', keys.tenant_id)
+        .where('session_id', '=', keys.session_id)
+        .where('turn_id', '=', keys.turn_id)
+        .where('thread_id', 'in', input.thread_ids)
+        .where(onFence),
+    )
+    .with('del_tt', qb =>
+      qb
+        .deleteFrom('turn_thread')
+        .where('tenant_id', '=', keys.tenant_id)
+        .where('session_id', '=', keys.session_id)
+        .where('turn_id', '=', keys.turn_id)
+        .where('thread_id', 'in', input.thread_ids)
+        .where(onFence),
+    )
+    .selectFrom('turn_fence')
+    .select('one')
+    .executeTakeFirst();
 
-    await trx
-      .deleteFrom('thread_capability_state')
-      .where('tenant_id', '=', input.tenant_id)
-      .where('session_id', '=', input.session_id)
-      .where('turn_id', '=', input.turn_id)
-      .where('thread_id', 'in', input.thread_ids)
-      .execute();
-  });
+  if (fence === undefined) {
+    await classifyTurnFenceWriteFailure(db, keys);
+  }
 }
 
 function completionPatchExpr(completion: SubAgentCompletionMarker | null): RawBuilder<TurnThreadCheckpoint> {

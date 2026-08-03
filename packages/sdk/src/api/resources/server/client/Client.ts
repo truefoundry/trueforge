@@ -47,7 +47,7 @@ export class ServerClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "v1/capabilities",
+                "api/v1/capabilities",
             ),
             method: "GET",
             headers: _headers,
@@ -79,6 +79,6 @@ export class ServerClient {
             });
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/v1/capabilities");
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/capabilities");
     }
 }

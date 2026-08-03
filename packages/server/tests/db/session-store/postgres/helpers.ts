@@ -2,10 +2,10 @@ import { sql, type Kysely } from 'kysely';
 import { Pool } from 'pg';
 import { ulid } from 'ulid';
 
-import { migrateToLatest } from '../../../src/db/migratePostgres';
-import { createDb } from '../../../src/db/postgres/client';
-import { PostgresSessionStore } from '../../../src/db/postgres/session-store/PostgresSessionStore';
-import type { Database } from '../../../src/db/postgres/types';
+import { migrateToLatest } from '../../../../src/db/migratePostgres';
+import { createDb } from '../../../../src/db/postgres/client';
+import { PostgresSessionStore } from '../../../../src/db/postgres/session-store/PostgresSessionStore';
+import type { Database } from '../../../../src/db/postgres/types';
 
 const ADMIN_URL_ENV = 'PG_STORE_TESTS_ADMIN_URL';
 

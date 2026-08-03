@@ -60,8 +60,8 @@ function mapRowToSessionRecord(row: {
     title: row.title,
     last_turn_id: row.last_turn_id,
     custom: parseSessionCustom(row.custom),
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
     last_activity_timestamp_ms: row.last_activity_timestamp_ms,
   };
 }
@@ -156,10 +156,10 @@ export async function listSessions(
   let query = db.selectFrom('session').selectAll().where('tenant_id', '=', input.tenant_id);
 
   if (input.start_timestamp !== undefined) {
-    query = query.where('created_at', '>=', new Date(input.start_timestamp));
+    query = query.where('created_at', '>=', input.start_timestamp);
   }
   if (input.end_timestamp !== undefined) {
-    query = query.where('created_at', '<=', new Date(input.end_timestamp));
+    query = query.where('created_at', '<=', input.end_timestamp);
   }
 
   if (order === 'asc') {

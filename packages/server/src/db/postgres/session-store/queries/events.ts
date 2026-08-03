@@ -59,42 +59,57 @@ export async function appendToEvents(db: Kysely<Database>, input: AppendToEvents
   }
 }
 
+/**
+ * listTurnEvents — one statement: drive from turn, left-join a page of events.
+ * Missing turn → 0 rows → TurnNotFoundError. Empty log → one null-event sentinel.
+ */
 export async function listTurnEvents(
   db: Kysely<Database>,
   input: ListTurnEventsInput,
 ): Promise<{ data: PersistedTurnEvent[]; pagination: TokenPagination }> {
   const offset = decodeOffsetPageToken(input.page_token);
   const limit = input.limit;
-  const order = input.order ?? 'asc';
+  const eventOrder = input.order === 'desc' ? 'desc' : 'asc';
 
-  const turnExists = await db
-    .selectFrom('turn')
-    .select('turn_id')
-    .where('tenant_id', '=', input.tenant_id)
-    .where('session_id', '=', input.session_id)
-    .where('turn_id', '=', input.turn_id)
-    .executeTakeFirst();
-  if (!turnExists) {
+  const rows = await db
+    .selectFrom('turn as t')
+    .leftJoin(
+      eb =>
+        eb
+          .selectFrom('session_event')
+          .select(['tenant_id', 'session_id', 'turn_id', 'event_id', 'event'])
+          .where('tenant_id', '=', input.tenant_id)
+          .where('session_id', '=', input.session_id)
+          .where('turn_id', '=', input.turn_id)
+          .orderBy('event_id', eventOrder)
+          .limit(limit + 1)
+          .offset(offset)
+          .as('e'),
+      join =>
+        join
+          .onRef('e.tenant_id', '=', 't.tenant_id')
+          .onRef('e.session_id', '=', 't.session_id')
+          .onRef('e.turn_id', '=', 't.turn_id'),
+    )
+    .select(['t.turn_id', 'e.event'])
+    .where('t.tenant_id', '=', input.tenant_id)
+    .where('t.session_id', '=', input.session_id)
+    .where('t.turn_id', '=', input.turn_id)
+    .orderBy('e.event_id', eventOrder)
+    .execute();
+
+  if (rows.length === 0) {
     throw new TurnNotFoundError(input.turn_id);
   }
 
-  const query = db
-    .selectFrom('session_event')
-    .select(['event'])
-    .where('tenant_id', '=', input.tenant_id)
-    .where('session_id', '=', input.session_id)
-    .where('turn_id', '=', input.turn_id)
-    .orderBy('event_id', order === 'desc' ? 'desc' : 'asc')
-    .limit(limit + 1)
-    .offset(offset);
+  const events: PersistedTurnEvent[] = [];
+  for (const row of rows) {
+    if (row.event !== null) {
+      events.push(row.event);
+    }
+  }
 
-  const rows = await query.execute();
-  const page = paginateOffsetRows(
-    rows.map(r => r.event),
-    limit,
-    offset,
-  );
-  return page;
+  return paginateOffsetRows(events, limit, offset);
 }
 
 export async function listSessionEvents(

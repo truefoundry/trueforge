@@ -1,7 +1,8 @@
 /**
- * Server entry point: validates config, migrates the database, loads the YAML
+ * Server entry point: validates config, migrates Postgres, loads the YAML
  * stores, wires the Postgres session store and starts the HTTP server.
  * Any config, migration, or store error aborts startup.
+ * SQLite migrations are packaged under dist/ but are not run at startup.
  */
 import { serve } from '@hono/node-server';
 import type { TurnStreamingEvent } from '@truefoundry/utils/agent-session';
@@ -10,6 +11,7 @@ import winston from 'winston';
 try {
   const [
     { createServerApp },
+    { mountFrontend },
     { default: configuration },
     { createDb },
     { migrateToLatest },
@@ -25,6 +27,7 @@ try {
     { EventSubscriptionRegistry },
   ] = await Promise.all([
     import('./app'),
+    import('./frontend'),
     import('./config'),
     import('./db/postgres/client'),
     import('./db/migratePostgres'),
@@ -77,6 +80,15 @@ try {
     logger,
   });
 
+  if (mountFrontend(app, configuration.FRONTEND_DIR)) {
+    logger.info(`Serving frontend from ${configuration.FRONTEND_DIR}`);
+  } else {
+    logger.warn(
+      `No frontend build at ${configuration.FRONTEND_DIR}: serving the API only. ` +
+        'Run `pnpm --filter frontend build` to serve the UI from here, or `pnpm dev:frontend` for UI work.',
+    );
+  }
+
   // After createServerApp so every request-reply route is registered before
   // the executor starts consuming messages. The executor needs a dedicated
   // subscriber connection (a subscribed client cannot issue normal commands);
@@ -102,7 +114,7 @@ try {
   await requestReplyExecutor.init();
 
   const server = serve({ fetch: app.fetch, port: configuration.PORT }, info => {
-    console.log(`Agent server listening on http://localhost:${String(info.port)} (docs at /docs)`);
+    console.log(`Agent server listening on http://localhost:${String(info.port)} (docs at /api/v1/docs)`);
   });
 
   server.on('error', (error: unknown) => {
@@ -110,55 +122,55 @@ try {
     process.exit(1);
   });
 
-  // Graceful drain: stop accepting new connections, cancel running turns as
-  // abandoned, wait for them to persist terminal state, then exit. Without
-  // this, Node (running as PID 1 in the container) ignores SIGTERM and docker
-  // stop escalates to SIGKILL after its grace period.
-  let shuttingDown = false;
-  const shutdown = async (signal: NodeJS.Signals) => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    logger.info(`Received ${signal}, draining connections before shutdown`);
+  // Graceful drain is the safe default for built and direct execution.
+  // Development watch mode opts out so tsx can restart without waiting for a drain.
+  if (process.env['NODE_ENV'] !== 'development') {
+    let shuttingDown = false;
+    const shutdown = async (signal: NodeJS.Signals) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      logger.info(`Received ${signal}, draining connections before shutdown`);
 
-    // Arm at the start of each shutdown; unref so this timer alone cannot keep the process alive.
-    setTimeout(() => {
-      logger.warn(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`);
-      process.exit(1);
-    }, configuration.GRACEFUL_TIMEOUT_SECONDS * 1000).unref();
+      // Arm at the start of each shutdown; unref so this timer alone cannot keep the process alive.
+      setTimeout(() => {
+        logger.warn(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`);
+        process.exit(1);
+      }, configuration.GRACEFUL_TIMEOUT_SECONDS * 1000).unref();
 
-    const closed = new Promise<void>(resolve => {
-      server.close(() => {
-        resolve();
+      const closed = new Promise<void>(resolve => {
+        server.close(() => {
+          resolve();
+        });
       });
-    });
 
-    // Sets the registry's shutdown reason immediately so late track() (in-flight create-turn still
-    // inside session.createTurn) aborts as Abandoned; then drains the registry. await
-    // closed covers the gap where the registry is empty before that late track().
-    await activeTurns.shutdownAndWait(CancellationReason.Abandoned);
-    await closed;
-    // Stop serving peer requests (waits for in-flight replies), then close
-    // the clients this process owns: the subscriber duplicate and the primary.
-    await requestReplyExecutor.drain();
-    await requestReplySubscriber.close().catch((error: unknown) => {
-      logger.warn('[Redis] Error closing subscriber client during shutdown', {
-        error: error instanceof Error ? error.message : String(error),
+      // Sets the registry's shutdown reason immediately so late track() (in-flight create-turn still
+      // inside session.createTurn) aborts as Abandoned; then drains the registry. await
+      // closed covers the gap where the registry is empty before that late track().
+      await activeTurns.shutdownAndWait(CancellationReason.Abandoned);
+      await closed;
+      // Stop serving peer requests (waits for in-flight replies), then close
+      // the clients this process owns: the subscriber duplicate and the primary.
+      await requestReplyExecutor.drain();
+      await requestReplySubscriber.close().catch((error: unknown) => {
+        logger.warn('[Redis] Error closing subscriber client during shutdown', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
-    });
-    await redis.close().catch((error: unknown) => {
-      logger.warn('[Redis] Error closing client during shutdown', {
-        error: error instanceof Error ? error.message : String(error),
+      await redis.close().catch((error: unknown) => {
+        logger.warn('[Redis] Error closing client during shutdown', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
+      await db.destroy();
+      process.exit(0);
+    };
+    process.on('SIGTERM', signal => {
+      void shutdown(signal);
     });
-    await db.destroy();
-    process.exit(0);
-  };
-  process.on('SIGTERM', signal => {
-    void shutdown(signal);
-  });
-  process.on('SIGINT', signal => {
-    void shutdown(signal);
-  });
+    process.on('SIGINT', signal => {
+      void shutdown(signal);
+    });
+  }
 } catch (error) {
   console.error('Failed to start server:', error instanceof Error ? error.message : error);
   process.exit(1);

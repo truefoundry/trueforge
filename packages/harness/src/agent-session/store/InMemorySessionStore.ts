@@ -5,6 +5,7 @@ import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import { CancellationReason, type TerminalTurnState } from '../schemas/turn';
+import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
 import type {
   AddThreadsInput,
   AppendToEventsInput,
@@ -102,39 +103,24 @@ function buildSnapshotFromDelta(input: {
     ? deepCopy(input.previousSnapshot.threads)
     : {};
 
+  assertCreateTurnThreadDelta({
+    previousThreadIds: new Set(Object.keys(threads)),
+    new_threads: input.new_threads,
+    new_context_appends: input.new_context_appends,
+    capability_states: input.capability_states,
+  });
+
   for (const nt of input.new_threads) {
-    if (threads[nt.thread_id] !== undefined) {
-      throw new SessionStoreInvariantError(
-        `new_threads must only contain threads absent on the previous turn; thread '${nt.thread_id}' already exists`,
-      );
-    }
     threads[nt.thread_id] = newThreadSnapshot(nt);
   }
 
-  const knownThreadIds = new Set(Object.keys(threads));
-  for (const append of input.new_context_appends) {
-    if (!knownThreadIds.has(append.thread_id)) {
-      throw new SessionStoreInvariantError(`new_context_appends references unknown thread ${append.thread_id}`);
-    }
-  }
-
   applyContextAppends(threads, input.new_context_appends);
-  const seenCapabilityThreads = new Set<string>();
   for (const capability of input.capability_states) {
     const thread = threads[capability.thread_id];
     if (thread === undefined) {
       throw new SessionStoreInvariantError(`capability_states references unknown thread ${capability.thread_id}`);
     }
-    if (seenCapabilityThreads.has(capability.thread_id)) {
-      throw new SessionStoreInvariantError(`capability_states contains duplicate thread ${capability.thread_id}`);
-    }
-    seenCapabilityThreads.add(capability.thread_id);
     thread.capability_state = deepCopy(capability.capability_state);
-  }
-  for (const threadId of Object.keys(threads)) {
-    if (!seenCapabilityThreads.has(threadId)) {
-      throw new SessionStoreInvariantError(`capability_states is missing thread ${threadId}`);
-    }
   }
 
   return {
@@ -174,7 +160,7 @@ export class InMemorySessionStore<
     if (this.sessions.has(key)) {
       throw new SessionAlreadyExistsError(input.session_id);
     }
-    const now = new Date().toISOString();
+    const now = new Date();
     const record: SessionRecord<TSessionCustom> = {
       tenant_id: input.tenant_id,
       session_id: input.session_id,
@@ -208,7 +194,7 @@ export class InMemorySessionStore<
       stored.record.title = input.title;
     }
     const now = Date.now();
-    stored.record.updated_at = new Date(now).toISOString();
+    stored.record.updated_at = new Date(now);
     stored.record.last_activity_timestamp_ms = now;
     return;
   }
@@ -220,13 +206,15 @@ export class InMemorySessionStore<
     const records: SessionRecord<TSessionCustom>[] = [];
     for (const [key, stored] of this.sessions) {
       if (!key.startsWith(prefix)) continue;
-      const createdAt = stored.record.created_at;
-      if (input.start_timestamp !== undefined && createdAt < input.start_timestamp) continue;
-      if (input.end_timestamp !== undefined && createdAt > input.end_timestamp) continue;
+      const createdAt = stored.record.created_at.getTime();
+      if (input.start_timestamp !== undefined && createdAt < input.start_timestamp.getTime()) continue;
+      if (input.end_timestamp !== undefined && createdAt > input.end_timestamp.getTime()) continue;
       records.push(stored.record);
     }
     records.sort((a, b) =>
-      input.order === 'asc' ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at),
+      input.order === 'asc'
+        ? a.created_at.getTime() - b.created_at.getTime()
+        : b.created_at.getTime() - a.created_at.getTime(),
     );
     const page = paginate(records, input.limit, input.page_token);
     return { data: deepCopy(page.data), pagination: page.pagination };
@@ -279,7 +267,7 @@ export class InMemorySessionStore<
     stored.turnIds.push(input.turn.turn_id);
     stored.record.last_turn_id = input.turn.turn_id;
     stored.record.last_activity_timestamp_ms = Date.now();
-    stored.record.updated_at = new Date().toISOString();
+    stored.record.updated_at = new Date();
     if (input.update_session_title_if_not_exist !== null && stored.record.title === null) {
       stored.record.title = input.update_session_title_if_not_exist;
     }
@@ -299,7 +287,7 @@ export class InMemorySessionStore<
         completed_at: new Date().toISOString(),
       };
       turn.state = cancelledState;
-      turn.updated_at = new Date().toISOString();
+      turn.updated_at = new Date();
       const list = this.events.get(tKey);
       if (list) {
         list.push(deepCopy(input.turn_done_event));
@@ -344,7 +332,7 @@ export class InMemorySessionStore<
       throw new TurnNotRunningError(input.turn_id, turn.state);
     }
     turn.state = deepCopy(input.state);
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     const list = this.events.get(tKey);
     if (list) {
       list.push(deepCopy(input.turn_done_event));
@@ -383,16 +371,19 @@ export class InMemorySessionStore<
     for (const thread of input.threads) {
       turn.snapshot.threads[thread.thread_id] = deepCopy(thread);
     }
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 
   async removeThreads(input: RemoveThreadsInput): Promise<void> {
+    if (input.thread_ids.length === 0) {
+      return;
+    }
     const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
     for (const id of input.thread_ids) {
       Reflect.deleteProperty(turn.snapshot.threads, id);
     }
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 
@@ -409,7 +400,7 @@ export class InMemorySessionStore<
     if (input.completion !== null) {
       thread.completion = deepCopy(input.completion);
     }
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 
@@ -422,7 +413,7 @@ export class InMemorySessionStore<
     }
     thread.context = deepCopy(input.event.context);
     thread.current_context_usage = deepCopy(input.event.current_context_usage);
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 
@@ -432,14 +423,14 @@ export class InMemorySessionStore<
     for (const server of input.mcp_servers) {
       turn.snapshot.mcp_servers[server.id] = deepCopy(server);
     }
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 
   async patchSandboxInfo(input: PatchSandboxInfoInput): Promise<void> {
     const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
     turn.snapshot.sandbox_info = deepCopy(input.sandbox_info);
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 
@@ -458,7 +449,7 @@ export class InMemorySessionStore<
     } else {
       thread.capability_state[input.key] = deepCopy(input.state);
     }
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 

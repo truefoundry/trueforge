@@ -18,12 +18,29 @@ function stripDistPrefix(value) {
   return value;
 }
 
+// Workspace-only: local `tsx` uses exports.development → src/. Published
+// packages must not ship those conditions (src/ is not in the tarball).
+function omitDevelopmentConditions(value) {
+  if (Array.isArray(value)) {
+    return value.map(omitDevelopmentConditions);
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => key !== 'development')
+        .map(([key, entry]) => [key, omitDevelopmentConditions(entry)]),
+    );
+  }
+  return value;
+}
+
 const distPkg = {
   ...pkg,
+  type: 'commonjs',
   main: stripDistPrefix(pkg.main),
   module: stripDistPrefix(pkg.module),
   types: stripDistPrefix(pkg.types),
-  exports: stripDistPrefix(pkg.exports),
+  exports: omitDevelopmentConditions(stripDistPrefix(pkg.exports)),
   files: ['**/*'],
 };
 delete distPkg.scripts;

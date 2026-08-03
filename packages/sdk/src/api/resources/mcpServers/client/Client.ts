@@ -47,7 +47,7 @@ export class McpServersClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "v1/mcp-servers",
+                "api/v1/mcp-servers",
             ),
             method: "GET",
             headers: _headers,
@@ -79,7 +79,7 @@ export class McpServersClient {
             });
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/v1/mcp-servers");
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/mcp-servers");
     }
 
     /**
@@ -113,7 +113,7 @@ export class McpServersClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `v1/mcp-servers/${core.url.encodePathParam(name)}/tools`,
+                `api/v1/mcp-servers/${core.url.encodePathParam(name)}/tools`,
             ),
             method: "GET",
             headers: _headers,
@@ -181,6 +181,11 @@ export class McpServersClient {
             }
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/v1/mcp-servers/{name}/tools");
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "GET",
+            "/api/v1/mcp-servers/{name}/tools",
+        );
     }
 }

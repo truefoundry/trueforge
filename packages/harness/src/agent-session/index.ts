@@ -47,6 +47,7 @@ export type { SessionRecord } from './models/SessionRecord';
 export { MAIN_THREAD_ID } from './models/TurnRecord';
 export type { TurnRecord, TurnSnapshot } from './models/TurnRecord';
 
+export { assertCreateTurnThreadDelta } from './store/assertCreateTurnThreadDelta';
 export { InMemorySessionStore } from './store/InMemorySessionStore';
 export type {
   AddThreadsInput,

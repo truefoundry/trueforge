@@ -203,7 +203,7 @@ export function makeRunningTurnRecord(input: {
   previousTurnId?: string | null;
   firstTurnId?: string;
 }): TurnRecord {
-  const now = new Date().toISOString();
+  const now = new Date();
   return {
     turn_id: input.turnId,
     session_id: input.sessionId,
