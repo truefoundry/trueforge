@@ -14,6 +14,43 @@ import type {
 } from '@truefoundry/utils/core';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { McpServerManifest } from '../../store/schemas';
+
+/**
+ * `mcp_server.oauth_server` JSONB shape — RFC 8414 authorization-server metadata, discovered once
+ * at registration time. Own column, not merged with oauth_client: different source HTTP call
+ * (metadata discovery vs. DCR registration), and this one never carries a secret.
+ */
+export interface OAuthServer {
+  authorizationEndpoint: string;
+  tokenEndpoint: string;
+  codeChallengeMethodsSupported?: string[];
+}
+
+/** `mcp_server.oauth_client` JSONB shape — RFC 7591 DCR registration response for this server. */
+export interface OAuthClient {
+  clientId: string;
+  clientSecret?: string;
+}
+
+/** `oauth_pending_authorization.auth_data` JSONB shape. */
+export interface McpOAuthPendingAuthorizationData {
+  /** absent when the authorization server doesn't advertise PKCE support */
+  codeVerifier?: string;
+  /** absent when triggered mid-turn by resolveAuth, not by the authorize() endpoint */
+  redirectUrl?: string;
+}
+
+/** `oauth_token.token` JSONB shape — matches SF's MCPUserAuthModel.authData. */
+export interface McpOAuthToken {
+  accessToken: string;
+  /** absent: some grants don't issue one */
+  refreshToken?: string;
+  /** ISO 8601; always filled — see "missing expires_in" fallback in the design doc */
+  expiresAt: string;
+  /** scope is a single space-delimited case-sensitive string, not a list. */
+  scope?: string;
+}
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -291,14 +328,73 @@ export interface ThreadCapabilityStateTable {
 }
 
 /**
+ * PRIMARY KEY (id)
+ * UNIQUE (tenant_id, name) — the natural lookup key.
+ */
+export interface McpServerTable {
+  id: string;
+  tenant_id: string;
+  /** the uniqueness target; also duplicated inside `manifest` (the full mcp.yaml entry) */
+  name: string;
+  manifest: JSONColumnType<McpServerManifest, McpServerManifest, McpServerManifest>;
+  /** OAuthServer — { authorizationEndpoint, tokenEndpoint, codeChallengeMethodsSupported? }.
+   * RFC 8414 authorization-server metadata, discovered once at registration time.
+   */
+  oauth_server: JSONColumnType<OAuthServer, OAuthServer, OAuthServer> | null;
+  /** OAuthClient — { clientId, clientSecret? }. RFC 7591 DCR registration response.
+   * clientSecret's presence alone decides the auth method on every later call; validated at the
+   * application layer when read back via getOAuthClient/saveOAuthClient.
+   * Both oauth_server and oauth_client are null until the first successful DCR registration for
+   * this server.
+   */
+  oauth_client: JSONColumnType<OAuthClient, OAuthClient, OAuthClient> | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * PRIMARY KEY (oauth_server_id)
+ * No `tenant_id` — already 1:1 with tenant via the FK. Any tenant-scoped read resolves
+ * `oauth_server_id` through mcp_server (by tenant_id + name) first; this table is never
+ * queried by tenant_id directly.
+ */
+export interface OAuthTokenTable {
+  /** FK -> mcp_server.id, ON DELETE CASCADE */
+  oauth_server_id: string;
+  /** access_token, refresh_token, expires_at, scope. */
+  token: JSONColumnType<McpOAuthToken, McpOAuthToken, McpOAuthToken>;
+  updated_at: Date;
+}
+
+/**
+ * PRIMARY KEY (id)
+ *
+ * `id` is this table's own identity column, used as the OAuth wire `state` query
+ * parameter.
+ */
+export interface OAuthPendingAuthorizationTable {
+  id: string;
+  /** FK -> mcp_server.id, ON DELETE CASCADE */
+  oauth_server_id: string;
+  auth_data: JSONColumnType<
+    McpOAuthPendingAuthorizationData,
+    McpOAuthPendingAuthorizationData,
+    McpOAuthPendingAuthorizationData
+  >;
+  /** used for TTL expiry on read, no sweep job */
+  created_at: Date;
+}
+
+/**
  * Write-heat summary: `turn_thread` is the one deliberately-hot table with its hot
  * columns (`context_ids`, `current_context_usage`) isolated from the pointer-carried
  * big ones (`agent_info`, `checkpoint`); `session`, `turn`, and
  * `thread_capability_state` take small bounded HOT-friendly updates; the two logs
  * are pure insert. Nothing ever rewrites a large value except the array concat
- * itself — the documented, bounded cost of the raw-array model.
+ * itself — the documented, bounded cost of the raw-array model. `mcp_server` and the two
+ * `oauth_*` tables are low-write, low-volume (one row per tenant/server, or short-lived).
  *
- * Canonical Kysely database — six session-store tables.
+ * Canonical Kysely database.
  */
 export interface Database {
   session: SessionTable;
@@ -307,4 +403,7 @@ export interface Database {
   session_event: SessionEventTable;
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
+  mcp_server: McpServerTable;
+  oauth_token: OAuthTokenTable;
+  oauth_pending_authorization: OAuthPendingAuthorizationTable;
 }
