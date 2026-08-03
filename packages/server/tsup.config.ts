@@ -36,7 +36,7 @@ export default defineConfig({
   outDir: 'dist',
   // Shipped beside dist/main.js so ModelCatalog resolves
   // `import.meta.dirname/catalog/model-catalog.yaml` without a Docker COPY.
-  async onSuccess() {
+  onSuccess() {
     const destDir = path.join(packageDir, 'dist/catalog');
     mkdirSync(destDir, { recursive: true });
     copyFileSync(path.join(packageDir, 'src/catalog/model-catalog.yaml'), path.join(destDir, 'model-catalog.yaml'));
