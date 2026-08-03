@@ -20,7 +20,7 @@ import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ProviderManifest } from '../../schemas/modelProvider';
 import type { SkillManifest } from '../../schemas/skill';
-import type { McpOAuthPendingAuthorizationData, McpOAuthToken, OAuthClient, OAuthServer } from '../mcpOAuthTypes';
+import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpOAuthTypes';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -200,7 +200,7 @@ export interface McpServerTable {
 export interface OAuthTokenTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
-  token: JsonbColumn<McpOAuthToken>;
+  token: JsonbColumn<OAuthToken>;
   updated_at: string;
 }
 
@@ -212,7 +212,7 @@ export interface OAuthPendingAuthorizationTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
   /** { codeVerifier?, redirectUrl? } — same writer/lifecycle for both, so merged into one column */
-  auth_data: JsonbColumn<McpOAuthPendingAuthorizationData>;
+  auth_data: JsonbColumn<OAuthPendingAuthorizationData>;
   created_at: string;
 }
 
