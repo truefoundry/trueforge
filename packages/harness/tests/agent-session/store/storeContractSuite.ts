@@ -7,6 +7,7 @@ import type { ISessionStore } from '../../../src/agent-session/store/ISessionSto
 import { decodeSessionEventPageToken } from '../../../src/agent-session/store/SessionEventPageToken';
 import {
   PreviousTurnRunningError,
+  SessionNotFoundError,
   SessionStoreConflictError,
   SessionStoreInvariantError,
   SessionStoreNotFoundError,
@@ -64,11 +65,12 @@ function contextContents(messages: ContextMessage[] | undefined): string[] {
 export function runStoreContractSuite(createStore: () => ISessionStore) {
   const tenant = 't1';
   const sessionId = 's1';
+  const missingSessionId = 'missing-session';
+  const missingTurnId = 'missing-turn';
 
   async function finishTurn(store: ISessionStore, turnId: string) {
     const state = makeDoneTurnState();
     await store.updateTurnState({
-      tenant_id: tenant,
       session_id: sessionId,
       turn_id: turnId,
       state,
@@ -83,6 +85,77 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       agent_spec: agentSpec,
       custom: null,
     });
+  }
+
+  function turnScopedWrites(
+    store: ISessionStore,
+    keys: { session_id: string; turn_id: string },
+  ): (() => Promise<unknown>)[] {
+    const doneState = makeDoneTurnState();
+    return [
+      () =>
+        store.freezeAndGetTurn({
+          ...keys,
+          turn_done_event: makeTurnDoneEvent(makeCancelledTurnState(CancellationReason.ClientCancelled)),
+        }),
+      () =>
+        store.updateTurnState({
+          ...keys,
+          state: doneState,
+          turn_done_event: makeTurnDoneEvent(doneState),
+        }),
+      () =>
+        store.addThreads({
+          ...keys,
+          threads: [
+            {
+              thread_id: 'child',
+              context: [],
+              current_context_usage: getEmptyCurrentContextUsage(),
+              parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
+              agent_info: { type: 'dynamic', name: 'child', input: 'task' },
+              completion: null,
+              capability_state: null,
+            },
+          ],
+        }),
+      () => store.removeThreads({ ...keys, thread_ids: [MAIN_THREAD_ID] }),
+      () =>
+        store.appendToThreadContext({
+          ...keys,
+          thread_id: MAIN_THREAD_ID,
+          context: [userMessage('late')],
+          current_context_usage: null,
+          completion: null,
+        }),
+      () =>
+        store.overwriteThreadContext({
+          ...keys,
+          event: {
+            type: EventType.AGENT_CONTEXT_OVERWRITE,
+            id: newEventId(),
+            created_at: new Date().toISOString(),
+            thread_id: MAIN_THREAD_ID,
+            reason: 'compaction',
+            context: [userMessage('late')],
+            current_context_usage: getEmptyCurrentContextUsage(),
+            usage: getEmptyUsage(),
+          },
+        }),
+      () =>
+        store.patchMCPServers({
+          ...keys,
+          mcp_servers: [{ id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' }],
+        }),
+      () => store.patchSandboxInfo({ ...keys, sandbox_info: { sandbox_id: 'sbx-1' } }),
+      () =>
+        store.patchThreadCapabilityState({
+          ...keys,
+          thread_id: MAIN_THREAD_ID,
+          key: 'tfy.plan',
+          state: { step: 1 },
+        }),
+    ];
   }
 
   describe('session CRUD + activity', () => {
@@ -129,6 +202,326 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const store = createStore();
       await seedSession(store);
       await expect(seedSession(store)).rejects.toBeInstanceOf(SessionStoreConflictError);
+    });
+
+    it('createSession rejects a session_id already used by another tenant', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await expect(
+        store.createSession({
+          tenant_id: 'other',
+          session_id: sessionId,
+          agent_spec: makeAgentSpec(),
+          custom: null,
+        }),
+      ).rejects.toBeInstanceOf(SessionStoreConflictError);
+    });
+  });
+
+  describe('deleteSession', () => {
+    it('removes all session data, is idempotent, and is a no-op when tenant_id does not match', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createSession({
+        tenant_id: 'other',
+        session_id: 'other-session',
+        agent_spec: makeAgentSpec(),
+        custom: null,
+      });
+
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 'turn-1',
+          new_context_appends: [
+            {
+              thread_id: MAIN_THREAD_ID,
+              context: [userMessage('private context')],
+              current_context_usage: getEmptyCurrentContextUsage(),
+            },
+          ],
+          capability_states: [{ thread_id: MAIN_THREAD_ID, capability_state: { 'tfy.initial': { value: 1 } } }],
+        }),
+      );
+      await store.appendToEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        events: [makeTurnCreatedEvent('turn-1'), makeModelMessageEvent()],
+      });
+      await store.patchThreadCapabilityState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        thread_id: MAIN_THREAD_ID,
+        key: 'tfy.plan',
+        state: { step: 'secret' },
+      });
+      await store.patchMCPServers({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        mcp_servers: [{ id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' }],
+      });
+      await store.patchSandboxInfo({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        sandbox_info: { sandbox_id: 'sbx-1' },
+      });
+
+      await store.deleteSession({ tenant_id: 'other', session_id: sessionId });
+      expect(await store.getSession({ tenant_id: tenant, session_id: sessionId })).toBeDefined();
+      expect(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' })).toBeDefined();
+      expect(
+        (
+          await store.listTurnEvents({
+            session_id: sessionId,
+            turn_id: 'turn-1',
+            limit: 10,
+            page_token: undefined,
+            order: 'asc',
+          })
+        ).data,
+      ).toHaveLength(2);
+
+      await store.deleteSession({ tenant_id: tenant, session_id: sessionId });
+      await store.deleteSession({ tenant_id: tenant, session_id: sessionId });
+
+      expect(await store.getSession({ tenant_id: tenant, session_id: sessionId })).toBeUndefined();
+      expect(await store.getSession({ tenant_id: 'other', session_id: 'other-session' })).toBeDefined();
+      expect(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' })).toBeUndefined();
+      await expect(
+        store.listTurnEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          limit: 10,
+          page_token: undefined,
+          order: 'asc',
+        }),
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
+      await expect(
+        store.listSessionEvents({
+          session_id: sessionId,
+          limit: 10,
+          page_token: undefined,
+          last_turn_id: undefined,
+        }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
+
+      const listed = await store.listSessions({
+        tenant_id: tenant,
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+        start_timestamp: undefined,
+        end_timestamp: undefined,
+      });
+      expect(listed.data).toHaveLength(0);
+
+      // Reusing every identifier must not expose orphaned events, context, or checkpoint state.
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const recreated = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(recreated.snapshot.threads[MAIN_THREAD_ID]?.context).toEqual([]);
+      expect(recreated.snapshot.threads[MAIN_THREAD_ID]?.capability_state).toBeNull();
+      expect(recreated.snapshot.mcp_servers).toBeNull();
+      expect(recreated.snapshot.sandbox_info).toBeNull();
+      expect(
+        (
+          await store.listTurnEvents({
+            session_id: sessionId,
+            turn_id: 'turn-1',
+            limit: 10,
+            page_token: undefined,
+            order: 'asc',
+          })
+        ).data,
+      ).toEqual([]);
+    });
+
+    it('rejects session mutations after deleteSession', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.deleteSession({ tenant_id: tenant, session_id: sessionId });
+
+      await expect(
+        store.updateSession({
+          tenant_id: tenant,
+          session_id: sessionId,
+          agent_spec: undefined,
+          title: 'new-title',
+        }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
+      await expect(store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-2' }))).rejects.toBeInstanceOf(
+        SessionNotFoundError,
+      );
+    });
+
+    it('rejects turn mutations after deleteSession', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.deleteSession({ tenant_id: tenant, session_id: sessionId });
+
+      for (const write of turnScopedWrites(store, { session_id: sessionId, turn_id: 'turn-1' })) {
+        await expect(write()).rejects.toBeInstanceOf(TurnNotFoundError);
+      }
+    });
+
+    it('rejects event mutations after deleteSession', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.deleteSession({ tenant_id: tenant, session_id: sessionId });
+
+      const keys = { session_id: sessionId, turn_id: 'turn-1' };
+      await expect(
+        store.appendToEvents({
+          ...keys,
+          events: [makeTurnCreatedEvent('turn-1')],
+        }),
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
+      await expect(
+        store.listTurnEvents({
+          ...keys,
+          limit: 10,
+          page_token: undefined,
+          order: undefined,
+        }),
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
+      await expect(
+        store.listSessionEvents({
+          session_id: sessionId,
+          limit: 10,
+          page_token: undefined,
+          last_turn_id: undefined,
+        }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
+    });
+
+    it('leaves sessions whose id extends the deleted id untouched', async () => {
+      const store = createStore();
+      const nested = `${sessionId}:nested`;
+      await seedSession(store);
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: nested,
+        agent_spec: makeAgentSpec(),
+        custom: null,
+      });
+      await store.createTurn(makeCreateTurnInput({ sessionId: nested, turnId: 'turn-1' }));
+      const nestedKeys = { session_id: nested, turn_id: 'turn-1' };
+      await store.appendToEvents({ ...nestedKeys, events: [makeTurnCreatedEvent('turn-1')] });
+
+      await store.deleteSession({ tenant_id: tenant, session_id: sessionId });
+
+      expect(await store.getSession({ tenant_id: tenant, session_id: nested })).toBeDefined();
+      expect(await store.getTurn(nestedKeys)).toBeDefined();
+      expect(
+        (await store.listTurnEvents({ ...nestedKeys, limit: 10, page_token: undefined, order: 'asc' })).data,
+      ).toHaveLength(1);
+    });
+
+    it('child appends that race deleteSession fail cleanly and leave no orphans', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const keys = { session_id: sessionId, turn_id: 'turn-1' };
+
+      const results = await Promise.allSettled([
+        store.deleteSession({ tenant_id: tenant, session_id: sessionId }),
+        store.appendToEvents({
+          ...keys,
+          events: [makeTurnCreatedEvent('turn-1'), makeModelMessageEvent()],
+        }),
+        store.appendToThreadContext({
+          ...keys,
+          thread_id: MAIN_THREAD_ID,
+          context: [userMessage('raced')],
+          current_context_usage: null,
+          completion: null,
+        }),
+      ]);
+
+      const [deletion, ...appends] = results;
+      expect(deletion.status).toBe('fulfilled');
+      for (const result of appends) {
+        if (result.status === 'rejected') {
+          expect(result.reason).toBeInstanceOf(SessionStoreNotFoundError);
+        }
+      }
+
+      expect(await store.getSession({ tenant_id: tenant, session_id: sessionId })).toBeUndefined();
+      expect(await store.getTurn(keys)).toBeUndefined();
+
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const recreated = mustGet(await store.getTurn(keys));
+      expect(recreated.snapshot.threads[MAIN_THREAD_ID]?.context).toEqual([]);
+      expect(
+        (
+          await store.listTurnEvents({
+            ...keys,
+            limit: 10,
+            page_token: undefined,
+            order: 'asc',
+          })
+        ).data,
+      ).toEqual([]);
+    });
+  });
+
+  describe('missing session / turn', () => {
+    it('rejects session mutations for a missing session', async () => {
+      const store = createStore();
+
+      await expect(
+        store.updateSession({
+          tenant_id: tenant,
+          session_id: missingSessionId,
+          agent_spec: undefined,
+          title: 'new-title',
+        }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
+      await expect(
+        store.createTurn(makeCreateTurnInput({ sessionId: missingSessionId, turnId: 'turn-1' })),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
+    });
+
+    it('rejects turn mutations for a missing turn', async () => {
+      const store = createStore();
+      await seedSession(store);
+
+      for (const write of turnScopedWrites(store, { session_id: sessionId, turn_id: missingTurnId })) {
+        await expect(write()).rejects.toBeInstanceOf(TurnNotFoundError);
+      }
+    });
+
+    it('rejects event mutations for a missing session or turn', async () => {
+      const store = createStore();
+      await seedSession(store);
+      const keys = { session_id: sessionId, turn_id: missingTurnId };
+
+      await expect(
+        store.appendToEvents({
+          ...keys,
+          events: [makeTurnCreatedEvent(missingTurnId)],
+        }),
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
+      await expect(
+        store.listTurnEvents({
+          ...keys,
+          limit: 10,
+          page_token: undefined,
+          order: undefined,
+        }),
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
+      await expect(
+        store.listSessionEvents({
+          session_id: missingSessionId,
+          limit: 10,
+          page_token: undefined,
+          last_turn_id: undefined,
+        }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
     });
   });
 
@@ -324,15 +717,14 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const session = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       expect(['turn-a', 'turn-b']).toContain(mustGet(session).last_turn_id);
       const turns = await store.listTurns({
-        tenant_id: tenant,
         session_id: sessionId,
         limit: 10,
         page_token: undefined,
       });
       expect(turns.data.map(t => t.turn_id).sort()).toEqual(['tip', 'turn-a', 'turn-b']);
 
-      const turnA = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-a' });
-      const turnB = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-b' });
+      const turnA = await store.getTurn({ session_id: sessionId, turn_id: 'turn-a' });
+      const turnB = await store.getTurn({ session_id: sessionId, turn_id: 'turn-b' });
       expect(contextContents(turnA?.snapshot.threads[MAIN_THREAD_ID]?.context)).toEqual(['shared', 'a-only']);
       expect(contextContents(turnB?.snapshot.threads[MAIN_THREAD_ID]?.context)).toEqual(['shared', 'b-only']);
     });
@@ -390,7 +782,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       );
       await store.patchThreadCapabilityState({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 't1',
         thread_id: MAIN_THREAD_ID,
@@ -416,7 +807,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       );
 
-      const t2 = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 't2' });
+      const t2 = await store.getTurn({ session_id: sessionId, turn_id: 't2' });
       const main = mustGet(t2).snapshot.threads[MAIN_THREAD_ID];
       expect(contextContents(main?.context)).toEqual(['L1a', 'L1b', 'L2']);
       expect(main?.current_context_usage.prompt_tokens).toBe(3);
@@ -455,7 +846,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       );
 
-      const t2 = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 't2' });
+      const t2 = await store.getTurn({ session_id: sessionId, turn_id: 't2' });
       expect(t2?.snapshot.threads[MAIN_THREAD_ID]?.capability_state).toEqual({
         keep: { version: 2 },
       });
@@ -495,7 +886,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       );
       await store.overwriteThreadContext({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 't2',
         event: {
@@ -528,7 +918,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       );
 
       const fork = await store.getTurn({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 't3-fork',
       });
@@ -585,7 +974,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       );
 
       const turn = await store.getTurn({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 't1',
       });
@@ -615,14 +1003,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       const cancelledState = makeCancelledTurnState(CancellationReason.CancelledForNextTurn);
       const record = await store.freezeAndGetTurn({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         turn_done_event: makeTurnDoneEvent(cancelledState),
       });
       expect(record.state.status).toBe('cancelled');
       const { data } = await store.listTurnEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         limit: 10,
@@ -631,7 +1017,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       });
       expect(data.some(e => e.type === EventType.TURN_DONE)).toBe(true);
 
-      const keys = { tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' };
+      const keys = { session_id: sessionId, turn_id: 'turn-1' };
       const fencedWrites: (() => Promise<unknown>)[] = [
         () =>
           store.appendToEvents({
@@ -703,13 +1089,11 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await finishTurn(store, 'turn-1');
       const doneState = makeDoneTurnState();
       await store.freezeAndGetTurn({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         turn_done_event: makeTurnDoneEvent(doneState),
       });
       const { data } = await store.listTurnEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         limit: 10,
@@ -726,23 +1110,20 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const cancelledState = makeCancelledTurnState(CancellationReason.CancelledForNextTurn);
       const results = await Promise.allSettled([
         store.freezeAndGetTurn({
-          tenant_id: tenant,
           session_id: sessionId,
           turn_id: 'turn-1',
           turn_done_event: makeTurnDoneEvent(cancelledState),
         }),
         store.freezeAndGetTurn({
-          tenant_id: tenant,
           session_id: sessionId,
           turn_id: 'turn-1',
           turn_done_event: makeTurnDoneEvent(cancelledState),
         }),
       ]);
       expect(results.every(r => r.status === 'fulfilled')).toBe(true);
-      const turn = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' });
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
       expect(mustGet(turn).state.status).toBe('cancelled');
       const { data } = await store.listTurnEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         limit: 10,
@@ -760,13 +1141,11 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const doneState = makeDoneTurnState();
       const results = await Promise.allSettled([
         store.freezeAndGetTurn({
-          tenant_id: tenant,
           session_id: sessionId,
           turn_id: 'turn-1',
           turn_done_event: makeTurnDoneEvent(cancelledState),
         }),
         store.updateTurnState({
-          tenant_id: tenant,
           session_id: sessionId,
           turn_id: 'turn-1',
           state: doneState,
@@ -780,10 +1159,9 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       // freeze-after-update is a plain read (both fulfill); update-after-freeze rejects.
       expect(rejected.length === 0 || rejected.length === 1).toBe(true);
 
-      const turn = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' });
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
       expect(['cancelled', 'done']).toContain(mustGet(turn).state.status);
       const { data } = await store.listTurnEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         limit: 10,
@@ -803,7 +1181,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const cancelledState = makeCancelledTurnState(CancellationReason.ClientCancelled);
       await expect(
         store.updateTurnState({
-          tenant_id: tenant,
           session_id: sessionId,
           turn_id: 'turn-1',
           state: cancelledState,
@@ -819,17 +1196,15 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const state = makeDoneTurnState();
       const turnDone = makeTurnDoneEvent(state);
       await store.updateTurnState({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         state,
         turn_done_event: turnDone,
       });
 
-      const turn = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' });
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
       expect(mustGet(turn).state).toEqual(state);
       const { data } = await store.listTurnEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         limit: 10,
@@ -847,13 +1222,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const state = makeDoneTurnState();
       await expect(
         store.updateTurnState({
-          tenant_id: tenant,
           session_id: sessionId,
-          turn_id: 'missing',
+          turn_id: missingTurnId,
           state,
           turn_done_event: makeTurnDoneEvent(state),
         }),
-      ).rejects.toBeInstanceOf(SessionStoreNotFoundError);
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
     });
   });
 
@@ -868,14 +1242,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(created.created_at).toBeDefined();
       expect(model.created_at).toBeDefined();
       await store.appendToEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         // Deliberately reversed: durable ordering comes from event.id.
         events: [model, created],
       });
       const { data } = await store.listTurnEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         limit: 10,
@@ -891,7 +1263,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       await store.addThreads({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         threads: [
@@ -907,7 +1278,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         ],
       });
       await store.appendToThreadContext({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         thread_id: 'child',
@@ -915,11 +1285,10 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         current_context_usage: null,
         completion: null,
       });
-      let turn = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' });
+      let turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
       expect(turn?.snapshot.threads['child']?.context).toHaveLength(1);
 
       await store.overwriteThreadContext({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         event: {
@@ -933,16 +1302,15 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           usage: getEmptyUsage(),
         },
       });
-      turn = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' });
+      turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
       expect(turn?.snapshot.threads['child']?.context).toEqual([{ role: 'user', content: 'replaced' }]);
 
       await store.removeThreads({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         thread_ids: ['child'],
       });
-      turn = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' });
+      turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
       expect(turn?.snapshot.threads['child']).toBeUndefined();
     });
 
@@ -967,7 +1335,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       );
       await store.appendToThreadContext({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         thread_id: MAIN_THREAD_ID,
@@ -977,7 +1344,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       });
 
       const loaded = await store.getTurn({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
       });
@@ -997,7 +1363,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       await store.patchThreadCapabilityState({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         thread_id: MAIN_THREAD_ID,
@@ -1005,14 +1370,13 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         state: { v: 1 },
       });
       await store.patchThreadCapabilityState({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         thread_id: MAIN_THREAD_ID,
         key: 'tfy.plan',
         state: { v: 2 },
       });
-      const turn = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' });
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
       expect(turn?.snapshot.threads[MAIN_THREAD_ID]?.capability_state).toEqual({ 'tfy.plan': { v: 2 } });
     });
 
@@ -1025,7 +1389,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       await expect(
         store.patchThreadCapabilityState({
-          tenant_id: tenant,
           session_id: sessionId,
           turn_id: 'turn-1',
           thread_id: 'missing-thread',
@@ -1062,7 +1425,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       );
       await store.patchThreadCapabilityState({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 't2',
         thread_id: MAIN_THREAD_ID,
@@ -1070,8 +1432,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         state: { step: 2 },
       });
 
-      const t1 = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 't1' });
-      const t2 = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 't2' });
+      const t1 = await store.getTurn({ session_id: sessionId, turn_id: 't1' });
+      const t2 = await store.getTurn({ session_id: sessionId, turn_id: 't2' });
       expect(t1?.snapshot.threads[MAIN_THREAD_ID]?.capability_state).toEqual({ plan: { step: 1 } });
       expect(t2?.snapshot.threads[MAIN_THREAD_ID]?.capability_state).toEqual({ plan: { step: 2 } });
     });
@@ -1093,7 +1455,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       );
       const turn = await store.getTurn({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
       });
@@ -1132,7 +1493,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       );
       const turn = await store.getTurn({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
       });
@@ -1147,18 +1507,16 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       await store.patchMCPServers({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         mcp_servers: [{ id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' }],
       });
       await store.patchSandboxInfo({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         sandbox_info: { sandbox_id: 'sbx-1' },
       });
-      const turn = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' });
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
       expect(turn?.snapshot.mcp_servers?.['svc']?.session_id).toBe('mcp-1');
       expect(mustGet(turn).snapshot.sandbox_info?.sandbox_id).toBe('sbx-1');
     });
@@ -1168,18 +1526,16 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       await store.patchMCPServers({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         mcp_servers: [{ id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' }],
       });
       await store.patchMCPServers({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         mcp_servers: [{ id: 'svc', name: 'svc', transport_type: 'sse' }],
       });
-      const turn = await store.getTurn({ tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' });
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
       expect(mustGet(turn).snapshot.mcp_servers).toEqual({
         svc: { id: 'svc', name: 'svc', transport_type: 'sse' },
       });
@@ -1200,7 +1556,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await finishTurn(store, 't2');
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 't3', previousTurnId: 't2', firstTurnId: 't1' }));
       const page1 = await store.listTurns({
-        tenant_id: tenant,
         session_id: sessionId,
         limit: 2,
         page_token: undefined,
@@ -1208,7 +1563,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(page1.data.map(t => t.turn_id)).toEqual(['t1', 't2']);
       expect(page1.pagination.next_page_token).toBeDefined();
       const page2 = await store.listTurns({
-        tenant_id: tenant,
         session_id: sessionId,
         limit: 2,
         page_token: page1.pagination.next_page_token,
@@ -1221,13 +1575,11 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       await store.appendToEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         events: [makeTurnCreatedEvent('turn-1'), makeModelMessageEvent()],
       });
       const { data } = await store.listTurnEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         limit: 10,
@@ -1242,9 +1594,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       await expect(
         store.listTurnEvents({
-          tenant_id: tenant,
           session_id: sessionId,
-          turn_id: 'missing',
+          turn_id: missingTurnId,
           limit: 10,
           page_token: undefined,
           order: undefined,
@@ -1257,7 +1608,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       const page = await store.listTurnEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 'turn-1',
         limit: 10,
@@ -1273,7 +1623,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 't1' }));
       await store.appendToEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 't1',
         events: [makeTurnCreatedEvent('t1')],
@@ -1281,14 +1630,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await finishTurn(store, 't1');
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 't2', previousTurnId: 't1', firstTurnId: 't1' }));
       await store.appendToEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 't2',
         events: [makeTurnCreatedEvent('t2')],
       });
       // t2 still running — must appear in the feed.
       const { data } = await store.listSessionEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         limit: 10,
         page_token: undefined,
@@ -1316,14 +1663,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       };
       await store.appendToEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 't1',
         events: [passthrough],
       });
 
       const { data } = await store.listSessionEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         limit: 10,
         page_token: undefined,
@@ -1337,7 +1682,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 't1' }));
       await store.appendToEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 't1',
         events: [makeTurnCreatedEvent('t1')],
@@ -1353,14 +1697,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       );
       for (const turnId of ['t2-sibling', 't2-anchor']) {
         await store.appendToEvents({
-          tenant_id: tenant,
           session_id: sessionId,
           turn_id: turnId,
           events: [makeTurnCreatedEvent(turnId)],
         });
       }
       const { data } = await store.listSessionEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         limit: 10,
         last_turn_id: undefined,
@@ -1373,13 +1715,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
       await expect(
         store.listSessionEvents({
-          tenant_id: tenant,
           session_id: sessionId,
           limit: 10,
-          last_turn_id: 'missing',
+          last_turn_id: missingTurnId,
           page_token: undefined,
         }),
-      ).rejects.toBeInstanceOf(SessionStoreNotFoundError);
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
     });
 
     it('listSessionEvents page tokens retain their anchor when the active branch changes', async () => {
@@ -1387,7 +1728,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 't1' }));
       await store.appendToEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 't1',
         events: [makeTurnCreatedEvent('t1')],
@@ -1395,14 +1735,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await finishTurn(store, 't1');
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 't2', previousTurnId: 't1', firstTurnId: 't1' }));
       await store.appendToEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 't2',
         events: [makeTurnCreatedEvent('t2')],
       });
 
       const firstPage = await store.listSessionEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         limit: 1,
         last_turn_id: undefined,
@@ -1418,14 +1756,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         makeCreateTurnInput({ sessionId, turnId: 't2-new-active', previousTurnId: 't1', firstTurnId: 't1' }),
       );
       await store.appendToEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         turn_id: 't2-new-active',
         events: [makeTurnCreatedEvent('t2-new-active')],
       });
 
       const secondPage = await store.listSessionEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         limit: 10,
         last_turn_id: undefined,
@@ -1461,7 +1797,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         input.turn.ancestor_ids = window;
         await store.createTurn(input);
         await store.appendToEvents({
-          tenant_id: tenant,
           session_id: sessionId,
           turn_id: turnId,
           events: [makeTurnCreatedEvent(turnId)],
@@ -1469,7 +1804,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       }
       const tip = mustGet(ids.at(-1), 'chain tip');
       const { data } = await store.listSessionEvents({
-        tenant_id: tenant,
         session_id: sessionId,
         limit: chainLength + 10,
         last_turn_id: tip,

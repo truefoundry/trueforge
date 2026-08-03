@@ -21,6 +21,6 @@ module.exports = {
   transformIgnorePatterns: ['/node_modules/(?!.*kysely)'],
   testTimeout: 120_000,
   maxWorkers: '50%',
-  roots: ['<rootDir>/tests/db/session-store/sqlite', '<rootDir>/src'],
-  testMatch: ['<rootDir>/tests/db/session-store/sqlite/**/*.test.ts'],
+  roots: ['<rootDir>/tests/db', '<rootDir>/src'],
+  testMatch: ['<rootDir>/tests/db/**/sqlite/**/*.test.ts'],
 };

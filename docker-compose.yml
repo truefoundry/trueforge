@@ -51,14 +51,17 @@ services:
       # Compose network hosts — do not use packages/server/.env localhost values.
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
+      # Compose runs one replica but keeps peering on so the peered cancel path
+      # stays exercised in development. A single-process deployment can set this
+      # to true and drop the redis service entirely.
+      SINGLE_BINARY: 'false'
       REDIS_URL: redis://redis:6379
     # Secrets and Postgres credentials (MODEL_API_KEY, POSTGRES_USER, …).
     # `environment` above overrides any colliding keys from this file.
     env_file:
       - path: packages/server/.env
         required: true
-    # The YAML registry (models.yaml, mcp.yaml, skills.yaml) is not baked into
-    # the image. Copy registry-example to registry before starting the service.
+    # Copy registry-example to registry before starting the service.
     volumes:
       - ./packages/server/registry:/app/packages/server/registry:ro
     depends_on:
