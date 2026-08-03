@@ -15,7 +15,7 @@ import {
   mcpOAuthCallbackUrl,
   resolveMcpAuth,
   type McpTokenStore,
-  type OAuthClientRecord,
+  type OAuthClientRegistration,
 } from '../../../../src/core';
 
 /** Test-only composition of the two generic stores — mirrors how a real DB-backed class would
@@ -24,7 +24,7 @@ class TestMcpStore implements McpTokenStore {
   private readonly tokenStore = new InMemoryOAuthTokenStore();
   private readonly clientStore = new InMemoryOAuthClientStore();
 
-  saveClient(params: { id: string; record: OAuthClientRecord }) {
+  saveClient(params: { id: string; registration: OAuthClientRegistration }) {
     return this.clientStore.saveClient(params);
   }
   getClient(params: { id: string }) {
@@ -158,12 +158,16 @@ function stubOauthFetch(options: {
   return { registerBodies, registerCallCount: () => registerCalls, tokenBodies, tokenAuthHeaders };
 }
 
-const sampleClient: OAuthClientRecord = {
-  clientId: 'cached-client',
-  clientSecret: 'cached-secret',
-  authorizationEndpoint: `${AS_ORIGIN}/authorize`,
-  tokenEndpoint: `${AS_ORIGIN}/token`,
-  codeChallengeMethodsSupported: ['S256'],
+const sampleClient: OAuthClientRegistration = {
+  server: {
+    authorizationEndpoint: `${AS_ORIGIN}/authorize`,
+    tokenEndpoint: `${AS_ORIGIN}/token`,
+    codeChallengeMethodsSupported: ['S256'],
+  },
+  client: {
+    clientId: 'cached-client',
+    clientSecret: 'cached-secret',
+  },
 };
 
 describe('resourceUrlFromServerUrl (SDK)', () => {
@@ -177,7 +181,7 @@ describe('resourceUrlFromServerUrl (SDK)', () => {
 describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
   it('returns the cached client without discovery or registration', async () => {
     const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, record: sampleClient });
+    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
     const { registerCallCount } = stubOauthFetch({});
 
     const result = await ensureMcpClientRegistered({
@@ -206,11 +210,11 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
       clientName: CLIENT_NAME,
     });
 
-    expect(result.clientId).toBe('dyn-client-1');
-    expect(result.clientSecret).toBe('dyn-secret-1');
-    expect(result.authorizationEndpoint).toBe(`${AS_ORIGIN}/authorize`);
-    expect(result.tokenEndpoint).toBe(`${AS_ORIGIN}/token`);
-    expect(result.codeChallengeMethodsSupported).toEqual(['S256']);
+    expect(result.client.clientId).toBe('dyn-client-1');
+    expect(result.client.clientSecret).toBe('dyn-secret-1');
+    expect(result.server.authorizationEndpoint).toBe(`${AS_ORIGIN}/authorize`);
+    expect(result.server.tokenEndpoint).toBe(`${AS_ORIGIN}/token`);
+    expect(result.server.codeChallengeMethodsSupported).toEqual(['S256']);
     expect(registerBodies).toHaveLength(1);
     const body = registerBodies[0] as Record<string, unknown>;
     expect(body['token_endpoint_auth_method']).toBe('client_secret_post');
@@ -235,8 +239,8 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
       clientName: CLIENT_NAME,
     });
 
-    expect(result.clientId).toBe('public-client');
-    expect(result.clientSecret).toBeNull();
+    expect(result.client.clientId).toBe('public-client');
+    expect(result.client.clientSecret).toBeNull();
     expect(registerCallCount()).toBe(2);
     expect((registerBodies[0] as Record<string, unknown>)['token_endpoint_auth_method']).toBe('client_secret_post');
     expect((registerBodies[1] as Record<string, unknown>)['token_endpoint_auth_method']).toBeUndefined();
@@ -294,7 +298,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
 describe('buildMcpAuthorizationUrl', () => {
   it('saves pending authorization with state and returns a URL object', async () => {
     const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, record: sampleClient });
+    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
     stubOauthFetch({});
 
     const authUrl = await buildMcpAuthorizationUrl({
@@ -309,7 +313,7 @@ describe('buildMcpAuthorizationUrl', () => {
 
     expect(authUrl).toBeInstanceOf(URL);
     expect(authUrl.origin + authUrl.pathname).toBe(`${AS_ORIGIN}/authorize`);
-    expect(authUrl.searchParams.get('client_id')).toBe(sampleClient.clientId);
+    expect(authUrl.searchParams.get('client_id')).toBe(sampleClient.client.clientId);
     expect(authUrl.searchParams.get('redirect_uri')).toBe(mcpOAuthCallbackUrl(PUBLIC_BASE_URL));
     expect(authUrl.searchParams.get('code_challenge_method')).toBe('S256');
     expect(authUrl.searchParams.get('code_challenge')).toBeTruthy();
@@ -359,7 +363,7 @@ describe('resolveMcpAuth', () => {
 
   it('refreshes an expired token when a refresh_token is stored', async () => {
     const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, record: sampleClient });
+    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
     await store.saveToken({
       id: SERVER_ID,
       token: {
@@ -396,7 +400,7 @@ describe('resolveMcpAuth', () => {
 
   it('uses a default TTL when the token response omits expires_in', async () => {
     const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, record: sampleClient });
+    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
     await store.saveToken({
       id: SERVER_ID,
       token: {
@@ -433,7 +437,7 @@ describe('resolveMcpAuth', () => {
 
   it('returns authentication_required and clears token when refresh fails', async () => {
     const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, record: sampleClient });
+    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
     await store.saveToken({
       id: SERVER_ID,
       token: {
@@ -456,7 +460,7 @@ describe('resolveMcpAuth', () => {
 
   it('returns authentication_required and clears expired token without refresh_token', async () => {
     const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, record: sampleClient });
+    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
     await store.saveToken({
       id: SERVER_ID,
       token: {
@@ -480,7 +484,7 @@ describe('resolveMcpAuth', () => {
 
   it('returns authentication_required when no token exists', async () => {
     const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, record: sampleClient });
+    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
     stubOauthFetch({});
 
     const result = await resolveMcpAuth(resolveParams(store));
@@ -505,7 +509,7 @@ describe('end-to-end DCR + authorize with normalised MCP URL', () => {
 
     expect(registerBodies).toHaveLength(1);
     const client = await store.getClient({ id: SERVER_ID });
-    expect(client?.clientId).toBe('dyn-client-1');
+    expect(client?.client.clientId).toBe('dyn-client-1');
 
     const url = result.authUrl;
     expect(url.searchParams.get('state')).toBeTruthy();

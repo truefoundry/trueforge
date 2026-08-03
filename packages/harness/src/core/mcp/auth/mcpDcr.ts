@@ -11,7 +11,7 @@ import type {
   OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { randomBytes } from 'node:crypto';
-import type { IOAuthClientStore, OAuthClientRecord } from '../../auth/IOAuthClientStore';
+import type { IOAuthClientStore, OAuthClientRegistration } from '../../auth/IOAuthClientStore';
 import type { IOAuthTokenStore, OAuthToken } from '../../auth/IOAuthTokenStore';
 import { McpConnectionError } from '../../errors';
 import {
@@ -52,7 +52,7 @@ async function registerMcpClientWithAuthMethodFallback(params: {
   mcpServerName: string;
   authorizationEndpoint: string;
   tokenEndpoint: string;
-}): Promise<OAuthClientRecord> {
+}): Promise<OAuthClientRegistration> {
   const { authorizationServerUrl, metadata, clientMetadata, mcpServerName, authorizationEndpoint, tokenEndpoint } =
     params;
 
@@ -86,11 +86,15 @@ async function registerMcpClientWithAuthMethodFallback(params: {
   }
 
   return {
-    clientId: fullInfo.client_id,
-    clientSecret: fullInfo.client_secret ?? null,
-    authorizationEndpoint,
-    tokenEndpoint,
-    codeChallengeMethodsSupported: metadata.code_challenge_methods_supported ?? null,
+    server: {
+      authorizationEndpoint,
+      tokenEndpoint,
+      codeChallengeMethodsSupported: metadata.code_challenge_methods_supported ?? null,
+    },
+    client: {
+      clientId: fullInfo.client_id,
+      clientSecret: fullInfo.client_secret ?? null,
+    },
   };
 }
 
@@ -99,7 +103,7 @@ export async function createMcpOAuthClient(params: {
   mcpServerName: string;
   redirectUri: string;
   clientName: string;
-}): Promise<OAuthClientRecord> {
+}): Promise<OAuthClientRegistration> {
   const { mcpServerUrl, mcpServerName, redirectUri, clientName } = params;
 
   const { authorizationServerUrl, authorizationServerMetadata: metadata } = await discoverOAuthServerInfo(mcpServerUrl);
@@ -140,21 +144,21 @@ export async function ensureMcpClientRegistered(params: {
   mcpServerName: string;
   publicBaseUrl: string;
   clientName: string;
-}): Promise<OAuthClientRecord> {
+}): Promise<OAuthClientRegistration> {
   const existing = await params.store.getClient({ id: params.serverId });
   if (existing) {
     return existing;
   }
 
-  const record = await createMcpOAuthClient({
+  const registration = await createMcpOAuthClient({
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
     redirectUri: mcpOAuthCallbackUrl(params.publicBaseUrl),
     clientName: params.clientName,
   });
 
-  await params.store.saveClient({ id: params.serverId, record });
-  return record;
+  await params.store.saveClient({ id: params.serverId, registration });
+  return registration;
 }
 
 export async function buildMcpAuthorizationUrl(params: {
@@ -167,7 +171,7 @@ export async function buildMcpAuthorizationUrl(params: {
   /** FE post-OAuth landing URL (not the OAuth redirect_uri). */
   redirectUrl?: string;
 }): Promise<URL> {
-  const client = await ensureMcpClientRegistered({
+  const registration = await ensureMcpClientRegistered({
     store: params.store,
     serverId: params.serverId,
     mcpServerUrl: params.mcpServerUrl,
@@ -176,15 +180,17 @@ export async function buildMcpAuthorizationUrl(params: {
     clientName: params.clientName,
   });
 
-  // CSRF correlation: opaque state is the pending-row primary key.
   const state = randomBytes(32).toString('base64url');
-  const { authorizationUrl, codeVerifier } = await startAuthorization(mcpAuthorizationServerOrigin(client), {
-    metadata: mcpAuthorizationServerMetadata(client),
-    clientInformation: mcpClientInformation(client),
-    redirectUrl: mcpOAuthCallbackUrl(params.publicBaseUrl),
-    resource: resourceUrlFromServerUrl(params.mcpServerUrl),
-    state,
-  });
+  const { authorizationUrl, codeVerifier } = await startAuthorization(
+    mcpAuthorizationServerOrigin(registration.server),
+    {
+      metadata: mcpAuthorizationServerMetadata(registration.server),
+      clientInformation: mcpClientInformation(registration.client),
+      redirectUrl: mcpOAuthCallbackUrl(params.publicBaseUrl),
+      resource: resourceUrlFromServerUrl(params.mcpServerUrl),
+      state,
+    },
+  );
 
   await params.store.savePendingAuthorization({
     state,
@@ -234,12 +240,12 @@ export async function resolveMcpAuth(params: {
   }
 
   if (token?.refreshToken) {
-    const client = await params.store.getClient({ id: params.serverId });
-    if (client) {
+    const registration = await params.store.getClient({ id: params.serverId });
+    if (registration) {
       try {
-        const refreshed = await refreshAuthorization(mcpAuthorizationServerOrigin(client), {
-          metadata: mcpAuthorizationServerMetadata(client),
-          clientInformation: mcpClientInformation(client),
+        const refreshed = await refreshAuthorization(mcpAuthorizationServerOrigin(registration.server), {
+          metadata: mcpAuthorizationServerMetadata(registration.server),
+          clientInformation: mcpClientInformation(registration.client),
           refreshToken: token.refreshToken,
           resource: resourceUrlFromServerUrl(params.mcpServerUrl),
         });

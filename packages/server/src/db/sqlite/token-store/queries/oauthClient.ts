@@ -1,4 +1,4 @@
-import type { OAuthClientRecord } from '@truefoundry/utils/core';
+import type { OAuthClientRegistration } from '@truefoundry/utils/core';
 import { sql, type Kysely } from 'kysely';
 import type { OAuthClient, OAuthServer } from '../../../mcpOAuthTypes';
 import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
@@ -6,19 +6,19 @@ import type { Database } from '../../types';
 
 export async function saveClient(
   db: Kysely<Database>,
-  params: { id: string; record: OAuthClientRecord },
+  params: { id: string; registration: OAuthClientRegistration },
 ): Promise<void> {
-  const { record } = params;
+  const { server, client } = params.registration;
   const oauthServer: OAuthServer = {
-    authorizationEndpoint: record.authorizationEndpoint,
-    tokenEndpoint: record.tokenEndpoint,
-    ...(record.codeChallengeMethodsSupported !== null
-      ? { codeChallengeMethodsSupported: record.codeChallengeMethodsSupported }
+    authorizationEndpoint: server.authorizationEndpoint,
+    tokenEndpoint: server.tokenEndpoint,
+    ...(server.codeChallengeMethodsSupported !== null
+      ? { codeChallengeMethodsSupported: server.codeChallengeMethodsSupported }
       : {}),
   };
   const oauthClient: OAuthClient = {
-    clientId: record.clientId,
-    ...(record.clientSecret !== null ? { clientSecret: record.clientSecret } : {}),
+    clientId: client.clientId,
+    ...(client.clientSecret !== null ? { clientSecret: client.clientSecret } : {}),
   };
 
   await db
@@ -32,7 +32,10 @@ export async function saveClient(
     .execute();
 }
 
-export async function getClient(db: Kysely<Database>, params: { id: string }): Promise<OAuthClientRecord | undefined> {
+export async function getClient(
+  db: Kysely<Database>,
+  params: { id: string },
+): Promise<OAuthClientRegistration | undefined> {
   const row = await db
     .selectFrom('mcp_server')
     .select([
@@ -47,11 +50,15 @@ export async function getClient(db: Kysely<Database>, params: { id: string }): P
   }
 
   return {
-    clientId: row.oauth_client.clientId,
-    clientSecret: row.oauth_client.clientSecret ?? null,
-    authorizationEndpoint: row.oauth_server.authorizationEndpoint,
-    tokenEndpoint: row.oauth_server.tokenEndpoint,
-    codeChallengeMethodsSupported: row.oauth_server.codeChallengeMethodsSupported ?? null,
+    server: {
+      authorizationEndpoint: row.oauth_server.authorizationEndpoint,
+      tokenEndpoint: row.oauth_server.tokenEndpoint,
+      codeChallengeMethodsSupported: row.oauth_server.codeChallengeMethodsSupported ?? null,
+    },
+    client: {
+      clientId: row.oauth_client.clientId,
+      clientSecret: row.oauth_client.clientSecret ?? null,
+    },
   };
 }
 

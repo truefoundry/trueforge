@@ -6,7 +6,7 @@ import type {
   AuthorizationServerMetadata,
   OAuthClientInformationMixed,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
-import type { OAuthClientRecord } from '../../auth/IOAuthClientStore';
+import type { OAuthClientCredentials, OAuthServerMetadata } from '../../auth/IOAuthClientStore';
 import { McpConnectionError } from '../../errors';
 
 /** Fixed OAuth callback path for every MCP server (matches server mount). */
@@ -24,7 +24,7 @@ export function mcpOAuthCallbackUrl(publicBaseUrl: string): string {
  * Same policy as servicefoundry outbound: form-body secret when present (client_secret_post),
  * otherwise public (none). Method is not stored on the client record.
  */
-export function mcpClientInformation(client: OAuthClientRecord): OAuthClientInformationMixed {
+export function mcpClientInformation(client: OAuthClientCredentials): OAuthClientInformationMixed {
   return client.clientSecret !== null
     ? {
         client_id: client.clientId,
@@ -38,18 +38,18 @@ export function mcpClientInformation(client: OAuthClientRecord): OAuthClientInfo
 }
 
 /** Reconstruct authorization-server metadata enough for startAuthorization / token calls. */
-export function mcpAuthorizationServerMetadata(client: OAuthClientRecord): AuthorizationServerMetadata {
+export function mcpAuthorizationServerMetadata(server: OAuthServerMetadata): AuthorizationServerMetadata {
   return {
-    issuer: new URL(client.authorizationEndpoint).origin,
-    authorization_endpoint: client.authorizationEndpoint,
-    token_endpoint: client.tokenEndpoint,
+    issuer: new URL(server.authorizationEndpoint).origin,
+    authorization_endpoint: server.authorizationEndpoint,
+    token_endpoint: server.tokenEndpoint,
     response_types_supported: ['code'],
-    ...(client.codeChallengeMethodsSupported !== null
-      ? { code_challenge_methods_supported: client.codeChallengeMethodsSupported }
+    ...(server.codeChallengeMethodsSupported !== null
+      ? { code_challenge_methods_supported: server.codeChallengeMethodsSupported }
       : {}),
   };
 }
 
-export function mcpAuthorizationServerOrigin(client: OAuthClientRecord): string {
-  return new URL(client.authorizationEndpoint).origin;
+export function mcpAuthorizationServerOrigin(server: OAuthServerMetadata): string {
+  return new URL(server.authorizationEndpoint).origin;
 }

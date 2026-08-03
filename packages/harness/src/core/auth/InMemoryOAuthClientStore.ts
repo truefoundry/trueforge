@@ -1,4 +1,4 @@
-import type { IOAuthClientStore, OAuthClientRecord } from './IOAuthClientStore';
+import type { IOAuthClientStore, OAuthClientRegistration } from './IOAuthClientStore';
 
 /**
  * In-memory `IOAuthClientStore` — for tests and any dev/no-DB usage. Not for production use (no
@@ -6,13 +6,13 @@ import type { IOAuthClientStore, OAuthClientRecord } from './IOAuthClientStore';
  */
 /* eslint-disable @typescript-eslint/require-await -- in-memory store is synchronous; methods stay async for IOAuthClientStore callers */
 export class InMemoryOAuthClientStore implements IOAuthClientStore {
-  private readonly clients = new Map<string, OAuthClientRecord>();
+  private readonly clients = new Map<string, OAuthClientRegistration>();
 
-  async saveClient(params: { id: string; record: OAuthClientRecord }): Promise<void> {
-    this.clients.set(params.id, params.record);
+  async saveClient(params: { id: string; registration: OAuthClientRegistration }): Promise<void> {
+    this.clients.set(params.id, params.registration);
   }
 
-  async getClient(params: { id: string }): Promise<OAuthClientRecord | undefined> {
+  async getClient(params: { id: string }): Promise<OAuthClientRegistration | undefined> {
     return this.clients.get(params.id);
   }
 

@@ -47,13 +47,15 @@ export {
 } from './capabilities/builtins/LargeToolResponse';
 export { openUI } from './capabilities/builtins/OpenUI';
 
-// Generic OAuth state stores. Deliberately two separate interfaces, not one: `IOAuthTokenStore`
-// (pending authorization + token) and `IOAuthClientStore` (DCR client + AS endpoints) — MCP
-// composes both into one param rather than getting a combined, MCP-flavored interface of its own
-// (see core/mcp/auth/mcpDcr.ts's `McpTokenStore` type alias).
+// Auth contracts
 export { InMemoryOAuthClientStore } from './auth/InMemoryOAuthClientStore';
 export { InMemoryOAuthTokenStore } from './auth/InMemoryOAuthTokenStore';
-export type { IOAuthClientStore, OAuthClientRecord } from './auth/IOAuthClientStore';
+export type {
+  IOAuthClientStore,
+  OAuthClientCredentials,
+  OAuthClientRegistration,
+  OAuthServerMetadata,
+} from './auth/IOAuthClientStore';
 export type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from './auth/IOAuthTokenStore';
 
 // MCP contracts
@@ -144,8 +146,7 @@ export type {
 export { AgentHarnessError, McpConnectionError } from './errors';
 export { extractErrorLogFields } from './util/errorLogFields';
 
-// MCP OAuth / DCR orchestration (registration + auth URL + resolve). No MCP-specific store type —
-// these take one object satisfying both generic `core/auth` store contracts (see McpTokenStore).
+// MCP OAuth
 export {
   DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
   MCP_OAUTH_CALLBACK_PATH,
