@@ -1,5 +1,8 @@
 import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from './IOAuthTokenStore';
 
+/** This implementation's read-expiry window; the SQL-backed stores pick their own. */
+const PENDING_AUTHORIZATION_TTL_MS = 10 * 60 * 1000;
+
 /**
  * In-memory `IOAuthTokenStore` — for tests and any dev/no-DB usage. Not for production use (no
  * persistence across process restarts, no multi-replica sharing).
@@ -7,14 +10,22 @@ import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from './
 /* eslint-disable @typescript-eslint/require-await -- in-memory store is synchronous; methods stay async for IOAuthTokenStore callers */
 export class InMemoryOAuthTokenStore implements IOAuthTokenStore {
   private readonly tokens = new Map<string, OAuthToken>();
-  private readonly pending = new Map<string, OAuthPendingAuthorization>();
+  private readonly pending = new Map<string, { row: OAuthPendingAuthorization; createdAtMs: number }>();
 
   async savePendingAuthorization(pending: OAuthPendingAuthorization): Promise<void> {
-    this.pending.set(pending.state, pending);
+    this.pending.set(pending.state, { row: pending, createdAtMs: Date.now() });
   }
 
   async getPendingAuthorization(params: { state: string }): Promise<OAuthPendingAuthorization | undefined> {
-    return this.pending.get(params.state);
+    const entry = this.pending.get(params.state);
+    if (entry === undefined || entry.createdAtMs <= Date.now() - PENDING_AUTHORIZATION_TTL_MS) {
+      return undefined;
+    }
+    return entry.row;
+  }
+
+  async deletePendingAuthorization(params: { state: string }): Promise<void> {
+    this.pending.delete(params.state);
   }
 
   async saveToken(params: { id: string; token: OAuthToken }): Promise<void> {
@@ -27,15 +38,6 @@ export class InMemoryOAuthTokenStore implements IOAuthTokenStore {
 
   async deleteToken(params: { id: string }): Promise<void> {
     this.tokens.delete(params.id);
-  }
-
-  async delete(params: { id: string }): Promise<void> {
-    this.tokens.delete(params.id);
-    for (const [state, row] of this.pending) {
-      if (row.id === params.id) {
-        this.pending.delete(state);
-      }
-    }
   }
 }
 /* eslint-enable @typescript-eslint/require-await */

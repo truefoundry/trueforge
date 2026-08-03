@@ -1,7 +1,12 @@
 import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from '@truefoundry/utils/core';
 import type { Kysely } from 'kysely';
+import { fromStoredOAuthToken, toStoredOAuthToken } from '../../mcpOAuthTypes';
 import type { Database } from '../types';
-import { getPendingAuthorization, savePendingAuthorization } from './queries/pendingAuthorization';
+import {
+  deletePendingAuthorization,
+  getPendingAuthorization,
+  savePendingAuthorization,
+} from './queries/pendingAuthorization';
 import { deleteToken, getToken, saveToken } from './queries/token';
 
 export class PostgresOAuthTokenStore implements IOAuthTokenStore {
@@ -15,12 +20,17 @@ export class PostgresOAuthTokenStore implements IOAuthTokenStore {
     return getPendingAuthorization(this.db, params);
   }
 
-  saveToken(params: { id: string; token: OAuthToken }): Promise<void> {
-    return saveToken(this.db, params);
+  deletePendingAuthorization(params: { state: string }): Promise<void> {
+    return deletePendingAuthorization(this.db, params);
   }
 
-  getToken(params: { id: string }): Promise<OAuthToken | undefined> {
-    return getToken(this.db, params);
+  saveToken(params: { id: string; token: OAuthToken }): Promise<void> {
+    return saveToken(this.db, { id: params.id, token: toStoredOAuthToken(params.token) });
+  }
+
+  async getToken(params: { id: string }): Promise<OAuthToken | undefined> {
+    const stored = await getToken(this.db, params);
+    return stored === undefined ? undefined : fromStoredOAuthToken(stored);
   }
 
   deleteToken(params: { id: string }): Promise<void> {

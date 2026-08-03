@@ -14,7 +14,6 @@ export interface OAuthPendingAuthorization {
 export interface OAuthToken {
   accessToken: string;
   refreshToken: string | null;
-  /** ISO 8601. Treat missing expiry at write time as already-expired, not never-expiring. */
   expiresAt: string;
   /** Space-delimited, single string. `null` when unset. */
   scope: string | null;
@@ -23,12 +22,18 @@ export interface OAuthToken {
 export interface IOAuthTokenStore {
   savePendingAuthorization(pending: OAuthPendingAuthorization): Promise<void>;
 
+  /**
+   * Expires on read: a pending authorization past its age limit is never returned, so nothing
+   * has to sweep the store. The limit itself is the implementation's to choose.
+   */
   getPendingAuthorization(params: { state: string }): Promise<OAuthPendingAuthorization | undefined>;
+
+  /** Makes `state` single-use — call once the callback has been redeemed or abandoned. */
+  deletePendingAuthorization(params: { state: string }): Promise<void>;
 
   saveToken(params: { id: string; token: OAuthToken }): Promise<void>;
 
   getToken(params: { id: string }): Promise<OAuthToken | undefined>;
 
-  /** Clears only the token (e.g. after a failed refresh, before re-authorizing). */
   deleteToken(params: { id: string }): Promise<void>;
 }

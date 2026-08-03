@@ -1,26 +1,25 @@
 import type { OAuthPendingAuthorization } from '@truefoundry/utils/core';
 import { sql, type Kysely } from 'kysely';
-import type { McpOAuthPendingAuthorizationData } from '../../../mcpOAuthTypes';
-import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
+import { PENDING_AUTHORIZATION_TTL_MS, type OAuthPendingAuthorizationData } from '../../../mcpOAuthTypes';
+import { isoMsAgo, jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database } from '../../types';
-
-function toAuthData(pending: OAuthPendingAuthorization): McpOAuthPendingAuthorizationData {
-  return {
-    codeVerifier: pending.codeVerifier,
-    redirectUrl: pending.redirectUrl,
-  };
-}
 
 export async function savePendingAuthorization(
   db: Kysely<Database>,
   pending: OAuthPendingAuthorization,
 ): Promise<void> {
+  // `state` and `id` are their own columns; only the remainder goes in the blob.
+  const authData: OAuthPendingAuthorizationData = {
+    codeVerifier: pending.codeVerifier,
+    redirectUrl: pending.redirectUrl,
+  };
+
   await db
     .insertInto('oauth_pending_authorization')
     .values({
       id: pending.state,
       oauth_server_id: pending.id,
-      auth_data: jsonbBind(toAuthData(pending)),
+      auth_data: jsonbBind(authData),
       created_at: nowIso(),
     })
     .onConflict(oc =>
@@ -39,8 +38,9 @@ export async function getPendingAuthorization(
 ): Promise<OAuthPendingAuthorization | undefined> {
   const row = await db
     .selectFrom('oauth_pending_authorization')
-    .select(['oauth_server_id', jsonText<McpOAuthPendingAuthorizationData>(sql.ref('auth_data')).as('auth_data')])
+    .select(['id', 'oauth_server_id', jsonText<OAuthPendingAuthorizationData>(sql.ref('auth_data')).as('auth_data')])
     .where('id', '=', params.state)
+    .where('created_at', '>', isoMsAgo(PENDING_AUTHORIZATION_TTL_MS))
     .executeTakeFirst();
 
   if (row === undefined) {
@@ -48,9 +48,13 @@ export async function getPendingAuthorization(
   }
 
   return {
-    state: params.state,
+    state: row.id,
     id: row.oauth_server_id,
     codeVerifier: row.auth_data.codeVerifier,
     redirectUrl: row.auth_data.redirectUrl,
   };
+}
+
+export async function deletePendingAuthorization(db: Kysely<Database>, params: { state: string }): Promise<void> {
+  await db.deleteFrom('oauth_pending_authorization').where('id', '=', params.state).execute();
 }
