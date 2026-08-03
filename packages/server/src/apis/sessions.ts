@@ -15,6 +15,7 @@ import configuration from '../config';
 import {
   cancelSessionRoute,
   createSessionRoute,
+  deleteSessionRoute,
   getSessionRoute,
   listSessionEventsRoute,
   listSessionsRoute,
@@ -244,6 +245,12 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     return c.json({ data: toWireSession(record) }, 200);
   };
 
+  const deleteSessionHandler: RouteHandler<typeof deleteSessionRoute> = async c => {
+    const { sessionId } = c.req.valid('param');
+    await deps.sessionStore.deleteSession({ tenant_id: TENANT_ID, session_id: sessionId });
+    return c.body(null, 204);
+  };
+
   const updateSessionHandler: RouteHandler<typeof updateSessionRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
@@ -341,6 +348,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   const router = new OpenAPIHono();
   router.openapi(createSessionRoute, createSessionHandler);
   router.openapi(getSessionRoute, getSessionHandler);
+  router.openapi(deleteSessionRoute, deleteSessionHandler);
   router.openapi(updateSessionRoute, updateSessionHandler);
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);

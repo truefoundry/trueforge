@@ -55,6 +55,7 @@ export type {
   AppendToThreadContextInput,
   CreateSessionInput,
   CreateTurnInput,
+  DeleteSessionInput,
   FreezeAndGetTurnInput,
   GetSessionInput,
   GetTurnInput,

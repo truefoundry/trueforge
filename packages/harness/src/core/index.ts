@@ -135,6 +135,29 @@ export type {
 export { AgentHarnessError, McpConnectionError } from './errors';
 export { extractErrorLogFields } from './util/errorLogFields';
 
+// MCP OAuth / DCR (token store contract + registration + auth URL + resolve)
+export {
+  DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
+  InMemoryMcpTokenStore,
+  MCP_OAUTH_CALLBACK_PATH,
+  McpAuthStatus,
+  buildMcpAuthorizationUrl,
+  createMcpOAuthClient,
+  ensureMcpClientRegistered,
+  mcpAuthorizationServerMetadata,
+  mcpAuthorizationServerOrigin,
+  mcpClientInformation,
+  mcpOAuthCallbackUrl,
+  resolveMcpAuth,
+} from './mcp/auth';
+export type {
+  IMcpTokenStore,
+  McpOAuthClientRecord,
+  McpOAuthPendingAuthorization,
+  McpOAuthToken,
+  ResolveMcpAuthResult,
+} from './mcp/auth';
+
 // Sandbox (concrete implementation; provider details exported for composition)
 export {
   DaytonaSandboxProviderSettingsSchema,

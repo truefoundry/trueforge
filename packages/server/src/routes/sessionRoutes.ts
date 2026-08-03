@@ -75,6 +75,24 @@ export const getSessionRoute = createRoute({
   },
 });
 
+export const deleteSessionRoute = createRoute({
+  method: 'delete',
+  path: '/{sessionId}',
+  tags: [SESSIONS_TAG],
+  summary: 'Delete a session',
+  description: 'Delete a session and all related turns, events, and internal state. Idempotent if already gone.',
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'delete',
+  request: {
+    params: SessionIdParamsSchema,
+  },
+  responses: {
+    204: {
+      description: 'Session and all related data deleted.',
+    },
+  },
+});
+
 export const updateSessionRoute = createRoute({
   method: 'patch',
   path: '/{sessionId}',

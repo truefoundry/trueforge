@@ -261,6 +261,17 @@ export interface ServerConfiguration {
   /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
   MCP_CONNECT_TIMEOUT_MS: number;
   /**
+   * Public base URL of this server used as the origin of the MCP OAuth callback
+   * (`{PUBLIC_BASE_URL}/api/v1/mcp-servers/oauth/callback`). Not trimmed.
+   * Env: `PUBLIC_BASE_URL` (required).
+   */
+  PUBLIC_BASE_URL: string;
+  /**
+   * RFC 7591 client_name shown on authorization-server consent screens.
+   * Env: `OAUTH_CLIENT_NAME`. Default: "truefoundry-harness".
+   */
+  OAUTH_CLIENT_NAME: string;
+  /**
    * Sandbox provider settings as a JSON object discriminated on `type`
    * (see SandboxProviderSettingsSchema in the harness; today: "daytona").
    * Unset = sandbox unsupported: specs with `config.sandbox.enabled` are
@@ -368,6 +379,8 @@ const configuration: ServerConfiguration = {
     raw: getEnv('MCP_CONNECT_TIMEOUT_MS'),
     defaultValue: 30 * 1000,
   }),
+  PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { required: true }) ?? '',
+  OAUTH_CLIENT_NAME: getEnv('OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
   SANDBOX_SETTINGS: getEnv('SANDBOX_SETTINGS'),
   SANDBOX_API_KEY: getEnv('SANDBOX_API_KEY'),
   SANDBOX_FILE_MAX_BYTES: parsePositiveInt({
