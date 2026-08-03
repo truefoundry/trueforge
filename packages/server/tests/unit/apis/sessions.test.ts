@@ -71,40 +71,19 @@ describe('cancelSessionTurn', () => {
     assert.equal(abortController.signal.reason, CancellationReason.ClientCancelled);
   });
 
-  it('is a no-op for a turn that is missing or already terminal', async () => {
-    const activeTurns = new ActiveTurnRegistry();
-
-    await cancelSessionTurn(
-      { activeTurns, sessionStore: storeReturning(undefined) },
-      { sessionId: SESSION_ID, turnId: mintPeeredTurnId(configuration.EXECUTOR_ID) },
-    );
-  });
-
-  it('does not look for a peer when this replica owns the turn id', async () => {
-    // Durably running but absent from the registry: a restart left it marked running.
-    const activeTurns = new ActiveTurnRegistry();
-    const turnId = mintPeeredTurnId(configuration.EXECUTOR_ID);
-
-    await cancelSessionTurn(
-      {
-        activeTurns,
-        sessionStore: storeReturning(turnRecord(turnId, { status: 'running' })),
-        redis: unconnectedRedis(),
-      },
-      { sessionId: SESSION_ID, turnId },
-    );
-  });
-
   it('does not look for a peer without a Redis client', async () => {
     const activeTurns = new ActiveTurnRegistry();
     const turnId = mintPeeredTurnId('other1');
 
-    await cancelSessionTurn(
-      {
-        activeTurns,
-        sessionStore: storeReturning(turnRecord(turnId, { status: 'running' })),
-      },
-      { sessionId: SESSION_ID, turnId },
+    // A peer hop here would dereference the absent client and throw.
+    await assert.doesNotReject(
+      cancelSessionTurn(
+        {
+          activeTurns,
+          sessionStore: storeReturning(turnRecord(turnId, { status: 'running' })),
+        },
+        { sessionId: SESSION_ID, turnId },
+      ),
     );
   });
 

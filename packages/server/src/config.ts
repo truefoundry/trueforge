@@ -157,7 +157,7 @@ export const parsePositiveInt = (options: {
 };
 
 /** Parses a boolean env var; anything but `true`/`false` throws instead of reading as `false`. */
-export const parseBoolean = (options: { envKey: string; raw: string | undefined; defaultValue: boolean }): boolean => {
+const parseBoolean = (options: { envKey: string; raw: string | undefined; defaultValue: boolean }): boolean => {
   const { envKey, raw, defaultValue } = options;
   if (raw === undefined || raw.trim() === '') {
     return defaultValue;
@@ -198,10 +198,10 @@ export const DEFAULT_PORT = 8790;
 const DEFAULT_FRONTEND_DIR = '../frontend/dist';
 
 /** Turn ids minted by a single-binary process; no peer can ever own them. */
-export const LOCAL_EXECUTOR_ID = 'local';
+const LOCAL_EXECUTOR_ID = 'local';
 
 /** Dropped in single-binary mode so nothing downstream can connect to a Redis it must not use. */
-export const resolveRedisUrl = (singleBinary: boolean): string | undefined => {
+const resolveRedisUrl = (singleBinary: boolean): string | undefined => {
   if (singleBinary) {
     return undefined;
   }
@@ -209,7 +209,7 @@ export const resolveRedisUrl = (singleBinary: boolean): string | undefined => {
 };
 
 /** Always longer than `LOCAL_EXECUTOR_ID`, so a peer can never be mistaken for a local owner. */
-export const resolveExecutorId = (singleBinary: boolean): string => {
+const resolveExecutorId = (singleBinary: boolean): string => {
   if (singleBinary) {
     return LOCAL_EXECUTOR_ID;
   }
