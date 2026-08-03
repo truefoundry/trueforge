@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
-import { createModelProvidersRouter } from '../../../src/apis/modelProviders';
 import { createModelsRouter } from '../../../src/apis/models';
+import { createSettingsRouter } from '../../../src/apis/settings';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -29,20 +29,20 @@ function putInit(body: unknown): RequestInit {
   };
 }
 
-describe('model-providers and models routers', () => {
-  let providersRouter: ReturnType<typeof createModelProvidersRouter>;
+describe('settings model-providers and models routers', () => {
+  let settingsRouter: ReturnType<typeof createSettingsRouter>;
   let modelsRouter: ReturnType<typeof createModelsRouter>;
 
   before(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
-    providersRouter = createModelProvidersRouter({ modelCatalog: ModelCatalog.load(), modelProviderStore });
+    settingsRouter = createSettingsRouter({ modelCatalog: ModelCatalog.load(), modelProviderStore });
     modelsRouter = createModelsRouter(modelProviderStore);
   });
 
-  it('GET /catalog returns the shipped catalog verbatim', async () => {
-    const response = await providersRouter.request('/catalog');
+  it('GET /model-providers/catalog returns the shipped catalog verbatim', async () => {
+    const response = await settingsRouter.request('/model-providers/catalog');
     assert.equal(response.status, 200);
     const body = (await response.json()) as { data: { type: string; name: string }[] };
     assert.deepEqual(
@@ -55,21 +55,21 @@ describe('model-providers and models routers', () => {
   });
 
   it('PUT upserts a provider and echoes the stored auth', async () => {
-    const response = await providersRouter.request('/', putInit(putBody));
+    const response = await settingsRouter.request('/model-providers', putInit(putBody));
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { data: putBody });
 
-    const list = await providersRouter.request('/');
+    const list = await settingsRouter.request('/model-providers');
     assert.equal(list.status, 200);
     assert.deepEqual(await list.json(), { data: [putBody] });
   });
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {
     const { base_url: _, ...withoutBaseUrl } = putBody;
-    const missingBaseUrl = await providersRouter.request('/', putInit(withoutBaseUrl));
+    const missingBaseUrl = await settingsRouter.request('/model-providers', putInit(withoutBaseUrl));
     assert.equal(missingBaseUrl.status, 400);
 
-    const badName = await providersRouter.request('/', putInit({ ...putBody, name: 'Not A Slug' }));
+    const badName = await settingsRouter.request('/model-providers', putInit({ ...putBody, name: 'Not A Slug' }));
     assert.equal(badName.status, 400);
   });
 

@@ -12,9 +12,9 @@ import { createLegacyMcpRouter } from './apis/legacyMcp';
 import { createLegacyMcpOAuthRouter } from './apis/legacyMcpOAuth';
 import { createLegacyModelsRouter } from './apis/legacyModels';
 import { createLegacySkillsRouter } from './apis/legacySkills';
-import { createModelProvidersRouter } from './apis/modelProviders';
 import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
+import { createSettingsRouter } from './apis/settings';
 import { createTurnsRouter } from './apis/turns';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { IModelProviderStore } from './db/modelProviderStore';
@@ -67,8 +67,8 @@ export function createServerApp(deps: ServerDeps) {
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
   app.route(
-    '/api/v1/model-providers',
-    createModelProvidersRouter({ modelCatalog: deps.modelCatalog, modelProviderStore: deps.modelProviderStore }),
+    '/api/v1/settings',
+    createSettingsRouter({ modelCatalog: deps.modelCatalog, modelProviderStore: deps.modelProviderStore }),
   );
   // YAML registry surfaces — non-legacy paths reserved for future DB-backed CRUD.
   app.route('/api/v1/legacy/models', createLegacyModelsRouter(deps.modelStore));

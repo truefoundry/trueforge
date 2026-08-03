@@ -1,5 +1,5 @@
 /**
- * Model-provider route definitions (mounted at /api/v1/model-providers).
+ * Model-provider route definitions (mounted at /api/v1/settings/model-providers).
  * Handlers are registered in apis/modelProviders.ts.
  */
 import { createRoute } from '@hono/zod-openapi';
@@ -20,8 +20,8 @@ export const getModelProviderCatalogRoute = createRoute({
   summary: 'Get the model catalog',
   description:
     'Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: copy an entry ' +
-    'into PUT /model-providers to configure it. Custom providers are not listed here.',
-  'x-fern-sdk-group-name': ['modelProviders'],
+    'into PUT /settings/model-providers to configure it. Custom providers are not listed here.',
+  'x-fern-sdk-group-name': ['settings', 'modelProviders'],
   'x-fern-sdk-method-name': 'catalog',
   responses: {
     200: {
@@ -37,7 +37,7 @@ export const listModelProvidersRoute = createRoute({
   tags: [MODEL_PROVIDERS_TAG],
   summary: 'List configured model providers',
   description: 'All configured providers with their models.',
-  'x-fern-sdk-group-name': ['modelProviders'],
+  'x-fern-sdk-group-name': ['settings', 'modelProviders'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
@@ -54,7 +54,7 @@ export const putModelProviderRoute = createRoute({
   summary: 'Create or replace a model provider',
   description:
     'Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).',
-  'x-fern-sdk-group-name': ['modelProviders'],
+  'x-fern-sdk-group-name': ['settings', 'modelProviders'],
   'x-fern-sdk-method-name': 'upsert',
   request: {
     body: {

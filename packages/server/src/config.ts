@@ -228,7 +228,7 @@ export interface ServerConfiguration {
   REGISTRY_DIR: string;
   /**
    * Optional override for the model catalog YAML (discovery presets for
-   * GET /model-providers/catalog). When unset, the catalog inlined at build
+   * GET /settings/model-providers/catalog). When unset, the catalog inlined at build
    * time is used. Separate from `REGISTRY_DIR`. Env: `MODEL_CATALOG_PATH`.
    */
   MODEL_CATALOG_PATH: string | undefined;
