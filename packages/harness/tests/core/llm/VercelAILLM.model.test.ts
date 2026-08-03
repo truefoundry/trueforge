@@ -113,6 +113,7 @@ describe('buildStreamTextArgs', () => {
       maxOutputTokens: 1024,
       temperature: 0.7,
       topP: 0.9,
+      topK: 40,
       presencePenalty: 0.1,
       frequencyPenalty: 0.2,
       stopSequences: ['STOP'],
@@ -126,6 +127,7 @@ describe('buildStreamTextArgs', () => {
     expect('maxOutputTokens' in result).toBe(true);
     expect('temperature' in result).toBe(true);
     expect('topP' in result).toBe(true);
+    expect('topK' in result).toBe(true);
     expect('presencePenalty' in result).toBe(true);
     expect('frequencyPenalty' in result).toBe(true);
     expect('stopSequences' in result).toBe(true);
@@ -146,6 +148,7 @@ describe('buildStreamTextArgs', () => {
       maxOutputTokens: undefined,
       temperature: undefined,
       topP: undefined,
+      topK: undefined,
       presencePenalty: undefined,
       frequencyPenalty: undefined,
       stopSequences: undefined,
@@ -159,6 +162,7 @@ describe('buildStreamTextArgs', () => {
     expect('maxOutputTokens' in result).toBe(false);
     expect('temperature' in result).toBe(false);
     expect('topP' in result).toBe(false);
+    expect('topK' in result).toBe(false);
     expect('presencePenalty' in result).toBe(false);
     expect('frequencyPenalty' in result).toBe(false);
     expect('stopSequences' in result).toBe(false);
@@ -178,6 +182,7 @@ describe('buildStreamTextArgs', () => {
       maxOutputTokens: undefined,
       temperature: undefined,
       topP: undefined,
+      topK: undefined,
       presencePenalty: undefined,
       frequencyPenalty: undefined,
       stopSequences: undefined,
@@ -187,7 +192,7 @@ describe('buildStreamTextArgs', () => {
     expect('providerOptions' in result).toBe(false);
   });
 
-  it('omits temperature/topP/presencePenalty/frequencyPenalty/stopSequences/seed when null', () => {
+  it('omits temperature/topP/topK/presencePenalty/frequencyPenalty/stopSequences/seed when null', () => {
     const result = buildStreamTextArgs({
       model,
       instructions: undefined,
@@ -198,6 +203,7 @@ describe('buildStreamTextArgs', () => {
       maxOutputTokens: undefined,
       temperature: null,
       topP: null,
+      topK: null,
       presencePenalty: null,
       frequencyPenalty: null,
       stopSequences: null,
@@ -206,6 +212,7 @@ describe('buildStreamTextArgs', () => {
     });
     expect('temperature' in result).toBe(false);
     expect('topP' in result).toBe(false);
+    expect('topK' in result).toBe(false);
     expect('presencePenalty' in result).toBe(false);
     expect('frequencyPenalty' in result).toBe(false);
     expect('stopSequences' in result).toBe(false);

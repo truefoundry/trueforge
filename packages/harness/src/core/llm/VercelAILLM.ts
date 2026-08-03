@@ -237,6 +237,7 @@ function openaiProviderOptions(
   const serviceTier = readBodyField(rawBody, 'service_tier');
   const user = readBodyField(rawBody, 'user');
   const promptCacheKey = readBodyField(rawBody, 'prompt_cache_key');
+  const parallelToolCalls = readBodyField(rawBody, 'parallel_tool_calls');
   // Disables server-side storage and requests the encrypted reasoning token so multi-turn
   // conversations can replay reasoning statelessly; harmless no-op for non-reasoning models.
   return {
@@ -247,6 +248,7 @@ function openaiProviderOptions(
     ...(serviceTier !== undefined ? { serviceTier } : {}),
     ...(user !== undefined ? { user } : {}),
     ...(promptCacheKey !== undefined ? { promptCacheKey } : {}),
+    ...(parallelToolCalls !== undefined ? { parallelToolCalls } : {}),
   };
 }
 
@@ -276,12 +278,15 @@ function googleProviderOptions(rawBody: unknown): JSONObject | undefined {
 }
 
 function genericProviderOptions(
+  rawBody: unknown,
   reasoningEffort: string | undefined,
   strictJsonSchema: boolean | undefined,
 ): JSONObject | undefined {
+  const parallelToolCalls = readBodyField(rawBody, 'parallel_tool_calls');
   const opts: JSONObject = {
     ...(reasoningEffort !== undefined ? { reasoningEffort } : {}),
     ...(strictJsonSchema !== undefined ? { strictJsonSchema } : {}),
+    ...(parallelToolCalls !== undefined ? { parallelToolCalls } : {}),
   };
   return Object.keys(opts).length > 0 ? opts : undefined;
 }
@@ -315,7 +320,8 @@ export function buildProviderOptions({
     return google !== undefined ? { google } : {};
   } else {
     // 'generic' — @ai-sdk/openai-compatible registers under the name 'generic'.
-    const generic = genericProviderOptions(reasoningEffort, strictJsonSchema);
+    // this will have to become api_format specific in the future.
+    const generic = genericProviderOptions(rawBody, reasoningEffort, strictJsonSchema);
     return generic !== undefined ? { generic } : {};
   }
 }
@@ -687,6 +693,7 @@ export function buildStreamTextArgs(input: {
   maxOutputTokens: number | undefined;
   temperature: number | null | undefined;
   topP: number | null | undefined;
+  topK: number | null | undefined;
   presencePenalty: number | null | undefined;
   frequencyPenalty: number | null | undefined;
   stopSequences: string[] | null | undefined;
@@ -703,6 +710,7 @@ export function buildStreamTextArgs(input: {
     maxOutputTokens,
     temperature,
     topP,
+    topK,
     presencePenalty,
     frequencyPenalty,
     stopSequences,
@@ -718,6 +726,7 @@ export function buildStreamTextArgs(input: {
     ...(maxOutputTokens !== undefined ? { maxOutputTokens } : {}),
     ...(temperature != null ? { temperature } : {}),
     ...(topP != null ? { topP } : {}),
+    ...(topK != null ? { topK } : {}),
     ...(presencePenalty != null ? { presencePenalty } : {}),
     ...(frequencyPenalty != null ? { frequencyPenalty } : {}),
     ...(stopSequences != null ? { stopSequences } : {}),
@@ -1007,6 +1016,8 @@ export class VercelAILLM implements ILLM {
     });
     const reasoning = toReasoningLevel({ provider: providerConfig.provider, reasoningEffort });
 
+    // top_k is injected by AgentThread via Object.assign; not in the SDK type.
+    const rawTopK: unknown = Reflect.get(body, 'top_k');
     const streamTextArgs = buildStreamTextArgs({
       model,
       instructions,
@@ -1017,6 +1028,7 @@ export class VercelAILLM implements ILLM {
       maxOutputTokens: resolveMaxOutputTokens(body),
       temperature: body.temperature,
       topP: body.top_p,
+      topK: typeof rawTopK === 'number' ? rawTopK : null,
       presencePenalty: body.presence_penalty,
       frequencyPenalty: body.frequency_penalty,
       stopSequences: typeof body.stop === 'string' ? [body.stop] : (body.stop ?? null),

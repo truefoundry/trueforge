@@ -79,21 +79,27 @@ const OpenAIProviderEntrySchema = ModelEntryBaseSchema.extend({
   provider: z.literal('openai'),
   /** Override the default OpenAI base URL (e.g. Azure OpenAI endpoint). */
   base_url: z.string().url().optional(),
-}).strict();
+})
+  .strict()
+  .openapi('OpenAIProviderModelEntry');
 
 /** Anthropic provider entry — backed by the dedicated Vercel AI SDK adapter. */
 const AnthropicProviderEntrySchema = ModelEntryBaseSchema.extend({
   provider: z.literal('anthropic'),
   /** Override the provider's default base URL (e.g. point at a local proxy). */
   base_url: z.string().url().optional(),
-}).strict();
+})
+  .strict()
+  .openapi('AnthropicProviderModelEntry');
 
 /** Google Gemini provider entry — backed by the dedicated Vercel AI SDK adapter. */
 const GoogleGeminiProviderEntrySchema = ModelEntryBaseSchema.extend({
   provider: z.literal('google-gemini'),
   /** Override the provider's default base URL (e.g. point at a local proxy). */
   base_url: z.string().url().optional(),
-}).strict();
+})
+  .strict()
+  .openapi('GoogleGeminiProviderModelEntry');
 
 /**
  * Generic OpenAI-compatible provider. Requires an explicit `base_url` since
@@ -105,7 +111,9 @@ const GenericProviderEntrySchema = ModelEntryBaseSchema.extend({
   base_url: z.string().url(),
   /** API format used by this endpoint. Only option today; defaults when absent. */
   api_format: z.literal('openai-chat-completions').optional(),
-}).strict();
+})
+  .strict()
+  .openapi('GenericProviderModelEntry');
 
 export const ModelEntrySchema = z
   .discriminatedUnion('provider', [
