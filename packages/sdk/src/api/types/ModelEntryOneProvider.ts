@@ -2,6 +2,6 @@
 
 export const ModelEntryOneProvider = {
     Anthropic: "anthropic",
-    Google: "google",
+    GoogleGemini: "google-gemini",
 } as const;
 export type ModelEntryOneProvider = (typeof ModelEntryOneProvider)[keyof typeof ModelEntryOneProvider];
