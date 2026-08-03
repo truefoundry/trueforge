@@ -233,6 +233,12 @@ export interface ServerConfiguration {
    */
   MODEL_CATALOG_PATH: string | undefined;
   /**
+   * Optional override for the MCP catalog YAML (discovery presets for
+   * GET /mcp-servers/catalog). When unset, the catalog shipped with the
+   * build is used. Separate from `REGISTRY_DIR`. Env: `MCP_CATALOG_PATH`.
+   */
+  MCP_CATALOG_PATH: string | undefined;
+  /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
    * Env: `FRONTEND_DIR`, defaults to `../frontend/dist` relative to the working directory.
    */
@@ -362,6 +368,10 @@ const configuration: ServerConfiguration = {
   REGISTRY_DIR: path.resolve(getEnv('REGISTRY_DIR', { defaultValue: 'registry' }) ?? 'registry'),
   MODEL_CATALOG_PATH: (() => {
     const override = getEnv('MODEL_CATALOG_PATH');
+    return override === undefined || override === '' ? undefined : path.resolve(override);
+  })(),
+  MCP_CATALOG_PATH: (() => {
+    const override = getEnv('MCP_CATALOG_PATH');
     return override === undefined || override === '' ? undefined : path.resolve(override);
   })(),
   FRONTEND_DIR: path.resolve(getEnv('FRONTEND_DIR', { defaultValue: DEFAULT_FRONTEND_DIR }) ?? DEFAULT_FRONTEND_DIR),
