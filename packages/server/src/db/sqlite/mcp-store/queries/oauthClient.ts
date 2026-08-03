@@ -12,13 +12,11 @@ export async function saveClient(
   const oauthServer: OAuthServer = {
     authorizationEndpoint: server.authorizationEndpoint,
     tokenEndpoint: server.tokenEndpoint,
-    ...(server.codeChallengeMethodsSupported !== null
-      ? { codeChallengeMethodsSupported: server.codeChallengeMethodsSupported }
-      : {}),
+    codeChallengeMethodsSupported: server.codeChallengeMethodsSupported,
   };
   const oauthClient: OAuthClient = {
     clientId: client.clientId,
-    ...(client.clientSecret !== null ? { clientSecret: client.clientSecret } : {}),
+    clientSecret: client.clientSecret,
   };
 
   await db
@@ -53,11 +51,11 @@ export async function getClient(
     server: {
       authorizationEndpoint: row.oauth_server.authorizationEndpoint,
       tokenEndpoint: row.oauth_server.tokenEndpoint,
-      codeChallengeMethodsSupported: row.oauth_server.codeChallengeMethodsSupported ?? null,
+      codeChallengeMethodsSupported: row.oauth_server.codeChallengeMethodsSupported,
     },
     client: {
       clientId: row.oauth_client.clientId,
-      clientSecret: row.oauth_client.clientSecret ?? null,
+      clientSecret: row.oauth_client.clientSecret,
     },
   };
 }

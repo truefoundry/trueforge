@@ -4,25 +4,24 @@ import type { McpOAuthToken as OAuthTokenRow } from '../../../mcpOAuthTypes';
 import { json, now } from '../../sqlExpressions';
 import type { Database } from '../../types';
 
-// DB row (`McpOAuthToken`, `?:` for absence) and harness domain (`OAuthToken`, `null` for
-// absence) use different conventions on purpose — see mcpOAuthTypes.ts / IOAuthTokenStore.ts doc
-// comments — so null<->undefined is converted explicitly at this boundary.
+// DB row (`McpOAuthToken`) and harness domain (`OAuthToken`) are nominally separate types that
+// happen to share a shape (both use `| null` for absence), so the boundary is a straight copy.
 
 function toRow(token: OAuthToken): OAuthTokenRow {
   return {
     accessToken: token.accessToken,
-    ...(token.refreshToken !== null ? { refreshToken: token.refreshToken } : {}),
+    refreshToken: token.refreshToken,
     expiresAt: token.expiresAt,
-    ...(token.scope !== null ? { scope: token.scope } : {}),
+    scope: token.scope,
   };
 }
 
 function fromRow(row: OAuthTokenRow): OAuthToken {
   return {
     accessToken: row.accessToken,
-    refreshToken: row.refreshToken ?? null,
+    refreshToken: row.refreshToken,
     expiresAt: row.expiresAt,
-    scope: row.scope ?? null,
+    scope: row.scope,
   };
 }
 

@@ -6,8 +6,8 @@ import type { Database } from '../../types';
 
 function toAuthData(pending: OAuthPendingAuthorization): McpOAuthPendingAuthorizationData {
   return {
-    ...(pending.codeVerifier !== null ? { codeVerifier: pending.codeVerifier } : {}),
-    ...(pending.redirectUrl !== null ? { redirectUrl: pending.redirectUrl } : {}),
+    codeVerifier: pending.codeVerifier,
+    redirectUrl: pending.redirectUrl,
   };
 }
 
@@ -51,7 +51,7 @@ export async function getPendingAuthorization(
   return {
     state: row.id,
     id: row.oauth_server_id,
-    codeVerifier: row.auth_data.codeVerifier ?? null,
-    redirectUrl: row.auth_data.redirectUrl ?? null,
+    codeVerifier: row.auth_data.codeVerifier,
+    redirectUrl: row.auth_data.redirectUrl,
   };
 }
