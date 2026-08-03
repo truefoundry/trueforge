@@ -5,6 +5,7 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type {
   AssistantContent,
   FilePart,
+  FinishReason,
   LanguageModel,
   ModelMessage,
   ProviderMetadata,
@@ -35,83 +36,36 @@ import {
   type ThinkingBlock,
 } from './LLMTypes';
 
-/**
- * Provider-specific options map. Structurally identical to ProviderOptions from
- * @ai-sdk/provider-utils, which is not re-exported by the `ai` package.
- */
+/** Structurally identical to ProviderOptions from @ai-sdk/provider-utils, not re-exported by `ai`. */
 type ProviderOptions = ProviderMetadata;
-
-/**
- * Local mirrors of the OpenAI SDK's cross-module namespace types. ESLint's
- * TypeScript resolver cannot follow `Namespace.Member` references across module
- * boundaries, so these locally-declared interfaces with `in`-based type guards
- * give ESLint resolvable types without any assertion escapes.
- */
-interface ToolCallFn {
-  name: string;
-  arguments: string;
-}
-interface ToolDefinitionFn {
-  name: string;
-  description?: string | undefined;
-  parameters?: Record<string, unknown> | undefined;
-}
 
 /** Returns true for any non-null, non-array object — narrows to an indexable record. */
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-function isToolCallFn(v: unknown): v is ToolCallFn {
-  return (
-    typeof v === 'object' &&
-    v !== null &&
-    'name' in v &&
-    'arguments' in v &&
-    typeof v.name === 'string' &&
-    typeof v.arguments === 'string'
-  );
-}
-
-function isToolDefinitionFn(v: unknown): v is ToolDefinitionFn {
-  return (
-    typeof v === 'object' &&
-    v !== null &&
-    'name' in v &&
-    typeof v.name === 'string' &&
-    (!('description' in v) || typeof v.description === 'string') &&
-    (!('parameters' in v) || isPlainObject(v.parameters))
-  );
-}
-
-/**
- * Reasoning content part for multi-turn assistant message history.
- * Structurally matches ReasoningPart from @ai-sdk/provider-utils.
- */
+/** Structurally matches ReasoningPart from @ai-sdk/provider-utils. */
 interface ReasoningPart {
   type: 'reasoning';
   text: string;
   providerOptions?: ProviderOptions;
 }
 
+/** Providers with a dedicated code path in {@link buildLanguageModel}. */
+export type VercelAIProviderName = 'openai' | 'anthropic' | 'google-gemini' | 'generic';
+
 /** Structural config accepted by VercelAILLM; compatible with server's ProviderConfig. */
 export interface VercelAIProviderConfig {
-  provider: string;
+  provider: VercelAIProviderName;
   /** Display name / alias. Also used as the provider model identifier when `model_id` is absent. */
   name: string;
-  /**
-   * Provider-facing model identifier (e.g. `anthropic/claude-sonnet-4-6` for a
-   * gateway). When present, this is sent to the provider instead of `name`.
-   */
+  /** Provider-facing model identifier, sent instead of `name` when present. */
   model_id?: string | undefined;
   /** Optional base URL override. Explicitly includes `undefined` for Zod-derived type compat. */
   base_url?: string | undefined;
   apiKey: string;
   headers: Record<string, string>;
-  /**
-   * API format for the `generic` provider. Only `openai-chat-completions` is
-   * supported today. Defaults to `openai-chat-completions` when absent.
-   */
+  /** API format for the `generic` provider. Only option today; defaults when absent. */
   api_format?: 'openai-chat-completions' | undefined;
 }
 
@@ -159,14 +113,16 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
         name: 'generic',
         baseURL: base_url,
         apiKey,
+        // Without this, @ai-sdk/openai-compatible silently downgrades json_schema requests
+        // to a schema-less json_object, dropping the schema and strictJsonSchema.
+        supportsStructuredOutputs: true,
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
       return client(modelId);
     }
     default: {
-      throw new Error(
-        `Unknown provider "${provider}" — supported providers are: openai, anthropic, google-gemini, generic`,
-      );
+      const _exhaustive: never = provider;
+      throw new Error(`Unknown provider "${String(_exhaustive)}"`);
     }
   }
 }
@@ -197,7 +153,34 @@ export function normalizeUsage(usage: {
   };
 }
 
-export function mapFinishReason(reason: string): RawAssistantMessageWithUsage['finish_reason'] {
+/**
+ * The SDK's standardized cross-provider `streamText({ reasoning })` setting, distinct from the
+ * `providerOptions` bucket. Kept as a local mirror since `LanguageModelV4CallOptions` isn't
+ * re-exported by `ai` under a nameable alias.
+ */
+const REASONING_LEVELS = ['provider-default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+type ReasoningLevel = (typeof REASONING_LEVELS)[number];
+
+function isReasoningLevel(v: string): v is ReasoningLevel {
+  return (REASONING_LEVELS as readonly string[]).includes(v);
+}
+
+/**
+ * Maps a harness `reasoning_effort` to the SDK's standardized `reasoning` setting. Only
+ * `google-gemini` needs this — `@ai-sdk/google` derives its `thinkingConfig` from it, since it has
+ * no `providerOptions.google.reasoningEffort` lever like openai/anthropic/generic do.
+ */
+export function toReasoningLevel(
+  provider: VercelAIProviderName,
+  reasoningEffort: string | undefined,
+): ReasoningLevel | undefined {
+  if (provider !== 'google-gemini' || reasoningEffort === undefined || !isReasoningLevel(reasoningEffort)) {
+    return undefined;
+  }
+  return reasoningEffort;
+}
+
+export function mapFinishReason(reason: FinishReason): RawAssistantMessageWithUsage['finish_reason'] {
   switch (reason) {
     case 'stop':
       return 'stop';
@@ -207,36 +190,65 @@ export function mapFinishReason(reason: string): RawAssistantMessageWithUsage['f
       return 'tool_calls';
     case 'content-filter':
       return 'content_filter';
-    default:
+    // No harness equivalent for these — fall back to 'stop'.
+    case 'error':
+    case 'other':
       return 'stop';
+    default: {
+      const _exhaustive: never = reason;
+      throw new Error(`Unknown finish reason: ${String(_exhaustive)}`);
+    }
   }
 }
 
-/** Builds provider-specific options for reasoning/thinking budget. */
+/**
+ * Builds provider-specific options for reasoning/thinking budget and structured-output strictness.
+ * `strictJsonSchema` mirrors `response_format.json_schema.strict`, threaded through here since
+ * `Output` (from `buildOutput`) has no `strict` concept of its own.
+ */
 export function buildProviderOptions(
   config: VercelAIProviderConfig,
   reasoningEffort: string | undefined,
+  structuredOutputSpec: StructuredOutputSpec,
 ): ProviderOptions {
   const options: ProviderOptions = {};
+  const strictJsonSchema = structuredOutputSpec.mode === 'json_schema' ? structuredOutputSpec.strict : undefined;
+
   if (config.provider === 'openai') {
-    // Always disable server-side storage and request the encrypted reasoning
-    // token so multi-turn conversations can replay reasoning statelessly.
-    // `include` is a harmless no-op for non-reasoning models.
+    // Disables server-side storage and requests the encrypted reasoning token so multi-turn
+    // conversations can replay reasoning statelessly; harmless no-op for non-reasoning models.
     options['openai'] = {
       store: false,
       include: ['reasoning.encrypted_content'],
       ...(reasoningEffort !== undefined ? { reasoningEffort } : {}),
+      ...(strictJsonSchema !== undefined ? { strictJsonSchema } : {}),
     };
   } else if (config.provider === 'anthropic' && reasoningEffort !== undefined) {
     const budgetByEffort: Record<string, number> = { low: 1024, medium: 8192, high: 32768 };
     const budgetTokens = budgetByEffort[reasoningEffort] ?? 8192;
     options['anthropic'] = { thinking: { type: 'enabled', budgetTokens } };
-  } else if (config.provider === 'generic' && reasoningEffort !== undefined) {
-    // @ai-sdk/openai-compatible registers under the name 'generic'; reasoningEffort
-    // maps to reasoning_effort in the request body for OpenAI-compatible endpoints.
-    options['generic'] = { reasoningEffort };
+  } else if (config.provider === 'generic') {
+    // @ai-sdk/openai-compatible registers under the name 'generic'.
+    const generic: { reasoningEffort?: string; strictJsonSchema?: boolean } = {
+      ...(reasoningEffort !== undefined ? { reasoningEffort } : {}),
+      ...(strictJsonSchema !== undefined ? { strictJsonSchema } : {}),
+    };
+    if (Object.keys(generic).length > 0) {
+      options['generic'] = generic;
+    }
   }
   return options;
+}
+
+/**
+ * Prefers `max_completion_tokens`, falling back to the deprecated `max_tokens` (not part of the
+ * OpenAI SDK type, read via `Reflect.get` to avoid an unsafe-member-access lint error).
+ */
+export function resolveMaxOutputTokens(
+  body: Pick<ChatCompletionCreateParamsStreaming, 'max_completion_tokens'>,
+): number | undefined {
+  const limit: unknown = body.max_completion_tokens ?? Reflect.get(body, 'max_tokens');
+  return typeof limit === 'number' ? limit : undefined;
 }
 
 /**
@@ -374,11 +386,9 @@ export function toAssistantModelMessage(
 
   if (msg.tool_calls?.length) {
     for (const tc of msg.tool_calls) {
-      const rawFn: unknown = tc.function;
-      if (!isToolCallFn(rawFn)) continue;
       let input: Record<string, unknown> = {};
       try {
-        const parsed: unknown = JSON.parse(rawFn.arguments);
+        const parsed: unknown = JSON.parse(tc.function.arguments);
         if (isPlainObject(parsed)) {
           input = parsed;
         }
@@ -393,7 +403,7 @@ export function toAssistantModelMessage(
       const toolCallPart: ToolCallPart = {
         type: 'tool-call',
         toolCallId: tc.id,
-        toolName: rawFn.name,
+        toolName: tc.function.name,
         input,
         ...(thoughtSignature !== undefined
           ? { providerOptions: { google: { thoughtSignature } } satisfies ProviderOptions }
@@ -425,10 +435,9 @@ export interface ConvertedMessages {
 }
 
 /**
- * Splits an OpenAI message list into Vercel AI SDK format.
- * System messages are extracted into `instructions` because the Vercel AI SDK v7
- * no longer accepts `{ role: 'system' }` entries in the messages array.
- * Multiple system messages are joined with a blank line.
+ * Splits an OpenAI message list into Vercel AI SDK format. System messages are extracted into
+ * `instructions` since the SDK v7 no longer accepts `{ role: 'system' }` in the messages array.
+ * Builds a toolCallId → toolName lookup first, since tool result messages only carry the id.
  */
 export function convertMessages(
   messages: ChatCompletionMessageParam[],
@@ -438,10 +447,7 @@ export function convertMessages(
   for (const msg of messages) {
     if (msg.role === 'assistant' && msg.tool_calls) {
       for (const tc of msg.tool_calls) {
-        const rawFn: unknown = tc.function;
-        if (isToolCallFn(rawFn)) {
-          toolNameById.set(tc.id, rawFn.name);
-        }
+        toolNameById.set(tc.id, tc.function.name);
       }
     }
   }
@@ -490,25 +496,30 @@ export function convertTools(tools: ChatCompletionTool[] | undefined): ToolSet |
   }
   const toolSet: ToolSet = {};
   for (const t of tools) {
-    const rawFn: unknown = t.function;
-    if (!isToolDefinitionFn(rawFn)) continue;
-    toolSet[rawFn.name] = {
-      inputSchema: jsonSchema(rawFn.parameters ?? { type: 'object', properties: {} }),
-      ...(rawFn.description !== undefined ? { description: rawFn.description } : {}),
+    toolSet[t.function.name] = {
+      inputSchema: jsonSchema(t.function.parameters ?? { type: 'object', properties: {} }),
+      ...(t.function.description !== undefined ? { description: t.function.description } : {}),
     };
   }
   return Object.keys(toolSet).length > 0 ? toolSet : undefined;
 }
 
 /**
- * Normalized description of the requested structured-response mode, derived from an
- * OpenAI-format `response_format`. Kept as plain data (rather than a Vercel AI SDK `Output`
- * instance) because `Output` is not a nameable exported type from `ai` — see `buildOutput`.
+ * Normalized structured-response mode, derived from an OpenAI-format `response_format`. Kept as
+ * plain data rather than a Vercel AI SDK `Output` instance, since `Output` isn't a nameable
+ * exported type from `ai` — see `buildOutput`.
  */
 export type StructuredOutputSpec =
   | { mode: 'text' }
   | { mode: 'json' }
-  | { mode: 'json_schema'; schema: Record<string, unknown>; name: string; description: string | undefined };
+  | {
+      mode: 'json_schema';
+      schema: Record<string, unknown>;
+      name: string;
+      description: string | undefined;
+      /** Mirrors `response_format.json_schema.strict`; consumed by `buildProviderOptions`. */
+      strict: boolean | undefined;
+    };
 
 /** Converts an OpenAI-format `response_format` into a normalized `StructuredOutputSpec`. */
 export function toStructuredOutputSpec(
@@ -526,14 +537,13 @@ export function toStructuredOutputSpec(
     schema: json_schema.schema ?? { type: 'object', properties: {} },
     name: json_schema.name,
     description: json_schema.description,
+    strict: json_schema.strict ?? undefined,
   };
 }
 
 /**
- * Builds the Vercel AI SDK `Output` spec for `streamText` from a `StructuredOutputSpec`.
- * Not exported: `Output`'s interface type isn't nameable outside `ai` (only its `.object`/`.json`/
- * `.text` factory functions are exported), so an exported function can't declare it as a return
- * type. The pure mapping logic lives in `toStructuredOutputSpec` above, which is directly testable.
+ * Builds the Vercel AI SDK `Output` spec for `streamText`. Not exported: `Output`'s type isn't
+ * nameable outside `ai`, so an exported function can't declare it as a return type.
  */
 function buildOutput(spec: StructuredOutputSpec) {
   switch (spec.mode) {
@@ -547,7 +557,80 @@ function buildOutput(spec: StructuredOutputSpec) {
         name: spec.name,
         ...(spec.description !== undefined ? { description: spec.description } : {}),
       });
+    default: {
+      const _exhaustive: never = spec;
+      throw new Error(`Unknown structured output mode: ${JSON.stringify(_exhaustive)}`);
+    }
   }
+}
+
+/**
+ * Pure-data subset of `streamText(...)`'s call args. Uses `?` (omitted keys) rather than this
+ * file's usual explicit `| undefined`, since these fields cross directly into `streamText`'s own
+ * optional-property call signature under `exactOptionalPropertyTypes`.
+ */
+export interface StreamTextArgs {
+  model: LanguageModel;
+  instructions?: string;
+  messages: ModelMessage[];
+  tools?: ToolSet;
+  reasoning?: ReasoningLevel;
+  maxOutputTokens?: number;
+  temperature?: number;
+  topP?: number;
+  providerOptions?: ProviderOptions;
+  abortSignal?: AbortSignal;
+  maxRetries: number;
+}
+
+/**
+ * Builds the pure-data subset of `streamText(...)`'s call args from already-computed
+ * translations. Exported so the final wiring itself — not just the sub-functions that feed it
+ * (`convertMessages`, `convertTools`, `buildProviderOptions`, `toReasoningLevel`,
+ * `resolveMaxOutputTokens`) — is directly unit-testable: a value computed correctly but never
+ * spread into this object wouldn't be caught by testing those sub-functions alone.
+ *
+ * `output` (from `buildOutput`) is deliberately excluded and spread separately by the caller:
+ * its type isn't nameable outside `ai` (see `buildOutput`), so including it here would make this
+ * exported function's return type unnameable too.
+ */
+export function buildStreamTextArgs(input: {
+  model: LanguageModel;
+  instructions: string | undefined;
+  messages: ModelMessage[];
+  tools: ToolSet | undefined;
+  reasoning: ReasoningLevel | undefined;
+  providerOptions: ProviderOptions;
+  maxOutputTokens: number | undefined;
+  temperature: number | null | undefined;
+  topP: number | null | undefined;
+  abortSignal: AbortSignal | undefined;
+}): StreamTextArgs {
+  const {
+    model,
+    instructions,
+    messages,
+    tools,
+    reasoning,
+    providerOptions,
+    maxOutputTokens,
+    temperature,
+    topP,
+    abortSignal,
+  } = input;
+  return {
+    model,
+    ...(instructions !== undefined ? { instructions } : {}),
+    messages,
+    ...(tools !== undefined ? { tools } : {}),
+    ...(reasoning !== undefined ? { reasoning } : {}),
+    ...(maxOutputTokens !== undefined ? { maxOutputTokens } : {}),
+    ...(temperature != null ? { temperature } : {}),
+    ...(topP != null ? { topP } : {}),
+    ...(Object.keys(providerOptions).length > 0 ? { providerOptions } : {}),
+    ...(abortSignal !== undefined ? { abortSignal } : {}),
+    maxRetries: 0,
+  };
 }
 
 interface ToolCallState {
@@ -566,11 +649,8 @@ interface ChunkMeta {
 
 /**
  * Converts a Vercel AI SDK stream of `TextStreamPart`s into harness-format
- * `ExtendedChatCompletionChunk`s, returning the final aggregated assistant
- * message once the stream completes.
- *
- * Pure data transformation — takes a plain `AsyncIterable`, so it accepts
- * either a real `streamText().stream` or hand-built fixtures in tests.
+ * `ExtendedChatCompletionChunk`s, returning the final aggregated assistant message on completion.
+ * Takes a plain `AsyncIterable` so hand-built fixtures work in tests too.
  */
 export async function* mapStreamToChunks(
   stream: AsyncIterable<TextStreamPart<ToolSet>>,
@@ -728,9 +808,31 @@ export async function* mapStreamToChunks(
         throw new Error('LLM stream error', { cause: err });
       }
 
-      // 'start', 'text-start', 'text-end', 'reasoning-file', 'tool-input-end',
-      // 'tool-call', 'tool-result', 'finish', 'source', 'custom', 'raw', etc.
-      // are structural bookkeeping events — no harness chunk is emitted for these.
+      case 'start':
+      case 'text-start':
+      case 'text-end':
+      case 'custom':
+      case 'tool-input-end':
+      case 'source':
+      case 'file':
+      case 'reasoning-file':
+      case 'tool-call':
+      case 'tool-result':
+      case 'tool-error':
+      case 'tool-output-denied':
+      case 'tool-approval-request':
+      case 'tool-approval-response':
+      case 'start-step':
+      case 'finish':
+      case 'abort':
+      case 'raw':
+        // Structural/bookkeeping events — no harness chunk is emitted for these.
+        break;
+
+      default: {
+        const _exhaustive: never = part;
+        throw new Error(`Unknown stream part type: ${JSON.stringify(_exhaustive)}`);
+      }
     }
   }
 
@@ -771,8 +873,6 @@ export class VercelAILLM implements ILLM {
     const model = buildLanguageModel(providerConfig);
 
     // Which providerOptions key to use when replaying reasoning tokens in multi-turn history.
-    // 'generic' uses the same encryptedContent convention as 'openai' because
-    // @ai-sdk/openai-compatible is registered under the name 'generic'.
     const replayKey: 'openai' | 'anthropic' | 'generic' | undefined =
       providerConfig.provider === 'openai'
         ? 'openai'
@@ -784,32 +884,33 @@ export class VercelAILLM implements ILLM {
 
     const { instructions, messages } = convertMessages(body.messages, replayKey);
     const tools = convertTools(body.tools ?? undefined);
-    const output = buildOutput(toStructuredOutputSpec(body.response_format));
+    const structuredOutputSpec = toStructuredOutputSpec(body.response_format);
+    const output = buildOutput(structuredOutputSpec);
 
     // reasoning_effort is injected by AgentThread via Object.assign; not in the SDK type.
     const rawReasoningEffort: unknown = Reflect.get(body, 'reasoning_effort');
     const reasoningEffort = typeof rawReasoningEffort === 'string' ? rawReasoningEffort : undefined;
-    const providerOptions = buildProviderOptions(providerConfig, reasoningEffort);
+    const providerOptions = buildProviderOptions(providerConfig, reasoningEffort, structuredOutputSpec);
+    const reasoning = toReasoningLevel(providerConfig.provider, reasoningEffort);
+
+    const streamTextArgs = buildStreamTextArgs({
+      model,
+      instructions,
+      messages,
+      tools,
+      reasoning,
+      providerOptions,
+      maxOutputTokens: resolveMaxOutputTokens(body),
+      temperature: body.temperature,
+      topP: body.top_p,
+      abortSignal: this.signal,
+    });
 
     let streamResult;
     try {
       streamResult = streamText({
-        model,
-        ...(instructions !== undefined ? { instructions } : {}),
-        messages,
-        ...(tools !== undefined ? { tools } : {}),
+        ...streamTextArgs,
         ...(output !== undefined ? { output } : {}),
-        // Prefer max_completion_tokens; fall back to max_tokens (deprecated on the OpenAI type,
-        // read via Reflect.get so the lint rule doesn't fire on the call site).
-        ...((): { maxOutputTokens: number } | Record<never, never> => {
-          const limit: unknown = body.max_completion_tokens ?? Reflect.get(body, 'max_tokens');
-          return typeof limit === 'number' ? { maxOutputTokens: limit } : {};
-        })(),
-        ...(body.temperature != null ? { temperature: body.temperature } : {}),
-        ...(body.top_p != null ? { topP: body.top_p } : {}),
-        ...(Object.keys(providerOptions).length > 0 ? { providerOptions } : {}),
-        ...(this.signal !== undefined ? { abortSignal: this.signal } : {}),
-        maxRetries: 0,
       });
     } catch (error) {
       if (this.signal?.aborted) {

@@ -23,10 +23,9 @@ function uniqueNames(entries: { name: string }[], ctx: z.RefinementCtx): void {
 }
 
 /**
- * Adds a validation issue if two distinct names normalize to the same
- * `{NAME}` env var segment (e.g. "foo-bar" and "foo_bar"), since they could
- * not be given separate per-name overrides (headers, API keys). Only applied
- * to entries with per-name env vars (models, MCP servers).
+ * Adds a validation issue if two names normalize to the same `{NAME}` env var
+ * segment (e.g. "foo-bar" and "foo_bar"), since they couldn't get separate
+ * per-name overrides.
  */
 function uniqueEnvNames(entries: { name: string }[], ctx: z.RefinementCtx): void {
   const seenByEnvName = new Map<string, string>();
@@ -46,11 +45,8 @@ function uniqueEnvNames(entries: { name: string }[], ctx: z.RefinementCtx): void
 
 const ModelEntryBaseSchema = z.object({
   /**
-   * Display name / alias used to reference the model in the API, env vars, and
-   * the registry. Constrained to lowercase letters, digits, hyphens, and dots so
-   * it can be safely embedded in env var names without ambiguity.
-   * When `model_id` is absent this value is also sent to the provider as the
-   * model identifier.
+   * Display name / alias used in the API, env vars, and the registry.
+   * Also sent to the provider as the model identifier when `model_id` is absent.
    */
   name: z
     .string()
@@ -61,33 +57,18 @@ const ModelEntryBaseSchema = z.object({
     ),
   /**
    * The model identifier sent to the provider (e.g. `anthropic/claude-sonnet-4-6`
-   * for a gateway, or `claude-sonnet-4-6` for a direct Anthropic call).
-   * When absent, `name` is used as the provider model identifier.
-   * Use this when the provider-facing ID contains characters (slashes, colons, …)
-   * that are not valid in a `name`.
+   * for a gateway). Use when the provider-facing ID isn't a valid `name`.
    */
   model_id: z.string().min(1).optional(),
   max_output_tokens: z.number().int().positive(),
   reasoning_efforts: z.array(z.string().min(1)).min(1).optional(),
   /**
-   * API key for this model. Supports `${ENV_VAR}` substitution — the server
-   * resolves the env var at startup. Use this instead of the MODEL_{NAME}_API_KEY
-   * env var convention when you need direct control over which env var is read.
-   *
-   * Example: `api_key: "${ANTHROPIC_API_KEY}"`
-   *
+   * API key for this model, supports `${ENV_VAR}` substitution.
    * Falls back to MODEL_{NAME}_API_KEY, then MODEL_API_KEY when absent.
    */
   api_key: z.string().min(1).optional(),
   /**
-   * Extra HTTP headers sent with every request to this model.
-   * Header values support `${ENV_VAR}` substitution.
-   *
-   * Example:
-   *   headers:
-   *     X-Custom-Header: "literal"
-   *     Authorization: "Bearer ${MY_TOKEN}"
-   *
+   * Extra HTTP headers for requests to this model, supports `${ENV_VAR}` substitution.
    * Merged on top of MODEL_HEADERS and MODEL_{NAME}_HEADERS env var headers.
    */
   headers: z.record(z.string()).optional(),
@@ -100,9 +81,16 @@ const OpenAIProviderEntrySchema = ModelEntryBaseSchema.extend({
   base_url: z.string().url().optional(),
 }).strict();
 
-/** First-party providers backed by dedicated Vercel AI SDK adapters. */
-const FirstPartyProviderEntrySchema = ModelEntryBaseSchema.extend({
-  provider: z.enum(['anthropic', 'google-gemini']),
+/** Anthropic provider entry — backed by the dedicated Vercel AI SDK adapter. */
+const AnthropicProviderEntrySchema = ModelEntryBaseSchema.extend({
+  provider: z.literal('anthropic'),
+  /** Override the provider's default base URL (e.g. point at a local proxy). */
+  base_url: z.string().url().optional(),
+}).strict();
+
+/** Google Gemini provider entry — backed by the dedicated Vercel AI SDK adapter. */
+const GoogleGeminiProviderEntrySchema = ModelEntryBaseSchema.extend({
+  provider: z.literal('google-gemini'),
   /** Override the provider's default base URL (e.g. point at a local proxy). */
   base_url: z.string().url().optional(),
 }).strict();
@@ -115,16 +103,17 @@ const GenericProviderEntrySchema = ModelEntryBaseSchema.extend({
   provider: z.literal('generic'),
   /** Deployment-specific base URL — required. */
   base_url: z.string().url(),
-  /**
-   * API format used by this endpoint. Only `openai-chat-completions` is
-   * supported today; additional formats will be added here when implemented.
-   * Defaults to `openai-chat-completions` when absent.
-   */
+  /** API format used by this endpoint. Only option today; defaults when absent. */
   api_format: z.literal('openai-chat-completions').optional(),
 }).strict();
 
 export const ModelEntrySchema = z
-  .union([OpenAIProviderEntrySchema, FirstPartyProviderEntrySchema, GenericProviderEntrySchema])
+  .discriminatedUnion('provider', [
+    OpenAIProviderEntrySchema,
+    AnthropicProviderEntrySchema,
+    GoogleGeminiProviderEntrySchema,
+    GenericProviderEntrySchema,
+  ])
   .openapi('ModelEntry');
 
 export const ModelsFileSchema = z

@@ -85,7 +85,7 @@ export type { AgentMetadata, ILLM } from './llm/ILLM';
 export { ResponseFormatSchema, toOpenAIResponseFormat } from './llm/responseFormat';
 export type { ResponseFormat } from './llm/responseFormat';
 export { VercelAILLM } from './llm/VercelAILLM';
-export type { VercelAILLMConfig, VercelAIProviderConfig } from './llm/VercelAILLM';
+export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } from './llm/VercelAILLM';
 
 // Event contracts
 export {
