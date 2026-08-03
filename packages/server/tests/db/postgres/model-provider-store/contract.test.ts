@@ -1,8 +1,8 @@
 import { sql } from 'kysely';
 
 import { PostgresModelProviderStore } from '../../../../src/db/postgres/model-provider-store/PostgresModelProviderStore';
-import { createPostgresTestDatabase, type PostgresTestDatabase } from '../../postgres/testDatabase';
-import { runModelProviderStoreContractSuite } from '../contractSuite';
+import { runModelProviderStoreContractSuite } from '../../modelProviderStoreContractSuite';
+import { createPostgresTestDatabase, type PostgresTestDatabase } from '../testDatabase';
 
 const describePg = process.env['PG_STORE_TESTS_ENABLED'] === '1' ? describe : describe.skip;
 

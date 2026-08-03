@@ -46,9 +46,9 @@ jobs:
       - name: Test
         run: pnpm test
 
-  # Gate store suites so they do not start unless session-store paths changed.
-  agent-session-store-changes:
-    name: Detect Session Store Changes
+  # Gate store suites so they do not start unless store-related paths changed.
+  store-changes:
+    name: Detect Store Changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -61,13 +61,14 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v4
 
-      - name: Detect session-store path changes
+      - name: Detect store path changes
         uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
             store:
               - 'packages/server/src/db/**'
+              - 'packages/server/src/catalog/**'
               - 'packages/server/tsup.config.ts'
               - 'packages/server/tests/db/**'
               - 'packages/server/jest.store.postgres.config.cjs'
@@ -79,9 +80,9 @@ jobs:
               - '.github/workflows/ci.yml'
 
   postgres-store-tests:
-    name: Postgres Session Store Tests
-    needs: agent-session-store-changes
-    if: needs.agent-session-store-changes.outputs.store == 'true'
+    name: Postgres Store Tests
+    needs: store-changes
+    if: needs.store-changes.outputs.store == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -121,15 +122,15 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Postgres session store contract tests
+      - name: Postgres store contract tests
         env:
           SESSION_STORE_TEST_PG_URL: postgres://proto:proto@localhost:55432/proto
         run: pnpm --dir packages/server test:store:postgres
 
   sqlite-store-tests:
-    name: SQLite Session Store Tests
-    needs: agent-session-store-changes
-    if: needs.agent-session-store-changes.outputs.store == 'true'
+    name: SQLite Store Tests
+    needs: store-changes
+    if: needs.store-changes.outputs.store == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -154,5 +155,5 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: SQLite session store contract tests
+      - name: SQLite store contract tests
         run: pnpm --dir packages/server test:store:sqlite
