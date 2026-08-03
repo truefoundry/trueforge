@@ -187,7 +187,7 @@ export interface McpServerTable {
   /** application-generated (ulid); FK target, never re-derived from tenant_id/name */
   id: string;
   tenant_id: string;
-  /** the uniqueness target; everything else from mcp.yaml lives in `manifest` */
+  /** the uniqueness target; also duplicated inside `manifest` (the full mcp.yaml entry) */
   name: string;
   manifest: JsonbColumn<McpServerManifest>;
   /**

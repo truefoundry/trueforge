@@ -85,7 +85,7 @@ export const McpServerEntrySchema = z
  * (kept as its own DB column for the uniqueness index). Derived from `McpServerEntrySchema`
  * rather than hand-written, so the DB's stored shape can never drift from the yaml-validated one.
  */
-export const McpServerManifestSchema = McpServerEntrySchema.omit({ name: true }).openapi('McpServerManifest');
+export const McpServerManifestSchema = McpServerEntrySchema.openapi('McpServerManifest');
 
 export const McpFileSchema = z
   .object({

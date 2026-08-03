@@ -61,8 +61,6 @@ export function createServerApp(deps: ServerDeps) {
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
   app.route('/api/v1/models', createModelsRouter(deps.modelStore));
   app.route('/api/v1/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
-  // Same resource root as /mcp-servers (not a sibling `mcp` namespace) — a fixed, single OAuth
-  // redirect target for every DCR-registered server, keyed only by `state`, not `/mcp-servers/{name}`.
   app.route('/api/v1/mcp-servers/oauth', createMcpOAuthRouter({ logger: deps.logger }));
   app.route('/api/v1/skills', createSkillsRouter(deps.skillStore));
   app.route(
