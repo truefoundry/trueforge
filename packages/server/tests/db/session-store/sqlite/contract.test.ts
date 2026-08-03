@@ -1,18 +1,19 @@
 import type { ISessionStore } from '@truefoundry/utils/agent-session/store/ISessionStore';
 
 import { runStoreContractSuite } from '../../../../../harness/tests/agent-session/store/storeContractSuite';
-import { createSqliteStoreEnvironment } from './helpers';
+import { SqliteSessionStore } from '../../../../src/db/sqlite/session-store/SqliteSessionStore';
+import { createSqliteTestDatabase, type SqliteTestDatabase } from '../../sqlite/testDatabase';
 
 describe('SqliteSessionStore (ISessionStore contract)', () => {
-  let env: Awaited<ReturnType<typeof createSqliteStoreEnvironment>>;
+  let env: SqliteTestDatabase;
 
   beforeEach(async () => {
-    env = await createSqliteStoreEnvironment();
+    env = await createSqliteTestDatabase();
   }, 120_000);
 
   afterEach(async () => {
     await env?.teardown();
   });
 
-  runStoreContractSuite((): ISessionStore => env.store);
+  runStoreContractSuite((): ISessionStore => new SqliteSessionStore(env.db));
 });
