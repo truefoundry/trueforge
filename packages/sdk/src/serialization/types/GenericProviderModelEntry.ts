@@ -4,9 +4,9 @@ import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const ModelEntryApiFormat: core.serialization.ObjectSchema<
-    serializers.ModelEntryApiFormat.Raw,
-    TrueHarness.ModelEntryApiFormat
+export const GenericProviderModelEntry: core.serialization.ObjectSchema<
+    serializers.GenericProviderModelEntry.Raw,
+    TrueHarness.GenericProviderModelEntry
 > = core.serialization.object({
     apiFormat: core.serialization.property(
         "api_format",
@@ -25,7 +25,7 @@ export const ModelEntryApiFormat: core.serialization.ObjectSchema<
     ),
 });
 
-export declare namespace ModelEntryApiFormat {
+export declare namespace GenericProviderModelEntry {
     export interface Raw {
         api_format?: "openai-chat-completions" | null;
         api_key?: string | null;

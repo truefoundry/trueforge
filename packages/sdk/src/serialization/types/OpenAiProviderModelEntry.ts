@@ -4,9 +4,9 @@ import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const ModelEntryZero: core.serialization.ObjectSchema<
-    serializers.ModelEntryZero.Raw,
-    TrueHarness.ModelEntryZero
+export const OpenAiProviderModelEntry: core.serialization.ObjectSchema<
+    serializers.OpenAiProviderModelEntry.Raw,
+    TrueHarness.OpenAiProviderModelEntry
 > = core.serialization.object({
     apiKey: core.serialization.property("api_key", core.serialization.string().optional()),
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
@@ -21,7 +21,7 @@ export const ModelEntryZero: core.serialization.ObjectSchema<
     ),
 });
 
-export declare namespace ModelEntryZero {
+export declare namespace OpenAiProviderModelEntry {
     export interface Raw {
         api_key?: string | null;
         base_url?: string | null;

@@ -3,14 +3,23 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ModelEntryApiFormat } from "./ModelEntryApiFormat.js";
-import { ModelEntryOne } from "./ModelEntryOne.js";
-import { ModelEntryTwo } from "./ModelEntryTwo.js";
-import { ModelEntryZero } from "./ModelEntryZero.js";
+import { AnthropicProviderModelEntry } from "./AnthropicProviderModelEntry.js";
+import { GenericProviderModelEntry } from "./GenericProviderModelEntry.js";
+import { GoogleGeminiProviderModelEntry } from "./GoogleGeminiProviderModelEntry.js";
+import { OpenAiProviderModelEntry } from "./OpenAiProviderModelEntry.js";
 
 export const ModelEntry: core.serialization.Schema<serializers.ModelEntry.Raw, TrueHarness.ModelEntry> =
-    core.serialization.undiscriminatedUnion([ModelEntryZero, ModelEntryOne, ModelEntryTwo, ModelEntryApiFormat]);
+    core.serialization.undiscriminatedUnion([
+        AnthropicProviderModelEntry,
+        GenericProviderModelEntry,
+        GoogleGeminiProviderModelEntry,
+        OpenAiProviderModelEntry,
+    ]);
 
 export declare namespace ModelEntry {
-    export type Raw = ModelEntryZero.Raw | ModelEntryOne.Raw | ModelEntryTwo.Raw | ModelEntryApiFormat.Raw;
+    export type Raw =
+        | AnthropicProviderModelEntry.Raw
+        | GenericProviderModelEntry.Raw
+        | GoogleGeminiProviderModelEntry.Raw
+        | OpenAiProviderModelEntry.Raw;
 }
