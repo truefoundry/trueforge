@@ -234,8 +234,8 @@ export interface ServerConfiguration {
   MODEL_CATALOG_PATH: string | undefined;
   /**
    * Optional override for the MCP catalog YAML (discovery presets for
-   * GET /mcp-servers/catalog). When unset, the catalog shipped with the
-   * build is used. Separate from `REGISTRY_DIR`. Env: `MCP_CATALOG_PATH`.
+   * GET /mcp-servers/catalog). When unset, the catalog inlined at build
+   * time is used. Separate from `REGISTRY_DIR`. Env: `MCP_CATALOG_PATH`.
    */
   MCP_CATALOG_PATH: string | undefined;
   /**
