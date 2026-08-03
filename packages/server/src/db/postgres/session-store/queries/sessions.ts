@@ -92,28 +92,12 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
   }
 }
 
-/**
- * Fenced turn writes lock `turn` (FOR SHARE) before their child INSERT takes the FK's
- * FOR KEY SHARE on `session`; taking the same turn → session order here keeps the
- * cascade from deadlocking against an in-flight append.
- */
 export async function deleteSession(db: Kysely<Database>, input: DeleteSessionInput): Promise<void> {
-  await db.transaction().execute(async trx => {
-    await trx
-      .selectFrom('turn as t')
-      .innerJoin('session as s', 's.session_id', 't.session_id')
-      .select('t.turn_id')
-      .where('s.tenant_id', '=', input.tenant_id)
-      .where('t.session_id', '=', input.session_id)
-      .forUpdate('t')
-      .execute();
-
-    await trx
-      .deleteFrom('session')
-      .where('tenant_id', '=', input.tenant_id)
-      .where('session_id', '=', input.session_id)
-      .execute();
-  });
+  await db
+    .deleteFrom('session')
+    .where('tenant_id', '=', input.tenant_id)
+    .where('session_id', '=', input.session_id)
+    .execute();
 }
 
 export async function getSession(
