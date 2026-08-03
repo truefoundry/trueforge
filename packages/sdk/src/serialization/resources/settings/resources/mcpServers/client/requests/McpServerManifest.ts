@@ -4,20 +4,21 @@ import type * as TrueHarness from "../../../../../../../api/index.js";
 import * as core from "../../../../../../../core/index.js";
 import type * as serializers from "../../../../../../index.js";
 import { ConfiguredMcpServerAuth } from "../../../../../../types/ConfiguredMcpServerAuth.js";
+import { ResourceName } from "../../../../../../types/ResourceName.js";
 
 export const McpServerManifest: core.serialization.Schema<
     serializers.settings.McpServerManifest.Raw,
     TrueHarness.settings.McpServerManifest
 > = core.serialization.object({
     auth: ConfiguredMcpServerAuth.optional(),
-    name: core.serialization.string(),
+    name: ResourceName,
     url: core.serialization.string(),
 });
 
 export declare namespace McpServerManifest {
     export interface Raw {
         auth?: ConfiguredMcpServerAuth.Raw | null;
-        name: string;
+        name: ResourceName.Raw;
         url: string;
     }
 }

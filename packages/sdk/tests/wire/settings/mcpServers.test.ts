@@ -10,7 +10,15 @@ describe("McpServersClient", () => {
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
         const rawResponseBody = {
-            data: [{ auth: { type: "dcr" }, auth_status: { status: "authenticated" }, name: "name", url: "url" }],
+            data: [
+                {
+                    auth: { type: "dcr" },
+                    auth_status: { status: "authenticated" },
+                    name: "name",
+                    type: "remote",
+                    url: "url",
+                },
+            ],
         };
 
         server
@@ -32,6 +40,7 @@ describe("McpServersClient", () => {
                         status: "authenticated",
                     },
                     name: "name",
+                    type: "remote",
                     url: "url",
                 },
             ],
@@ -41,12 +50,13 @@ describe("McpServersClient", () => {
     test("upsert (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = { name: "name", url: "url" };
+        const rawRequestBody = { name: "name", type: "remote", url: "url" };
         const rawResponseBody = {
             data: {
                 auth: { type: "dcr" },
                 auth_status: { authorization_url: "authorization_url", status: "authenticated" },
                 name: "name",
+                type: "remote",
                 url: "url",
             },
         };
@@ -74,6 +84,7 @@ describe("McpServersClient", () => {
                     status: "authenticated",
                 },
                 name: "name",
+                type: "remote",
                 url: "url",
             },
         });
@@ -82,7 +93,7 @@ describe("McpServersClient", () => {
     test("upsert (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = { name: "xy", url: "url" };
+        const rawRequestBody = { name: "xy", type: "remote", url: "url" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -106,7 +117,7 @@ describe("McpServersClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
-        const rawResponseBody = { data: [{ auth: { type: "dcr" }, name: "name", url: "url" }] };
+        const rawResponseBody = { data: [{ auth: { type: "dcr" }, name: "name", type: "remote", url: "url" }] };
 
         server
             .mockEndpoint()
@@ -124,6 +135,7 @@ describe("McpServersClient", () => {
                         type: "dcr",
                     },
                     name: "name",
+                    type: "remote",
                     url: "url",
                 },
             ],

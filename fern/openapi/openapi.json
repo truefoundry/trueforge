@@ -313,6 +313,9 @@
           "name": {
             "$ref": "#/components/schemas/ResourceName"
           },
+          "type": {
+            "$ref": "#/components/schemas/McpServerType"
+          },
           "url": {
             "description": "URL of the remote MCP server.",
             "format": "uri",
@@ -320,6 +323,7 @@
           }
         },
         "required": [
+          "type",
           "name",
           "url"
         ],
@@ -487,6 +491,9 @@
           "name": {
             "$ref": "#/components/schemas/ResourceName"
           },
+          "type": {
+            "$ref": "#/components/schemas/McpServerType"
+          },
           "url": {
             "description": "URL of the remote MCP server.",
             "format": "uri",
@@ -494,6 +501,7 @@
           }
         },
         "required": [
+          "type",
           "name",
           "url",
           "auth_status"
@@ -1466,6 +1474,9 @@
           "name": {
             "$ref": "#/components/schemas/ResourceName"
           },
+          "type": {
+            "$ref": "#/components/schemas/McpServerType"
+          },
           "url": {
             "description": "URL of the remote MCP server.",
             "format": "uri",
@@ -1473,6 +1484,7 @@
           }
         },
         "required": [
+          "type",
           "name",
           "url"
         ],
@@ -1494,6 +1506,12 @@
           "url"
         ],
         "type": "object"
+      },
+      "McpServerType": {
+        "enum": [
+          "remote"
+        ],
+        "type": "string"
       },
       "Model": {
         "additionalProperties": false,

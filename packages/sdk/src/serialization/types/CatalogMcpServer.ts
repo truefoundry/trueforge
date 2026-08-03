@@ -4,20 +4,24 @@ import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ConfiguredMcpServerAuth } from "./ConfiguredMcpServerAuth.js";
+import { McpServerType } from "./McpServerType.js";
+import { ResourceName } from "./ResourceName.js";
 
 export const CatalogMcpServer: core.serialization.ObjectSchema<
     serializers.CatalogMcpServer.Raw,
     TrueHarness.CatalogMcpServer
 > = core.serialization.object({
     auth: ConfiguredMcpServerAuth.optional(),
-    name: core.serialization.string(),
+    name: ResourceName,
+    type: McpServerType,
     url: core.serialization.string(),
 });
 
 export declare namespace CatalogMcpServer {
     export interface Raw {
         auth?: ConfiguredMcpServerAuth.Raw | null;
-        name: string;
+        name: ResourceName.Raw;
+        type: McpServerType.Raw;
         url: string;
     }
 }

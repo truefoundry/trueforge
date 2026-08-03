@@ -8,14 +8,12 @@ export const McpServerHeaderAuth: core.serialization.ObjectSchema<
     serializers.McpServerHeaderAuth.Raw,
     TrueHarness.McpServerHeaderAuth
 > = core.serialization.object({
-    authLevel: core.serialization.property("auth_level", core.serialization.stringLiteral("global")),
     headers: core.serialization.record(core.serialization.string(), core.serialization.string()),
     type: core.serialization.stringLiteral("header"),
 });
 
 export declare namespace McpServerHeaderAuth {
     export interface Raw {
-        auth_level: "global";
         headers: Record<string, string>;
         type: "header";
     }

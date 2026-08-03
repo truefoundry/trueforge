@@ -1433,7 +1433,7 @@ await client.settings.mcpServers.catalog();
 <dl>
 <dd>
 
-Stub: returns authenticated when the server has no auth or header (global) credentials on the row; auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.
+Stub: returns authenticated when the server has no auth or header credentials on the row; auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.
 </dd>
 </dl>
 </dd>

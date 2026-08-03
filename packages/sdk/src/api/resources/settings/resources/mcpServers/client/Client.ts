@@ -123,12 +123,15 @@ export class McpServersClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.settings.McpServerManifest.jsonOrThrow(request, {
-                    unrecognizedObjectKeys: "passthrough",
-                    allowUnrecognizedUnionMembers: true,
-                    allowUnrecognizedEnumValues: true,
-                    omitUndefined: true,
-                }),
+                {
+                    ...serializers.settings.McpServerManifest.jsonOrThrow(request, {
+                        unrecognizedObjectKeys: "passthrough",
+                        allowUnrecognizedUnionMembers: true,
+                        allowUnrecognizedEnumValues: true,
+                        omitUndefined: true,
+                    }),
+                    type: "remote",
+                },
                 requestOptions?.additionalBodyParameters,
             ),
             timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
@@ -241,7 +244,7 @@ export class McpServersClient {
     }
 
     /**
-     * Stub: returns authenticated when the server has no auth or header (global) credentials on the row; auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.
+     * Stub: returns authenticated when the server has no auth or header credentials on the row; auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.
      *
      * @param {string} name - Configured MCP server name.
      * @param {TrueHarness.settings.AuthorizeMcpServersRequest} request
