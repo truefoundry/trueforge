@@ -86,6 +86,9 @@ COPY --from=builder /app/packages/harness/dist ./packages/harness/dist
 COPY --from=builder /app/packages/server/package.json ./packages/server/package.json
 COPY --from=builder /app/packages/server/dist ./packages/server/dist
 
+# Shipped model catalog (discovery presets); not operator registry config.
+COPY --from=builder /app/packages/server/catalog ./packages/server/catalog
+
 # The UI, at an absolute path so it resolves from any working directory.
 COPY --from=frontend-builder /app/packages/frontend/dist ./packages/frontend/dist
 ENV FRONTEND_DIR=/app/packages/frontend/dist

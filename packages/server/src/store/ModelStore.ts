@@ -5,8 +5,8 @@
  * MODEL_HEADERS / MODEL_{NAME}_HEADERS add extra headers. Credentials are
  * never exposed in list output.
  */
+import { loadYamlFile } from '../catalog/loadYaml';
 import configuration, { CONFIG_FILES, normalizeEnvName } from '../config';
-import { loadYamlFile } from './loadYaml';
 import { ModelsFileSchema, type ModelEntry } from './schemas';
 
 export class ModelStore {

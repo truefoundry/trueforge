@@ -17,8 +17,10 @@ export const CONFIG_FILES = {
   models: 'models.yaml',
   mcpServers: 'mcp.yaml',
   skills: 'skills.yaml',
-  modelCatalog: 'model-catalog.yaml',
 } as const;
+
+/** Default shipped model catalog path (relative to the working directory). */
+const DEFAULT_MODEL_CATALOG_PATH = 'catalog/model-catalog.yaml';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -197,6 +199,13 @@ export interface ServerConfiguration {
    */
   REGISTRY_DIR: string;
   /**
+   * Absolute path to the shipped model catalog YAML (discovery presets for
+   * GET /model-providers/catalog). Separate from `REGISTRY_DIR` — not operator
+   * runtime config. Env: `MODEL_CATALOG_PATH`, defaults to
+   * `./catalog/model-catalog.yaml`.
+   */
+  MODEL_CATALOG_PATH: string;
+  /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
    * Env: `FRONTEND_DIR`, defaults to `../frontend/dist` relative to the working directory.
    */
@@ -310,6 +319,9 @@ const postgresPort = parsePositiveInt({
 const configuration: ServerConfiguration = {
   PORT: parsePort(getEnv('PORT')),
   REGISTRY_DIR: path.resolve(getEnv('REGISTRY_DIR', { defaultValue: 'registry' }) ?? 'registry'),
+  MODEL_CATALOG_PATH: path.resolve(
+    getEnv('MODEL_CATALOG_PATH', { defaultValue: DEFAULT_MODEL_CATALOG_PATH }) ?? DEFAULT_MODEL_CATALOG_PATH,
+  ),
   FRONTEND_DIR: path.resolve(getEnv('FRONTEND_DIR', { defaultValue: DEFAULT_FRONTEND_DIR }) ?? DEFAULT_FRONTEND_DIR),
   MODEL_API_KEY: getEnv('MODEL_API_KEY', { required: true }) ?? '',
   MODEL_API_KEY_BY_NAME: parseApiKeysByName(),

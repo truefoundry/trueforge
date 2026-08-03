@@ -9,9 +9,7 @@ import { parse } from 'yaml';
 import type { z } from 'zod';
 import configuration from '../config';
 
-export function loadYamlFile<T>(fileName: string, schema: z.ZodType<T>): T {
-  const filePath = path.join(configuration.REGISTRY_DIR, fileName);
-
+export function loadYamlAtPath<T>(filePath: string, schema: z.ZodType<T>): T {
   let raw: string;
   try {
     raw = fs.readFileSync(filePath, 'utf8');
@@ -39,4 +37,9 @@ export function loadYamlFile<T>(fileName: string, schema: z.ZodType<T>): T {
     throw new Error(`Invalid config in ${filePath}:\n${issues}`);
   }
   return result.data;
+}
+
+/** Loads a YAML file from `REGISTRY_DIR` (legacy registry stores). */
+export function loadYamlFile<T>(fileName: string, schema: z.ZodType<T>): T {
+  return loadYamlAtPath(path.join(configuration.REGISTRY_DIR, fileName), schema);
 }

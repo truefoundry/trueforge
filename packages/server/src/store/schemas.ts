@@ -51,7 +51,7 @@ export const ModelEntrySchema = z
     max_output_tokens: z.number().int().positive(),
   })
   .strict()
-  // "Old": the /api/v1/old/models shape; the catalog schemas own the ModelEntry name.
+  // "Old": the /api/v1/old/models shape; schemas/modelProvider.ts owns ModelEntry.
   .openapi('OldModelEntry');
 
 export const ModelsFileSchema = z

@@ -2,8 +2,8 @@
  * Backend-agnostic behavioural contract for IModelProviderStore.
  * Runs under jest against a fresh store per test (see backend test files).
  */
-import type { ProviderManifest } from '../../src/catalog/schemas';
 import type { IModelProviderStore } from '../../src/db/modelProviderStore';
+import type { ProviderManifest } from '../../src/schemas/modelProvider';
 
 const TENANT = 'default';
 

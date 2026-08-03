@@ -1,13 +1,12 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ModelCatalog } from '../catalog/ModelCatalog';
-import type { ProviderManifest } from '../catalog/schemas';
 import type { IModelProviderStore, ModelProviderRecord } from '../db/modelProviderStore';
 import {
   getModelProviderCatalogRoute,
   listModelProvidersRoute,
   putModelProviderRoute,
 } from '../routes/modelProviderRoutes';
-import type { ModelProvider } from '../schemas/modelProvider';
+import type { ModelProvider, ProviderManifest } from '../schemas/modelProvider';
 import { TENANT_ID } from './sessions';
 
 export interface ModelProvidersRouterDeps {

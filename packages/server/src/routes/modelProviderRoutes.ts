@@ -4,8 +4,8 @@
  */
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
+import { GetModelProviderCatalogResponseSchema } from '../schemas/modelCatalog';
 import {
-  GetModelProviderCatalogResponseSchema,
   ListModelProvidersResponseSchema,
   PutModelProviderRequestSchema,
   PutModelProviderResponseSchema,

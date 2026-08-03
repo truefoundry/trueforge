@@ -3,8 +3,8 @@
  * MCP_HEADERS / MCP_{NAME}_HEADERS env vars and are never exposed in list
  * output.
  */
+import { loadYamlFile } from '../catalog/loadYaml';
 import configuration, { CONFIG_FILES, normalizeEnvName } from '../config';
-import { loadYamlFile } from './loadYaml';
 import { McpFileSchema, type McpServerEntry } from './schemas';
 
 export class McpStore {

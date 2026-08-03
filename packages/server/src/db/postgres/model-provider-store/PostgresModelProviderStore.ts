@@ -1,5 +1,6 @@
 import type { Kysely, Selectable } from 'kysely';
-import type { ProviderManifest, ResourceName } from '../../../catalog/schemas';
+import type { ResourceName } from '../../../schemas/common';
+import type { ProviderManifest } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
   type IModelProviderStore,

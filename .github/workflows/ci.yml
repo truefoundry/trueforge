@@ -69,6 +69,7 @@ jobs:
             store:
               - 'packages/server/src/db/**'
               - 'packages/server/src/catalog/**'
+              - 'packages/server/catalog/**'
               - 'packages/server/tsup.config.ts'
               - 'packages/server/tests/db/**'
               - 'packages/server/jest.store.postgres.config.cjs'

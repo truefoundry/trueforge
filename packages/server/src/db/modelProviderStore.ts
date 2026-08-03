@@ -3,7 +3,8 @@
  * identity as columns plus a Zod-validated `ProviderManifest` jsonb document.
  * Implementations: PostgresModelProviderStore and SqliteModelProviderStore.
  */
-import type { ModelProperties, ProviderManifest, ResourceName } from '../catalog/schemas';
+import type { ResourceName } from '../schemas/common';
+import type { ModelProperties, ProviderManifest } from '../schemas/modelProvider';
 
 export interface ModelProviderRecord {
   tenant_id: string;
