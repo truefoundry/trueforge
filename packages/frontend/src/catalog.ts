@@ -6,9 +6,14 @@ export interface ModelEntry {
   reasoning_efforts?: string[];
 }
 
+/** Mirrors `McpServerAuthSettingsSchema` in packages/server/src/store/schemas.ts. */
+export type McpServerAuthSettings = { type: 'dcr' };
+
 export interface McpServerEntry {
   name: string;
   url: string;
+  /** Absent = today's static-header behavior (no OAuth). */
+  auth?: McpServerAuthSettings;
 }
 
 export interface SkillEntry {

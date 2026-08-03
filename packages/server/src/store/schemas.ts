@@ -67,13 +67,25 @@ export const ModelsFileSchema = z
     uniqueEnvNames(file.models, ctx);
   });
 
+export const McpServerAuthSettingsSchema = z
+  .discriminatedUnion('type', [z.object({ type: z.literal('dcr') })])
+  .openapi('McpServerAuthSettings');
+
 export const McpServerEntrySchema = z
   .object({
     name: z.string().min(1),
     url: z.string().url(),
+    auth: McpServerAuthSettingsSchema.optional(),
   })
   .strict()
   .openapi('McpServerEntry');
+
+/**
+ * `mcp_server.manifest` JSONB shape — everything from this server's mcp.yaml entry except `name`
+ * (kept as its own DB column for the uniqueness index). Derived from `McpServerEntrySchema`
+ * rather than hand-written, so the DB's stored shape can never drift from the yaml-validated one.
+ */
+export const McpServerManifestSchema = McpServerEntrySchema.omit({ name: true }).openapi('McpServerManifest');
 
 export const McpFileSchema = z
   .object({
@@ -110,5 +122,7 @@ export const SkillsFileSchema = z
   });
 
 export type ModelEntry = z.infer<typeof ModelEntrySchema>;
+export type McpServerAuthSettings = z.infer<typeof McpServerAuthSettingsSchema>;
 export type McpServerEntry = z.infer<typeof McpServerEntrySchema>;
+export type McpServerManifest = z.infer<typeof McpServerManifestSchema>;
 export type SkillEntry = z.infer<typeof SkillEntrySchema>;
