@@ -17,7 +17,7 @@ import type {
 } from '@truefoundry/utils/core';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
-import type { McpServerManifest } from '../../legacy-registry-store/schemas';
+import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ProviderManifest } from '../../schemas/modelProvider';
 import type { McpOAuthPendingAuthorizationData, McpOAuthToken, OAuthClient, OAuthServer } from '../mcpOAuthTypes';
 
@@ -161,7 +161,7 @@ export interface McpServerTable {
   /** application-generated (ulid); FK target, never re-derived from tenant_id/name */
   id: string;
   tenant_id: string;
-  /** the uniqueness target; also duplicated inside `manifest` (the full mcp.yaml entry) */
+  /** the uniqueness target; also duplicated inside `manifest` */
   name: string;
   manifest: JsonbColumn<McpServerManifest>;
   /**
