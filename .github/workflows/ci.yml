@@ -47,7 +47,7 @@ jobs:
         run: pnpm test
 
   # Gate store suites so they do not start unless session-store paths changed.
-  store-changes:
+  agent-session-store-changes:
     name: Detect Session Store Changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -80,8 +80,8 @@ jobs:
 
   postgres-store-tests:
     name: Postgres Session Store Tests
-    needs: store-changes
-    if: needs.store-changes.outputs.store == 'true'
+    needs: agent-session-store-changes
+    if: needs.agent-session-store-changes.outputs.store == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -128,8 +128,8 @@ jobs:
 
   sqlite-store-tests:
     name: SQLite Session Store Tests
-    needs: store-changes
-    if: needs.store-changes.outputs.store == 'true'
+    needs: agent-session-store-changes
+    if: needs.agent-session-store-changes.outputs.store == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
