@@ -12,6 +12,9 @@ import type {
   ContextMessage,
   JsonValue,
   MCPServerInitInfo,
+  OAuthClient,
+  OAuthPendingAuthorization,
+  OAuthServer,
   SandboxInfo,
   SubAgentCompletionMarker,
 } from '@truefoundry/utils/core';
@@ -19,33 +22,11 @@ import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contex
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../store/schemas';
 
-/**
- * `mcp_server.oauth_server` JSONB shape — RFC 8414 authorization-server metadata, discovered once
- * at registration time. Own column, not merged with oauth_client: different source HTTP call
- * (metadata discovery vs. DCR registration), and this one never carries a secret.
- */
-export interface OAuthServer {
-  authorizationEndpoint: string;
-  tokenEndpoint: string;
-  codeChallengeMethodsSupported?: string[];
-}
-
-/** `mcp_server.oauth_client` JSONB shape — RFC 7591 DCR registration response for this server. */
-export interface OAuthClient {
-  clientId: string;
-  clientSecret?: string;
-}
-
-/** `oauth_pending_authorization.auth_data` JSONB shape. */
-export interface McpOAuthPendingAuthorizationData {
-  /** absent when the authorization server doesn't advertise PKCE support */
-  codeVerifier?: string;
-  /** absent when triggered mid-turn by resolveAuth, not by the authorize() endpoint */
-  redirectUrl?: string;
-}
+export type { OAuthClient, OAuthServer };
+export type OAuthPendingAuthorizationData = OAuthPendingAuthorization;
 
 /** `oauth_token.token` JSONB shape — matches SF's MCPUserAuthModel.authData. */
-export interface McpOAuthToken {
+export interface OAuthToken {
   accessToken: string;
   /** absent: some grants don't issue one */
   refreshToken?: string;
@@ -211,7 +192,7 @@ export interface McpServerTable {
 export interface OAuthTokenTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
-  token: JsonbColumn<McpOAuthToken>;
+  token: JsonbColumn<OAuthToken>;
   updated_at: string;
 }
 
@@ -223,7 +204,7 @@ export interface OAuthPendingAuthorizationTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
   /** { codeVerifier?, redirectUrl? } — same writer/lifecycle for both, so merged into one column */
-  auth_data: JsonbColumn<McpOAuthPendingAuthorizationData>;
+  auth_data: JsonbColumn<OAuthPendingAuthorization>;
   created_at: string;
 }
 

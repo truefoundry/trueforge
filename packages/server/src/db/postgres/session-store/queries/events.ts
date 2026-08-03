@@ -14,8 +14,8 @@ import {
 import { SessionNotFoundError, TurnNotFoundError } from '@truefoundry/utils/agent-session/store/SessionStoreErrors';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
+import { json, unnestWithOrdinality, values } from '../../sqlExpressions';
 import type { Database } from '../../types';
-import { json, unnestWithOrdinality, values } from '../sqlExpressions';
 import { classifyTurnFenceWriteFailure, turnRunningFence } from './turns';
 
 export async function appendToEvents(db: Kysely<Database>, input: AppendToEventsInput): Promise<void> {

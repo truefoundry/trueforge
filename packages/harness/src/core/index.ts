@@ -47,6 +47,16 @@ export {
 } from './capabilities/builtins/LargeToolResponse';
 export { openUI } from './capabilities/builtins/OpenUI';
 
+// Generic OAuth state store (not MCP-specific; MCP orchestration below is one caller of this)
+export { InMemoryOAuthTokenStore } from './auth/InMemoryOAuthTokenStore';
+export type {
+  IOAuthTokenStore,
+  OAuthClient,
+  OAuthPendingAuthorization,
+  OAuthServer,
+  OAuthToken,
+} from './auth/IOAuthTokenStore';
+
 // MCP contracts
 export type { ApprovalDecision } from './events/schema';
 export { ClientSideTool } from './mcp/ClientSideTool';
