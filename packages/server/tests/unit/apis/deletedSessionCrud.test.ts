@@ -8,6 +8,7 @@ import { createLogger } from 'winston';
 import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { ListSessionsResponseSchema } from '../../../src/schemas/session';
 import { McpStore } from '../../../src/store/McpStore';
 import { ModelStore } from '../../../src/store/ModelStore';
 
@@ -16,7 +17,7 @@ describe('public CRUD after session deletion', () => {
     const sessionStore = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore });
     const activeTurns = new ActiveTurnRegistry();
-    const modelStore = new ModelStore('http://localhost', []);
+    const modelStore = new ModelStore([]);
     const mcpStore = new McpStore([]);
     const app = new OpenAPIHono();
 
@@ -46,28 +47,28 @@ describe('public CRUD after session deletion', () => {
 
     await sessionStore.createSession({
       tenant_id: TENANT_ID,
-      session_id: 'deleted',
+      session_id: 's1',
       agent_spec: {
         model: { name: 'test-model' },
         instructions: 'test',
       },
       custom: null,
     });
-    assert.equal((await app.request('/deleted', { method: 'DELETE' })).status, 204);
+    assert.equal((await app.request('/s1', { method: 'DELETE' })).status, 204);
 
     const requests = [
-      app.request('/deleted'),
-      app.request('/deleted', {
+      app.request('/s1'),
+      app.request('/s1', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: '{}',
       }),
-      app.request('/deleted/events'),
-      app.request('/deleted/cancel', { method: 'POST' }),
-      app.request('/deleted/turns'),
-      app.request('/deleted/turns/turn-1'),
-      app.request('/deleted/turns/turn-1/events'),
-      app.request('/deleted/turns', {
+      app.request('/s1/events'),
+      app.request('/s1/cancel', { method: 'POST' }),
+      app.request('/s1/turns'),
+      app.request('/s1/turns/turn-1'),
+      app.request('/s1/turns/turn-1/events'),
+      app.request('/s1/turns', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: '{}',
@@ -80,7 +81,7 @@ describe('public CRUD after session deletion', () => {
 
     const listed = await app.request('/');
     assert.equal(listed.status, 200);
-    assert.deepEqual((await listed.json()).data, []);
-    assert.equal((await app.request('/deleted', { method: 'DELETE' })).status, 204);
+    assert.deepEqual(ListSessionsResponseSchema.parse(await listed.json()).data, []);
+    assert.equal((await app.request('/s1', { method: 'DELETE' })).status, 204);
   });
 });

@@ -336,6 +336,25 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       ).toEqual([]);
     });
 
+    it('rejects session mutations after deleteSession', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.deleteSession({ tenant_id: tenant, session_id: sessionId });
+
+      await expect(
+        store.updateSession({
+          tenant_id: tenant,
+          session_id: sessionId,
+          agent_spec: undefined,
+          title: 'new-title',
+        }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
+      await expect(store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-2' }))).rejects.toBeInstanceOf(
+        SessionNotFoundError,
+      );
+    });
+
     it('rejects turn mutations after deleteSession', async () => {
       const store = createStore();
       await seedSession(store);
@@ -345,6 +364,37 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       for (const write of turnScopedWrites(store, { session_id: sessionId, turn_id: 'turn-1' })) {
         await expect(write()).rejects.toBeInstanceOf(TurnNotFoundError);
       }
+    });
+
+    it('rejects event mutations after deleteSession', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.deleteSession({ tenant_id: tenant, session_id: sessionId });
+
+      const keys = { session_id: sessionId, turn_id: 'turn-1' };
+      await expect(
+        store.appendToEvents({
+          ...keys,
+          events: [makeTurnCreatedEvent('turn-1')],
+        }),
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
+      await expect(
+        store.listTurnEvents({
+          ...keys,
+          limit: 10,
+          page_token: undefined,
+          order: undefined,
+        }),
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
+      await expect(
+        store.listSessionEvents({
+          session_id: sessionId,
+          limit: 10,
+          page_token: undefined,
+          last_turn_id: undefined,
+        }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
     });
 
     it('leaves sessions whose id extends the deleted id untouched', async () => {

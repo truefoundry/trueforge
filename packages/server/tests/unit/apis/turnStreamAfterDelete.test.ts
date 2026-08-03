@@ -38,7 +38,7 @@ describe('turn SSE after session deletion', () => {
       createTurnsRouter({
         sessions,
         activeTurns: new ActiveTurnRegistry(),
-        modelStore: new ModelStore('http://localhost', []),
+        modelStore: new ModelStore([]),
         mcpStore: new McpStore([]),
         logger,
       }),
