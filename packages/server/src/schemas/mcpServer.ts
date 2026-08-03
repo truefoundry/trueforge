@@ -11,6 +11,9 @@
 import { z } from '@hono/zod-openapi';
 import { NameSchema } from './common';
 
+/** Transport/kind of MCP server. Extend when non-remote kinds ship. */
+export const McpServerTypeSchema = z.enum(['remote']).openapi('McpServerType');
+
 const McpServerHeaderAuthSchema = z
   .object({
     type: z.literal('header'),
@@ -39,6 +42,7 @@ export const McpServerAuthSettingsSchema = z
 /** Configured MCP server document persisted as `mcp_server.manifest`. */
 export const McpServerManifestObjectSchema = z
   .object({
+    type: McpServerTypeSchema,
     name: NameSchema,
     url: z.string().url().describe('URL of the remote MCP server.'),
     auth: McpServerAuthSettingsSchema.optional(),
@@ -83,6 +87,7 @@ export const ListAvailableMcpServersResponseSchema = z
   .object({ data: z.array(McpServerReadEntrySchema) })
   .openapi('ListAvailableMcpServersResponse');
 
+export type McpServerType = z.infer<typeof McpServerTypeSchema>;
 export type McpServerAuthSettings = z.infer<typeof McpServerAuthSettingsSchema>;
 export type McpServerManifest = z.infer<typeof McpServerManifestSchema>;
 export type McpAuthStatus = z.infer<typeof McpAuthStatusSchema>;

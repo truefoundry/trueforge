@@ -6,17 +6,20 @@ import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 
 const putBody = {
+  type: 'remote' as const,
   name: 'deepwiki',
   url: 'https://mcp.deepwiki.com/mcp',
 };
 
 const putBodyWithDcr = {
+  type: 'remote' as const,
   name: 'linear',
   url: 'https://mcp.linear.app/mcp',
   auth: { type: 'dcr' as const },
 };
 
 const putBodyWithHeaderAuth = {
+  type: 'remote' as const,
   name: 'private-mcp',
   url: 'https://mcp.example.com/mcp',
   auth: {

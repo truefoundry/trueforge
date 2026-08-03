@@ -9,6 +9,7 @@ const TENANT = 'default';
 
 function manifest(overrides: Partial<McpServerManifest> = {}): McpServerManifest {
   return {
+    type: 'remote',
     name: 'linear',
     url: 'https://mcp.linear.app/mcp',
     auth: { type: 'dcr' },

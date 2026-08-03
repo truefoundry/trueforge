@@ -4,11 +4,12 @@
  */
 import { z } from '@hono/zod-openapi';
 import { NameSchema, uniqueNames } from './common';
-import { McpServerAuthSettingsSchema } from './mcpServer';
+import { McpServerAuthSettingsSchema, McpServerTypeSchema } from './mcpServer';
 
 /** Catalog entry — discovery preset the settings UI copies into a PUT body. */
 export const CatalogMcpServerSchema = z
   .object({
+    type: McpServerTypeSchema,
     name: NameSchema,
     url: z.string().url().describe('URL of the remote MCP server.'),
     auth: McpServerAuthSettingsSchema.optional(),
