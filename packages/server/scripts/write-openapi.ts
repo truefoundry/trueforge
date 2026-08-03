@@ -12,9 +12,8 @@ import path from 'node:path';
 import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
 import { ModelCatalog } from '../src/catalog/ModelCatalog';
-import configuration from '../src/config';
-import { createDb } from '../src/db/postgres/client';
-import { PostgresModelProviderStore } from '../src/db/postgres/model-provider-store/PostgresModelProviderStore';
+import { createSqliteDb } from '../src/db/sqlite/client';
+import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { McpStore } from '../src/legacy-registry-store/McpStore';
 import { ModelStore } from '../src/legacy-registry-store/ModelStore';
 import { SkillStore } from '../src/legacy-registry-store/SkillStore';
@@ -44,7 +43,7 @@ const sessionStore = new InMemorySessionStore();
 const app = createServerApp({
   modelStore: ModelStore.load(),
   modelCatalog: ModelCatalog.load(),
-  modelProviderStore: new PostgresModelProviderStore(createDb(configuration.DATABASE_URL, 1)),
+  modelProviderStore: new SqliteModelProviderStore(createSqliteDb(':memory:')),
   mcpStore: McpStore.load(),
   skillStore: SkillStore.load(),
   sessionStore,

@@ -1,6 +1,7 @@
 # Shipped model catalog: provider/model presets offered by
 # GET /api/v1/model-providers/catalog for the settings UI to copy into
 # PUT /api/v1/model-providers bodies. Discovery-only — never executed against.
+type: model-catalog
 providers:
   - type: openai
     name: openai
