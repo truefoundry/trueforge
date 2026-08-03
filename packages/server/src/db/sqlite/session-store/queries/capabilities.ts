@@ -1,7 +1,7 @@
 import type { PatchThreadCapabilityStateInput } from '@truefoundry/utils/agent-session/store/ISessionStore';
 import { sql, type Kysely } from 'kysely';
+import { jsonbBind, nowIso } from '../../sqlExpressions';
 import type { Database } from '../../types';
-import { jsonbBind, nowIso } from '../sqlExpressions';
 import { classifyTurnFenceWriteFailure } from './turns';
 
 /**

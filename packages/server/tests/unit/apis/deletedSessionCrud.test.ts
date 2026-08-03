@@ -7,10 +7,10 @@ import { createClient } from 'redis';
 import { createLogger } from 'winston';
 import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter } from '../../../src/apis/turns';
+import { McpStore } from '../../../src/legacy-registry-store/McpStore';
+import { ModelStore } from '../../../src/legacy-registry-store/ModelStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { ListSessionsResponseSchema } from '../../../src/schemas/session';
-import { McpStore } from '../../../src/store/McpStore';
-import { ModelStore } from '../../../src/store/ModelStore';
 
 describe('public CRUD after session deletion', () => {
   it('returns not found for session and turn operations', async () => {

@@ -1,0 +1,23 @@
+# Shipped model catalog: provider/model presets offered by
+# GET /api/v1/settings/model-providers/catalog for the settings UI to copy into
+# PUT /api/v1/settings/model-providers bodies. Discovery-only — never executed against.
+type: model-catalog
+providers:
+  - type: openai
+    name: openai
+    models:
+      - model_id: gpt-5.6-sol
+        name: gpt-5-6-sol
+        properties:
+          context_length: 400000
+          max_output_tokens: 32768
+          reasoning_efforts: [low, medium, high]
+  - type: anthropic
+    name: anthropic
+    models:
+      - model_id: claude-sonnet-4-6
+        name: claude-sonnet-4-6
+        properties:
+          context_length: 200000
+          max_output_tokens: 32768
+          reasoning_efforts: [low, medium, high]

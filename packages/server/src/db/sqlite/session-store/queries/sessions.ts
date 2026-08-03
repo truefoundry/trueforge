@@ -15,8 +15,8 @@ import {
 } from '@truefoundry/utils/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
 import { isUniqueViolation } from '../../client';
+import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database } from '../../types';
-import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 
 type SessionCustom = Record<string, never>;
 type ProtoSessionRecord = SessionRecord<SessionCustom>;

@@ -14,7 +14,8 @@ import type {
 } from '@truefoundry/utils/core';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
-import type { McpServerManifest } from '../../store/schemas';
+import type { McpServerManifest } from '../../legacy-registry-store/schemas';
+import type { ProviderManifest } from '../../schemas/modelProvider';
 import type { McpOAuthPendingAuthorizationData, McpOAuthToken, OAuthClient, OAuthServer } from '../mcpOAuthTypes';
 
 /**
@@ -283,6 +284,22 @@ export interface ThreadCapabilityStateTable {
 }
 
 /**
+ * Configured model providers — manifest pattern: identity as columns,
+ * everything else in one Zod-validated jsonb document.
+ * PRIMARY KEY (tenant_id, name)
+ */
+export interface ModelProviderTable {
+  /** key */
+  tenant_id: string;
+  /** key: natural key within tenant; first segment of fully qualified model names */
+  name: string;
+  /** ProviderManifest document; replaced whole on every upsert */
+  manifest: JSONColumnType<ProviderManifest, ProviderManifest, ProviderManifest>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
  * PRIMARY KEY (id)
  * UNIQUE (tenant_id, name) — the natural lookup key.
  */
@@ -357,6 +374,7 @@ export interface Database {
   session_event: SessionEventTable;
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
+  model_provider: ModelProviderTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;

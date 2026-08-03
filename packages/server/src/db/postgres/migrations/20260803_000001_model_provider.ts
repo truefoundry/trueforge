@@ -1,0 +1,28 @@
+import type { Kysely } from 'kysely';
+
+/**
+ * Configured model providers (canonical DDL owner).
+ *
+ * Manifest pattern: identity as columns, everything else (type, base_url,
+ * auth, models) in one `manifest` jsonb validated by Zod on every write.
+ * The PK is the only DB-level invariant — all others live at the Zod layer —
+ * so future manifest fields are schema changes, not migrations.
+ */
+export async function up(db: Kysely<unknown>): Promise<void> {
+  await db.schema
+    .createTable('model_provider')
+    // key
+    .addColumn('tenant_id', 'text', col => col.notNull())
+    // key: natural key within tenant; first segment of fully qualified model names
+    .addColumn('name', 'text', col => col.notNull())
+    // ProviderManifest document; replaced whole on every upsert
+    .addColumn('manifest', 'jsonb', col => col.notNull())
+    .addColumn('created_at', 'timestamptz', col => col.notNull())
+    .addColumn('updated_at', 'timestamptz', col => col.notNull())
+    .addPrimaryKeyConstraint('model_provider_pkey', ['tenant_id', 'name'])
+    .execute();
+}
+
+export async function down(db: Kysely<unknown>): Promise<void> {
+  await db.schema.dropTable('model_provider').ifExists().cascade().execute();
+}

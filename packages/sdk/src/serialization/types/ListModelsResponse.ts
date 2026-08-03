@@ -3,17 +3,17 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ModelEntry } from "./ModelEntry.js";
+import { Model } from "./Model.js";
 
 export const ListModelsResponse: core.serialization.ObjectSchema<
     serializers.ListModelsResponse.Raw,
     TrueHarness.ListModelsResponse
 > = core.serialization.object({
-    data: core.serialization.list(ModelEntry),
+    data: core.serialization.list(Model),
 });
 
 export declare namespace ListModelsResponse {
     export interface Raw {
-        data: ModelEntry.Raw[];
+        data: Model.Raw[];
     }
 }

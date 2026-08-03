@@ -61,8 +61,7 @@ services:
     env_file:
       - path: packages/server/.env
         required: true
-    # The YAML registry (models.yaml, mcp.yaml, skills.yaml) is not baked into
-    # the image. Copy registry-example to registry before starting the service.
+    # Copy registry-example to registry before starting the service.
     volumes:
       - ./packages/server/registry:/app/packages/server/registry:ro
     depends_on:

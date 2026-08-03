@@ -86,7 +86,25 @@
             "type": "array"
           },
           "model": {
-            "$ref": "#/components/schemas/Model"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Model"
+              },
+              {
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "params": {
+                    "$ref": "#/components/schemas/ModelParams"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            ]
           },
           "response_format": {
             "$ref": "#/components/schemas/ResponseFormat"
@@ -284,6 +302,34 @@
       },
       "CancelSessionResponse": {
         "properties": {},
+        "type": "object"
+      },
+      "CatalogProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "type": {
+            "enum": [
+              "openai",
+              "anthropic"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "models"
+        ],
         "type": "object"
       },
       "ChatCompletionChunkDeltaToolCall": {
@@ -606,6 +652,20 @@
         ],
         "type": "object"
       },
+      "GetModelProviderCatalogResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogProvider"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetSessionResponse": {
         "properties": {
           "data": {
@@ -692,6 +752,49 @@
         },
         "type": "object"
       },
+      "ListLegacyModelsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ModelEntry"
+                },
+                {
+                  "discriminator": {
+                    "mapping": {
+                      "anthropic": "#/components/schemas/AnthropicProviderModelEntry",
+                      "generic": "#/components/schemas/GenericProviderModelEntry",
+                      "google-gemini": "#/components/schemas/GoogleGeminiProviderModelEntry",
+                      "openai": "#/components/schemas/OpenAIProviderModelEntry"
+                    },
+                    "propertyName": "provider"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/OpenAIProviderModelEntry"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AnthropicProviderModelEntry"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GoogleGeminiProviderModelEntry"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GenericProviderModelEntry"
+                    }
+                  ]
+                }
+              ]
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "ListMcpServersResponse": {
         "properties": {
           "data": {
@@ -722,11 +825,25 @@
         ],
         "type": "object"
       },
+      "ListModelProvidersResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ModelProvider"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "ListModelsResponse": {
         "properties": {
           "data": {
             "items": {
-              "$ref": "#/components/schemas/ModelEntry"
+              "$ref": "#/components/schemas/Model"
             },
             "type": "array"
           }
@@ -1140,44 +1257,55 @@
         "type": "object"
       },
       "Model": {
+        "additionalProperties": false,
         "properties": {
-          "name": {
-            "minLength": 1,
+          "model_id": {
+            "description": "Upstream, provider-specific identifier sent to the provider API.",
             "type": "string"
           },
-          "params": {
-            "$ref": "#/components/schemas/ModelParams"
+          "name": {
+            "description": "Fully qualified name `name/model_name`, e.g. \"openai/gpt-5-6-sol\".",
+            "type": "string"
+          },
+          "properties": {
+            "$ref": "#/components/schemas/ModelProperties"
           }
         },
         "required": [
-          "name"
+          "name",
+          "model_id",
+          "properties"
         ],
         "type": "object"
       },
       "ModelEntry": {
-        "discriminator": {
-          "mapping": {
-            "anthropic": "#/components/schemas/AnthropicProviderModelEntry",
-            "generic": "#/components/schemas/GenericProviderModelEntry",
-            "google-gemini": "#/components/schemas/GoogleGeminiProviderModelEntry",
-            "openai": "#/components/schemas/OpenAIProviderModelEntry"
+        "additionalProperties": false,
+        "properties": {
+          "model_id": {
+            "description": "Upstream, provider-specific identifier sent to the provider API.",
+            "minLength": 1,
+            "type": "string"
           },
-          "propertyName": "provider"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/OpenAIProviderModelEntry"
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Internal identifier; forms the fully qualified name `name/model_name`."
+              }
+            ]
           },
-          {
-            "$ref": "#/components/schemas/AnthropicProviderModelEntry"
-          },
-          {
-            "$ref": "#/components/schemas/GoogleGeminiProviderModelEntry"
-          },
-          {
-            "$ref": "#/components/schemas/GenericProviderModelEntry"
+          "properties": {
+            "$ref": "#/components/schemas/ModelProperties"
           }
-        ]
+        },
+        "required": [
+          "model_id",
+          "name",
+          "properties"
+        ],
+        "type": "object"
       },
       "ModelMessageDeltaEvent": {
         "properties": {
@@ -1387,6 +1515,79 @@
         },
         "type": "object"
       },
+      "ModelProperties": {
+        "additionalProperties": false,
+        "properties": {
+          "context_length": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "context_length",
+          "max_output_tokens"
+        ],
+        "type": "object"
+      },
+      "ModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "description": "Base URL of the provider's API.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ProviderType"
+          }
+        },
+        "required": [
+          "type",
+          "base_url",
+          "auth",
+          "models",
+          "name"
+        ],
+        "type": "object"
+      },
+      "ModelProviderAuth": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_key"
+        ],
+        "type": "object"
+      },
       "OpenAIProviderModelEntry": {
         "additionalProperties": false,
         "properties": {
@@ -1458,6 +1659,25 @@
         "default": "auto",
         "description": "Defaults to 'auto' (chain to session last turn). Use 'null' for the session's first turn."
       },
+      "ProviderType": {
+        "enum": [
+          "openai",
+          "anthropic",
+          "custom"
+        ],
+        "type": "string"
+      },
+      "PutModelProviderResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ModelProvider"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "RawToolCall": {
         "allOf": [
           {
@@ -1507,6 +1727,12 @@
           "error"
         ],
         "type": "object"
+      },
+      "ResourceName": {
+        "maxLength": 64,
+        "minLength": 2,
+        "pattern": "^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$",
+        "type": "string"
       },
       "ResponseFormat": {
         "oneOf": [
@@ -2759,7 +2985,7 @@
         "x-fern-sdk-method-name": "get_capabilities"
       }
     },
-    "/api/v1/mcp-servers": {
+    "/api/v1/legacy/mcp-servers": {
       "get": {
         "description": "MCP servers declared in mcp.yaml, each with a passive auth_status snapshot. Auth headers are configured via env vars and never returned.",
         "responses": {
@@ -2776,15 +3002,16 @@
         },
         "summary": "List MCP servers",
         "tags": [
-          "MCP Servers"
+          "Legacy MCP Servers"
         ],
         "x-fern-sdk-group-name": [
+          "legacy",
           "mcp_servers"
         ],
         "x-fern-sdk-method-name": "list"
       }
     },
-    "/api/v1/mcp-servers/oauth/callback": {
+    "/api/v1/legacy/mcp-servers/oauth/callback": {
       "get": {
         "parameters": [
           {
@@ -2845,12 +3072,12 @@
         },
         "summary": "OAuth callback for MCP authorization",
         "tags": [
-          "MCP OAuth"
+          "Legacy MCP OAuth"
         ],
         "x-fern-ignore": true
       }
     },
-    "/api/v1/mcp-servers/{name}/authorize": {
+    "/api/v1/legacy/mcp-servers/{name}/authorize": {
       "get": {
         "description": "Registers a DCR client for this server if none exists yet, then returns an authorization URL to redirect the user to so they can complete the OAuth consent flow. Short-circuits to `{status: authenticated}` with no URL if the server is already connected.",
         "parameters": [
@@ -2901,15 +3128,16 @@
         },
         "summary": "Start (or short-circuit) the auth flow for an MCP server",
         "tags": [
-          "MCP Servers"
+          "Legacy MCP Servers"
         ],
         "x-fern-sdk-group-name": [
+          "legacy",
           "mcp_servers"
         ],
         "x-fern-sdk-method-name": "authorize"
       }
     },
-    "/api/v1/mcp-servers/{name}/tools": {
+    "/api/v1/legacy/mcp-servers/{name}/tools": {
       "get": {
         "description": "All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call. No agent-spec tool selectors are applied — this is the raw server catalog.",
         "parameters": [
@@ -2969,17 +3197,70 @@
         },
         "summary": "List tools of an MCP server",
         "tags": [
-          "MCP Servers"
+          "Legacy MCP Servers"
         ],
         "x-fern-sdk-group-name": [
+          "legacy",
           "mcp_servers"
         ],
         "x-fern-sdk-method-name": "list_tools"
       }
     },
+    "/api/v1/legacy/models": {
+      "get": {
+        "description": "Models declared in models.yaml — the registry the runtime still uses for turns.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListLegacyModelsResponse"
+                }
+              }
+            },
+            "description": "All configured models."
+          }
+        },
+        "summary": "List models (models.yaml)",
+        "tags": [
+          "Legacy Models"
+        ],
+        "x-fern-sdk-group-name": [
+          "legacy",
+          "models"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/legacy/skills": {
+      "get": {
+        "description": "Agent skills declared in skills.yaml.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSkillsResponse"
+                }
+              }
+            },
+            "description": "All configured skills."
+          }
+        },
+        "summary": "List skills",
+        "tags": [
+          "Legacy Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "legacy",
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
     "/api/v1/models": {
       "get": {
-        "description": "Models declared in models.yaml, reachable through the OpenAI-compatible API at the file's base_url.",
+        "description": "Models across all configured model providers, addressed by fully qualified name `name/model_name`.",
         "responses": {
           "200": {
             "content": {
@@ -2989,7 +3270,7 @@
                 }
               }
             },
-            "description": "All configured models."
+            "description": "All models of all configured providers."
           }
         },
         "summary": "List models",
@@ -3808,29 +4089,100 @@
         "x-fern-sdk-method-name": "list_turn_events"
       }
     },
-    "/api/v1/skills": {
+    "/api/v1/settings/model-providers": {
       "get": {
-        "description": "Agent skills declared in skills.yaml.",
+        "description": "All configured providers with their models.",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListSkillsResponse"
+                  "$ref": "#/components/schemas/ListModelProvidersResponse"
                 }
               }
             },
-            "description": "All configured skills."
+            "description": "All configured model providers."
           }
         },
-        "summary": "List skills",
+        "summary": "List configured model providers",
         "tags": [
-          "Skills"
+          "Model Providers"
         ],
         "x-fern-sdk-group-name": [
-          "skills"
+          "settings",
+          "modelProviders"
         ],
         "x-fern-sdk-method-name": "list"
+      },
+      "put": {
+        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelProvider"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutModelProviderResponse"
+                }
+              }
+            },
+            "description": "The saved provider."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          }
+        },
+        "summary": "Create or replace a model provider",
+        "tags": [
+          "Model Providers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "modelProviders"
+        ],
+        "x-fern-sdk-method-name": "upsert"
+      }
+    },
+    "/api/v1/settings/model-providers/catalog": {
+      "get": {
+        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: copy an entry into PUT /settings/model-providers to configure it. Custom providers are not listed here.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetModelProviderCatalogResponse"
+                }
+              }
+            },
+            "description": "The shipped catalog, verbatim."
+          }
+        },
+        "summary": "Get the model catalog",
+        "tags": [
+          "Model Providers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "modelProviders"
+        ],
+        "x-fern-sdk-method-name": "catalog"
       }
     }
   },
