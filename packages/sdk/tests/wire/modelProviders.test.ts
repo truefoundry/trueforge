@@ -12,7 +12,7 @@ describe("ModelProvidersClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    auth: { api_key_set: true },
+                    auth: { api_key: "api_key" },
                     base_url: "base_url",
                     models: [
                         { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
@@ -36,7 +36,7 @@ describe("ModelProvidersClient", () => {
             data: [
                 {
                     auth: {
-                        apiKeySet: true,
+                        apiKey: "api_key",
                     },
                     baseUrl: "base_url",
                     models: [
@@ -68,7 +68,7 @@ describe("ModelProvidersClient", () => {
         };
         const rawResponseBody = {
             data: {
-                auth: { api_key_set: true },
+                auth: { api_key: "api_key" },
                 base_url: "base_url",
                 models: [
                     { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
@@ -108,7 +108,7 @@ describe("ModelProvidersClient", () => {
         expect(response).toEqual({
             data: {
                 auth: {
-                    apiKeySet: true,
+                    apiKey: "api_key",
                 },
                 baseUrl: "base_url",
                 models: [

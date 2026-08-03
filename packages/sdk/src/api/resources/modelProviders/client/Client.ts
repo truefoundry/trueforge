@@ -24,7 +24,7 @@ export class ModelProvidersClient {
     }
 
     /**
-     * All configured providers with their models. API keys are redacted to `auth.api_key_set`.
+     * All configured providers with their models.
      *
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -86,7 +86,7 @@ export class ModelProvidersClient {
     /**
      * Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).
      *
-     * @param {TrueHarness.PutModelProviderRequest} request
+     * @param {TrueHarness.ModelProvider} request
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueHarness.BadRequestError}
@@ -112,14 +112,14 @@ export class ModelProvidersClient {
      *     })
      */
     public upsert(
-        request: TrueHarness.PutModelProviderRequest,
+        request: TrueHarness.ModelProvider,
         requestOptions?: ModelProvidersClient.RequestOptions,
     ): core.HttpResponsePromise<TrueHarness.PutModelProviderResponse> {
         return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
     }
 
     private async __upsert(
-        request: TrueHarness.PutModelProviderRequest,
+        request: TrueHarness.ModelProvider,
         requestOptions?: ModelProvidersClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueHarness.PutModelProviderResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
@@ -135,7 +135,7 @@ export class ModelProvidersClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.PutModelProviderRequest.jsonOrThrow(request, {
+                serializers.ModelProvider.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

@@ -3,9 +3,10 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ModelProvider {
-    auth: TrueHarness.ModelProviderAuthStatus;
+    auth: TrueHarness.ModelProviderAuth;
+    /** Base URL of the provider's API. */
     baseUrl: string;
-    models: TrueHarness.ModelProviderModelsItem[];
+    models: TrueHarness.ModelEntry[];
     name: TrueHarness.ResourceName;
     type: TrueHarness.ProviderType;
 }

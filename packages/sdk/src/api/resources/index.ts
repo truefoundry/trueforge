@@ -1,11 +1,6 @@
-export * from "./mcpServers/client/requests/index.js";
-export * as mcpServers from "./mcpServers/index.js";
-export * from "./modelProviders/client/requests/index.js";
+export * as legacy from "./legacy/index.js";
 export * as modelProviders from "./modelProviders/index.js";
-export * from "./modelProviders/types/index.js";
 export * as models from "./models/index.js";
-export * as old from "./old/index.js";
 export * as server from "./server/index.js";
 export * from "./sessions/client/requests/index.js";
 export * as sessions from "./sessions/index.js";
-export * as skills from "./skills/index.js";

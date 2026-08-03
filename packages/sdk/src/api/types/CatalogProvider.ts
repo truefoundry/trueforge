@@ -3,7 +3,7 @@
 import type * as TrueHarness from "../index.js";
 
 export interface CatalogProvider {
-    models: TrueHarness.CatalogProviderModelsItem[];
+    models: TrueHarness.ModelEntry[];
     name: TrueHarness.ResourceName;
     type: TrueHarness.CatalogProviderType;
 }

@@ -309,40 +309,7 @@
         "properties": {
           "models": {
             "items": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/ModelEntry"
-                },
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "model_id": {
-                      "description": "Upstream, provider-specific identifier sent to the provider API.",
-                      "minLength": 1,
-                      "type": "string"
-                    },
-                    "name": {
-                      "allOf": [
-                        {
-                          "$ref": "#/components/schemas/ResourceName"
-                        },
-                        {
-                          "description": "Internal identifier; forms the fully qualified name `provider_name/model_name`."
-                        }
-                      ]
-                    },
-                    "properties": {
-                      "$ref": "#/components/schemas/ModelProperties"
-                    }
-                  },
-                  "required": [
-                    "model_id",
-                    "name",
-                    "properties"
-                  ],
-                  "type": "object"
-                }
-              ]
+              "$ref": "#/components/schemas/ModelEntry"
             },
             "minItems": 1,
             "type": "array"
@@ -785,6 +752,49 @@
         },
         "type": "object"
       },
+      "ListLegacyModelsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ModelEntry"
+                },
+                {
+                  "discriminator": {
+                    "mapping": {
+                      "anthropic": "#/components/schemas/AnthropicProviderModelEntry",
+                      "generic": "#/components/schemas/GenericProviderModelEntry",
+                      "google-gemini": "#/components/schemas/GoogleGeminiProviderModelEntry",
+                      "openai": "#/components/schemas/OpenAIProviderModelEntry"
+                    },
+                    "propertyName": "provider"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/OpenAIProviderModelEntry"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AnthropicProviderModelEntry"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GoogleGeminiProviderModelEntry"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GenericProviderModelEntry"
+                    }
+                  ]
+                }
+              ]
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "ListMcpServersResponse": {
         "properties": {
           "data": {
@@ -834,20 +844,6 @@
           "data": {
             "items": {
               "$ref": "#/components/schemas/Model"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "type": "object"
-      },
-      "ListOldModelsResponse": {
-        "properties": {
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
             },
             "type": "array"
           }
@@ -1268,7 +1264,7 @@
             "type": "string"
           },
           "name": {
-            "description": "Fully qualified name `provider_name/model_name`, e.g. \"openai/gpt-5-6-sol\".",
+            "description": "Fully qualified name `name/model_name`, e.g. \"openai/gpt-5-6-sol\".",
             "type": "string"
           },
           "properties": {
@@ -1283,29 +1279,33 @@
         "type": "object"
       },
       "ModelEntry": {
-        "discriminator": {
-          "mapping": {
-            "anthropic": "#/components/schemas/AnthropicProviderModelEntry",
-            "generic": "#/components/schemas/GenericProviderModelEntry",
-            "google-gemini": "#/components/schemas/GoogleGeminiProviderModelEntry",
-            "openai": "#/components/schemas/OpenAIProviderModelEntry"
+        "additionalProperties": false,
+        "properties": {
+          "model_id": {
+            "description": "Upstream, provider-specific identifier sent to the provider API.",
+            "minLength": 1,
+            "type": "string"
           },
-          "propertyName": "provider"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/OpenAIProviderModelEntry"
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Internal identifier; forms the fully qualified name `name/model_name`."
+              }
+            ]
           },
-          {
-            "$ref": "#/components/schemas/AnthropicProviderModelEntry"
-          },
-          {
-            "$ref": "#/components/schemas/GoogleGeminiProviderModelEntry"
-          },
-          {
-            "$ref": "#/components/schemas/GenericProviderModelEntry"
+          "properties": {
+            "$ref": "#/components/schemas/ModelProperties"
           }
-        ]
+        },
+        "required": [
+          "model_id",
+          "name",
+          "properties"
+        ],
+        "type": "object"
       },
       "ModelMessageDeltaEvent": {
         "properties": {
@@ -1545,48 +1545,16 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuthStatus"
+            "$ref": "#/components/schemas/ModelProviderAuth"
           },
           "base_url": {
+            "description": "Base URL of the provider's API.",
             "format": "uri",
             "type": "string"
           },
           "models": {
             "items": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/ModelEntry"
-                },
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "model_id": {
-                      "description": "Upstream, provider-specific identifier sent to the provider API.",
-                      "minLength": 1,
-                      "type": "string"
-                    },
-                    "name": {
-                      "allOf": [
-                        {
-                          "$ref": "#/components/schemas/ResourceName"
-                        },
-                        {
-                          "description": "Internal identifier; forms the fully qualified name `provider_name/model_name`."
-                        }
-                      ]
-                    },
-                    "properties": {
-                      "$ref": "#/components/schemas/ModelProperties"
-                    }
-                  },
-                  "required": [
-                    "model_id",
-                    "name",
-                    "properties"
-                  ],
-                  "type": "object"
-                }
-              ]
+              "$ref": "#/components/schemas/ModelEntry"
             },
             "minItems": 1,
             "type": "array"
@@ -1600,10 +1568,10 @@
         },
         "required": [
           "type",
-          "name",
           "base_url",
           "auth",
-          "models"
+          "models",
+          "name"
         ],
         "type": "object"
       },
@@ -1617,21 +1585,6 @@
         },
         "required": [
           "api_key"
-        ],
-        "type": "object"
-      },
-      "ModelProviderAuthStatus": {
-        "additionalProperties": false,
-        "properties": {
-          "api_key_set": {
-            "enum": [
-              true
-            ],
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "api_key_set"
         ],
         "type": "object"
       },
@@ -1713,73 +1666,6 @@
           "custom"
         ],
         "type": "string"
-      },
-      "PutModelProviderRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "description": "Base URL of the provider's API.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/ModelEntry"
-                },
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "model_id": {
-                      "description": "Upstream, provider-specific identifier sent to the provider API.",
-                      "minLength": 1,
-                      "type": "string"
-                    },
-                    "name": {
-                      "allOf": [
-                        {
-                          "$ref": "#/components/schemas/ResourceName"
-                        },
-                        {
-                          "description": "Internal identifier; forms the fully qualified name `provider_name/model_name`."
-                        }
-                      ]
-                    },
-                    "properties": {
-                      "$ref": "#/components/schemas/ModelProperties"
-                    }
-                  },
-                  "required": [
-                    "model_id",
-                    "name",
-                    "properties"
-                  ],
-                  "type": "object"
-                }
-              ]
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "$ref": "#/components/schemas/ProviderType"
-          }
-        },
-        "required": [
-          "type",
-          "base_url",
-          "auth",
-          "models",
-          "name"
-        ],
-        "type": "object"
       },
       "PutModelProviderResponse": {
         "properties": {
@@ -3099,7 +2985,7 @@
         "x-fern-sdk-method-name": "get_capabilities"
       }
     },
-    "/api/v1/mcp-servers": {
+    "/api/v1/legacy/mcp-servers": {
       "get": {
         "description": "MCP servers declared in mcp.yaml, each with a passive auth_status snapshot. Auth headers are configured via env vars and never returned.",
         "responses": {
@@ -3116,15 +3002,16 @@
         },
         "summary": "List MCP servers",
         "tags": [
-          "MCP Servers"
+          "Legacy MCP Servers"
         ],
         "x-fern-sdk-group-name": [
+          "legacy",
           "mcp_servers"
         ],
         "x-fern-sdk-method-name": "list"
       }
     },
-    "/api/v1/mcp-servers/oauth/callback": {
+    "/api/v1/legacy/mcp-servers/oauth/callback": {
       "get": {
         "parameters": [
           {
@@ -3185,12 +3072,12 @@
         },
         "summary": "OAuth callback for MCP authorization",
         "tags": [
-          "MCP OAuth"
+          "Legacy MCP OAuth"
         ],
         "x-fern-ignore": true
       }
     },
-    "/api/v1/mcp-servers/{name}/authorize": {
+    "/api/v1/legacy/mcp-servers/{name}/authorize": {
       "get": {
         "description": "Registers a DCR client for this server if none exists yet, then returns an authorization URL to redirect the user to so they can complete the OAuth consent flow. Short-circuits to `{status: authenticated}` with no URL if the server is already connected.",
         "parameters": [
@@ -3241,15 +3128,16 @@
         },
         "summary": "Start (or short-circuit) the auth flow for an MCP server",
         "tags": [
-          "MCP Servers"
+          "Legacy MCP Servers"
         ],
         "x-fern-sdk-group-name": [
+          "legacy",
           "mcp_servers"
         ],
         "x-fern-sdk-method-name": "authorize"
       }
     },
-    "/api/v1/mcp-servers/{name}/tools": {
+    "/api/v1/legacy/mcp-servers/{name}/tools": {
       "get": {
         "description": "All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call. No agent-spec tool selectors are applied — this is the raw server catalog.",
         "parameters": [
@@ -3309,17 +3197,70 @@
         },
         "summary": "List tools of an MCP server",
         "tags": [
-          "MCP Servers"
+          "Legacy MCP Servers"
         ],
         "x-fern-sdk-group-name": [
+          "legacy",
           "mcp_servers"
         ],
         "x-fern-sdk-method-name": "list_tools"
       }
     },
+    "/api/v1/legacy/models": {
+      "get": {
+        "description": "Models declared in models.yaml — the registry the runtime still uses for turns.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListLegacyModelsResponse"
+                }
+              }
+            },
+            "description": "All configured models."
+          }
+        },
+        "summary": "List models (models.yaml)",
+        "tags": [
+          "Legacy Models"
+        ],
+        "x-fern-sdk-group-name": [
+          "legacy",
+          "models"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/legacy/skills": {
+      "get": {
+        "description": "Agent skills declared in skills.yaml.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSkillsResponse"
+                }
+              }
+            },
+            "description": "All configured skills."
+          }
+        },
+        "summary": "List skills",
+        "tags": [
+          "Legacy Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "legacy",
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
     "/api/v1/model-providers": {
       "get": {
-        "description": "All configured providers with their models. API keys are redacted to `auth.api_key_set`.",
+        "description": "All configured providers with their models.",
         "responses": {
           "200": {
             "content": {
@@ -3347,7 +3288,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PutModelProviderRequest"
+                "$ref": "#/components/schemas/ModelProvider"
               }
             }
           },
@@ -3362,7 +3303,7 @@
                 }
               }
             },
-            "description": "The saved provider, with `auth` redacted."
+            "description": "The saved provider."
           },
           "400": {
             "content": {
@@ -3412,7 +3353,7 @@
     },
     "/api/v1/models": {
       "get": {
-        "description": "Models across all configured model providers, addressed by fully qualified name `provider_name/model_name`.",
+        "description": "Models across all configured model providers, addressed by fully qualified name `name/model_name`.",
         "responses": {
           "200": {
             "content": {
@@ -3430,32 +3371,6 @@
           "Models"
         ],
         "x-fern-sdk-group-name": [
-          "models"
-        ],
-        "x-fern-sdk-method-name": "list"
-      }
-    },
-    "/api/v1/old/models": {
-      "get": {
-        "description": "Models declared in models.yaml, reachable through the OpenAI-compatible API at the file's base_url.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListOldModelsResponse"
-                }
-              }
-            },
-            "description": "All configured models."
-          }
-        },
-        "summary": "List models (models.yaml)",
-        "tags": [
-          "Models"
-        ],
-        "x-fern-sdk-group-name": [
-          "old",
           "models"
         ],
         "x-fern-sdk-method-name": "list"
@@ -4235,31 +4150,6 @@
           "sessions"
         ],
         "x-fern-sdk-method-name": "list_turn_events"
-      }
-    },
-    "/api/v1/skills": {
-      "get": {
-        "description": "Agent skills declared in skills.yaml.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListSkillsResponse"
-                }
-              }
-            },
-            "description": "All configured skills."
-          }
-        },
-        "summary": "List skills",
-        "tags": [
-          "Skills"
-        ],
-        "x-fern-sdk-group-name": [
-          "skills"
-        ],
-        "x-fern-sdk-method-name": "list"
       }
     }
   },
