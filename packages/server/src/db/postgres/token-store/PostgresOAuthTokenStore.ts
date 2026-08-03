@@ -1,7 +1,6 @@
 import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from '@truefoundry/utils/core';
 import type { Kysely } from 'kysely';
 import type { Database } from '../types';
-import { deleteResource } from './queries/deleteResource';
 import { getPendingAuthorization, savePendingAuthorization } from './queries/pendingAuthorization';
 import { deleteToken, getToken, saveToken } from './queries/token';
 
@@ -33,9 +32,5 @@ export class PostgresOAuthTokenStore implements IOAuthTokenStore {
 
   deleteToken(params: { id: string }): Promise<void> {
     return deleteToken(this.db, params);
-  }
-
-  delete(params: { id: string }): Promise<void> {
-    return deleteResource(this.db, params);
   }
 }

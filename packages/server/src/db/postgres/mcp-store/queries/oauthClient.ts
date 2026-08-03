@@ -56,11 +56,3 @@ export async function getClient(
     },
   };
 }
-
-export async function deleteClient(db: Kysely<Database>, params: { id: string }): Promise<void> {
-  await db
-    .updateTable('mcp_server')
-    .set({ oauth_server: null, oauth_client: null, updated_at: now() })
-    .where('id', '=', params.id)
-    .execute();
-}

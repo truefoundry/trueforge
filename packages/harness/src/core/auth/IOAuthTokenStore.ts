@@ -31,7 +31,4 @@ export interface IOAuthTokenStore {
 
   /** Clears only the token (e.g. after a failed refresh, before re-authorizing). */
   deleteToken(params: { id: string }): Promise<void>;
-
-  /** Clears the token and any pending authorization for this resource. */
-  delete(params: { id: string }): Promise<void>;
 }

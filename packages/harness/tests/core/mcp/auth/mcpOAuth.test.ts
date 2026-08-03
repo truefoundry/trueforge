@@ -17,40 +17,14 @@ import {
   type OAuthClientRegistration,
 } from '../../../../src/core';
 
-/** Test convenience: one in-memory backing for both stores, so a test can seed/read via a single
- * object and then pass it to the helpers as both `tokenStore` and `clientStore`. */
-class TestMcpStore {
-  private readonly tokenStore = new InMemoryOAuthTokenStore();
-  private readonly clientStore = new InMemoryOAuthClientStore();
+interface Stores {
+  tokenStore: InMemoryOAuthTokenStore;
+  clientStore: InMemoryOAuthClientStore;
+}
 
-  saveClient(params: { id: string; registration: OAuthClientRegistration }) {
-    return this.clientStore.saveClient(params);
-  }
-  getClient(params: { id: string }) {
-    return this.clientStore.getClient(params);
-  }
-  deleteClient(params: { id: string }) {
-    return this.clientStore.deleteClient(params);
-  }
-  savePendingAuthorization(pending: Parameters<InMemoryOAuthTokenStore['savePendingAuthorization']>[0]) {
-    return this.tokenStore.savePendingAuthorization(pending);
-  }
-  getPendingAuthorization(params: { state: string }) {
-    return this.tokenStore.getPendingAuthorization(params);
-  }
-  saveToken(params: Parameters<InMemoryOAuthTokenStore['saveToken']>[0]) {
-    return this.tokenStore.saveToken(params);
-  }
-  getToken(params: { id: string }) {
-    return this.tokenStore.getToken(params);
-  }
-  deleteToken(params: { id: string }) {
-    return this.tokenStore.deleteToken(params);
-  }
-  async delete(params: { id: string }) {
-    await this.clientStore.deleteClient(params);
-    await this.tokenStore.delete(params);
-  }
+/** The two generic stores the helpers consume, freshly backed in memory per test. */
+function newStores(): Stores {
+  return { tokenStore: new InMemoryOAuthTokenStore(), clientStore: new InMemoryOAuthClientStore() };
 }
 
 const PUBLIC_BASE_URL = 'https://harness.example.com';
@@ -179,12 +153,12 @@ describe('resourceUrlFromServerUrl (SDK)', () => {
 
 describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
   it('returns the cached client without discovery or registration', async () => {
-    const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
+    const { clientStore } = newStores();
+    await clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
     const { registerCallCount } = stubOauthFetch({});
 
     const result = await ensureMcpClientRegistered({
-      clientStore: store,
+      clientStore,
       serverId: SERVER_ID,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
@@ -197,11 +171,11 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
   });
 
   it('discovers, registers confidential client, and saves the record', async () => {
-    const store = new TestMcpStore();
+    const { clientStore } = newStores();
     const { registerBodies } = stubOauthFetch({});
 
     const result = await ensureMcpClientRegistered({
-      clientStore: store,
+      clientStore,
       serverId: SERVER_ID,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
@@ -223,14 +197,14 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
   });
 
   it('retries registration without token_endpoint_auth_method when the first attempt fails', async () => {
-    const store = new TestMcpStore();
+    const { clientStore } = newStores();
     const { registerBodies, registerCallCount } = stubOauthFetch({
       registrationFailFirst: true,
       registeredClient: { client_id: 'public-client' },
     });
 
     const result = await ensureMcpClientRegistered({
-      clientStore: store,
+      clientStore,
       serverId: SERVER_ID,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
@@ -246,12 +220,12 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
   });
 
   it('throws when the AS has no registration_endpoint', async () => {
-    const store = new TestMcpStore();
+    const { clientStore } = newStores();
     stubOauthFetch({ skipRegistrationEndpoint: true });
 
     await expect(
       ensureMcpClientRegistered({
-        clientStore: store,
+        clientStore,
         serverId: SERVER_ID,
         mcpServerUrl: SERVER_URL,
         mcpServerName: SERVER_NAME,
@@ -265,7 +239,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
   });
 
   it('does not save a client when both registration attempts fail', async () => {
-    const store = new TestMcpStore();
+    const { clientStore } = newStores();
     const { registerCallCount } = stubOauthFetch({ registrationFailAlways: true });
 
     await expect(
@@ -277,13 +251,13 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
       }),
     ).rejects.toBeInstanceOf(McpConnectionError);
     expect(registerCallCount()).toBe(2);
-    expect(await store.getClient({ id: SERVER_ID })).toBeUndefined();
+    expect(await clientStore.getClient({ id: SERVER_ID })).toBeUndefined();
   });
 
   it('throws when publicBaseUrl is empty (no trimming)', async () => {
     await expect(
       ensureMcpClientRegistered({
-        clientStore: new TestMcpStore(),
+        clientStore: new InMemoryOAuthClientStore(),
         serverId: SERVER_ID,
         mcpServerUrl: SERVER_URL,
         mcpServerName: SERVER_NAME,
@@ -296,13 +270,13 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
 
 describe('buildMcpAuthorizationUrl', () => {
   it('saves pending authorization with state and returns a URL object', async () => {
-    const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
+    const { tokenStore, clientStore } = newStores();
+    await clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
     stubOauthFetch({});
 
     const authUrl = await buildMcpAuthorizationUrl({
-      tokenStore: store,
-      clientStore: store,
+      tokenStore,
+      clientStore,
       serverId: SERVER_ID,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
@@ -321,7 +295,7 @@ describe('buildMcpAuthorizationUrl', () => {
 
     const state = authUrl.searchParams.get('state');
     expect(state).toBeTruthy();
-    const pending = await store.getPendingAuthorization({ state: state! });
+    const pending = await tokenStore.getPendingAuthorization({ state: state! });
     expect(pending).toMatchObject({
       state,
       id: SERVER_ID,
@@ -331,9 +305,9 @@ describe('buildMcpAuthorizationUrl', () => {
   });
 });
 
-const resolveParams = (store: TestMcpStore, mcpServerUrl = SERVER_URL) => ({
-  tokenStore: store,
-  clientStore: store,
+const resolveParams = (stores: Stores, mcpServerUrl = SERVER_URL) => ({
+  tokenStore: stores.tokenStore,
+  clientStore: stores.clientStore,
   serverId: SERVER_ID,
   mcpServerUrl,
   mcpServerName: SERVER_NAME,
@@ -343,8 +317,8 @@ const resolveParams = (store: TestMcpStore, mcpServerUrl = SERVER_URL) => ({
 
 describe('resolveMcpAuth', () => {
   it('returns bearer headers when the token is still valid', async () => {
-    const store = new TestMcpStore();
-    await store.saveToken({
+    const stores = newStores();
+    await stores.tokenStore.saveToken({
       id: SERVER_ID,
       token: {
         accessToken: 'live-token',
@@ -354,15 +328,15 @@ describe('resolveMcpAuth', () => {
       },
     });
 
-    const result = await resolveMcpAuth(resolveParams(store));
+    const result = await resolveMcpAuth(resolveParams(stores));
 
     expect(result).toEqual({ headers: { Authorization: 'Bearer live-token' } });
   });
 
   it('refreshes an expired token when a refresh_token is stored', async () => {
-    const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
-    await store.saveToken({
+    const stores = newStores();
+    await stores.clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
+    await stores.tokenStore.saveToken({
       id: SERVER_ID,
       token: {
         accessToken: 'old-access',
@@ -380,7 +354,7 @@ describe('resolveMcpAuth', () => {
       },
     });
 
-    const result = await resolveMcpAuth(resolveParams(store));
+    const result = await resolveMcpAuth(resolveParams(stores));
 
     expect(result).toEqual({ headers: { Authorization: 'Bearer new-access' } });
     expect(tokenBodies).toHaveLength(1);
@@ -388,15 +362,15 @@ describe('resolveMcpAuth', () => {
     // Secret present → client_secret_post (form body), not HTTP Basic.
     expect(String(tokenBodies[0])).toContain('client_secret=cached-secret');
     expect(tokenAuthHeaders[0]).toBe('');
-    const saved = await store.getToken({ id: SERVER_ID });
+    const saved = await stores.tokenStore.getToken({ id: SERVER_ID });
     expect(saved?.accessToken).toBe('new-access');
     expect(saved?.refreshToken).toBe('new-refresh');
   });
 
   it('uses a default TTL when the token response omits expires_in', async () => {
-    const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
-    await store.saveToken({
+    const stores = newStores();
+    await stores.clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
+    await stores.tokenStore.saveToken({
       id: SERVER_ID,
       token: {
         accessToken: 'old-access',
@@ -414,20 +388,20 @@ describe('resolveMcpAuth', () => {
       },
     });
 
-    const result = await resolveMcpAuth({ ...resolveParams(store), nowMs });
+    const result = await resolveMcpAuth({ ...resolveParams(stores), nowMs });
 
     expect(result).toEqual({ headers: { Authorization: 'Bearer new-access' } });
-    const saved = await store.getToken({ id: SERVER_ID });
+    const saved = await stores.tokenStore.getToken({ id: SERVER_ID });
     expect(saved?.expiresAt).toBe(new Date(nowMs + DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS * 1000).toISOString());
     // Still usable on the next resolve with a slightly later clock.
-    const again = await resolveMcpAuth({ ...resolveParams(store), nowMs: nowMs + 1_000 });
+    const again = await resolveMcpAuth({ ...resolveParams(stores), nowMs: nowMs + 1_000 });
     expect(again).toEqual({ headers: { Authorization: 'Bearer new-access' } });
   });
 
   it('returns authentication_required and clears token when refresh fails', async () => {
-    const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
-    await store.saveToken({
+    const stores = newStores();
+    await stores.clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
+    await stores.tokenStore.saveToken({
       id: SERVER_ID,
       token: {
         accessToken: 'old-access',
@@ -438,19 +412,19 @@ describe('resolveMcpAuth', () => {
     });
     stubOauthFetch({ tokenFail: true });
 
-    const result = await resolveMcpAuth(resolveParams(store));
+    const result = await resolveMcpAuth(resolveParams(stores));
 
     expect(isMcpAuthRequired(result)).toBe(true);
     if (!isMcpAuthRequired(result)) throw new Error('unreachable');
     expect(result.authUrl).toBeInstanceOf(URL);
-    expect(await store.getToken({ id: SERVER_ID })).toBeUndefined();
-    expect(await store.getClient({ id: SERVER_ID })).toEqual(sampleClient);
+    expect(await stores.tokenStore.getToken({ id: SERVER_ID })).toBeUndefined();
+    expect(await stores.clientStore.getClient({ id: SERVER_ID })).toEqual(sampleClient);
   });
 
   it('returns authentication_required and clears expired token without refresh_token', async () => {
-    const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
-    await store.saveToken({
+    const stores = newStores();
+    await stores.clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
+    await stores.tokenStore.saveToken({
       id: SERVER_ID,
       token: {
         accessToken: 'old-access',
@@ -461,22 +435,22 @@ describe('resolveMcpAuth', () => {
     });
     stubOauthFetch({});
 
-    const result = await resolveMcpAuth(resolveParams(store));
+    const result = await resolveMcpAuth(resolveParams(stores));
 
     expect(isMcpAuthRequired(result)).toBe(true);
     if (!isMcpAuthRequired(result)) throw new Error('unreachable');
     expect(result.authUrl).toBeInstanceOf(URL);
     expect(result.authUrl.href).toContain('/authorize');
-    expect(await store.getToken({ id: SERVER_ID })).toBeUndefined();
-    expect(await store.getClient({ id: SERVER_ID })).toEqual(sampleClient);
+    expect(await stores.tokenStore.getToken({ id: SERVER_ID })).toBeUndefined();
+    expect(await stores.clientStore.getClient({ id: SERVER_ID })).toEqual(sampleClient);
   });
 
   it('returns authentication_required when no token exists', async () => {
-    const store = new TestMcpStore();
-    await store.saveClient({ id: SERVER_ID, registration: sampleClient });
+    const stores = newStores();
+    await stores.clientStore.saveClient({ id: SERVER_ID, registration: sampleClient });
     stubOauthFetch({});
 
-    const result = await resolveMcpAuth(resolveParams(store));
+    const result = await resolveMcpAuth(resolveParams(stores));
 
     expect(isMcpAuthRequired(result)).toBe(true);
     if (!isMcpAuthRequired(result)) throw new Error('unreachable');
@@ -488,16 +462,16 @@ describe('end-to-end DCR + authorize with normalised MCP URL', () => {
   it('registers, builds auth URL with resource, and resolves auth_required without a token', async () => {
     // Mixed-case scheme/host + fragment: resource indicator must still be RFC-8707-safe.
     const mixedUrl = 'HTTPS://MCP.Example.COM/sse#fragment';
-    const store = new TestMcpStore();
+    const stores = newStores();
     const { registerBodies } = stubOauthFetch({});
 
-    const result = await resolveMcpAuth(resolveParams(store, mixedUrl));
+    const result = await resolveMcpAuth(resolveParams(stores, mixedUrl));
 
     expect(isMcpAuthRequired(result)).toBe(true);
     if (!isMcpAuthRequired(result)) throw new Error('unreachable');
 
     expect(registerBodies).toHaveLength(1);
-    const client = await store.getClient({ id: SERVER_ID });
+    const client = await stores.clientStore.getClient({ id: SERVER_ID });
     expect(client?.client.clientId).toBe('dyn-client-1');
 
     const url = result.authUrl;

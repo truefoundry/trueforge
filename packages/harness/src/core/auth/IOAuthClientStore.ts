@@ -25,6 +25,4 @@ export interface IOAuthClientStore {
   saveClient(params: { id: string; registration: OAuthClientRegistration }): Promise<void>;
 
   getClient(params: { id: string }): Promise<OAuthClientRegistration | undefined>;
-
-  deleteClient(params: { id: string }): Promise<void>;
 }

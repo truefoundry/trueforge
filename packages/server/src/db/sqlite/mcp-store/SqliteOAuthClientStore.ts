@@ -1,7 +1,7 @@
 import type { IOAuthClientStore, OAuthClientRegistration } from '@truefoundry/utils/core';
 import type { Kysely } from 'kysely';
 import type { Database } from '../types';
-import { deleteClient, getClient, saveClient } from './queries/oauthClient';
+import { getClient, saveClient } from './queries/oauthClient';
 
 export class SqliteMCPOAuthClientStore implements IOAuthClientStore {
   constructor(private readonly db: Kysely<Database>) {}
@@ -12,9 +12,5 @@ export class SqliteMCPOAuthClientStore implements IOAuthClientStore {
 
   getClient(params: { id: string }): Promise<OAuthClientRegistration | undefined> {
     return getClient(this.db, params);
-  }
-
-  deleteClient(params: { id: string }): Promise<void> {
-    return deleteClient(this.db, params);
   }
 }
