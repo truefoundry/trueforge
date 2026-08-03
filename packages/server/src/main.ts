@@ -26,6 +26,10 @@ try {
     { PostgresSessionStore },
     { ModelCatalog },
     { PostgresModelProviderStore },
+    { McpCatalog },
+    { PostgresMcpServerStore },
+    { SkillCatalog },
+    { PostgresSkillStore },
   ] = await Promise.all([
     import('./app'),
     import('./frontend'),
@@ -43,6 +47,10 @@ try {
     import('./db/postgres/session-store/PostgresSessionStore'),
     import('./catalog/ModelCatalog'),
     import('./db/postgres/model-provider-store/PostgresModelProviderStore'),
+    import('./catalog/McpCatalog'),
+    import('./db/postgres/mcp-server-store/PostgresMcpServerStore'),
+    import('./catalog/SkillCatalog'),
+    import('./db/postgres/skill-store/PostgresSkillStore'),
   ]);
 
   // Console logger shared by the server runtime (harness components require one).
@@ -57,7 +65,7 @@ try {
 
   const sessionStore = new PostgresSessionStore(db);
   // Throws on malformed SANDBOX_SETTINGS; undefined when sandbox is not configured.
-  const skillStore = SkillStore.load();
+  const legacySkillStore = SkillStore.load();
   const sandboxFactory = createServerSandboxFactory({ logger });
   const activeTurns = new ActiveTurnRegistry();
 
@@ -74,8 +82,12 @@ try {
     modelStore: ModelStore.load(),
     modelCatalog: ModelCatalog.load(),
     modelProviderStore: new PostgresModelProviderStore(db),
+    mcpCatalog: McpCatalog.load(),
+    mcpServerStore: new PostgresMcpServerStore(db),
     mcpStore: McpStore.load(),
-    skillStore,
+    skillCatalog: SkillCatalog.load(),
+    skillStore: new PostgresSkillStore(db),
+    legacySkillStore,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,
