@@ -28,11 +28,15 @@ export type OAuthPendingAuthorizationData = OAuthPendingAuthorization;
 /** `oauth_token.token` JSONB shape — matches SF's MCPUserAuthModel.authData. */
 export interface OAuthToken {
   accessToken: string;
+  // `| undefined` (not just `?:`) so a plain object literal type-checks under
+  // `exactOptionalPropertyTypes` — matches the session-store convention (nullable/optional DB
+  // row fields spell out their absent-value type rather than fighting the compiler with a
+  // runtime omit-undefined step). JSON.stringify drops the key either way.
   /** absent: some grants don't issue one */
-  refreshToken?: string;
+  refreshToken?: string | undefined;
   /** ISO 8601; always filled — see "missing expires_in" fallback in the design doc */
   expiresAt: string;
-  scope?: string;
+  scope?: string | undefined;
 }
 
 /**

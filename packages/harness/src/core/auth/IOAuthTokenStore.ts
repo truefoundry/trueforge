@@ -46,11 +46,14 @@ export interface OAuthPendingAuthorization {
 /** Stored access token for one resource. */
 export interface OAuthToken {
   accessToken: string;
-  refreshToken?: string;
+  // `| undefined` (not just `?:`) so implementations can build this from a spread/mapped object
+  // without fighting `exactOptionalPropertyTypes` — see `packages/server`'s DB row types, which
+  // mirror this 1:1 for the same reason.
+  refreshToken?: string | undefined;
   /** Absolute expiry; treat missing expiry at write time as already-expired, not never-expiring. */
   expiresAt: Date;
   /** Space-delimited, single string. */
-  scope?: string;
+  scope?: string | undefined;
 }
 
 export interface IOAuthTokenStore {

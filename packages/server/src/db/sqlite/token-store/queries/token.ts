@@ -1,36 +1,29 @@
 import type { OAuthToken } from '@truefoundry/utils/core';
 import { sql, type Kysely } from 'kysely';
+import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database, OAuthToken as OAuthTokenRow } from '../../types';
-import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 
-/** Drops `undefined`-valued keys — required under `exactOptionalPropertyTypes` when an optional
- * source field (`string | undefined`) is copied into an optional target field (`string`). */
-function omitUndefined(obj: Record<string, unknown>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (value !== undefined) {
-      result[key] = value;
-    }
-  }
-  return result;
-}
+// Both `OAuthToken` (harness domain type) and `OAuthTokenRow` (this DB's JSONB shape) declare
+// their optional fields as `T | undefined`, not just `T`, so these plain object literals
+// type-check under `exactOptionalPropertyTypes` with no runtime undefined-stripping step —
+// `JSON.stringify` (inside `jsonbBind()`) drops undefined-valued keys either way.
 
 function toRow(token: OAuthToken): OAuthTokenRow {
-  return omitUndefined({
+  return {
     accessToken: token.accessToken,
     refreshToken: token.refreshToken,
     expiresAt: token.expiresAt.toISOString(),
     scope: token.scope,
-  }) as unknown as OAuthTokenRow;
+  };
 }
 
 function fromRow(row: OAuthTokenRow): OAuthToken {
-  return omitUndefined({
+  return {
     accessToken: row.accessToken,
     refreshToken: row.refreshToken,
     expiresAt: new Date(row.expiresAt),
     scope: row.scope,
-  }) as unknown as OAuthToken;
+  };
 }
 
 export async function saveToken(db: Kysely<Database>, params: { server_id: string; token: OAuthToken }): Promise<void> {

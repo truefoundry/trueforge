@@ -1,7 +1,7 @@
 import type { OAuthPendingAuthorization } from '@truefoundry/utils/core';
 import { sql, type Kysely } from 'kysely';
+import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database } from '../../types';
-import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 
 export async function savePendingAuthorization(
   db: Kysely<Database>,
