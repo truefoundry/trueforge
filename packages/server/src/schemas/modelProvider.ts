@@ -4,8 +4,7 @@
  * ModelCatalog.
  */
 import { z } from '@hono/zod-openapi';
-import { uniqueNames } from '../store/schemas';
-import { NameSchema } from './common';
+import { NameSchema, uniqueNames } from './common';
 
 export const ProviderTypeSchema = z.enum(['openai', 'anthropic', 'custom']).openapi('ProviderType');
 

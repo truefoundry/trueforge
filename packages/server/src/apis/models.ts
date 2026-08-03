@@ -1,7 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ModelStore } from '../legacy-registry-store/ModelStore';
 import { listModelsRoute, listOldModelsRoute } from '../routes/modelRoutes';
-import type { ModelStore } from '../store/ModelStore';
 import { TENANT_ID } from './sessions';
 
 /** FQN read view over configured model providers (mounted at /api/v1/models). */

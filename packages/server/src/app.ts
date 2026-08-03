@@ -17,10 +17,10 @@ import { createSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { IModelProviderStore } from './db/modelProviderStore';
+import type { McpStore } from './legacy-registry-store/McpStore';
+import type { ModelStore } from './legacy-registry-store/ModelStore';
+import type { SkillStore } from './legacy-registry-store/SkillStore';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
-import type { McpStore } from './store/McpStore';
-import type { ModelStore } from './store/ModelStore';
-import type { SkillStore } from './store/SkillStore';
 
 const openApiDocConfig = {
   openapi: '3.1.0',

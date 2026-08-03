@@ -1,5 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { SkillEntrySchema } from '../store/schemas';
+import { SkillEntrySchema } from '../legacy-registry-store/schemas';
 
 const ListSkillsResponseSchema = z
   .object({

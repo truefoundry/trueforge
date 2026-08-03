@@ -1,6 +1,6 @@
 import { createRoute, z } from '@hono/zod-openapi';
+import { ModelEntrySchema } from '../legacy-registry-store/schemas';
 import { ListModelsResponseSchema } from '../schemas/modelProvider';
-import { ModelEntrySchema } from '../store/schemas';
 
 export const listModelsRoute = createRoute({
   method: 'get',

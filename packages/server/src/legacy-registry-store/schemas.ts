@@ -1,5 +1,5 @@
 /**
- * Zod schemas for the YAML config files (models.yaml, mcp.yaml, skills.yaml).
+ * Zod schemas for the legacy YAML registry files (models.yaml, mcp.yaml, skills.yaml).
  * Validation is strict: unknown keys, duplicate names, or missing fields make
  * the server fail at startup.
  *
@@ -7,20 +7,7 @@
  */
 import { z } from '@hono/zod-openapi';
 import { normalizeEnvName } from '../config';
-
-/** Adds a validation issue if two entries share a name. */
-export function uniqueNames(entries: { name: string }[], ctx: z.RefinementCtx): void {
-  const seen = new Set<string>();
-  for (const entry of entries) {
-    if (seen.has(entry.name)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `Duplicate name "${entry.name}" — names must be unique`,
-      });
-    }
-    seen.add(entry.name);
-  }
-}
+import { uniqueNames } from '../schemas/common';
 
 /**
  * Adds a validation issue if two distinct names normalize to the same

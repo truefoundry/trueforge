@@ -16,10 +16,10 @@ import { ModelCatalog } from '../src/catalog/ModelCatalog';
 import configuration from '../src/config';
 import { createDb } from '../src/db/postgres/client';
 import { PostgresModelProviderStore } from '../src/db/postgres/model-provider-store/PostgresModelProviderStore';
+import { McpStore } from '../src/legacy-registry-store/McpStore';
+import { ModelStore } from '../src/legacy-registry-store/ModelStore';
+import { SkillStore } from '../src/legacy-registry-store/SkillStore';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
-import { McpStore } from '../src/store/McpStore';
-import { ModelStore } from '../src/store/ModelStore';
-import { SkillStore } from '../src/store/SkillStore';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;

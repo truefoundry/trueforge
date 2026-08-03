@@ -1,5 +1,5 @@
 /**
- * Server-wide shared Zod field schemas.
+ * Server-wide shared Zod field schemas and refinements.
  */
 import { z } from '@hono/zod-openapi';
 
@@ -18,3 +18,17 @@ export const NameSchema = z
   .openapi('ResourceName');
 
 export type ResourceName = z.infer<typeof NameSchema>;
+
+/** Adds a validation issue if two entries share a name. */
+export function uniqueNames(entries: { name: string }[], ctx: z.RefinementCtx): void {
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (seen.has(entry.name)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Duplicate name "${entry.name}" — names must be unique`,
+      });
+    }
+    seen.add(entry.name);
+  }
+}

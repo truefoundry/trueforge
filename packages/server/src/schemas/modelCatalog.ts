@@ -3,8 +3,7 @@
  * configured provider manifests in modelProvider.ts.
  */
 import { z } from '@hono/zod-openapi';
-import { uniqueNames } from '../store/schemas';
-import { NameSchema } from './common';
+import { NameSchema, uniqueNames } from './common';
 import { ModelEntrySchema, ProviderTypeSchema, refineUniqueModels } from './modelProvider';
 
 /** Catalog entry: no `custom` providers — those exist only as tenant configuration. */

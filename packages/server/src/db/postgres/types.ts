@@ -14,8 +14,8 @@ import type {
 } from '@truefoundry/utils/core';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { McpServerManifest } from '../../legacy-registry-store/schemas';
 import type { ProviderManifest } from '../../schemas/modelProvider';
-import type { McpServerManifest } from '../../store/schemas';
 
 /**
  * `mcp_server.oauth_server` JSONB shape — RFC 8414 authorization-server metadata, discovered once

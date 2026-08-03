@@ -1,6 +1,6 @@
 import { createRoute, z } from '@hono/zod-openapi';
+import { McpServerEntrySchema } from '../legacy-registry-store/schemas';
 import { RequestErrorResponseSchema } from '../schemas/errors';
-import { McpServerEntrySchema } from '../store/schemas';
 
 const MCP_SERVERS_TAG = 'MCP Servers';
 
