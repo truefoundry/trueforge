@@ -184,7 +184,7 @@ export class InMemorySessionStore<
       return;
     }
     for (const turnId of stored.turnIds) {
-      const tKey = turnKey(input.session_id, turnId);
+      const tKey = turnKey({ session_id: input.session_id, turn_id: turnId });
       this.turns.delete(tKey);
       this.events.delete(tKey);
     }
