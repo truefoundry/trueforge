@@ -20,11 +20,26 @@ import {
   mcpClientInformation,
   mcpOAuthCallbackUrl,
 } from './mcpOAuthHelpers';
-import { McpAuthStatus } from './types';
 
-export type ResolveMcpAuthResult =
-  | { status: McpAuthStatus.Authenticated; headers: Record<string, string> }
-  | { status: McpAuthStatus.AuthenticationRequired; authUrl: URL };
+/** Auth already resolved: ready-to-use request headers (bearer token). */
+export interface McpAuthResolvedResult {
+  headers: Record<string, string>;
+}
+
+/** Auth not resolved: the URL the user must visit to (re)authorize. */
+export interface McpAuthRequiredResult {
+  authUrl: URL;
+}
+
+/**
+ * Discriminated structurally by which key is present — no status tag/enum — mirroring
+ * `isAuthRequired` / `AuthRequiredResponse` in `core/mcp/IMCPServer`.
+ */
+export type ResolveMcpAuthResult = McpAuthResolvedResult | McpAuthRequiredResult;
+
+export function isMcpAuthRequired(result: ResolveMcpAuthResult): result is McpAuthRequiredResult {
+  return 'authUrl' in result;
+}
 
 /**
  * When the token response omits `expires_in` (allowed by RFC 6749), use a 1h TTL so
@@ -233,10 +248,7 @@ export async function resolveMcpAuth(params: {
   const token = await params.store.getToken({ id: params.serverId });
 
   if (token && isMcpAccessTokenUsable(token.expiresAt, nowMs)) {
-    return {
-      status: McpAuthStatus.Authenticated,
-      headers: { Authorization: `Bearer ${token.accessToken}` },
-    };
+    return { headers: { Authorization: `Bearer ${token.accessToken}` } };
   }
 
   if (token?.refreshToken) {
@@ -251,10 +263,7 @@ export async function resolveMcpAuth(params: {
         });
         const saved = oauthTokensToOAuthToken(refreshed, nowMs, token.refreshToken);
         await params.store.saveToken({ id: params.serverId, token: saved });
-        return {
-          status: McpAuthStatus.Authenticated,
-          headers: { Authorization: `Bearer ${saved.accessToken}` },
-        };
+        return { headers: { Authorization: `Bearer ${saved.accessToken}` } };
       } catch {
         // Any refresh failure → full re-authorize (do not inspect the error).
       }
@@ -274,5 +283,5 @@ export async function resolveMcpAuth(params: {
     clientName: params.clientName,
     ...(params.redirectUrl !== undefined ? { redirectUrl: params.redirectUrl } : {}),
   });
-  return { status: McpAuthStatus.AuthenticationRequired, authUrl };
+  return { authUrl };
 }

@@ -3,9 +3,10 @@ export {
   buildMcpAuthorizationUrl,
   createMcpOAuthClient,
   ensureMcpClientRegistered,
+  isMcpAuthRequired,
   resolveMcpAuth,
 } from './mcpDcr';
-export type { McpTokenStore, ResolveMcpAuthResult } from './mcpDcr';
+export type { McpAuthRequiredResult, McpAuthResolvedResult, McpTokenStore, ResolveMcpAuthResult } from './mcpDcr';
 export {
   MCP_OAUTH_CALLBACK_PATH,
   mcpAuthorizationServerMetadata,
@@ -13,4 +14,3 @@ export {
   mcpClientInformation,
   mcpOAuthCallbackUrl,
 } from './mcpOAuthHelpers';
-export { McpAuthStatus } from './types';

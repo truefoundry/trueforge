@@ -7,11 +7,11 @@ import {
   DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
   InMemoryOAuthClientStore,
   InMemoryOAuthTokenStore,
-  McpAuthStatus,
   McpConnectionError,
   buildMcpAuthorizationUrl,
   createMcpOAuthClient,
   ensureMcpClientRegistered,
+  isMcpAuthRequired,
   mcpOAuthCallbackUrl,
   resolveMcpAuth,
   type McpTokenStore,
@@ -355,10 +355,7 @@ describe('resolveMcpAuth', () => {
 
     const result = await resolveMcpAuth(resolveParams(store));
 
-    expect(result).toEqual({
-      status: McpAuthStatus.Authenticated,
-      headers: { Authorization: 'Bearer live-token' },
-    });
+    expect(result).toEqual({ headers: { Authorization: 'Bearer live-token' } });
   });
 
   it('refreshes an expired token when a refresh_token is stored', async () => {
@@ -384,10 +381,7 @@ describe('resolveMcpAuth', () => {
 
     const result = await resolveMcpAuth(resolveParams(store));
 
-    expect(result).toEqual({
-      status: McpAuthStatus.Authenticated,
-      headers: { Authorization: 'Bearer new-access' },
-    });
+    expect(result).toEqual({ headers: { Authorization: 'Bearer new-access' } });
     expect(tokenBodies).toHaveLength(1);
     expect(String(tokenBodies[0])).toContain('grant_type=refresh_token');
     // Secret present → client_secret_post (form body), not HTTP Basic.
@@ -421,18 +415,12 @@ describe('resolveMcpAuth', () => {
 
     const result = await resolveMcpAuth({ ...resolveParams(store), nowMs });
 
-    expect(result).toEqual({
-      status: McpAuthStatus.Authenticated,
-      headers: { Authorization: 'Bearer new-access' },
-    });
+    expect(result).toEqual({ headers: { Authorization: 'Bearer new-access' } });
     const saved = await store.getToken({ id: SERVER_ID });
     expect(saved?.expiresAt).toBe(new Date(nowMs + DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS * 1000).toISOString());
     // Still usable on the next resolve with a slightly later clock.
     const again = await resolveMcpAuth({ ...resolveParams(store), nowMs: nowMs + 1_000 });
-    expect(again).toEqual({
-      status: McpAuthStatus.Authenticated,
-      headers: { Authorization: 'Bearer new-access' },
-    });
+    expect(again).toEqual({ headers: { Authorization: 'Bearer new-access' } });
   });
 
   it('returns authentication_required and clears token when refresh fails', async () => {
@@ -451,8 +439,8 @@ describe('resolveMcpAuth', () => {
 
     const result = await resolveMcpAuth(resolveParams(store));
 
-    expect(result.status).toBe(McpAuthStatus.AuthenticationRequired);
-    if (result.status !== McpAuthStatus.AuthenticationRequired) throw new Error('unreachable');
+    expect(isMcpAuthRequired(result)).toBe(true);
+    if (!isMcpAuthRequired(result)) throw new Error('unreachable');
     expect(result.authUrl).toBeInstanceOf(URL);
     expect(await store.getToken({ id: SERVER_ID })).toBeUndefined();
     expect(await store.getClient({ id: SERVER_ID })).toEqual(sampleClient);
@@ -474,8 +462,8 @@ describe('resolveMcpAuth', () => {
 
     const result = await resolveMcpAuth(resolveParams(store));
 
-    expect(result.status).toBe(McpAuthStatus.AuthenticationRequired);
-    if (result.status !== McpAuthStatus.AuthenticationRequired) throw new Error('unreachable');
+    expect(isMcpAuthRequired(result)).toBe(true);
+    if (!isMcpAuthRequired(result)) throw new Error('unreachable');
     expect(result.authUrl).toBeInstanceOf(URL);
     expect(result.authUrl.href).toContain('/authorize');
     expect(await store.getToken({ id: SERVER_ID })).toBeUndefined();
@@ -489,8 +477,8 @@ describe('resolveMcpAuth', () => {
 
     const result = await resolveMcpAuth(resolveParams(store));
 
-    expect(result.status).toBe(McpAuthStatus.AuthenticationRequired);
-    if (result.status !== McpAuthStatus.AuthenticationRequired) throw new Error('unreachable');
+    expect(isMcpAuthRequired(result)).toBe(true);
+    if (!isMcpAuthRequired(result)) throw new Error('unreachable');
     expect(result.authUrl.searchParams.get('state')).toBeTruthy();
   });
 });
@@ -504,8 +492,8 @@ describe('end-to-end DCR + authorize with normalised MCP URL', () => {
 
     const result = await resolveMcpAuth(resolveParams(store, mixedUrl));
 
-    expect(result.status).toBe(McpAuthStatus.AuthenticationRequired);
-    if (result.status !== McpAuthStatus.AuthenticationRequired) throw new Error('unreachable');
+    expect(isMcpAuthRequired(result)).toBe(true);
+    if (!isMcpAuthRequired(result)) throw new Error('unreachable');
 
     expect(registerBodies).toHaveLength(1);
     const client = await store.getClient({ id: SERVER_ID });
