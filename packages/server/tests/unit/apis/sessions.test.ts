@@ -1,8 +1,6 @@
 import type { ISessionStore, TurnRecord, TurnState } from '@truefoundry/utils/agent-session';
 import { CancellationReason } from '@truefoundry/utils/agent-session';
 import { HTTPException } from 'hono/http-exception';
-import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
 import { createClient, type RedisClientType } from 'redis';
 import { cancelSessionTurn } from '../../../src/apis/sessions';
 import configuration from '../../../src/config';
@@ -67,8 +65,8 @@ describe('cancelSessionTurn', () => {
       { sessionId: SESSION_ID, turnId },
     );
 
-    assert.equal(abortController.signal.aborted, true);
-    assert.equal(abortController.signal.reason, CancellationReason.ClientCancelled);
+    expect(abortController.signal.aborted).toBe(true);
+    expect(abortController.signal.reason).toBe(CancellationReason.ClientCancelled);
   });
 
   it('does not look for a peer without a Redis client', async () => {
@@ -76,7 +74,7 @@ describe('cancelSessionTurn', () => {
     const turnId = mintPeeredTurnId('other1');
 
     // A peer hop here would dereference the absent client and throw.
-    await assert.doesNotReject(
+    await expect(
       cancelSessionTurn(
         {
           activeTurns,
@@ -84,7 +82,7 @@ describe('cancelSessionTurn', () => {
         },
         { sessionId: SESSION_ID, turnId },
       ),
-    );
+    ).resolves.toBeUndefined();
   });
 
   it('routes to the owning peer when the turn id names another replica', async () => {
@@ -92,7 +90,7 @@ describe('cancelSessionTurn', () => {
     const turnId = mintPeeredTurnId('other1');
 
     // The unconnected client makes the hop fail; the point is that it happened.
-    await assert.rejects(
+    await expect(
       cancelSessionTurn(
         {
           activeTurns,
@@ -101,7 +99,6 @@ describe('cancelSessionTurn', () => {
         },
         { sessionId: SESSION_ID, turnId },
       ),
-      (error: unknown) => error instanceof HTTPException,
-    );
+    ).rejects.toBeInstanceOf(HTTPException);
   });
 });
