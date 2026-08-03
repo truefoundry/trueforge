@@ -5,12 +5,8 @@
 import { McpConnectionError } from '@truefoundry/utils/core';
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
-import type {
-  IMcpTokenStore,
-  McpOAuthClientRecord,
-  McpOAuthPendingAuthorization,
-  McpOAuthToken,
-} from './IMcpTokenStore';
+import type { McpOAuthToken } from '../db/mcpOAuthTypes';
+import type { IMcpTokenStore, McpOAuthClientRecord, McpOAuthPendingAuthorization } from './IMcpTokenStore';
 import {
   buildAuthorizationUrl,
   ensureClientRegistered,
@@ -87,6 +83,9 @@ function createMemoryTokenStore(): IMcpTokenStore & {
     },
     async getToken(params) {
       return tokens.get(clientKey(params.tenantId, params.serverName));
+    },
+    async deleteToken(params) {
+      tokens.delete(clientKey(params.tenantId, params.serverName));
     },
     async delete(params) {
       const key = clientKey(params.tenantId, params.serverName);
@@ -342,8 +341,7 @@ describe('resolveAuth', () => {
       token: {
         accessToken: 'live-token',
         refreshToken: 'r',
-        expiresAt: new Date(Date.now() + 10 * 60_000),
-        scope: undefined,
+        expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
       },
     });
     const { registerCallCount } = stubOauthFetch({});
@@ -367,8 +365,7 @@ describe('resolveAuth', () => {
       token: {
         accessToken: 'old-access',
         refreshToken: 'old-refresh',
-        expiresAt: new Date(Date.now() - 1000),
-        scope: undefined,
+        expiresAt: new Date(Date.now() - 1000).toISOString(),
       },
     });
     stubOauthFetch({});
@@ -393,8 +390,7 @@ describe('resolveAuth', () => {
       token: {
         accessToken: 'old-access',
         refreshToken: 'old-refresh',
-        expiresAt: new Date(Date.now() - 1000),
-        scope: undefined,
+        expiresAt: new Date(Date.now() - 1000).toISOString(),
       },
     });
     stubOauthFetch({ refreshFails: true });
@@ -405,6 +401,15 @@ describe('resolveAuth', () => {
     if (result.status !== McpAuthStatus.AuthRequired) throw new Error('unreachable');
     assert.ok(result.authUrl.includes('/authorize'));
     assert.equal(store.savePendingCalls, 1);
+    // Dead token must be cleared so a later call does not re-attempt refresh.
+    assert.equal(await store.getToken({ tenantId: 't1', serverName: 'svc' }), undefined);
+    // DCR client is kept for re-authorization without re-registration.
+    assert.deepEqual(await store.getOAuthClient({ tenantId: 't1', serverName: 'svc' }), sampleClient);
+
+    const second = await resolveAuth({ ...resolveBase, tokenStore: store });
+    assert.equal(second.status, McpAuthStatus.AuthRequired);
+    // No refresh attempt + second authorize still works; pending grows by one more call.
+    assert.equal(store.savePendingCalls, 2);
   });
 
   it('returns auth_required when no token exists', async () => {

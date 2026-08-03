@@ -17,7 +17,8 @@ import type {
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { McpConnectionError } from '@truefoundry/utils/core';
 import { randomBytes } from 'node:crypto';
-import type { IMcpTokenStore, McpOAuthClientRecord, McpOAuthToken } from './IMcpTokenStore';
+import type { McpOAuthToken } from '../db/mcpOAuthTypes';
+import type { IMcpTokenStore, McpOAuthClientRecord } from './IMcpTokenStore';
 
 export const MCP_OAUTH_CALLBACK_PATH = '/v1/mcp/oauth/callback';
 
@@ -81,17 +82,22 @@ function getOriginFromClient(client: McpOAuthClientRecord): string {
 }
 
 function isExpired(token: McpOAuthToken): boolean {
-  return token.expiresAt.getTime() <= Date.now() + TOKEN_EXPIRY_BUFFER_MS;
+  return Date.parse(token.expiresAt) <= Date.now() + TOKEN_EXPIRY_BUFFER_MS;
 }
 
 function toStoredToken(result: OAuthTokens, previousRefreshToken: string | undefined): McpOAuthToken {
   const now = Date.now();
+  const expiresAt =
+    result.expires_in !== undefined
+      ? new Date(now + result.expires_in * 1000).toISOString()
+      : // Missing expires_in → already expired so the next resolveAuth re-checks.
+        new Date(now).toISOString();
+  const refreshToken = result.refresh_token ?? previousRefreshToken;
   return {
     accessToken: result.access_token,
-    refreshToken: result.refresh_token ?? previousRefreshToken,
-    // Missing expires_in → already expired so the next resolveAuth re-checks.
-    expiresAt: result.expires_in !== undefined ? new Date(now + result.expires_in * 1000) : new Date(now),
-    scope: result.scope,
+    expiresAt,
+    ...(refreshToken !== undefined ? { refreshToken } : {}),
+    ...(result.scope !== undefined ? { scope: result.scope } : {}),
   };
 }
 
@@ -172,10 +178,12 @@ export async function ensureClientRegistered(params: {
 
   const record: McpOAuthClientRecord = {
     clientId: fullInfo.client_id,
-    clientSecret: fullInfo.client_secret,
     authorizationEndpoint: metadata.authorization_endpoint,
     tokenEndpoint: metadata.token_endpoint,
-    codeChallengeMethodsSupported: metadata.code_challenge_methods_supported,
+    ...(fullInfo.client_secret !== undefined ? { clientSecret: fullInfo.client_secret } : {}),
+    ...(metadata.code_challenge_methods_supported !== undefined
+      ? { codeChallengeMethodsSupported: metadata.code_challenge_methods_supported }
+      : {}),
   };
 
   await tokenStore.saveOAuthClient({ tenantId, serverName, record });
@@ -214,7 +222,7 @@ export async function buildAuthorizationUrl(params: {
     tenantId,
     serverName,
     codeVerifier,
-    redirectUrl,
+    ...(redirectUrl !== undefined ? { redirectUrl } : {}),
   });
 
   return authorizationUrl.toString();
@@ -265,7 +273,9 @@ export async function resolveAuth(params: {
           headers: { Authorization: `Bearer ${result.access_token}` },
         };
       } catch {
-        // any refresh failure → re-authorize
+        // Any refresh failure → drop the dead credentials (client stays for DCR reuse)
+        // so the next resolveAuth does not re-hit a known-bad refresh_token.
+        await tokenStore.deleteToken({ tenantId, serverName });
       }
     }
   }

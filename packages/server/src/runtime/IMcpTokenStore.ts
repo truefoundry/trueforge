@@ -1,42 +1,29 @@
 /**
- * This is temporary interface only, will change
+ * Store contract for MCP OAuth state. Orchestration
+ * (`ensureClientRegistered` / `buildAuthorizationUrl` / `resolveAuth`) stays outside.
+ *
+ * JSON payloads reuse the canonical DB column shapes in `db/mcpOAuthTypes.ts`.
+ * Table keys (tenant, name, state) live on the method params / pending envelope,
+ * not inside the JSONB blobs.
  */
+import type { McpOAuthPendingAuthorizationData, McpOAuthToken, OAuthClient, OAuthServer } from '../db/mcpOAuthTypes';
 
-/** Registered OAuth client for one MCP server under one tenant. */
-export interface McpOAuthClientRecord {
-  clientId: string;
-  /** Presence selects confidential-client auth; omit for public clients. */
-  clientSecret: string | undefined;
-  authorizationEndpoint: string;
-  tokenEndpoint: string;
-  /** Cached from AS metadata at registration; drives PKCE checks without re-discovery. */
-  codeChallengeMethodsSupported: string[] | undefined;
-}
+/**
+ * In-memory join of the two `mcp_server` OAuth columns written together at DCR.
+ * Store implementations split/merge `OAuthClient` and `OAuthServer` at the DB boundary.
+ */
+export type McpOAuthClientRecord = OAuthClient & OAuthServer;
 
-/** In-flight authorization awaiting the OAuth callback (keyed by CSRF `state`). */
-export interface McpOAuthPendingAuthorization {
+/**
+ * Pending authorization for the store API: JSON `auth_data` plus row identity
+ * (`state` = `oauth_pending_authorization.id`; tenant/server resolve the FK).
+ */
+export type McpOAuthPendingAuthorization = McpOAuthPendingAuthorizationData & {
   state: string;
   tenantId: string;
   serverName: string;
-  /** Absent when the authorization server does not advertise PKCE support. */
-  codeVerifier: string | undefined;
-  /** FE landing URL after OAuth completes; not the OAuth redirect_uri. */
-  redirectUrl: string | undefined;
-}
+};
 
-/** Stored access token for one MCP server under one tenant. */
-export interface McpOAuthToken {
-  accessToken: string;
-  refreshToken: string | undefined;
-  /** Absolute expiry; treat missing expiry at write time as already-expired. */
-  expiresAt: Date;
-  scope: string | undefined;
-}
-
-/**
- * Pure state store for MCP OAuth. Orchestration
- * (`ensureClientRegistered` / `buildAuthorizationUrl` / `resolveAuth`) stays outside.
- */
 export interface IMcpTokenStore {
   saveOAuthClient(params: { tenantId: string; serverName: string; record: McpOAuthClientRecord }): Promise<void>;
 
@@ -49,6 +36,9 @@ export interface IMcpTokenStore {
   saveToken(params: { tenantId: string; serverName: string; token: McpOAuthToken }): Promise<void>;
 
   getToken(params: { tenantId: string; serverName: string }): Promise<McpOAuthToken | undefined>;
+
+  /** Drops the stored token only (keeps DCR client for re-authorization). */
+  deleteToken(params: { tenantId: string; serverName: string }): Promise<void>;
 
   /** Clears client, token, and any pending row for (tenant, server). */
   delete(params: { tenantId: string; serverName: string }): Promise<void>;
