@@ -3480,7 +3480,15 @@
         "summary": "Subscribe to a running turn",
         "tags": [
           "Sessions"
-        ]
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "subscribe_turn",
+        "x-fern-streaming": {
+          "format": "sse",
+          "resumable": false
+        }
       }
     },
     "/api/v1/skills": {

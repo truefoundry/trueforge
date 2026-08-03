@@ -114,7 +114,6 @@ export const createAndExecuteTurnRoute = createRoute({
 Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`).`,
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create_turn',
-  // Not resumable: subscribeTurnRoute, which would reattach, is not registered.
   'x-fern-streaming': { format: 'sse', resumable: false },
   request: {
     params: SessionIdParamsSchema,
@@ -154,6 +153,9 @@ export const subscribeTurnRoute = createRoute({
   summary: 'Subscribe to a running turn',
   description:
     'Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).',
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'subscribe_turn',
+  'x-fern-streaming': { format: 'sse', resumable: false },
   request: {
     params: TurnIdParamsSchema,
     body: {
