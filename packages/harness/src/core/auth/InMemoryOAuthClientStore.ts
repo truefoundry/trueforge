@@ -15,5 +15,9 @@ export class InMemoryOAuthClientStore implements IOAuthClientStore {
   async getClient(params: { id: string }): Promise<OAuthClientRecord | undefined> {
     return this.clients.get(params.id);
   }
+
+  async deleteClient(params: { id: string }): Promise<void> {
+    this.clients.delete(params.id);
+  }
 }
 /* eslint-enable @typescript-eslint/require-await */

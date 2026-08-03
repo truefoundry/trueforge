@@ -25,4 +25,7 @@ export interface IOAuthClientStore {
   saveClient(params: { id: string; record: OAuthClientRecord }): Promise<void>;
 
   getClient(params: { id: string }): Promise<OAuthClientRecord | undefined>;
+
+  /** Drop a stale registration so the next authorize can re-run DCR (e.g. invalid_client). */
+  deleteClient(params: { id: string }): Promise<void>;
 }

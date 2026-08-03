@@ -9,6 +9,7 @@ import {
   InMemoryOAuthTokenStore,
   McpConnectionError,
   buildMcpAuthorizationUrl,
+  completeMcpAuthorization,
   createMcpOAuthClient,
   ensureMcpClientRegistered,
   isMcpAuthRequired,
@@ -269,7 +270,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
 });
 
 describe('buildMcpAuthorizationUrl', () => {
-  it('saves pending authorization with state and returns a URL object', async () => {
+  it('saves pending authorization with PKCE when the AS advertises S256', async () => {
     const { tokenStore, clientStore } = newStores();
     await clientStore.saveClient({ id: SERVER_ID, record: sampleClient });
     stubOauthFetch({});
@@ -302,6 +303,64 @@ describe('buildMcpAuthorizationUrl', () => {
       redirectUrl: 'https://app.example.com/after',
     });
     expect(pending?.codeVerifier).toBeTruthy();
+  });
+
+  it('skips PKCE when the AS does not advertise S256', async () => {
+    const { tokenStore, clientStore } = newStores();
+    await clientStore.saveClient({
+      id: SERVER_ID,
+      record: {
+        ...sampleClient,
+        server: { ...sampleClient.server, codeChallengeMethodsSupported: null },
+      },
+    });
+
+    const authUrl = await buildMcpAuthorizationUrl({
+      tokenStore,
+      clientStore,
+      serverId: SERVER_ID,
+      mcpServerUrl: SERVER_URL,
+      mcpServerName: SERVER_NAME,
+      publicBaseUrl: PUBLIC_BASE_URL,
+      clientName: CLIENT_NAME,
+      redirectUrl: 'https://app.example.com/after',
+    });
+
+    expect(authUrl.searchParams.get('code_challenge')).toBeNull();
+    expect(authUrl.searchParams.get('code_challenge_method')).toBeNull();
+    expect(authUrl.searchParams.get('client_id')).toBe(sampleClient.client.clientId);
+    expect(authUrl.searchParams.get('response_type')).toBe('code');
+    expect(authUrl.searchParams.get('resource')).toBe(resourceUrlFromServerUrl(SERVER_URL).href);
+
+    const state = authUrl.searchParams.get('state');
+    expect(state).toBeTruthy();
+    const pending = await tokenStore.getPendingAuthorization({ state: state! });
+    expect(pending?.codeVerifier).toBeNull();
+  });
+
+  it('skips PKCE when only non-S256 methods are advertised', async () => {
+    const { tokenStore, clientStore } = newStores();
+    await clientStore.saveClient({
+      id: SERVER_ID,
+      record: {
+        ...sampleClient,
+        server: { ...sampleClient.server, codeChallengeMethodsSupported: ['plain'] },
+      },
+    });
+
+    const authUrl = await buildMcpAuthorizationUrl({
+      tokenStore,
+      clientStore,
+      serverId: SERVER_ID,
+      mcpServerUrl: SERVER_URL,
+      mcpServerName: SERVER_NAME,
+      publicBaseUrl: PUBLIC_BASE_URL,
+      clientName: CLIENT_NAME,
+    });
+
+    expect(authUrl.searchParams.get('code_challenge')).toBeNull();
+    const state = authUrl.searchParams.get('state');
+    expect((await tokenStore.getPendingAuthorization({ state: state! }))?.codeVerifier).toBeNull();
   });
 });
 
@@ -480,5 +539,151 @@ describe('end-to-end DCR + authorize with normalised MCP URL', () => {
     // Fragment stripped; resource is absolute URL for this MCP server.
     expect(url.searchParams.get('resource')).toBe(resourceUrlFromServerUrl(mixedUrl).href);
     expect(url.searchParams.get('resource')).not.toContain('#');
+  });
+});
+
+describe('completeMcpAuthorization', () => {
+  it('exchanges the code, saves the token, clears pending, and returns redirectUrl', async () => {
+    const stores = newStores();
+    await stores.clientStore.saveClient({ id: SERVER_ID, record: sampleClient });
+    stubOauthFetch({});
+
+    const authUrl = await buildMcpAuthorizationUrl({
+      ...resolveParams(stores),
+      redirectUrl: 'https://app.example.com/connected',
+    });
+    const state = authUrl.searchParams.get('state')!;
+    const pendingBefore = await stores.tokenStore.getPendingAuthorization({ state });
+    expect(pendingBefore?.codeVerifier).toBeTruthy();
+
+    const { tokenBodies } = stubOauthFetch({
+      tokenResponse: {
+        access_token: 'exchanged-access',
+        refresh_token: 'exchanged-refresh',
+        expires_in: 1800,
+        token_type: 'Bearer',
+      },
+    });
+
+    const nowMs = Date.now();
+    const result = await completeMcpAuthorization({
+      tokenStore: stores.tokenStore,
+      clientStore: stores.clientStore,
+      state,
+      code: 'auth-code-1',
+      mcpServerUrl: SERVER_URL,
+      publicBaseUrl: PUBLIC_BASE_URL,
+      nowMs,
+    });
+
+    expect(result).toEqual({
+      serverId: SERVER_ID,
+      redirectUrl: 'https://app.example.com/connected',
+    });
+    expect(await stores.tokenStore.getPendingAuthorization({ state })).toBeUndefined();
+    const saved = await stores.tokenStore.getToken({ id: SERVER_ID });
+    expect(saved?.accessToken).toBe('exchanged-access');
+    expect(saved?.refreshToken).toBe('exchanged-refresh');
+    expect(saved?.expiresAt).toBe(new Date(nowMs + 1800 * 1000).toISOString());
+    expect(tokenBodies).toHaveLength(1);
+    const tokenBody = new URLSearchParams(String(tokenBodies[0]));
+    expect(tokenBody.get('grant_type')).toBe('authorization_code');
+    expect(tokenBody.get('code')).toBe('auth-code-1');
+    expect(tokenBody.get('code_verifier')).toBe(pendingBefore?.codeVerifier);
+  });
+
+  it('exchanges without code_verifier when authorize skipped PKCE', async () => {
+    const stores = newStores();
+    await stores.clientStore.saveClient({
+      id: SERVER_ID,
+      record: {
+        ...sampleClient,
+        server: { ...sampleClient.server, codeChallengeMethodsSupported: null },
+      },
+    });
+
+    const authUrl = await buildMcpAuthorizationUrl({
+      ...resolveParams(stores),
+      redirectUrl: 'https://app.example.com/connected',
+    });
+    const state = authUrl.searchParams.get('state')!;
+    expect((await stores.tokenStore.getPendingAuthorization({ state }))?.codeVerifier).toBeNull();
+
+    const { tokenBodies } = stubOauthFetch({
+      tokenResponse: {
+        access_token: 'no-pkce-access',
+        expires_in: 3600,
+        token_type: 'Bearer',
+      },
+    });
+
+    const result = await completeMcpAuthorization({
+      tokenStore: stores.tokenStore,
+      clientStore: stores.clientStore,
+      state,
+      code: 'auth-code-no-pkce',
+      mcpServerUrl: SERVER_URL,
+      publicBaseUrl: PUBLIC_BASE_URL,
+    });
+
+    expect(result.serverId).toBe(SERVER_ID);
+    expect((await stores.tokenStore.getToken({ id: SERVER_ID }))?.accessToken).toBe('no-pkce-access');
+    expect(tokenBodies).toHaveLength(1);
+    expect(String(tokenBodies[0])).toContain('grant_type=authorization_code');
+    expect(String(tokenBodies[0])).toContain('code=auth-code-no-pkce');
+    expect(String(tokenBodies[0])).not.toContain('code_verifier');
+    expect(String(tokenBodies[0])).toContain('client_secret=cached-secret');
+  });
+
+  it('throws on unknown state', async () => {
+    const stores = newStores();
+    await expect(
+      completeMcpAuthorization({
+        tokenStore: stores.tokenStore,
+        clientStore: stores.clientStore,
+        state: 'missing-state',
+        code: 'code',
+        mcpServerUrl: SERVER_URL,
+        publicBaseUrl: PUBLIC_BASE_URL,
+      }),
+    ).rejects.toMatchObject({
+      name: 'McpConnectionError',
+      message: expect.stringContaining('Unknown or expired'),
+    });
+  });
+
+  it('clears client state on invalid_client and surfaces a re-connect error', async () => {
+    const stores = newStores();
+    await stores.clientStore.saveClient({ id: SERVER_ID, record: sampleClient });
+    stubOauthFetch({});
+    const authUrl = await buildMcpAuthorizationUrl({
+      ...resolveParams(stores),
+      redirectUrl: 'https://app.example.com/after',
+    });
+    const state = authUrl.searchParams.get('state')!;
+
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+      if (url === `${AS_ORIGIN}/token` && init?.method === 'POST') {
+        return json({ error: 'invalid_client', error_description: 'client gone' }, 401);
+      }
+      return new Response(`unexpected url: ${url}`, { status: 404 });
+    }) as typeof fetch;
+
+    await expect(
+      completeMcpAuthorization({
+        tokenStore: stores.tokenStore,
+        clientStore: stores.clientStore,
+        state,
+        code: 'auth-code-1',
+        mcpServerUrl: SERVER_URL,
+        publicBaseUrl: PUBLIC_BASE_URL,
+      }),
+    ).rejects.toMatchObject({
+      name: 'McpConnectionError',
+      message: expect.stringContaining('registration is invalid'),
+    });
+    expect(await stores.clientStore.getClient({ id: SERVER_ID })).toBeUndefined();
+    expect(await stores.tokenStore.getToken({ id: SERVER_ID })).toBeUndefined();
   });
 });
