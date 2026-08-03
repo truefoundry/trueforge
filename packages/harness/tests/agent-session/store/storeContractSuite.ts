@@ -7,6 +7,7 @@ import type { ISessionStore } from '../../../src/agent-session/store/ISessionSto
 import { decodeSessionEventPageToken } from '../../../src/agent-session/store/SessionEventPageToken';
 import {
   PreviousTurnRunningError,
+  SessionNotFoundError,
   SessionStoreConflictError,
   SessionStoreInvariantError,
   SessionStoreNotFoundError,
@@ -64,6 +65,8 @@ function contextContents(messages: ContextMessage[] | undefined): string[] {
 export function runStoreContractSuite(createStore: () => ISessionStore) {
   const tenant = 't1';
   const sessionId = 's1';
+  const missingSessionId = 'missing-session';
+  const missingTurnId = 'missing-turn';
 
   async function finishTurn(store: ISessionStore, turnId: string) {
     const state = makeDoneTurnState();
@@ -82,6 +85,77 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       agent_spec: agentSpec,
       custom: null,
     });
+  }
+
+  function turnScopedWrites(
+    store: ISessionStore,
+    keys: { session_id: string; turn_id: string },
+  ): (() => Promise<unknown>)[] {
+    const doneState = makeDoneTurnState();
+    return [
+      () =>
+        store.freezeAndGetTurn({
+          ...keys,
+          turn_done_event: makeTurnDoneEvent(makeCancelledTurnState(CancellationReason.ClientCancelled)),
+        }),
+      () =>
+        store.updateTurnState({
+          ...keys,
+          state: doneState,
+          turn_done_event: makeTurnDoneEvent(doneState),
+        }),
+      () =>
+        store.addThreads({
+          ...keys,
+          threads: [
+            {
+              thread_id: 'child',
+              context: [],
+              current_context_usage: getEmptyCurrentContextUsage(),
+              parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
+              agent_info: { type: 'dynamic', name: 'child', input: 'task' },
+              completion: null,
+              capability_state: null,
+            },
+          ],
+        }),
+      () => store.removeThreads({ ...keys, thread_ids: [MAIN_THREAD_ID] }),
+      () =>
+        store.appendToThreadContext({
+          ...keys,
+          thread_id: MAIN_THREAD_ID,
+          context: [userMessage('late')],
+          current_context_usage: null,
+          completion: null,
+        }),
+      () =>
+        store.overwriteThreadContext({
+          ...keys,
+          event: {
+            type: EventType.AGENT_CONTEXT_OVERWRITE,
+            id: newEventId(),
+            created_at: new Date().toISOString(),
+            thread_id: MAIN_THREAD_ID,
+            reason: 'compaction',
+            context: [userMessage('late')],
+            current_context_usage: getEmptyCurrentContextUsage(),
+            usage: getEmptyUsage(),
+          },
+        }),
+      () =>
+        store.patchMCPServers({
+          ...keys,
+          mcp_servers: [{ id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' }],
+        }),
+      () => store.patchSandboxInfo({ ...keys, sandbox_info: { sandbox_id: 'sbx-1' } }),
+      () =>
+        store.patchThreadCapabilityState({
+          ...keys,
+          thread_id: MAIN_THREAD_ID,
+          key: 'tfy.plan',
+          state: { step: 1 },
+        }),
+    ];
   }
 
   describe('session CRUD + activity', () => {
@@ -145,7 +219,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
   });
 
   describe('deleteSession', () => {
-    it('removes all session data, is idempotent, and preserves tenant isolation', async () => {
+    it('removes all session data, is idempotent, and is a no-op when tenant_id does not match', async () => {
       const store = createStore();
       await seedSession(store);
       await store.createSession({
@@ -229,7 +303,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           page_token: undefined,
           last_turn_id: undefined,
         }),
-      ).rejects.toBeInstanceOf(SessionStoreNotFoundError);
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
 
       const listed = await store.listSessions({
         tenant_id: tenant,
@@ -262,115 +336,15 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       ).toEqual([]);
     });
 
-    it('rejects all session and turn mutations after deleteSession', async () => {
+    it('rejects turn mutations after deleteSession', async () => {
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       await store.deleteSession({ tenant_id: tenant, session_id: sessionId });
 
-      const keys = { session_id: sessionId, turn_id: 'turn-1' };
-      const doneState = makeDoneTurnState();
-      const writes: (() => Promise<unknown>)[] = [
-        () =>
-          store.updateSession({
-            tenant_id: tenant,
-            session_id: sessionId,
-            agent_spec: undefined,
-            title: 'deleted',
-          }),
-        () => store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-2' })),
-        () =>
-          store.freezeAndGetTurn({
-            ...keys,
-            turn_done_event: makeTurnDoneEvent(makeCancelledTurnState(CancellationReason.ClientCancelled)),
-          }),
-        () =>
-          store.updateTurnState({
-            ...keys,
-            state: doneState,
-            turn_done_event: makeTurnDoneEvent(doneState),
-          }),
-        () =>
-          store.appendToEvents({
-            ...keys,
-            events: [makeTurnCreatedEvent('turn-1')],
-          }),
-        () =>
-          store.addThreads({
-            ...keys,
-            threads: [
-              {
-                thread_id: 'child',
-                context: [],
-                current_context_usage: getEmptyCurrentContextUsage(),
-                parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
-                agent_info: { type: 'dynamic', name: 'child', input: 'task' },
-                completion: null,
-                capability_state: null,
-              },
-            ],
-          }),
-        () => store.removeThreads({ ...keys, thread_ids: [MAIN_THREAD_ID] }),
-        () =>
-          store.appendToThreadContext({
-            ...keys,
-            thread_id: MAIN_THREAD_ID,
-            context: [userMessage('late')],
-            current_context_usage: null,
-            completion: null,
-          }),
-        () =>
-          store.overwriteThreadContext({
-            ...keys,
-            event: {
-              type: EventType.AGENT_CONTEXT_OVERWRITE,
-              id: newEventId(),
-              created_at: new Date().toISOString(),
-              thread_id: MAIN_THREAD_ID,
-              reason: 'compaction',
-              context: [userMessage('late')],
-              current_context_usage: getEmptyCurrentContextUsage(),
-              usage: getEmptyUsage(),
-            },
-          }),
-        () =>
-          store.patchMCPServers({
-            ...keys,
-            mcp_servers: [{ id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' }],
-          }),
-        () => store.patchSandboxInfo({ ...keys, sandbox_info: { sandbox_id: 'sbx-1' } }),
-        () =>
-          store.patchThreadCapabilityState({
-            ...keys,
-            thread_id: MAIN_THREAD_ID,
-            key: 'tfy.plan',
-            state: { step: 1 },
-          }),
-      ];
-
-      for (const write of writes) {
-        await expect(write()).rejects.toBeInstanceOf(SessionStoreNotFoundError);
+      for (const write of turnScopedWrites(store, { session_id: sessionId, turn_id: 'turn-1' })) {
+        await expect(write()).rejects.toBeInstanceOf(TurnNotFoundError);
       }
-
-      expect(await store.getSession({ tenant_id: tenant, session_id: sessionId })).toBeUndefined();
-      expect(await store.getTurn(keys)).toBeUndefined();
-      await expect(
-        store.listTurnEvents({
-          session_id: sessionId,
-          turn_id: 'turn-1',
-          limit: 10,
-          page_token: undefined,
-          order: undefined,
-        }),
-      ).rejects.toBeInstanceOf(TurnNotFoundError);
-      await expect(
-        store.listSessionEvents({
-          session_id: sessionId,
-          limit: 10,
-          page_token: undefined,
-          last_turn_id: undefined,
-        }),
-      ).rejects.toBeInstanceOf(SessionStoreNotFoundError);
     });
 
     it('leaves sessions whose id extends the deleted id untouched', async () => {
@@ -442,6 +416,62 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           })
         ).data,
       ).toEqual([]);
+    });
+  });
+
+  describe('missing session / turn', () => {
+    it('rejects session mutations for a missing session', async () => {
+      const store = createStore();
+
+      await expect(
+        store.updateSession({
+          tenant_id: tenant,
+          session_id: missingSessionId,
+          agent_spec: undefined,
+          title: 'new-title',
+        }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
+      await expect(
+        store.createTurn(makeCreateTurnInput({ sessionId: missingSessionId, turnId: 'turn-1' })),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
+    });
+
+    it('rejects turn mutations for a missing turn', async () => {
+      const store = createStore();
+      await seedSession(store);
+
+      for (const write of turnScopedWrites(store, { session_id: sessionId, turn_id: missingTurnId })) {
+        await expect(write()).rejects.toBeInstanceOf(TurnNotFoundError);
+      }
+    });
+
+    it('rejects event mutations for a missing session or turn', async () => {
+      const store = createStore();
+      await seedSession(store);
+      const keys = { session_id: sessionId, turn_id: missingTurnId };
+
+      await expect(
+        store.appendToEvents({
+          ...keys,
+          events: [makeTurnCreatedEvent(missingTurnId)],
+        }),
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
+      await expect(
+        store.listTurnEvents({
+          ...keys,
+          limit: 10,
+          page_token: undefined,
+          order: undefined,
+        }),
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
+      await expect(
+        store.listSessionEvents({
+          session_id: missingSessionId,
+          limit: 10,
+          page_token: undefined,
+          last_turn_id: undefined,
+        }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
     });
   });
 
@@ -1143,11 +1173,11 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await expect(
         store.updateTurnState({
           session_id: sessionId,
-          turn_id: 'missing',
+          turn_id: missingTurnId,
           state,
           turn_done_event: makeTurnDoneEvent(state),
         }),
-      ).rejects.toBeInstanceOf(SessionStoreNotFoundError);
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
     });
   });
 
@@ -1515,7 +1545,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await expect(
         store.listTurnEvents({
           session_id: sessionId,
-          turn_id: 'missing',
+          turn_id: missingTurnId,
           limit: 10,
           page_token: undefined,
           order: undefined,
@@ -1637,10 +1667,10 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.listSessionEvents({
           session_id: sessionId,
           limit: 10,
-          last_turn_id: 'missing',
+          last_turn_id: missingTurnId,
           page_token: undefined,
         }),
-      ).rejects.toBeInstanceOf(SessionStoreNotFoundError);
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
     });
 
     it('listSessionEvents page tokens retain their anchor when the active branch changes', async () => {

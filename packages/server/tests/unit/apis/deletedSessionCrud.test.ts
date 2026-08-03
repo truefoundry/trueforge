@@ -5,11 +5,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
-import { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { McpStore } from '../store/McpStore';
-import { ModelStore } from '../store/ModelStore';
-import { createSessionsRouter, TENANT_ID } from './sessions';
-import { createTurnsRouter } from './turns';
+import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
+import { createTurnsRouter } from '../../../src/apis/turns';
+import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { McpStore } from '../../../src/store/McpStore';
+import { ModelStore } from '../../../src/store/ModelStore';
 
 describe('public CRUD after session deletion', () => {
   it('returns not found for session and turn operations', async () => {

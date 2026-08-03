@@ -40,7 +40,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     // top: list ordering (indexed below)
     .addColumn('created_at', 'timestamptz', col => col.notNull())
     .addColumn('updated_at', 'timestamptz', col => col.notNull())
-    .addPrimaryKeyConstraint('session_pkey', ['session_id'])
+    .addPrimaryKeyConstraint('session_pkey', ['tenant_id', 'session_id'])
     // headroom so the per-turn bump stays HOT (no index churn)
     .modifyEnd(sql`WITH (fillfactor = 85)`)
     .execute();
@@ -53,6 +53,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   await db.schema
     .createTable('turn')
+    // key
+    .addColumn('tenant_id', 'text', col => col.notNull())
     // key
     .addColumn('session_id', 'text', col => col.notNull())
     // key (ulid)
@@ -78,19 +80,22 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     // top: list ordering (indexed below)
     .addColumn('created_at', 'timestamptz', col => col.notNull())
     .addColumn('updated_at', 'timestamptz', col => col.notNull())
-    .addPrimaryKeyConstraint('turn_pkey', ['session_id', 'turn_id'])
-    .addForeignKeyConstraint('turn_session_fkey', ['session_id'], 'session', ['session_id'], cb =>
-      cb.onDelete('cascade'),
-    )
+    .addPrimaryKeyConstraint('turn_pkey', ['tenant_id', 'session_id', 'turn_id'])
     // headroom for the state flip + rare checkpoint patches
     .modifyEnd(sql`WITH (fillfactor = 85)`)
     .execute();
 
-  await db.schema.createIndex('turn_list_idx').on('turn').columns(['session_id', 'created_at', 'turn_id']).execute();
+  await db.schema
+    .createIndex('turn_list_idx')
+    .on('turn')
+    .columns(['tenant_id', 'session_id', 'created_at', 'turn_id'])
+    .execute();
 
   // the complete STATE of one thread at one turn
   await db.schema
     .createTable('turn_thread')
+    // key
+    .addColumn('tenant_id', 'text', col => col.notNull())
     // key
     .addColumn('session_id', 'text', col => col.notNull())
     // key
@@ -130,10 +135,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     //      if measured).
     .addColumn('context_ids', sql`bigint[]`, col => col.notNull())
     .addColumn('updated_at', 'timestamptz', col => col.notNull())
-    .addPrimaryKeyConstraint('turn_thread_pkey', ['session_id', 'turn_id', 'thread_id'])
-    .addForeignKeyConstraint('turn_thread_session_fkey', ['session_id'], 'session', ['session_id'], cb =>
-      cb.onDelete('cascade'),
-    )
+    .addPrimaryKeyConstraint('turn_thread_pkey', ['tenant_id', 'session_id', 'turn_id', 'thread_id'])
     // the ONE deliberately-hot table: rewritten 5–10x while its
     // turn runs; immutable once the turn is terminal (fence)
     .modifyEnd(sql`WITH (fillfactor = 70)`)
@@ -141,6 +143,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   await db.schema
     .createTable('session_event')
+    // key
+    .addColumn('tenant_id', 'text', col => col.notNull())
     // key
     .addColumn('session_id', 'text', col => col.notNull())
     // top: every read is turn-scoped or turn-attributed (envelope)
@@ -165,16 +169,15 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     //      future time-range filters can be indexed without inspecting jsonb.
     //      Ordering still uses event_id.
     .addColumn('created_at', 'timestamptz', col => col.notNull())
-    .addPrimaryKeyConstraint('session_event_pkey', ['session_id', 'turn_id', 'event_id'])
-    .addForeignKeyConstraint('session_event_session_fkey', ['session_id'], 'session', ['session_id'], cb =>
-      cb.onDelete('cascade'),
-    )
+    .addPrimaryKeyConstraint('session_event_pkey', ['tenant_id', 'session_id', 'turn_id', 'event_id'])
     // pure INSERT → fillfactor 100
     .execute();
 
   // pure immutable CONTENT; no state → no checkpoint field
   await db.schema
     .createTable('thread_context_log')
+    // key
+    .addColumn('tenant_id', 'text', col => col.notNull())
     // key
     .addColumn('session_id', 'text', col => col.notNull())
     // key
@@ -201,10 +204,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('body', 'jsonb', col => col.notNull())
     // top: future indexed time filters without a table rewrite
     .addColumn('created_at', 'timestamptz', col => col.notNull())
-    .addPrimaryKeyConstraint('thread_context_log_pkey', ['session_id', 'thread_id', 'append_id'])
-    .addForeignKeyConstraint('thread_context_log_session_fkey', ['session_id'], 'session', ['session_id'], cb =>
-      cb.onDelete('cascade'),
-    )
+    .addPrimaryKeyConstraint('thread_context_log_pkey', ['tenant_id', 'session_id', 'thread_id', 'append_id'])
     // pure INSERT → default fillfactor 100, zero dead tuples;
     // cleanup is whole-session delete only
     .execute();
@@ -212,6 +212,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   // PER-TURN KV snapshot, latest-wins per (turn, thread, key)
   await db.schema
     .createTable('thread_capability_state')
+    // key
+    .addColumn('tenant_id', 'text', col => col.notNull())
     // key
     .addColumn('session_id', 'text', col => col.notNull())
     // key: capability history is PER TURN — fork/restore from any
@@ -228,10 +230,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     //      the harness boundary); NULL = explicitly cleared
     .addColumn('state', 'jsonb')
     .addColumn('updated_at', 'timestamptz', col => col.notNull())
-    .addPrimaryKeyConstraint('thread_capability_state_pkey', ['session_id', 'turn_id', 'thread_id', 'key'])
-    .addForeignKeyConstraint('thread_capability_state_session_fkey', ['session_id'], 'session', ['session_id'], cb =>
-      cb.onDelete('cascade'),
-    )
+    .addPrimaryKeyConstraint('thread_capability_state_pkey', ['tenant_id', 'session_id', 'turn_id', 'thread_id', 'key'])
     // single-statement fenced upsert per CAPABILITY_STATE event
     .modifyEnd(sql`WITH (fillfactor = 85)`)
     .execute();

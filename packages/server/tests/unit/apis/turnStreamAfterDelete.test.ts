@@ -4,10 +4,10 @@ import { TurnNotFoundError } from '@truefoundry/utils/agent-session';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createLogger } from 'winston';
-import { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { McpStore } from '../store/McpStore';
-import { ModelStore } from '../store/ModelStore';
-import { createTurnsRouter } from './turns';
+import { createTurnsRouter } from '../../../src/apis/turns';
+import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { McpStore } from '../../../src/store/McpStore';
+import { ModelStore } from '../../../src/store/ModelStore';
 
 describe('turn SSE after session deletion', () => {
   it('warns when the stream ends because the session/turn was removed', async () => {
