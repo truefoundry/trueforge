@@ -357,6 +357,47 @@
         ],
         "type": "object"
       },
+      "CatalogSkill": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Concise guidance for when the agent should use the skill.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "path": {
+            "description": "Path to the skill directory within the repository. Omit to use the repository root.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "ref": {
+            "description": "Git ref — branch name, tag, or commit SHA.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/SkillType"
+          },
+          "url": {
+            "description": "Full HTTPS URL of a GitHub or GitLab repository.",
+            "minLength": 1,
+            "pattern": "^https:\\/\\/(github\\.com\\/[A-Za-z0-9._-]+\\/[A-Za-z0-9._-]+|gitlab\\.com\\/[A-Za-z0-9._-]+(?:\\/[A-Za-z0-9._-]+)+)(\\/|\\.git)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "url",
+          "description"
+        ],
+        "type": "object"
+      },
       "ChatCompletionChunkDeltaToolCall": {
         "properties": {
           "function": {
@@ -782,6 +823,20 @@
         ],
         "type": "object"
       },
+      "GetSkillCatalogResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogSkill"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetTurnResponse": {
         "properties": {
           "data": {
@@ -871,11 +926,39 @@
         ],
         "type": "object"
       },
+      "ListAvailableSkillsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SkillReadEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "ListConfiguredMcpServersResponse": {
         "properties": {
           "data": {
             "items": {
               "$ref": "#/components/schemas/ConfiguredMcpServer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListConfiguredSkillsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SkillManifest"
             },
             "type": "array"
           }
@@ -1946,6 +2029,17 @@
         ],
         "type": "object"
       },
+      "PutSkillResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SkillManifest"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "RawToolCall": {
         "allOf": [
           {
@@ -2345,6 +2439,47 @@
         ],
         "type": "object"
       },
+      "SkillManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Concise guidance for when the agent should use the skill.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "path": {
+            "description": "Path to the skill directory within the repository. Omit to use the repository root.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "ref": {
+            "description": "Git ref — branch name, tag, or commit SHA.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/SkillType"
+          },
+          "url": {
+            "description": "Full HTTPS URL of a GitHub or GitLab repository.",
+            "minLength": 1,
+            "pattern": "^https:\\/\\/(github\\.com\\/[A-Za-z0-9._-]+\\/[A-Za-z0-9._-]+|gitlab\\.com\\/[A-Za-z0-9._-]+(?:\\/[A-Za-z0-9._-]+)+)(\\/|\\.git)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "url",
+          "description"
+        ],
+        "type": "object"
+      },
       "SkillMount": {
         "properties": {
           "description": {
@@ -2392,6 +2527,30 @@
           "ref"
         ],
         "type": "object"
+      },
+      "SkillReadEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Concise guidance for when the agent should use the skill.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          }
+        },
+        "required": [
+          "name",
+          "description"
+        ],
+        "type": "object"
+      },
+      "SkillType": {
+        "enum": [
+          "git"
+        ],
+        "type": "string"
       },
       "TextContent": {
         "properties": {
@@ -4701,6 +4860,127 @@
           "modelProviders"
         ],
         "x-fern-sdk-method-name": "catalog"
+      }
+    },
+    "/api/v1/settings/skills": {
+      "get": {
+        "description": "All configured skills with full manifests (settings / admin projection).",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListConfiguredSkillsResponse"
+                }
+              }
+            },
+            "description": "All configured skills."
+          }
+        },
+        "summary": "List configured skills",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "list"
+      },
+      "put": {
+        "description": "Full upsert keyed by `name`: creates the skill or replaces its entire manifest.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillManifest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutSkillResponse"
+                }
+              }
+            },
+            "description": "The saved skill."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          }
+        },
+        "summary": "Create or replace a skill",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "upsert"
+      }
+    },
+    "/api/v1/settings/skills/catalog": {
+      "get": {
+        "description": "Skill presets shipped with the server (skill-catalog.yaml). Discovery-only: copy an entry into PUT /settings/skills to configure it.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSkillCatalogResponse"
+                }
+              }
+            },
+            "description": "The shipped catalog, verbatim."
+          }
+        },
+        "summary": "Get the skill catalog",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "catalog"
+      }
+    },
+    "/api/v1/skills": {
+      "get": {
+        "description": "Configured skills as a slim name/description list for the composer.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAvailableSkillsResponse"
+                }
+              }
+            },
+            "description": "All configured skills (chat projection)."
+          }
+        },
+        "summary": "List skills for chat",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "list"
       }
     }
   },

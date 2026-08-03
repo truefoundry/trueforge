@@ -73,6 +73,17 @@
             },
             "default": "./dist/cjs/api/resources/sessions/exports.js"
         },
+        "./skills": {
+            "import": {
+                "types": "./dist/esm/api/resources/skills/exports.d.mts",
+                "default": "./dist/esm/api/resources/skills/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/skills/exports.d.ts",
+                "default": "./dist/cjs/api/resources/skills/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/skills/exports.js"
+        },
         "./legacy": {
             "import": {
                 "types": "./dist/esm/api/resources/legacy/exports.d.mts",
@@ -149,6 +160,17 @@
                 "default": "./dist/cjs/api/resources/settings/resources/modelProviders/exports.js"
             },
             "default": "./dist/cjs/api/resources/settings/resources/modelProviders/exports.js"
+        },
+        "./settings/skills": {
+            "import": {
+                "types": "./dist/esm/api/resources/settings/resources/skills/exports.d.mts",
+                "default": "./dist/esm/api/resources/settings/resources/skills/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/settings/resources/skills/exports.d.ts",
+                "default": "./dist/cjs/api/resources/settings/resources/skills/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/settings/resources/skills/exports.js"
         },
         "./package.json": "./package.json"
     },

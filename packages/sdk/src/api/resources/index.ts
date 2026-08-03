@@ -5,3 +5,4 @@ export * as server from "./server/index.js";
 export * from "./sessions/client/requests/index.js";
 export * as sessions from "./sessions/index.js";
 export * as settings from "./settings/index.js";
+export * as skills from "./skills/index.js";

@@ -6,6 +6,7 @@ import { ModelsClient } from "./api/resources/models/client/Client.js";
 import { ServerClient } from "./api/resources/server/client/Client.js";
 import { SessionsClient } from "./api/resources/sessions/client/Client.js";
 import { SettingsClient } from "./api/resources/settings/client/Client.js";
+import { SkillsClient } from "./api/resources/skills/client/Client.js";
 import type { BaseClientOptions, BaseRequestOptions } from "./BaseClient.js";
 import { type NormalizedClientOptions, normalizeClientOptions } from "./BaseClient.js";
 import * as core from "./core/index.js";
@@ -22,6 +23,7 @@ export class TrueHarness {
     protected _mcpServers: McpServersClient | undefined;
     protected _models: ModelsClient | undefined;
     protected _sessions: SessionsClient | undefined;
+    protected _skills: SkillsClient | undefined;
     protected _legacy: LegacyClient | undefined;
     protected _settings: SettingsClient | undefined;
 
@@ -43,6 +45,10 @@ export class TrueHarness {
 
     public get sessions(): SessionsClient {
         return (this._sessions ??= new SessionsClient(this._options));
+    }
+
+    public get skills(): SkillsClient {
+        return (this._skills ??= new SkillsClient(this._options));
     }
 
     public get legacy(): LegacyClient {
