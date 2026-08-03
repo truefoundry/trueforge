@@ -1,12 +1,7 @@
 import type { ExpressionBuilder, Kysely } from 'kysely';
 import type { ResourceName } from '../../../schemas/common';
-import type { ProviderManifest } from '../../../schemas/modelProvider';
-import {
-  flattenProviderModels,
-  type IModelProviderStore,
-  type ModelProviderRecord,
-  type ModelReadEntry,
-} from '../../modelProviderStore';
+import type { Model, ProviderManifest } from '../../../schemas/modelProvider';
+import { flattenProviderModels, type IModelProviderStore, type ModelProviderRecord } from '../../modelProviderStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
@@ -71,7 +66,7 @@ export class SqliteModelProviderStore implements IModelProviderStore {
       .executeTakeFirstOrThrow();
   }
 
-  async listModels(tenantId: string): Promise<ModelReadEntry[]> {
+  async listModels(tenantId: string): Promise<Model[]> {
     return flattenProviderModels(await this.listProviders(tenantId));
   }
 }

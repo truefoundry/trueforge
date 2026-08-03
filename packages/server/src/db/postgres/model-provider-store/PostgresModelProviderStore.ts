@@ -1,12 +1,7 @@
 import type { Kysely, Selectable } from 'kysely';
 import type { ResourceName } from '../../../schemas/common';
-import type { ProviderManifest } from '../../../schemas/modelProvider';
-import {
-  flattenProviderModels,
-  type IModelProviderStore,
-  type ModelProviderRecord,
-  type ModelReadEntry,
-} from '../../modelProviderStore';
+import type { Model, ProviderManifest } from '../../../schemas/modelProvider';
+import { flattenProviderModels, type IModelProviderStore, type ModelProviderRecord } from '../../modelProviderStore';
 import { json, now } from '../sqlExpressions';
 import type { Database, ModelProviderTable } from '../types';
 
@@ -72,7 +67,7 @@ export class PostgresModelProviderStore implements IModelProviderStore {
     return toRecord(row);
   }
 
-  async listModels(tenantId: string): Promise<ModelReadEntry[]> {
+  async listModels(tenantId: string): Promise<Model[]> {
     return flattenProviderModels(await this.listProviders(tenantId));
   }
 }

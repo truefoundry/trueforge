@@ -115,3 +115,4 @@ export const ListModelsResponseSchema = z
 
 export type ModelProvider = z.infer<typeof ModelProviderSchema>;
 export type PutModelProviderRequest = ModelProvider;
+export type Model = z.infer<typeof ModelSchema>;

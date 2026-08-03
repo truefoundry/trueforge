@@ -4,7 +4,7 @@
  * Implementations: PostgresModelProviderStore and SqliteModelProviderStore.
  */
 import type { ResourceName } from '../schemas/common';
-import type { ModelProperties, ProviderManifest } from '../schemas/modelProvider';
+import type { Model, ProviderManifest } from '../schemas/modelProvider';
 
 export interface ModelProviderRecord {
   tenant_id: string;
@@ -14,14 +14,6 @@ export interface ModelProviderRecord {
   created_at: string;
   /** ISO-8601 UTC instant. */
   updated_at: string;
-}
-
-/** Read view for GET /models: the fully qualified name resolves the provider. */
-export interface ModelReadEntry {
-  /** `${provider.name}/${model.name}`, e.g. "openai/gpt-5-6-sol". */
-  name: string;
-  model_id: string;
-  properties: ModelProperties;
 }
 
 export interface IModelProviderStore {
@@ -34,11 +26,11 @@ export interface IModelProviderStore {
     manifest: ProviderManifest,
   ): Promise<ModelProviderRecord>;
   /** Flattens manifests into the FQN read view for GET /models. */
-  listModels(tenantId: string): Promise<ModelReadEntry[]>;
+  listModels(tenantId: string): Promise<Model[]>;
 }
 
 /** Application-side flatten shared by both store implementations. */
-export function flattenProviderModels(records: ModelProviderRecord[]): ModelReadEntry[] {
+export function flattenProviderModels(records: ModelProviderRecord[]): Model[] {
   return records.flatMap(record =>
     record.manifest.models.map(model => ({
       name: `${record.name}/${model.name}`,
