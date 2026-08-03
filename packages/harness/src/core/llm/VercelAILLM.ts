@@ -227,6 +227,10 @@ function buildProviderOptions(config: VercelAIProviderConfig, reasoningEffort: s
     const budgetByEffort: Record<string, number> = { low: 1024, medium: 8192, high: 32768 };
     const budgetTokens = budgetByEffort[reasoningEffort] ?? 8192;
     options['anthropic'] = { thinking: { type: 'enabled', budgetTokens } };
+  } else if (config.provider === 'generic' && reasoningEffort !== undefined) {
+    // @ai-sdk/openai-compatible registers under the name 'generic'; reasoningEffort
+    // maps to reasoning_effort in the request body for OpenAI-compatible endpoints.
+    options['generic'] = { reasoningEffort };
   }
   return options;
 }
@@ -303,7 +307,7 @@ function toUserContent(content: string | ChatCompletionContentPart[]): UserConte
  */
 function toAssistantModelMessage(
   msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }>,
-  replayKey: 'openai' | 'anthropic' | undefined,
+  replayKey: 'openai' | 'anthropic' | 'generic' | undefined,
 ): ModelMessage {
   const parts: AssistantContent = [];
 
@@ -324,8 +328,8 @@ function toAssistantModelMessage(
         const signature = 'signature' in tb && typeof tb.signature === 'string' ? tb.signature : undefined;
         let reasoningProviderOptions: ProviderOptions | undefined;
         if (signature !== undefined && replayKey !== undefined) {
-          if (replayKey === 'openai') {
-            reasoningProviderOptions = { openai: { encryptedContent: signature } };
+          if (replayKey === 'openai' || replayKey === 'generic') {
+            reasoningProviderOptions = { [replayKey]: { encryptedContent: signature } };
           } else {
             reasoningProviderOptions = { anthropic: { signature } };
           }
@@ -407,7 +411,7 @@ interface ConvertedMessages {
  */
 function convertMessages(
   messages: ChatCompletionMessageParam[],
-  replayKey: 'openai' | 'anthropic' | undefined,
+  replayKey: 'openai' | 'anthropic' | 'generic' | undefined,
 ): ConvertedMessages {
   const toolNameById = new Map<string, string>();
   for (const msg of messages) {
@@ -501,12 +505,16 @@ export class VercelAILLM implements ILLM {
     const model = buildLanguageModel(providerConfig);
 
     // Which providerOptions key to use when replaying reasoning tokens in multi-turn history.
-    const replayKey: 'openai' | 'anthropic' | undefined =
+    // 'generic' uses the same encryptedContent convention as 'openai' because
+    // @ai-sdk/openai-compatible is registered under the name 'generic'.
+    const replayKey: 'openai' | 'anthropic' | 'generic' | undefined =
       providerConfig.provider === 'openai'
         ? 'openai'
         : providerConfig.provider === 'anthropic'
           ? 'anthropic'
-          : undefined;
+          : providerConfig.provider === 'generic'
+            ? 'generic'
+            : undefined;
 
     const { instructions, messages } = convertMessages(body.messages, replayKey);
     const tools = convertTools(body.tools ?? undefined);
@@ -612,15 +620,14 @@ export class VercelAILLM implements ILLM {
           }
 
           case 'reasoning-end': {
-            if (currentThinkingBlock !== null) {
-              const oaiMeta: unknown = part.providerMetadata?.['openai'];
-              if (
-                typeof oaiMeta === 'object' &&
-                oaiMeta !== null &&
-                'reasoningEncryptedContent' in oaiMeta &&
-                typeof (oaiMeta as Record<string, unknown>)['reasoningEncryptedContent'] === 'string'
-              ) {
-                currentThinkingBlock.signature = (oaiMeta as Record<string, string>)['reasoningEncryptedContent'];
+            if (currentThinkingBlock !== null && part.providerMetadata !== undefined) {
+              // Scan all provider namespace values — only the active provider's key will
+              // be populated, so this is provider-agnostic without coupling to replayKey.
+              for (const meta of Object.values(part.providerMetadata)) {
+                if ('reasoningEncryptedContent' in meta && typeof meta['reasoningEncryptedContent'] === 'string') {
+                  currentThinkingBlock.signature = meta['reasoningEncryptedContent'];
+                  break;
+                }
               }
             }
             currentThinkingBlock = null;
