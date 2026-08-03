@@ -15,7 +15,7 @@ import type {
   ToolSet,
   UserContent,
 } from 'ai';
-import { jsonSchema, streamText } from 'ai';
+import { jsonSchema, Output, streamText } from 'ai';
 import type {
   ChatCompletionContentPart,
   ChatCompletionCreateParams,
@@ -159,6 +159,11 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
         name: 'generic',
         baseURL: base_url,
         apiKey,
+        // Without this, @ai-sdk/openai-compatible defaults to `false` and silently
+        // downgrades any `json_schema`-mode structured output request (see
+        // toStructuredOutputSpec/buildOutput) to a schema-less `json_object`, dropping
+        // both the schema and providerOptions.generic.strictJsonSchema.
+        supportsStructuredOutputs: true,
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
       return client(modelId);
@@ -197,6 +202,33 @@ export function normalizeUsage(usage: {
   };
 }
 
+/**
+ * The Vercel AI SDK's standardized, cross-provider reasoning-effort call setting
+ * (`streamText({ reasoning })`, distinct from the `providerOptions` bucket). Kept as a local
+ * mirror since `LanguageModelV4CallOptions` isn't re-exported by `ai` under a nameable alias.
+ */
+const REASONING_LEVELS = ['provider-default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+type ReasoningLevel = (typeof REASONING_LEVELS)[number];
+
+function isReasoningLevel(v: string): v is ReasoningLevel {
+  return (REASONING_LEVELS as readonly string[]).includes(v);
+}
+
+/**
+ * Maps a harness `reasoning_effort` string to the SDK's standardized `reasoning` call setting.
+ * Google Gemini has no equivalent `providerOptions.google.reasoningEffort`/`.effort` lever the
+ * way openai/anthropic/generic do (see `buildProviderOptions`) — `@ai-sdk/google` instead derives
+ * its `thinkingConfig` (budget-based on Gemini 2.5, level-based on Gemini 3) from this standardized
+ * setting itself, so it's threaded through only for `google-gemini` to fill that gap. A no-op for
+ * providers with an explicit `providerOptions` reasoning lever, since that always takes priority.
+ */
+export function toReasoningLevel(provider: string, reasoningEffort: string | undefined): ReasoningLevel | undefined {
+  if (provider !== 'google-gemini' || reasoningEffort === undefined || !isReasoningLevel(reasoningEffort)) {
+    return undefined;
+  }
+  return reasoningEffort;
+}
+
 export function mapFinishReason(reason: string): RawAssistantMessageWithUsage['finish_reason'] {
   switch (reason) {
     case 'stop':
@@ -212,12 +244,22 @@ export function mapFinishReason(reason: string): RawAssistantMessageWithUsage['f
   }
 }
 
-/** Builds provider-specific options for reasoning/thinking budget. */
+/**
+ * Builds provider-specific options for reasoning/thinking budget and structured-output strictness.
+ *
+ * `strictJsonSchema` (openai, generic) is the SDK's equivalent of the OpenAI wire format's
+ * `response_format.json_schema.strict`: the `Output` spec built by `buildOutput` has no `strict`
+ * concept of its own, so the caller's intent is threaded through here instead, alongside
+ * `reasoningEffort`, into the same per-provider `providerOptions` bucket.
+ */
 export function buildProviderOptions(
   config: VercelAIProviderConfig,
   reasoningEffort: string | undefined,
+  structuredOutputSpec: StructuredOutputSpec,
 ): ProviderOptions {
   const options: ProviderOptions = {};
+  const strictJsonSchema = structuredOutputSpec.mode === 'json_schema' ? structuredOutputSpec.strict : undefined;
+
   if (config.provider === 'openai') {
     // Always disable server-side storage and request the encrypted reasoning
     // token so multi-turn conversations can replay reasoning statelessly.
@@ -226,15 +268,22 @@ export function buildProviderOptions(
       store: false,
       include: ['reasoning.encrypted_content'],
       ...(reasoningEffort !== undefined ? { reasoningEffort } : {}),
+      ...(strictJsonSchema !== undefined ? { strictJsonSchema } : {}),
     };
   } else if (config.provider === 'anthropic' && reasoningEffort !== undefined) {
     const budgetByEffort: Record<string, number> = { low: 1024, medium: 8192, high: 32768 };
     const budgetTokens = budgetByEffort[reasoningEffort] ?? 8192;
     options['anthropic'] = { thinking: { type: 'enabled', budgetTokens } };
-  } else if (config.provider === 'generic' && reasoningEffort !== undefined) {
+  } else if (config.provider === 'generic') {
     // @ai-sdk/openai-compatible registers under the name 'generic'; reasoningEffort
-    // maps to reasoning_effort in the request body for OpenAI-compatible endpoints.
-    options['generic'] = { reasoningEffort };
+    // maps to reasoning_effort, strictJsonSchema to json_schema.strict in the request body.
+    const generic: { reasoningEffort?: string; strictJsonSchema?: boolean } = {
+      ...(reasoningEffort !== undefined ? { reasoningEffort } : {}),
+      ...(strictJsonSchema !== undefined ? { strictJsonSchema } : {}),
+    };
+    if (Object.keys(generic).length > 0) {
+      options['generic'] = generic;
+    }
   }
   return options;
 }
@@ -307,10 +356,16 @@ export function toUserContent(content: string | ChatCompletionContentPart[]): Us
  * AgentThread) for reasoning replay. Since `ChatCompletionMessageParam` does not declare this
  * field in its TypeScript type, we read it via Reflect.get so no assertion is needed.
  *
- * `replayKey` controls where the opaque provider token is placed:
+ * `replayKey` controls where the opaque provider token for standalone reasoning blocks is placed:
  * - `'openai'`     → `providerOptions.openai.encryptedContent` (Responses API)
  * - `'anthropic'`  → `providerOptions.anthropic.signature`
  * - `undefined`    → no provider token (provider doesn't support reasoning replay)
+ *
+ * Independently of `replayKey`, a tool call's own `provider_specific_fields.thought_signature`
+ * (Gemini attaches its thinking signature to the function-call part itself, not a separate
+ * reasoning block) is placed at `providerOptions.google.thoughtSignature` on the `ToolCallPart` —
+ * the convention `@ai-sdk/google` reads back out when replaying a tool call. Harmless no-op for
+ * other providers, since this field is never populated for them.
  */
 export function toAssistantModelMessage(
   msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }>,
@@ -379,11 +434,19 @@ export function toAssistantModelMessage(
       } catch {
         // malformed arguments — leave empty record
       }
+      const rawProviderFields: unknown = Reflect.get(tc, 'provider_specific_fields');
+      const thoughtSignature =
+        isPlainObject(rawProviderFields) && typeof rawProviderFields['thought_signature'] === 'string'
+          ? rawProviderFields['thought_signature']
+          : undefined;
       const toolCallPart: ToolCallPart = {
         type: 'tool-call',
         toolCallId: tc.id,
         toolName: rawFn.name,
         input,
+        ...(thoughtSignature !== undefined
+          ? { providerOptions: { google: { thoughtSignature } } satisfies ProviderOptions }
+          : {}),
       };
       parts.push(toolCallPart);
     }
@@ -484,6 +547,67 @@ export function convertTools(tools: ChatCompletionTool[] | undefined): ToolSet |
     };
   }
   return Object.keys(toolSet).length > 0 ? toolSet : undefined;
+}
+
+/**
+ * Normalized description of the requested structured-response mode, derived from an
+ * OpenAI-format `response_format`. Kept as plain data (rather than a Vercel AI SDK `Output`
+ * instance) because `Output` is not a nameable exported type from `ai` — see `buildOutput`.
+ */
+export type StructuredOutputSpec =
+  | { mode: 'text' }
+  | { mode: 'json' }
+  | {
+      mode: 'json_schema';
+      schema: Record<string, unknown>;
+      name: string;
+      description: string | undefined;
+      /**
+       * Mirrors `response_format.json_schema.strict`. Not part of `Output` itself — consumed
+       * separately by `buildProviderOptions` as `providerOptions.<openai|generic>.strictJsonSchema`.
+       */
+      strict: boolean | undefined;
+    };
+
+/** Converts an OpenAI-format `response_format` into a normalized `StructuredOutputSpec`. */
+export function toStructuredOutputSpec(
+  responseFormat: ChatCompletionCreateParamsStreaming['response_format'],
+): StructuredOutputSpec {
+  if (responseFormat === undefined || responseFormat.type === 'text') {
+    return { mode: 'text' };
+  }
+  if (responseFormat.type === 'json_object') {
+    return { mode: 'json' };
+  }
+  const { json_schema } = responseFormat;
+  return {
+    mode: 'json_schema',
+    schema: json_schema.schema ?? { type: 'object', properties: {} },
+    name: json_schema.name,
+    description: json_schema.description,
+    strict: json_schema.strict ?? undefined,
+  };
+}
+
+/**
+ * Builds the Vercel AI SDK `Output` spec for `streamText` from a `StructuredOutputSpec`.
+ * Not exported: `Output`'s interface type isn't nameable outside `ai` (only its `.object`/`.json`/
+ * `.text` factory functions are exported), so an exported function can't declare it as a return
+ * type. The pure mapping logic lives in `toStructuredOutputSpec` above, which is directly testable.
+ */
+function buildOutput(spec: StructuredOutputSpec) {
+  switch (spec.mode) {
+    case 'text':
+      return undefined;
+    case 'json':
+      return Output.json();
+    case 'json_schema':
+      return Output.object({
+        schema: jsonSchema(spec.schema),
+        name: spec.name,
+        ...(spec.description !== undefined ? { description: spec.description } : {}),
+      });
+  }
 }
 
 interface ToolCallState {
@@ -720,11 +844,14 @@ export class VercelAILLM implements ILLM {
 
     const { instructions, messages } = convertMessages(body.messages, replayKey);
     const tools = convertTools(body.tools ?? undefined);
+    const structuredOutputSpec = toStructuredOutputSpec(body.response_format);
+    const output = buildOutput(structuredOutputSpec);
 
     // reasoning_effort is injected by AgentThread via Object.assign; not in the SDK type.
     const rawReasoningEffort: unknown = Reflect.get(body, 'reasoning_effort');
     const reasoningEffort = typeof rawReasoningEffort === 'string' ? rawReasoningEffort : undefined;
-    const providerOptions = buildProviderOptions(providerConfig, reasoningEffort);
+    const providerOptions = buildProviderOptions(providerConfig, reasoningEffort, structuredOutputSpec);
+    const reasoning = toReasoningLevel(providerConfig.provider, reasoningEffort);
 
     let streamResult;
     try {
@@ -733,6 +860,8 @@ export class VercelAILLM implements ILLM {
         ...(instructions !== undefined ? { instructions } : {}),
         messages,
         ...(tools !== undefined ? { tools } : {}),
+        ...(output !== undefined ? { output } : {}),
+        ...(reasoning !== undefined ? { reasoning } : {}),
         // Prefer max_completion_tokens; fall back to max_tokens (deprecated on the OpenAI type,
         // read via Reflect.get so the lint rule doesn't fire on the call site).
         ...((): { maxOutputTokens: number } | Record<never, never> => {
