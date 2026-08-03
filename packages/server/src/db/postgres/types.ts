@@ -14,6 +14,7 @@ import type {
 } from '@truefoundry/utils/core';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { ProviderManifest } from '../../catalog/schemas';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -291,6 +292,22 @@ export interface ThreadCapabilityStateTable {
 }
 
 /**
+ * Configured model providers — manifest pattern: identity as columns,
+ * everything else in one Zod-validated jsonb document.
+ * PRIMARY KEY (tenant_id, provider_name)
+ */
+export interface ModelProviderTable {
+  /** key */
+  tenant_id: string;
+  /** key: natural key within tenant; first segment of fully qualified model names */
+  provider_name: string;
+  /** ProviderManifest document; replaced whole on every upsert */
+  manifest: JSONColumnType<ProviderManifest, ProviderManifest, ProviderManifest>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
  * Write-heat summary: `turn_thread` is the one deliberately-hot table with its hot
  * columns (`context_ids`, `current_context_usage`) isolated from the pointer-carried
  * big ones (`agent_info`, `checkpoint`); `session`, `turn`, and
@@ -298,7 +315,7 @@ export interface ThreadCapabilityStateTable {
  * are pure insert. Nothing ever rewrites a large value except the array concat
  * itself — the documented, bounded cost of the raw-array model.
  *
- * Canonical Kysely database — six session-store tables.
+ * Canonical Kysely database — six session-store tables plus `model_provider`.
  */
 export interface Database {
   session: SessionTable;
@@ -307,4 +324,5 @@ export interface Database {
   session_event: SessionEventTable;
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
+  model_provider: ModelProviderTable;
 }

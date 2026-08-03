@@ -9,10 +9,13 @@ import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createMcpRouter } from './apis/mcp';
-import { createModelsRouter } from './apis/models';
+import { createModelProvidersRouter } from './apis/modelProviders';
+import { createModelsRouter, createOldModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
 import { createSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
+import type { ModelCatalog } from './catalog/ModelCatalog';
+import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { McpStore } from './store/McpStore';
 import type { ModelStore } from './store/ModelStore';
@@ -38,6 +41,8 @@ function routeNotFound(c: Context) {
 
 export interface ServerDeps {
   modelStore: ModelStore;
+  modelCatalog: ModelCatalog;
+  modelProviderStore: IModelProviderStore;
   mcpStore: McpStore;
   skillStore: SkillStore;
   sessionStore: ISessionStore;
@@ -58,7 +63,13 @@ export function createServerApp(deps: ServerDeps) {
   app.get('/healthz', c => c.text('OK!'));
 
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
-  app.route('/api/v1/models', createModelsRouter(deps.modelStore));
+  app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
+  // The YAML-backed flow (models.yaml) the runtime still uses, relocated so the DB-backed view owns /models.
+  app.route('/api/v1/old/models', createOldModelsRouter(deps.modelStore));
+  app.route(
+    '/api/v1/model-providers',
+    createModelProvidersRouter({ modelCatalog: deps.modelCatalog, modelProviderStore: deps.modelProviderStore }),
+  );
   app.route('/api/v1/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
   app.route('/api/v1/skills', createSkillsRouter(deps.skillStore));
   app.route(

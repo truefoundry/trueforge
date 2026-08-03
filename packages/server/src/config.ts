@@ -17,6 +17,7 @@ export const CONFIG_FILES = {
   models: 'models.yaml',
   mcpServers: 'mcp.yaml',
   skills: 'skills.yaml',
+  modelCatalog: 'model-catalog.yaml',
 } as const;
 
 // ============================================================================

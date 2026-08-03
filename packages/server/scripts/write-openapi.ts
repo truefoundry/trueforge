@@ -12,6 +12,10 @@ import path from 'node:path';
 import { createClient, type RedisClientType } from 'redis';
 import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
+import { ModelCatalog } from '../src/catalog/ModelCatalog';
+import configuration from '../src/config';
+import { createDb } from '../src/db/postgres/client';
+import { PostgresModelProviderStore } from '../src/db/postgres/model-provider-store/PostgresModelProviderStore';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
 import { McpStore } from '../src/store/McpStore';
 import { ModelStore } from '../src/store/ModelStore';
@@ -41,6 +45,8 @@ const sessionStore = new InMemorySessionStore();
 const redis: RedisClientType = createClient();
 const app = createServerApp({
   modelStore: ModelStore.load(),
+  modelCatalog: ModelCatalog.load(),
+  modelProviderStore: new PostgresModelProviderStore(createDb(configuration.DATABASE_URL, 1)),
   mcpStore: McpStore.load(),
   skillStore: SkillStore.load(),
   sessionStore,

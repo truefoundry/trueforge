@@ -22,6 +22,6 @@ module.exports = {
   transformIgnorePatterns: ['/node_modules/(?!.*kysely)'],
   testTimeout: 120_000,
   maxWorkers: '50%',
-  roots: ['<rootDir>/tests/db/session-store/postgres', '<rootDir>/src'],
-  testMatch: ['<rootDir>/tests/db/session-store/postgres/**/*.test.ts'],
+  roots: ['<rootDir>/tests/db', '<rootDir>/src'],
+  testMatch: ['<rootDir>/tests/db/**/postgres/**/*.test.ts'],
 };

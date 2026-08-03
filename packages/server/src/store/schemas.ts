@@ -9,7 +9,7 @@ import { z } from '@hono/zod-openapi';
 import { normalizeEnvName } from '../config';
 
 /** Adds a validation issue if two entries share a name. */
-function uniqueNames(entries: { name: string }[], ctx: z.RefinementCtx): void {
+export function uniqueNames(entries: { name: string }[], ctx: z.RefinementCtx): void {
   const seen = new Set<string>();
   for (const entry of entries) {
     if (seen.has(entry.name)) {
@@ -51,7 +51,8 @@ export const ModelEntrySchema = z
     max_output_tokens: z.number().int().positive(),
   })
   .strict()
-  .openapi('ModelEntry');
+  // "Old": the /api/v1/old/models shape; the catalog schemas own the ModelEntry name.
+  .openapi('OldModelEntry');
 
 export const ModelsFileSchema = z
   .object({

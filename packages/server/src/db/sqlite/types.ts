@@ -17,6 +17,7 @@ import type {
 } from '@truefoundry/utils/core';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { ProviderManifest } from '../../catalog/schemas';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -143,6 +144,19 @@ export interface ThreadCapabilityStateTable {
   updated_at: string;
 }
 
+/**
+ * Configured model providers — mirrors the Postgres `model_provider` table.
+ * PRIMARY KEY (tenant_id, provider_name)
+ */
+export interface ModelProviderTable {
+  tenant_id: string;
+  provider_name: string;
+  /** ProviderManifest document; replaced whole on every upsert */
+  manifest: JsonbColumn<ProviderManifest>;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Database {
   session: SessionTable;
   turn: TurnTable;
@@ -151,4 +165,5 @@ export interface Database {
   session_event: SessionEventTable;
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
+  model_provider: ModelProviderTable;
 }

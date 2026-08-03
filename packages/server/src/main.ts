@@ -23,6 +23,8 @@ try {
     { connectRedis },
     { RequestReplyExecutor, RequestReplyRouter },
     { PostgresSessionStore },
+    { ModelCatalog },
+    { PostgresModelProviderStore },
   ] = await Promise.all([
     import('./app'),
     import('./frontend'),
@@ -38,6 +40,8 @@ try {
     import('./runtime/redis'),
     import('@truefoundry/utils/request-reply'),
     import('./db/postgres/session-store/PostgresSessionStore'),
+    import('./catalog/ModelCatalog'),
+    import('./db/postgres/model-provider-store/PostgresModelProviderStore'),
   ]);
 
   // Console logger shared by the server runtime (harness components require one).
@@ -64,6 +68,8 @@ try {
 
   const app = createServerApp({
     modelStore: ModelStore.load(),
+    modelCatalog: ModelCatalog.load(),
+    modelProviderStore: new PostgresModelProviderStore(db),
     mcpStore: McpStore.load(),
     skillStore,
     sessionStore,

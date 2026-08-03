@@ -42,7 +42,7 @@ async function fetchJson<T>(path: string): Promise<T> {
 }
 
 export async function listModels(): Promise<ModelEntry[]> {
-  const body = await fetchJson<ListEnvelope<ModelEntry>>('/api/v1/models');
+  const body = await fetchJson<ListEnvelope<ModelEntry>>('/api/v1/old/models');
   return body.data;
 }
 
