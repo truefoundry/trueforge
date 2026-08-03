@@ -40,17 +40,6 @@
             },
             "default": "./dist/cjs/api/resources/server/exports.js"
         },
-        "./mcpServers": {
-            "import": {
-                "types": "./dist/esm/api/resources/mcpServers/exports.d.mts",
-                "default": "./dist/esm/api/resources/mcpServers/exports.mjs"
-            },
-            "require": {
-                "types": "./dist/cjs/api/resources/mcpServers/exports.d.ts",
-                "default": "./dist/cjs/api/resources/mcpServers/exports.js"
-            },
-            "default": "./dist/cjs/api/resources/mcpServers/exports.js"
-        },
         "./models": {
             "import": {
                 "types": "./dist/esm/api/resources/models/exports.d.mts",
@@ -73,16 +62,71 @@
             },
             "default": "./dist/cjs/api/resources/sessions/exports.js"
         },
-        "./skills": {
+        "./legacy": {
             "import": {
-                "types": "./dist/esm/api/resources/skills/exports.d.mts",
-                "default": "./dist/esm/api/resources/skills/exports.mjs"
+                "types": "./dist/esm/api/resources/legacy/exports.d.mts",
+                "default": "./dist/esm/api/resources/legacy/exports.mjs"
             },
             "require": {
-                "types": "./dist/cjs/api/resources/skills/exports.d.ts",
-                "default": "./dist/cjs/api/resources/skills/exports.js"
+                "types": "./dist/cjs/api/resources/legacy/exports.d.ts",
+                "default": "./dist/cjs/api/resources/legacy/exports.js"
             },
-            "default": "./dist/cjs/api/resources/skills/exports.js"
+            "default": "./dist/cjs/api/resources/legacy/exports.js"
+        },
+        "./legacy/mcpServers": {
+            "import": {
+                "types": "./dist/esm/api/resources/legacy/resources/mcpServers/exports.d.mts",
+                "default": "./dist/esm/api/resources/legacy/resources/mcpServers/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/legacy/resources/mcpServers/exports.d.ts",
+                "default": "./dist/cjs/api/resources/legacy/resources/mcpServers/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/legacy/resources/mcpServers/exports.js"
+        },
+        "./legacy/models": {
+            "import": {
+                "types": "./dist/esm/api/resources/legacy/resources/models/exports.d.mts",
+                "default": "./dist/esm/api/resources/legacy/resources/models/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/legacy/resources/models/exports.d.ts",
+                "default": "./dist/cjs/api/resources/legacy/resources/models/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/legacy/resources/models/exports.js"
+        },
+        "./legacy/skills": {
+            "import": {
+                "types": "./dist/esm/api/resources/legacy/resources/skills/exports.d.mts",
+                "default": "./dist/esm/api/resources/legacy/resources/skills/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/legacy/resources/skills/exports.d.ts",
+                "default": "./dist/cjs/api/resources/legacy/resources/skills/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/legacy/resources/skills/exports.js"
+        },
+        "./settings": {
+            "import": {
+                "types": "./dist/esm/api/resources/settings/exports.d.mts",
+                "default": "./dist/esm/api/resources/settings/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/settings/exports.d.ts",
+                "default": "./dist/cjs/api/resources/settings/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/settings/exports.js"
+        },
+        "./settings/modelProviders": {
+            "import": {
+                "types": "./dist/esm/api/resources/settings/resources/modelProviders/exports.d.mts",
+                "default": "./dist/esm/api/resources/settings/resources/modelProviders/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/settings/resources/modelProviders/exports.d.ts",
+                "default": "./dist/cjs/api/resources/settings/resources/modelProviders/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/settings/resources/modelProviders/exports.js"
         },
         "./package.json": "./package.json"
     },

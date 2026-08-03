@@ -8,16 +8,20 @@ import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { createCapabilitiesRouter } from './apis/capabilities';
-import { createMcpRouter } from './apis/mcp';
-import { createMcpOAuthRouter } from './apis/mcpOAuth';
+import { createLegacyMcpRouter } from './apis/legacyMcp';
+import { createLegacyMcpOAuthRouter } from './apis/legacyMcpOAuth';
+import { createLegacyModelsRouter } from './apis/legacyModels';
+import { createLegacySkillsRouter } from './apis/legacySkills';
 import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
-import { createSkillsRouter } from './apis/skills';
+import { createSettingsRouter } from './apis/settings';
 import { createTurnsRouter } from './apis/turns';
+import type { ModelCatalog } from './catalog/ModelCatalog';
+import type { IModelProviderStore } from './db/modelProviderStore';
+import type { McpStore } from './legacy-registry-store/McpStore';
+import type { ModelStore } from './legacy-registry-store/ModelStore';
+import type { SkillStore } from './legacy-registry-store/SkillStore';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
-import type { McpStore } from './store/McpStore';
-import type { ModelStore } from './store/ModelStore';
-import type { SkillStore } from './store/SkillStore';
 
 const openApiDocConfig = {
   openapi: '3.1.0',
@@ -39,6 +43,8 @@ function routeNotFound(c: Context) {
 
 export interface ServerDeps {
   modelStore: ModelStore;
+  modelCatalog: ModelCatalog;
+  modelProviderStore: IModelProviderStore;
   mcpStore: McpStore;
   skillStore: SkillStore;
   sessionStore: ISessionStore;
@@ -59,10 +65,16 @@ export function createServerApp(deps: ServerDeps) {
   app.get('/healthz', c => c.text('OK!'));
 
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
-  app.route('/api/v1/models', createModelsRouter(deps.modelStore));
-  app.route('/api/v1/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
-  app.route('/api/v1/mcp-servers/oauth', createMcpOAuthRouter({ logger: deps.logger }));
-  app.route('/api/v1/skills', createSkillsRouter(deps.skillStore));
+  app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
+  app.route(
+    '/api/v1/settings',
+    createSettingsRouter({ modelCatalog: deps.modelCatalog, modelProviderStore: deps.modelProviderStore }),
+  );
+  // YAML registry surfaces — non-legacy paths reserved for future DB-backed CRUD.
+  app.route('/api/v1/legacy/models', createLegacyModelsRouter(deps.modelStore));
+  app.route('/api/v1/legacy/mcp-servers', createLegacyMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
+  app.route('/api/v1/legacy/mcp-servers/oauth', createLegacyMcpOAuthRouter({ logger: deps.logger }));
+  app.route('/api/v1/legacy/skills', createLegacySkillsRouter(deps.skillStore));
   app.route(
     '/api/v1/sessions',
     createSessionsRouter({

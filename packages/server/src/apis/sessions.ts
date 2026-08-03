@@ -12,6 +12,8 @@ import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import configuration from '../config';
+import type { McpStore } from '../legacy-registry-store/McpStore';
+import type { ModelStore } from '../legacy-registry-store/ModelStore';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -24,8 +26,6 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { executorFromTurnId } from '../runtime/peeringIds';
 import type { Session } from '../schemas/session';
-import type { McpStore } from '../store/McpStore';
-import type { ModelStore } from '../store/ModelStore';
 
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
 export const TENANT_ID = 'default';

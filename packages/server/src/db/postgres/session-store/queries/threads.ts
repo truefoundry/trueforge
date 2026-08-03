@@ -11,8 +11,9 @@ import type { AgentInfo } from '@truefoundry/utils/core/events/schema';
 import type { ContextMessage, SubAgentCompletionMarker } from '@truefoundry/utils/core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
+import { json, jsonbSet } from '../../sqlExpressions';
 import type { Database, TurnThreadCheckpoint } from '../../types';
-import { json, jsonbSet, values } from '../sqlExpressions';
+import { values } from '../sqlExpressions';
 import {
   assertTurnRunning,
   classifyTurnFenceWriteFailure,

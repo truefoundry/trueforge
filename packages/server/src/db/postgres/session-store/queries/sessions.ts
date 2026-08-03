@@ -13,8 +13,8 @@ import {
   SessionStoreInvariantError,
 } from '@truefoundry/utils/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
+import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
-import { json } from '../sqlExpressions';
 
 function isPgUniqueViolation(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) {

@@ -227,6 +227,12 @@ export interface ServerConfiguration {
    */
   REGISTRY_DIR: string;
   /**
+   * Optional override for the model catalog YAML (discovery presets for
+   * GET /settings/model-providers/catalog). When unset, the catalog inlined at build
+   * time is used. Separate from `REGISTRY_DIR`. Env: `MODEL_CATALOG_PATH`.
+   */
+  MODEL_CATALOG_PATH: string | undefined;
+  /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
    * Env: `FRONTEND_DIR`, defaults to `../frontend/dist` relative to the working directory.
    */
@@ -354,6 +360,10 @@ const singleBinary = parseBoolean({
 const configuration: ServerConfiguration = {
   PORT: parsePort(getEnv('PORT')),
   REGISTRY_DIR: path.resolve(getEnv('REGISTRY_DIR', { defaultValue: 'registry' }) ?? 'registry'),
+  MODEL_CATALOG_PATH: (() => {
+    const override = getEnv('MODEL_CATALOG_PATH');
+    return override === undefined || override === '' ? undefined : path.resolve(override);
+  })(),
   FRONTEND_DIR: path.resolve(getEnv('FRONTEND_DIR', { defaultValue: DEFAULT_FRONTEND_DIR }) ?? DEFAULT_FRONTEND_DIR),
   MODEL_API_KEY: getEnv('MODEL_API_KEY', { required: true }) ?? '',
   MODEL_API_KEY_BY_NAME: parseApiKeysByName(),

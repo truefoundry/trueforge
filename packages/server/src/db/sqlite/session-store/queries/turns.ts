@@ -29,8 +29,9 @@ import { getEmptyCurrentContextUsage } from '@truefoundry/utils/core/runtime/con
 import type { SandboxInfo } from '@truefoundry/utils/core/sandbox/Sandbox';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
 import { isUniqueViolation } from '../../client';
+import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database, TurnCheckpoint, TurnThreadCheckpoint } from '../../types';
-import { jsonbBind, jsonText, nowIso, sortedByAppendId } from '../sqlExpressions';
+import { sortedByAppendId } from '../sqlExpressions';
 
 type TurnCustom = Record<string, never>;
 

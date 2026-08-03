@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'tsup';
 
-const srcDbDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'src/db');
+const packageDir = path.dirname(fileURLToPath(import.meta.url));
+const srcDbDir = path.join(packageDir, 'src/db');
 
 function migrationEntries(engine: 'postgres' | 'sqlite'): Record<string, string> {
   const migrationsDir = path.join(srcDbDir, engine, 'migrations');
