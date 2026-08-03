@@ -82,12 +82,9 @@ COPY --from=prod-deps /app/packages/server/node_modules ./packages/server/node_m
 COPY --from=builder /app/packages/harness/package.json ./packages/harness/package.json
 COPY --from=builder /app/packages/harness/dist ./packages/harness/dist
 
-# Built server.
+# Built server (dist includes shipped model-catalog.yaml under dist/catalog/).
 COPY --from=builder /app/packages/server/package.json ./packages/server/package.json
 COPY --from=builder /app/packages/server/dist ./packages/server/dist
-
-# Shipped model catalog (discovery presets); not operator registry config.
-COPY --from=builder /app/packages/server/catalog ./packages/server/catalog
 
 # The UI, at an absolute path so it resolves from any working directory.
 COPY --from=frontend-builder /app/packages/frontend/dist ./packages/frontend/dist

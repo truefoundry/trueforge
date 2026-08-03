@@ -62,7 +62,7 @@ services:
       - path: packages/server/.env
         required: true
     # The YAML registry (models.yaml, mcp.yaml, skills.yaml) is not baked into
-    # the image (the shipped model catalog under catalog/ is). Copy
+    # the image; the model catalog ships inside server dist/. Copy
     # registry-example to registry before starting the service.
     volumes:
       - ./packages/server/registry:/app/packages/server/registry:ro

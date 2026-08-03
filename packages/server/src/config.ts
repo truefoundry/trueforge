@@ -19,9 +19,6 @@ export const CONFIG_FILES = {
   skills: 'skills.yaml',
 } as const;
 
-/** Default shipped model catalog path (relative to the working directory). */
-const DEFAULT_MODEL_CATALOG_PATH = 'catalog/model-catalog.yaml';
-
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -230,12 +227,11 @@ export interface ServerConfiguration {
    */
   REGISTRY_DIR: string;
   /**
-   * Absolute path to the shipped model catalog YAML (discovery presets for
-   * GET /model-providers/catalog). Separate from `REGISTRY_DIR` — not operator
-   * runtime config. Env: `MODEL_CATALOG_PATH`, defaults to
-   * `./catalog/model-catalog.yaml`.
+   * Optional override for the model catalog YAML (discovery presets for
+   * GET /model-providers/catalog). When unset, the catalog shipped with the
+   * build is used. Separate from `REGISTRY_DIR`. Env: `MODEL_CATALOG_PATH`.
    */
-  MODEL_CATALOG_PATH: string;
+  MODEL_CATALOG_PATH: string | undefined;
   /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
    * Env: `FRONTEND_DIR`, defaults to `../frontend/dist` relative to the working directory.
@@ -353,9 +349,10 @@ const singleBinary = parseBoolean({
 const configuration: ServerConfiguration = {
   PORT: parsePort(getEnv('PORT')),
   REGISTRY_DIR: path.resolve(getEnv('REGISTRY_DIR', { defaultValue: 'registry' }) ?? 'registry'),
-  MODEL_CATALOG_PATH: path.resolve(
-    getEnv('MODEL_CATALOG_PATH', { defaultValue: DEFAULT_MODEL_CATALOG_PATH }) ?? DEFAULT_MODEL_CATALOG_PATH,
-  ),
+  MODEL_CATALOG_PATH: (() => {
+    const override = getEnv('MODEL_CATALOG_PATH');
+    return override === undefined || override === '' ? undefined : path.resolve(override);
+  })(),
   FRONTEND_DIR: path.resolve(getEnv('FRONTEND_DIR', { defaultValue: DEFAULT_FRONTEND_DIR }) ?? DEFAULT_FRONTEND_DIR),
   MODEL_API_KEY: getEnv('MODEL_API_KEY', { required: true }) ?? '',
   MODEL_API_KEY_BY_NAME: parseApiKeysByName(),

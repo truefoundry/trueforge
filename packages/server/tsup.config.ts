@@ -1,10 +1,11 @@
-import { readdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'tsup';
 
-const srcDbDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'src/db');
+const packageDir = path.dirname(fileURLToPath(import.meta.url));
+const srcDbDir = path.join(packageDir, 'src/db');
 
 function migrationEntries(engine: 'postgres' | 'sqlite'): Record<string, string> {
   const migrationsDir = path.join(srcDbDir, engine, 'migrations');
@@ -33,4 +34,11 @@ export default defineConfig({
   clean: true,
   target: 'esnext',
   outDir: 'dist',
+  // Shipped beside dist/main.js so ModelCatalog resolves
+  // `import.meta.dirname/catalog/model-catalog.yaml` without a Docker COPY.
+  async onSuccess() {
+    const destDir = path.join(packageDir, 'dist/catalog');
+    mkdirSync(destDir, { recursive: true });
+    copyFileSync(path.join(packageDir, 'src/catalog/model-catalog.yaml'), path.join(destDir, 'model-catalog.yaml'));
+  },
 });
