@@ -1,8 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { InMemorySessionStore, Sessions } from '@truefoundry/utils/agent-session';
 import { RequestReplyRouter } from '@truefoundry/utils/request-reply';
-import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
 import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
@@ -54,7 +52,7 @@ describe('public CRUD after session deletion', () => {
       },
       custom: null,
     });
-    assert.equal((await app.request('/s1', { method: 'DELETE' })).status, 204);
+    expect((await app.request('/s1', { method: 'DELETE' })).status).toBe(204);
 
     const requests = [
       app.request('/s1'),
@@ -76,12 +74,12 @@ describe('public CRUD after session deletion', () => {
     ];
 
     for (const response of await Promise.all(requests)) {
-      assert.equal(response.status, 404);
+      expect(response.status).toBe(404);
     }
 
     const listed = await app.request('/');
-    assert.equal(listed.status, 200);
-    assert.deepEqual(ListSessionsResponseSchema.parse(await listed.json()).data, []);
-    assert.equal((await app.request('/s1', { method: 'DELETE' })).status, 204);
+    expect(listed.status).toBe(200);
+    expect(ListSessionsResponseSchema.parse(await listed.json()).data).toEqual([]);
+    expect((await app.request('/s1', { method: 'DELETE' })).status).toBe(204);
   });
 });

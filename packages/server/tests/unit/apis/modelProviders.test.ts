@@ -1,5 +1,3 @@
-import assert from 'node:assert/strict';
-import { before, describe, it } from 'node:test';
 import { createModelsRouter } from '../../../src/apis/models';
 import { createSettingsRouter } from '../../../src/apis/settings';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
@@ -33,7 +31,7 @@ describe('settings model-providers and models routers', () => {
   let settingsRouter: ReturnType<typeof createSettingsRouter>;
   let modelsRouter: ReturnType<typeof createModelsRouter>;
 
-  before(async () => {
+  beforeAll(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
@@ -43,40 +41,39 @@ describe('settings model-providers and models routers', () => {
 
   it('GET /model-providers/catalog returns the shipped catalog verbatim', async () => {
     const response = await settingsRouter.request('/model-providers/catalog');
-    assert.equal(response.status, 200);
+    expect(response.status).toBe(200);
     const body = (await response.json()) as { data: { type: string; name: string }[] };
-    assert.deepEqual(
-      body.data.map(provider => provider.name),
+    expect(body.data.map(provider => provider.name)).toEqual(
       ModelCatalog.load()
         .list()
         .map(provider => provider.name),
     );
-    assert.ok(body.data.every(provider => provider.type !== 'custom'));
+    expect(body.data.every(provider => provider.type !== 'custom')).toBe(true);
   });
 
   it('PUT upserts a provider and echoes the stored auth', async () => {
     const response = await settingsRouter.request('/model-providers', putInit(putBody));
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { data: putBody });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ data: putBody });
 
     const list = await settingsRouter.request('/model-providers');
-    assert.equal(list.status, 200);
-    assert.deepEqual(await list.json(), { data: [putBody] });
+    expect(list.status).toBe(200);
+    expect(await list.json()).toEqual({ data: [putBody] });
   });
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {
     const { base_url: _, ...withoutBaseUrl } = putBody;
     const missingBaseUrl = await settingsRouter.request('/model-providers', putInit(withoutBaseUrl));
-    assert.equal(missingBaseUrl.status, 400);
+    expect(missingBaseUrl.status).toBe(400);
 
     const badName = await settingsRouter.request('/model-providers', putInit({ ...putBody, name: 'Not A Slug' }));
-    assert.equal(badName.status, 400);
+    expect(badName.status).toBe(400);
   });
 
   it('GET /models returns the FQN read view', async () => {
     const response = await modelsRouter.request('/');
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), {
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
       data: [
         {
           name: 'anthropic/claude-sonnet-4-6',

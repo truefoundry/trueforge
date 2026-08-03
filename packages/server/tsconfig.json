@@ -9,6 +9,5 @@
     }
   },
   "include": ["src/**/*", "scripts/**/*", "tsup.config.ts"],
-  // node:test files under src/ stay out of the Jest-typed project.
-  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
+  "exclude": ["node_modules", "dist"]
 }
