@@ -25,7 +25,6 @@ import {
 type DbOrTrx = Kysely<Database> | Transaction<Database>;
 
 interface CapabilityStateInsertRow {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   thread_id: string;
@@ -41,14 +40,12 @@ interface CapabilityStateInsertRow {
 export async function addThreads(db: Kysely<Database>, input: AddThreadsInput): Promise<void> {
   await db.transaction().execute(async trx => {
     await assertTurnRunning(trx, {
-      tenant_id: input.tenant_id,
       session_id: input.session_id,
       turn_id: input.turn_id,
     });
 
     const now = new Date();
     const logRows: {
-      tenant_id: string;
       session_id: string;
       thread_id: string;
       turn_id: string;
@@ -77,7 +74,6 @@ export async function addThreads(db: Kysely<Database>, input: AddThreadsInput): 
 
       for (const body of thread.context) {
         logRows.push({
-          tenant_id: input.tenant_id,
           session_id: input.session_id,
           thread_id: thread.thread_id,
           turn_id: input.turn_id,
@@ -96,7 +92,6 @@ export async function addThreads(db: Kysely<Database>, input: AddThreadsInput): 
             );
           }
           capabilityStateRows.push({
-            tenant_id: input.tenant_id,
             session_id: input.session_id,
             turn_id: input.turn_id,
             thread_id: thread.thread_id,
@@ -126,7 +121,6 @@ export async function addThreads(db: Kysely<Database>, input: AddThreadsInput): 
     }
 
     const turnThreadRows = turnThreadPlans.map(plan => ({
-      tenant_id: input.tenant_id,
       session_id: input.session_id,
       turn_id: input.turn_id,
       thread_id: plan.thread_id,
@@ -157,7 +151,6 @@ export async function removeThreads(db: Kysely<Database>, input: RemoveThreadsIn
   }
 
   const keys: TurnKeys = {
-    tenant_id: input.tenant_id,
     session_id: input.session_id,
     turn_id: input.turn_id,
   };
@@ -168,7 +161,6 @@ export async function removeThreads(db: Kysely<Database>, input: RemoveThreadsIn
     .with('del_cap', qb =>
       qb
         .deleteFrom('thread_capability_state')
-        .where('tenant_id', '=', keys.tenant_id)
         .where('session_id', '=', keys.session_id)
         .where('turn_id', '=', keys.turn_id)
         .where('thread_id', 'in', input.thread_ids)
@@ -177,7 +169,6 @@ export async function removeThreads(db: Kysely<Database>, input: RemoveThreadsIn
     .with('del_tt', qb =>
       qb
         .deleteFrom('turn_thread')
-        .where('tenant_id', '=', keys.tenant_id)
         .where('session_id', '=', keys.session_id)
         .where('turn_id', '=', keys.turn_id)
         .where('thread_id', 'in', input.thread_ids)
@@ -233,7 +224,6 @@ async function fencedTurnThreadContextUpdate(
         checkpoint: completionPatchExpr(args.completion),
         updated_at: sql`now()`,
       })
-      .where('tenant_id', '=', keys.tenant_id)
       .where('session_id', '=', keys.session_id)
       .where('turn_id', '=', keys.turn_id)
       .where('thread_id', '=', thread_id)
@@ -262,12 +252,11 @@ async function fencedTurnThreadContextUpdate(
     .with('new_rows', qb =>
       qb
         .insertInto('thread_context_log')
-        .columns(['tenant_id', 'session_id', 'thread_id', 'turn_id', 'body', 'created_at'])
+        .columns(['session_id', 'thread_id', 'turn_id', 'body', 'created_at'])
         .expression(eb =>
           eb
             .selectFrom(values(bodyRows, 'b'))
             .select([
-              sql<string>`${keys.tenant_id}`.as('tenant_id'),
               sql<string>`${keys.session_id}`.as('session_id'),
               sql<string>`${thread_id}`.as('thread_id'),
               sql<string>`${keys.turn_id}`.as('turn_id'),
@@ -286,7 +275,6 @@ async function fencedTurnThreadContextUpdate(
       checkpoint: completionPatchExpr(args.completion),
       updated_at: sql`now()`,
     })
-    .where('tenant_id', '=', keys.tenant_id)
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
     .where('thread_id', '=', thread_id)
@@ -306,7 +294,6 @@ async function fencedTurnThreadContextUpdate(
 export async function appendToThreadContext(db: Kysely<Database>, input: AppendToThreadContextInput): Promise<void> {
   await fencedTurnThreadContextUpdate(db, {
     keys: {
-      tenant_id: input.tenant_id,
       session_id: input.session_id,
       turn_id: input.turn_id,
     },
@@ -326,7 +313,6 @@ export async function appendToThreadContext(db: Kysely<Database>, input: AppendT
 export async function overwriteThreadContext(db: Kysely<Database>, input: OverwriteThreadContextInput): Promise<void> {
   await fencedTurnThreadContextUpdate(db, {
     keys: {
-      tenant_id: input.tenant_id,
       session_id: input.session_id,
       turn_id: input.turn_id,
     },
@@ -351,7 +337,6 @@ export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServe
   }
 
   const keys: TurnKeys = {
-    tenant_id: input.tenant_id,
     session_id: input.session_id,
     turn_id: input.turn_id,
   };
@@ -365,7 +350,6 @@ export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServe
             ELSE '{}'::jsonb END) || ${json(serversById)}`,
     )
     .set({ updated_at: sql`now()` })
-    .where('tenant_id', '=', keys.tenant_id)
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
     .where(sql<boolean>`state->>'status' = 'running'`)
@@ -382,7 +366,6 @@ export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServe
  */
 export async function patchSandboxInfo(db: Kysely<Database>, input: PatchSandboxInfoInput): Promise<void> {
   const keys: TurnKeys = {
-    tenant_id: input.tenant_id,
     session_id: input.session_id,
     turn_id: input.turn_id,
   };
@@ -391,7 +374,6 @@ export async function patchSandboxInfo(db: Kysely<Database>, input: PatchSandbox
     .updateTable('turn')
     .set(sql`checkpoint['sandbox_info']`, json(input.sandbox_info))
     .set({ updated_at: sql`now()` })
-    .where('tenant_id', '=', keys.tenant_id)
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
     .where(sql<boolean>`state->>'status' = 'running'`)
@@ -405,7 +387,6 @@ export async function patchSandboxInfo(db: Kysely<Database>, input: PatchSandbox
 /** Test helper: read a turn_thread row. */
 export async function getTurnThread(
   db: DbOrTrx,
-  tenant_id: string,
   session_id: string,
   turn_id: string,
   thread_id: string,
@@ -422,7 +403,6 @@ export async function getTurnThread(
   return await db
     .selectFrom('turn_thread')
     .select(['thread_id', 'checkpoint', 'agent_info', 'current_context_usage', 'context_ids'])
-    .where('tenant_id', '=', tenant_id)
     .where('session_id', '=', session_id)
     .where('turn_id', '=', turn_id)
     .where('thread_id', '=', thread_id)

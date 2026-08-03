@@ -149,7 +149,6 @@ const defaultRootThread: NewThreadInit = {
 
 /** Delta-shaped createTurn input for store contract tests. */
 export function makeCreateTurnInput(input: {
-  tenant?: string;
   sessionId: string;
   turnId: string;
   previousTurnId?: string | null;
@@ -169,7 +168,6 @@ export function makeCreateTurnInput(input: {
   void snapshot;
   const isFirstInChain = input.previousTurnId === undefined || input.previousTurnId === null;
   return {
-    tenant_id: input.tenant ?? 't1',
     turn: turnInit,
     new_threads: isFirstInChain ? (input.new_threads ?? [defaultRootThread]) : (input.new_threads ?? []),
     new_context_appends: input.new_context_appends ?? [],

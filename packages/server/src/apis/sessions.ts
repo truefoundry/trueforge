@@ -162,7 +162,6 @@ export async function cancelSessionTurn(
   const { sessionId, turnId, reason = CancellationReason.ClientCancelled } = input;
 
   const turn = await deps.sessionStore.getTurn({
-    tenant_id: TENANT_ID,
     session_id: sessionId,
     turn_id: turnId,
   });

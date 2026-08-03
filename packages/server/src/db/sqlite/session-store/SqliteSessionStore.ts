@@ -108,7 +108,6 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
 
   async createTurn(input: CreateTurnInput<TurnCustom>): Promise<void> {
     await createTurnQuery(this.db, {
-      tenant_id: input.tenant_id,
       session_id: input.turn.session_id,
       turn: {
         turn_id: input.turn.turn_id,
@@ -146,7 +145,6 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
   ): Promise<{ data: TurnRecordWithoutSnapshot<TurnCustom>[]; pagination: TokenPagination }> {
     const offset = decodeOffsetPageToken(input.page_token);
     const result = await listTurnsQuery(this.db, {
-      tenant_id: input.tenant_id,
       session_id: input.session_id,
       limit: input.limit,
       offset,
