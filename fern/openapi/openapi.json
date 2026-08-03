@@ -128,6 +128,58 @@
         ],
         "type": "object"
       },
+      "AnthropicProviderModelEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "model_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "anthropic"
+            ],
+            "type": "string"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "max_output_tokens",
+          "provider"
+        ],
+        "type": "object"
+      },
       "ApprovalAllow": {
         "properties": {
           "status": {
@@ -467,6 +519,65 @@
         },
         "type": "object"
       },
+      "GenericProviderModelEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "api_format": {
+            "enum": [
+              "openai-chat-completions"
+            ],
+            "type": "string"
+          },
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "model_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "generic"
+            ],
+            "type": "string"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "max_output_tokens",
+          "provider",
+          "base_url"
+        ],
+        "type": "object"
+      },
       "GetCapabilitiesResponse": {
         "properties": {
           "data": {
@@ -514,6 +625,58 @@
         },
         "required": [
           "data"
+        ],
+        "type": "object"
+      },
+      "GoogleGeminiProviderModelEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "model_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "google-gemini"
+            ],
+            "type": "string"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "max_output_tokens",
+          "provider"
         ],
         "type": "object"
       },
@@ -907,9 +1070,59 @@
         ],
         "type": "object"
       },
+      "McpAuthorizeResponse": {
+        "properties": {
+          "auth_url": {
+            "description": "Present only when status is authentication_required.",
+            "format": "uri",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "authenticated",
+              "authentication_required"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "McpServerAuthSettings": {
+        "oneOf": [
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "dcr"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "McpServerEntry": {
         "additionalProperties": false,
         "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/McpServerAuthSettings"
+          },
+          "auth_status": {
+            "description": "Passive check only: whether a stored, unexpired token exists. Never attempts a live refresh, so an expired-but-refreshable token still reads as `authentication_required` here — call `/authorize` to actually resolve it. `not_required` for servers without `auth` configured.",
+            "enum": [
+              "authenticated",
+              "authentication_required",
+              "not_required"
+            ],
+            "type": "string"
+          },
           "name": {
             "minLength": 1,
             "type": "string"
@@ -921,7 +1134,8 @@
         },
         "required": [
           "name",
-          "url"
+          "url",
+          "auth_status"
         ],
         "type": "object"
       },
@@ -941,30 +1155,29 @@
         "type": "object"
       },
       "ModelEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "max_output_tokens": {
-            "exclusiveMinimum": 0,
-            "type": "integer"
+        "discriminator": {
+          "mapping": {
+            "anthropic": "#/components/schemas/AnthropicProviderModelEntry",
+            "generic": "#/components/schemas/GenericProviderModelEntry",
+            "google-gemini": "#/components/schemas/GoogleGeminiProviderModelEntry",
+            "openai": "#/components/schemas/OpenAIProviderModelEntry"
           },
-          "name": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "reasoning_efforts": {
-            "items": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "minItems": 1,
-            "type": "array"
-          }
+          "propertyName": "provider"
         },
-        "required": [
-          "name",
-          "max_output_tokens"
-        ],
-        "type": "object"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OpenAIProviderModelEntry"
+          },
+          {
+            "$ref": "#/components/schemas/AnthropicProviderModelEntry"
+          },
+          {
+            "$ref": "#/components/schemas/GoogleGeminiProviderModelEntry"
+          },
+          {
+            "$ref": "#/components/schemas/GenericProviderModelEntry"
+          }
+        ]
       },
       "ModelMessageDeltaEvent": {
         "properties": {
@@ -1172,6 +1385,58 @@
             "type": "number"
           }
         },
+        "type": "object"
+      },
+      "OpenAIProviderModelEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "model_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "openai"
+            ],
+            "type": "string"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "max_output_tokens",
+          "provider"
+        ],
         "type": "object"
       },
       "PreviousTurnIdInput": {
@@ -2496,7 +2761,7 @@
     },
     "/api/v1/mcp-servers": {
       "get": {
-        "description": "MCP servers declared in mcp.yaml. Auth headers are configured via env vars and never returned.",
+        "description": "MCP servers declared in mcp.yaml, each with a passive auth_status snapshot. Auth headers are configured via env vars and never returned.",
         "responses": {
           "200": {
             "content": {
@@ -2517,6 +2782,131 @@
           "mcp_servers"
         ],
         "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/mcp-servers/oauth/callback": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Opaque token; correlates this callback to its pending authorization.",
+            "in": "query",
+            "name": "state",
+            "required": true,
+            "schema": {
+              "description": "Opaque token; correlates this callback to its pending authorization.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Authorization code, present when the user granted consent.",
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "description": "Authorization code, present when the user granted consent.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "OAuth error code, present instead of `code` if the user denied consent or the IdP errored.",
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "description": "OAuth error code, present instead of `code` if the user denied consent or the IdP errored.",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error_description",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirects to the original `redirect_url` on success, or a failure page if `error` was present."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unknown or expired `state` (no matching pending authorization), or `code`/`error` both missing."
+          }
+        },
+        "summary": "OAuth callback for MCP authorization",
+        "tags": [
+          "MCP OAuth"
+        ],
+        "x-fern-ignore": true
+      }
+    },
+    "/api/v1/mcp-servers/{name}/authorize": {
+      "get": {
+        "description": "Registers a DCR client for this server if none exists yet, then returns an authorization URL to redirect the user to so they can complete the OAuth consent flow. Short-circuits to `{status: authenticated}` with no URL if the server is already connected.",
+        "parameters": [
+          {
+            "description": "MCP server name from mcp.yaml.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "MCP server name from mcp.yaml.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where to send the browser after OAuth completes.",
+            "in": "query",
+            "name": "redirect_url",
+            "required": true,
+            "schema": {
+              "description": "Where to send the browser after OAuth completes.",
+              "format": "uri",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpAuthorizeResponse"
+                }
+              }
+            },
+            "description": "Either already authenticated, or an authorization URL to redirect to."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not found."
+          }
+        },
+        "summary": "Start (or short-circuit) the auth flow for an MCP server",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "mcp_servers"
+        ],
+        "x-fern-sdk-method-name": "authorize"
       }
     },
     "/api/v1/mcp-servers/{name}/tools": {

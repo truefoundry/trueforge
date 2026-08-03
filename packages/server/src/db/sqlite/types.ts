@@ -17,6 +17,42 @@ import type {
 } from '@truefoundry/utils/core';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { McpServerManifest } from '../../store/schemas';
+
+/**
+ * `mcp_server.oauth_server` JSONB shape — RFC 8414 authorization-server metadata, discovered once
+ * at registration time. Own column, not merged with oauth_client: different source HTTP call
+ * (metadata discovery vs. DCR registration), and this one never carries a secret.
+ */
+export interface OAuthServer {
+  authorizationEndpoint: string;
+  tokenEndpoint: string;
+  codeChallengeMethodsSupported?: string[];
+}
+
+/** `mcp_server.oauth_client` JSONB shape — RFC 7591 DCR registration response for this server. */
+export interface OAuthClient {
+  clientId: string;
+  clientSecret?: string;
+}
+
+/** `oauth_pending_authorization.auth_data` JSONB shape. */
+export interface McpOAuthPendingAuthorizationData {
+  /** absent when the authorization server doesn't advertise PKCE support */
+  codeVerifier?: string;
+  /** absent when triggered mid-turn by resolveAuth, not by the authorize() endpoint */
+  redirectUrl?: string;
+}
+
+/** `oauth_token.token` JSONB shape — matches SF's MCPUserAuthModel.authData. */
+export interface McpOAuthToken {
+  accessToken: string;
+  /** absent: some grants don't issue one */
+  refreshToken?: string;
+  /** ISO 8601; always filled — see "missing expires_in" fallback in the design doc */
+  expiresAt: string;
+  scope?: string;
+}
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -143,6 +179,54 @@ export interface ThreadCapabilityStateTable {
   updated_at: string;
 }
 
+/**
+ * PRIMARY KEY (id)
+ * UNIQUE (tenant_id, name) — the natural lookup key;
+ */
+export interface McpServerTable {
+  /** application-generated (ulid); FK target, never re-derived from tenant_id/name */
+  id: string;
+  tenant_id: string;
+  /** the uniqueness target; also duplicated inside `manifest` (the full mcp.yaml entry) */
+  name: string;
+  manifest: JsonbColumn<McpServerManifest>;
+  /**
+   * Both null until the first successful DCR registration, written together in that one call;
+   * always null when `manifest.auth` is absent. Two columns rather than one blob: different
+   * source HTTP response (metadata discovery vs. registration), and only `oauth_client` carries
+   * a secret.
+   */
+  oauth_server: JsonbColumn<OAuthServer> | null;
+  oauth_client: JsonbColumn<OAuthClient> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * PRIMARY KEY (oauth_server_id)
+ * No `tenant_id` — already 1:1 with tenant via the FK. Any tenant-scoped read resolves
+ * `oauth_server_id` through mcp_server (by tenant_id + name) first; this table is never
+ * queried by tenant_id directly.
+ */
+export interface OAuthTokenTable {
+  /** FK -> mcp_server.id, ON DELETE CASCADE */
+  oauth_server_id: string;
+  token: JsonbColumn<McpOAuthToken>;
+  updated_at: string;
+}
+
+/**
+ * PRIMARY KEY (id) ( used for callback state.)
+ */
+export interface OAuthPendingAuthorizationTable {
+  id: string;
+  /** FK -> mcp_server.id, ON DELETE CASCADE */
+  oauth_server_id: string;
+  /** { codeVerifier?, redirectUrl? } — same writer/lifecycle for both, so merged into one column */
+  auth_data: JsonbColumn<McpOAuthPendingAuthorizationData>;
+  created_at: string;
+}
+
 export interface Database {
   session: SessionTable;
   turn: TurnTable;
@@ -151,4 +235,7 @@ export interface Database {
   session_event: SessionEventTable;
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
+  mcp_server: McpServerTable;
+  oauth_token: OAuthTokenTable;
+  oauth_pending_authorization: OAuthPendingAuthorizationTable;
 }

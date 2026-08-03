@@ -9,6 +9,7 @@ import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createMcpRouter } from './apis/mcp';
+import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
 import { createSkillsRouter } from './apis/skills';
@@ -60,6 +61,7 @@ export function createServerApp(deps: ServerDeps) {
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
   app.route('/api/v1/models', createModelsRouter(deps.modelStore));
   app.route('/api/v1/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
+  app.route('/api/v1/mcp-servers/oauth', createMcpOAuthRouter({ logger: deps.logger }));
   app.route('/api/v1/skills', createSkillsRouter(deps.skillStore));
   app.route(
     '/api/v1/sessions',
