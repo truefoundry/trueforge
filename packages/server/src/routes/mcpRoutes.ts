@@ -14,7 +14,7 @@ const McpServerResponseSchema = McpServerEntrySchema.extend({
         'so an expired-but-refreshable token still reads as `authentication_required` here — call `/authorize` to ' +
         'actually resolve it. `not_required` for servers without `auth` configured.',
     ),
-}).openapi('McpServerResponse');
+}).openapi('McpServerEntry');
 
 const ListMcpServersResponseSchema = z
   .object({

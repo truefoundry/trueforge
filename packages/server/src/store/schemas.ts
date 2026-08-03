@@ -85,7 +85,7 @@ export const McpServerEntrySchema = z
  * round-trips the whole yaml entry as-is). Reuses `McpServerEntrySchema` directly rather than a
  * hand-written type, so the DB's stored shape can never drift from the yaml-validated one.
  */
-export const McpServerManifestSchema = McpServerEntrySchema.openapi('McpServerManifest');
+export const McpServerManifestSchema = McpServerEntrySchema;
 
 export const McpFileSchema = z
   .object({
