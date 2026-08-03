@@ -21,8 +21,6 @@ const putBody = {
   ],
 };
 
-const redactedProvider = { ...putBody, auth: { api_key_set: true } };
-
 function putInit(body: unknown): RequestInit {
   return {
     method: 'PUT',
@@ -56,14 +54,14 @@ describe('model-providers and models routers', () => {
     assert.ok(body.data.every(provider => provider.type !== 'custom'));
   });
 
-  it('PUT upserts a provider and redacts the api key', async () => {
+  it('PUT upserts a provider and echoes the stored auth', async () => {
     const response = await providersRouter.request('/', putInit(putBody));
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { data: redactedProvider });
+    assert.deepEqual(await response.json(), { data: putBody });
 
     const list = await providersRouter.request('/');
     assert.equal(list.status, 200);
-    assert.deepEqual(await list.json(), { data: [redactedProvider] });
+    assert.deepEqual(await list.json(), { data: [putBody] });
   });
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {

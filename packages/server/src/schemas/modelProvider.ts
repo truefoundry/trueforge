@@ -73,34 +73,17 @@ export function refineProviderManifest(
 export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
 export type ProviderManifest = z.infer<typeof ProviderManifestObjectSchema>;
 
-/** Full upsert body: identity `name` plus the manifest fields, copied verbatim from the catalog. */
-export const PutModelProviderRequestSchema = ProviderManifestObjectSchema.extend({
+/**
+ * Configured provider: PUT body and list/upsert response data (identity `name`
+ * plus manifest fields, including `auth.api_key`).
+ */
+export const ModelProviderSchema = ProviderManifestObjectSchema.extend({
   name: NameSchema,
 })
   .superRefine(refineProviderManifest)
-  .openapi('PutModelProviderRequest');
-
-/**
- * `auth.api_key` is never echoed back: responses only confirm a key is stored.
- * Returning stored secrets on every settings load would be a leak.
- */
-export const ModelProviderAuthStatusSchema = z
-  .object({
-    api_key_set: z.literal(true),
-  })
-  .strict()
-  .openapi('ModelProviderAuthStatus');
-
-export const ModelProviderSchema = z
-  .object({
-    type: ProviderTypeSchema,
-    name: NameSchema,
-    base_url: z.string().url(),
-    auth: ModelProviderAuthStatusSchema,
-    models: z.array(ModelEntrySchema).min(1),
-  })
-  .strict()
   .openapi('ModelProvider');
+
+export const PutModelProviderRequestSchema = ModelProviderSchema;
 
 export const ListModelProvidersResponseSchema = z
   .object({
@@ -130,5 +113,5 @@ export const ListModelsResponseSchema = z
   })
   .openapi('ListModelsResponse');
 
-export type PutModelProviderRequest = z.infer<typeof PutModelProviderRequestSchema>;
 export type ModelProvider = z.infer<typeof ModelProviderSchema>;
+export type PutModelProviderRequest = ModelProvider;

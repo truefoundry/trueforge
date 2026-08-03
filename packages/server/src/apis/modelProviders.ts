@@ -14,14 +14,11 @@ export interface ModelProvidersRouterDeps {
   modelProviderStore: IModelProviderStore;
 }
 
-/** Wire view of a stored provider: manifest flattened, api_key redacted. */
+/** Wire view of a stored provider: identity `name` plus persisted manifest. */
 function toModelProvider(record: ModelProviderRecord): ModelProvider {
   return {
-    type: record.manifest.type,
+    ...record.manifest,
     name: record.provider_name,
-    base_url: record.manifest.base_url,
-    auth: { api_key_set: true },
-    models: record.manifest.models,
   };
 }
 
