@@ -27,9 +27,9 @@ function shippedCatalogPath(): string {
 }
 
 export class ModelCatalog {
-  private readonly providers: CatalogProvider[];
+  private readonly providers: readonly CatalogProvider[];
 
-  constructor(providers: CatalogProvider[]) {
+  constructor(providers: readonly CatalogProvider[]) {
     this.providers = providers;
   }
 
@@ -40,7 +40,7 @@ export class ModelCatalog {
     return new ModelCatalog(file.providers);
   }
 
-  list(): CatalogProvider[] {
+  list(): readonly CatalogProvider[] {
     return this.providers;
   }
 }

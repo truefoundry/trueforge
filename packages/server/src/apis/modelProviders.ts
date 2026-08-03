@@ -24,7 +24,7 @@ function toModelProvider(record: ModelProviderRecord): ModelProvider {
 
 export function createModelProvidersRouter(deps: ModelProvidersRouterDeps) {
   const catalogHandler: RouteHandler<typeof getModelProviderCatalogRoute> = c => {
-    return c.json({ data: deps.modelCatalog.list() }, 200);
+    return c.json({ data: [...deps.modelCatalog.list()] }, 200);
   };
 
   const listHandler: RouteHandler<typeof listModelProvidersRoute> = async c => {
