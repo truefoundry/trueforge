@@ -1,0 +1,7 @@
+{
+  // Separate program from tests/db: the harness store contract suite augments
+  // AgentPassthroughEventSchemaMap, which widens SessionEventItem and breaks the
+  // route handler types of any server source pulled in alongside it.
+  "extends": "../../tsconfig.json",
+  "include": ["**/*"]
+}
