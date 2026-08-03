@@ -265,9 +265,8 @@ export interface ISessionStore<
    * unset/null, set it in the same atomic unit; an existing title is NEVER
    * overwritten (first write wins). The caller derives the value; the store
    * only conditionally sets it.
-   * Returns the authoritative post-write session record from that atomic unit.
    */
-  createTurn(input: CreateTurnInput<TTurnCustom>): Promise<SessionRecord<TSessionCustom>>;
+  createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void>;
 
   /**
    * One tx: (a) conditionally cancel a running turn with
@@ -281,7 +280,7 @@ export interface ISessionStore<
   /** Returns the turn record, or undefined if not found in this session. */
   getTurn(input: GetTurnInput): Promise<TurnRecord<TTurnCustom> | undefined>;
 
-  /** Paginated turn rows; missing session throws {@link SessionNotFoundError}. */
+  /** Paginated list of turn rows (no snapshot); use getTurn for assembled snapshot. */
   listTurns(
     input: ListTurnsInput,
   ): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }>;

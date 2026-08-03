@@ -116,7 +116,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   }
 
   /** Loads a store-only handle directly from its durable scope. */
-  static async fromIds<TCustom extends object = Record<string, never>>(options: {
+  static async get<TCustom extends object = Record<string, never>>(options: {
     store: ISessionStore<object, TCustom>;
     session_id: string;
     turn_id: string;

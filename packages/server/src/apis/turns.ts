@@ -127,17 +127,17 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
+    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
     try {
-      const { data, pagination } = await deps.sessionStore.listTurns({
-        session_id: sessionId,
+      const { data, pagination } = await session.listTurns({
         limit: query.limit,
         page_token: query.page_token,
       });
       return c.json({ data: data.map(toWireTurn), pagination }, 200);
     } catch (error) {
-      if (error instanceof SessionStoreNotFoundError) {
-        return c.json({ error: { message: error.message } }, 404);
-      }
       if (error instanceof SessionStoreConflictError) {
         return c.json({ error: { message: error.message } }, 400);
       }
@@ -147,7 +147,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
   const getTurnHandler: RouteHandler<typeof getTurnRoute> = async c => {
     const { sessionId, turnId } = c.req.valid('param');
-    const turn = await TurnHandle.fromIds({
+    const turn = await TurnHandle.get({
       store: deps.sessionStore,
       session_id: sessionId,
       turn_id: turnId,
@@ -161,7 +161,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   const listTurnEventsHandler: RouteHandler<typeof listTurnEventsRoute> = async c => {
     const { sessionId, turnId } = c.req.valid('param');
     const query = c.req.valid('query');
-    const turn = await TurnHandle.fromIds({
+    const turn = await TurnHandle.get({
       store: deps.sessionStore,
       session_id: sessionId,
       turn_id: turnId,

@@ -1,6 +1,4 @@
-import type { SessionRecord } from '@truefoundry/utils/agent-session/models/SessionRecord';
 import type { TurnRecord, TurnSnapshot } from '@truefoundry/utils/agent-session/models/TurnRecord';
-import type { AgentSpec } from '@truefoundry/utils/agent-session/schemas/agentSpec';
 import {
   CancellationReason,
   type TerminalTurnState,
@@ -34,9 +32,7 @@ import { isUniqueViolation } from '../../client';
 import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database, TurnCheckpoint, TurnThreadCheckpoint } from '../../types';
 import { sortedByAppendId } from '../sqlExpressions';
-import { mapRowToSessionRecord } from './sessions';
 
-type SessionCustom = Record<string, never>;
 type TurnCustom = Record<string, never>;
 
 function isEmptyCustomRecord(value: Record<string, unknown>): value is TurnCustom {
@@ -316,9 +312,9 @@ async function assembleTurnRecord(
  * createTurn — IMMEDIATE tx (BEGIN IMMEDIATE covers write locking; no FOR UPDATE/FOR SHARE).
  * Context order lives in turn_thread_context (pos, append_id); no context_ids array.
  */
-export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): Promise<SessionRecord<SessionCustom>> {
+export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): Promise<void> {
   try {
-    return await db.transaction().execute(async trx => {
+    await db.transaction().execute(async trx => {
       // Step 1: read session tip; no FOR UPDATE (BEGIN IMMEDIATE is the lock).
       const locked = await trx
         .selectFrom('session')
@@ -345,19 +341,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         });
       }
 
-      const updatedSession = await sessionUpdate
-        .returning([
-          'tenant_id',
-          'session_id',
-          jsonText<AgentSpec>(sql.ref('agent_spec')).as('agent_spec'),
-          'title',
-          'last_turn_id',
-          jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
-          'created_at',
-          'updated_at',
-          'last_activity_timestamp_ms',
-        ])
-        .executeTakeFirstOrThrow();
+      await sessionUpdate.execute();
 
       const prevTurnId = input.turn.previous_turn_id;
 
@@ -645,7 +629,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       if (capabilityStateRows.length > 0) {
         await trx.insertInto('thread_capability_state').values(capabilityStateRows).execute();
       }
-      return mapRowToSessionRecord(updatedSession);
     });
   } catch (err) {
     if (err instanceof SessionStoreNotFoundError || err instanceof SessionStoreConflictError) throw err;
@@ -707,75 +690,50 @@ export async function getTurn(db: Kysely<Database>, input: GetTurnInput): Promis
     .execute(trx => assembleTurnRecord(trx, input));
 }
 
-/** Drives the page from session so missing scope is detected without a preflight query. */
+/**
+ * listTurns — ORDER BY created_at, turn_id; LIMIT limit+1 OFFSET offset.
+ * Returns turn rows only (no snapshot assembly); use getTurn for full TurnRecord.
+ */
 export async function listTurns(db: Kysely<Database>, input: ListTurnsInput): Promise<ListTurnsResult> {
-  const pageQuery = db
+  const rows = await db
     .selectFrom('turn')
-    .selectAll()
+    .select([
+      'session_id',
+      'turn_id',
+      'first_turn_id',
+      'previous_turn_id',
+      jsonText<string[]>(sql.ref('ancestor_ids')).as('ancestor_ids'),
+      jsonText<TurnInputItem[]>(sql.ref('input')).as('input'),
+      jsonText<TurnState>(sql.ref('state')).as('state'),
+      jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
+      'created_at',
+      'updated_at',
+    ])
     .where('session_id', '=', input.session_id)
     .orderBy('created_at', 'asc')
     .orderBy('turn_id', 'asc')
     .limit(input.limit + 1)
     .offset(input.offset)
-    .as('page');
-
-  const rows = await db
-    .selectFrom('session as scope')
-    .leftJoin(pageQuery, join => join.onRef('page.session_id', '=', 'scope.session_id'))
-    .select([
-      'page.session_id',
-      'page.turn_id',
-      'page.first_turn_id',
-      'page.previous_turn_id',
-      jsonText<string[] | null>(sql.ref('page.ancestor_ids')).as('ancestor_ids'),
-      jsonText<TurnInputItem[] | null>(sql.ref('page.input')).as('input'),
-      jsonText<TurnState | null>(sql.ref('page.state')).as('state'),
-      jsonText<Record<string, unknown> | null>(sql.ref('page.custom')).as('custom'),
-      'page.created_at',
-      'page.updated_at',
-    ])
-    .where('scope.session_id', '=', input.session_id)
-    .orderBy('page.created_at', 'asc')
-    .orderBy('page.turn_id', 'asc')
     .execute();
 
-  if (rows.length === 0) {
-    throw new SessionNotFoundError(input.session_id);
-  }
+  const hasMore = rows.length > input.limit;
+  const page = hasMore ? rows.slice(0, input.limit) : rows;
 
-  const turns: TurnRecordWithoutSnapshot<TurnCustom>[] = [];
-  for (const row of rows) {
-    if (row.turn_id === null) continue;
-    if (
-      row.session_id === null ||
-      row.first_turn_id === null ||
-      row.ancestor_ids === null ||
-      row.input === null ||
-      row.state === null ||
-      row.created_at === null ||
-      row.updated_at === null
-    ) {
-      throw new SessionStoreInvariantError(`turn ${row.turn_id} has incomplete list data`);
-    }
-    turns.push({
-      turn_id: row.turn_id,
-      session_id: row.session_id,
-      first_turn_id: row.first_turn_id,
-      ancestor_ids: row.ancestor_ids,
-      previous_turn_id: row.previous_turn_id,
-      state: row.state,
-      input: row.input,
-      created_at: new Date(row.created_at),
-      updated_at: new Date(row.updated_at),
-      custom: parseTurnCustom(row.custom),
-    });
-  }
-
-  const hasMore = turns.length > input.limit;
-  const page = hasMore ? turns.slice(0, input.limit) : turns;
+  const turns: TurnRecordWithoutSnapshot<TurnCustom>[] = page.map(row => ({
+    turn_id: row.turn_id,
+    session_id: row.session_id,
+    first_turn_id: row.first_turn_id,
+    ancestor_ids: row.ancestor_ids,
+    previous_turn_id: row.previous_turn_id,
+    state: row.state,
+    input: row.input,
+    created_at: new Date(row.created_at),
+    updated_at: new Date(row.updated_at),
+    custom: parseTurnCustom(row.custom),
+  }));
 
   return {
-    turns: page,
+    turns,
     next_offset: hasMore ? input.offset + input.limit : null,
   };
 }

@@ -114,8 +114,8 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
     };
   }
 
-  createTurn(input: CreateTurnInput<TurnCustom>): Promise<SessionRecord<SessionCustom>> {
-    return createTurnQuery(this.db, {
+  async createTurn(input: CreateTurnInput<TurnCustom>): Promise<void> {
+    await createTurnQuery(this.db, {
       session_id: input.turn.session_id,
       turn: {
         turn_id: input.turn.turn_id,
