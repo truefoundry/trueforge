@@ -13,7 +13,6 @@ export async function patchThreadCapabilityState(
   input: PatchThreadCapabilityStateInput,
 ): Promise<void> {
   const keys = {
-    tenant_id: input.tenant_id,
     session_id: input.session_id,
     turn_id: input.turn_id,
   };

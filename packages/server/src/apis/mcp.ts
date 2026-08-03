@@ -1,7 +1,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/utils/core';
 import type { Logger } from 'winston';
-import { listMcpServersRoute, listMcpToolsRoute } from '../routes/mcpRoutes';
+import { authorizeMcpServerRoute, listMcpServersRoute, listMcpToolsRoute } from '../routes/mcpRoutes';
 import type { McpStore } from '../store/McpStore';
 
 export interface McpRouterDeps {
@@ -21,8 +21,16 @@ function omitUndefinedEntries(obj: Record<string, unknown>): Record<string, unkn
 }
 
 export function createMcpRouter(deps: McpRouterDeps) {
+  // auth_status here is a passive check only (no live refresh attempt); `authentication_required`
+  // vs `not_required` — see route description.
+  // TODO(mcp-dcr): once IMcpTokenStore lands, batch-check stored tokens for all DCR-configured
+  // servers in one query instead of this config-only stub (never per-row — see db/postgres/AGENTS.md).
   const listMcpServersHandler: RouteHandler<typeof listMcpServersRoute> = c => {
-    return c.json({ data: deps.mcpStore.list() }, 200);
+    const data = deps.mcpStore.list().map(entry => ({
+      ...entry,
+      auth_status: entry.auth ? ('authentication_required' as const) : ('not_required' as const),
+    }));
+    return c.json({ data }, 200);
   };
 
   // Live MCP `tools/list` call against the configured server, no selectors applied.
@@ -59,8 +67,21 @@ export function createMcpRouter(deps: McpRouterDeps) {
     }
   };
 
+  const authorizeMcpServerHandler: RouteHandler<typeof authorizeMcpServerRoute> = c => {
+    const { name } = c.req.valid('param');
+    const { redirect_url: redirectUrl } = c.req.valid('query');
+    const entry = deps.mcpStore.get(name);
+    if (!entry) {
+      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
+    }
+    // TODO: actual implementation.
+    const stubAuthUrl = `https://example-authorization-server.invalid/authorize?client_id=stub&redirect_uri=${encodeURIComponent(redirectUrl)}`;
+    return c.json({ status: 'authentication_required' as const, auth_url: stubAuthUrl }, 200);
+  };
+
   const router = new OpenAPIHono();
   router.openapi(listMcpServersRoute, listMcpServersHandler);
   router.openapi(listMcpToolsRoute, listMcpToolsHandler);
+  router.openapi(authorizeMcpServerRoute, authorizeMcpServerHandler);
   return router;
 }

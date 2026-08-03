@@ -22,7 +22,6 @@ export async function appendToEvents(db: Kysely<Database>, input: AppendToEvents
   if (input.events.length === 0) return;
 
   const keys = {
-    tenant_id: input.tenant_id,
     session_id: input.session_id,
     turn_id: input.turn_id,
   };
@@ -72,7 +71,6 @@ export async function listTurnEvents(
 
   const rows = await db
     .selectFrom('turn as t')
-    .innerJoin('session as s', 's.session_id', 't.session_id')
     .leftJoin(
       eb =>
         eb
@@ -87,7 +85,6 @@ export async function listTurnEvents(
       join => join.onRef('e.session_id', '=', 't.session_id').onRef('e.turn_id', '=', 't.turn_id'),
     )
     .select(['t.turn_id', 'e.event'])
-    .where('s.tenant_id', '=', input.tenant_id)
     .where('t.session_id', '=', input.session_id)
     .where('t.turn_id', '=', input.turn_id)
     .orderBy('e.event_id', eventOrder)
@@ -116,7 +113,6 @@ export async function listSessionEvents(
   const session = await db
     .selectFrom('session')
     .select('last_turn_id')
-    .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
     .executeTakeFirst();
   if (!session) {

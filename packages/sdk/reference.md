@@ -68,7 +68,7 @@ await client.server.getCapabilities();
 <dl>
 <dd>
 
-MCP servers declared in mcp.yaml. Auth headers are configured via env vars and never returned.
+MCP servers declared in mcp.yaml, each with a passive auth_status snapshot. Auth headers are configured via env vars and never returned.
 </dd>
 </dl>
 </dd>
@@ -95,6 +95,79 @@ await client.mcpServers.list();
 
 <dl>
 <dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `McpServersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">authorize</a>(name, { ...params }) -> TrueHarness.McpAuthorizeResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Registers a DCR client for this server if none exists yet, then returns an authorization URL to redirect the user to so they can complete the OAuth consent flow. Short-circuits to `{status: authenticated}` with no URL if the server is already connected.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.mcpServers.authorize("name", {
+    redirectUrl: "redirect_url"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**name:** `string` — MCP server name from mcp.yaml.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueHarness.AuthorizeMcpServersRequest` 
+    
+</dd>
+</dl>
 
 <dl>
 <dd>

@@ -2,7 +2,7 @@ import type { PatchThreadCapabilityStateInput } from '@truefoundry/utils/agent-s
 import { sql, type Kysely } from 'kysely';
 import type { Database } from '../../types';
 import { jsonbBind, nowIso } from '../sqlExpressions';
-import { classifyTurnFenceWriteFailure, sessionOwnershipPredicate, type TurnKeys } from './turns';
+import { classifyTurnFenceWriteFailure } from './turns';
 
 /**
  * patchThreadCapabilityState — single-statement fenced upsert on the PER-TURN PK.
@@ -13,25 +13,18 @@ export async function patchThreadCapabilityState(
   db: Kysely<Database>,
   input: PatchThreadCapabilityStateInput,
 ): Promise<void> {
-  const keys: TurnKeys = {
-    tenant_id: input.tenant_id,
-    session_id: input.session_id,
-    turn_id: input.turn_id,
-  };
-
   await db.transaction().execute(async trx => {
     // Fence inside IMMEDIATE transaction: verify turn is still running.
     const fenceRow = await trx
       .selectFrom('turn')
       .select(sql`1`.as('one'))
-      .where('session_id', '=', keys.session_id)
-      .where('turn_id', '=', keys.turn_id)
-      .where(sessionOwnershipPredicate(keys.tenant_id))
+      .where('session_id', '=', input.session_id)
+      .where('turn_id', '=', input.turn_id)
       .where(sql<boolean>`state->>'status' = 'running'`)
       .executeTakeFirst();
 
     if (!fenceRow) {
-      await classifyTurnFenceWriteFailure(trx, keys);
+      await classifyTurnFenceWriteFailure(trx, input);
     }
 
     const now = nowIso();
