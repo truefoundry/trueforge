@@ -390,8 +390,8 @@ export interface OAuthPendingAuthorizationTable {
  * big ones (`agent_info`, `checkpoint`); `session`, `turn`, and
  * `thread_capability_state` take small bounded HOT-friendly updates; the two logs
  * are pure insert. Nothing ever rewrites a large value except the array concat
- * itself — the documented, bounded cost of the raw-array model. The three `mcp_*`
- * tables are low-write, low-volume (one row per tenant/server, or short-lived).
+ * itself — the documented, bounded cost of the raw-array model. `mcp_server` and the two
+ * `oauth_*` tables are low-write, low-volume (one row per tenant/server, or short-lived).
  *
  * Canonical Kysely database.
  */

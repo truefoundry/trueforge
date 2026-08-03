@@ -81,9 +81,10 @@ export const McpServerEntrySchema = z
   .openapi('McpServerEntry');
 
 /**
- * `mcp_server.manifest` JSONB shape — everything from this server's mcp.yaml entry except `name`
- * (kept as its own DB column for the uniqueness index). Derived from `McpServerEntrySchema`
- * rather than hand-written, so the DB's stored shape can never drift from the yaml-validated one.
+ * `mcp_server.manifest` JSONB shape — the full mcp.yaml entry, including `name` (also kept as its
+ * own DB column for the uniqueness index — duplicated, not split out, so the manifest blob always
+ * round-trips the whole yaml entry as-is). Reuses `McpServerEntrySchema` directly rather than a
+ * hand-written type, so the DB's stored shape can never drift from the yaml-validated one.
  */
 export const McpServerManifestSchema = McpServerEntrySchema.openapi('McpServerManifest');
 
