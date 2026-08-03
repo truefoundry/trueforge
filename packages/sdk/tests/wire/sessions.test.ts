@@ -101,7 +101,7 @@ describe("SessionsClient", () => {
                         name: "name",
                         properties: { context_length: 1, max_output_tokens: 1 },
                     },
-                    response_format: { type: "text" },
+                    response_format: { type: "json_object" },
                     skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
                     variables: { key: "value" },
                 },
@@ -157,7 +157,7 @@ describe("SessionsClient", () => {
                         },
                     },
                     responseFormat: {
-                        type: "text",
+                        type: "json_object",
                     },
                     skills: [
                         {
@@ -265,7 +265,7 @@ describe("SessionsClient", () => {
                         name: "name",
                         properties: { context_length: 1, max_output_tokens: 1 },
                     },
-                    response_format: { type: "text" },
+                    response_format: { type: "json_object" },
                     skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
                     variables: { key: "value" },
                 },
@@ -309,7 +309,7 @@ describe("SessionsClient", () => {
                         },
                     },
                     responseFormat: {
-                        type: "text",
+                        type: "json_object",
                     },
                     skills: [
                         {
@@ -376,7 +376,7 @@ describe("SessionsClient", () => {
                         name: "name",
                         properties: { context_length: 1, max_output_tokens: 1 },
                     },
-                    response_format: { type: "text" },
+                    response_format: { type: "json_object" },
                     skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
                     variables: { key: "value" },
                 },
@@ -421,7 +421,7 @@ describe("SessionsClient", () => {
                         },
                     },
                     responseFormat: {
-                        type: "text",
+                        type: "json_object",
                     },
                     skills: [
                         {

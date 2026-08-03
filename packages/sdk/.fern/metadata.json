@@ -1,7 +1,7 @@
 {
-    "cliVersion": "5.82.0",
+    "cliVersion": "5.89.4",
     "generatorName": "fernapi/fern-typescript-node-sdk",
-    "generatorVersion": "3.85.0",
+    "generatorVersion": "3.86.0",
     "generatorConfig": {
         "packageJson": {
             "name": "trueharness"
@@ -26,7 +26,7 @@
         "streamType": "web",
         "useDefaultRequestParameterValues": true
     },
-    "originGitCommit": "1611e0548ae6db9eb9ebce6647d00078da914753",
+    "originGitCommit": "ca235eeea94133c88a8c67309ffb6d61570d1f59",
     "originGitCommitIsDirty": true,
     "invokedBy": "ci",
     "requestedVersion": "0.0.0",

@@ -1735,75 +1735,92 @@
         "type": "string"
       },
       "ResponseFormat": {
+        "discriminator": {
+          "mapping": {
+            "json_object": "#/components/schemas/ResponseFormatJsonObject",
+            "json_schema": "#/components/schemas/ResponseFormatJsonSchema",
+            "text": "#/components/schemas/ResponseFormatText"
+          },
+          "propertyName": "type"
+        },
         "oneOf": [
           {
-            "properties": {
-              "type": {
-                "enum": [
-                  "text"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/ResponseFormatText"
           },
           {
-            "properties": {
-              "type": {
-                "enum": [
-                  "json_object"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/ResponseFormatJsonObject"
           },
           {
-            "properties": {
-              "json_schema": {
-                "properties": {
-                  "description": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "schema": {
-                    "additionalProperties": {},
-                    "type": "object"
-                  },
-                  "strict": {
-                    "type": [
-                      "boolean",
-                      "null"
-                    ]
-                  }
-                },
-                "required": [
-                  "name"
-                ],
-                "type": "object"
-              },
-              "type": {
-                "enum": [
-                  "json_schema"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "json_schema"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/ResponseFormatJsonSchema"
           }
         ]
+      },
+      "ResponseFormatJsonObject": {
+        "properties": {
+          "type": {
+            "enum": [
+              "json_object"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "ResponseFormatJsonSchema": {
+        "properties": {
+          "json_schema": {
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "schema": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "strict": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "enum": [
+              "json_schema"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "json_schema"
+        ],
+        "type": "object"
+      },
+      "ResponseFormatText": {
+        "properties": {
+          "type": {
+            "enum": [
+              "text"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
       },
       "RuntimeConfig": {
         "properties": {
