@@ -311,16 +311,10 @@
             "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Natural key within a tenant; join key with the catalog."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           },
           "url": {
+            "description": "URL of the remote MCP server.",
             "format": "uri",
             "type": "string"
           }
@@ -491,16 +485,10 @@
             "$ref": "#/components/schemas/McpAuthStatus"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Natural key within a tenant; join key with the catalog."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           },
           "url": {
+            "description": "URL of the remote MCP server.",
             "format": "uri",
             "type": "string"
           }
@@ -1448,12 +1436,6 @@
       "McpServerHeaderAuth": {
         "additionalProperties": false,
         "properties": {
-          "auth_level": {
-            "enum": [
-              "global"
-            ],
-            "type": "string"
-          },
           "headers": {
             "additionalProperties": {
               "minLength": 1,
@@ -1471,7 +1453,6 @@
         },
         "required": [
           "type",
-          "auth_level",
           "headers"
         ],
         "type": "object"
@@ -1483,16 +1464,10 @@
             "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Natural key within a tenant; join key with the catalog."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           },
           "url": {
+            "description": "URL of the remote MCP server.",
             "format": "uri",
             "type": "string"
           }
@@ -4487,7 +4462,7 @@
     },
     "/api/v1/settings/mcp-servers/{name}/authorize": {
       "get": {
-        "description": "Stub: returns authenticated when the server has no auth or header (global) credentials on the row; auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.",
+        "description": "Stub: returns authenticated when the server has no auth or header credentials on the row; auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.",
         "parameters": [
           {
             "description": "Configured MCP server name.",
