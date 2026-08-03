@@ -4,9 +4,6 @@ import type { McpOAuthToken as OAuthTokenRow } from '../../../mcpOAuthTypes';
 import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database } from '../../types';
 
-// DB row (`McpOAuthToken`) and harness domain (`OAuthToken`) are nominally separate types that
-// happen to share a shape (both use `| null` for absence), so the boundary is a straight copy.
-
 function toRow(token: OAuthToken): OAuthTokenRow {
   return {
     accessToken: token.accessToken,

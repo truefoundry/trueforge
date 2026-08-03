@@ -23,8 +23,9 @@ function omitUndefinedEntries(obj: Record<string, unknown>): Record<string, unkn
 export function createMcpRouter(deps: McpRouterDeps) {
   // auth_status here is a passive check only (no live refresh attempt); `authentication_required`
   // vs `not_required` — see route description.
-  // TODO(mcp-dcr): once IMcpTokenStore lands, batch-check stored tokens for all DCR-configured
-  // servers in one query instead of this config-only stub (never per-row — see db/postgres/AGENTS.md).
+  // TODO(mcp-dcr): once the OAuth token store is wired in, batch-check stored tokens for all
+  // DCR-configured servers in one query instead of this config-only stub (never per-row — see
+  // db/postgres/AGENTS.md).
   const listMcpServersHandler: RouteHandler<typeof listMcpServersRoute> = c => {
     const data = deps.mcpStore.list().map(entry => ({
       ...entry,

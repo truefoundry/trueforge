@@ -182,7 +182,7 @@ export interface OAuthPendingAuthorizationTable {
   id: string;
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
-  /** { codeVerifier?, redirectUrl? } — `state`/`serverId` live in `id`/`oauth_server_id` columns, not this blob. */
+  /** { codeVerifier?, redirectUrl? } — same writer/lifecycle for both, so merged into one column */
   auth_data: JsonbColumn<McpOAuthPendingAuthorizationData>;
   created_at: string;
 }

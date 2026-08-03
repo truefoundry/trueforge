@@ -160,7 +160,7 @@ export {
   mcpOAuthCallbackUrl,
   resolveMcpAuth,
 } from './mcp/auth';
-export type { McpAuthRequiredResult, McpAuthResolvedResult, McpTokenStore, ResolveMcpAuthResult } from './mcp/auth';
+export type { McpAuthRequiredResult, McpAuthResolvedResult, ResolveMcpAuthResult } from './mcp/auth';
 
 // Sandbox (concrete implementation; provider details exported for composition)
 export {

@@ -330,7 +330,6 @@ export interface OAuthPendingAuthorizationTable {
   id: string;
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
-  /** { codeVerifier?, redirectUrl? } — `state`/`serverId` live in `id`/`oauth_server_id` columns, not this blob. */
   auth_data: JSONColumnType<
     McpOAuthPendingAuthorizationData,
     McpOAuthPendingAuthorizationData,

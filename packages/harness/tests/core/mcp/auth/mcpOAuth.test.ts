@@ -14,13 +14,12 @@ import {
   isMcpAuthRequired,
   mcpOAuthCallbackUrl,
   resolveMcpAuth,
-  type McpTokenStore,
   type OAuthClientRegistration,
 } from '../../../../src/core';
 
-/** Test-only composition of the two generic stores — mirrors how a real DB-backed class would
- * implement both interfaces at once (see mcpDcr.ts's `McpTokenStore` doc comment). */
-class TestMcpStore implements McpTokenStore {
+/** Test convenience: one in-memory backing for both stores, so a test can seed/read via a single
+ * object and then pass it to the helpers as both `tokenStore` and `clientStore`. */
+class TestMcpStore {
   private readonly tokenStore = new InMemoryOAuthTokenStore();
   private readonly clientStore = new InMemoryOAuthClientStore();
 
@@ -185,7 +184,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
     const { registerCallCount } = stubOauthFetch({});
 
     const result = await ensureMcpClientRegistered({
-      store,
+      clientStore: store,
       serverId: SERVER_ID,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
@@ -202,7 +201,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
     const { registerBodies } = stubOauthFetch({});
 
     const result = await ensureMcpClientRegistered({
-      store,
+      clientStore: store,
       serverId: SERVER_ID,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
@@ -231,7 +230,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
     });
 
     const result = await ensureMcpClientRegistered({
-      store,
+      clientStore: store,
       serverId: SERVER_ID,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
@@ -252,7 +251,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
 
     await expect(
       ensureMcpClientRegistered({
-        store,
+        clientStore: store,
         serverId: SERVER_ID,
         mcpServerUrl: SERVER_URL,
         mcpServerName: SERVER_NAME,
@@ -284,7 +283,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
   it('throws when publicBaseUrl is empty (no trimming)', async () => {
     await expect(
       ensureMcpClientRegistered({
-        store: new TestMcpStore(),
+        clientStore: new TestMcpStore(),
         serverId: SERVER_ID,
         mcpServerUrl: SERVER_URL,
         mcpServerName: SERVER_NAME,
@@ -302,7 +301,8 @@ describe('buildMcpAuthorizationUrl', () => {
     stubOauthFetch({});
 
     const authUrl = await buildMcpAuthorizationUrl({
-      store,
+      tokenStore: store,
+      clientStore: store,
       serverId: SERVER_ID,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
@@ -332,7 +332,8 @@ describe('buildMcpAuthorizationUrl', () => {
 });
 
 const resolveParams = (store: TestMcpStore, mcpServerUrl = SERVER_URL) => ({
-  store,
+  tokenStore: store,
+  clientStore: store,
   serverId: SERVER_ID,
   mcpServerUrl,
   mcpServerName: SERVER_NAME,

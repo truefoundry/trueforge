@@ -47,13 +47,10 @@ export function isMcpAuthRequired(result: ResolveMcpAuthResult): result is McpAu
  */
 export const DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS = 3600;
 
-/**
- * No MCP-specific store interface — every function below takes one object satisfying both
- * generic store contracts (`core/auth`). A single DB-backed class commonly implements both;
- * `InMemoryOAuthTokenStore`/`InMemoryOAuthClientStore` can also be composed with
- * `Object.assign({}, tokenStore, clientStore)` for tests, or a small wrapper class.
- */
-export type McpTokenStore = IOAuthTokenStore & IOAuthClientStore;
+// No MCP-specific store type: the functions below take the two generic `core/auth` stores
+// (`IOAuthTokenStore`, `IOAuthClientStore`) as separate inputs, so the DB layer keeps them as two
+// independent classes (`PostgresOAuthTokenStore` + `PostgresOAuthClientStore`, etc.) with no
+// combined wrapper.
 
 /**
  * Prefer `client_secret_post` (confidential). Authorization servers that only issue public
@@ -153,14 +150,14 @@ export async function createMcpOAuthClient(params: {
 }
 
 export async function ensureMcpClientRegistered(params: {
-  store: McpTokenStore;
+  clientStore: IOAuthClientStore;
   serverId: string;
   mcpServerUrl: string;
   mcpServerName: string;
   publicBaseUrl: string;
   clientName: string;
 }): Promise<OAuthClientRegistration> {
-  const existing = await params.store.getClient({ id: params.serverId });
+  const existing = await params.clientStore.getClient({ id: params.serverId });
   if (existing) {
     return existing;
   }
@@ -172,12 +169,13 @@ export async function ensureMcpClientRegistered(params: {
     clientName: params.clientName,
   });
 
-  await params.store.saveClient({ id: params.serverId, registration });
+  await params.clientStore.saveClient({ id: params.serverId, registration });
   return registration;
 }
 
 export async function buildMcpAuthorizationUrl(params: {
-  store: McpTokenStore;
+  tokenStore: IOAuthTokenStore;
+  clientStore: IOAuthClientStore;
   serverId: string;
   mcpServerUrl: string;
   mcpServerName: string;
@@ -187,7 +185,7 @@ export async function buildMcpAuthorizationUrl(params: {
   redirectUrl?: string;
 }): Promise<URL> {
   const registration = await ensureMcpClientRegistered({
-    store: params.store,
+    clientStore: params.clientStore,
     serverId: params.serverId,
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
@@ -207,7 +205,7 @@ export async function buildMcpAuthorizationUrl(params: {
     },
   );
 
-  await params.store.savePendingAuthorization({
+  await params.tokenStore.savePendingAuthorization({
     state,
     id: params.serverId,
     codeVerifier,
@@ -234,7 +232,8 @@ function oauthTokensToOAuthToken(tokens: OAuthTokens, nowMs: number, fallbackRef
 }
 
 export async function resolveMcpAuth(params: {
-  store: McpTokenStore;
+  tokenStore: IOAuthTokenStore;
+  clientStore: IOAuthClientStore;
   serverId: string;
   mcpServerUrl: string;
   mcpServerName: string;
@@ -245,14 +244,14 @@ export async function resolveMcpAuth(params: {
   nowMs?: number;
 }): Promise<ResolveMcpAuthResult> {
   const nowMs = params.nowMs ?? Date.now();
-  const token = await params.store.getToken({ id: params.serverId });
+  const token = await params.tokenStore.getToken({ id: params.serverId });
 
   if (token && isMcpAccessTokenUsable(token.expiresAt, nowMs)) {
     return { headers: { Authorization: `Bearer ${token.accessToken}` } };
   }
 
   if (token?.refreshToken) {
-    const registration = await params.store.getClient({ id: params.serverId });
+    const registration = await params.clientStore.getClient({ id: params.serverId });
     if (registration) {
       try {
         const refreshed = await refreshAuthorization(mcpAuthorizationServerOrigin(registration.server), {
@@ -262,7 +261,7 @@ export async function resolveMcpAuth(params: {
           resource: resourceUrlFromServerUrl(params.mcpServerUrl),
         });
         const saved = oauthTokensToOAuthToken(refreshed, nowMs, token.refreshToken);
-        await params.store.saveToken({ id: params.serverId, token: saved });
+        await params.tokenStore.saveToken({ id: params.serverId, token: saved });
         return { headers: { Authorization: `Bearer ${saved.accessToken}` } };
       } catch {
         // Any refresh failure → full re-authorize (do not inspect the error).
@@ -271,11 +270,12 @@ export async function resolveMcpAuth(params: {
   }
 
   if (token) {
-    await params.store.deleteToken({ id: params.serverId });
+    await params.tokenStore.deleteToken({ id: params.serverId });
   }
 
   const authUrl = await buildMcpAuthorizationUrl({
-    store: params.store,
+    tokenStore: params.tokenStore,
+    clientStore: params.clientStore,
     serverId: params.serverId,
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,

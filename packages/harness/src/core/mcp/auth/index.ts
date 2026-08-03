@@ -6,7 +6,7 @@ export {
   isMcpAuthRequired,
   resolveMcpAuth,
 } from './mcpDcr';
-export type { McpAuthRequiredResult, McpAuthResolvedResult, McpTokenStore, ResolveMcpAuthResult } from './mcpDcr';
+export type { McpAuthRequiredResult, McpAuthResolvedResult, ResolveMcpAuthResult } from './mcpDcr';
 export {
   MCP_OAUTH_CALLBACK_PATH,
   mcpAuthorizationServerMetadata,

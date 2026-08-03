@@ -5,13 +5,6 @@ import { deleteResource } from './queries/deleteResource';
 import { getPendingAuthorization, savePendingAuthorization } from './queries/pendingAuthorization';
 import { deleteToken, getToken, saveToken } from './queries/token';
 
-/**
- * Generic, SQLite-backed `IOAuthTokenStore` (RFC 7591 DCR token + pending-authorization state).
- * Not MCP-specific — backs `oauth_token` / `oauth_pending_authorization`, both FK'd to
- * `mcp_server.id` today (FK constraint aside, nothing here knows about MCP). Client/server
- * registration (`mcp_server.oauth_server` / `.oauth_client`) is owned by `SqliteOAuthClientStore`,
- * not this class.
- */
 export class SqliteOAuthTokenStore implements IOAuthTokenStore {
   constructor(private readonly db: Kysely<Database>) {}
 
