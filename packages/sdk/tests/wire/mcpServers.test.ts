@@ -10,7 +10,7 @@ describe("McpServersClient", () => {
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
         const rawResponseBody = {
-            data: [{ auth: { type: "dcr" }, name: "name", url: "url", auth_status: "authenticated" }],
+            data: [{ auth: { type: "dcr" }, auth_status: "authenticated", name: "name", url: "url" }],
         };
 
         server
@@ -28,9 +28,9 @@ describe("McpServersClient", () => {
                     auth: {
                         type: "dcr",
                     },
+                    authStatus: "authenticated",
                     name: "name",
                     url: "url",
-                    authStatus: "authenticated",
                 },
             ],
         });

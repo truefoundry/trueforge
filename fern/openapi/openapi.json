@@ -533,7 +533,7 @@
         "properties": {
           "data": {
             "items": {
-              "$ref": "#/components/schemas/McpServerListEntry"
+              "$ref": "#/components/schemas/McpServerEntry"
             },
             "type": "array"
           }
@@ -951,6 +951,15 @@
           "auth": {
             "$ref": "#/components/schemas/McpServerAuthSettings"
           },
+          "auth_status": {
+            "description": "Passive check only: whether a stored, unexpired token exists. Never attempts a live refresh, so an expired-but-refreshable token still reads as `authentication_required` here — call `/authorize` to actually resolve it. `not_required` for servers without `auth` configured.",
+            "enum": [
+              "authenticated",
+              "authentication_required",
+              "not_required"
+            ],
+            "type": "string"
+          },
           "name": {
             "minLength": 1,
             "type": "string"
@@ -962,34 +971,10 @@
         },
         "required": [
           "name",
-          "url"
+          "url",
+          "auth_status"
         ],
         "type": "object"
-      },
-      "McpServerListEntry": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/McpServerEntry"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "auth_status": {
-                "description": "Passive check only: whether a stored, unexpired token exists. Never attempts a live refresh, so an expired-but-refreshable token still reads as `authentication_required` here — call `/authorize` to actually resolve it. `not_required` for servers without `auth` configured.",
-                "enum": [
-                  "authenticated",
-                  "authentication_required",
-                  "not_required"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "auth_status"
-            ],
-            "type": "object"
-          }
-        ]
       },
       "Model": {
         "properties": {

@@ -4,11 +4,11 @@ import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const McpServerListEntryAuthStatus: core.serialization.Schema<
-    serializers.McpServerListEntryAuthStatus.Raw,
-    TrueHarness.McpServerListEntryAuthStatus
+export const McpServerEntryAuthStatus: core.serialization.Schema<
+    serializers.McpServerEntryAuthStatus.Raw,
+    TrueHarness.McpServerEntryAuthStatus
 > = core.serialization.enum_(["authenticated", "authentication_required", "not_required"]);
 
-export declare namespace McpServerListEntryAuthStatus {
+export declare namespace McpServerEntryAuthStatus {
     export type Raw = "authenticated" | "authentication_required" | "not_required";
 }
