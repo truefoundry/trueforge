@@ -1,6 +1,6 @@
 export * as legacy from "./legacy/index.js";
-export * as modelProviders from "./modelProviders/index.js";
 export * as models from "./models/index.js";
 export * as server from "./server/index.js";
 export * from "./sessions/client/requests/index.js";
 export * as sessions from "./sessions/index.js";
+export * as settings from "./settings/index.js";

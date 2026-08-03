@@ -3258,99 +3258,6 @@
         "x-fern-sdk-method-name": "list"
       }
     },
-    "/api/v1/model-providers": {
-      "get": {
-        "description": "All configured providers with their models.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListModelProvidersResponse"
-                }
-              }
-            },
-            "description": "All configured model providers."
-          }
-        },
-        "summary": "List configured model providers",
-        "tags": [
-          "Model Providers"
-        ],
-        "x-fern-sdk-group-name": [
-          "modelProviders"
-        ],
-        "x-fern-sdk-method-name": "list"
-      },
-      "put": {
-        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ModelProvider"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PutModelProviderResponse"
-                }
-              }
-            },
-            "description": "The saved provider."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid request body."
-          }
-        },
-        "summary": "Create or replace a model provider",
-        "tags": [
-          "Model Providers"
-        ],
-        "x-fern-sdk-group-name": [
-          "modelProviders"
-        ],
-        "x-fern-sdk-method-name": "upsert"
-      }
-    },
-    "/api/v1/model-providers/catalog": {
-      "get": {
-        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: copy an entry into PUT /model-providers to configure it. Custom providers are not listed here.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetModelProviderCatalogResponse"
-                }
-              }
-            },
-            "description": "The shipped catalog, verbatim."
-          }
-        },
-        "summary": "Get the model catalog",
-        "tags": [
-          "Model Providers"
-        ],
-        "x-fern-sdk-group-name": [
-          "modelProviders"
-        ],
-        "x-fern-sdk-method-name": "catalog"
-      }
-    },
     "/api/v1/models": {
       "get": {
         "description": "Models across all configured model providers, addressed by fully qualified name `name/model_name`.",
@@ -4150,6 +4057,102 @@
           "sessions"
         ],
         "x-fern-sdk-method-name": "list_turn_events"
+      }
+    },
+    "/api/v1/settings/model-providers": {
+      "get": {
+        "description": "All configured providers with their models.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListModelProvidersResponse"
+                }
+              }
+            },
+            "description": "All configured model providers."
+          }
+        },
+        "summary": "List configured model providers",
+        "tags": [
+          "Model Providers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "modelProviders"
+        ],
+        "x-fern-sdk-method-name": "list"
+      },
+      "put": {
+        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelProvider"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutModelProviderResponse"
+                }
+              }
+            },
+            "description": "The saved provider."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          }
+        },
+        "summary": "Create or replace a model provider",
+        "tags": [
+          "Model Providers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "modelProviders"
+        ],
+        "x-fern-sdk-method-name": "upsert"
+      }
+    },
+    "/api/v1/settings/model-providers/catalog": {
+      "get": {
+        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: copy an entry into PUT /settings/model-providers to configure it. Custom providers are not listed here.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetModelProviderCatalogResponse"
+                }
+              }
+            },
+            "description": "The shipped catalog, verbatim."
+          }
+        },
+        "summary": "Get the model catalog",
+        "tags": [
+          "Model Providers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "modelProviders"
+        ],
+        "x-fern-sdk-method-name": "catalog"
       }
     }
   },
