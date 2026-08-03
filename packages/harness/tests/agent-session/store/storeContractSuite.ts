@@ -383,6 +383,53 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       ).rejects.toBeInstanceOf(SessionStoreNotFoundError);
     });
+
+    it('child appends that race deleteSession fail cleanly and leave no orphans', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const keys = { tenant_id: tenant, session_id: sessionId, turn_id: 'turn-1' };
+
+      const results = await Promise.allSettled([
+        store.deleteSession({ tenant_id: tenant, session_id: sessionId }),
+        store.appendToEvents({
+          ...keys,
+          events: [makeTurnCreatedEvent('turn-1'), makeModelMessageEvent()],
+        }),
+        store.appendToThreadContext({
+          ...keys,
+          thread_id: MAIN_THREAD_ID,
+          context: [userMessage('raced')],
+          current_context_usage: null,
+          completion: null,
+        }),
+      ]);
+
+      expect(results[0]?.status).toBe('fulfilled');
+      for (const result of results.slice(1)) {
+        if (result?.status === 'rejected') {
+          expect(result.reason).toBeInstanceOf(SessionStoreNotFoundError);
+        }
+      }
+
+      expect(await store.getSession({ tenant_id: tenant, session_id: sessionId })).toBeUndefined();
+      expect(await store.getTurn(keys)).toBeUndefined();
+
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const recreated = mustGet(await store.getTurn(keys));
+      expect(recreated.snapshot.threads[MAIN_THREAD_ID]?.context).toEqual([]);
+      expect(
+        (
+          await store.listTurnEvents({
+            ...keys,
+            limit: 10,
+            page_token: undefined,
+            order: 'asc',
+          })
+        ).data,
+      ).toEqual([]);
+    });
   });
 
   describe('listSessions', () => {
