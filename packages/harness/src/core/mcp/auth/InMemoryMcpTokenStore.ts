@@ -1,6 +1,3 @@
-/**
- * In-memory IMcpTokenStore — same role as InMemorySessionStore for session data.
- */
 import type { IMcpTokenStore } from './IMcpTokenStore';
 import type { McpOAuthClientRecord, McpOAuthPendingAuthorization, McpOAuthToken } from './types';
 

@@ -51,9 +51,12 @@ function stubOauthFetch(options: {
   registrationFailAlways?: boolean;
   skipRegistrationEndpoint?: boolean;
   registeredClient?: { client_id: string; client_secret?: string };
-}): { registerBodies: unknown[]; registerCallCount: () => number } {
+  tokenResponse?: { access_token: string; refresh_token?: string; expires_in?: number; token_type?: string };
+  tokenFail?: boolean;
+}): { registerBodies: unknown[]; registerCallCount: () => number; tokenBodies: unknown[] } {
   let registerCalls = 0;
   const registerBodies: unknown[] = [];
+  const tokenBodies: unknown[] = [];
   const registered = options.registeredClient ?? {
     client_id: 'dyn-client-1',
     client_secret: 'dyn-secret-1',
@@ -82,15 +85,29 @@ function stubOauthFetch(options: {
       return json({
         ...registered,
         redirect_uris: [mcpOAuthCallbackUrl(PUBLIC_BASE_URL)],
-        grant_types: ['authorization_code'],
+        grant_types: ['authorization_code', 'refresh_token'],
         response_types: ['code'],
       });
+    }
+
+    if (url === `${AS_ORIGIN}/token` && init?.method === 'POST') {
+      tokenBodies.push(String(init.body));
+      if (options.tokenFail) {
+        return json({ error: 'invalid_grant' }, 400);
+      }
+      const tokens = options.tokenResponse ?? {
+        access_token: 'refreshed-access',
+        refresh_token: 'refreshed-refresh',
+        expires_in: 3600,
+        token_type: 'Bearer',
+      };
+      return json({ token_type: 'Bearer', ...tokens });
     }
 
     return new Response(`unexpected url: ${url}`, { status: 404 });
   }) as typeof fetch;
 
-  return { registerBodies, registerCallCount: () => registerCalls };
+  return { registerBodies, registerCallCount: () => registerCalls, tokenBodies };
 }
 
 const sampleClient: McpOAuthClientRecord = {
@@ -149,12 +166,12 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
     expect(registerBodies).toHaveLength(1);
     const body = registerBodies[0] as Record<string, unknown>;
     expect(body['token_endpoint_auth_method']).toBe('client_secret_post');
-    expect(body['grant_types']).toEqual(['authorization_code']);
+    expect(body['grant_types']).toEqual(['authorization_code', 'refresh_token']);
     expect(body['client_name']).toBe(CLIENT_NAME);
     expect(body['redirect_uris']).toEqual([mcpOAuthCallbackUrl(PUBLIC_BASE_URL)]);
   });
 
-  it('retries registration without token_endpoint_auth_method when the first attempt fails', async () => {
+  it('retries registration with token_endpoint_auth_method none when the first attempt fails', async () => {
     const store = new InMemoryMcpTokenStore();
     const { registerBodies, registerCallCount } = stubOauthFetch({
       registrationFailFirst: true,
@@ -174,7 +191,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
     expect(result.clientSecret).toBeNull();
     expect(registerCallCount()).toBe(2);
     expect((registerBodies[0] as Record<string, unknown>)['token_endpoint_auth_method']).toBe('client_secret_post');
-    expect(Object.prototype.hasOwnProperty.call(registerBodies[1] as object, 'token_endpoint_auth_method')).toBe(false);
+    expect((registerBodies[1] as Record<string, unknown>)['token_endpoint_auth_method']).toBe('none');
   });
 
   it('throws when the AS has no registration_endpoint', async () => {
@@ -271,7 +288,7 @@ const resolveParams = (store: InMemoryMcpTokenStore, mcpServerUrl = SERVER_URL) 
   clientName: CLIENT_NAME,
 });
 
-describe('resolveMcpAuth (no refresh)', () => {
+describe('resolveMcpAuth', () => {
   it('returns bearer headers when the token is still valid', async () => {
     const store = new InMemoryMcpTokenStore();
     await store.saveToken({
@@ -292,7 +309,64 @@ describe('resolveMcpAuth (no refresh)', () => {
     });
   });
 
-  it('returns auth_required and clears expired token (no refresh)', async () => {
+  it('refreshes an expired token when a refresh_token is stored', async () => {
+    const store = new InMemoryMcpTokenStore();
+    await store.saveOAuthClient({ serverId: SERVER_ID, record: sampleClient });
+    await store.saveToken({
+      serverId: SERVER_ID,
+      token: {
+        accessToken: 'old-access',
+        refreshToken: 'old-refresh',
+        expiresAt: new Date(Date.now() - 1000).toISOString(),
+        scope: null,
+      },
+    });
+    const { tokenBodies } = stubOauthFetch({
+      tokenResponse: {
+        access_token: 'new-access',
+        refresh_token: 'new-refresh',
+        expires_in: 3600,
+        token_type: 'Bearer',
+      },
+    });
+
+    const result = await resolveMcpAuth(resolveParams(store));
+
+    expect(result).toEqual({
+      status: McpAuthStatus.Authenticated,
+      headers: { Authorization: 'Bearer new-access' },
+    });
+    expect(tokenBodies).toHaveLength(1);
+    expect(String(tokenBodies[0])).toContain('grant_type=refresh_token');
+    const saved = await store.getToken({ serverId: SERVER_ID });
+    expect(saved?.accessToken).toBe('new-access');
+    expect(saved?.refreshToken).toBe('new-refresh');
+  });
+
+  it('returns authentication_required and clears token when refresh fails', async () => {
+    const store = new InMemoryMcpTokenStore();
+    await store.saveOAuthClient({ serverId: SERVER_ID, record: sampleClient });
+    await store.saveToken({
+      serverId: SERVER_ID,
+      token: {
+        accessToken: 'old-access',
+        refreshToken: 'old-refresh',
+        expiresAt: new Date(Date.now() - 1000).toISOString(),
+        scope: null,
+      },
+    });
+    stubOauthFetch({ tokenFail: true });
+
+    const result = await resolveMcpAuth(resolveParams(store));
+
+    expect(result.status).toBe(McpAuthStatus.AuthenticationRequired);
+    if (result.status !== McpAuthStatus.AuthenticationRequired) throw new Error('unreachable');
+    expect(result.authUrl).toBeInstanceOf(URL);
+    expect(await store.getToken({ serverId: SERVER_ID })).toBeUndefined();
+    expect(await store.getOAuthClient({ serverId: SERVER_ID })).toEqual(sampleClient);
+  });
+
+  it('returns authentication_required and clears expired token without refresh_token', async () => {
     const store = new InMemoryMcpTokenStore();
     await store.saveOAuthClient({ serverId: SERVER_ID, record: sampleClient });
     await store.saveToken({
@@ -308,23 +382,23 @@ describe('resolveMcpAuth (no refresh)', () => {
 
     const result = await resolveMcpAuth(resolveParams(store));
 
-    expect(result.status).toBe(McpAuthStatus.AuthRequired);
-    if (result.status !== McpAuthStatus.AuthRequired) throw new Error('unreachable');
+    expect(result.status).toBe(McpAuthStatus.AuthenticationRequired);
+    if (result.status !== McpAuthStatus.AuthenticationRequired) throw new Error('unreachable');
     expect(result.authUrl).toBeInstanceOf(URL);
     expect(result.authUrl.href).toContain('/authorize');
     expect(await store.getToken({ serverId: SERVER_ID })).toBeUndefined();
     expect(await store.getOAuthClient({ serverId: SERVER_ID })).toEqual(sampleClient);
   });
 
-  it('returns auth_required when no token exists', async () => {
+  it('returns authentication_required when no token exists', async () => {
     const store = new InMemoryMcpTokenStore();
     await store.saveOAuthClient({ serverId: SERVER_ID, record: sampleClient });
     stubOauthFetch({});
 
     const result = await resolveMcpAuth(resolveParams(store));
 
-    expect(result.status).toBe(McpAuthStatus.AuthRequired);
-    if (result.status !== McpAuthStatus.AuthRequired) throw new Error('unreachable');
+    expect(result.status).toBe(McpAuthStatus.AuthenticationRequired);
+    if (result.status !== McpAuthStatus.AuthenticationRequired) throw new Error('unreachable');
     expect(result.authUrl.searchParams.get('state')).toBeTruthy();
   });
 });
@@ -338,8 +412,8 @@ describe('end-to-end DCR + authorize with normalised MCP URL', () => {
 
     const result = await resolveMcpAuth(resolveParams(store, mixedUrl));
 
-    expect(result.status).toBe(McpAuthStatus.AuthRequired);
-    if (result.status !== McpAuthStatus.AuthRequired) throw new Error('unreachable');
+    expect(result.status).toBe(McpAuthStatus.AuthenticationRequired);
+    if (result.status !== McpAuthStatus.AuthenticationRequired) throw new Error('unreachable');
 
     expect(registerBodies).toHaveLength(1);
     const client = await store.getOAuthClient({ serverId: SERVER_ID });

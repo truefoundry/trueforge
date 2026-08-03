@@ -1,8 +1,7 @@
-export { buildMcpAuthorizationUrl } from './buildMcpAuthorizationUrl';
-export { createMcpOAuthClient } from './createMcpOAuthClient';
-export { ensureMcpClientRegistered } from './ensureMcpClientRegistered';
 export type { IMcpTokenStore } from './IMcpTokenStore';
 export { InMemoryMcpTokenStore } from './InMemoryMcpTokenStore';
+export { buildMcpAuthorizationUrl, createMcpOAuthClient, ensureMcpClientRegistered, resolveMcpAuth } from './mcpDcr';
+export type { ResolveMcpAuthResult } from './mcpDcr';
 export {
   MCP_OAUTH_CALLBACK_PATH,
   mcpAuthorizationServerMetadata,
@@ -10,6 +9,5 @@ export {
   mcpClientInformation,
   mcpOAuthCallbackUrl,
 } from './mcpOAuthHelpers';
-export { McpAuthStatus, resolveMcpAuth } from './resolveMcpAuth';
-export type { ResolveMcpAuthResult } from './resolveMcpAuth';
+export { McpAuthStatus } from './types';
 export type { McpOAuthClientRecord, McpOAuthPendingAuthorization, McpOAuthToken } from './types';

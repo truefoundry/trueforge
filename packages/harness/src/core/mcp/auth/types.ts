@@ -6,6 +6,11 @@
  * Store records use explicit `null` for absence (see packages/harness/AGENTS.md).
  */
 
+export enum McpAuthStatus {
+  Authenticated = 'authenticated',
+  AuthenticationRequired = 'authentication_required',
+}
+
 /** Discovered/cached authorization-server endpoints used by DCR and authorize. */
 export interface McpOAuthClientRecord {
   clientId: string;
