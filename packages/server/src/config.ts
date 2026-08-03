@@ -239,6 +239,12 @@ export interface ServerConfiguration {
    */
   MCP_CATALOG_PATH: string | undefined;
   /**
+   * Optional override for the skill catalog YAML (discovery presets for
+   * GET /settings/skills/catalog). When unset, the catalog inlined at build
+   * time is used. Separate from `REGISTRY_DIR`. Env: `SKILL_CATALOG_PATH`.
+   */
+  SKILL_CATALOG_PATH: string | undefined;
+  /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
    * Env: `FRONTEND_DIR`, defaults to `../frontend/dist` relative to the working directory.
    */
@@ -372,6 +378,10 @@ const configuration: ServerConfiguration = {
   })(),
   MCP_CATALOG_PATH: (() => {
     const override = getEnv('MCP_CATALOG_PATH');
+    return override === undefined || override === '' ? undefined : path.resolve(override);
+  })(),
+  SKILL_CATALOG_PATH: (() => {
+    const override = getEnv('SKILL_CATALOG_PATH');
     return override === undefined || override === '' ? undefined : path.resolve(override);
   })(),
   FRONTEND_DIR: path.resolve(getEnv('FRONTEND_DIR', { defaultValue: DEFAULT_FRONTEND_DIR }) ?? DEFAULT_FRONTEND_DIR),

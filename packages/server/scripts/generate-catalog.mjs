@@ -1,7 +1,8 @@
 /**
- * Inlines model-catalog.yaml and mcp-catalog.yaml into generated TS modules so
- * ModelCatalog / McpCatalog can load shipped catalogs with no loose YAML beside
- * the bundle. Plain generated `.ts` files work unchanged across tsup and tsx.
+ * Inlines model-catalog.yaml, mcp-catalog.yaml, and skill-catalog.yaml into
+ * generated TS modules so ModelCatalog / McpCatalog / SkillCatalog can load
+ * shipped catalogs with no loose YAML beside the bundle. Plain generated `.ts`
+ * files work unchanged across tsup and tsx.
  *
  * Runs via the `build:gen` script before build/typecheck/test/dev. Generated
  * outputs under src/catalog/*.gen.ts are gitignored.
@@ -22,3 +23,4 @@ export const ${exportName} = ${JSON.stringify(yaml)} as const;
 
 writeShippedCatalog('model-catalog.yaml', 'shippedModelCatalogYaml', 'modelCatalog.gen.ts');
 writeShippedCatalog('mcp-catalog.yaml', 'shippedMcpCatalogYaml', 'mcpCatalog.gen.ts');
+writeShippedCatalog('skill-catalog.yaml', 'shippedSkillCatalogYaml', 'skillCatalog.gen.ts');
