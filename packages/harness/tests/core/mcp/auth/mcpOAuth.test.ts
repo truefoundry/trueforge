@@ -4,6 +4,7 @@
  */
 import { resourceUrlFromServerUrl } from '@modelcontextprotocol/sdk/shared/auth-utils.js';
 import {
+  DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
   InMemoryMcpTokenStore,
   McpAuthStatus,
   McpConnectionError,
@@ -50,16 +51,23 @@ function stubOauthFetch(options: {
   registrationFailFirst?: boolean;
   registrationFailAlways?: boolean;
   skipRegistrationEndpoint?: boolean;
-  registeredClient?: { client_id: string; client_secret?: string };
+  registeredClient?: { client_id: string; client_secret?: string; token_endpoint_auth_method?: string };
   tokenResponse?: { access_token: string; refresh_token?: string; expires_in?: number; token_type?: string };
   tokenFail?: boolean;
-}): { registerBodies: unknown[]; registerCallCount: () => number; tokenBodies: unknown[] } {
+}): {
+  registerBodies: unknown[];
+  registerCallCount: () => number;
+  tokenBodies: unknown[];
+  tokenAuthHeaders: string[];
+} {
   let registerCalls = 0;
   const registerBodies: unknown[] = [];
   const tokenBodies: unknown[] = [];
+  const tokenAuthHeaders: string[] = [];
   const registered = options.registeredClient ?? {
     client_id: 'dyn-client-1',
     client_secret: 'dyn-secret-1',
+    token_endpoint_auth_method: 'client_secret_post',
   };
 
   globalThis.fetch = (async (input, init) => {
@@ -92,6 +100,8 @@ function stubOauthFetch(options: {
 
     if (url === `${AS_ORIGIN}/token` && init?.method === 'POST') {
       tokenBodies.push(String(init.body));
+      const headers = new Headers(init.headers);
+      tokenAuthHeaders.push(headers.get('Authorization') ?? '');
       if (options.tokenFail) {
         return json({ error: 'invalid_grant' }, 400);
       }
@@ -107,7 +117,7 @@ function stubOauthFetch(options: {
     return new Response(`unexpected url: ${url}`, { status: 404 });
   }) as typeof fetch;
 
-  return { registerBodies, registerCallCount: () => registerCalls, tokenBodies };
+  return { registerBodies, registerCallCount: () => registerCalls, tokenBodies, tokenAuthHeaders };
 }
 
 const sampleClient: McpOAuthClientRecord = {
@@ -171,7 +181,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
     expect(body['redirect_uris']).toEqual([mcpOAuthCallbackUrl(PUBLIC_BASE_URL)]);
   });
 
-  it('retries registration with token_endpoint_auth_method none when the first attempt fails', async () => {
+  it('retries registration without token_endpoint_auth_method when the first attempt fails', async () => {
     const store = new InMemoryMcpTokenStore();
     const { registerBodies, registerCallCount } = stubOauthFetch({
       registrationFailFirst: true,
@@ -191,7 +201,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
     expect(result.clientSecret).toBeNull();
     expect(registerCallCount()).toBe(2);
     expect((registerBodies[0] as Record<string, unknown>)['token_endpoint_auth_method']).toBe('client_secret_post');
-    expect((registerBodies[1] as Record<string, unknown>)['token_endpoint_auth_method']).toBe('none');
+    expect((registerBodies[1] as Record<string, unknown>)['token_endpoint_auth_method']).toBeUndefined();
   });
 
   it('throws when the AS has no registration_endpoint', async () => {
@@ -321,7 +331,7 @@ describe('resolveMcpAuth', () => {
         scope: null,
       },
     });
-    const { tokenBodies } = stubOauthFetch({
+    const { tokenBodies, tokenAuthHeaders } = stubOauthFetch({
       tokenResponse: {
         access_token: 'new-access',
         refresh_token: 'new-refresh',
@@ -338,9 +348,49 @@ describe('resolveMcpAuth', () => {
     });
     expect(tokenBodies).toHaveLength(1);
     expect(String(tokenBodies[0])).toContain('grant_type=refresh_token');
+    // Secret present → client_secret_post (form body), not HTTP Basic.
+    expect(String(tokenBodies[0])).toContain('client_secret=cached-secret');
+    expect(tokenAuthHeaders[0]).toBe('');
     const saved = await store.getToken({ serverId: SERVER_ID });
     expect(saved?.accessToken).toBe('new-access');
     expect(saved?.refreshToken).toBe('new-refresh');
+  });
+
+  it('uses a default TTL when the token response omits expires_in', async () => {
+    const store = new InMemoryMcpTokenStore();
+    await store.saveOAuthClient({ serverId: SERVER_ID, record: sampleClient });
+    await store.saveToken({
+      serverId: SERVER_ID,
+      token: {
+        accessToken: 'old-access',
+        refreshToken: 'old-refresh',
+        expiresAt: new Date(Date.now() - 1000).toISOString(),
+        scope: null,
+      },
+    });
+    const nowMs = Date.now();
+    stubOauthFetch({
+      tokenResponse: {
+        access_token: 'new-access',
+        refresh_token: 'new-refresh',
+        token_type: 'Bearer',
+      },
+    });
+
+    const result = await resolveMcpAuth({ ...resolveParams(store), nowMs });
+
+    expect(result).toEqual({
+      status: McpAuthStatus.Authenticated,
+      headers: { Authorization: 'Bearer new-access' },
+    });
+    const saved = await store.getToken({ serverId: SERVER_ID });
+    expect(saved?.expiresAt).toBe(new Date(nowMs + DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS * 1000).toISOString());
+    // Still usable on the next resolve with a slightly later clock.
+    const again = await resolveMcpAuth({ ...resolveParams(store), nowMs: nowMs + 1_000 });
+    expect(again).toEqual({
+      status: McpAuthStatus.Authenticated,
+      headers: { Authorization: 'Bearer new-access' },
+    });
   });
 
   it('returns authentication_required and clears token when refresh fails', async () => {

@@ -2,7 +2,10 @@
  * Shared MCP OAuth URL / client-metadata helpers.
  * Protocol work stays in the MCP SDK (`client/auth.js`).
  */
-import type { AuthorizationServerMetadata, OAuthClientInformation } from '@modelcontextprotocol/sdk/shared/auth.js';
+import type {
+  AuthorizationServerMetadata,
+  OAuthClientInformationMixed,
+} from '@modelcontextprotocol/sdk/shared/auth.js';
 import { McpConnectionError } from '../../errors';
 import type { McpOAuthClientRecord } from './types';
 
@@ -17,13 +20,24 @@ export function mcpOAuthCallbackUrl(publicBaseUrl: string): string {
   return `${publicBaseUrl}${MCP_OAUTH_CALLBACK_PATH}`;
 }
 
-export function mcpClientInformation(client: McpOAuthClientRecord): OAuthClientInformation {
+/** Client info for SDK token / authorize calls.
+ * Same policy as servicefoundry outbound: form-body secret when present (client_secret_post),
+ * otherwise public (none). Method is not stored on the client record.
+ */
+export function mcpClientInformation(client: McpOAuthClientRecord): OAuthClientInformationMixed {
   return client.clientSecret !== null
-    ? { client_id: client.clientId, client_secret: client.clientSecret }
-    : { client_id: client.clientId };
+    ? {
+        client_id: client.clientId,
+        client_secret: client.clientSecret,
+        token_endpoint_auth_method: 'client_secret_post',
+      }
+    : {
+        client_id: client.clientId,
+        token_endpoint_auth_method: 'none',
+      };
 }
 
-/** Reconstruct AS metadata enough for startAuthorization / token calls. */
+/** Reconstruct authorization-server metadata enough for startAuthorization / token calls. */
 export function mcpAuthorizationServerMetadata(client: McpOAuthClientRecord): AuthorizationServerMetadata {
   return {
     issuer: new URL(client.authorizationEndpoint).origin,

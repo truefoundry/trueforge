@@ -26,13 +26,17 @@ export type ResolveMcpAuthResult =
   | { status: McpAuthStatus.AuthenticationRequired; authUrl: URL };
 
 /**
- * `token_endpoint_auth_method: client_secret_post` first: prefer a confidential
- * (client_secret) registration when the AS allows it. Many MCP ASes only issue
- * public clients — those reject the first attempt; we retry once with
- * `token_endpoint_auth_method: 'none'` (RFC 7591 public client). Not a loop,
- * one retry, then surface. Validates the DCR response and returns our store record.
+ * When the token response omits `expires_in` (allowed by RFC 6749), use a 1h TTL so
+ * the saved token is not treated as already expired on the next `resolveMcpAuth`.
  */
-async function registerMcpClientWithPublicRetry(params: {
+export const DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS = 3600;
+
+/**
+ * Prefer `client_secret_post` (confidential). Authorization servers that only issue public
+ * clients or only accept other methods can reject that; retry once without the field (same as
+ * servicefoundry outbound DCR), then surface. Not a loop.
+ */
+async function registerMcpClientWithAuthMethodFallback(params: {
   authorizationServerUrl: string;
   metadata: AuthorizationServerMetadata;
   clientMetadata: OAuthClientMetadata;
@@ -45,19 +49,16 @@ async function registerMcpClientWithPublicRetry(params: {
 
   let fullInfo;
   try {
-    fullInfo = await registerClient(authorizationServerUrl, { metadata, clientMetadata });
+    fullInfo = await registerClient(authorizationServerUrl, {
+      metadata,
+      clientMetadata: { ...clientMetadata, token_endpoint_auth_method: 'client_secret_post' },
+    });
   } catch (firstError: unknown) {
     try {
-      const publicClient: OAuthClientMetadata = {
-        client_name: clientMetadata.client_name,
-        redirect_uris: clientMetadata.redirect_uris,
-        grant_types: clientMetadata.grant_types,
-        response_types: clientMetadata.response_types,
-        token_endpoint_auth_method: 'none',
-      };
+      // Omit method so the authorization server applies its default (parity with servicefoundry).
       fullInfo = await registerClient(authorizationServerUrl, {
         metadata,
-        clientMetadata: publicClient,
+        clientMetadata,
       });
     } catch (secondError: unknown) {
       throw new McpConnectionError(
@@ -108,11 +109,7 @@ export async function createMcpOAuthClient(params: {
     );
   }
 
-  // token_endpoint_auth_method: start as confidential client (secret posted at
-  // the token endpoint). This is a preference, not metadata negotiation — many
-  // MCP authorization servers only mint public clients and reject this DCR
-  // shape; registerMcpClientWithPublicRetry then retries once with method "none".
-  return registerMcpClientWithPublicRetry({
+  return registerMcpClientWithAuthMethodFallback({
     authorizationServerUrl,
     metadata,
     clientMetadata: {
@@ -120,7 +117,6 @@ export async function createMcpOAuthClient(params: {
       redirect_uris: [redirectUri],
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
-      token_endpoint_auth_method: 'client_secret_post',
     },
     mcpServerName,
     authorizationEndpoint: metadata.authorization_endpoint,
@@ -201,8 +197,8 @@ function oauthTokensToMcpOAuthToken(
   nowMs: number,
   fallbackRefreshToken: string | null,
 ): McpOAuthToken {
-  const expiresInSeconds = tokens.expires_in;
-  const expiresAtMs = expiresInSeconds !== undefined ? nowMs + expiresInSeconds * 1000 : nowMs;
+  const expiresInSeconds = tokens.expires_in ?? DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS;
+  const expiresAtMs = nowMs + expiresInSeconds * 1000;
   return {
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token ?? fallbackRefreshToken,

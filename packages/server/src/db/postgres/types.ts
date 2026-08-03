@@ -296,11 +296,10 @@ export interface McpServerTable {
    * RFC 8414 authorization-server metadata, discovered once at registration time.
    */
   oauth_server: JSONColumnType<OAuthServer, OAuthServer, OAuthServer> | null;
-  /** OAuthClient — { clientId, clientSecret? }. RFC 7591 DCR registration response.
-   * clientSecret's presence alone decides the auth method on every later call; validated at the
-   * application layer when read back via getOAuthClient/saveOAuthClient.
-   * Both oauth_server and oauth_client are null until the first successful DCR registration for
-   * this server.
+  /** OAuthClient — { clientId, clientSecret? }. RFC 7591 DCR response.
+   * Token auth is form-body (client_secret_post) when clientSecret is set; presence of secret
+   * alone decides the method (same as servicefoundry outbound DCR). Both oauth_server and
+   * oauth_client are null until first successful DCR.
    */
   oauth_client: JSONColumnType<OAuthClient, OAuthClient, OAuthClient> | null;
   created_at: Date;

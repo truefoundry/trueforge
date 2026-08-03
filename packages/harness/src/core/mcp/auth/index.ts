@@ -1,6 +1,12 @@
 export type { IMcpTokenStore } from './IMcpTokenStore';
 export { InMemoryMcpTokenStore } from './InMemoryMcpTokenStore';
-export { buildMcpAuthorizationUrl, createMcpOAuthClient, ensureMcpClientRegistered, resolveMcpAuth } from './mcpDcr';
+export {
+  DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
+  buildMcpAuthorizationUrl,
+  createMcpOAuthClient,
+  ensureMcpClientRegistered,
+  resolveMcpAuth,
+} from './mcpDcr';
 export type { ResolveMcpAuthResult } from './mcpDcr';
 export {
   MCP_OAUTH_CALLBACK_PATH,

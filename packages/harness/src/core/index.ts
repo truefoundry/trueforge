@@ -137,6 +137,7 @@ export { extractErrorLogFields } from './util/errorLogFields';
 
 // MCP OAuth / DCR (token store contract + registration + auth URL + resolve)
 export {
+  DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
   InMemoryMcpTokenStore,
   MCP_OAUTH_CALLBACK_PATH,
   McpAuthStatus,
