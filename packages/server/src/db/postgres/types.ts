@@ -17,7 +17,7 @@ import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ProviderManifest } from '../../schemas/modelProvider';
 import type { SkillManifest } from '../../schemas/skill';
-import type { McpOAuthPendingAuthorizationData, McpOAuthToken, OAuthClient, OAuthServer } from '../mcpOAuthTypes';
+import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpOAuthTypes';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -349,7 +349,7 @@ export interface OAuthTokenTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
   /** access_token, refresh_token, expires_at, scope. */
-  token: JSONColumnType<McpOAuthToken, McpOAuthToken, McpOAuthToken>;
+  token: JSONColumnType<OAuthToken, OAuthToken, OAuthToken>;
   updated_at: Date;
 }
 
@@ -364,11 +364,11 @@ export interface OAuthPendingAuthorizationTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
   auth_data: JSONColumnType<
-    McpOAuthPendingAuthorizationData,
-    McpOAuthPendingAuthorizationData,
-    McpOAuthPendingAuthorizationData
+    OAuthPendingAuthorizationData,
+    OAuthPendingAuthorizationData,
+    OAuthPendingAuthorizationData
   >;
-  /** used for TTL expiry on read, no sweep job */
+  /** filtered against `PENDING_AUTHORIZATION_TTL_MS` on read, no sweep job */
   created_at: Date;
 }
 

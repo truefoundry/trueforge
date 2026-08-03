@@ -30,3 +30,7 @@ export function jsonText<T>(column: Expression<unknown>): RawBuilder<T> {
 export function nowIso(): string {
   return new Date().toISOString();
 }
+
+export function isoMsAgo(ms: number): string {
+  return new Date(Date.now() - ms).toISOString();
+}
