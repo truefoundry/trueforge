@@ -36,11 +36,11 @@ export const McpServerAuthSettingsSchema = z
   .discriminatedUnion('type', [McpServerHeaderAuthSchema, McpServerDcrAuthSchema])
   .openapi('ConfiguredMcpServerAuth');
 
-/** Configured MCP server document; `name` is the natural key within a tenant. */
+/** Configured MCP server document persisted as `mcp_server.manifest`. */
 export const McpServerManifestObjectSchema = z
   .object({
-    name: NameSchema.describe('Natural key within a tenant; join key with the catalog.'),
-    url: z.string().url(),
+    name: NameSchema,
+    url: z.string().url().describe('URL of the remote MCP server.'),
     auth: McpServerAuthSettingsSchema.optional(),
   })
   .strict();
