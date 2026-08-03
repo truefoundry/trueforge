@@ -3,17 +3,17 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { McpServerEntry } from "./McpServerEntry.js";
+import { McpServerListEntry } from "./McpServerListEntry.js";
 
 export const ListMcpServersResponse: core.serialization.ObjectSchema<
     serializers.ListMcpServersResponse.Raw,
     TrueHarness.ListMcpServersResponse
 > = core.serialization.object({
-    data: core.serialization.list(McpServerEntry),
+    data: core.serialization.list(McpServerListEntry),
 });
 
 export declare namespace ListMcpServersResponse {
     export interface Raw {
-        data: McpServerEntry.Raw[];
+        data: McpServerListEntry.Raw[];
     }
 }

@@ -3,5 +3,5 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ListMcpServersResponse {
-    data: TrueHarness.McpServerEntry[];
+    data: TrueHarness.McpServerListEntry[];
 }

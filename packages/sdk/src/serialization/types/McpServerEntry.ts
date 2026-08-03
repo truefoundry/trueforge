@@ -3,17 +3,20 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { McpServerAuthSettings } from "./McpServerAuthSettings.js";
 
 export const McpServerEntry: core.serialization.ObjectSchema<
     serializers.McpServerEntry.Raw,
     TrueHarness.McpServerEntry
 > = core.serialization.object({
+    auth: McpServerAuthSettings.optional(),
     name: core.serialization.string(),
     url: core.serialization.string(),
 });
 
 export declare namespace McpServerEntry {
     export interface Raw {
+        auth?: McpServerAuthSettings.Raw | null;
         name: string;
         url: string;
     }
