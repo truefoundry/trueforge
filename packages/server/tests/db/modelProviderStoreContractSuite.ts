@@ -28,7 +28,11 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 export function runModelProviderStoreContractSuite(getStore: () => IModelProviderStore): void {
   it('upsert creates a provider and round-trips the manifest', async () => {
     const store = getStore();
-    const created = await store.upsertProvider(TENANT, 'anthropic', manifest());
+    const created = await store.upsertProvider({
+      tenant_id: TENANT,
+      name: 'anthropic',
+      manifest: manifest(),
+    });
 
     expect(created.tenant_id).toBe(TENANT);
     expect(created.name).toBe('anthropic');
@@ -36,18 +40,22 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     expect(created.created_at).toMatch(ISO_UTC);
     expect(created.updated_at).toBe(created.created_at);
 
-    const fetched = await store.getProvider(TENANT, 'anthropic');
+    const fetched = await store.getProvider({ tenant_id: TENANT, name: 'anthropic' });
     expect(fetched).toEqual(created);
   });
 
   it('getProvider returns undefined for unknown providers', async () => {
     const store = getStore();
-    expect(await store.getProvider(TENANT, 'missing')).toBeUndefined();
+    expect(await store.getProvider({ tenant_id: TENANT, name: 'missing' })).toBeUndefined();
   });
 
   it('upsert replaces the whole manifest and preserves created_at', async () => {
     const store = getStore();
-    const created = await store.upsertProvider(TENANT, 'anthropic', manifest());
+    const created = await store.upsertProvider({
+      tenant_id: TENANT,
+      name: 'anthropic',
+      manifest: manifest(),
+    });
 
     const replacement = manifest({
       auth: { api_key: 'sk-ant-rotated' },
@@ -59,7 +67,11 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
         },
       ],
     });
-    const updated = await store.upsertProvider(TENANT, 'anthropic', replacement);
+    const updated = await store.upsertProvider({
+      tenant_id: TENANT,
+      name: 'anthropic',
+      manifest: replacement,
+    });
 
     expect(updated.manifest).toEqual(replacement);
     expect(updated.created_at).toBe(created.created_at);
@@ -71,9 +83,17 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
 
   it('listProviders returns only the tenant, ordered by name', async () => {
     const store = getStore();
-    await store.upsertProvider(TENANT, 'openai', manifest({ type: 'openai' }));
-    await store.upsertProvider(TENANT, 'anthropic', manifest());
-    await store.upsertProvider('other-tenant', 'anthropic', manifest());
+    await store.upsertProvider({
+      tenant_id: TENANT,
+      name: 'openai',
+      manifest: manifest({ type: 'openai' }),
+    });
+    await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: manifest() });
+    await store.upsertProvider({
+      tenant_id: 'other-tenant',
+      name: 'anthropic',
+      manifest: manifest(),
+    });
 
     const providers = await store.listProviders(TENANT);
     expect(providers.map(provider => provider.name)).toEqual(['anthropic', 'openai']);
@@ -83,17 +103,17 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
   it('stores custom providers with base_url', async () => {
     const store = getStore();
     const custom = manifest({ type: 'custom', base_url: 'https://llm.internal.example.com/v1' });
-    const created = await store.upsertProvider(TENANT, 'internal', custom);
+    const created = await store.upsertProvider({ tenant_id: TENANT, name: 'internal', manifest: custom });
     expect(created.manifest.base_url).toBe('https://llm.internal.example.com/v1');
   });
 
   it('listModels flattens manifests into fully qualified names', async () => {
     const store = getStore();
-    await store.upsertProvider(TENANT, 'anthropic', manifest());
-    await store.upsertProvider(
-      TENANT,
-      'openai',
-      manifest({
+    await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: manifest() });
+    await store.upsertProvider({
+      tenant_id: TENANT,
+      name: 'openai',
+      manifest: manifest({
         type: 'openai',
         models: [
           {
@@ -103,8 +123,12 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
           },
         ],
       }),
-    );
-    await store.upsertProvider('other-tenant', 'openai', manifest({ type: 'openai' }));
+    });
+    await store.upsertProvider({
+      tenant_id: 'other-tenant',
+      name: 'openai',
+      manifest: manifest({ type: 'openai' }),
+    });
 
     const models = await store.listModels(TENANT);
     expect(models).toEqual([

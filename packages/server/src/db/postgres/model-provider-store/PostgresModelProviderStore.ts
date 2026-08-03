@@ -1,7 +1,12 @@
 import type { Kysely, Selectable } from 'kysely';
-import type { ResourceName } from '../../../schemas/common';
-import type { Model, ProviderManifest } from '../../../schemas/modelProvider';
-import { flattenProviderModels, type IModelProviderStore, type ModelProviderRecord } from '../../modelProviderStore';
+import type { Model } from '../../../schemas/modelProvider';
+import {
+  flattenProviderModels,
+  type GetProviderInput,
+  type IModelProviderStore,
+  type ModelProviderRecord,
+  type UpsertProviderInput,
+} from '../../modelProviderStore';
 import { json, now } from '../sqlExpressions';
 import type { Database, ModelProviderTable } from '../types';
 
@@ -32,33 +37,29 @@ export class PostgresModelProviderStore implements IModelProviderStore {
     return rows.map(toRecord);
   }
 
-  async getProvider(tenantId: string, providerName: string): Promise<ModelProviderRecord | undefined> {
+  async getProvider(input: GetProviderInput): Promise<ModelProviderRecord | undefined> {
     const row = await this.#db
       .selectFrom('model_provider')
       .selectAll()
-      .where('tenant_id', '=', tenantId)
-      .where('name', '=', providerName)
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
       .executeTakeFirst();
     return row === undefined ? undefined : toRecord(row);
   }
 
-  async upsertProvider(
-    tenantId: string,
-    providerName: ResourceName,
-    manifest: ProviderManifest,
-  ): Promise<ModelProviderRecord> {
+  async upsertProvider(input: UpsertProviderInput): Promise<ModelProviderRecord> {
     const row = await this.#db
       .insertInto('model_provider')
       .values({
-        tenant_id: tenantId,
-        name: providerName,
-        manifest: json(manifest),
+        tenant_id: input.tenant_id,
+        name: input.name,
+        manifest: json(input.manifest),
         created_at: now(),
         updated_at: now(),
       })
       .onConflict(oc =>
         oc.columns(['tenant_id', 'name']).doUpdateSet({
-          manifest: json(manifest),
+          manifest: json(input.manifest),
           updated_at: now(),
         }),
       )

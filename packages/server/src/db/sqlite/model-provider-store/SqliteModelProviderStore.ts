@@ -1,7 +1,12 @@
 import type { ExpressionBuilder, Kysely } from 'kysely';
-import type { ResourceName } from '../../../schemas/common';
 import type { Model, ProviderManifest } from '../../../schemas/modelProvider';
-import { flattenProviderModels, type IModelProviderStore, type ModelProviderRecord } from '../../modelProviderStore';
+import {
+  flattenProviderModels,
+  type GetProviderInput,
+  type IModelProviderStore,
+  type ModelProviderRecord,
+  type UpsertProviderInput,
+} from '../../modelProviderStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
@@ -32,33 +37,29 @@ export class SqliteModelProviderStore implements IModelProviderStore {
       .execute();
   }
 
-  async getProvider(tenantId: string, providerName: string): Promise<ModelProviderRecord | undefined> {
+  async getProvider(input: GetProviderInput): Promise<ModelProviderRecord | undefined> {
     return await this.#db
       .selectFrom('model_provider')
       .select(recordColumns)
-      .where('tenant_id', '=', tenantId)
-      .where('name', '=', providerName)
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
       .executeTakeFirst();
   }
 
-  async upsertProvider(
-    tenantId: string,
-    providerName: ResourceName,
-    manifest: ProviderManifest,
-  ): Promise<ModelProviderRecord> {
+  async upsertProvider(input: UpsertProviderInput): Promise<ModelProviderRecord> {
     const timestamp = nowIso();
     return await this.#db
       .insertInto('model_provider')
       .values({
-        tenant_id: tenantId,
-        name: providerName,
-        manifest: jsonbBind(manifest),
+        tenant_id: input.tenant_id,
+        name: input.name,
+        manifest: jsonbBind(input.manifest),
         created_at: timestamp,
         updated_at: timestamp,
       })
       .onConflict(oc =>
         oc.columns(['tenant_id', 'name']).doUpdateSet({
-          manifest: jsonbBind(manifest),
+          manifest: jsonbBind(input.manifest),
           updated_at: timestamp,
         }),
       )

@@ -35,7 +35,11 @@ export function createModelProvidersRouter(deps: ModelProvidersRouterDeps) {
   const putHandler: RouteHandler<typeof putModelProviderRoute> = async c => {
     const { name, ...manifestFields } = c.req.valid('json');
     const manifest: ProviderManifest = manifestFields;
-    const record = await deps.modelProviderStore.upsertProvider(TENANT_ID, name, manifest);
+    const record = await deps.modelProviderStore.upsertProvider({
+      tenant_id: TENANT_ID,
+      name,
+      manifest,
+    });
     return c.json({ data: toModelProvider(record) }, 200);
   };
 

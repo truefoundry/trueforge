@@ -16,15 +16,22 @@ export interface ModelProviderRecord {
   updated_at: string;
 }
 
+export interface GetProviderInput {
+  tenant_id: string;
+  name: string;
+}
+
+export interface UpsertProviderInput {
+  tenant_id: string;
+  name: ResourceName;
+  manifest: ProviderManifest;
+}
+
 export interface IModelProviderStore {
   listProviders(tenantId: string): Promise<ModelProviderRecord[]>;
-  getProvider(tenantId: string, providerName: string): Promise<ModelProviderRecord | undefined>;
+  getProvider(input: GetProviderInput): Promise<ModelProviderRecord | undefined>;
   /** Single-row write: creates the provider or replaces the whole manifest (models included). */
-  upsertProvider(
-    tenantId: string,
-    providerName: ResourceName,
-    manifest: ProviderManifest,
-  ): Promise<ModelProviderRecord>;
+  upsertProvider(input: UpsertProviderInput): Promise<ModelProviderRecord>;
   /** Flattens manifests into the FQN read view for GET /models. */
   listModels(tenantId: string): Promise<Model[]>;
 }
