@@ -16,11 +16,14 @@ import { createAvailableMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
+import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
+import type { SkillCatalog } from './catalog/SkillCatalog';
 import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
+import type { ISkillStore } from './db/skillStore';
 import type { McpStore } from './legacy-registry-store/McpStore';
 import type { ModelStore } from './legacy-registry-store/ModelStore';
 import type { SkillStore } from './legacy-registry-store/SkillStore';
@@ -51,6 +54,8 @@ export interface ServerDeps {
   mcpCatalog: McpCatalog;
   mcpServerStore: IMcpServerStore;
   mcpStore: McpStore;
+  skillCatalog: SkillCatalog;
+  configuredSkillStore: ISkillStore;
   skillStore: SkillStore;
   sessionStore: ISessionStore;
   sessions: Sessions;
@@ -72,6 +77,7 @@ export function createServerApp(deps: ServerDeps) {
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
   app.route('/api/v1/mcp-servers', createAvailableMcpServersRouter(deps.mcpServerStore));
+  app.route('/api/v1/skills', createAvailableSkillsRouter(deps.configuredSkillStore));
   app.route(
     '/api/v1/settings',
     createSettingsRouter({
@@ -79,6 +85,8 @@ export function createServerApp(deps: ServerDeps) {
       modelProviderStore: deps.modelProviderStore,
       mcpCatalog: deps.mcpCatalog,
       mcpServerStore: deps.mcpServerStore,
+      skillCatalog: deps.skillCatalog,
+      skillStore: deps.configuredSkillStore,
       logger: deps.logger,
     }),
   );
