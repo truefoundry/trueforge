@@ -1,5 +1,3 @@
-import assert from 'node:assert/strict';
-import { before, describe, it } from 'node:test';
 import winston from 'winston';
 import { createAvailableMcpServersRouter, createMcpServersRouter } from '../../../src/apis/mcpServers';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
@@ -39,7 +37,7 @@ describe('mcp-servers routers', () => {
   let settingsRouter: ReturnType<typeof createMcpServersRouter>;
   let availableRouter: ReturnType<typeof createAvailableMcpServersRouter>;
 
-  before(async () => {
+  beforeAll(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const mcpServerStore = new SqliteMcpServerStore(db);
@@ -53,10 +51,9 @@ describe('mcp-servers routers', () => {
 
   it('GET /catalog returns the shipped catalog verbatim', async () => {
     const response = await settingsRouter.request('/catalog');
-    assert.equal(response.status, 200);
+    expect(response.status).toBe(200);
     const body = (await response.json()) as { data: { name: string }[] };
-    assert.deepEqual(
-      body.data.map(server => server.name),
+    expect(body.data.map(server => server.name)).toEqual(
       McpCatalog.load()
         .list()
         .map(server => server.name),
@@ -65,49 +62,49 @@ describe('mcp-servers routers', () => {
 
   it('PUT upserts a server and returns stub auth_status', async () => {
     const response = await settingsRouter.request('/', putInit(putBody));
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), {
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
       data: { ...putBody, auth_status: { status: 'authenticated' } },
     });
 
     const list = await settingsRouter.request('/');
-    assert.equal(list.status, 200);
-    assert.deepEqual(await list.json(), {
+    expect(list.status).toBe(200);
+    expect(await list.json()).toEqual({
       data: [{ ...putBody, auth_status: { status: 'authenticated' } }],
     });
   });
 
   it('PUT with DCR auth stubs auth_required without authorization_url', async () => {
     const response = await settingsRouter.request('/', putInit(putBodyWithDcr));
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), {
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
       data: { ...putBodyWithDcr, auth_status: { status: 'auth_required' } },
     });
   });
 
   it('PUT with header auth stores headers and reports authenticated', async () => {
     const response = await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), {
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
       data: { ...putBodyWithHeaderAuth, auth_status: { status: 'authenticated' } },
     });
   });
 
   it('GET / on the chat router returns the slim projection without auth fields', async () => {
     const response = await availableRouter.request('/');
-    assert.equal(response.status, 200);
+    expect(response.status).toBe(200);
     const body = (await response.json()) as { data: { name: string; url: string }[] };
-    assert.deepEqual(body.data.map(server => server.name).sort(), ['deepwiki', 'linear', 'private-mcp']);
-    assert.ok(body.data.every(server => Object.keys(server).sort().join(',') === 'name,url'));
+    expect(body.data.map(server => server.name).sort()).toEqual(['deepwiki', 'linear', 'private-mcp']);
+    expect(body.data.every(server => Object.keys(server).sort().join(',') === 'name,url')).toBe(true);
   });
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {
     const { url: _, ...withoutUrl } = putBody;
     const missingUrl = await settingsRouter.request('/', putInit(withoutUrl));
-    assert.equal(missingUrl.status, 400);
+    expect(missingUrl.status).toBe(400);
 
     const badName = await settingsRouter.request('/', putInit({ ...putBody, name: 'Not A Slug' }));
-    assert.equal(badName.status, 400);
+    expect(badName.status).toBe(400);
 
     const emptyHeaders = await settingsRouter.request(
       '/',
@@ -117,25 +114,25 @@ describe('mcp-servers routers', () => {
         auth: { type: 'header', headers: {} },
       }),
     );
-    assert.equal(emptyHeaders.status, 400);
+    expect(emptyHeaders.status).toBe(400);
   });
 
   it('GET /{name}/authorize stubs auth for configured servers', async () => {
     const authenticated = await settingsRouter.request('/deepwiki/authorize?redirect_url=https://example.com/callback');
-    assert.equal(authenticated.status, 200);
-    assert.deepEqual(await authenticated.json(), { status: 'authenticated' });
+    expect(authenticated.status).toBe(200);
+    expect(await authenticated.json()).toEqual({ status: 'authenticated' });
 
     const headerAuth = await settingsRouter.request('/private-mcp/authorize?redirect_url=https://example.com/callback');
-    assert.equal(headerAuth.status, 200);
-    assert.deepEqual(await headerAuth.json(), { status: 'authenticated' });
+    expect(headerAuth.status).toBe(200);
+    expect(await headerAuth.json()).toEqual({ status: 'authenticated' });
 
     const required = await settingsRouter.request('/linear/authorize?redirect_url=https://example.com/callback');
-    assert.equal(required.status, 200);
+    expect(required.status).toBe(200);
     const body = (await required.json()) as { status: string; authorization_url?: string };
-    assert.equal(body.status, 'auth_required');
-    assert.ok(body.authorization_url?.includes('redirect_uri='));
+    expect(body.status).toBe('auth_required');
+    expect(body.authorization_url?.includes('redirect_uri=')).toBe(true);
 
     const missing = await settingsRouter.request('/missing/authorize?redirect_url=https://example.com/callback');
-    assert.equal(missing.status, 404);
+    expect(missing.status).toBe(404);
   });
 });
