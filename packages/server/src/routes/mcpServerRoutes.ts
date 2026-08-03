@@ -1,7 +1,7 @@
 /**
- * DB-backed MCP server route definitions (mounted at /api/v1/mcp-servers).
- * Handlers are registered in apis/mcpServers.ts. Legacy YAML routes stay under
- * /api/v1/legacy/mcp-servers.
+ * DB-backed MCP server route definitions.
+ * Admin routes mount at /api/v1/settings/mcp-servers; the chat list mounts at
+ * /api/v1/mcp-servers. Legacy YAML stays under /api/v1/legacy/mcp-servers.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -22,8 +22,8 @@ export const getMcpServerCatalogRoute = createRoute({
   summary: 'Get the MCP catalog',
   description:
     'MCP server presets shipped with the server (mcp-catalog.yaml). Discovery-only: copy an entry ' +
-    'into PUT /mcp-servers to configure it.',
-  'x-fern-sdk-group-name': ['mcpServers'],
+    'into PUT /settings/mcp-servers to configure it.',
+  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'catalog',
   responses: {
     200: {
@@ -33,14 +33,15 @@ export const getMcpServerCatalogRoute = createRoute({
   },
 });
 
+/** Chat/composer read view — mounted at /api/v1/mcp-servers (not under settings). */
 export const listAvailableMcpServersRoute = createRoute({
   method: 'get',
-  path: '/available',
+  path: '/',
   tags: [MCP_SERVERS_TAG],
   summary: 'List MCP servers for chat',
   description: 'Configured MCP servers as a slim name/url list for the composer. No auth or auth_status.',
   'x-fern-sdk-group-name': ['mcpServers'],
-  'x-fern-sdk-method-name': 'list_available',
+  'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
       content: { 'application/json': { schema: ListAvailableMcpServersResponseSchema } },
@@ -55,7 +56,7 @@ export const listConfiguredMcpServersRoute = createRoute({
   tags: [MCP_SERVERS_TAG],
   summary: 'List configured MCP servers',
   description: 'All configured MCP servers with nested auth_status (settings / admin projection).',
-  'x-fern-sdk-group-name': ['mcpServers'],
+  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
@@ -73,7 +74,7 @@ export const putMcpServerRoute = createRoute({
   description:
     'Full upsert keyed by `name`: creates the server or replaces its manifest. Does not start DCR or ' +
     'modify stored oauth_server / oauth_client columns.',
-  'x-fern-sdk-group-name': ['mcpServers'],
+  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'upsert',
   request: {
     body: {
@@ -110,7 +111,7 @@ export const listMcpServerToolsRoute = createRoute({
   path: '/{name}/tools',
   tags: [MCP_SERVERS_TAG],
   summary: 'List tools of a configured MCP server',
-  'x-fern-sdk-group-name': ['mcpServers'],
+  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'list_tools',
   description:
     'All tools exposed by the given configured MCP server (non-paginated), as returned by the MCP `tools/list` call.',
@@ -153,7 +154,7 @@ export const authorizeConfiguredMcpServerRoute = createRoute({
   path: '/{name}/authorize',
   tags: [MCP_SERVERS_TAG],
   summary: 'Start (or short-circuit) the auth flow for a configured MCP server',
-  'x-fern-sdk-group-name': ['mcpServers'],
+  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'authorize',
   description:
     'Stub: returns authenticated when the server has no auth or header (global) credentials on the row; ' +

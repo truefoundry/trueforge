@@ -1,6 +1,6 @@
 /**
  * Shipped MCP catalog (mcp-catalog.yaml): the discovery list of server
- * presets the settings UI copies into PUT /mcp-servers bodies.
+ * presets the settings UI copies into PUT /settings/mcp-servers bodies.
  * Never consulted on writes and never read by the runtime.
  *
  * Default: YAML inlined into `mcpCatalog.gen.ts` at build time. Optional

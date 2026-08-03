@@ -39,19 +39,10 @@ function toConfiguredMcpServer(record: McpServerRecord): ConfiguredMcpServer {
   };
 }
 
+/** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers). */
 export function createMcpServersRouter(deps: McpServersRouterDeps) {
   const catalogHandler: RouteHandler<typeof getMcpServerCatalogRoute> = c => {
-    return c.json({ data: deps.mcpCatalog.list() }, 200);
-  };
-
-  const listAvailableHandler: RouteHandler<typeof listAvailableMcpServersRoute> = async c => {
-    const records = await deps.mcpServerStore.listServers(TENANT_ID);
-    return c.json(
-      {
-        data: records.map(record => ({ name: record.name, url: record.manifest.url })),
-      },
-      200,
-    );
+    return c.json({ data: [...deps.mcpCatalog.list()] }, 200);
   };
 
   const listConfiguredHandler: RouteHandler<typeof listConfiguredMcpServersRoute> = async c => {
@@ -119,12 +110,26 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
   };
 
   const router = new OpenAPIHono();
-  // Static paths before `/{name}/…` so "catalog" / "available" are not captured as names.
+  // Static `/catalog` before `/{name}/…` so "catalog" is not captured as a name.
   router.openapi(getMcpServerCatalogRoute, catalogHandler);
-  router.openapi(listAvailableMcpServersRoute, listAvailableHandler);
   router.openapi(listConfiguredMcpServersRoute, listConfiguredHandler);
   router.openapi(putMcpServerRoute, putHandler);
   router.openapi(listMcpServerToolsRoute, listToolsHandler);
   router.openapi(authorizeConfiguredMcpServerRoute, authorizeHandler);
+  return router;
+}
+
+/** Chat slim list (mounted at /api/v1/mcp-servers) — mirrors GET /api/v1/models. */
+export function createAvailableMcpServersRouter(store: IMcpServerStore) {
+  const router = new OpenAPIHono();
+  router.openapi(listAvailableMcpServersRoute, async c => {
+    const records = await store.listServers(TENANT_ID);
+    return c.json(
+      {
+        data: records.map(record => ({ name: record.name, url: record.manifest.url })),
+      },
+      200,
+    );
+  });
   return router;
 }

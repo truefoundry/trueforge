@@ -12,7 +12,7 @@ import { createLegacyMcpRouter } from './apis/legacyMcp';
 import { createLegacyMcpOAuthRouter } from './apis/legacyMcpOAuth';
 import { createLegacyModelsRouter } from './apis/legacyModels';
 import { createLegacySkillsRouter } from './apis/legacySkills';
-import { createMcpServersRouter } from './apis/mcpServers';
+import { createAvailableMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
@@ -71,13 +71,12 @@ export function createServerApp(deps: ServerDeps) {
 
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
+  app.route('/api/v1/mcp-servers', createAvailableMcpServersRouter(deps.mcpServerStore));
   app.route(
     '/api/v1/settings',
-    createSettingsRouter({ modelCatalog: deps.modelCatalog, modelProviderStore: deps.modelProviderStore }),
-  );
-  app.route(
-    '/api/v1/mcp-servers',
-    createMcpServersRouter({
+    createSettingsRouter({
+      modelCatalog: deps.modelCatalog,
+      modelProviderStore: deps.modelProviderStore,
       mcpCatalog: deps.mcpCatalog,
       mcpServerStore: deps.mcpServerStore,
       logger: deps.logger,

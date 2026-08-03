@@ -1,6 +1,6 @@
 # Shipped MCP catalog: server presets offered by
-# GET /api/v1/mcp-servers/catalog for the settings UI to copy into
-# PUT /api/v1/mcp-servers bodies. Discovery-only — never executed against.
+# GET /api/v1/settings/mcp-servers/catalog for the settings UI to copy into
+# PUT /api/v1/settings/mcp-servers bodies. Discovery-only — never executed against.
 mcp_servers:
   - name: linear
     url: https://mcp.linear.app/mcp
