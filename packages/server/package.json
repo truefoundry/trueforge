@@ -8,7 +8,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && tsup",
+    "predev": "pnpm --filter @truefoundry/utils build:gen",
     "dev": "NODE_OPTIONS='--conditions=development' NODE_ENV=development tsx watch --env-file=.env src/main.ts",
+    "predev:no-watch": "pnpm --filter @truefoundry/utils build:gen",
     "dev:no-watch": "NODE_OPTIONS='--conditions=development' NODE_ENV=production tsx --env-file=.env src/main.ts",
     "migrate": "NODE_OPTIONS='--conditions=development' tsx --env-file=.env src/db/postgres/migrate-cli.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tests/tsconfig.json",

@@ -4,9 +4,21 @@ import { McpServerEntrySchema } from '../store/schemas';
 
 const MCP_SERVERS_TAG = 'MCP Servers';
 
+// Extends the yaml-validation schema with a response-only field — `auth_status` isn't a valid
+// mcp.yaml key, so it's added here rather than on McpServerEntrySchema itself.
+const McpServerResponseSchema = McpServerEntrySchema.extend({
+  auth_status: z
+    .enum(['authenticated', 'authentication_required', 'not_required'])
+    .describe(
+      'Passive check only: whether a stored, unexpired token exists. Never attempts a live refresh, ' +
+        'so an expired-but-refreshable token still reads as `authentication_required` here — call `/authorize` to ' +
+        'actually resolve it. `not_required` for servers without `auth` configured.',
+    ),
+}).openapi('McpServerEntry');
+
 const ListMcpServersResponseSchema = z
   .object({
-    data: z.array(McpServerEntrySchema),
+    data: z.array(McpServerResponseSchema),
   })
   .openapi('ListMcpServersResponse');
 
@@ -15,7 +27,9 @@ export const listMcpServersRoute = createRoute({
   path: '/',
   tags: [MCP_SERVERS_TAG],
   summary: 'List MCP servers',
-  description: 'MCP servers declared in mcp.yaml. Auth headers are configured via env vars and never returned.',
+  description:
+    'MCP servers declared in mcp.yaml, each with a passive auth_status snapshot. Auth headers are ' +
+    'configured via env vars and never returned.',
   'x-fern-sdk-group-name': ['mcp_servers'],
   'x-fern-sdk-method-name': 'list',
   responses: {
@@ -71,6 +85,44 @@ export const listMcpToolsRoute = createRoute({
     502: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'The MCP server could not be reached or returned an error.',
+    },
+  },
+});
+
+const McpAuthorizeQuerySchema = z.object({
+  redirect_url: z.string().url().describe('Where to send the browser after OAuth completes.'),
+});
+
+const McpAuthorizeResponseSchema = z
+  .object({
+    status: z.enum(['authenticated', 'authentication_required']),
+    auth_url: z.string().url().optional().describe('Present only when status is authentication_required.'),
+  })
+  .openapi('McpAuthorizeResponse');
+
+export const authorizeMcpServerRoute = createRoute({
+  method: 'get',
+  path: '/{name}/authorize',
+  tags: [MCP_SERVERS_TAG],
+  summary: 'Start (or short-circuit) the auth flow for an MCP server',
+  'x-fern-sdk-group-name': ['mcp_servers'],
+  'x-fern-sdk-method-name': 'authorize',
+  description:
+    'Registers a DCR client for this server if none exists yet, then returns an authorization URL to ' +
+    'redirect the user to so they can complete the OAuth consent flow. Short-circuits to ' +
+    '`{status: authenticated}` with no URL if the server is already connected.',
+  request: {
+    params: McpServerNameParamsSchema,
+    query: McpAuthorizeQuerySchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: McpAuthorizeResponseSchema } },
+      description: 'Either already authenticated, or an authorization URL to redirect to.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'MCP server not found.',
     },
   },
 });

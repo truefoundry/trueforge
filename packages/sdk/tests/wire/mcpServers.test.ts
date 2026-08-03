@@ -9,7 +9,9 @@ describe("McpServersClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
-        const rawResponseBody = { data: [{ name: "name", url: "url" }] };
+        const rawResponseBody = {
+            data: [{ auth: { type: "dcr" }, auth_status: "authenticated", name: "name", url: "url" }],
+        };
 
         server
             .mockEndpoint()
@@ -23,11 +25,59 @@ describe("McpServersClient", () => {
         expect(response).toEqual({
             data: [
                 {
+                    auth: {
+                        type: "dcr",
+                    },
+                    authStatus: "authenticated",
                     name: "name",
                     url: "url",
                 },
             ],
         });
+    });
+
+    test("authorize (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+
+        const rawResponseBody = { auth_url: "auth_url", status: "authenticated" };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/mcp-servers/name/authorize")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.mcpServers.authorize("name", {
+            redirectUrl: "redirect_url",
+        });
+        expect(response).toEqual({
+            authUrl: "auth_url",
+            status: "authenticated",
+        });
+    });
+
+    test("authorize (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/mcp-servers/name/authorize")
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.mcpServers.authorize("name", {
+                redirectUrl: "redirect_url",
+            });
+        }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
     test("list_tools (1)", async () => {

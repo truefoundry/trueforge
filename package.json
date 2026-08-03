@@ -14,7 +14,7 @@
     "format:fix": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\" --cache --config .prettierrc",
     "test": "pnpm --filter @truefoundry/utils test && pnpm --filter @truefoundry/server test && pnpm --filter frontend test",
     "test:store:local": "bash scripts/test-store-local.sh",
-    "dev": "pnpm --parallel --filter @truefoundry/server --filter frontend dev",
+    "dev": "pnpm --parallel --filter @truefoundry/utils --filter @truefoundry/server --filter frontend dev",
     "dev:no-watch": "pnpm --parallel --filter @truefoundry/server --filter frontend dev:no-watch",
     "dev:infra": "docker compose -f docker-compose.dev.yml up",
     "dev:server": "pnpm --filter @truefoundry/server dev",
