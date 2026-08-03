@@ -304,6 +304,31 @@
         "properties": {},
         "type": "object"
       },
+      "CatalogMcpServer": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "type": {
+            "$ref": "#/components/schemas/McpServerType"
+          },
+          "url": {
+            "description": "URL of the remote MCP server.",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "url"
+        ],
+        "type": "object"
+      },
       "CatalogProvider": {
         "additionalProperties": false,
         "properties": {
@@ -329,6 +354,47 @@
           "type",
           "name",
           "models"
+        ],
+        "type": "object"
+      },
+      "CatalogSkill": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Concise guidance for when the agent should use the skill.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "path": {
+            "description": "Path to the skill directory within the repository. Omit to use the repository root.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "ref": {
+            "description": "Git ref — branch name, tag, or commit SHA.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/SkillType"
+          },
+          "url": {
+            "description": "Full HTTPS URL of a GitHub or GitLab repository.",
+            "minLength": 1,
+            "pattern": "^https:\\/\\/(github\\.com\\/[A-Za-z0-9._-]+\\/[A-Za-z0-9._-]+|gitlab\\.com\\/[A-Za-z0-9._-]+(?:\\/[A-Za-z0-9._-]+)+)(\\/|\\.git)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "url",
+          "description"
         ],
         "type": "object"
       },
@@ -433,6 +499,72 @@
           "function"
         ],
         "type": "object"
+      },
+      "ConfiguredMcpAuthorizeResponse": {
+        "properties": {
+          "authorization_url": {
+            "description": "Present only when status is auth_required.",
+            "format": "uri",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "authenticated",
+              "auth_required"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "ConfiguredMcpServer": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+          },
+          "auth_status": {
+            "$ref": "#/components/schemas/McpAuthStatus"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "type": {
+            "$ref": "#/components/schemas/McpServerType"
+          },
+          "url": {
+            "description": "URL of the remote MCP server.",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "url",
+          "auth_status"
+        ],
+        "type": "object"
+      },
+      "ConfiguredMcpServerAuth": {
+        "discriminator": {
+          "mapping": {
+            "dcr": "#/components/schemas/McpServerDcrAuth",
+            "header": "#/components/schemas/McpServerHeaderAuth"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/McpServerHeaderAuth"
+          },
+          {
+            "$ref": "#/components/schemas/McpServerDcrAuth"
+          }
+        ]
       },
       "ContextManagementConfig": {
         "default": {
@@ -652,6 +784,20 @@
         ],
         "type": "object"
       },
+      "GetMcpServerCatalogResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogMcpServer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetModelProviderCatalogResponse": {
         "properties": {
           "data": {
@@ -670,6 +816,20 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/Session"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetSkillCatalogResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogSkill"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -752,6 +912,62 @@
         },
         "type": "object"
       },
+      "ListAvailableMcpServersResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/McpServerReadEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListAvailableSkillsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SkillReadEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListConfiguredMcpServersResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredMcpServer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListConfiguredSkillsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SkillManifest"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "ListLegacyModelsResponse": {
         "properties": {
           "data": {
@@ -786,6 +1002,22 @@
                   ]
                 }
               ]
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListMcpServerToolsResponse": {
+        "properties": {
+          "data": {
+            "description": "MCP `tools/list` entries, passed through verbatim from the MCP server.",
+            "items": {
+              "additionalProperties": {},
+              "type": "object"
             },
             "type": "array"
           }
@@ -1187,6 +1419,27 @@
         ],
         "type": "object"
       },
+      "McpAuthStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "authorization_url": {
+            "description": "Present only when status is auth_required and a live authorize flow produced a URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "authenticated",
+              "auth_required"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
       "McpAuthorizeResponse": {
         "properties": {
           "auth_url": {
@@ -1225,6 +1478,21 @@
           }
         ]
       },
+      "McpServerDcrAuth": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "dcr"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
       "McpServerEntry": {
         "additionalProperties": false,
         "properties": {
@@ -1255,6 +1523,78 @@
           "auth_status"
         ],
         "type": "object"
+      },
+      "McpServerHeaderAuth": {
+        "additionalProperties": false,
+        "properties": {
+          "headers": {
+            "additionalProperties": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "description": "HTTP headers sent on each request to this MCP server.",
+            "type": "object"
+          },
+          "type": {
+            "enum": [
+              "header"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "headers"
+        ],
+        "type": "object"
+      },
+      "McpServerManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "type": {
+            "$ref": "#/components/schemas/McpServerType"
+          },
+          "url": {
+            "description": "URL of the remote MCP server.",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "url"
+        ],
+        "type": "object"
+      },
+      "McpServerReadEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url"
+        ],
+        "type": "object"
+      },
+      "McpServerType": {
+        "enum": [
+          "remote"
+        ],
+        "type": "string"
       },
       "Model": {
         "additionalProperties": false,
@@ -1667,10 +2007,32 @@
         ],
         "type": "string"
       },
+      "PutMcpServerResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ConfiguredMcpServer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "PutModelProviderResponse": {
         "properties": {
           "data": {
             "$ref": "#/components/schemas/ModelProvider"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "PutSkillResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SkillManifest"
           }
         },
         "required": [
@@ -2077,6 +2439,47 @@
         ],
         "type": "object"
       },
+      "SkillManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Concise guidance for when the agent should use the skill.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "path": {
+            "description": "Path to the skill directory within the repository. Omit to use the repository root.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "ref": {
+            "description": "Git ref — branch name, tag, or commit SHA.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/SkillType"
+          },
+          "url": {
+            "description": "Full HTTPS URL of a GitHub or GitLab repository.",
+            "minLength": 1,
+            "pattern": "^https:\\/\\/(github\\.com\\/[A-Za-z0-9._-]+\\/[A-Za-z0-9._-]+|gitlab\\.com\\/[A-Za-z0-9._-]+(?:\\/[A-Za-z0-9._-]+)+)(\\/|\\.git)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "url",
+          "description"
+        ],
+        "type": "object"
+      },
       "SkillMount": {
         "properties": {
           "description": {
@@ -2124,6 +2527,30 @@
           "ref"
         ],
         "type": "object"
+      },
+      "SkillReadEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Concise guidance for when the agent should use the skill.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          }
+        },
+        "required": [
+          "name",
+          "description"
+        ],
+        "type": "object"
+      },
+      "SkillType": {
+        "enum": [
+          "git"
+        ],
+        "type": "string"
       },
       "TextContent": {
         "properties": {
@@ -3258,6 +3685,31 @@
         "x-fern-sdk-method-name": "list"
       }
     },
+    "/api/v1/mcp-servers": {
+      "get": {
+        "description": "Configured MCP servers as a slim name/url list for the composer. No auth or auth_status.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAvailableMcpServersResponse"
+                }
+              }
+            },
+            "description": "All configured MCP servers (chat projection)."
+          }
+        },
+        "summary": "List MCP servers for chat",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
     "/api/v1/models": {
       "get": {
         "description": "Models across all configured model providers, addressed by fully qualified name `name/model_name`.",
@@ -4089,6 +4541,231 @@
         "x-fern-sdk-method-name": "list_turn_events"
       }
     },
+    "/api/v1/settings/mcp-servers": {
+      "get": {
+        "description": "All configured MCP servers with nested auth_status (settings / admin projection).",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListConfiguredMcpServersResponse"
+                }
+              }
+            },
+            "description": "All configured MCP servers."
+          }
+        },
+        "summary": "List configured MCP servers",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "list"
+      },
+      "put": {
+        "description": "Full upsert keyed by `name`: creates the server or replaces its manifest. Does not start DCR or modify stored oauth_server / oauth_client columns.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpServerManifest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutMcpServerResponse"
+                }
+              }
+            },
+            "description": "The saved MCP server with stub auth_status."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          }
+        },
+        "summary": "Create or replace an MCP server",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "upsert"
+      }
+    },
+    "/api/v1/settings/mcp-servers/catalog": {
+      "get": {
+        "description": "MCP server presets shipped with the server (mcp-catalog.yaml). Discovery-only: copy an entry into PUT /settings/mcp-servers to configure it.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMcpServerCatalogResponse"
+                }
+              }
+            },
+            "description": "The shipped catalog, verbatim."
+          }
+        },
+        "summary": "Get the MCP catalog",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "catalog"
+      }
+    },
+    "/api/v1/settings/mcp-servers/{name}/authorize": {
+      "get": {
+        "description": "Stub: returns authenticated when the server has no auth or header credentials on the row; auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.",
+        "parameters": [
+          {
+            "description": "Configured MCP server name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "Configured MCP server name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where to send the browser after OAuth completes.",
+            "in": "query",
+            "name": "redirect_url",
+            "required": true,
+            "schema": {
+              "description": "Where to send the browser after OAuth completes.",
+              "format": "uri",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfiguredMcpAuthorizeResponse"
+                }
+              }
+            },
+            "description": "Either already authenticated, or an authorization URL to redirect to."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not found."
+          }
+        },
+        "summary": "Start (or short-circuit) the auth flow for a configured MCP server",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "authorize"
+      }
+    },
+    "/api/v1/settings/mcp-servers/{name}/tools": {
+      "get": {
+        "description": "All tools exposed by the given configured MCP server (non-paginated), as returned by the MCP `tools/list` call.",
+        "parameters": [
+          {
+            "description": "Configured MCP server name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "Configured MCP server name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMcpServerToolsResponse"
+                }
+              }
+            },
+            "description": "All tools of the MCP server."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The MCP server requires authentication."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not found."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The MCP server could not be reached or returned an error."
+          }
+        },
+        "summary": "List tools of a configured MCP server",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "list_tools"
+      }
+    },
     "/api/v1/settings/model-providers": {
       "get": {
         "description": "All configured providers with their models.",
@@ -4183,6 +4860,127 @@
           "modelProviders"
         ],
         "x-fern-sdk-method-name": "catalog"
+      }
+    },
+    "/api/v1/settings/skills": {
+      "get": {
+        "description": "All configured skills with full manifests (settings / admin projection).",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListConfiguredSkillsResponse"
+                }
+              }
+            },
+            "description": "All configured skills."
+          }
+        },
+        "summary": "List configured skills",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "list"
+      },
+      "put": {
+        "description": "Full upsert keyed by `name`: creates the skill or replaces its entire manifest.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillManifest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutSkillResponse"
+                }
+              }
+            },
+            "description": "The saved skill."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          }
+        },
+        "summary": "Create or replace a skill",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "upsert"
+      }
+    },
+    "/api/v1/settings/skills/catalog": {
+      "get": {
+        "description": "Skill presets shipped with the server (skill-catalog.yaml). Discovery-only: copy an entry into PUT /settings/skills to configure it.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSkillCatalogResponse"
+                }
+              }
+            },
+            "description": "The shipped catalog, verbatim."
+          }
+        },
+        "summary": "Get the skill catalog",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "catalog"
+      }
+    },
+    "/api/v1/skills": {
+      "get": {
+        "description": "Configured skills as a slim name/description list for the composer.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAvailableSkillsResponse"
+                }
+              }
+            },
+            "description": "All configured skills (chat projection)."
+          }
+        },
+        "summary": "List skills for chat",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "list"
       }
     }
   },

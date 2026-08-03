@@ -17,8 +17,9 @@ import type {
 } from '@truefoundry/utils/core';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
-import type { McpServerManifest } from '../../legacy-registry-store/schemas';
+import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ProviderManifest } from '../../schemas/modelProvider';
+import type { SkillManifest } from '../../schemas/skill';
 import type { McpOAuthPendingAuthorizationData, McpOAuthToken, OAuthClient, OAuthServer } from '../mcpOAuthTypes';
 
 /**
@@ -154,6 +155,20 @@ export interface ModelProviderTable {
 }
 
 /**
+ * Configured skills — mirrors the Postgres `skill` table.
+ * PRIMARY KEY (tenant_id, name)
+ */
+export interface SkillTable {
+  tenant_id: string;
+  /** key: natural key within tenant; also duplicated inside `manifest` */
+  name: string;
+  /** SkillManifest document; replaced whole on every upsert */
+  manifest: JsonbColumn<SkillManifest>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * PRIMARY KEY (id)
  * UNIQUE (tenant_id, name) — the natural lookup key;
  */
@@ -161,7 +176,7 @@ export interface McpServerTable {
   /** application-generated (ulid); FK target, never re-derived from tenant_id/name */
   id: string;
   tenant_id: string;
-  /** the uniqueness target; also duplicated inside `manifest` (the full mcp.yaml entry) */
+  /** the uniqueness target; also duplicated inside `manifest` */
   name: string;
   manifest: JsonbColumn<McpServerManifest>;
   /**
@@ -210,6 +225,7 @@ export interface Database {
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
+  skill: SkillTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;

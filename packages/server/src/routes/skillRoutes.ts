@@ -1,0 +1,93 @@
+/**
+ * DB-backed skill route definitions.
+ * Admin routes mount at /api/v1/settings/skills; the chat list mounts at
+ * /api/v1/skills. Legacy YAML stays under /api/v1/legacy/skills.
+ */
+import { createRoute } from '@hono/zod-openapi';
+import { RequestErrorResponseSchema } from '../schemas/errors';
+import {
+  ListAvailableSkillsResponseSchema,
+  ListConfiguredSkillsResponseSchema,
+  PutSkillRequestSchema,
+  PutSkillResponseSchema,
+} from '../schemas/skill';
+import { GetSkillCatalogResponseSchema } from '../schemas/skillCatalog';
+
+const SKILLS_TAG = 'Skills';
+
+export const getSkillCatalogRoute = createRoute({
+  method: 'get',
+  path: '/catalog',
+  tags: [SKILLS_TAG],
+  summary: 'Get the skill catalog',
+  description:
+    'Skill presets shipped with the server (skill-catalog.yaml). Discovery-only: copy an entry ' +
+    'into PUT /settings/skills to configure it.',
+  'x-fern-sdk-group-name': ['settings', 'skills'],
+  'x-fern-sdk-method-name': 'catalog',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetSkillCatalogResponseSchema } },
+      description: 'The shipped catalog, verbatim.',
+    },
+  },
+});
+
+/** Chat/composer read view — mounted at /api/v1/skills (not under settings). */
+export const listAvailableSkillsRoute = createRoute({
+  method: 'get',
+  path: '/',
+  tags: [SKILLS_TAG],
+  summary: 'List skills for chat',
+  description: 'Configured skills as a slim name/description list for the composer.',
+  'x-fern-sdk-group-name': ['skills'],
+  'x-fern-sdk-method-name': 'list',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListAvailableSkillsResponseSchema } },
+      description: 'All configured skills (chat projection).',
+    },
+  },
+});
+
+export const listConfiguredSkillsRoute = createRoute({
+  method: 'get',
+  path: '/',
+  tags: [SKILLS_TAG],
+  summary: 'List configured skills',
+  description: 'All configured skills with full manifests (settings / admin projection).',
+  'x-fern-sdk-group-name': ['settings', 'skills'],
+  'x-fern-sdk-method-name': 'list',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListConfiguredSkillsResponseSchema } },
+      description: 'All configured skills.',
+    },
+  },
+});
+
+export const putSkillRoute = createRoute({
+  method: 'put',
+  path: '/',
+  tags: [SKILLS_TAG],
+  summary: 'Create or replace a skill',
+  description: 'Full upsert keyed by `name`: creates the skill or replaces its entire manifest.',
+  'x-fern-sdk-group-name': ['settings', 'skills'],
+  'x-fern-sdk-method-name': 'upsert',
+  request: {
+    body: {
+      content: { 'application/json': { schema: PutSkillRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: PutSkillResponseSchema } },
+      description: 'The saved skill.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body.',
+    },
+  },
+});

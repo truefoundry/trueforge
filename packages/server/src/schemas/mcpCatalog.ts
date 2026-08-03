@@ -1,0 +1,36 @@
+/**
+ * Shipped mcp-catalog.yaml schemas (discovery presets). Separate from
+ * configured MCP server manifests in mcpServer.ts.
+ */
+import { z } from '@hono/zod-openapi';
+import { NameSchema, uniqueNames } from './common';
+import { McpServerAuthSettingsSchema, McpServerTypeSchema } from './mcpServer';
+
+/** Catalog entry — discovery preset the settings UI copies into a PUT body. */
+export const CatalogMcpServerSchema = z
+  .object({
+    type: McpServerTypeSchema,
+    name: NameSchema,
+    url: z.string().url().describe('URL of the remote MCP server.'),
+    auth: McpServerAuthSettingsSchema.optional(),
+  })
+  .strict()
+  .openapi('CatalogMcpServer');
+
+export const McpCatalogFileSchema = z
+  .object({
+    mcp_servers: z.array(CatalogMcpServerSchema),
+  })
+  .strict()
+  .superRefine((file, ctx) => {
+    uniqueNames(file.mcp_servers, ctx);
+  });
+
+export const GetMcpServerCatalogResponseSchema = z
+  .object({
+    data: z.array(CatalogMcpServerSchema),
+  })
+  .openapi('GetMcpServerCatalogResponse');
+
+export type CatalogMcpServer = z.infer<typeof CatalogMcpServerSchema>;
+export type McpCatalogFile = z.infer<typeof McpCatalogFileSchema>;

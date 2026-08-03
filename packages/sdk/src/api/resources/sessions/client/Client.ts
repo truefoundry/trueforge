@@ -324,6 +324,62 @@ export class SessionsClient {
     }
 
     /**
+     * Delete a session and all related turns, events, and internal state. Idempotent if already gone.
+     *
+     * @param {string} sessionId - Session identifier.
+     * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link errors.TrueHarnessError}
+     * @throws {@link errors.TrueHarnessTimeoutError}
+     *
+     * @example
+     *     await client.sessions.delete("sessionId")
+     */
+    public delete(sessionId: string, requestOptions?: SessionsClient.RequestOptions): core.HttpResponsePromise<void> {
+        return core.HttpResponsePromise.fromPromise(this.__delete(sessionId, requestOptions));
+    }
+
+    private async __delete(
+        sessionId: string,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<void>> {
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/sessions/${core.url.encodePathParam(sessionId)}`,
+            ),
+            method: "DELETE",
+            headers: _headers,
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return { data: undefined, rawResponse: _response.rawResponse };
+        }
+
+        if (_response.error.reason === "status-code") {
+            throw new errors.TrueHarnessError({
+                statusCode: _response.error.statusCode,
+                body: _response.error.body,
+                rawResponse: _response.rawResponse,
+            });
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "DELETE",
+            "/api/v1/sessions/{sessionId}",
+        );
+    }
+
+    /**
      * Update a session's inline agent spec. An empty body is a valid no-op that refreshes `updated_at`.
      *
      * @param {string} sessionId - Session identifier.
