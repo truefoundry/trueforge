@@ -156,8 +156,8 @@ export const authorizeConfiguredMcpServerRoute = createRoute({
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'authorize',
   description:
-    'Stub: returns auth_required with a placeholder authorization URL when the server has DCR auth configured; ' +
-    'otherwise authenticated. Real DCR lands in a follow-up.',
+    'Stub: returns authenticated when the server has no auth or header (global) credentials on the row; ' +
+    'auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.',
   request: {
     params: McpServerNameParamsSchema,
     query: McpAuthorizeQuerySchema,

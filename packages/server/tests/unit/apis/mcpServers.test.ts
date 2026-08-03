@@ -12,10 +12,20 @@ const putBody = {
   url: 'https://mcp.deepwiki.com/mcp',
 };
 
-const putBodyWithAuth = {
+const putBodyWithDcr = {
   name: 'linear',
   url: 'https://mcp.linear.app/mcp',
   auth: { type: 'dcr' as const },
+};
+
+const putBodyWithHeaderAuth = {
+  name: 'private-mcp',
+  url: 'https://mcp.example.com/mcp',
+  auth: {
+    type: 'header' as const,
+    auth_level: 'global' as const,
+    headers: { Authorization: 'Bearer test-token' },
+  },
 };
 
 function putInit(body: unknown): RequestInit {
@@ -66,18 +76,26 @@ describe('mcp-servers router', () => {
   });
 
   it('PUT with DCR auth stubs auth_required without authorization_url', async () => {
-    const response = await router.request('/', putInit(putBodyWithAuth));
+    const response = await router.request('/', putInit(putBodyWithDcr));
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {
-      data: { ...putBodyWithAuth, auth_status: { status: 'auth_required' } },
+      data: { ...putBodyWithDcr, auth_status: { status: 'auth_required' } },
     });
   });
 
-  it('GET /available returns the slim chat projection', async () => {
+  it('PUT with header global auth stores headers and reports authenticated', async () => {
+    const response = await router.request('/', putInit(putBodyWithHeaderAuth));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      data: { ...putBodyWithHeaderAuth, auth_status: { status: 'authenticated' } },
+    });
+  });
+
+  it('GET /available returns the slim chat projection without auth fields', async () => {
     const response = await router.request('/available');
     assert.equal(response.status, 200);
     const body = (await response.json()) as { data: { name: string; url: string }[] };
-    assert.deepEqual(body.data.map(server => server.name).sort(), ['deepwiki', 'linear']);
+    assert.deepEqual(body.data.map(server => server.name).sort(), ['deepwiki', 'linear', 'private-mcp']);
     assert.ok(body.data.every(server => Object.keys(server).sort().join(',') === 'name,url'));
   });
 
@@ -88,12 +106,40 @@ describe('mcp-servers router', () => {
 
     const badName = await router.request('/', putInit({ ...putBody, name: 'Not A Slug' }));
     assert.equal(badName.status, 400);
+
+    const perUser = await router.request(
+      '/',
+      putInit({
+        ...putBodyWithHeaderAuth,
+        name: 'bad-per-user',
+        auth: {
+          type: 'header',
+          auth_level: 'per_user',
+          headers: { Authorization: 'Bearer x' },
+        },
+      }),
+    );
+    assert.equal(perUser.status, 400);
+
+    const emptyHeaders = await router.request(
+      '/',
+      putInit({
+        ...putBodyWithHeaderAuth,
+        name: 'bad-empty-headers',
+        auth: { type: 'header', auth_level: 'global', headers: {} },
+      }),
+    );
+    assert.equal(emptyHeaders.status, 400);
   });
 
   it('GET /{name}/authorize stubs auth for configured servers', async () => {
     const authenticated = await router.request('/deepwiki/authorize?redirect_url=https://example.com/callback');
     assert.equal(authenticated.status, 200);
     assert.deepEqual(await authenticated.json(), { status: 'authenticated' });
+
+    const headerAuth = await router.request('/private-mcp/authorize?redirect_url=https://example.com/callback');
+    assert.equal(headerAuth.status, 200);
+    assert.deepEqual(await headerAuth.json(), { status: 'authenticated' });
 
     const required = await router.request('/linear/authorize?redirect_url=https://example.com/callback');
     assert.equal(required.status, 200);

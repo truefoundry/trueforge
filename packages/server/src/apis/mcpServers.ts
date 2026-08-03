@@ -2,7 +2,6 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/utils/core';
 import type { Logger } from 'winston';
 import type { McpCatalog } from '../catalog/McpCatalog';
-import configuration, { normalizeEnvName } from '../config';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
 import {
   authorizeConfiguredMcpServerRoute,
@@ -13,7 +12,7 @@ import {
   putMcpServerRoute,
 } from '../routes/mcpServerRoutes';
 import type { ConfiguredMcpServer, McpServerManifest } from '../schemas/mcpServer';
-import { toStubAuthStatus } from '../schemas/mcpServer';
+import { resolveConfiguredMcpRequestHeaders, toStubAuthStatus } from '../schemas/mcpServer';
 import { TENANT_ID } from './sessions';
 
 export interface McpServersRouterDeps {
@@ -31,13 +30,6 @@ function omitUndefinedEntries(obj: Record<string, unknown>): Record<string, unkn
     }
   }
   return out;
-}
-
-function mcpRequestHeaders(name: string): Record<string, string> {
-  return {
-    ...configuration.MCP_HEADERS,
-    ...configuration.MCP_HEADERS_BY_NAME[normalizeEnvName(name)],
-  };
 }
 
 function toConfiguredMcpServer(record: McpServerRecord): ConfiguredMcpServer {
@@ -87,7 +79,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
       id: name,
       name,
       url: record.manifest.url,
-      headers: mcpRequestHeaders(name),
+      headers: resolveConfiguredMcpRequestHeaders(record.manifest),
       logger: deps.logger,
       signal: c.req.raw.signal,
     });
@@ -117,7 +109,8 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }
-    if (!record.manifest.auth) {
+    // Header global (and no auth): credentials already on the row — no browser flow.
+    if (record.manifest.auth?.type !== 'dcr') {
       return c.json({ status: 'authenticated' as const }, 200);
     }
     // STUB: real DCR + authorize URL minting lands with the OAuth follow-up.
