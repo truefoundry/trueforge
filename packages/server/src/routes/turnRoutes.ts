@@ -154,8 +154,8 @@ export const subscribeTurnRoute = createRoute({
   description:
     'Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).',
   'x-fern-sdk-group-name': ['sessions'],
-  'x-fern-sdk-method-name': 'subscribe_turn',
-  'x-fern-streaming': { format: 'sse', resumable: false },
+  'x-fern-sdk-method-name': 'subscribe_to_turn',
+  'x-fern-streaming': { format: 'sse', resumable: true },
   request: {
     params: TurnIdParamsSchema,
     body: {
