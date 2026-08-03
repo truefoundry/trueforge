@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
-import { ModelCatalog } from '../catalog/ModelCatalog';
-import { migrateSqliteToLatest } from '../db/migrateSqlite';
-import { createSqliteDb } from '../db/sqlite/client';
-import { SqliteModelProviderStore } from '../db/sqlite/model-provider-store/SqliteModelProviderStore';
-import { createModelProvidersRouter } from './modelProviders';
-import { createModelsRouter } from './models';
+import { createModelProvidersRouter } from '../../../src/apis/modelProviders';
+import { createModelsRouter } from '../../../src/apis/models';
+import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
+import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 
 const putBody = {
   type: 'anthropic',
