@@ -1,5 +1,6 @@
 import { jsonbBind, nowIso } from '../../../../src/db/sqlite/sqlExpressions';
 import { SqliteOAuthTokenStore } from '../../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import type { McpServerManifest } from '../../../../src/schemas/mcpServer';
 import { runOAuthTokenStoreContractSuite, type OAuthTokenStoreHarness } from '../../oauthTokenStoreContractSuite';
 import { createSqliteTestDatabase, type SqliteTestDatabase } from '../testDatabase';
 
@@ -23,13 +24,14 @@ describe('SqliteOAuthTokenStore (IOAuthTokenStore contract)', () => {
     return {
       store: new SqliteOAuthTokenStore(db),
       async seedResource(id) {
+        const manifest: McpServerManifest = { type: 'remote', name: id, url: 'https://mcp.example.com/sse' };
         await db
           .insertInto('mcp_server')
           .values({
             id,
             tenant_id: 'default',
             name: id,
-            manifest: jsonbBind({}),
+            manifest: jsonbBind(manifest),
             oauth_server: null,
             oauth_client: null,
             created_at: nowIso(),

@@ -2,7 +2,7 @@ import { sql } from 'kysely';
 
 import { json, now } from '../../../../src/db/postgres/sqlExpressions';
 import { PostgresOAuthTokenStore } from '../../../../src/db/postgres/token-store/PostgresOAuthTokenStore';
-import type { McpServerManifest } from '../../../../src/legacy-registry-store/schemas';
+import type { McpServerManifest } from '../../../../src/schemas/mcpServer';
 import { runOAuthTokenStoreContractSuite, type OAuthTokenStoreHarness } from '../../oauthTokenStoreContractSuite';
 import { createPostgresTestDatabase, type PostgresTestDatabase } from '../testDatabase';
 
@@ -36,7 +36,7 @@ describePg('PostgresOAuthTokenStore (IOAuthTokenStore contract)', () => {
     return {
       store: new PostgresOAuthTokenStore(db),
       async seedResource(id) {
-        const manifest: McpServerManifest = { name: id, url: 'https://mcp.example.com/sse' };
+        const manifest: McpServerManifest = { type: 'remote', name: id, url: 'https://mcp.example.com/sse' };
         await db
           .insertInto('mcp_server')
           .values({
