@@ -428,9 +428,10 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       ]);
 
-      expect(results[0]?.status).toBe('fulfilled');
-      for (const result of results.slice(1)) {
-        if (result?.status === 'rejected') {
+      const [deletion, ...appends] = results;
+      expect(deletion.status).toBe('fulfilled');
+      for (const result of appends) {
+        if (result.status === 'rejected') {
           expect(result.reason).toBeInstanceOf(SessionStoreNotFoundError);
         }
       }
