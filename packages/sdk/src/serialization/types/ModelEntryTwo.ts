@@ -4,7 +4,7 @@ import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const ModelEntryOne: core.serialization.ObjectSchema<serializers.ModelEntryOne.Raw, TrueHarness.ModelEntryOne> =
+export const ModelEntryTwo: core.serialization.ObjectSchema<serializers.ModelEntryTwo.Raw, TrueHarness.ModelEntryTwo> =
     core.serialization.object({
         apiKey: core.serialization.property("api_key", core.serialization.string().optional()),
         baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
@@ -12,14 +12,14 @@ export const ModelEntryOne: core.serialization.ObjectSchema<serializers.ModelEnt
         maxOutputTokens: core.serialization.property("max_output_tokens", core.serialization.number()),
         modelId: core.serialization.property("model_id", core.serialization.string().optional()),
         name: core.serialization.string(),
-        provider: core.serialization.stringLiteral("anthropic"),
+        provider: core.serialization.stringLiteral("google-gemini"),
         reasoningEfforts: core.serialization.property(
             "reasoning_efforts",
             core.serialization.list(core.serialization.string()).optional(),
         ),
     });
 
-export declare namespace ModelEntryOne {
+export declare namespace ModelEntryTwo {
     export interface Raw {
         api_key?: string | null;
         base_url?: string | null;
@@ -27,7 +27,7 @@ export declare namespace ModelEntryOne {
         max_output_tokens: number;
         model_id?: string | null;
         name: string;
-        provider: "anthropic";
+        provider: "google-gemini";
         reasoning_efforts?: string[] | null;
     }
 }

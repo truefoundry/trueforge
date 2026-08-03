@@ -5,11 +5,12 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ModelEntryApiFormat } from "./ModelEntryApiFormat.js";
 import { ModelEntryOne } from "./ModelEntryOne.js";
+import { ModelEntryTwo } from "./ModelEntryTwo.js";
 import { ModelEntryZero } from "./ModelEntryZero.js";
 
 export const ModelEntry: core.serialization.Schema<serializers.ModelEntry.Raw, TrueHarness.ModelEntry> =
-    core.serialization.undiscriminatedUnion([ModelEntryZero, ModelEntryOne, ModelEntryApiFormat]);
+    core.serialization.undiscriminatedUnion([ModelEntryZero, ModelEntryOne, ModelEntryTwo, ModelEntryApiFormat]);
 
 export declare namespace ModelEntry {
-    export type Raw = ModelEntryZero.Raw | ModelEntryOne.Raw | ModelEntryApiFormat.Raw;
+    export type Raw = ModelEntryZero.Raw | ModelEntryOne.Raw | ModelEntryTwo.Raw | ModelEntryApiFormat.Raw;
 }

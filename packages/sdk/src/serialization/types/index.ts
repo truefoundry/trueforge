@@ -59,7 +59,7 @@ export * from "./Model.js";
 export * from "./ModelEntry.js";
 export * from "./ModelEntryApiFormat.js";
 export * from "./ModelEntryOne.js";
-export * from "./ModelEntryOneProvider.js";
+export * from "./ModelEntryTwo.js";
 export * from "./ModelEntryZero.js";
 export * from "./ModelMessageDeltaEvent.js";
 export * from "./ModelMessageEvent.js";

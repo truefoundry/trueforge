@@ -2,4 +2,8 @@
 
 import type * as TrueHarness from "../index.js";
 
-export type ModelEntry = TrueHarness.ModelEntryZero | TrueHarness.ModelEntryOne | TrueHarness.ModelEntryApiFormat;
+export type ModelEntry =
+    | TrueHarness.ModelEntryZero
+    | TrueHarness.ModelEntryOne
+    | TrueHarness.ModelEntryTwo
+    | TrueHarness.ModelEntryApiFormat;

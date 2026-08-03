@@ -992,7 +992,7 @@
         "type": "object"
       },
       "ModelEntry": {
-        "anyOf": [
+        "oneOf": [
           {
             "additionalProperties": false,
             "properties": {
@@ -1077,7 +1077,58 @@
               },
               "provider": {
                 "enum": [
-                  "anthropic",
+                  "anthropic"
+                ],
+                "type": "string"
+              },
+              "reasoning_efforts": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "max_output_tokens",
+              "provider"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "api_key": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "base_url": {
+                "format": "uri",
+                "type": "string"
+              },
+              "headers": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "max_output_tokens": {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              "model_id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9.-]*$",
+                "type": "string"
+              },
+              "provider": {
+                "enum": [
                   "google-gemini"
                 ],
                 "type": "string"
