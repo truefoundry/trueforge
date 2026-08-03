@@ -1,41 +1,45 @@
 /**
- * Canonical JSON shapes for MCP OAuth columns. Owned here so Postgres/SQLite table
- * typing and runtime orchestration share one definition (no dual postgres/sqlite copies).
+ * Canonical JSON shapes for MCP OAuth columns (`mcp_server`, `oauth_token`,
+ * `oauth_pending_authorization`). Owned by the server DB layer — not the harness.
  */
 
-/**
- * `mcp_server.oauth_server` JSONB shape — RFC 8414 authorization-server metadata,
- * discovered once at registration time. Own column, not merged with oauth_client:
- * different source HTTP call (metadata discovery vs. DCR registration), and this one
- * never carries a secret.
- */
+/** RFC 8414 AS metadata cached at DCR time (`mcp_server.oauth_server`). */
 export interface OAuthServer {
   authorizationEndpoint: string;
   tokenEndpoint: string;
   codeChallengeMethodsSupported?: string[];
 }
 
-/** `mcp_server.oauth_client` JSONB shape — RFC 7591 DCR registration response for this server. */
+/** RFC 7591 DCR response (`mcp_server.oauth_client`). */
 export interface OAuthClient {
   clientId: string;
   clientSecret?: string;
 }
 
-/** `oauth_pending_authorization.auth_data` JSONB shape. */
+/** `oauth_pending_authorization.auth_data` JSONB. */
 export interface McpOAuthPendingAuthorizationData {
-  /** absent when the authorization server doesn't advertise PKCE support */
   codeVerifier?: string;
-  /** absent when triggered mid-turn by resolveAuth, not by the authorize() endpoint */
   redirectUrl?: string;
 }
 
-/** `oauth_token.token` JSONB shape — matches SF's MCPUserAuthModel.authData. */
+/** `oauth_token.token` JSONB. */
 export interface McpOAuthToken {
   accessToken: string;
-  /** absent: some grants don't issue one */
   refreshToken?: string;
-  /** ISO 8601; always filled — see "missing expires_in" fallback in the design doc */
+  /** ISO 8601 */
   expiresAt: string;
-  /** scope is a single space-delimited case-sensitive string, not a list. */
   scope?: string;
 }
+
+/** Joined view of oauth_client + oauth_server (written together at DCR). */
+export type McpOAuthClientRecord = OAuthClient & OAuthServer;
+
+/**
+ * Pending auth envelope for store APIs.
+ * `state` is `oauth_pending_authorization.id` (OAuth wire `state`).
+ * `serverId` is `mcp_server.id` / `oauth_server_id` FK.
+ */
+export type McpOAuthPendingAuthorization = McpOAuthPendingAuthorizationData & {
+  state: string;
+  serverId: string;
+};
