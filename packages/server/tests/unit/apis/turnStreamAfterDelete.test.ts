@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
+import { McpStore } from '../../../src/legacy-registry-store/McpStore';
+import { ModelStore } from '../../../src/legacy-registry-store/ModelStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
-import { McpStore } from '../../../src/store/McpStore';
-import { ModelStore } from '../../../src/store/ModelStore';
 
 describe('turn SSE after session deletion', () => {
   it('warns when the stream ends because the session/turn was removed', async () => {
