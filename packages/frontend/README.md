@@ -65,13 +65,14 @@ The SDK has no catalog client, so `App.tsx` passes callbacks to `createTrueFound
 | -------------- | ---------------------------------------------------------- |
 | `getModels`    | `GET /api/v1/models` (also seeds `defaultAgentSpec.model`) |
 | `getMcp`       | `GET /api/v1/mcp-servers`                                  |
-| `getSkills`    | Empty — see below                                          |
+| `getSkills`    | `GET /api/v1/skills` — see below                           |
 | `searchAgents` | Empty — Harness has no agent registry                      |
 | `saveAgent`    | Rejects — sessions are draft-only                          |
 
-Skills stay unlisted: the SDK's picker writes gateway mounts (`fqn`, `preload`) while Harness
-admission requires git mounts (`type`, `url`, `ref`), so any selection would fail on the next
-`createSession`.
+The SDK's picker round-trips a mount as `{ id, name }`, but Harness admission requires git mounts
+(`type`, `url`, `ref`), so `harnessServer` rebuilds every selected skill from the catalog by name
+before `createSession` / `updateSession`. Skills are listed only when the server reports a sandbox
+provider, since Harness rejects them outright without one.
 
 The Agents Library button still renders (the SDK shows it whenever `agentName` is omitted) and
 opens an empty list; `AgentsLibraryButton` is not part of the publicly typed `AtomSlots`, so it
@@ -82,7 +83,6 @@ cannot be overridden away without a cast.
 | Item                                  | Status                                   |
 | ------------------------------------- | ---------------------------------------- |
 | Subscribe turn SSE                    | Deferred (route defined, not registered) |
-| Skills                                | Deferred                                 |
 | Attachments / sandbox download        | Off                                      |
 | Session `type` / `created_by_subject` | Soft — not required for draft FE         |
 | `turn.created.created_by`             | Soft — stream adopt tolerates missing    |

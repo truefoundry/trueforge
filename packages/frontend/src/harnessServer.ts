@@ -41,9 +41,14 @@ export interface HarnessSession extends Session<HarnessAgentSpec> {
 }
 
 export interface CreateHarnessServerOptions {
+  /** Catalog rows used to rebuild the git fields the SDK's skill picker drops. */
+  listSkills: () => Promise<Harness.SkillEntry[]>;
   baseUrl?: string;
   fetch?: typeof fetch;
 }
+
+/** Default ref for catalog rows that omit one; the sandbox resolves it with `git ls-remote`. */
+const DEFAULT_SKILL_REF = 'HEAD';
 
 /** Mount ids are derived, not stored: Harness drops them and returns mounts keyed by name. */
 function toUiMcpServer(server: Harness.McpServer): HarnessMcpServerMount {
@@ -52,6 +57,18 @@ function toUiMcpServer(server: Harness.McpServer): HarnessMcpServerMount {
 
 function toUiSkill(skill: Harness.SkillMount): HarnessSkillMount {
   return { ...skill, id: `${skill.url}#${skill.path ?? ''}@${skill.ref}` };
+}
+
+/** Catalog row → git mount, so the picker lists and Harness admits the same value. */
+export function toSkillMount(entry: Harness.SkillEntry): HarnessSkillMount {
+  return toUiSkill({
+    type: 'git',
+    name: entry.name,
+    description: entry.description,
+    url: entry.url,
+    ref: entry.ref ?? DEFAULT_SKILL_REF,
+    ...(entry.path === undefined ? {} : { path: entry.path }),
+  });
 }
 
 function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
@@ -155,18 +172,29 @@ function toHarnessPreviousTurnId(previousTurnId: string): Harness.PreviousTurnId
   return previousTurnId === 'none' ? null : previousTurnId;
 }
 
-export function createHarnessChatServer(options: CreateHarnessServerOptions = {}): AgentChatServer<HarnessAgentSpec> {
+export function createHarnessChatServer(options: CreateHarnessServerOptions): AgentChatServer<HarnessAgentSpec> {
   const client = new TrueHarnessClient({
     environment: options.baseUrl ?? '/',
     ...(options.fetch ? { fetch: options.fetch } : {}),
   });
+
+  /**
+   * The SDK's picker round-trips a mount as `{ id, name }`, so a freshly selected
+   * skill would reach admission without its git fields. Restore them from the catalog.
+   */
+  async function withCatalogSkills(spec: HarnessAgentSpec): Promise<HarnessAgentSpec> {
+    const { skills } = spec;
+    if (skills === undefined || skills.length === 0) return spec;
+    const catalog = new Map((await options.listSkills()).map(entry => [entry.name, toSkillMount(entry)]));
+    return { ...spec, skills: skills.map(skill => catalog.get(skill.name) ?? skill) };
+  }
 
   return {
     async createSession(request) {
       if (!request.agentSpec) {
         throw new Error('Harness sessions require an agentSpec');
       }
-      const created = await client.sessions.create({ agentSpec: request.agentSpec });
+      const created = await client.sessions.create({ agentSpec: await withCatalogSkills(request.agentSpec) });
       return toUiSession(created.data);
     },
 
@@ -186,7 +214,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
 
     async updateSession({ sessionId, agentSpec }) {
       const response = await client.sessions.update(sessionId, {
-        ...(agentSpec === undefined ? {} : { agentSpec }),
+        ...(agentSpec === undefined ? {} : { agentSpec: await withCatalogSkills(agentSpec) }),
       });
       return toUiSession(response.data);
     },

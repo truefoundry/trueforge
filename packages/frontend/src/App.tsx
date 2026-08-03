@@ -1,8 +1,8 @@
 import { createTrueFoundryServer, TrueFoundryAssistantUI } from '@truefoundry/agent-ui-sdk';
 import { useEffect, useMemo, useState } from 'react';
 import { ApiErrorCard } from './ApiErrorCard';
-import { getCapabilities, listMcpServers, listModels } from './catalog';
-import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';
+import { getCapabilities, listMcpServers, listModels, listSkills } from './catalog';
+import { createHarnessChatServer, toSkillMount, type HarnessAgentSpec } from './harnessServer';
 
 /** Harness model names are `provider/model`. */
 function providerOf(name: string): string {
@@ -10,11 +10,13 @@ function providerOf(name: string): string {
 }
 
 const server = createTrueFoundryServer<HarnessAgentSpec>({
-  chatServer: createHarnessChatServer(),
+  chatServer: createHarnessChatServer({ listSkills }),
   getModels: async () => (await listModels()).map(model => ({ name: model.name, provider: providerOf(model.name) })),
-  // The SDK's skill picker writes gateway mounts (`fqn`, `preload`) while Harness
-  // admission requires git mounts (`type`, `url`, `ref`), so skills stay unlisted.
-  getSkills: () => Promise.resolve([]),
+  // Harness rejects skills outright when it has no sandbox provider, so an unusable picker stays empty.
+  getSkills: async () => {
+    const [capabilities, skills] = await Promise.all([getCapabilities(), listSkills()]);
+    return capabilities.sandbox.enabled ? skills.map(toSkillMount) : [];
+  },
   getMcp: async () =>
     (await listMcpServers()).map(server => ({ id: server.name, name: server.name, description: server.url })),
   searchAgents: () => Promise.resolve([]),
@@ -24,13 +26,6 @@ const server = createTrueFoundryServer<HarnessAgentSpec>({
 export function App() {
   const [defaultAgentSpec, setDefaultAgentSpec] = useState<HarnessAgentSpec | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
-
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-    return () => {
-      document.documentElement.classList.remove('dark');
-    };
-  }, []);
 
   useEffect(() => {
     const state = { cancelled: false };

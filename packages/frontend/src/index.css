@@ -1,74 +1,33 @@
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+/* The SDK ships utilities and theme tokens but no reset. Preflight goes in its
+   own layer: unlayered it would outrank `tfy-agent-ui-utilities` and strip the
+   SDK's own margin, padding and border. */
+@import 'tailwindcss/preflight.css' layer(preflight);
+@import '@truefoundry/agent-ui-sdk/styles.css';
 
 html,
 body,
 #root {
   height: 100%;
-  margin: 0;
 }
 
-:root,
-.dark {
+/* Tokens for the chrome outside the SDK shell — boot screen and API error card.
+   The SDK sets its own on `.aui-theme-root`, which wins for everything inside. */
+:root {
   color-scheme: dark;
-  --app-font: 'Inter', sans-serif;
   --background: #161618;
   --foreground: #ececee;
   --card: #1c1c1f;
-  --card-foreground: #ececee;
-  --popover: #1c1c1f;
-  --popover-foreground: #ececee;
-  --primary: #7c5cfa;
-  --primary-foreground: #fafafa;
-  --secondary: #202023;
   --secondary-foreground: #d7d7db;
-  --muted: #1c1c1f;
   --muted-foreground: #9b9ba3;
   --accent: #232327;
-  --accent-foreground: #fafafa;
   --destructive: #f87171;
-  --destructive-foreground: #450a0a;
   --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.08);
-  --ring: #7c5cfa;
-  --radius: 0.75rem;
-  --sidebar: #0f0f11;
   --thread-max-width: 42rem;
-}
-
-/* One face for app shell + SDK atoms (override Tailwind font utilities). */
-html,
-body,
-#root,
-button,
-input,
-textarea,
-select,
-.font-sans-flex,
-[class*='aui-'],
-[data-slot] {
-  font-family: var(--app-font);
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-button,
-select,
-input,
-textarea {
-  font: inherit;
-  color: inherit;
 }
 
 /* Positioning context for the API error card, which overlays the SDK shell. */

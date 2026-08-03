@@ -23,6 +23,10 @@ const session = {
 };
 
 const turnRequests: unknown[] = [];
+const sessionRequests: unknown[] = [];
+
+const listSkills = () =>
+  Promise.resolve([{ name: 'review', description: 'Review code', url: 'https://example.com/skills.git', ref: 'main' }]);
 
 const fetchMock: typeof fetch = async (input, init) => {
   const url = input instanceof Request ? input.url : String(input);
@@ -32,6 +36,9 @@ const fetchMock: typeof fetch = async (input, init) => {
     turnRequests.push(body);
   }
   if (url.endsWith('/api/v1/sessions') && method === 'POST') {
+    if (typeof init?.body === 'string') {
+      sessionRequests.push(JSON.parse(init.body));
+    }
     return Response.json({ data: session });
   }
   if (url.includes('/api/v1/sessions?') || url.endsWith('/api/v1/sessions')) {
@@ -48,7 +55,7 @@ const fetchMock: typeof fetch = async (input, init) => {
 
 describe('createHarnessChatServer', () => {
   it('derives mount ids Harness does not store', async () => {
-    const server = createHarnessChatServer({ fetch: fetchMock });
+    const server = createHarnessChatServer({ fetch: fetchMock, listSkills });
     const spec: HarnessAgentSpec = { model: { name: 'test/model' } };
 
     const created = await server.createSession({ agentSpec: spec });
@@ -59,8 +66,46 @@ describe('createHarnessChatServer', () => {
     assert.deepEqual(created.agentSpec?.skills?.[0]?.id, 'https://example.com/skills.git#@main');
   });
 
+  it('rebuilds git fields the skill picker drops before admission', async () => {
+    const server = createHarnessChatServer({ fetch: fetchMock, listSkills });
+
+    await server.createSession({
+      agentSpec: {
+        model: { name: 'test/model' },
+        // The picker round-trips a mount as `{ id, name }`; every other field arrives empty.
+        skills: [
+          {
+            id: 'https://example.com/skills.git#@main',
+            name: 'review',
+            type: 'git',
+            description: '',
+            url: '',
+            ref: '',
+          },
+        ],
+      },
+    });
+
+    const sent = sessionRequests.at(-1);
+    assert.ok(sent !== null && typeof sent === 'object' && 'agent_spec' in sent);
+    assert.deepEqual(sent.agent_spec, {
+      model: { name: 'test/model' },
+      skills: [
+        {
+          type: 'git',
+          name: 'review',
+          description: 'Review code',
+          url: 'https://example.com/skills.git',
+          ref: 'main',
+          // Derived ids ride along on mounts; Harness ignores them like it does for MCP servers.
+          id: 'https://example.com/skills.git#@main',
+        },
+      ],
+    });
+  });
+
   it('reports pages under both the SDK and runtime pagination contracts', async () => {
-    const server = createHarnessChatServer({ fetch: fetchMock });
+    const server = createHarnessChatServer({ fetch: fetchMock, listSkills });
 
     const page = await server.listSessions({ limit: 20 });
 
@@ -70,7 +115,7 @@ describe('createHarnessChatServer', () => {
   });
 
   it('preserves SSE sequence numbers and roots chains Harness-style', async () => {
-    const server = createHarnessChatServer({ fetch: fetchMock });
+    const server = createHarnessChatServer({ fetch: fetchMock, listSkills });
 
     const events = [];
     for await (const event of server.prepareAndExecuteTurn({

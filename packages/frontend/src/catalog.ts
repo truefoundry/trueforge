@@ -1,4 +1,5 @@
 /** Harness catalog list responses (unauthenticated). */
+import type { TrueHarness as Harness } from 'trueharness';
 
 export interface ModelEntry {
   name: string;
@@ -40,6 +41,11 @@ export async function listModels(): Promise<ModelEntry[]> {
 
 export async function listMcpServers(): Promise<McpServerEntry[]> {
   const body = await fetchJson<ListEnvelope<McpServerEntry>>('/api/v1/mcp-servers');
+  return body.data;
+}
+
+export async function listSkills(): Promise<Harness.SkillEntry[]> {
+  const body = await fetchJson<ListEnvelope<Harness.SkillEntry>>('/api/v1/skills');
   return body.data;
 }
 
