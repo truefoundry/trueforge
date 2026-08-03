@@ -31,10 +31,10 @@ export interface SandboxInfo {
 // Downloader/setup scripts can run longer than a normal exec.
 export const SKILL_DOWNLOAD_TIMEOUT_SECONDS = 180;
 
-// Default MCP request (5m) + connect (30s); kept as a fixed default, not derived at runtime.
-export const DEFAULT_SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS = 5 * 60 + 30;
-// Default NATS (5m30s) + 1m slack for non-MCP work in the same exec.
-export const DEFAULT_SANDBOX_EXEC_TIMEOUT_SECONDS = 6 * 60 + 30;
+// Default MCP request (4m) + connect (30s); kept as a fixed default, not derived at runtime.
+export const DEFAULT_SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS = 4 * 60 + 30;
+// Default NATS (4m30s) + 30s slack for non-MCP work in the same exec.
+export const DEFAULT_SANDBOX_EXEC_TIMEOUT_SECONDS = 5 * 60;
 
 // Write a script (base64-encoded, never interpolated raw) to a path and run it. Skill mounters reuse it.
 export function buildWriteAndRunScriptCommand(params: { scriptPath: string; scriptContent: string }): string {

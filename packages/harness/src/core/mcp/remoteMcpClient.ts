@@ -29,7 +29,7 @@ type McpTransport = StreamableHTTPClientTransport | SSEClientTransport;
 const CLIENT_INFO = { name: 'tfy-agent-mcp-client', version: '1.0.0' } as const;
 const TRANSPORT_PROBE_ORDER: RemoteMcpTransportType[] = ['streamable-http', 'sse'];
 
-export const DEFAULT_MCP_REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
+export const DEFAULT_MCP_REQUEST_TIMEOUT_MS = 4 * 60 * 1000;
 export const DEFAULT_MCP_CONNECT_TIMEOUT_MS = 30 * 1000;
 
 class McpClientWithTimeout extends Client {

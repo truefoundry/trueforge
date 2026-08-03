@@ -80,14 +80,18 @@ export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandbo
             })),
           )
         : undefined;
+    const natsRequestTimeoutSeconds = Math.ceil(
+      (configuration.MCP_REQUEST_TIMEOUT_MS + configuration.MCP_CONNECT_TIMEOUT_MS) / 1000,
+    );
+    const execTimeoutSeconds = Math.ceil(configuration.SANDBOX_EXEC_TIMEOUT_MS / 1000);
     return Promise.resolve(
       new Sandbox({
         provider,
         existingSandboxId,
         fileDownloadEnabled: spec.config?.sandbox?.file_downloads ?? false,
         blockDestructiveToolsInCodeMode: true,
-        natsRequestTimeoutSeconds: configuration.SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS,
-        execTimeoutSeconds: configuration.SANDBOX_EXEC_TIMEOUT_SECONDS,
+        natsRequestTimeoutSeconds,
+        execTimeoutSeconds,
         // Sandbox reads its tenant from TFY_TENANT_NAME (see Sandbox constructor)
         // for the ownership check against provider-created sandbox ids
         // (`<tenant>.<uuid>`). Must match the tenantName given to the provider.

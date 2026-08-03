@@ -256,7 +256,7 @@ export interface ServerConfiguration {
    * Env: `MCP_{NAME}_HEADERS` (see `normalizeEnvName`).
    */
   MCP_HEADERS_BY_NAME: Record<string, Record<string, string>>;
-  /** Max milliseconds for one MCP request. Env: `MCP_REQUEST_TIMEOUT_MS`. Default 5 minutes. */
+  /** Max milliseconds for one MCP request. Env: `MCP_REQUEST_TIMEOUT_MS`. Default 4 minutes. */
   MCP_REQUEST_TIMEOUT_MS: number;
   /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
   MCP_CONNECT_TIMEOUT_MS: number;
@@ -292,10 +292,8 @@ export interface ServerConfiguration {
    * Env: `SANDBOX_PREVIEW_URL_EXPIRY_SECONDS`. Default 1 hour.
    */
   SANDBOX_PREVIEW_URL_EXPIRY_SECONDS: number;
-  /** Max seconds for one sandbox NATS request. Env: `SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS`. Default 5m 30s. */
-  SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS: number;
-  /** Max seconds for one sandbox exec. Env: `SANDBOX_EXEC_TIMEOUT_SECONDS`. Default 6m 30s. */
-  SANDBOX_EXEC_TIMEOUT_SECONDS: number;
+  /** Max milliseconds for one sandbox exec. Env: `SANDBOX_EXEC_TIMEOUT_MS`. Default 5 minutes. */
+  SANDBOX_EXEC_TIMEOUT_MS: number;
   /**
    * Max seconds to wait for turn cancellation + connection drain on SIGTERM/SIGINT.
    * Env: `GRACEFUL_TIMEOUT_SECONDS`. Default 30.
@@ -359,6 +357,17 @@ const singleBinary = parseBoolean({
   defaultValue: true,
 });
 
+const mcpRequestTimeoutMs = parsePositiveInt({
+  envKey: 'MCP_REQUEST_TIMEOUT_MS',
+  raw: getEnv('MCP_REQUEST_TIMEOUT_MS'),
+  defaultValue: 4 * 60 * 1000,
+});
+const mcpConnectTimeoutMs = parsePositiveInt({
+  envKey: 'MCP_CONNECT_TIMEOUT_MS',
+  raw: getEnv('MCP_CONNECT_TIMEOUT_MS'),
+  defaultValue: 30 * 1000,
+});
+
 const configuration: ServerConfiguration = {
   PORT: parsePort(getEnv('PORT')),
   REGISTRY_DIR: path.resolve(getEnv('REGISTRY_DIR', { defaultValue: 'registry' }) ?? 'registry'),
@@ -369,16 +378,8 @@ const configuration: ServerConfiguration = {
   MODEL_HEADERS_BY_NAME: parseHeadersByName('MODEL'),
   MCP_HEADERS: parseHeaders('MCP_HEADERS', getEnv('MCP_HEADERS')),
   MCP_HEADERS_BY_NAME: parseHeadersByName('MCP'),
-  MCP_REQUEST_TIMEOUT_MS: parsePositiveInt({
-    envKey: 'MCP_REQUEST_TIMEOUT_MS',
-    raw: getEnv('MCP_REQUEST_TIMEOUT_MS'),
-    defaultValue: 5 * 60 * 1000,
-  }),
-  MCP_CONNECT_TIMEOUT_MS: parsePositiveInt({
-    envKey: 'MCP_CONNECT_TIMEOUT_MS',
-    raw: getEnv('MCP_CONNECT_TIMEOUT_MS'),
-    defaultValue: 30 * 1000,
-  }),
+  MCP_REQUEST_TIMEOUT_MS: mcpRequestTimeoutMs,
+  MCP_CONNECT_TIMEOUT_MS: mcpConnectTimeoutMs,
   PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { required: true }) ?? '',
   OAUTH_CLIENT_NAME: getEnv('OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
   SANDBOX_SETTINGS: getEnv('SANDBOX_SETTINGS'),
@@ -393,15 +394,10 @@ const configuration: ServerConfiguration = {
     raw: getEnv('SANDBOX_PREVIEW_URL_EXPIRY_SECONDS'),
     defaultValue: 3600,
   }),
-  SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS: parsePositiveInt({
-    envKey: 'SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS',
-    raw: getEnv('SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS'),
-    defaultValue: 5 * 60 + 30,
-  }),
-  SANDBOX_EXEC_TIMEOUT_SECONDS: parsePositiveInt({
-    envKey: 'SANDBOX_EXEC_TIMEOUT_SECONDS',
-    raw: getEnv('SANDBOX_EXEC_TIMEOUT_SECONDS'),
-    defaultValue: 6 * 60 + 30,
+  SANDBOX_EXEC_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'SANDBOX_EXEC_TIMEOUT_MS',
+    raw: getEnv('SANDBOX_EXEC_TIMEOUT_MS'),
+    defaultValue: 5 * 60 * 1000,
   }),
   GRACEFUL_TIMEOUT_SECONDS: parsePositiveInt({
     envKey: 'GRACEFUL_TIMEOUT_SECONDS',
