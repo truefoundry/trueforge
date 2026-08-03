@@ -113,6 +113,10 @@ describe('buildStreamTextArgs', () => {
       maxOutputTokens: 1024,
       temperature: 0.7,
       topP: 0.9,
+      presencePenalty: 0.1,
+      frequencyPenalty: 0.2,
+      stopSequences: ['STOP'],
+      seed: 42,
       abortSignal: new AbortController().signal,
     });
 
@@ -122,6 +126,10 @@ describe('buildStreamTextArgs', () => {
     expect('maxOutputTokens' in result).toBe(true);
     expect('temperature' in result).toBe(true);
     expect('topP' in result).toBe(true);
+    expect('presencePenalty' in result).toBe(true);
+    expect('frequencyPenalty' in result).toBe(true);
+    expect('stopSequences' in result).toBe(true);
+    expect('seed' in result).toBe(true);
     expect('providerOptions' in result).toBe(true);
     expect('abortSignal' in result).toBe(true);
     expect(result.maxRetries).toBe(0);
@@ -138,6 +146,10 @@ describe('buildStreamTextArgs', () => {
       maxOutputTokens: undefined,
       temperature: undefined,
       topP: undefined,
+      presencePenalty: undefined,
+      frequencyPenalty: undefined,
+      stopSequences: undefined,
+      seed: undefined,
       abortSignal: undefined,
     });
 
@@ -147,6 +159,10 @@ describe('buildStreamTextArgs', () => {
     expect('maxOutputTokens' in result).toBe(false);
     expect('temperature' in result).toBe(false);
     expect('topP' in result).toBe(false);
+    expect('presencePenalty' in result).toBe(false);
+    expect('frequencyPenalty' in result).toBe(false);
+    expect('stopSequences' in result).toBe(false);
+    expect('seed' in result).toBe(false);
     expect('providerOptions' in result).toBe(false);
     expect('abortSignal' in result).toBe(false);
   });
@@ -162,12 +178,16 @@ describe('buildStreamTextArgs', () => {
       maxOutputTokens: undefined,
       temperature: undefined,
       topP: undefined,
+      presencePenalty: undefined,
+      frequencyPenalty: undefined,
+      stopSequences: undefined,
+      seed: undefined,
       abortSignal: undefined,
     });
     expect('providerOptions' in result).toBe(false);
   });
 
-  it('omits temperature/topP when they are null (as the SDK type allows null)', () => {
+  it('omits temperature/topP/presencePenalty/frequencyPenalty/stopSequences/seed when null', () => {
     const result = buildStreamTextArgs({
       model,
       instructions: undefined,
@@ -178,9 +198,17 @@ describe('buildStreamTextArgs', () => {
       maxOutputTokens: undefined,
       temperature: null,
       topP: null,
+      presencePenalty: null,
+      frequencyPenalty: null,
+      stopSequences: null,
+      seed: null,
       abortSignal: undefined,
     });
     expect('temperature' in result).toBe(false);
     expect('topP' in result).toBe(false);
+    expect('presencePenalty' in result).toBe(false);
+    expect('frequencyPenalty' in result).toBe(false);
+    expect('stopSequences' in result).toBe(false);
+    expect('seed' in result).toBe(false);
   });
 });

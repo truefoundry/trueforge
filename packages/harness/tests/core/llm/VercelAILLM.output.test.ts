@@ -192,6 +192,28 @@ describe('buildProviderOptions', () => {
       });
       expect(opts['openai']).not.toHaveProperty('strictJsonSchema');
     });
+
+    it('forwards service_tier, user, and prompt_cache_key from rawBody', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: undefined,
+        structuredOutputSpec: textSpec,
+        rawBody: { service_tier: 'auto', user: 'u-123', prompt_cache_key: 'key-abc' },
+      });
+      expect(opts['openai']).toMatchObject({ serviceTier: 'auto', user: 'u-123', promptCacheKey: 'key-abc' });
+    });
+
+    it('omits service_tier/user/prompt_cache_key when absent from rawBody', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: undefined,
+        structuredOutputSpec: textSpec,
+        rawBody: {},
+      });
+      expect(opts['openai']).not.toHaveProperty('serviceTier');
+      expect(opts['openai']).not.toHaveProperty('user');
+      expect(opts['openai']).not.toHaveProperty('promptCacheKey');
+    });
   });
 
   describe('anthropic provider', () => {
@@ -246,6 +268,29 @@ describe('buildProviderOptions', () => {
         rawBody: {},
       });
       expect(opts).toEqual({});
+    });
+
+    it('forwards cache_control and disable_parallel_tool_use from rawBody', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: undefined,
+        structuredOutputSpec: textSpec,
+        rawBody: { cache_control: { type: 'ephemeral' }, disable_parallel_tool_use: true },
+      });
+      expect(opts['anthropic']).toMatchObject({
+        cacheControl: { type: 'ephemeral' },
+        disableParallelToolUse: true,
+      });
+    });
+
+    it('omits anthropic key when rawBody fields are absent and no reasoningEffort', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: undefined,
+        structuredOutputSpec: textSpec,
+        rawBody: {},
+      });
+      expect(opts).not.toHaveProperty('anthropic');
     });
   });
 
@@ -306,7 +351,7 @@ describe('buildProviderOptions', () => {
   describe('google-gemini provider', () => {
     const config = makeConfig({ provider: 'google-gemini' });
 
-    it('always returns empty providerOptions (reasoning is routed via the reasoning setting instead)', () => {
+    it('returns empty providerOptions when rawBody carries no google-specific fields', () => {
       expect(
         buildProviderOptions({
           config: config,
@@ -326,6 +371,24 @@ describe('buildProviderOptions', () => {
           rawBody: {},
         }),
       ).toEqual({});
+    });
+
+    it('forwards safety_settings, thinking_config, cached_content from rawBody', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: undefined,
+        structuredOutputSpec: textSpec,
+        rawBody: {
+          safety_settings: [{ category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' }],
+          thinking_config: { thinkingBudget: 1024 },
+          cached_content: 'cachedContents/my-cache',
+        },
+      });
+      expect(opts['google']).toMatchObject({
+        safetySettings: [{ category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' }],
+        thinkingConfig: { thinkingBudget: 1024 },
+        cachedContent: 'cachedContents/my-cache',
+      });
     });
   });
 
