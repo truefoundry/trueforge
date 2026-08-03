@@ -102,7 +102,7 @@ export interface SessionsRouterDeps {
   mcpStore: McpStore;
   /** Whether a sandbox provider is configured (SANDBOX_SETTINGS); gates spec admission. */
   sandboxSupported: boolean;
-  /** Reaches peer executors; undefined in single-replica mode. */
+  /** Reaches peer executors; undefined in single-binary mode. */
   redis?: RedisClientType | undefined;
   /** Request-reply dispatch table this replica serves; cancel registers here. */
   requestReplyRouter: RequestReplyRouter;

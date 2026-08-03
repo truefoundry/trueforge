@@ -197,20 +197,20 @@ export const DEFAULT_PORT = 8790;
 /** Relative to the working directory, like REGISTRY_DIR; the image sets an absolute FRONTEND_DIR. */
 const DEFAULT_FRONTEND_DIR = '../frontend/dist';
 
-/** Turn ids minted by a single-replica process; no peer can ever own them. */
+/** Turn ids minted by a single-binary process; no peer can ever own them. */
 export const LOCAL_EXECUTOR_ID = 'local';
 
-/** Dropped in single-replica mode so nothing downstream can connect to a Redis it must not use. */
-export const resolveRedisUrl = (singleReplica: boolean): string | undefined => {
-  if (singleReplica) {
+/** Dropped in single-binary mode so nothing downstream can connect to a Redis it must not use. */
+export const resolveRedisUrl = (singleBinary: boolean): string | undefined => {
+  if (singleBinary) {
     return undefined;
   }
   return requireNonEmptyEnv('REDIS_URL');
 };
 
 /** Always longer than `LOCAL_EXECUTOR_ID`, so a peer can never be mistaken for a local owner. */
-export const resolveExecutorId = (singleReplica: boolean): string => {
-  if (singleReplica) {
+export const resolveExecutorId = (singleBinary: boolean): string => {
+  if (singleBinary) {
     return LOCAL_EXECUTOR_ID;
   }
   return randomAlphanumeric(6);
@@ -314,9 +314,9 @@ export interface ServerConfiguration {
    * Env: `REDIS_REQUEST_REPLY_POLL_INTERVAL_MS`. Default 500.
    */
   REDIS_REQUEST_REPLY_POLL_INTERVAL_MS: number;
-  /** Peering URL shared by all replicas; undefined in single-replica mode. Env: `REDIS_URL`. */
+  /** Peering URL shared by all replicas; undefined in single-binary mode. Env: `REDIS_URL`. */
   REDIS_URL: string | undefined;
-  /** Peering identity embedded in the turn ids this process mints; `local` in single-replica mode. */
+  /** Peering identity embedded in the turn ids this process mints; `local` in single-binary mode. */
   EXECUTOR_ID: string;
 }
 
@@ -334,9 +334,9 @@ const postgresPort = parsePositiveInt({
   defaultValue: 5432,
 });
 
-const singleReplica = parseBoolean({
-  envKey: 'SINGLE_REPLICA',
-  raw: getEnv('SINGLE_REPLICA'),
+const singleBinary = parseBoolean({
+  envKey: 'SINGLE_BINARY',
+  raw: getEnv('SINGLE_BINARY'),
   defaultValue: true,
 });
 
@@ -404,8 +404,8 @@ const configuration: ServerConfiguration = {
     raw: getEnv('REDIS_REQUEST_REPLY_POLL_INTERVAL_MS'),
     defaultValue: 500,
   }),
-  REDIS_URL: resolveRedisUrl(singleReplica),
-  EXECUTOR_ID: resolveExecutorId(singleReplica),
+  REDIS_URL: resolveRedisUrl(singleBinary),
+  EXECUTOR_ID: resolveExecutorId(singleBinary),
 } as const;
 
 export default configuration;

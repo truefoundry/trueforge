@@ -46,7 +46,7 @@ describe('parseBoolean', () => {
 });
 
 describe('resolveRedisUrl', () => {
-  it('ignores a configured URL in single-replica mode', () => {
+  it('ignores a configured URL in single-binary mode', () => {
     withRedisUrl('redis://localhost:6379', () => {
       assert.equal(resolveRedisUrl(true), undefined);
     });
@@ -68,7 +68,7 @@ describe('resolveRedisUrl', () => {
 });
 
 describe('resolveExecutorId', () => {
-  it('is the fixed local id in single-replica mode', () => {
+  it('is the fixed local id in single-binary mode', () => {
     assert.equal(resolveExecutorId(true), LOCAL_EXECUTOR_ID);
   });
 

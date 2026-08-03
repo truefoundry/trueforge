@@ -59,7 +59,7 @@ try {
 
   let redis: RedisClientType | undefined;
   if (configuration.REDIS_URL === undefined) {
-    logger.info('Single-replica mode: executor peering disabled and Redis unused');
+    logger.info('Single-binary mode: executor peering disabled and Redis unused');
   } else {
     logger.info(`Executor id: ${configuration.EXECUTOR_ID}`);
     redis = await connectRedis({ url: configuration.REDIS_URL, logger });

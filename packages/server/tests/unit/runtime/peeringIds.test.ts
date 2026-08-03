@@ -9,7 +9,7 @@ describe('turn ids', () => {
     assert.equal(executorFromTurnId(mintPeeredTurnId('abc123')), 'abc123');
   });
 
-  it('carries the local owner in single-replica mode', () => {
+  it('carries the local owner in single-binary mode', () => {
     // `local` is just this process's executor id, so routing needs no special grammar.
     assert.equal(executorFromTurnId(mintPeeredTurnId(LOCAL_EXECUTOR_ID)), LOCAL_EXECUTOR_ID);
   });

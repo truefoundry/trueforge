@@ -45,7 +45,7 @@ export interface ServerDeps {
   activeTurns: ActiveTurnRegistry;
   /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
   sandboxFactory?: TurnSandboxFactory;
-  /** Primary Redis client (server-owned); undefined in single-replica mode. */
+  /** Primary Redis client (server-owned); undefined in single-binary mode. */
   redis?: RedisClientType | undefined;
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;
