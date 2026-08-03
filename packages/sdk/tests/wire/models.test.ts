@@ -9,7 +9,18 @@ describe("ModelsClient", () => {
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
         const rawResponseBody = {
-            data: [{ max_output_tokens: 1, name: "name", reasoning_efforts: ["reasoning_efforts"] }],
+            data: [
+                {
+                    api_key: "api_key",
+                    base_url: "base_url",
+                    headers: { key: "value" },
+                    max_output_tokens: 1,
+                    model_id: "model_id",
+                    name: "name",
+                    provider: "anthropic",
+                    reasoning_efforts: ["reasoning_efforts"],
+                },
+            ],
         };
 
         server.mockEndpoint().get("/api/v1/models").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
@@ -18,8 +29,15 @@ describe("ModelsClient", () => {
         expect(response).toEqual({
             data: [
                 {
+                    apiKey: "api_key",
+                    baseUrl: "base_url",
+                    headers: {
+                        key: "value",
+                    },
                     maxOutputTokens: 1,
+                    modelId: "model_id",
                     name: "name",
+                    provider: "anthropic",
                     reasoningEfforts: ["reasoning_efforts"],
                 },
             ],

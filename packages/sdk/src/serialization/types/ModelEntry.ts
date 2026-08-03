@@ -3,21 +3,23 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { AnthropicProviderModelEntry } from "./AnthropicProviderModelEntry.js";
+import { GenericProviderModelEntry } from "./GenericProviderModelEntry.js";
+import { GoogleGeminiProviderModelEntry } from "./GoogleGeminiProviderModelEntry.js";
+import { OpenAiProviderModelEntry } from "./OpenAiProviderModelEntry.js";
 
-export const ModelEntry: core.serialization.ObjectSchema<serializers.ModelEntry.Raw, TrueHarness.ModelEntry> =
-    core.serialization.object({
-        maxOutputTokens: core.serialization.property("max_output_tokens", core.serialization.number()),
-        name: core.serialization.string(),
-        reasoningEfforts: core.serialization.property(
-            "reasoning_efforts",
-            core.serialization.list(core.serialization.string()).optional(),
-        ),
-    });
+export const ModelEntry: core.serialization.Schema<serializers.ModelEntry.Raw, TrueHarness.ModelEntry> =
+    core.serialization.undiscriminatedUnion([
+        AnthropicProviderModelEntry,
+        GenericProviderModelEntry,
+        GoogleGeminiProviderModelEntry,
+        OpenAiProviderModelEntry,
+    ]);
 
 export declare namespace ModelEntry {
-    export interface Raw {
-        max_output_tokens: number;
-        name: string;
-        reasoning_efforts?: string[] | null;
-    }
+    export type Raw =
+        | AnthropicProviderModelEntry.Raw
+        | GenericProviderModelEntry.Raw
+        | GoogleGeminiProviderModelEntry.Raw
+        | OpenAiProviderModelEntry.Raw;
 }

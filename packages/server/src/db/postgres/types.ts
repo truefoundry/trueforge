@@ -19,28 +19,6 @@ import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contex
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../store/schemas';
 
-// `mcp_server.oauth_server` / `.oauth_client` and `oauth_pending_authorization.auth_data` JSONB
-// shapes are the exact same types the generic `IOAuthTokenStore` contract (`@truefoundry/utils/core`)
-// uses — aliased here, not redeclared, so the DB row and the interface a `PostgresOAuthTokenStore`
-// implements can never drift out of sync.
-export type { OAuthClient, OAuthServer };
-export type OAuthPendingAuthorizationData = OAuthPendingAuthorization;
-
-/** `oauth_token.token` JSONB shape — matches SF's MCPUserAuthModel.authData. */
-export interface OAuthToken {
-  accessToken: string;
-  // `| undefined` (not just `?:`) so a plain `{ refreshToken: domainToken.refreshToken }` object
-  // literal type-checks under `exactOptionalPropertyTypes` — matches the session-store convention
-  // (nullable/optional DB row fields spell out their absent-value type rather than fighting the
-  // compiler with a runtime omit-undefined step). JSON.stringify drops the key either way.
-  /** absent: some grants don't issue one */
-  refreshToken?: string | undefined;
-  /** ISO 8601; always filled — see "missing expires_in" fallback in the design doc */
-  expiresAt: string;
-  /** scope is a single space-delimited case-sensitive string, not a list. */
-  scope?: string | undefined;
-}
-
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
  * Total types: `completion` is explicitly null until set — no optional keys.
@@ -57,7 +35,7 @@ export interface TurnCheckpoint {
 }
 
 /**
- * PRIMARY KEY (tenant_id, session_id)
+ * PRIMARY KEY (session_id)
  * WITH (fillfactor = 85); headroom so the per-turn bump stays HOT (no index churn)
  * CREATE INDEX session_list_idx ON session (tenant_id, created_at, session_id)
  */
@@ -93,13 +71,11 @@ export interface SessionTable {
 }
 
 /**
- * PRIMARY KEY (tenant_id, session_id, turn_id)
+ * PRIMARY KEY (session_id, turn_id)
  * WITH (fillfactor = 85); headroom for the state flip + rare checkpoint patches
- * CREATE INDEX turn_list_idx ON turn (tenant_id, session_id, created_at, turn_id)
+ * CREATE INDEX turn_list_idx ON turn (session_id, created_at, turn_id)
  */
 export interface TurnTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /** key (ulid) */
@@ -140,13 +116,11 @@ export interface TurnTable {
 
 /**
  * the complete STATE of one thread at one turn
- * PRIMARY KEY (tenant_id, session_id, turn_id, thread_id)
+ * PRIMARY KEY (session_id, turn_id, thread_id)
  * WITH (fillfactor = 70); the ONE deliberately-hot table: rewritten 5–10x while its
  * turn runs; immutable once the turn is terminal (fence)
  */
 export interface TurnThreadTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /** key */
@@ -200,12 +174,10 @@ export interface TurnThreadTable {
 
 /**
  * pure immutable client-facing event log
- * PRIMARY KEY (tenant_id, session_id, turn_id, event_id)
+ * PRIMARY KEY (session_id, turn_id, event_id)
  * pure INSERT → fillfactor 100
  */
 export interface SessionEventTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /** top: every read is turn-scoped or turn-attributed (envelope) */
@@ -238,13 +210,11 @@ export interface SessionEventTable {
 
 /**
  * pure immutable CONTENT; no state → no checkpoint field
- * PRIMARY KEY (tenant_id, session_id, thread_id, append_id)
+ * PRIMARY KEY (session_id, thread_id, append_id)
  * pure INSERT → default fillfactor 100, zero dead tuples;
  * cleanup is whole-session delete only
  */
 export interface ThreadContextLogTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /** key */
@@ -281,7 +251,7 @@ export interface ThreadContextLogTable {
 
 /**
  * PER-TURN KV snapshot, latest-wins per (turn, thread, key)
- * PRIMARY KEY (tenant_id, session_id, turn_id, thread_id, key)
+ * PRIMARY KEY (session_id, turn_id, thread_id, key)
  * WITH (fillfactor = 85); single-statement fenced upsert per CAPABILITY_STATE event
  *
  * Capability history is per-turn on purpose: createTurn carries the previous
@@ -290,8 +260,6 @@ export interface ThreadContextLogTable {
  * A cross-turn latest-wins PK was tried and REVERTED for the fork reason.
  */
 export interface ThreadCapabilityStateTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /**
@@ -330,11 +298,10 @@ export interface McpServerTable {
    * RFC 8414 authorization-server metadata, discovered once at registration time.
    */
   oauth_server: JSONColumnType<OAuthServer, OAuthServer, OAuthServer> | null;
-  /** OAuthClient — { clientId, clientSecret? }. RFC 7591 DCR registration response.
-   * clientSecret's presence alone decides the auth method on every later call; validated at the
-   * application layer when read back via getOAuthClient/saveOAuthClient.
-   * Both oauth_server and oauth_client are null until the first successful DCR registration for
-   * this server.
+  /** OAuthClient — { clientId, clientSecret? }. RFC 7591 DCR response.
+   * Token auth is form-body (client_secret_post) when clientSecret is set; presence of secret
+   * alone decides the method (same as servicefoundry outbound DCR). Both oauth_server and
+   * oauth_client are null until first successful DCR.
    */
   oauth_client: JSONColumnType<OAuthClient, OAuthClient, OAuthClient> | null;
   created_at: Date;

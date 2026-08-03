@@ -63,13 +63,13 @@ Skills: catalog UI lists `GET /api/v1/skills` (empty state when none). Selection
 
 ## Gaps
 
-| Item                                  | Status                                   |
-| ------------------------------------- | ---------------------------------------- |
-| Subscribe turn SSE                    | Deferred (route defined, not registered) |
-| Skills                                | Deferred                                 |
-| Attachments / sandbox download        | Off                                      |
-| Session `type` / `created_by_subject` | Soft — not required for draft FE         |
-| `turn.created.created_by`             | Soft — stream adopt tolerates missing    |
+| Item                                  | Status                                        |
+| ------------------------------------- | --------------------------------------------- |
+| Subscribe turn SSE                    | Deferred (route defined, not registered)      |
+| Skills                                | Deferred                                      |
+| Attachments / sandbox download        | On (adapter wired; sandbox download deferred) |
+| Session `type` / `created_by_subject` | Soft — not required for draft FE              |
+| `turn.created.created_by`             | Soft — stream adopt tolerates missing         |
 
 ## Scripts
 

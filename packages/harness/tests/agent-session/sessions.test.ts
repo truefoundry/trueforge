@@ -43,7 +43,6 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(turn.input).toHaveLength(1);
 
     const stored = await store.getTurn({
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn.id,
     });
@@ -140,7 +139,6 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       }),
     ).rejects.toThrow();
     const turns = await store.listTurns({
-      tenant_id: tenant,
       session_id: 's1',
       limit: 10,
       page_token: undefined,

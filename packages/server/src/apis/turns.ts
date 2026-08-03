@@ -15,7 +15,7 @@ import {
   isAgentInputUserMessage,
   isFileContentPart,
   McpConnectionError,
-  OpenAILLM,
+  VercelAILLM,
 } from '@truefoundry/utils/core';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
@@ -50,8 +50,8 @@ export interface TurnsRouterDeps {
 
 /**
  * Per-run resource wiring: maps the YAML catalogs onto the agentSession
- * TurnResourceResolver. Models are served by one OpenAI-compatible API
- * (models.yaml base_url); MCP servers resolve to url + env-configured headers;
+ * TurnResourceResolver. Each model carries its own provider config from
+ * models.yaml; MCP servers resolve to url + env-configured headers;
  * the sandbox factory (when configured) creates/reattaches the run's Sandbox.
  */
 function createTurnResolver(deps: {
@@ -64,10 +64,8 @@ function createTurnResolver(deps: {
   const { modelStore, mcpStore, logger, signal } = deps;
   return new TurnResourceResolver({
     llm: name =>
-      new OpenAILLM({
-        baseURL: modelStore.baseUrl,
-        apiKey: modelStore.getApiKey(name),
-        headers: modelStore.getHeaders(name),
+      new VercelAILLM({
+        providerConfig: modelStore.getProviderConfig(name),
         logger,
         signal,
       }),
@@ -269,7 +267,20 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
           }
         }
       } catch (error) {
-        deps.logger.error('Unexpected error in turn SSE stream loop', extractErrorLogFields(error));
+        // Session delete can cascade mid-stream; store misses leave the DB clean but end SSE here.
+        if (error instanceof SessionStoreNotFoundError) {
+          deps.logger.warn('Turn stream ended after session/turn was removed', {
+            sessionId,
+            turnId: turn.id,
+            ...extractErrorLogFields(error),
+          });
+        } else {
+          deps.logger.error('Unexpected error in turn SSE stream loop', {
+            sessionId,
+            turnId: turn.id,
+            ...extractErrorLogFields(error),
+          });
+        }
       } finally {
         clearTimeout(maxExecutionTimer);
         await stream.close();
