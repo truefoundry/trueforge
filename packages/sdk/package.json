@@ -40,6 +40,17 @@
             },
             "default": "./dist/cjs/api/resources/server/exports.js"
         },
+        "./mcpServers": {
+            "import": {
+                "types": "./dist/esm/api/resources/mcpServers/exports.d.mts",
+                "default": "./dist/esm/api/resources/mcpServers/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/mcpServers/exports.d.ts",
+                "default": "./dist/cjs/api/resources/mcpServers/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/mcpServers/exports.js"
+        },
         "./models": {
             "import": {
                 "types": "./dist/esm/api/resources/models/exports.d.mts",
@@ -116,6 +127,17 @@
                 "default": "./dist/cjs/api/resources/settings/exports.js"
             },
             "default": "./dist/cjs/api/resources/settings/exports.js"
+        },
+        "./settings/mcpServers": {
+            "import": {
+                "types": "./dist/esm/api/resources/settings/resources/mcpServers/exports.d.mts",
+                "default": "./dist/esm/api/resources/settings/resources/mcpServers/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/settings/resources/mcpServers/exports.d.ts",
+                "default": "./dist/cjs/api/resources/settings/resources/mcpServers/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/settings/resources/mcpServers/exports.js"
         },
         "./settings/modelProviders": {
             "import": {

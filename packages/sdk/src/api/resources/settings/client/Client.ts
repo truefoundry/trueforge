@@ -2,6 +2,7 @@
 
 import type { BaseClientOptions } from "../../../../BaseClient.js";
 import { type NormalizedClientOptions, normalizeClientOptions } from "../../../../BaseClient.js";
+import { McpServersClient } from "../resources/mcpServers/client/Client.js";
 import { ModelProvidersClient } from "../resources/modelProviders/client/Client.js";
 
 export declare namespace SettingsClient {
@@ -10,10 +11,15 @@ export declare namespace SettingsClient {
 
 export class SettingsClient {
     protected readonly _options: NormalizedClientOptions<SettingsClient.Options>;
+    protected _mcpServers: McpServersClient | undefined;
     protected _modelProviders: ModelProvidersClient | undefined;
 
     constructor(options: SettingsClient.Options) {
         this._options = normalizeClientOptions(options);
+    }
+
+    public get mcpServers(): McpServersClient {
+        return (this._mcpServers ??= new McpServersClient(this._options));
     }
 
     public get modelProviders(): ModelProvidersClient {

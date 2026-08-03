@@ -351,6 +351,16 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
+    test("delete", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+
+        server.mockEndpoint().delete("/api/v1/sessions/sessionId").respondWith().statusCode(200).build();
+
+        const response = await client.sessions.delete("sessionId");
+        expect(response).toEqual(undefined);
+    });
+
     test("update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
