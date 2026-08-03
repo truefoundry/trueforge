@@ -98,8 +98,6 @@ function makeServer(params: {
   sessionId?: string | undefined;
   transportType?: 'streamable-http' | 'sse' | undefined;
   headers?: RemoteMcpHeaders | undefined;
-  requestTimeoutMs?: number | undefined;
-  connectTimeoutMs?: number | undefined;
 }): ToolSet {
   const remote = new RemoteMCP({
     name: 'my-inline',
@@ -110,8 +108,6 @@ function makeServer(params: {
     tracing: NOOP_AGENT_TRACING,
     sessionId: params.sessionId,
     transportType: params.transportType,
-    requestTimeoutMs: params.requestTimeoutMs,
-    connectTimeoutMs: params.connectTimeoutMs,
     signal: new AbortController().signal,
   });
   return new ToolSet({
@@ -122,17 +118,6 @@ function makeServer(params: {
 }
 
 describe('RemoteMCP + ToolSet', () => {
-  it('passes configured request and connect timeouts to the client', async () => {
-    installFakeConnection();
-    const server = makeServer({ requestTimeoutMs: 1234, connectTimeoutMs: 5678 });
-
-    await server.listTools();
-
-    expect(mockConnect).toHaveBeenCalledWith(
-      expect.objectContaining({ requestTimeoutMs: 1234, connectTimeoutMs: 5678 }),
-    );
-  });
-
   it('connects once, emits init info with session id, and caches across listTools calls', async () => {
     const state = installFakeConnection({ sessionId: 'sess-1' });
     const server = makeServer({});

@@ -281,9 +281,9 @@ export interface ServerConfiguration {
    * Env: `SANDBOX_PREVIEW_URL_EXPIRY_SECONDS`. Default 1 hour.
    */
   SANDBOX_PREVIEW_URL_EXPIRY_SECONDS: number;
-  /** Max seconds for one sandbox NATS request. Env: `SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS`. Default 330. */
+  /** Max seconds for one sandbox NATS request. Env: `SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS`. Default 5m 30s. */
   SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS: number;
-  /** Max seconds for one Code Mode command. Env: `SANDBOX_EXEC_TIMEOUT_SECONDS`. Default 390. */
+  /** Max seconds for one sandbox exec. Env: `SANDBOX_EXEC_TIMEOUT_SECONDS`. Default 6m 30s. */
   SANDBOX_EXEC_TIMEOUT_SECONDS: number;
   /**
    * Max seconds to wait for turn cancellation + connection drain on SIGTERM/SIGINT.

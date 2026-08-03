@@ -29,8 +29,8 @@ type McpTransport = StreamableHTTPClientTransport | SSEClientTransport;
 const CLIENT_INFO = { name: 'tfy-agent-mcp-client', version: '1.0.0' } as const;
 const TRANSPORT_PROBE_ORDER: RemoteMcpTransportType[] = ['streamable-http', 'sse'];
 
-export const DEFAULT_REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
-export const DEFAULT_CONNECT_TIMEOUT_MS = 30 * 1000;
+export const DEFAULT_MCP_REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
+export const DEFAULT_MCP_CONNECT_TIMEOUT_MS = 30 * 1000;
 
 class McpClientWithTimeout extends Client {
   constructor(private readonly requestTimeoutMs: number) {
@@ -149,14 +149,14 @@ export async function connectRemoteMcp(params: {
 
   for (const transportType of candidates) {
     const transport = createTransport(transportType, url, params.headers, params.sessionId);
-    const client = new McpClientWithTimeout(params.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS);
+    const client = new McpClientWithTimeout(params.requestTimeoutMs ?? DEFAULT_MCP_REQUEST_TIMEOUT_MS);
     try {
       stampTraceHeaders(params.headers);
       await withTimeout(
         // Concrete transports use sessionId: string|undefined; Transport uses an optional
         // property — exactOptionalPropertyTypes rejects assignability without this cast.
         client.connect(transport as Parameters<Client['connect']>[0], requestOptions),
-        params.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
+        params.connectTimeoutMs ?? DEFAULT_MCP_CONNECT_TIMEOUT_MS,
         transportType,
       );
     } catch (error) {

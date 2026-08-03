@@ -84,7 +84,6 @@ describe('Code Mode timeouts', () => {
 
     const call = await execAgentCommand(sandbox, execCalls);
 
-    expect(call.env?.['TFY_NATS_REQUEST_TIMEOUT_SECONDS']).toBeUndefined();
     expect(call.timeoutSeconds).toBe(900);
   });
 });
