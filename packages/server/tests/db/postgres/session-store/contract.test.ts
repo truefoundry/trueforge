@@ -3,7 +3,7 @@ import { sql } from 'kysely';
 
 import { runStoreContractSuite } from '../../../../../harness/tests/agent-session/store/storeContractSuite';
 import { PostgresSessionStore } from '../../../../src/db/postgres/session-store/PostgresSessionStore';
-import { createPostgresTestDatabase, type PostgresTestDatabase } from '../../postgres/testDatabase';
+import { createPostgresTestDatabase, type PostgresTestDatabase } from '../testDatabase';
 
 const describePg = process.env['PG_STORE_TESTS_ENABLED'] === '1' ? describe : describe.skip;
 

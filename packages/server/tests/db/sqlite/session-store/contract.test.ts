@@ -2,7 +2,7 @@ import type { ISessionStore } from '@truefoundry/utils/agent-session/store/ISess
 
 import { runStoreContractSuite } from '../../../../../harness/tests/agent-session/store/storeContractSuite';
 import { SqliteSessionStore } from '../../../../src/db/sqlite/session-store/SqliteSessionStore';
-import { createSqliteTestDatabase, type SqliteTestDatabase } from '../../sqlite/testDatabase';
+import { createSqliteTestDatabase, type SqliteTestDatabase } from '../testDatabase';
 
 describe('SqliteSessionStore (ISessionStore contract)', () => {
   let env: SqliteTestDatabase;

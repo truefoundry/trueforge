@@ -1,7 +1,7 @@
 /** @type {import('jest').Config} */
 module.exports = {
   testEnvironment: 'node',
-  globalSetup: '<rootDir>/tests/db/session-store/postgres/globalSetup.ts',
+  globalSetup: '<rootDir>/tests/db/postgres/globalSetup.ts',
   transform: {
     '^.+\\.(m?js|tsx?)$': [
       '@swc/jest',
