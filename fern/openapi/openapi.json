@@ -146,6 +146,58 @@
         ],
         "type": "object"
       },
+      "AnthropicProviderModelEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "model_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "anthropic"
+            ],
+            "type": "string"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "max_output_tokens",
+          "provider"
+        ],
+        "type": "object"
+      },
       "ApprovalAllow": {
         "properties": {
           "status": {
@@ -257,7 +309,40 @@
         "properties": {
           "models": {
             "items": {
-              "$ref": "#/components/schemas/ModelEntry"
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ModelEntry"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "model_id": {
+                      "description": "Upstream, provider-specific identifier sent to the provider API.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "name": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ResourceName"
+                        },
+                        {
+                          "description": "Internal identifier; forms the fully qualified name `provider_name/model_name`."
+                        }
+                      ]
+                    },
+                    "properties": {
+                      "$ref": "#/components/schemas/ModelProperties"
+                    }
+                  },
+                  "required": [
+                    "model_id",
+                    "name",
+                    "properties"
+                  ],
+                  "type": "object"
+                }
+              ]
             },
             "minItems": 1,
             "type": "array"
@@ -513,6 +598,65 @@
         },
         "type": "object"
       },
+      "GenericProviderModelEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "api_format": {
+            "enum": [
+              "openai-chat-completions"
+            ],
+            "type": "string"
+          },
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "model_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "generic"
+            ],
+            "type": "string"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "max_output_tokens",
+          "provider",
+          "base_url"
+        ],
+        "type": "object"
+      },
       "GetCapabilitiesResponse": {
         "properties": {
           "data": {
@@ -574,6 +718,58 @@
         },
         "required": [
           "data"
+        ],
+        "type": "object"
+      },
+      "GoogleGeminiProviderModelEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "model_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "google-gemini"
+            ],
+            "type": "string"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "max_output_tokens",
+          "provider"
         ],
         "type": "object"
       },
@@ -651,7 +847,7 @@
         "properties": {
           "data": {
             "items": {
-              "$ref": "#/components/schemas/OldModelEntry"
+              "$ref": "#/components/schemas/ModelEntry"
             },
             "type": "array"
           }
@@ -1087,33 +1283,29 @@
         "type": "object"
       },
       "ModelEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "model_id": {
-            "description": "Upstream, provider-specific identifier sent to the provider API.",
-            "minLength": 1,
-            "type": "string"
+        "discriminator": {
+          "mapping": {
+            "anthropic": "#/components/schemas/AnthropicProviderModelEntry",
+            "generic": "#/components/schemas/GenericProviderModelEntry",
+            "google-gemini": "#/components/schemas/GoogleGeminiProviderModelEntry",
+            "openai": "#/components/schemas/OpenAIProviderModelEntry"
           },
-          "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Internal identifier; forms the fully qualified name `provider_name/model_name`."
-              }
-            ]
-          },
-          "properties": {
-            "$ref": "#/components/schemas/ModelProperties"
-          }
+          "propertyName": "provider"
         },
-        "required": [
-          "model_id",
-          "name",
-          "properties"
-        ],
-        "type": "object"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OpenAIProviderModelEntry"
+          },
+          {
+            "$ref": "#/components/schemas/AnthropicProviderModelEntry"
+          },
+          {
+            "$ref": "#/components/schemas/GoogleGeminiProviderModelEntry"
+          },
+          {
+            "$ref": "#/components/schemas/GenericProviderModelEntry"
+          }
+        ]
       },
       "ModelMessageDeltaEvent": {
         "properties": {
@@ -1361,7 +1553,40 @@
           },
           "models": {
             "items": {
-              "$ref": "#/components/schemas/ModelEntry"
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ModelEntry"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "model_id": {
+                      "description": "Upstream, provider-specific identifier sent to the provider API.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "name": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ResourceName"
+                        },
+                        {
+                          "description": "Internal identifier; forms the fully qualified name `provider_name/model_name`."
+                        }
+                      ]
+                    },
+                    "properties": {
+                      "$ref": "#/components/schemas/ModelProperties"
+                    }
+                  },
+                  "required": [
+                    "model_id",
+                    "name",
+                    "properties"
+                  ],
+                  "type": "object"
+                }
+              ]
             },
             "minItems": 1,
             "type": "array"
@@ -1410,15 +1635,40 @@
         ],
         "type": "object"
       },
-      "OldModelEntry": {
+      "OpenAIProviderModelEntry": {
         "additionalProperties": false,
         "properties": {
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
           "max_output_tokens": {
             "exclusiveMinimum": 0,
             "type": "integer"
           },
+          "model_id": {
+            "minLength": 1,
+            "type": "string"
+          },
           "name": {
             "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "openai"
+            ],
             "type": "string"
           },
           "reasoning_efforts": {
@@ -1432,7 +1682,8 @@
         },
         "required": [
           "name",
-          "max_output_tokens"
+          "max_output_tokens",
+          "provider"
         ],
         "type": "object"
       },
@@ -1476,7 +1727,40 @@
           },
           "models": {
             "items": {
-              "$ref": "#/components/schemas/ModelEntry"
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ModelEntry"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "model_id": {
+                      "description": "Upstream, provider-specific identifier sent to the provider API.",
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "name": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ResourceName"
+                        },
+                        {
+                          "description": "Internal identifier; forms the fully qualified name `provider_name/model_name`."
+                        }
+                      ]
+                    },
+                    "properties": {
+                      "$ref": "#/components/schemas/ModelProperties"
+                    }
+                  },
+                  "required": [
+                    "model_id",
+                    "name",
+                    "properties"
+                  ],
+                  "type": "object"
+                }
+              ]
             },
             "minItems": 1,
             "type": "array"
@@ -1560,7 +1844,8 @@
       },
       "ResourceName": {
         "maxLength": 64,
-        "pattern": "^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$",
+        "minLength": 2,
+        "pattern": "^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$",
         "type": "string"
       },
       "ResponseFormat": {

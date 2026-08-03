@@ -102,8 +102,8 @@ export interface SessionsRouterDeps {
   mcpStore: McpStore;
   /** Whether a sandbox provider is configured (SANDBOX_SETTINGS); gates spec admission. */
   sandboxSupported: boolean;
-  /** Primary Redis client (server-owned); used to reach peer executors. */
-  redis: RedisClientType;
+  /** Reaches peer executors; undefined in single-binary mode. */
+  redis?: RedisClientType | undefined;
   /** Request-reply dispatch table this replica serves; cancel registers here. */
   requestReplyRouter: RequestReplyRouter;
 }
@@ -143,13 +143,20 @@ export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): R
   };
 }
 
+/** A registry to abort in, durable state to read, and a way to reach peers. */
+export interface CancelTurnDeps {
+  activeTurns: ActiveTurnRegistry;
+  sessionStore: Pick<ISessionStore, 'getTurn'>;
+  redis?: RedisClientType | undefined;
+}
+
 /**
  * Cancels the turn wherever it runs: locally or on the owning peer over Redis
  * request-reply. Callers state the motive; default is a plain client cancel.
  * Owner failures throw HTTPException (412 unreachable, 424 timed out).
  */
 export async function cancelSessionTurn(
-  deps: Pick<SessionsRouterDeps, 'redis' | 'activeTurns' | 'sessionStore'>,
+  deps: CancelTurnDeps,
   input: { sessionId: string; turnId: string; reason?: CancellationReason },
 ): Promise<void> {
   const { sessionId, turnId, reason = CancellationReason.ClientCancelled } = input;
@@ -165,7 +172,9 @@ export async function cancelSessionTurn(
   }
 
   const owner = executorFromTurnId(turnId);
-  if (owner !== configuration.EXECUTOR_ID) {
+  // Without a Redis client there is no peer to ask, so an id naming another
+  // replica falls through to the local lookup and finds nothing.
+  if (owner !== configuration.EXECUTOR_ID && deps.redis) {
     try {
       const reply = await redisRequest<CancelPeerBody>({
         redis: deps.redis,

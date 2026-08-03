@@ -1,19 +1,88 @@
-# Models reachable through the OpenAI-compatible API at base_url.
+# Each model declares its own provider so direct vendors and gateways can be
+# mixed freely in the same registry.
 #
-# Auth headers are configured via env vars, never in this file:
-#   MODEL_API_KEY         - default API key for base_url (required)
-#   MODEL_{NAME}_API_KEY  - per-model API key override
-#   MODEL_HEADERS         - extra default headers for every model
-#   MODEL_{NAME}_HEADERS  - per-model overrides ({NAME} = model name,
-#                           uppercased, non-alphanumerics replaced by "_")
-# TODO(oss): replace internal endpoint with a placeholder before the repo
-# goes public.
-base_url: https://internal.devtest.truefoundry.tech/api/llm
+# name     — display name / alias used in the API and env var lookups.
+#            Must be lowercase a-z, 0-9, hyphens, and dots (e.g. "gpt-4o").
+# model_id — the identifier sent to the provider (e.g. "anthropic/claude-sonnet-4-6"
+#            for a gateway). Omit when name already matches the provider's model ID.
+#
+# Auth — two ways to configure credentials (first match wins per model):
+#
+#   1. Inline api_key / headers in this file using ${ENV_VAR} substitution:
+#        api_key: "${ANTHROPIC_API_KEY}"
+#        headers:
+#          Authorization: "Bearer ${MY_TOKEN}"
+#      The server resolves the env var at startup. Missing vars raise an error.
+#
+#   2. Env var conventions (fallback when api_key is absent):
+#        MODEL_API_KEY              — global default key for all models
+#        MODEL_{NAME}_API_KEY       — per-model override (keyed by name, not model_id)
+#        MODEL_HEADERS              — global extra headers
+#        MODEL_{NAME}_HEADERS       — per-model header overrides (keyed by name)
+#        ({NAME} = name uppercased, non-alphanumerics → "_")
+#
+# Supported providers:
+#   First-party (Vercel AI SDK):  openai | anthropic | google-gemini
+#   Generic (requires base_url): generic
+#
+# base_url is optional for first-party providers (overrides the default endpoint)
+# and required for the generic provider.
+#
+# api_format selects the API surface for the generic provider:
+#   openai-chat-completions  - OpenAI Chat Completions API (default).
+#
+# openai always uses the Responses API (supports o-series reasoning models,
+# store: false, and stateless multi-turn via reasoning.encrypted_content).
 
 models:
-  - name: anthropic/claude-sonnet-4-6
+  # --- Direct Anthropic ---
+  - name: claude-sonnet-4-6
+    provider: anthropic
+    api_key: "${ANTHROPIC_API_KEY}"
+    max_output_tokens: 32768
     reasoning_efforts:
       - low
       - medium
       - high
+
+  # --- Direct OpenAI (Responses API) ---
+  - name: gpt-4o
+    provider: openai
+    api_key: "${OPENAI_API_KEY}"
+    max_output_tokens: 16384
+
+  - name: o4-mini
+    provider: openai
+    api_key: "${OPENAI_API_KEY}"
     max_output_tokens: 32768
+    reasoning_efforts:
+      - low
+      - medium
+      - high
+
+  - name: o3
+    provider: openai
+    api_key: "${OPENAI_API_KEY}"
+    max_output_tokens: 32768
+    reasoning_efforts:
+      - low
+      - medium
+      - high
+
+  # --- Direct Google ---
+  - name: gemini-2.5-flash
+    provider: google-gemini
+    api_key: "${GOOGLE_GEMINI_API_KEY}"
+    max_output_tokens: 8192
+
+  # --- Generic gateway (e.g. LiteLLM / TrueFoundry / any OpenAI-compat proxy) ---
+  - name: claude-sonnet-4-6-gateway
+    model_id: anthropic/claude-sonnet-4-6
+    provider: generic
+    api_key: "${LLM_GATEWAY_API_KEY}"
+    base_url: https://your-gateway.example.com/api/llm
+    max_output_tokens: 32768
+    reasoning_efforts:
+      - low
+      - medium
+      - high
