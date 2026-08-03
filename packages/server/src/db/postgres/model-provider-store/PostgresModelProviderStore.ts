@@ -13,7 +13,7 @@ import type { Database, ModelProviderTable } from '../types';
 function toRecord(row: Selectable<ModelProviderTable>): ModelProviderRecord {
   return {
     tenant_id: row.tenant_id,
-    provider_name: row.provider_name,
+    name: row.name,
     manifest: row.manifest,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
@@ -32,7 +32,7 @@ export class PostgresModelProviderStore implements IModelProviderStore {
       .selectFrom('model_provider')
       .selectAll()
       .where('tenant_id', '=', tenantId)
-      .orderBy('provider_name')
+      .orderBy('name')
       .execute();
     return rows.map(toRecord);
   }
@@ -42,7 +42,7 @@ export class PostgresModelProviderStore implements IModelProviderStore {
       .selectFrom('model_provider')
       .selectAll()
       .where('tenant_id', '=', tenantId)
-      .where('provider_name', '=', providerName)
+      .where('name', '=', providerName)
       .executeTakeFirst();
     return row === undefined ? undefined : toRecord(row);
   }
@@ -56,13 +56,13 @@ export class PostgresModelProviderStore implements IModelProviderStore {
       .insertInto('model_provider')
       .values({
         tenant_id: tenantId,
-        provider_name: providerName,
+        name: providerName,
         manifest: json(manifest),
         created_at: now(),
         updated_at: now(),
       })
       .onConflict(oc =>
-        oc.columns(['tenant_id', 'provider_name']).doUpdateSet({
+        oc.columns(['tenant_id', 'name']).doUpdateSet({
           manifest: json(manifest),
           updated_at: now(),
         }),

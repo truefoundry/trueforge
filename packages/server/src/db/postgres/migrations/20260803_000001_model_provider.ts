@@ -14,12 +14,12 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     // key
     .addColumn('tenant_id', 'text', col => col.notNull())
     // key: natural key within tenant; first segment of fully qualified model names
-    .addColumn('provider_name', 'text', col => col.notNull())
+    .addColumn('name', 'text', col => col.notNull())
     // ProviderManifest document; replaced whole on every upsert
     .addColumn('manifest', 'jsonb', col => col.notNull())
     .addColumn('created_at', 'timestamptz', col => col.notNull())
     .addColumn('updated_at', 'timestamptz', col => col.notNull())
-    .addPrimaryKeyConstraint('model_provider_pkey', ['tenant_id', 'provider_name'])
+    .addPrimaryKeyConstraint('model_provider_pkey', ['tenant_id', 'name'])
     .execute();
 }
 

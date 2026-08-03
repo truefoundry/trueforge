@@ -321,13 +321,13 @@ export interface ThreadCapabilityStateTable {
 /**
  * Configured model providers — manifest pattern: identity as columns,
  * everything else in one Zod-validated jsonb document.
- * PRIMARY KEY (tenant_id, provider_name)
+ * PRIMARY KEY (tenant_id, name)
  */
 export interface ModelProviderTable {
   /** key */
   tenant_id: string;
   /** key: natural key within tenant; first segment of fully qualified model names */
-  provider_name: string;
+  name: string;
   /** ProviderManifest document; replaced whole on every upsert */
   manifest: JSONColumnType<ProviderManifest, ProviderManifest, ProviderManifest>;
   created_at: Date;

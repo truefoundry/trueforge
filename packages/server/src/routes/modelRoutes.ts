@@ -8,8 +8,7 @@ export const listModelsRoute = createRoute({
   summary: 'List models',
   'x-fern-sdk-group-name': ['models'],
   'x-fern-sdk-method-name': 'list',
-  description:
-    'Models across all configured model providers, addressed by fully qualified name `provider_name/model_name`.',
+  description: 'Models across all configured model providers, addressed by fully qualified name `name/model_name`.',
   responses: {
     200: {
       content: { 'application/json': { schema: ListModelsResponseSchema } },

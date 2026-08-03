@@ -31,7 +31,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     const created = await store.upsertProvider(TENANT, 'anthropic', manifest());
 
     expect(created.tenant_id).toBe(TENANT);
-    expect(created.provider_name).toBe('anthropic');
+    expect(created.name).toBe('anthropic');
     expect(created.manifest).toEqual(manifest());
     expect(created.created_at).toMatch(ISO_UTC);
     expect(created.updated_at).toBe(created.created_at);
@@ -69,14 +69,14 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     expect(providers).toEqual([updated]);
   });
 
-  it('listProviders returns only the tenant, ordered by provider_name', async () => {
+  it('listProviders returns only the tenant, ordered by name', async () => {
     const store = getStore();
     await store.upsertProvider(TENANT, 'openai', manifest({ type: 'openai' }));
     await store.upsertProvider(TENANT, 'anthropic', manifest());
     await store.upsertProvider('other-tenant', 'anthropic', manifest());
 
     const providers = await store.listProviders(TENANT);
-    expect(providers.map(provider => provider.provider_name)).toEqual(['anthropic', 'openai']);
+    expect(providers.map(provider => provider.name)).toEqual(['anthropic', 'openai']);
     expect(providers.every(provider => provider.tenant_id === TENANT)).toBe(true);
   });
 

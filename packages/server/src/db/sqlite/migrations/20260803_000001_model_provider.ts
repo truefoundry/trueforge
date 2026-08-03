@@ -9,11 +9,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`
     CREATE TABLE model_provider (
       tenant_id TEXT NOT NULL,
-      provider_name TEXT NOT NULL,
+      name TEXT NOT NULL,
       manifest BLOB NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      PRIMARY KEY (tenant_id, provider_name)
+      PRIMARY KEY (tenant_id, name)
     ) STRICT
   `.execute(db);
 }

@@ -176,11 +176,11 @@ export interface ThreadCapabilityStateTable {
 
 /**
  * Configured model providers — mirrors the Postgres `model_provider` table.
- * PRIMARY KEY (tenant_id, provider_name)
+ * PRIMARY KEY (tenant_id, name)
  */
 export interface ModelProviderTable {
   tenant_id: string;
-  provider_name: string;
+  name: string;
   /** ProviderManifest document; replaced whole on every upsert */
   manifest: JsonbColumn<ProviderManifest>;
   created_at: string;

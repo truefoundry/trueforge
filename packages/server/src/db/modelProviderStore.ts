@@ -8,7 +8,7 @@ import type { ModelProperties, ProviderManifest } from '../schemas/modelProvider
 
 export interface ModelProviderRecord {
   tenant_id: string;
-  provider_name: ResourceName;
+  name: ResourceName;
   manifest: ProviderManifest;
   /** ISO-8601 UTC instant. */
   created_at: string;
@@ -18,7 +18,7 @@ export interface ModelProviderRecord {
 
 /** Read view for GET /models: the fully qualified name resolves the provider. */
 export interface ModelReadEntry {
-  /** `${provider_name}/${model.name}`, e.g. "openai/gpt-5-6-sol". */
+  /** `${provider.name}/${model.name}`, e.g. "openai/gpt-5-6-sol". */
   name: string;
   model_id: string;
   properties: ModelProperties;
@@ -41,7 +41,7 @@ export interface IModelProviderStore {
 export function flattenProviderModels(records: ModelProviderRecord[]): ModelReadEntry[] {
   return records.flatMap(record =>
     record.manifest.models.map(model => ({
-      name: `${record.provider_name}/${model.name}`,
+      name: `${record.name}/${model.name}`,
       model_id: model.model_id,
       properties: model.properties,
     })),

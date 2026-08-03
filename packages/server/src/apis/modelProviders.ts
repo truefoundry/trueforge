@@ -18,7 +18,7 @@ export interface ModelProvidersRouterDeps {
 function toModelProvider(record: ModelProviderRecord): ModelProvider {
   return {
     ...record.manifest,
-    name: record.provider_name,
+    name: record.name,
   };
 }
 

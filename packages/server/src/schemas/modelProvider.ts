@@ -20,7 +20,7 @@ export const ModelPropertiesSchema = z
 export const ModelEntrySchema = z
   .object({
     model_id: z.string().min(1).describe('Upstream, provider-specific identifier sent to the provider API.'),
-    name: NameSchema.describe('Internal identifier; forms the fully qualified name `provider_name/model_name`.'),
+    name: NameSchema.describe('Internal identifier; forms the fully qualified name `name/model_name`.'),
     properties: ModelPropertiesSchema,
   })
   .strict()
@@ -100,7 +100,7 @@ export const PutModelProviderResponseSchema = z
 /** Read view: the fully qualified name resolves the provider, so no provider object is nested. */
 export const ModelSchema = z
   .object({
-    name: z.string().describe('Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol".'),
+    name: z.string().describe('Fully qualified name `name/model_name`, e.g. "openai/gpt-5-6-sol".'),
     model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
     properties: ModelPropertiesSchema,
   })

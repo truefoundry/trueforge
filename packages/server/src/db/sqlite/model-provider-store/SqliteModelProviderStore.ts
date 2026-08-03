@@ -14,7 +14,7 @@ import type { Database } from '../types';
 function recordColumns(eb: ExpressionBuilder<Database, 'model_provider'>) {
   return [
     'tenant_id' as const,
-    'provider_name' as const,
+    'name' as const,
     jsonText<ProviderManifest>(eb.ref('manifest')).as('manifest'),
     'created_at' as const,
     'updated_at' as const,
@@ -33,7 +33,7 @@ export class SqliteModelProviderStore implements IModelProviderStore {
       .selectFrom('model_provider')
       .select(recordColumns)
       .where('tenant_id', '=', tenantId)
-      .orderBy('provider_name')
+      .orderBy('name')
       .execute();
   }
 
@@ -42,7 +42,7 @@ export class SqliteModelProviderStore implements IModelProviderStore {
       .selectFrom('model_provider')
       .select(recordColumns)
       .where('tenant_id', '=', tenantId)
-      .where('provider_name', '=', providerName)
+      .where('name', '=', providerName)
       .executeTakeFirst();
   }
 
@@ -56,13 +56,13 @@ export class SqliteModelProviderStore implements IModelProviderStore {
       .insertInto('model_provider')
       .values({
         tenant_id: tenantId,
-        provider_name: providerName,
+        name: providerName,
         manifest: jsonbBind(manifest),
         created_at: timestamp,
         updated_at: timestamp,
       })
       .onConflict(oc =>
-        oc.columns(['tenant_id', 'provider_name']).doUpdateSet({
+        oc.columns(['tenant_id', 'name']).doUpdateSet({
           manifest: jsonbBind(manifest),
           updated_at: timestamp,
         }),
