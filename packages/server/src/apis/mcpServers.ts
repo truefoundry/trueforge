@@ -69,13 +69,17 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
 
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
     const manifest: McpServerManifest = c.req.valid('json');
-    const record = await deps.mcpServerStore.upsertServer(TENANT_ID, manifest.name, manifest);
+    const record = await deps.mcpServerStore.upsertServer({
+      tenant_id: TENANT_ID,
+      name: manifest.name,
+      manifest,
+    });
     return c.json({ data: toConfiguredMcpServer(record) }, 200);
   };
 
   const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {
     const { name } = c.req.valid('param');
-    const record = await deps.mcpServerStore.getServer(TENANT_ID, name);
+    const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
     if (!record) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }
@@ -109,7 +113,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
   const authorizeHandler: RouteHandler<typeof authorizeConfiguredMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const { redirect_url: redirectUrl } = c.req.valid('query');
-    const record = await deps.mcpServerStore.getServer(TENANT_ID, name);
+    const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
     if (!record) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }

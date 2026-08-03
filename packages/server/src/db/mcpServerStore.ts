@@ -17,12 +17,23 @@ export interface McpServerRecord {
   updated_at: string;
 }
 
+export interface GetMcpServerInput {
+  tenant_id: string;
+  name: string;
+}
+
+export interface UpsertMcpServerInput {
+  tenant_id: string;
+  name: ResourceName;
+  manifest: McpServerManifest;
+}
+
 export interface IMcpServerStore {
   listServers(tenantId: string): Promise<McpServerRecord[]>;
-  getServer(tenantId: string, name: string): Promise<McpServerRecord | undefined>;
+  getServer(input: GetMcpServerInput): Promise<McpServerRecord | undefined>;
   /**
    * Creates the server or replaces `manifest` (+ `updated_at`) only.
    * Never overwrites `id`, `oauth_server`, or `oauth_client`.
    */
-  upsertServer(tenantId: string, name: ResourceName, manifest: McpServerManifest): Promise<McpServerRecord>;
+  upsertServer(input: UpsertMcpServerInput): Promise<McpServerRecord>;
 }

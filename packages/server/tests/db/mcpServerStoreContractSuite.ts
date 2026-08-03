@@ -21,7 +21,11 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore): void {
   it('upsert creates a server and round-trips the manifest', async () => {
     const store = getStore();
-    const created = await store.upsertServer(TENANT, 'linear', manifest());
+    const created = await store.upsertServer({
+      tenant_id: TENANT,
+      name: 'linear',
+      manifest: manifest(),
+    });
 
     expect(created.tenant_id).toBe(TENANT);
     expect(created.name).toBe('linear');
@@ -30,24 +34,32 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
     expect(created.created_at).toMatch(ISO_UTC);
     expect(created.updated_at).toBe(created.created_at);
 
-    const fetched = await store.getServer(TENANT, 'linear');
+    const fetched = await store.getServer({ tenant_id: TENANT, name: 'linear' });
     expect(fetched).toEqual(created);
   });
 
   it('getServer returns undefined for unknown servers', async () => {
     const store = getStore();
-    expect(await store.getServer(TENANT, 'missing')).toBeUndefined();
+    expect(await store.getServer({ tenant_id: TENANT, name: 'missing' })).toBeUndefined();
   });
 
   it('upsert replaces the manifest, preserves id and created_at', async () => {
     const store = getStore();
-    const created = await store.upsertServer(TENANT, 'linear', manifest());
+    const created = await store.upsertServer({
+      tenant_id: TENANT,
+      name: 'linear',
+      manifest: manifest(),
+    });
 
     const replacement = manifest({
       name: 'linear',
       url: 'https://mcp.linear.app/mcp/v2',
     });
-    const updated = await store.upsertServer(TENANT, 'linear', replacement);
+    const updated = await store.upsertServer({
+      tenant_id: TENANT,
+      name: 'linear',
+      manifest: replacement,
+    });
 
     expect(updated.id).toBe(created.id);
     expect(updated.manifest).toEqual(replacement);
@@ -60,9 +72,13 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
 
   it('listServers returns only the tenant, ordered by name', async () => {
     const store = getStore();
-    await store.upsertServer(TENANT, 'linear', manifest());
-    await store.upsertServer(TENANT, 'deepwiki', manifest({ name: 'deepwiki', url: 'https://mcp.deepwiki.com/mcp' }));
-    await store.upsertServer('other-tenant', 'linear', manifest());
+    await store.upsertServer({ tenant_id: TENANT, name: 'linear', manifest: manifest() });
+    await store.upsertServer({
+      tenant_id: TENANT,
+      name: 'deepwiki',
+      manifest: manifest({ name: 'deepwiki', url: 'https://mcp.deepwiki.com/mcp' }),
+    });
+    await store.upsertServer({ tenant_id: 'other-tenant', name: 'linear', manifest: manifest() });
 
     const servers = await store.listServers(TENANT);
     expect(servers.map(server => server.name)).toEqual(['deepwiki', 'linear']);

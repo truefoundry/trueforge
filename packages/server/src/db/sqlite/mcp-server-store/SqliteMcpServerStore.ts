@@ -1,8 +1,7 @@
 import type { ExpressionBuilder, Kysely } from 'kysely';
 import { ulid } from 'ulid';
-import type { ResourceName } from '../../../schemas/common';
 import type { McpServerManifest } from '../../../schemas/mcpServer';
-import type { IMcpServerStore, McpServerRecord } from '../../mcpServerStore';
+import type { GetMcpServerInput, IMcpServerStore, McpServerRecord, UpsertMcpServerInput } from '../../mcpServerStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
@@ -34,24 +33,24 @@ export class SqliteMcpServerStore implements IMcpServerStore {
       .execute();
   }
 
-  async getServer(tenantId: string, name: string): Promise<McpServerRecord | undefined> {
+  async getServer(input: GetMcpServerInput): Promise<McpServerRecord | undefined> {
     return await this.#db
       .selectFrom('mcp_server')
       .select(recordColumns)
-      .where('tenant_id', '=', tenantId)
-      .where('name', '=', name)
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
       .executeTakeFirst();
   }
 
-  async upsertServer(tenantId: string, name: ResourceName, manifest: McpServerManifest): Promise<McpServerRecord> {
+  async upsertServer(input: UpsertMcpServerInput): Promise<McpServerRecord> {
     const timestamp = nowIso();
     return await this.#db
       .insertInto('mcp_server')
       .values({
         id: ulid(),
-        tenant_id: tenantId,
-        name,
-        manifest: jsonbBind(manifest),
+        tenant_id: input.tenant_id,
+        name: input.name,
+        manifest: jsonbBind(input.manifest),
         oauth_server: null,
         oauth_client: null,
         created_at: timestamp,
@@ -59,7 +58,7 @@ export class SqliteMcpServerStore implements IMcpServerStore {
       })
       .onConflict(oc =>
         oc.columns(['tenant_id', 'name']).doUpdateSet({
-          manifest: jsonbBind(manifest),
+          manifest: jsonbBind(input.manifest),
           updated_at: timestamp,
         }),
       )
