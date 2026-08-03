@@ -65,7 +65,7 @@ try {
 
   const sessionStore = new PostgresSessionStore(db);
   // Throws on malformed SANDBOX_SETTINGS; undefined when sandbox is not configured.
-  const skillStore = SkillStore.load();
+  const legacySkillStore = SkillStore.load();
   const sandboxFactory = createServerSandboxFactory({ logger });
   const activeTurns = new ActiveTurnRegistry();
 
@@ -86,8 +86,8 @@ try {
     mcpServerStore: new PostgresMcpServerStore(db),
     mcpStore: McpStore.load(),
     skillCatalog: SkillCatalog.load(),
-    configuredSkillStore: new PostgresSkillStore(db),
-    skillStore,
+    skillStore: new PostgresSkillStore(db),
+    legacySkillStore,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,

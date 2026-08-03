@@ -55,8 +55,8 @@ export interface ServerDeps {
   mcpServerStore: IMcpServerStore;
   mcpStore: McpStore;
   skillCatalog: SkillCatalog;
-  configuredSkillStore: ISkillStore;
-  skillStore: SkillStore;
+  skillStore: ISkillStore;
+  legacySkillStore: SkillStore;
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
@@ -77,7 +77,7 @@ export function createServerApp(deps: ServerDeps) {
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
   app.route('/api/v1/mcp-servers', createAvailableMcpServersRouter(deps.mcpServerStore));
-  app.route('/api/v1/skills', createAvailableSkillsRouter(deps.configuredSkillStore));
+  app.route('/api/v1/skills', createAvailableSkillsRouter(deps.skillStore));
   app.route(
     '/api/v1/settings',
     createSettingsRouter({
@@ -86,7 +86,7 @@ export function createServerApp(deps: ServerDeps) {
       mcpCatalog: deps.mcpCatalog,
       mcpServerStore: deps.mcpServerStore,
       skillCatalog: deps.skillCatalog,
-      skillStore: deps.configuredSkillStore,
+      skillStore: deps.skillStore,
       logger: deps.logger,
     }),
   );
@@ -94,7 +94,7 @@ export function createServerApp(deps: ServerDeps) {
   app.route('/api/v1/legacy/models', createLegacyModelsRouter(deps.modelStore));
   app.route('/api/v1/legacy/mcp-servers', createLegacyMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
   app.route('/api/v1/legacy/mcp-servers/oauth', createLegacyMcpOAuthRouter({ logger: deps.logger }));
-  app.route('/api/v1/legacy/skills', createLegacySkillsRouter(deps.skillStore));
+  app.route('/api/v1/legacy/skills', createLegacySkillsRouter(deps.legacySkillStore));
   app.route(
     '/api/v1/sessions',
     createSessionsRouter({
