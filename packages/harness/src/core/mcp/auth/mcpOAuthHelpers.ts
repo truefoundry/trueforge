@@ -6,8 +6,8 @@ import type { AuthorizationServerMetadata, OAuthClientInformation } from '@model
 import { McpConnectionError } from '../../errors';
 import type { McpOAuthClientRecord } from './types';
 
-/** Fixed OAuth callback path for every MCP server (matches /api/v1/mcp-servers/oauth router). */
-export const MCP_OAUTH_CALLBACK_PATH = '/v1/mcp/oauth/callback';
+/** Fixed OAuth callback path for every MCP server (matches server mount). */
+export const MCP_OAUTH_CALLBACK_PATH = '/api/v1/mcp-servers/oauth/callback';
 
 /** OAuth callback redirect_uri = publicBaseUrl + fixed path. No trimming of the base. */
 export function mcpOAuthCallbackUrl(publicBaseUrl: string): string {
@@ -18,7 +18,7 @@ export function mcpOAuthCallbackUrl(publicBaseUrl: string): string {
 }
 
 export function mcpClientInformation(client: McpOAuthClientRecord): OAuthClientInformation {
-  return client.clientSecret !== undefined
+  return client.clientSecret !== null
     ? { client_id: client.clientId, client_secret: client.clientSecret }
     : { client_id: client.clientId };
 }
@@ -30,7 +30,7 @@ export function mcpAuthorizationServerMetadata(client: McpOAuthClientRecord): Au
     authorization_endpoint: client.authorizationEndpoint,
     token_endpoint: client.tokenEndpoint,
     response_types_supported: ['code'],
-    ...(client.codeChallengeMethodsSupported !== undefined
+    ...(client.codeChallengeMethodsSupported !== null
       ? { code_challenge_methods_supported: client.codeChallengeMethodsSupported }
       : {}),
   };

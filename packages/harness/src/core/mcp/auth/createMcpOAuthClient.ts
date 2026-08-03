@@ -96,11 +96,9 @@ export async function createMcpOAuthClient(params: {
 
   return {
     clientId: fullInfo.client_id,
+    clientSecret: fullInfo.client_secret ?? null,
     authorizationEndpoint: metadata.authorization_endpoint,
     tokenEndpoint: metadata.token_endpoint,
-    ...(fullInfo.client_secret !== undefined ? { clientSecret: fullInfo.client_secret } : {}),
-    ...(metadata.code_challenge_methods_supported !== undefined
-      ? { codeChallengeMethodsSupported: metadata.code_challenge_methods_supported }
-      : {}),
+    codeChallengeMethodsSupported: metadata.code_challenge_methods_supported ?? null,
   };
 }

@@ -227,7 +227,7 @@ export interface ServerConfiguration {
   MCP_HEADERS_BY_NAME: Record<string, Record<string, string>>;
   /**
    * Public base URL of this server used as the origin of the MCP OAuth callback
-   * (`{PUBLIC_BASE_URL}/v1/mcp/oauth/callback`). Not trimmed. Empty means DCR
+   * (`{PUBLIC_BASE_URL}/api/v1/mcp-servers/oauth/callback`). Not trimmed. Empty means DCR
    * registration will fail when first needed. Env: `PUBLIC_BASE_URL`.
    */
   PUBLIC_BASE_URL: string;

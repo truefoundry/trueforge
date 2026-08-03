@@ -47,7 +47,7 @@ export async function buildMcpAuthorizationUrl(params: {
     state,
     serverId: params.serverId,
     codeVerifier,
-    ...(params.redirectUrl !== undefined ? { redirectUrl: params.redirectUrl } : {}),
+    redirectUrl: params.redirectUrl ?? null,
   });
 
   return authorizationUrl;

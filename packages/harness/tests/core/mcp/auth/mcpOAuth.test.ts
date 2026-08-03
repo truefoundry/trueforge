@@ -171,7 +171,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
     });
 
     expect(result.clientId).toBe('public-client');
-    expect(result.clientSecret).toBeUndefined();
+    expect(result.clientSecret).toBeNull();
     expect(registerCallCount()).toBe(2);
     expect((registerBodies[0] as Record<string, unknown>)['token_endpoint_auth_method']).toBe('client_secret_post');
     expect(Object.prototype.hasOwnProperty.call(registerBodies[1] as object, 'token_endpoint_auth_method')).toBe(false);
@@ -278,7 +278,9 @@ describe('resolveMcpAuth (no refresh)', () => {
       serverId: SERVER_ID,
       token: {
         accessToken: 'live-token',
+        refreshToken: null,
         expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+        scope: null,
       },
     });
 
@@ -297,7 +299,9 @@ describe('resolveMcpAuth (no refresh)', () => {
       serverId: SERVER_ID,
       token: {
         accessToken: 'old-access',
+        refreshToken: null,
         expiresAt: new Date(Date.now() - 1000).toISOString(),
+        scope: null,
       },
     });
     stubOauthFetch({});
