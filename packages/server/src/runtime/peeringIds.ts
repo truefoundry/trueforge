@@ -2,7 +2,7 @@ import { HTTPException } from 'hono/http-exception';
 import { ulid } from 'ulid';
 
 /**
- * Mints a peered turn id owned by `executorId`. The server calls this at turn
+ * Mints a turn id owned by `executorId`. The server calls this at turn
  * creation (the id is opaque to the session library); `executorFromTurnId`
  * is the matching decoder on the routing path.
  */

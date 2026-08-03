@@ -1,7 +1,7 @@
 import { CancellationReason } from '@truefoundry/utils/agent-session';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ActiveTurnRegistry } from './activeTurns';
+import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 
 async function* values<T>(items: T[]): AsyncGenerator<T> {
   for (const item of items) {

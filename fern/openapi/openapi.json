@@ -128,6 +128,58 @@
         ],
         "type": "object"
       },
+      "AnthropicProviderModelEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "model_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "anthropic"
+            ],
+            "type": "string"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "max_output_tokens",
+          "provider"
+        ],
+        "type": "object"
+      },
       "ApprovalAllow": {
         "properties": {
           "status": {
@@ -467,6 +519,65 @@
         },
         "type": "object"
       },
+      "GenericProviderModelEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "api_format": {
+            "enum": [
+              "openai-chat-completions"
+            ],
+            "type": "string"
+          },
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "model_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "generic"
+            ],
+            "type": "string"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "max_output_tokens",
+          "provider",
+          "base_url"
+        ],
+        "type": "object"
+      },
       "GetCapabilitiesResponse": {
         "properties": {
           "data": {
@@ -514,6 +625,58 @@
         },
         "required": [
           "data"
+        ],
+        "type": "object"
+      },
+      "GoogleGeminiProviderModelEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "model_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "google-gemini"
+            ],
+            "type": "string"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "max_output_tokens",
+          "provider"
         ],
         "type": "object"
       },
@@ -992,30 +1155,29 @@
         "type": "object"
       },
       "ModelEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "max_output_tokens": {
-            "exclusiveMinimum": 0,
-            "type": "integer"
+        "discriminator": {
+          "mapping": {
+            "anthropic": "#/components/schemas/AnthropicProviderModelEntry",
+            "generic": "#/components/schemas/GenericProviderModelEntry",
+            "google-gemini": "#/components/schemas/GoogleGeminiProviderModelEntry",
+            "openai": "#/components/schemas/OpenAIProviderModelEntry"
           },
-          "name": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "reasoning_efforts": {
-            "items": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "minItems": 1,
-            "type": "array"
-          }
+          "propertyName": "provider"
         },
-        "required": [
-          "name",
-          "max_output_tokens"
-        ],
-        "type": "object"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OpenAIProviderModelEntry"
+          },
+          {
+            "$ref": "#/components/schemas/AnthropicProviderModelEntry"
+          },
+          {
+            "$ref": "#/components/schemas/GoogleGeminiProviderModelEntry"
+          },
+          {
+            "$ref": "#/components/schemas/GenericProviderModelEntry"
+          }
+        ]
       },
       "ModelMessageDeltaEvent": {
         "properties": {
@@ -1223,6 +1385,58 @@
             "type": "number"
           }
         },
+        "type": "object"
+      },
+      "OpenAIProviderModelEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "model_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "openai"
+            ],
+            "type": "string"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "max_output_tokens",
+          "provider"
+        ],
         "type": "object"
       },
       "PreviousTurnIdInput": {

@@ -13,9 +13,9 @@
     "predev:no-watch": "pnpm --filter @truefoundry/utils build:gen",
     "dev:no-watch": "NODE_OPTIONS='--conditions=development' NODE_ENV=production tsx --env-file=.env src/main.ts",
     "migrate": "NODE_OPTIONS='--conditions=development' tsx --env-file=.env src/db/postgres/migrate-cli.ts",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tests/tsconfig.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tests/db/tsconfig.json && tsc --noEmit -p tests/unit/tsconfig.json",
     "openapi:write": "NODE_OPTIONS='--conditions=development' tsx --env-file=.env.test scripts/write-openapi.ts",
-    "test": "NODE_OPTIONS='--conditions=development' tsx --env-file=.env.test --test \"src/**/*.test.ts\"",
+    "test": "NODE_OPTIONS='--conditions=development' tsx --env-file=.env.test --test \"tests/unit/**/*.test.ts\"",
     "test:store:postgres": "jest --config jest.store.postgres.config.cjs",
     "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs"
   },

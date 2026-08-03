@@ -156,6 +156,18 @@ export const parsePositiveInt = (options: {
   return value;
 };
 
+/** Parses a boolean env var; anything but `true`/`false` throws instead of reading as `false`. */
+const parseBoolean = (options: { envKey: string; raw: string | undefined; defaultValue: boolean }): boolean => {
+  const { envKey, raw, defaultValue } = options;
+  if (raw === undefined || raw.trim() === '') {
+    return defaultValue;
+  }
+  const value = raw.trim().toLowerCase();
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
+};
+
 /** Required env var that also rejects blank strings. */
 export const requireNonEmptyEnv = (key: string): string => {
   const value = getEnv(key, { required: true });
@@ -184,6 +196,25 @@ export const DEFAULT_PORT = 8790;
 
 /** Relative to the working directory, like REGISTRY_DIR; the image sets an absolute FRONTEND_DIR. */
 const DEFAULT_FRONTEND_DIR = '../frontend/dist';
+
+/** Turn ids minted by a single-binary process; no peer can ever own them. */
+const LOCAL_EXECUTOR_ID = 'local';
+
+/** Dropped in single-binary mode so nothing downstream can connect to a Redis it must not use. */
+const resolveRedisUrl = (singleBinary: boolean): string | undefined => {
+  if (singleBinary) {
+    return undefined;
+  }
+  return requireNonEmptyEnv('REDIS_URL');
+};
+
+/** Always longer than `LOCAL_EXECUTOR_ID`, so a peer can never be mistaken for a local owner. */
+const resolveExecutorId = (singleBinary: boolean): string => {
+  if (singleBinary) {
+    return LOCAL_EXECUTOR_ID;
+  }
+  return randomAlphanumeric(6);
+};
 
 export interface ServerConfiguration {
   /** HTTP port the server listens on. Env: `PORT`. */
@@ -264,13 +295,6 @@ export interface ServerConfiguration {
   /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
   DATABASE_POOL_MAX: number;
   /**
-   * Redis connection URL shared by all replicas; carries executor peering
-   * (cross-replica turn cancel). Env: `REDIS_URL` (required).
-   */
-  REDIS_URL: string;
-  /** Unique id of this process. Not an env var. */
-  EXECUTOR_ID: string;
-  /**
    * Max ms to wait for a peer executor's reply before failing with 424.
    * Env: `REDIS_REQUEST_REPLY_TIMEOUT_MS`. Default 60000.
    */
@@ -290,6 +314,10 @@ export interface ServerConfiguration {
    * Env: `REDIS_REQUEST_REPLY_POLL_INTERVAL_MS`. Default 500.
    */
   REDIS_REQUEST_REPLY_POLL_INTERVAL_MS: number;
+  /** Peering URL shared by all replicas; undefined in single-binary mode. Env: `REDIS_URL`. */
+  REDIS_URL: string | undefined;
+  /** Peering identity embedded in the turn ids this process mints; `local` in single-binary mode. */
+  EXECUTOR_ID: string;
 }
 
 // ============================================================================
@@ -304,6 +332,12 @@ const postgresPort = parsePositiveInt({
   envKey: 'POSTGRES_PORT',
   raw: requireNonEmptyEnv('POSTGRES_PORT'),
   defaultValue: 5432,
+});
+
+const singleBinary = parseBoolean({
+  envKey: 'SINGLE_BINARY',
+  raw: getEnv('SINGLE_BINARY'),
+  defaultValue: true,
 });
 
 const configuration: ServerConfiguration = {
@@ -350,8 +384,6 @@ const configuration: ServerConfiguration = {
     raw: getEnv('DATABASE_POOL_MAX'),
     defaultValue: 10,
   }),
-  REDIS_URL: requireNonEmptyEnv('REDIS_URL'),
-  EXECUTOR_ID: randomAlphanumeric(6),
   REDIS_REQUEST_REPLY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'REDIS_REQUEST_REPLY_TIMEOUT_MS',
     raw: getEnv('REDIS_REQUEST_REPLY_TIMEOUT_MS'),
@@ -372,6 +404,8 @@ const configuration: ServerConfiguration = {
     raw: getEnv('REDIS_REQUEST_REPLY_POLL_INTERVAL_MS'),
     defaultValue: 500,
   }),
+  REDIS_URL: resolveRedisUrl(singleBinary),
+  EXECUTOR_ID: resolveExecutorId(singleBinary),
 } as const;
 
 export default configuration;

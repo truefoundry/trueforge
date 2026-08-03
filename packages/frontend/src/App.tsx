@@ -1,6 +1,10 @@
 import { AssistantRuntimeProvider, useAui, useAuiState } from '@assistant-ui/react';
 import { ErrorToasterProvider, SlotsProvider, Thread } from '@truefoundry/agent-ui-sdk';
-import { useTrueFoundryAgentRuntime, type AgentSpec } from '@truefoundry/assistant-ui-runtime';
+import {
+  trueFoundryAttachmentAdapter,
+  useTrueFoundryAgentRuntime,
+  type AgentSpec,
+} from '@truefoundry/assistant-ui-runtime';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ThemeProvider } from 'tfy-web-components/components/theme/useTheme';
 import { AgentSessionClient } from 'truefoundry-gateway-sdk/agents';
@@ -69,6 +73,7 @@ function ChatApp({
       mode: 'draft',
       defaultAgentSpec,
     },
+    adapters: { attachments: trueFoundryAttachmentAdapter },
   });
 
   return (
