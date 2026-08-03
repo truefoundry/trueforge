@@ -14,7 +14,7 @@ import {
   isMcpAuthRequired,
   mcpOAuthCallbackUrl,
   resolveMcpAuth,
-  type OAuthClientRegistration,
+  type OAuthClientRecord,
 } from '../../../../src/core';
 
 interface Stores {
@@ -131,7 +131,7 @@ function stubOauthFetch(options: {
   return { registerBodies, registerCallCount: () => registerCalls, tokenBodies, tokenAuthHeaders };
 }
 
-const sampleClient: OAuthClientRegistration = {
+const sampleClient: OAuthClientRecord = {
   server: {
     authorizationEndpoint: `${AS_ORIGIN}/authorize`,
     tokenEndpoint: `${AS_ORIGIN}/token`,

@@ -53,7 +53,7 @@ export { InMemoryOAuthTokenStore } from './auth/InMemoryOAuthTokenStore';
 export type {
   IOAuthClientStore,
   OAuthClientCredentials,
-  OAuthClientRegistration,
+  OAuthClientRecord,
   OAuthServerMetadata,
 } from './auth/IOAuthClientStore';
 export type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from './auth/IOAuthTokenStore';

@@ -16,13 +16,13 @@ export interface OAuthClientCredentials {
  * produces, kept distinct because they come from different responses (discovery vs registration)
  * and only `client` carries a secret.
  */
-export interface OAuthClientRegistration {
+export interface OAuthClientRecord {
   server: OAuthServerMetadata;
   client: OAuthClientCredentials;
 }
 
 export interface IOAuthClientStore {
-  saveClient(params: { id: string; registration: OAuthClientRegistration }): Promise<void>;
+  saveClient(params: { id: string; record: OAuthClientRecord }): Promise<void>;
 
-  getClient(params: { id: string }): Promise<OAuthClientRegistration | undefined>;
+  getClient(params: { id: string }): Promise<OAuthClientRecord | undefined>;
 }

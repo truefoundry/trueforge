@@ -4,13 +4,6 @@ import type { Database } from '../types';
 import { getPendingAuthorization, savePendingAuthorization } from './queries/pendingAuthorization';
 import { deleteToken, getToken, saveToken } from './queries/token';
 
-/**
- * Generic, Postgres-backed `IOAuthTokenStore` (RFC 7591 DCR pending-authorization + token state).
- * Not MCP-specific — backs `oauth_token` / `oauth_pending_authorization`, both FK'd to
- * `mcp_server.id` today (FK constraint aside, nothing here knows about MCP). Client/server
- * registration (`mcp_server.oauth_server` / `.oauth_client`) is `PostgresOAuthClientStore`'s job,
- * not this class's — see `IOAuthClientStore`.
- */
 export class PostgresOAuthTokenStore implements IOAuthTokenStore {
   constructor(private readonly db: Kysely<Database>) {}
 

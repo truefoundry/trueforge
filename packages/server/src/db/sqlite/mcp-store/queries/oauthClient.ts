@@ -1,4 +1,4 @@
-import type { OAuthClientRegistration } from '@truefoundry/utils/core';
+import type { OAuthClientRecord } from '@truefoundry/utils/core';
 import { sql, type Kysely } from 'kysely';
 import type { OAuthClient, OAuthServer } from '../../../mcpOAuthTypes';
 import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
@@ -6,9 +6,9 @@ import type { Database } from '../../types';
 
 export async function saveClient(
   db: Kysely<Database>,
-  params: { id: string; registration: OAuthClientRegistration },
+  params: { id: string; record: OAuthClientRecord },
 ): Promise<void> {
-  const { server, client } = params.registration;
+  const { server, client } = params.record;
   const oauthServer: OAuthServer = {
     authorizationEndpoint: server.authorizationEndpoint,
     tokenEndpoint: server.tokenEndpoint,
@@ -30,10 +30,7 @@ export async function saveClient(
     .execute();
 }
 
-export async function getClient(
-  db: Kysely<Database>,
-  params: { id: string },
-): Promise<OAuthClientRegistration | undefined> {
+export async function getClient(db: Kysely<Database>, params: { id: string }): Promise<OAuthClientRecord | undefined> {
   const row = await db
     .selectFrom('mcp_server')
     .select([

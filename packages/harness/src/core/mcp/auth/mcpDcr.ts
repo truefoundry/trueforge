@@ -11,7 +11,7 @@ import type {
   OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { randomBytes } from 'node:crypto';
-import type { IOAuthClientStore, OAuthClientRegistration } from '../../auth/IOAuthClientStore';
+import type { IOAuthClientStore, OAuthClientRecord } from '../../auth/IOAuthClientStore';
 import type { IOAuthTokenStore, OAuthToken } from '../../auth/IOAuthTokenStore';
 import { McpConnectionError } from '../../errors';
 import {
@@ -21,20 +21,14 @@ import {
   mcpOAuthCallbackUrl,
 } from './mcpOAuthHelpers';
 
-/** Auth already resolved: ready-to-use request headers (bearer token). */
 export interface McpAuthResolvedResult {
   headers: Record<string, string>;
 }
 
-/** Auth not resolved: the URL the user must visit to (re)authorize. */
 export interface McpAuthRequiredResult {
   authUrl: URL;
 }
 
-/**
- * Discriminated structurally by which key is present — no status tag/enum — mirroring
- * `isAuthRequired` / `AuthRequiredResponse` in `core/mcp/IMCPServer`.
- */
 export type ResolveMcpAuthResult = McpAuthResolvedResult | McpAuthRequiredResult;
 
 export function isMcpAuthRequired(result: ResolveMcpAuthResult): result is McpAuthRequiredResult {
@@ -46,11 +40,6 @@ export function isMcpAuthRequired(result: ResolveMcpAuthResult): result is McpAu
  * the saved token is not treated as already expired on the next `resolveMcpAuth`.
  */
 export const DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS = 3600;
-
-// No MCP-specific store type: the functions below take the two generic `core/auth` stores
-// (`IOAuthTokenStore`, `IOAuthClientStore`) as separate inputs, so the DB layer keeps them as two
-// independent classes (`PostgresOAuthTokenStore` + `PostgresOAuthClientStore`, etc.) with no
-// combined wrapper.
 
 /**
  * Prefer `client_secret_post` (confidential). Authorization servers that only issue public
@@ -64,7 +53,7 @@ async function registerMcpClientWithAuthMethodFallback(params: {
   mcpServerName: string;
   authorizationEndpoint: string;
   tokenEndpoint: string;
-}): Promise<OAuthClientRegistration> {
+}): Promise<OAuthClientRecord> {
   const { authorizationServerUrl, metadata, clientMetadata, mcpServerName, authorizationEndpoint, tokenEndpoint } =
     params;
 
@@ -92,7 +81,7 @@ async function registerMcpClientWithAuthMethodFallback(params: {
 
   if (!fullInfo.client_id) {
     throw new McpConnectionError(
-      `Authorization server for MCP server '${mcpServerName}' returned a registration response without client_id`,
+      `Authorization server for MCP server '${mcpServerName}' returned a client response without client_id`,
       400,
     );
   }
@@ -115,7 +104,7 @@ export async function createMcpOAuthClient(params: {
   mcpServerName: string;
   redirectUri: string;
   clientName: string;
-}): Promise<OAuthClientRegistration> {
+}): Promise<OAuthClientRecord> {
   const { mcpServerUrl, mcpServerName, redirectUri, clientName } = params;
 
   const { authorizationServerUrl, authorizationServerMetadata: metadata } = await discoverOAuthServerInfo(mcpServerUrl);
@@ -156,21 +145,21 @@ export async function ensureMcpClientRegistered(params: {
   mcpServerName: string;
   publicBaseUrl: string;
   clientName: string;
-}): Promise<OAuthClientRegistration> {
+}): Promise<OAuthClientRecord> {
   const existing = await params.clientStore.getClient({ id: params.serverId });
   if (existing) {
     return existing;
   }
 
-  const registration = await createMcpOAuthClient({
+  const client = await createMcpOAuthClient({
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
     redirectUri: mcpOAuthCallbackUrl(params.publicBaseUrl),
     clientName: params.clientName,
   });
 
-  await params.clientStore.saveClient({ id: params.serverId, registration });
-  return registration;
+  await params.clientStore.saveClient({ id: params.serverId, registration: client });
+  return client;
 }
 
 export async function buildMcpAuthorizationUrl(params: {
@@ -184,7 +173,7 @@ export async function buildMcpAuthorizationUrl(params: {
   /** FE post-OAuth landing URL (not the OAuth redirect_uri). */
   redirectUrl?: string;
 }): Promise<URL> {
-  const registration = await ensureMcpClientRegistered({
+  const client = await ensureMcpClientRegistered({
     clientStore: params.clientStore,
     serverId: params.serverId,
     mcpServerUrl: params.mcpServerUrl,
@@ -194,16 +183,13 @@ export async function buildMcpAuthorizationUrl(params: {
   });
 
   const state = randomBytes(32).toString('base64url');
-  const { authorizationUrl, codeVerifier } = await startAuthorization(
-    mcpAuthorizationServerOrigin(registration.server),
-    {
-      metadata: mcpAuthorizationServerMetadata(registration.server),
-      clientInformation: mcpClientInformation(registration.client),
-      redirectUrl: mcpOAuthCallbackUrl(params.publicBaseUrl),
-      resource: resourceUrlFromServerUrl(params.mcpServerUrl),
-      state,
-    },
-  );
+  const { authorizationUrl, codeVerifier } = await startAuthorization(mcpAuthorizationServerOrigin(client.server), {
+    metadata: mcpAuthorizationServerMetadata(client.server),
+    clientInformation: mcpClientInformation(client.client),
+    redirectUrl: mcpOAuthCallbackUrl(params.publicBaseUrl),
+    resource: resourceUrlFromServerUrl(params.mcpServerUrl),
+    state,
+  });
 
   await params.tokenStore.savePendingAuthorization({
     state,
@@ -251,12 +237,12 @@ export async function resolveMcpAuth(params: {
   }
 
   if (token?.refreshToken) {
-    const registration = await params.clientStore.getClient({ id: params.serverId });
-    if (registration) {
+    const client = await params.clientStore.getClient({ id: params.serverId });
+    if (client) {
       try {
-        const refreshed = await refreshAuthorization(mcpAuthorizationServerOrigin(registration.server), {
-          metadata: mcpAuthorizationServerMetadata(registration.server),
-          clientInformation: mcpClientInformation(registration.client),
+        const refreshed = await refreshAuthorization(mcpAuthorizationServerOrigin(client.server), {
+          metadata: mcpAuthorizationServerMetadata(client.server),
+          clientInformation: mcpClientInformation(client.client),
           refreshToken: token.refreshToken,
           resource: resourceUrlFromServerUrl(params.mcpServerUrl),
         });
