@@ -22,6 +22,7 @@ interface Props {
   isRunning?: boolean;
   initialTab?: CatalogTab;
   onAttach?: () => void;
+  onClosePanel?: () => void;
   onOpenPanel?: (tab: CatalogTab) => void;
 }
 
@@ -43,6 +44,7 @@ export function ComposerCatalogControls({
   disabled = false,
   initialTab = 'connectors',
   onAttach,
+  onClosePanel,
   onOpenPanel,
 }: Props) {
   const capabilities = useServerCapabilities();
@@ -328,6 +330,7 @@ export function ComposerCatalogControls({
           disabled={!onAttach}
           onClick={() => {
             setTab('attachment');
+            onClosePanel?.();
             onAttach?.();
           }}
         >

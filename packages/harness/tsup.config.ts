@@ -9,7 +9,10 @@ export default defineConfig({
   // specifiers per format ('./foo' -> './foo.mjs' / './foo.js'). It requires
   // bundle mode, but with every file as an entry nothing actually inlines.
   bundle: true,
-  esbuildPlugins: [esbuildPluginFilePathExtensions({ esmExtension: 'js', cjsExtension: 'cjs' })],
+  esbuildPlugins: [esbuildPluginFilePathExtensions({ esmExtension: 'mjs', cjsExtension: 'js' })],
+  outExtension({ format }) {
+    return { js: format === 'cjs' ? '.js' : '.mjs' };
+  },
   dts: false,
   splitting: false,
   // TODO(oss): revisit sourcemaps at the public release — with sourcesContent

@@ -6,30 +6,42 @@
   "license": "UNLICENSED",
   "private": false,
   "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "development": "./src/index.ts",
+      "development": {
+        "types": "./src/index.ts",
+        "default": "./src/index.ts"
+      },
       "types": "./dist/index.d.ts",
       "require": "./dist/index.cjs",
       "default": "./dist/index.js"
     },
     "./core": {
-      "development": "./src/core/index.ts",
+      "development": {
+        "types": "./src/core/index.ts",
+        "default": "./src/core/index.ts"
+      },
       "types": "./dist/core/index.d.ts",
       "require": "./dist/core/index.cjs",
       "default": "./dist/core/index.js"
     },
     "./agent-session": {
-      "development": "./src/agent-session/index.ts",
+      "development": {
+        "types": "./src/agent-session/index.ts",
+        "default": "./src/agent-session/index.ts"
+      },
       "types": "./dist/agent-session/index.d.ts",
       "require": "./dist/agent-session/index.cjs",
       "default": "./dist/agent-session/index.js"
     },
     "./request-reply": {
-      "development": "./src/request-reply/index.ts",
+      "development": {
+        "types": "./src/request-reply/index.ts",
+        "default": "./src/request-reply/index.ts"
+      },
       "types": "./dist/request-reply/index.d.ts",
       "require": "./dist/request-reply/index.cjs",
       "default": "./dist/request-reply/index.js"
@@ -43,6 +55,10 @@
       "default": "./dist/*.cjs"
     },
     "./*": {
+      "development": {
+        "types": "./src/*.ts",
+        "default": "./src/*.ts"
+      },
       "types": "./dist/*.d.ts",
       "require": "./dist/*.cjs",
       "default": "./dist/*.js"
