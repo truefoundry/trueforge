@@ -1,6 +1,6 @@
 import { SqliteModelProviderStore } from '../../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { createSqliteTestDatabase, type SqliteTestDatabase } from '../../sqlite/testDatabase';
 import { runModelProviderStoreContractSuite } from '../contractSuite';
-import { createSqliteTestDatabase, type SqliteTestDatabase } from './helpers';
 
 describe('SqliteModelProviderStore (IModelProviderStore contract)', () => {
   let env: SqliteTestDatabase;

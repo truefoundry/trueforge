@@ -8,9 +8,9 @@ import path from 'node:path';
 
 import type { Kysely } from 'kysely';
 
-import { migrateSqliteToLatest } from '../../../../src/db/migrateSqlite';
-import { createSqliteDb } from '../../../../src/db/sqlite/client';
-import type { Database } from '../../../../src/db/sqlite/types';
+import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { createSqliteDb } from '../../../src/db/sqlite/client';
+import type { Database } from '../../../src/db/sqlite/types';
 
 export interface SqliteTestDatabase {
   db: Kysely<Database>;
