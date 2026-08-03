@@ -86,6 +86,8 @@ export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandbo
         existingSandboxId,
         fileDownloadEnabled: spec.config?.sandbox?.file_downloads ?? false,
         blockDestructiveToolsInCodeMode: true,
+        natsRequestTimeoutSeconds: configuration.SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS,
+        execTimeoutSeconds: configuration.SANDBOX_EXEC_TIMEOUT_SECONDS,
         // Sandbox reads its tenant from TFY_TENANT_NAME (see Sandbox constructor)
         // for the ownership check against provider-created sandbox ids
         // (`<tenant>.<uuid>`). Must match the tenantName given to the provider.

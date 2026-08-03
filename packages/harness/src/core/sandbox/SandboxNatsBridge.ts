@@ -13,7 +13,6 @@ import {
   type IToolSet,
   type ListToolsResolvedResponse,
 } from '../mcp/IMCPServer';
-import { CONNECT_TIMEOUT_MS, REQUEST_TIMEOUT_MS } from '../mcp/remoteMcpClient';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import { withTimeout } from '../util/promiseUtils';
 
@@ -26,9 +25,6 @@ const NATS_CONNECT_RETRIES = 3;
 const NATS_CONNECT_BACKOFF_MS = 250;
 // Bound on the graceful drain at teardown; on timeout we fall back to nc.close()
 const NATS_DRAIN_TIMEOUT_MS = 5_000;
-
-/** Longer than one MCP call and connect. */
-export const SANDBOX_BRIDGE_REQUEST_TIMEOUT_MS = REQUEST_TIMEOUT_MS + CONNECT_TIMEOUT_MS;
 
 const SANDBOX_NATS_SUBJECT_ROOT = 'sandbox.bridge';
 // Single request/reply subject leaf; the operation is carried in the payload's `op` field so the

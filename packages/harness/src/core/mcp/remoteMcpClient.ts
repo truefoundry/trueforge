@@ -29,12 +29,11 @@ type McpTransport = StreamableHTTPClientTransport | SSEClientTransport;
 const CLIENT_INFO = { name: 'tfy-agent-mcp-client', version: '1.0.0' } as const;
 const TRANSPORT_PROBE_ORDER: RemoteMcpTransportType[] = ['streamable-http', 'sse'];
 
-/** Max time for one MCP call. */
-export const REQUEST_TIMEOUT_MS = 300_000;
-export const CONNECT_TIMEOUT_MS = 30_000;
+export const DEFAULT_REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
+export const DEFAULT_CONNECT_TIMEOUT_MS = 30 * 1000;
 
 class McpClientWithTimeout extends Client {
-  constructor() {
+  constructor(private readonly requestTimeoutMs: number) {
     super(CLIENT_INFO, { capabilities: {} });
   }
 
@@ -42,7 +41,7 @@ class McpClientWithTimeout extends Client {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MCP SDK request typing
   override request(req: any, schema: any, options?: any): Promise<any> {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- MCP SDK request typing
-    return super.request(req, schema, { ...options, timeout: REQUEST_TIMEOUT_MS });
+    return super.request(req, schema, { ...options, timeout: this.requestTimeoutMs });
   }
 }
 
@@ -135,6 +134,7 @@ export async function connectRemoteMcp(params: {
   headers: Record<string, string>;
   sessionId?: string | undefined;
   knownTransportType?: RemoteMcpTransportType | undefined;
+  requestTimeoutMs?: number | undefined;
   connectTimeoutMs?: number | undefined;
   signal: AbortSignal;
   onClose?: (() => void) | undefined;
@@ -149,14 +149,14 @@ export async function connectRemoteMcp(params: {
 
   for (const transportType of candidates) {
     const transport = createTransport(transportType, url, params.headers, params.sessionId);
-    const client = new McpClientWithTimeout();
+    const client = new McpClientWithTimeout(params.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS);
     try {
       stampTraceHeaders(params.headers);
       await withTimeout(
         // Concrete transports use sessionId: string|undefined; Transport uses an optional
         // property — exactOptionalPropertyTypes rejects assignability without this cast.
         client.connect(transport as Parameters<Client['connect']>[0], requestOptions),
-        params.connectTimeoutMs ?? CONNECT_TIMEOUT_MS,
+        params.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
         transportType,
       );
     } catch (error) {

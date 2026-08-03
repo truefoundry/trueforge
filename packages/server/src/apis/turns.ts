@@ -78,6 +78,8 @@ function createTurnResolver(deps: {
       }
       return Promise.resolve({ url: entry.url, headers: mcpStore.getHeaders(name) });
     },
+    mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
+    mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
     ...(deps.sandboxFactory ? { sandboxProvider: deps.sandboxFactory } : {}),
     logger,
   });

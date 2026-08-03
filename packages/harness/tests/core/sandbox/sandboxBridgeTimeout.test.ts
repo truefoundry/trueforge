@@ -6,21 +6,19 @@ jest.mock('../../../src/core/sandbox/SandboxNatsBridge', () => {
   };
 });
 
-import { REQUEST_TIMEOUT_MS } from '../../../src/core/mcp/remoteMcpClient';
 import type { ExecResult, SandboxExecParams, SandboxProvider } from '../../../src/core/sandbox/provider/Provider';
-import {
-  Sandbox,
-  SANDBOX_BRIDGE_EXEC_TIMEOUT_SECONDS,
-  SANDBOX_EXEC_TOOL_NAME,
-} from '../../../src/core/sandbox/Sandbox';
-import { SANDBOX_BRIDGE_REQUEST_TIMEOUT_MS, SandboxNatsBridge } from '../../../src/core/sandbox/SandboxNatsBridge';
+import { Sandbox, SANDBOX_EXEC_TOOL_NAME } from '../../../src/core/sandbox/Sandbox';
+import { SandboxNatsBridge } from '../../../src/core/sandbox/SandboxNatsBridge';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
 import { makeMockIMCPServer, makeSilentLogger } from '../harnessMocks';
 
 const mockBridgeConnect = SandboxNatsBridge.connect as jest.Mock;
 const AGENT_COMMAND = 'echo hello';
 
-function makeSandbox(): { sandbox: Sandbox; execCalls: SandboxExecParams[] } {
+function makeSandbox(options?: { natsRequestTimeoutSeconds?: number; execTimeoutSeconds?: number }): {
+  sandbox: Sandbox;
+  execCalls: SandboxExecParams[];
+} {
   const execCalls: SandboxExecParams[] = [];
   const provider: SandboxProvider = {
     createSandbox: () => Promise.resolve({ sandboxId: 'test-tenant.sandbox-1' }),
@@ -39,6 +37,7 @@ function makeSandbox(): { sandbox: Sandbox; execCalls: SandboxExecParams[] } {
     sandbox: new Sandbox({
       provider,
       blockDestructiveToolsInCodeMode: true,
+      ...options,
       execExtraEnv: { TFY_TENANT_NAME: 'test-tenant' },
       logger: makeSilentLogger(),
       tracing: NOOP_AGENT_TRACING,
@@ -57,7 +56,7 @@ async function execAgentCommand(sandbox: Sandbox, execCalls: SandboxExecParams[]
   return call;
 }
 
-describe('Code Mode timeout chain', () => {
+describe('Code Mode timeouts', () => {
   beforeEach(() => {
     mockBridgeConnect.mockReset();
     mockBridgeConnect.mockResolvedValue({
@@ -67,28 +66,25 @@ describe('Code Mode timeout chain', () => {
     });
   });
 
-  it('keeps each outer timeout longer than the work it wraps', () => {
-    expect(REQUEST_TIMEOUT_MS).toBe(300_000);
-    expect(SANDBOX_BRIDGE_REQUEST_TIMEOUT_MS).toBe(330_000);
-    expect(SANDBOX_BRIDGE_EXEC_TIMEOUT_SECONDS).toBe(360);
-  });
-
-  it('uses the derived bridge and exec timeouts when MCP is available', async () => {
-    const { sandbox, execCalls } = makeSandbox();
+  it('uses independently configured NATS and exec timeouts when MCP is available', async () => {
+    const { sandbox, execCalls } = makeSandbox({
+      natsRequestTimeoutSeconds: 120,
+      execTimeoutSeconds: 900,
+    });
     sandbox.configureCodeMode([makeMockIMCPServer({ name: 'github', preload: true })]);
 
     const call = await execAgentCommand(sandbox, execCalls);
 
-    expect(call.env?.['TFY_NATS_REQUEST_TIMEOUT_SECONDS']).toBe('330');
-    expect(call.timeoutSeconds).toBe(360);
+    expect(call.env?.['TFY_NATS_REQUEST_TIMEOUT_SECONDS']).toBe('120');
+    expect(call.timeoutSeconds).toBe(900);
   });
 
-  it('keeps the provider default when MCP is unavailable', async () => {
-    const { sandbox, execCalls } = makeSandbox();
+  it('uses the configured exec timeout when MCP is unavailable', async () => {
+    const { sandbox, execCalls } = makeSandbox({ execTimeoutSeconds: 900 });
 
     const call = await execAgentCommand(sandbox, execCalls);
 
     expect(call.env?.['TFY_NATS_REQUEST_TIMEOUT_SECONDS']).toBeUndefined();
-    expect(call.timeoutSeconds).toBeUndefined();
+    expect(call.timeoutSeconds).toBe(900);
   });
 });

@@ -3,6 +3,7 @@ import { connectRemoteMcp } from '../../../src/core/mcp/remoteMcpClient';
 
 // Records every transport type client.connect() was attempted with, in order.
 const mockConnectAttempts: string[] = [];
+const mockRequestTimeouts: number[] = [];
 // Per-test hook: throw to fail a given transport, return to succeed.
 let mockConnectImpl: (type: string) => void = () => {
   /* no-op */
@@ -26,8 +27,12 @@ jest.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
     close(): Promise<void> {
       return Promise.resolve();
     }
-    listTools(): Promise<{ tools: [] }> {
+    request(_req: unknown, _schema: unknown, options?: { timeout?: number }): Promise<{ tools: [] }> {
+      if (options?.timeout !== undefined) mockRequestTimeouts.push(options.timeout);
       return Promise.resolve({ tools: [] });
+    }
+    listTools(_params?: unknown, options?: { timeout?: number }): Promise<{ tools: [] }> {
+      return this.request({}, {}, options);
     }
     callTool(): Promise<{ content: [] }> {
       return Promise.resolve({ content: [] });
@@ -62,6 +67,7 @@ const baseParams = () => ({
 describe('connectRemoteMcp transport selection', () => {
   beforeEach(() => {
     mockConnectAttempts.length = 0;
+    mockRequestTimeouts.length = 0;
     mockConnectImpl = () => {
       /* no-op */
     };
@@ -85,6 +91,14 @@ describe('connectRemoteMcp transport selection', () => {
 
     expect(conn.transportType).toBe('sse');
     expect(mockConnectAttempts).toEqual(['sse']);
+  });
+
+  it('uses the configured request timeout', async () => {
+    const conn = await connectRemoteMcp({ ...baseParams(), requestTimeoutMs: 1234 });
+
+    await conn.listTools();
+
+    expect(mockRequestTimeouts).toEqual([1234]);
   });
 
   it('probes in order when there is no hint', async () => {

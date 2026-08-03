@@ -18,7 +18,7 @@ import { extractErrorLogFields } from '../util/errorLogFields';
 import { SANDBOX_FILE_UPLOADS_DIR, SANDBOX_NATS_WS_PORT } from './constants';
 import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
 import { validateNoPathTraversal, validateSandboxOwnedByTenant } from './SandboxErrors';
-import { SANDBOX_BRIDGE_REQUEST_TIMEOUT_MS, SandboxNatsBridge } from './SandboxNatsBridge';
+import { SandboxNatsBridge } from './SandboxNatsBridge';
 import { sandboxScripts } from './sandboxScripts.gen';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
 import { SKILLS_DIR } from './skills/constants';
@@ -31,9 +31,8 @@ export interface SandboxInfo {
 // Downloader/setup scripts can run longer than a normal exec.
 export const SKILL_DOWNLOAD_TIMEOUT_SECONDS = 180;
 
-const EXEC_BRIDGE_SLACK_SECONDS = 30;
-export const SANDBOX_BRIDGE_EXEC_TIMEOUT_SECONDS =
-  Math.ceil(SANDBOX_BRIDGE_REQUEST_TIMEOUT_MS / 1000) + EXEC_BRIDGE_SLACK_SECONDS;
+export const DEFAULT_SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS = 5 * 60 + 30;
+export const DEFAULT_SANDBOX_EXEC_TIMEOUT_SECONDS = 6 * 60 + 30;
 
 // Write a script (base64-encoded, never interpolated raw) to a path and run it. Skill mounters reuse it.
 export function buildWriteAndRunScriptCommand(params: { scriptPath: string; scriptContent: string }): string {
@@ -90,6 +89,8 @@ export interface SandboxOptions {
    * instead. Must be `true` — approvals are always enabled (the kill switch is gone).
    */
   blockDestructiveToolsInCodeMode: true;
+  natsRequestTimeoutSeconds?: number | undefined;
+  execTimeoutSeconds?: number | undefined;
   execExtraEnv?: Readonly<Record<string, string>> | undefined;
   tracing: AgentTracing;
   logger: Logger;
@@ -140,6 +141,7 @@ function injectMCPClientEnv(params: {
   mcpServers: Record<string, SandboxMcpServerConfig>;
   execExtraEnv?: Readonly<Record<string, string>> | undefined;
   natsBridgeSubjectPrefix?: string | undefined;
+  natsRequestTimeoutSeconds: number;
 }): Record<string, string> {
   return {
     ...(params.execExtraEnv ?? {}),
@@ -151,7 +153,7 @@ function injectMCPClientEnv(params: {
     ...(params.natsBridgeSubjectPrefix && {
       TFY_NATS_URL: `ws://localhost:${String(SANDBOX_NATS_WS_PORT)}`,
       TFY_NATS_SUBJECT_PREFIX: params.natsBridgeSubjectPrefix,
-      TFY_NATS_REQUEST_TIMEOUT_SECONDS: String(SANDBOX_BRIDGE_REQUEST_TIMEOUT_MS / 1000),
+      TFY_NATS_REQUEST_TIMEOUT_SECONDS: String(params.natsRequestTimeoutSeconds),
       // W3C trace context captured per-exec so each NATS request carries the originating
       // Sandbox: exec span as parent. Without this, MCP spans dispatched via the bridge
       // inherit whatever ALS context the NATS callback runs under (stale, shared across execs).
@@ -202,6 +204,8 @@ export class Sandbox extends LocalToolMCP {
   private sandboxInitPromise?: Promise<void> | undefined;
   private codeExecToolSets: readonly IToolSet[] = [];
   private readonly fileDownloadEnabled: boolean;
+  private readonly natsRequestTimeoutSeconds: number;
+  private readonly execTimeoutSeconds: number;
   private readonly execExtraEnv?: Readonly<Record<string, string>> | undefined;
   private readonly skillMounter?: ISkillMounter | undefined;
   private cachedSkillsSection?: string | undefined;
@@ -227,6 +231,8 @@ export class Sandbox extends LocalToolMCP {
     this.tenantName = options.execExtraEnv?.['TFY_TENANT_NAME'] ?? '';
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
+    this.natsRequestTimeoutSeconds = options.natsRequestTimeoutSeconds ?? DEFAULT_SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS;
+    this.execTimeoutSeconds = options.execTimeoutSeconds ?? DEFAULT_SANDBOX_EXEC_TIMEOUT_SECONDS;
     this.execExtraEnv = options.execExtraEnv;
     // Scripts are internal to Sandbox: the upload paths, env contract, and prompt
     // text are all hardcoded here, so injecting different content was never a
@@ -477,6 +483,7 @@ export class Sandbox extends LocalToolMCP {
       mcpServers: this.buildMcpServersEnvelope(),
       execExtraEnv: this.execExtraEnv,
       natsBridgeSubjectPrefix: bridge?.subjectPrefix,
+      natsRequestTimeoutSeconds: this.natsRequestTimeoutSeconds,
     });
     const gitAuthEnv =
       this.resolvedGitCredentialsContent !== null
@@ -489,7 +496,7 @@ export class Sandbox extends LocalToolMCP {
       command: input.command,
       cwd: input.cwd,
       env,
-      ...(bridge && { timeoutSeconds: SANDBOX_BRIDGE_EXEC_TIMEOUT_SECONDS }),
+      timeoutSeconds: this.execTimeoutSeconds,
     });
 
     return {
