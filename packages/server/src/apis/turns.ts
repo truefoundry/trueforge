@@ -267,7 +267,20 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
           }
         }
       } catch (error) {
-        deps.logger.error('Unexpected error in turn SSE stream loop', extractErrorLogFields(error));
+        // Session delete can cascade mid-stream; store misses leave the DB clean but end SSE here.
+        if (error instanceof SessionStoreNotFoundError) {
+          deps.logger.warn('Turn stream ended after session/turn was removed', {
+            sessionId,
+            turnId: turn.id,
+            ...extractErrorLogFields(error),
+          });
+        } else {
+          deps.logger.error('Unexpected error in turn SSE stream loop', {
+            sessionId,
+            turnId: turn.id,
+            ...extractErrorLogFields(error),
+          });
+        }
       } finally {
         clearTimeout(maxExecutionTimer);
         await stream.close();

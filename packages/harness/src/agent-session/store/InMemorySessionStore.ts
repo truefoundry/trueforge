@@ -12,6 +12,7 @@ import type {
   AppendToThreadContextInput,
   CreateSessionInput,
   CreateTurnInput,
+  DeleteSessionInput,
   FreezeAndGetTurnInput,
   GetSessionInput,
   GetTurnInput,
@@ -174,6 +175,20 @@ export class InMemorySessionStore<
     };
     this.sessions.set(key, { record, turnIds: [] });
     return;
+  }
+
+  async deleteSession(input: DeleteSessionInput): Promise<void> {
+    const sKey = sessionKey(input.session_id);
+    const stored = this.sessions.get(sKey);
+    if (stored?.record.tenant_id !== input.tenant_id) {
+      return;
+    }
+    for (const turnId of stored.turnIds) {
+      const tKey = turnKey({ session_id: input.session_id, turn_id: turnId });
+      this.turns.delete(tKey);
+      this.events.delete(tKey);
+    }
+    this.sessions.delete(sKey);
   }
 
   async getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined> {
