@@ -1,6 +1,7 @@
 import type { SessionRecord } from '@truefoundry/utils/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
+  DeleteSessionInput,
   GetSessionInput,
   ListSessionsInput,
   UpdateSessionInput,
@@ -89,6 +90,14 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
     }
     throw error;
   }
+}
+
+export async function deleteSession(db: Kysely<Database>, input: DeleteSessionInput): Promise<void> {
+  await db
+    .deleteFrom('session')
+    .where('tenant_id', '=', input.tenant_id)
+    .where('session_id', '=', input.session_id)
+    .execute();
 }
 
 export async function getSession(

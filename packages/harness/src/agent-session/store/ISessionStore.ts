@@ -35,6 +35,11 @@ export interface GetSessionInput {
   session_id: string;
 }
 
+export interface DeleteSessionInput {
+  tenant_id: string;
+  session_id: string;
+}
+
 export interface ListSessionsInput {
   tenant_id: string;
   limit: number;
@@ -202,6 +207,9 @@ export interface ISessionStore<
    * Sets `last_activity_timestamp_ms` (= now) on create.
    */
   createSession(input: CreateSessionInput<TSessionCustom>): Promise<void>;
+
+  /** Permanently removes a session and all related data; missing sessions are a no-op. */
+  deleteSession(input: DeleteSessionInput): Promise<void>;
 
   /**
    * MUST return SessionRecord with `agent_spec` fully hydrated, even if the backend
