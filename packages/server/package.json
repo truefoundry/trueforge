@@ -15,7 +15,8 @@
     "openapi:write": "NODE_OPTIONS='--conditions=development' tsx --env-file=.env.test scripts/write-openapi.ts",
     "test": "NODE_OPTIONS='--conditions=development' tsx --env-file=.env.test --test \"src/**/*.test.ts\"",
     "test:store:postgres": "jest --config jest.store.postgres.config.cjs",
-    "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs"
+    "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs",
+    "test:eventsub": "jest --config jest.eventsub.config.cjs"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.11",
