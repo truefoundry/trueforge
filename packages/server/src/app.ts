@@ -12,11 +12,14 @@ import { createLegacyMcpRouter } from './apis/legacyMcp';
 import { createLegacyMcpOAuthRouter } from './apis/legacyMcpOAuth';
 import { createLegacyModelsRouter } from './apis/legacyModels';
 import { createLegacySkillsRouter } from './apis/legacySkills';
+import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createTurnsRouter } from './apis/turns';
+import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
+import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { McpStore } from './legacy-registry-store/McpStore';
 import type { ModelStore } from './legacy-registry-store/ModelStore';
@@ -45,6 +48,8 @@ export interface ServerDeps {
   modelStore: ModelStore;
   modelCatalog: ModelCatalog;
   modelProviderStore: IModelProviderStore;
+  mcpCatalog: McpCatalog;
+  mcpServerStore: IMcpServerStore;
   mcpStore: McpStore;
   skillStore: SkillStore;
   sessionStore: ISessionStore;
@@ -70,7 +75,15 @@ export function createServerApp(deps: ServerDeps) {
     '/api/v1/settings',
     createSettingsRouter({ modelCatalog: deps.modelCatalog, modelProviderStore: deps.modelProviderStore }),
   );
-  // YAML registry surfaces — non-legacy paths reserved for future DB-backed CRUD.
+  app.route(
+    '/api/v1/mcp-servers',
+    createMcpServersRouter({
+      mcpCatalog: deps.mcpCatalog,
+      mcpServerStore: deps.mcpServerStore,
+      logger: deps.logger,
+    }),
+  );
+  // YAML registry surfaces — still used by sessions/turns and the legacy UI paths.
   app.route('/api/v1/legacy/models', createLegacyModelsRouter(deps.modelStore));
   app.route('/api/v1/legacy/mcp-servers', createLegacyMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
   app.route('/api/v1/legacy/mcp-servers/oauth', createLegacyMcpOAuthRouter({ logger: deps.logger }));

@@ -26,6 +26,8 @@ try {
     { PostgresSessionStore },
     { ModelCatalog },
     { PostgresModelProviderStore },
+    { McpCatalog },
+    { PostgresMcpServerStore },
   ] = await Promise.all([
     import('./app'),
     import('./frontend'),
@@ -43,6 +45,8 @@ try {
     import('./db/postgres/session-store/PostgresSessionStore'),
     import('./catalog/ModelCatalog'),
     import('./db/postgres/model-provider-store/PostgresModelProviderStore'),
+    import('./catalog/McpCatalog'),
+    import('./db/postgres/mcp-server-store/PostgresMcpServerStore'),
   ]);
 
   // Console logger shared by the server runtime (harness components require one).
@@ -74,6 +78,8 @@ try {
     modelStore: ModelStore.load(),
     modelCatalog: ModelCatalog.load(),
     modelProviderStore: new PostgresModelProviderStore(db),
+    mcpCatalog: McpCatalog.load(),
+    mcpServerStore: new PostgresMcpServerStore(db),
     mcpStore: McpStore.load(),
     skillStore,
     sessionStore,
