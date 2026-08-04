@@ -6,12 +6,12 @@ import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { ListSessionEventsRequestQuerySchema, ListSessionEventsResponseSchema } from '../schemas/events';
 import {
-  CreateSessionRequestSchema,
-  GetSessionResponseSchema,
-  ListSessionsRequestQuerySchema,
-  ListSessionsResponseSchema,
-  UpdateSessionRequestSchema,
-} from '../schemas/session';
+  GetLegacySessionResponseSchema,
+  LegacyCreateSessionRequestSchema,
+  LegacyUpdateSessionRequestSchema,
+  ListLegacySessionsResponseSchema,
+} from '../schemas/legacySession';
+import { ListSessionsRequestQuerySchema } from '../schemas/session';
 import { CancelSessionRequestSchema, CancelSessionResponseSchema } from '../schemas/turn';
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { SessionIdParamsSchema } from './sessionRoutes';
@@ -28,13 +28,13 @@ export const legacyCreateSessionRoute = createRoute({
   'x-fern-sdk-method-name': 'create',
   request: {
     body: {
-      content: { 'application/json': { schema: CreateSessionRequestSchema } },
+      content: { 'application/json': { schema: LegacyCreateSessionRequestSchema } },
       required: true,
     },
   },
   responses: {
     201: {
-      content: { 'application/json': { schema: GetSessionResponseSchema } },
+      content: { 'application/json': { schema: GetLegacySessionResponseSchema } },
       description: 'Session created.',
     },
     400: {
@@ -62,7 +62,7 @@ export const legacyGetSessionRoute = createRoute({
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: GetSessionResponseSchema } },
+      content: { 'application/json': { schema: GetLegacySessionResponseSchema } },
       description: 'Session data.',
     },
     404: {
@@ -101,13 +101,13 @@ export const legacyUpdateSessionRoute = createRoute({
   request: {
     params: SessionIdParamsSchema,
     body: {
-      content: { 'application/json': { schema: UpdateSessionRequestSchema } },
+      content: { 'application/json': { schema: LegacyUpdateSessionRequestSchema } },
       required: true,
     },
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: GetSessionResponseSchema } },
+      content: { 'application/json': { schema: GetLegacySessionResponseSchema } },
       description: 'Session updated.',
     },
     400: {
@@ -141,7 +141,7 @@ export const legacyListSessionsRoute = createRoute({
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: ListSessionsResponseSchema } },
+      content: { 'application/json': { schema: ListLegacySessionsResponseSchema } },
       description: 'Paginated sessions.',
     },
     400: {

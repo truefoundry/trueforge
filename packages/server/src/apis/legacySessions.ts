@@ -2,7 +2,7 @@
  * YAML-backed sessions API (mounted at /api/v1/legacy/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { AgentSpec, ISessionStore, Sessions } from '@truefoundry/utils/agent-session';
+import type { ISessionStore, LegacyAgentSpec, Sessions } from '@truefoundry/utils/agent-session';
 import { SessionStoreConflictError, SessionStoreNotFoundError } from '@truefoundry/utils/agent-session';
 import type { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import type { RedisClientType } from 'redis';
@@ -42,11 +42,11 @@ export interface LegacySessionsRouterDeps {
 }
 
 /**
- * Cross-checks an AgentSpec against the YAML catalogs and the server's
+ * Cross-checks a LegacyAgentSpec against the YAML catalogs and the server's
  * capabilities before a session is created or updated.
  */
 function validateAgentSpecLegacy(
-  spec: AgentSpec,
+  spec: LegacyAgentSpec,
   deps: { modelStore: ModelStore; mcpStore: McpStore; sandboxSupported: boolean },
 ): { status: 400 | 422; message: string } | undefined {
   const model = deps.modelStore.get(spec.model.name);
