@@ -13,7 +13,7 @@ import {
   ListTurnEventsResponseSchema,
   ListTurnsRequestQuerySchema,
   ListTurnsResponseSchema,
-  SubscribeTurnRequestSchema,
+  SubscribeTurnQuerySchema,
 } from '../schemas/turn';
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { SessionIdParamsSchema } from './sessionRoutes';
@@ -147,7 +147,7 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
 });
 
 export const subscribeTurnRoute = createRoute({
-  method: 'post',
+  method: 'get',
   path: '/{sessionId}/turns/{turnId}/subscribe',
   tags: [SESSIONS_TAG],
   summary: 'Subscribe to a running turn',
@@ -158,10 +158,7 @@ export const subscribeTurnRoute = createRoute({
   'x-fern-streaming': { format: 'sse', resumable: true },
   request: {
     params: TurnIdParamsSchema,
-    body: {
-      content: { 'application/json': { schema: SubscribeTurnRequestSchema } },
-      required: true,
-    },
+    query: SubscribeTurnQuerySchema,
   },
   responses: {
     200: {

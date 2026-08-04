@@ -340,8 +340,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
   const subscribeTurnHandler: RouteHandler<typeof subscribeTurnRoute> = async c => {
     const { sessionId, turnId } = c.req.valid('param');
-    const body = c.req.valid('json');
-    const afterSequenceNumber = resolveAfterSequenceNumber(c, body.after_sequence_number);
+    const query = c.req.valid('query');
+    const afterSequenceNumber = resolveAfterSequenceNumber(c, query.after_sequence_number);
 
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!session) {
