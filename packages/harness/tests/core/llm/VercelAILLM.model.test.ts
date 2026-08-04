@@ -21,8 +21,8 @@ function makeConfig(
 // ─────────── buildLanguageModel ───────────
 
 describe('buildLanguageModel', () => {
-  it('throws for generic provider without base_url', () => {
-    const config = makeConfig({ provider: 'generic' });
+  it('throws for custom provider without base_url', () => {
+    const config = makeConfig({ provider: 'custom' });
     expect(() => buildLanguageModel(config)).toThrow('base_url');
   });
 
@@ -46,14 +46,14 @@ describe('buildLanguageModel', () => {
     expect(model).toBeDefined();
   });
 
-  it('constructs generic model without throwing when base_url is provided', () => {
-    const model = buildLanguageModel(makeConfig({ provider: 'generic', base_url: 'http://localhost:11434/v1' }));
+  it('constructs custom model without throwing when base_url is provided', () => {
+    const model = buildLanguageModel(makeConfig({ provider: 'custom', base_url: 'http://localhost:11434/v1' }));
     expect(model).toBeDefined();
   });
 
-  it('sets supportsStructuredOutputs:true on the generic model instance', () => {
+  it('sets supportsStructuredOutputs:true on the custom model instance', () => {
     const model: unknown = buildLanguageModel(
-      makeConfig({ provider: 'generic', base_url: 'http://localhost:11434/v1' }),
+      makeConfig({ provider: 'custom', base_url: 'http://localhost:11434/v1' }),
     );
     if (typeof model !== 'object' || model === null) throw new Error('Expected model to be an object');
     expect(Reflect.get(model, 'supportsStructuredOutputs')).toBe(true);

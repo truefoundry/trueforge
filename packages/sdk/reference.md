@@ -1838,7 +1838,6 @@ await client.settings.modelProviders.upsert({
     auth: {
         apiKey: "api_key"
     },
-    baseUrl: "base_url",
     models: [{
             modelId: "model_id",
             name: "name",
@@ -1848,7 +1847,7 @@ await client.settings.modelProviders.upsert({
             }
         }],
     name: "name",
-    type: "openai"
+    type: "anthropic"
 });
 
 ```

@@ -3,11 +3,11 @@
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import type { IModelProviderStore } from '../../src/db/modelProviderStore';
-import type { ProviderManifest } from '../../src/schemas/modelProvider';
+import type { ModelProviderManifest } from '../../src/schemas/modelProvider';
 
 const TENANT = 'default';
 
-function manifest(overrides: Partial<ProviderManifest> = {}): ProviderManifest {
+function manifest(overrides: Partial<ModelProviderManifest> = {}): ModelProviderManifest {
   return {
     type: 'anthropic',
     base_url: 'https://api.anthropic.com/v1',

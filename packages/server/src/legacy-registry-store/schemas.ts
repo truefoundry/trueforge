@@ -90,25 +90,25 @@ const GoogleGeminiProviderEntrySchema = ModelEntryBaseSchema.extend({
   .openapi('GoogleGeminiProviderModelEntry');
 
 /**
- * Generic OpenAI-compatible provider. Requires an explicit `base_url` since
+ * Custom OpenAI-compatible provider. Requires an explicit `base_url` since
  * there is no canonical endpoint.
  */
-const GenericProviderEntrySchema = ModelEntryBaseSchema.extend({
-  provider: z.literal('generic'),
+const CustomProviderEntrySchema = ModelEntryBaseSchema.extend({
+  provider: z.literal('custom'),
   /** Deployment-specific base URL — required. */
   base_url: z.string().url(),
   /** API format used by this endpoint. Only option today; defaults when absent. */
   api_format: z.literal('openai-chat-completions').optional(),
 })
   .strict()
-  .openapi('GenericProviderModelEntry');
+  .openapi('CustomProviderModelEntry');
 
 export const ModelEntrySchema = z
   .discriminatedUnion('provider', [
     OpenAIProviderEntrySchema,
     AnthropicProviderEntrySchema,
     GoogleGeminiProviderEntrySchema,
-    GenericProviderEntrySchema,
+    CustomProviderEntrySchema,
   ])
   .openapi('ModelEntry');
 
