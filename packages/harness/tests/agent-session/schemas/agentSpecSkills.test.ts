@@ -45,7 +45,15 @@ describe('AgentSpecSchema skills (git mounts)', () => {
         },
       ],
     });
-    expect(spec.skills?.[0]?.ref).toBe(sha);
+    expect(spec.skills?.[0]).toMatchObject({ ref: sha });
+  });
+
+  it('accepts a name-only skill ref', () => {
+    const spec = AgentSpecSchema.parse({
+      ...base,
+      skills: [{ name: 'pr-review' }],
+    });
+    expect(spec.skills).toEqual([{ name: 'pr-review' }]);
   });
 
   it('rejects the legacy name/preload skill shape', () => {

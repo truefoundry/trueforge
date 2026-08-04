@@ -13,6 +13,7 @@ import path from 'node:path';
 // ============================================================================
 
 /** YAML files the stores load from `REGISTRY_DIR` at startup. */
+// TODO(AGE-1547): remove CONFIG_FILES / REGISTRY_DIR YAML registry once /api/v1/legacy/* is gone.
 export const CONFIG_FILES = {
   models: 'models.yaml',
   mcpServers: 'mcp.yaml',

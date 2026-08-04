@@ -61,8 +61,11 @@ export interface ServerDeps {
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
-  /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
+  // TODO(AGE-1547): after legacy removal, keep a single sandboxFactory (DB skill expand) and drop dbSandboxFactory.
+  /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. Legacy YAML mounts. */
   sandboxFactory?: TurnSandboxFactory;
+  /** Same provider as sandboxFactory, but expands skills from ISkillStore by name. */
+  dbSandboxFactory?: TurnSandboxFactory;
   /** Primary Redis client (server-owned); undefined in single-binary mode. */
   redis?: RedisClientType | undefined;
   /** Request-reply dispatch table served by this replica's executor. */
@@ -112,7 +115,8 @@ export function createServerApp(deps: ServerDeps) {
       activeTurns: deps.activeTurns,
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
-      ...(deps.sandboxFactory ? { sandboxFactory: deps.sandboxFactory } : {}),
+      // TODO(AGE-1547): use sandboxFactory only (DB expand); drop dbSandboxFactory indirection.
+      ...(deps.dbSandboxFactory ? { sandboxFactory: deps.dbSandboxFactory } : {}),
       logger: deps.logger,
     }),
   );

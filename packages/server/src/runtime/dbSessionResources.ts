@@ -1,13 +1,16 @@
 /**
- * DB-backed model/MCP resolution for /api/v1/sessions admit and turns.
+ * DB-backed model/MCP/skill resolution for /api/v1/sessions admit and turns.
  * #2 agents can reuse these helpers after expanding agent_id → agent_spec.
  */
 import type { AgentSpec } from '@truefoundry/utils/agent-session';
-import type { VercelAIProviderConfig } from '@truefoundry/utils/core';
+import type { GitSkill, VercelAIProviderConfig } from '@truefoundry/utils/core';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
+
+/** Default git ref when a configured skill omits `ref` (matches FE catalog mounts). */
+const DEFAULT_SKILL_REF = 'HEAD';
 
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
 export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
@@ -80,9 +83,40 @@ export async function getDbMcpConnection({
 }
 
 /**
+ * Expand agent_spec skill names into git mounts from the skill store.
+ * Wire url/path/ref/description on the request are ignored — the DB row wins.
+ * Throws if any name is not registered.
+ */
+export async function resolveDbGitSkills({
+  tenant_id,
+  skills,
+  store,
+}: {
+  tenant_id: string;
+  skills: readonly { name: string }[];
+  store: ISkillStore;
+}): Promise<GitSkill[]> {
+  const resolved: GitSkill[] = [];
+  for (const skill of skills) {
+    const record = await store.getSkill({ tenant_id, name: skill.name });
+    if (record === undefined) {
+      throw new Error(`Skill not registered: ${skill.name}`);
+    }
+    resolved.push({
+      name: record.manifest.name,
+      description: record.manifest.description,
+      url: record.manifest.url,
+      path: record.manifest.path ?? '',
+      ref: record.manifest.ref ?? DEFAULT_SKILL_REF,
+    });
+  }
+  return resolved;
+}
+
+/**
  * Cross-checks an AgentSpec against DB-configured models / MCP / skills and
  * sandbox capability. Same statuses as the YAML validator: 400 unknown refs,
- * 422 missing sandbox.
+ * 422 missing sandbox. Skills are admitted by name only; mounts expand at turn time.
  */
 export async function validateAgentSpecDb({
   spec,
@@ -138,12 +172,6 @@ export async function validateAgentSpecDb({
     const record = await skillStore.getSkill({ tenant_id, name: skill.name });
     if (record === undefined) {
       return { status: 400, message: `Unknown skill "${skill.name}" — not configured` };
-    }
-    if (record.manifest.url !== skill.url) {
-      return {
-        status: 400,
-        message: `Skill "${skill.name}" url does not match the configured skill`,
-      };
     }
   }
 

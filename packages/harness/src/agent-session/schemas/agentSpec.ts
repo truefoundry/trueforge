@@ -201,6 +201,9 @@ export const RuntimeConfigSchema = z
 // --- Skills ---
 // Git mounts mirror the gateway SkillMountGitSchema. The sandbox git_downloader
 // resolves `ref` (branch/tag/SHA) to an object id before sparse-cloning.
+// Name-only refs are for DB-backed sessions: the server expands url/path/ref
+// from ISkillStore. Legacy YAML sessions still send full SkillMount objects.
+// TODO(AGE-1547): drop SkillMountSchema from agent_spec.skills; keep name-only refs (SkillNameRef).
 
 // GitHub is exactly owner/repo; GitLab allows subgroups (group[/subgroup...]/project, ≥2 segments).
 const GIT_URL_REGEX =
@@ -209,6 +212,16 @@ const GIT_REF_REGEX = /^[A-Za-z0-9._\-/]+$/;
 const SKILL_NAME_REGEX = /^[A-Za-z0-9._-]+$/;
 const SKILL_PATH_REGEX = /^[A-Za-z0-9._\-/]+$/;
 const hasParentTraversal = (value: string): boolean => value.split('/').includes('..');
+
+const SkillNameFieldSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(SKILL_NAME_REGEX, 'Name may only contain letters, numbers, ".", "_", and "-"')
+  .refine(v => v !== '.' && v !== '..', 'Name must not be "." or ".."')
+  .refine(v => !v.startsWith('.tfy-'), 'Name must not use the reserved ".tfy-" prefix')
+  .describe('Name for the skill, used as directory name in sandbox.');
 
 const SkillMountSchema = z
   .object({
@@ -230,15 +243,7 @@ const SkillMountSchema = z
       .refine(v => v.replace(/^\/+|\/+$/g, '').length > 0, 'Path must reference a subdirectory, not only slashes')
       .optional()
       .describe('Path to the skill directory within the repository. Omit to use the repository root.'),
-    name: z
-      .string()
-      .trim()
-      .min(1)
-      .max(64)
-      .regex(SKILL_NAME_REGEX, 'Name may only contain letters, numbers, ".", "_", and "-"')
-      .refine(v => v !== '.' && v !== '..', 'Name must not be "." or ".."')
-      .refine(v => !v.startsWith('.tfy-'), 'Name must not use the reserved ".tfy-" prefix')
-      .describe('Name for the skill, used as directory name in sandbox.'),
+    name: SkillNameFieldSchema,
     description: z.string().trim().min(1).describe('Concise guidance for when the agent should use the skill.'),
     ref: z
       .string()
@@ -250,6 +255,16 @@ const SkillMountSchema = z
       .describe('Git ref — branch name, tag, or commit SHA.'),
   })
   .openapi('SkillMount');
+
+/** Name-only skill selection; DB sessions expand mount fields from the skill store. */
+const SkillNameRefSchema = z
+  .object({
+    name: SkillNameFieldSchema,
+  })
+  .strict()
+  .openapi('SkillNameRef');
+
+const AgentSkillSchema = z.union([SkillMountSchema, SkillNameRefSchema]).openapi('AgentSkill');
 
 // --- Response format / messages ---
 
@@ -272,7 +287,7 @@ export const AgentSpecSchema = z
     messages: z.array(AgentSpecUserMessageSchema).optional(),
     mcp_servers: z.array(MCPServerRequestSchema).optional(),
     response_format: ResponseFormatSchema.optional(),
-    skills: z.array(SkillMountSchema).optional(),
+    skills: z.array(AgentSkillSchema).optional(),
     config: RuntimeConfigSchema.optional(),
     variables: z.record(z.string(), z.string()).optional(),
   })
@@ -281,3 +296,5 @@ export const AgentSpecSchema = z
 
 export type AgentSpec = z.infer<typeof AgentSpecSchema>;
 export type SkillMount = z.infer<typeof SkillMountSchema>;
+export type SkillNameRef = z.infer<typeof SkillNameRefSchema>;
+export type AgentSkill = z.infer<typeof AgentSkillSchema>;

@@ -20,7 +20,7 @@ try {
     { SkillStore },
     { Sessions, CancellationReason },
     { ActiveTurnRegistry },
-    { createServerSandboxFactory },
+    { createServerSandboxFactories },
     { connectRedis },
     { RequestReplyExecutor, RequestReplyRouter },
     { PostgresSessionStore },
@@ -71,7 +71,8 @@ try {
   const sessionStore = new PostgresSessionStore(db);
   // Throws on malformed SANDBOX_SETTINGS; undefined when sandbox is not configured.
   const legacySkillStore = SkillStore.load();
-  const sandboxFactory = createServerSandboxFactory({ logger });
+  const skillStore = new PostgresSkillStore(db);
+  const sandboxFactories = createServerSandboxFactories({ logger, skillStore });
   const activeTurns = new ActiveTurnRegistry();
 
   let redis: RedisClientType | undefined;
@@ -92,12 +93,15 @@ try {
     mcpServerStore: new PostgresMcpServerStore(db),
     mcpStore: McpStore.load(),
     skillCatalog: SkillCatalog.load(),
-    skillStore: new PostgresSkillStore(db),
+    skillStore,
     legacySkillStore,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,
-    ...(sandboxFactory ? { sandboxFactory } : {}),
+    // TODO(AGE-1547): pass a single DB skill-expanding sandboxFactory; drop the dual-factory split.
+    ...(sandboxFactories
+      ? { sandboxFactory: sandboxFactories.sandboxFactory, dbSandboxFactory: sandboxFactories.dbSandboxFactory }
+      : {}),
     redis,
     requestReplyRouter,
     logger,

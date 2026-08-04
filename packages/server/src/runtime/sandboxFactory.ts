@@ -8,12 +8,20 @@
  * Called from main.ts so a malformed SANDBOX_SETTINGS aborts startup instead
  * of failing mid-turn.
  */
-import type { TurnSandboxFactory } from '@truefoundry/utils/agent-session';
-import { createSandboxProvider, Sandbox, SandboxProviderSettingsSchema, SkillMounter } from '@truefoundry/utils/core';
+import type { SkillMount, TurnSandboxFactory } from '@truefoundry/utils/agent-session';
+import {
+  createSandboxProvider,
+  Sandbox,
+  SandboxProviderSettingsSchema,
+  SkillMounter,
+  type SandboxProvider,
+} from '@truefoundry/utils/core';
 import type { Logger } from 'winston';
 import { ZodError } from 'zod';
 import { TENANT_ID } from '../apis/sessions';
 import configuration from '../config';
+import type { ISkillStore } from '../db/skillStore';
+import { resolveDbGitSkills } from './dbSessionResources';
 
 function parseSandboxSettings(rawJson: string) {
   let raw: unknown;
@@ -41,11 +49,70 @@ function parseSandboxSettings(rawJson: string) {
   }
 }
 
+function isGitSkillMount(skill: { name: string }): skill is SkillMount {
+  return 'type' in skill && skill.type === 'git' && 'url' in skill && 'description' in skill;
+}
+
+function createTurnSandboxFactory(deps: {
+  provider: SandboxProvider;
+  logger: Logger;
+  skillStore?: ISkillStore | undefined;
+}): TurnSandboxFactory {
+  const { provider, logger, skillStore } = deps;
+  return async ({ spec, existingSandboxId, tracing }) => {
+    const skills = spec.skills ?? [];
+    // TODO(AGE-1547): drop the inline SkillMount branch; always expand via skillStore / resolveDbGitSkills.
+    const gitSkills =
+      skillStore !== undefined
+        ? await resolveDbGitSkills({ tenant_id: TENANT_ID, skills, store: skillStore })
+        : skills.map(skill => {
+            if (!isGitSkillMount(skill)) {
+              throw new Error(
+                `Skill "${skill.name}" must be a full git mount on the legacy sessions path (type, url, description, ref)`,
+              );
+            }
+            return {
+              name: skill.name,
+              description: skill.description,
+              url: skill.url,
+              path: skill.path ?? '',
+              ref: skill.ref,
+            };
+          });
+    const skillMounter = gitSkills.length > 0 ? new SkillMounter(gitSkills) : undefined;
+    return new Sandbox({
+      provider,
+      existingSandboxId,
+      fileDownloadEnabled: spec.config?.sandbox?.file_downloads ?? false,
+      blockDestructiveToolsInCodeMode: true,
+      // Sandbox reads its tenant from TFY_TENANT_NAME (see Sandbox constructor)
+      // for the ownership check against provider-created sandbox ids
+      // (`<tenant>.<uuid>`). Must match the tenantName given to the provider.
+      execExtraEnv: { TFY_TENANT_NAME: TENANT_ID },
+      ...(skillMounter ? { skillMounter } : {}),
+      tracing,
+      logger,
+    });
+  };
+}
+
+export interface ServerSandboxFactories {
+  /** Legacy YAML sessions: skill mounts taken from inline agent_spec. */
+  sandboxFactory: TurnSandboxFactory;
+  /** DB sessions: skill mounts expanded from ISkillStore by name. */
+  dbSandboxFactory: TurnSandboxFactory;
+}
+
 /**
- * Builds the per-run sandbox factory from the environment, or undefined when
- * sandbox is not configured. Throws on any misconfiguration.
+ * Builds legacy + DB per-run sandbox factories sharing one provider, or
+ * undefined when sandbox is not configured. Throws on any misconfiguration.
+ *
+ * TODO(AGE-1547): collapse to a single factory that always expands skills from ISkillStore.
  */
-export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandboxFactory | undefined {
+export function createServerSandboxFactories(deps: {
+  logger: Logger;
+  skillStore: ISkillStore;
+}): ServerSandboxFactories | undefined {
   if (configuration.SANDBOX_SETTINGS === undefined) {
     if (configuration.SANDBOX_API_KEY !== undefined) {
       throw new Error(
@@ -66,34 +133,8 @@ export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandbo
     logger,
   });
 
-  return ({ spec, existingSandboxId, tracing }) => {
-    const skills = spec.skills ?? [];
-    const skillMounter =
-      skills.length > 0
-        ? new SkillMounter(
-            skills.map(skill => ({
-              name: skill.name,
-              description: skill.description,
-              url: skill.url,
-              path: skill.path ?? '',
-              ref: skill.ref,
-            })),
-          )
-        : undefined;
-    return Promise.resolve(
-      new Sandbox({
-        provider,
-        existingSandboxId,
-        fileDownloadEnabled: spec.config?.sandbox?.file_downloads ?? false,
-        blockDestructiveToolsInCodeMode: true,
-        // Sandbox reads its tenant from TFY_TENANT_NAME (see Sandbox constructor)
-        // for the ownership check against provider-created sandbox ids
-        // (`<tenant>.<uuid>`). Must match the tenantName given to the provider.
-        execExtraEnv: { TFY_TENANT_NAME: TENANT_ID },
-        ...(skillMounter ? { skillMounter } : {}),
-        tracing,
-        logger,
-      }),
-    );
+  return {
+    sandboxFactory: createTurnSandboxFactory({ provider, logger }),
+    dbSandboxFactory: createTurnSandboxFactory({ provider, logger, skillStore: deps.skillStore }),
   };
 }
