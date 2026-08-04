@@ -68,7 +68,12 @@ export async function createPostgresTestDatabase(): Promise<PostgresTestDatabase
   }
 
   const databaseUrl = withDatabase(adminUrl, databaseName);
-  const db = createDb(databaseUrl, 5);
+  const db = createDb({
+    connectionString: databaseUrl,
+    poolMax: 5,
+    statementTimeoutMs: 60_000,
+    idleInTransactionSessionTimeoutMs: 60_000,
+  });
   try {
     await migrateToLatest(db);
   } catch (error) {
