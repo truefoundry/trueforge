@@ -24,9 +24,8 @@ import type {
   TurnInputItem,
   UserMessageContent,
 } from '@truefoundry/agent-ui-sdk';
-import type { TrueHarness as Harness } from 'trueharness';
-import { TrueHarnessClient } from 'trueharness';
-
+import type { TrueHarnessApi as Harness } from 'trueharness';
+import { TrueHarness } from 'trueharness';
 export type HarnessSkillMount = SkillMount;
 export type HarnessMcpServerMount = McpServerMount & Harness.McpServer;
 
@@ -178,8 +177,8 @@ function toHarnessPreviousTurnId(previousTurnId: string): Harness.PreviousTurnId
 }
 
 export function createHarnessChatServer(options: CreateHarnessServerOptions = {}): AgentChatServer<HarnessAgentSpec> {
-  const client = new TrueHarnessClient({
-    environment: options.baseUrl ?? '/',
+  const client = new TrueHarness({
+    baseUrl: options.baseUrl ?? '/',
     ...(options.fetch ? { fetch: options.fetch } : {}),
   });
 

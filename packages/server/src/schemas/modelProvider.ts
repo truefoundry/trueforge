@@ -72,7 +72,7 @@ const AnthropicModelProviderManifestSchema = WellKnownModelProviderManifestBaseS
 /** Same fields as well-known providers, but base_url is required (no canonical endpoint). */
 const CustomModelProviderManifestSchema = ModelProviderManifestBaseSchema.extend({
   type: z.literal('custom'),
-  base_url: z.string().url().describe("Base URL of the provider's API."),
+  base_url: z.url().describe("Base URL of the provider's API."),
 }).strict();
 
 /**
