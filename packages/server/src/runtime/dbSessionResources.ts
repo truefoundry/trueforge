@@ -9,9 +9,6 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
 
-/** Default git ref when a configured skill omits `ref` (matches FE catalog mounts). */
-const DEFAULT_SKILL_REF = 'HEAD';
-
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
 export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
   const slash = name.indexOf('/');
@@ -117,7 +114,7 @@ export async function resolveDbGitSkills({
       description: record.manifest.description,
       url: record.manifest.url,
       path: record.manifest.path ?? '',
-      ref: record.manifest.ref ?? DEFAULT_SKILL_REF,
+      ref: record.manifest.ref,
     });
   }
   return resolved;

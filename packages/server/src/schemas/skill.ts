@@ -41,8 +41,7 @@ export const SkillGitPathSchema = z
   .describe('Path to the skill directory within the repository. Omit to use the repository root.');
 
 /**
- * Shared with catalog presets. Optional on configured/catalog rows; composer
- * defaults omitted refs to HEAD when building a SkillMount.
+ * Shared with catalog presets. Required on configured skills (no silent HEAD default).
  */
 export const SkillGitRefSchema = z
   .string()
@@ -66,7 +65,7 @@ export const SkillManifestObjectSchema = z
     name: NameSchema,
     url: SkillGitUrlSchema,
     path: SkillGitPathSchema.optional(),
-    ref: SkillGitRefSchema.optional(),
+    ref: SkillGitRefSchema,
     description: SkillDescriptionSchema,
   })
   .strict();
