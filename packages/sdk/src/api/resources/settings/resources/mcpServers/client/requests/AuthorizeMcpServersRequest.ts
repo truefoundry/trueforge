@@ -2,11 +2,9 @@
 
 /**
  * @example
- *     {
- *         redirectUrl: "redirect_url"
- *     }
+ *     {}
  */
 export interface AuthorizeMcpServersRequest {
-    /** Where to send the browser after OAuth completes. */
-    redirectUrl: string;
+    /** Optional FE landing URL after OAuth (stored on pending auth; callback does not redirect yet). */
+    redirectUrl?: string;
 }
