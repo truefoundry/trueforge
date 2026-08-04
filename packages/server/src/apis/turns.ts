@@ -148,20 +148,22 @@ function turnStreamId(tenantId: string, sessionId: string, turnId: string): stri
   return `agent:turn:${tenantId}:${sessionId}:${turnId}:stream`;
 }
 
-/** Resume cursor: explicit body value wins, else the SSE `Last-Event-Id` header. */
+/**
+ * Resume cursor: `Last-Event-ID` header wins over the body value because the
+ * header is updated by the SDK on every reconnect to reflect the last delivered
+ * event, whereas the body is the original caller-supplied cursor and never
+ * changes between reconnect attempts.
+ */
 function resolveAfterSequenceNumber(c: Context, bodyAfterSequenceNumber?: number): number | undefined {
-  if (bodyAfterSequenceNumber !== undefined) {
-    return bodyAfterSequenceNumber;
-  }
   const lastEventId = c.req.header('last-event-id');
-  if (!lastEventId) {
-    return undefined;
+  if (lastEventId) {
+    const sequenceNumber = Number(lastEventId);
+    if (!Number.isInteger(sequenceNumber) || sequenceNumber < 0) {
+      throw new HTTPException(400, { message: 'Invalid Last-Event-Id header' });
+    }
+    return sequenceNumber;
   }
-  const sequenceNumber = Number(lastEventId);
-  if (!Number.isInteger(sequenceNumber) || sequenceNumber < 0) {
-    throw new HTTPException(400, { message: 'Invalid Last-Event-Id header' });
-  }
-  return sequenceNumber;
+  return bodyAfterSequenceNumber;
 }
 
 export function createTurnsRouter(deps: TurnsRouterDeps) {
