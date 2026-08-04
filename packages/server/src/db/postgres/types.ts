@@ -14,9 +14,10 @@ import type {
 } from '@truefoundry/utils/core';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
-import type { McpServerManifest } from '../../legacy-registry-store/schemas';
+import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ProviderManifest } from '../../schemas/modelProvider';
-import type { McpOAuthPendingAuthorizationData, McpOAuthToken, OAuthClient, OAuthServer } from '../mcpOAuthTypes';
+import type { SkillManifest } from '../../schemas/skill';
+import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpOAuthTypes';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -300,13 +301,28 @@ export interface ModelProviderTable {
 }
 
 /**
+ * Configured skills — mirrors the Postgres `skill` table.
+ * PRIMARY KEY (tenant_id, name)
+ */
+export interface SkillTable {
+  /** key */
+  tenant_id: string;
+  /** key: natural key within tenant; also duplicated inside `manifest` */
+  name: string;
+  /** SkillManifest document; replaced whole on every upsert */
+  manifest: JSONColumnType<SkillManifest, SkillManifest, SkillManifest>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
  * PRIMARY KEY (id)
  * UNIQUE (tenant_id, name) — the natural lookup key.
  */
 export interface McpServerTable {
   id: string;
   tenant_id: string;
-  /** the uniqueness target; also duplicated inside `manifest` (the full mcp.yaml entry) */
+  /** the uniqueness target; also duplicated inside `manifest` */
   name: string;
   manifest: JSONColumnType<McpServerManifest, McpServerManifest, McpServerManifest>;
   /** OAuthServer — { authorizationEndpoint, tokenEndpoint, codeChallengeMethodsSupported? }.
@@ -333,7 +349,7 @@ export interface OAuthTokenTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
   /** access_token, refresh_token, expires_at, scope. */
-  token: JSONColumnType<McpOAuthToken, McpOAuthToken, McpOAuthToken>;
+  token: JSONColumnType<OAuthToken, OAuthToken, OAuthToken>;
   updated_at: Date;
 }
 
@@ -348,11 +364,11 @@ export interface OAuthPendingAuthorizationTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
   auth_data: JSONColumnType<
-    McpOAuthPendingAuthorizationData,
-    McpOAuthPendingAuthorizationData,
-    McpOAuthPendingAuthorizationData
+    OAuthPendingAuthorizationData,
+    OAuthPendingAuthorizationData,
+    OAuthPendingAuthorizationData
   >;
-  /** used for TTL expiry on read, no sweep job */
+  /** filtered against `PENDING_AUTHORIZATION_TTL_MS` on read, no sweep job */
   created_at: Date;
 }
 
@@ -362,8 +378,9 @@ export interface OAuthPendingAuthorizationTable {
  * big ones (`agent_info`, `checkpoint`); `session`, `turn`, and
  * `thread_capability_state` take small bounded HOT-friendly updates; the two logs
  * are pure insert. Nothing ever rewrites a large value except the array concat
- * itself — the documented, bounded cost of the raw-array model. `mcp_server` and the two
- * `oauth_*` tables are low-write, low-volume (one row per tenant/server, or short-lived).
+ * itself — the documented, bounded cost of the raw-array model. `model_provider`,
+ * `skill`, `mcp_server`, and the two `oauth_*` tables are low-write, low-volume
+ * (one row per tenant/resource, or short-lived).
  *
  * Canonical Kysely database.
  */
@@ -375,6 +392,7 @@ export interface Database {
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
+  skill: SkillTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;

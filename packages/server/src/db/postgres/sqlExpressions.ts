@@ -25,3 +25,7 @@ export function jsonbSet<T = unknown>(
 export function now(): RawBuilder<Date> {
   return sql<Date>`now()`;
 }
+
+export function nowMinusMs(ms: number): RawBuilder<Date> {
+  return sql<Date>`now() - ${ms}::double precision * interval '1 millisecond'`;
+}

@@ -219,6 +219,8 @@ const resolveExecutorId = (singleBinary: boolean): string => {
 export interface ServerConfiguration {
   /** HTTP port the server listens on. Env: `PORT`. */
   PORT: number;
+  /** Peering identity embedded in the turn ids this process mints; `local` in single-binary mode. */
+  EXECUTOR_ID: string;
   /**
    * Absolute path to the directory containing the YAML config files
    * (models.yaml, mcp.yaml, skills.yaml). Relative values are resolved
@@ -232,6 +234,18 @@ export interface ServerConfiguration {
    * time is used. Separate from `REGISTRY_DIR`. Env: `MODEL_CATALOG_PATH`.
    */
   MODEL_CATALOG_PATH: string | undefined;
+  /**
+   * Optional override for the MCP catalog YAML (discovery presets for
+   * GET /settings/mcp-servers/catalog). When unset, the catalog inlined at build
+   * time is used. Separate from `REGISTRY_DIR`. Env: `MCP_CATALOG_PATH`.
+   */
+  MCP_CATALOG_PATH: string | undefined;
+  /**
+   * Optional override for the skill catalog YAML (discovery presets for
+   * GET /settings/skills/catalog). When unset, the catalog inlined at build
+   * time is used. Separate from `REGISTRY_DIR`. Env: `SKILL_CATALOG_PATH`.
+   */
+  SKILL_CATALOG_PATH: string | undefined;
   /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
    * Env: `FRONTEND_DIR`, defaults to `../frontend/dist` relative to the working directory.
@@ -311,8 +325,16 @@ export interface ServerConfiguration {
   DATABASE_URL: string;
   /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
   DATABASE_POOL_MAX: number;
-  /** Peering identity embedded in the turn ids this process mints; `local` in single-binary mode. */
-  EXECUTOR_ID: string;
+  /**
+   * Postgres `statement_timeout` for app and migrations (same pool).
+   * Env: `POSTGRES_STATEMENT_TIMEOUT_MS`. Default 60000.
+   */
+  POSTGRES_STATEMENT_TIMEOUT_MS: number;
+  /**
+   * Postgres `idle_in_transaction_session_timeout` for app and migrations (same pool).
+   * Env: `POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS`. Default 60000.
+   */
+  POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: number;
   /** Peering URL shared by all replicas; undefined in single-binary mode. Env: `REDIS_URL`. */
   REDIS_URL: string | undefined;
   /**
@@ -379,9 +401,18 @@ const singleBinary = parseBoolean({
 
 const configuration: ServerConfiguration = {
   PORT: parsePort(getEnv('PORT')),
+  EXECUTOR_ID: resolveExecutorId(singleBinary),
   REGISTRY_DIR: path.resolve(getEnv('REGISTRY_DIR', { defaultValue: 'registry' }) ?? 'registry'),
   MODEL_CATALOG_PATH: (() => {
     const override = getEnv('MODEL_CATALOG_PATH');
+    return override === undefined || override === '' ? undefined : path.resolve(override);
+  })(),
+  MCP_CATALOG_PATH: (() => {
+    const override = getEnv('MCP_CATALOG_PATH');
+    return override === undefined || override === '' ? undefined : path.resolve(override);
+  })(),
+  SKILL_CATALOG_PATH: (() => {
+    const override = getEnv('SKILL_CATALOG_PATH');
     return override === undefined || override === '' ? undefined : path.resolve(override);
   })(),
   FRONTEND_DIR: path.resolve(getEnv('FRONTEND_DIR', { defaultValue: DEFAULT_FRONTEND_DIR }) ?? DEFAULT_FRONTEND_DIR),
@@ -423,7 +454,16 @@ const configuration: ServerConfiguration = {
     raw: getEnv('DATABASE_POOL_MAX'),
     defaultValue: 10,
   }),
-  EXECUTOR_ID: resolveExecutorId(singleBinary),
+  POSTGRES_STATEMENT_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'POSTGRES_STATEMENT_TIMEOUT_MS',
+    raw: getEnv('POSTGRES_STATEMENT_TIMEOUT_MS'),
+    defaultValue: 60_000,
+  }),
+  POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS',
+    raw: getEnv('POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS'),
+    defaultValue: 60_000,
+  }),
   REDIS_URL: resolveRedisUrl(singleBinary),
   REDIS_REQUEST_REPLY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'REDIS_REQUEST_REPLY_TIMEOUT_MS',

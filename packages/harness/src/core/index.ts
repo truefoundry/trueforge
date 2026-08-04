@@ -47,6 +47,17 @@ export {
 } from './capabilities/builtins/LargeToolResponse';
 export { openUI } from './capabilities/builtins/OpenUI';
 
+// Auth contracts
+export { InMemoryOAuthClientStore } from './auth/InMemoryOAuthClientStore';
+export { InMemoryOAuthTokenStore } from './auth/InMemoryOAuthTokenStore';
+export type {
+  IOAuthClientStore,
+  OAuthClientCredentials,
+  OAuthClientRecord,
+  OAuthServerMetadata,
+} from './auth/IOAuthClientStore';
+export type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from './auth/IOAuthTokenStore';
+
 // MCP contracts
 export type { ApprovalDecision } from './events/schema';
 export { ClientSideTool } from './mcp/ClientSideTool';
@@ -135,15 +146,15 @@ export type {
 export { AgentHarnessError, McpConnectionError } from './errors';
 export { extractErrorLogFields } from './util/errorLogFields';
 
-// MCP OAuth / DCR (token store contract + registration + auth URL + resolve)
+// MCP OAuth
 export {
   DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
-  InMemoryMcpTokenStore,
   MCP_OAUTH_CALLBACK_PATH,
-  McpAuthStatus,
   buildMcpAuthorizationUrl,
+  completeMcpAuthorization,
   createMcpOAuthClient,
   ensureMcpClientRegistered,
+  isMcpAuthRequired,
   mcpAuthorizationServerMetadata,
   mcpAuthorizationServerOrigin,
   mcpClientInformation,
@@ -151,10 +162,9 @@ export {
   resolveMcpAuth,
 } from './mcp/auth';
 export type {
-  IMcpTokenStore,
-  McpOAuthClientRecord,
-  McpOAuthPendingAuthorization,
-  McpOAuthToken,
+  CompleteMcpAuthorizationResult,
+  McpAuthRequiredResult,
+  McpAuthResolvedResult,
   ResolveMcpAuthResult,
 } from './mcp/auth';
 

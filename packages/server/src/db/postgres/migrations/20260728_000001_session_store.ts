@@ -18,6 +18,7 @@ import { sql, type Kysely } from 'kysely';
  * store-owned, `custom` is caller-owned.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await db.schema
     .createTable('session')
     // key
@@ -237,6 +238,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await db.schema.dropTable('thread_capability_state').ifExists().cascade().execute();
   await db.schema.dropTable('thread_context_log').ifExists().cascade().execute();
   await db.schema.dropTable('session_event').ifExists().cascade().execute();

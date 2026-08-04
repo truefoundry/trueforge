@@ -28,6 +28,10 @@ try {
     { EventSubscriptionRegistry },
     { ModelCatalog },
     { PostgresModelProviderStore },
+    { McpCatalog },
+    { PostgresMcpServerStore },
+    { SkillCatalog },
+    { PostgresSkillStore },
   ] = await Promise.all([
     import('./app'),
     import('./frontend'),
@@ -46,6 +50,10 @@ try {
     import('./runtime/event-subscription'),
     import('./catalog/ModelCatalog'),
     import('./db/postgres/model-provider-store/PostgresModelProviderStore'),
+    import('./catalog/McpCatalog'),
+    import('./db/postgres/mcp-server-store/PostgresMcpServerStore'),
+    import('./catalog/SkillCatalog'),
+    import('./db/postgres/skill-store/PostgresSkillStore'),
   ]);
 
   // Console logger shared by the server runtime (harness components require one).
@@ -55,12 +63,17 @@ try {
     transports: [new winston.transports.Console()],
   });
 
-  const db = createDb(configuration.DATABASE_URL, configuration.DATABASE_POOL_MAX);
+  const db = createDb({
+    connectionString: configuration.DATABASE_URL,
+    poolMax: configuration.DATABASE_POOL_MAX,
+    statementTimeoutMs: configuration.POSTGRES_STATEMENT_TIMEOUT_MS,
+    idleInTransactionSessionTimeoutMs: configuration.POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS,
+  });
   await migrateToLatest(db);
 
   const sessionStore = new PostgresSessionStore(db);
   // Throws on malformed SANDBOX_SETTINGS; undefined when sandbox is not configured.
-  const skillStore = SkillStore.load();
+  const legacySkillStore = SkillStore.load();
   const sandboxFactory = createServerSandboxFactory({ logger });
   const activeTurns = new ActiveTurnRegistry();
 
@@ -78,8 +91,12 @@ try {
     modelStore: ModelStore.load(),
     modelCatalog: ModelCatalog.load(),
     modelProviderStore: new PostgresModelProviderStore(db),
+    mcpCatalog: McpCatalog.load(),
+    mcpServerStore: new PostgresMcpServerStore(db),
     mcpStore: McpStore.load(),
-    skillStore,
+    skillCatalog: SkillCatalog.load(),
+    skillStore: new PostgresSkillStore(db),
+    legacySkillStore,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,
