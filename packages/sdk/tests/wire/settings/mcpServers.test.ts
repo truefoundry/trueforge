@@ -7,7 +7,7 @@ import { mockServerPool } from "../../mock-server/MockServerPool";
 describe("McpServersClient", () => {
     test("list", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [
@@ -49,7 +49,7 @@ describe("McpServersClient", () => {
 
     test("upsert (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = { name: "name", type: "remote", url: "url" };
         const rawResponseBody = {
             data: {
@@ -92,7 +92,7 @@ describe("McpServersClient", () => {
 
     test("upsert (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = { name: "xy", type: "remote", url: "url" };
         const rawResponseBody = { error: { message: "message" } };
 
@@ -115,7 +115,7 @@ describe("McpServersClient", () => {
 
     test("catalog", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { data: [{ auth: { type: "dcr" }, name: "name", type: "remote", url: "url" }] };
 
@@ -144,7 +144,7 @@ describe("McpServersClient", () => {
 
     test("authorize (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { authorization_url: "authorization_url", status: "authenticated" };
 
@@ -156,9 +156,7 @@ describe("McpServersClient", () => {
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.settings.mcpServers.authorize("name", {
-            redirectUrl: "redirect_url",
-        });
+        const response = await client.settings.mcpServers.authorize("name");
         expect(response).toEqual({
             authorizationUrl: "authorization_url",
             status: "authenticated",
@@ -167,7 +165,26 @@ describe("McpServersClient", () => {
 
     test("authorize (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/settings/mcp-servers/name/authorize")
+            .respondWith()
+            .statusCode(400)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.mcpServers.authorize("name");
+        }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
+    });
+
+    test("authorize (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -180,15 +197,32 @@ describe("McpServersClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.mcpServers.authorize("name", {
-                redirectUrl: "redirect_url",
-            });
+            return await client.settings.mcpServers.authorize("name");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
+    });
+
+    test("authorize (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/settings/mcp-servers/name/authorize")
+            .respondWith()
+            .statusCode(500)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.mcpServers.authorize("name");
+        }).rejects.toThrow(TrueHarnessTypes.InternalServerError);
     });
 
     test("list_tools (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { data: [{ key: "value" }] };
 
@@ -212,7 +246,7 @@ describe("McpServersClient", () => {
 
     test("list_tools (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -231,7 +265,7 @@ describe("McpServersClient", () => {
 
     test("list_tools (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -250,7 +284,7 @@ describe("McpServersClient", () => {
 
     test("list_tools (4)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 

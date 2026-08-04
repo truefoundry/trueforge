@@ -3,7 +3,7 @@
 import type * as TrueHarness from "../index.js";
 
 export interface McpAuthStatus {
-    /** Present only when status is auth_required and a live authorize flow produced a URL. */
+    /** When auth is required, this contains the URL to redirect the user to for authorization. */
     authorizationUrl?: string;
     status: TrueHarness.McpAuthStatusStatus;
 }

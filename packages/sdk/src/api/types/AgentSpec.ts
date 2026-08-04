@@ -10,8 +10,8 @@ export interface AgentSpec {
     instructions?: string;
     mcpServers?: TrueHarness.McpServer[];
     messages?: TrueHarness.AgentSpecUserMessage[];
-    model: TrueHarness.Model;
+    model: TrueHarness.AgentSpecModel;
     responseFormat?: TrueHarness.ResponseFormat;
-    skills?: TrueHarness.SkillMount[];
+    skills?: TrueHarness.SkillNameRef[];
     variables?: Record<string, string>;
 }

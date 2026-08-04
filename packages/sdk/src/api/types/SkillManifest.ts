@@ -9,7 +9,7 @@ export interface SkillManifest {
     /** Path to the skill directory within the repository. Omit to use the repository root. */
     path?: string;
     /** Git ref — branch name, tag, or commit SHA. */
-    ref?: string;
+    ref: string;
     type: TrueHarness.SkillType;
     /** Full HTTPS URL of a GitHub or GitLab repository. */
     url: string;

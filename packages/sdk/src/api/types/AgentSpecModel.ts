@@ -2,6 +2,7 @@
 
 import type * as TrueHarness from "../index.js";
 
-export interface ListLegacyModelsResponse {
-    data: TrueHarness.ModelEntry[];
+export interface AgentSpecModel {
+    name: string;
+    params?: TrueHarness.ModelParams;
 }

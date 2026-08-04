@@ -244,34 +244,34 @@ export class McpServersClient {
     }
 
     /**
-     * Stub: returns authenticated when the server has no auth or header credentials on the row; auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.
+     * For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).
      *
      * @param {string} name - Configured MCP server name.
      * @param {TrueHarness.settings.AuthorizeMcpServersRequest} request
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
+     * @throws {@link TrueHarness.BadRequestError}
      * @throws {@link TrueHarness.NotFoundError}
+     * @throws {@link TrueHarness.InternalServerError}
      * @throws {@link errors.TrueHarnessError}
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
      * @example
-     *     await client.settings.mcpServers.authorize("name", {
-     *         redirectUrl: "redirect_url"
-     *     })
+     *     await client.settings.mcpServers.authorize("name")
      */
     public authorize(
         name: string,
-        request: TrueHarness.settings.AuthorizeMcpServersRequest,
+        request: TrueHarness.settings.AuthorizeMcpServersRequest = {},
         requestOptions?: McpServersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.ConfiguredMcpAuthorizeResponse> {
+    ): core.HttpResponsePromise<TrueHarness.McpAuthStatus> {
         return core.HttpResponsePromise.fromPromise(this.__authorize(name, request, requestOptions));
     }
 
     private async __authorize(
         name: string,
-        request: TrueHarness.settings.AuthorizeMcpServersRequest,
+        request: TrueHarness.settings.AuthorizeMcpServersRequest = {},
         requestOptions?: McpServersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.ConfiguredMcpAuthorizeResponse>> {
+    ): Promise<core.WithRawResponse<TrueHarness.McpAuthStatus>> {
         const { redirectUrl } = request;
         const _queryParams: Record<string, unknown> = {
             redirect_url: redirectUrl,
@@ -298,7 +298,7 @@ export class McpServersClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.ConfiguredMcpAuthorizeResponse.parseOrThrow(_response.body, {
+                data: serializers.McpAuthStatus.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -311,8 +311,30 @@ export class McpServersClient {
 
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
+                case 400:
+                    throw new TrueHarness.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 case 404:
                     throw new TrueHarness.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 500:
+                    throw new TrueHarness.InternalServerError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,

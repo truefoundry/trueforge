@@ -7,7 +7,7 @@ import { mockServerPool } from "../../mock-server/MockServerPool";
 describe("ModelProvidersClient", () => {
     test("list", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [
@@ -18,7 +18,7 @@ describe("ModelProvidersClient", () => {
                         { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
                     ],
                     name: "name",
-                    type: "openai",
+                    type: "anthropic",
                 },
             ],
         };
@@ -50,7 +50,7 @@ describe("ModelProvidersClient", () => {
                         },
                     ],
                     name: "name",
-                    type: "openai",
+                    type: "anthropic",
                 },
             ],
         });
@@ -58,13 +58,12 @@ describe("ModelProvidersClient", () => {
 
     test("upsert (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {
             auth: { api_key: "api_key" },
-            base_url: "base_url",
             models: [{ model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } }],
             name: "name",
-            type: "openai",
+            type: "anthropic",
         };
         const rawResponseBody = {
             data: {
@@ -74,7 +73,7 @@ describe("ModelProvidersClient", () => {
                     { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
                 ],
                 name: "name",
-                type: "openai",
+                type: "anthropic",
             },
         };
 
@@ -91,7 +90,6 @@ describe("ModelProvidersClient", () => {
             auth: {
                 apiKey: "api_key",
             },
-            baseUrl: "base_url",
             models: [
                 {
                     modelId: "model_id",
@@ -103,7 +101,7 @@ describe("ModelProvidersClient", () => {
                 },
             ],
             name: "name",
-            type: "openai",
+            type: "anthropic",
         });
         expect(response).toEqual({
             data: {
@@ -122,23 +120,22 @@ describe("ModelProvidersClient", () => {
                     },
                 ],
                 name: "name",
-                type: "openai",
+                type: "anthropic",
             },
         });
     });
 
     test("upsert (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {
             auth: { api_key: "x" },
-            base_url: "base_url",
             models: [
                 { model_id: "x", name: "xy", properties: { context_length: 1, max_output_tokens: 1 } },
                 { model_id: "x", name: "xy", properties: { context_length: 1, max_output_tokens: 1 } },
             ],
             name: "xy",
-            type: "openai",
+            type: "anthropic",
         };
         const rawResponseBody = { error: { message: "message" } };
 
@@ -156,7 +153,6 @@ describe("ModelProvidersClient", () => {
                 auth: {
                     apiKey: "x",
                 },
-                baseUrl: "base_url",
                 models: [
                     {
                         modelId: "x",
@@ -176,14 +172,14 @@ describe("ModelProvidersClient", () => {
                     },
                 ],
                 name: "xy",
-                type: "openai",
+                type: "anthropic",
             });
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
     test("catalog", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [

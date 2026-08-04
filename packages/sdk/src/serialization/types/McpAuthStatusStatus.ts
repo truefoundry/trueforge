@@ -7,8 +7,8 @@ import type * as serializers from "../index.js";
 export const McpAuthStatusStatus: core.serialization.Schema<
     serializers.McpAuthStatusStatus.Raw,
     TrueHarness.McpAuthStatusStatus
-> = core.serialization.enum_(["authenticated", "auth_required"]);
+> = core.serialization.enum_(["authenticated", "auth_required", "not_required"]);
 
 export declare namespace McpAuthStatusStatus {
-    export type Raw = "authenticated" | "auth_required";
+    export type Raw = "authenticated" | "auth_required" | "not_required";
 }

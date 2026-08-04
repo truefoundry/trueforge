@@ -7,18 +7,12 @@ import { mockServerPool } from "../mock-server/MockServerPool";
 describe("SessionsClient", () => {
     test("list (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [
                 {
-                    agent_spec: {
-                        model: {
-                            model_id: "model_id",
-                            name: "name",
-                            properties: { context_length: 1, max_output_tokens: 1 },
-                        },
-                    },
+                    agent_spec: { model: { name: "name" } },
                     created_at: "created_at",
                     id: "id",
                     title: "title",
@@ -41,12 +35,7 @@ describe("SessionsClient", () => {
                 {
                     agentSpec: {
                         model: {
-                            modelId: "model_id",
                             name: "name",
-                            properties: {
-                                contextLength: 1,
-                                maxOutputTokens: 1,
-                            },
                         },
                     },
                     createdAt: "created_at",
@@ -71,7 +60,7 @@ describe("SessionsClient", () => {
 
     test("list (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -84,25 +73,17 @@ describe("SessionsClient", () => {
 
     test("create (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = {
-            agent_spec: {
-                model: { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
-            },
-        };
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
+        const rawRequestBody = { agent_spec: { model: { name: "name" } } };
         const rawResponseBody = {
             data: {
                 agent_spec: {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: {
-                        model_id: "model_id",
-                        name: "name",
-                        properties: { context_length: 1, max_output_tokens: 1 },
-                    },
+                    model: { name: "name" },
                     response_format: { type: "json_object" },
-                    skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
+                    skills: [{ name: "name" }],
                     variables: { key: "value" },
                 },
                 created_at: "created_at",
@@ -124,12 +105,7 @@ describe("SessionsClient", () => {
         const response = await client.sessions.create({
             agentSpec: {
                 model: {
-                    modelId: "model_id",
                     name: "name",
-                    properties: {
-                        contextLength: 1,
-                        maxOutputTokens: 1,
-                    },
                 },
             },
         });
@@ -149,23 +125,14 @@ describe("SessionsClient", () => {
                         },
                     ],
                     model: {
-                        modelId: "model_id",
                         name: "name",
-                        properties: {
-                            contextLength: 1,
-                            maxOutputTokens: 1,
-                        },
                     },
                     responseFormat: {
                         type: "json_object",
                     },
                     skills: [
                         {
-                            description: "description",
                             name: "name",
-                            ref: "ref",
-                            type: "git",
-                            url: "url",
                         },
                     ],
                     variables: {
@@ -182,12 +149,8 @@ describe("SessionsClient", () => {
 
     test("create (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = {
-            agent_spec: {
-                model: { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
-            },
-        };
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
+        const rawRequestBody = { agent_spec: { model: { name: "x" } } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -203,12 +166,7 @@ describe("SessionsClient", () => {
             return await client.sessions.create({
                 agentSpec: {
                     model: {
-                        modelId: "model_id",
-                        name: "name",
-                        properties: {
-                            contextLength: 1,
-                            maxOutputTokens: 1,
-                        },
+                        name: "x",
                     },
                 },
             });
@@ -217,12 +175,8 @@ describe("SessionsClient", () => {
 
     test("create (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = {
-            agent_spec: {
-                model: { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
-            },
-        };
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
+        const rawRequestBody = { agent_spec: { model: { name: "x" } } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -238,12 +192,7 @@ describe("SessionsClient", () => {
             return await client.sessions.create({
                 agentSpec: {
                     model: {
-                        modelId: "model_id",
-                        name: "name",
-                        properties: {
-                            contextLength: 1,
-                            maxOutputTokens: 1,
-                        },
+                        name: "x",
                     },
                 },
             });
@@ -252,7 +201,7 @@ describe("SessionsClient", () => {
 
     test("get (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: {
@@ -260,13 +209,9 @@ describe("SessionsClient", () => {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: {
-                        model_id: "model_id",
-                        name: "name",
-                        properties: { context_length: 1, max_output_tokens: 1 },
-                    },
+                    model: { name: "name" },
                     response_format: { type: "json_object" },
-                    skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
+                    skills: [{ name: "name" }],
                     variables: { key: "value" },
                 },
                 created_at: "created_at",
@@ -278,13 +223,13 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId")
+            .get("/api/v1/sessions/session_id")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.get("sessionId");
+        const response = await client.sessions.get("session_id");
         expect(response).toEqual({
             data: {
                 agentSpec: {
@@ -301,23 +246,14 @@ describe("SessionsClient", () => {
                         },
                     ],
                     model: {
-                        modelId: "model_id",
                         name: "name",
-                        properties: {
-                            contextLength: 1,
-                            maxOutputTokens: 1,
-                        },
                     },
                     responseFormat: {
                         type: "json_object",
                     },
                     skills: [
                         {
-                            description: "description",
                             name: "name",
-                            ref: "ref",
-                            type: "git",
-                            url: "url",
                         },
                     ],
                     variables: {
@@ -334,36 +270,36 @@ describe("SessionsClient", () => {
 
     test("get (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId")
+            .get("/api/v1/sessions/session_id")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.get("sessionId");
+            return await client.sessions.get("session_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
     test("delete", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
-        server.mockEndpoint().delete("/api/v1/sessions/sessionId").respondWith().statusCode(200).build();
+        server.mockEndpoint().delete("/api/v1/sessions/session_id").respondWith().statusCode(200).build();
 
-        const response = await client.sessions.delete("sessionId");
+        const response = await client.sessions.delete("session_id");
         expect(response).toEqual(undefined);
     });
 
     test("update (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = {
             data: {
@@ -371,13 +307,9 @@ describe("SessionsClient", () => {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: {
-                        model_id: "model_id",
-                        name: "name",
-                        properties: { context_length: 1, max_output_tokens: 1 },
-                    },
+                    model: { name: "name" },
                     response_format: { type: "json_object" },
-                    skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
+                    skills: [{ name: "name" }],
                     variables: { key: "value" },
                 },
                 created_at: "created_at",
@@ -389,14 +321,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .patch("/api/v1/sessions/sessionId")
+            .patch("/api/v1/sessions/session_id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.update("sessionId");
+        const response = await client.sessions.update("session_id");
         expect(response).toEqual({
             data: {
                 agentSpec: {
@@ -413,23 +345,14 @@ describe("SessionsClient", () => {
                         },
                     ],
                     model: {
-                        modelId: "model_id",
                         name: "name",
-                        properties: {
-                            contextLength: 1,
-                            maxOutputTokens: 1,
-                        },
                     },
                     responseFormat: {
                         type: "json_object",
                     },
                     skills: [
                         {
-                            description: "description",
                             name: "name",
-                            ref: "ref",
-                            type: "git",
-                            url: "url",
                         },
                     ],
                     variables: {
@@ -446,13 +369,13 @@ describe("SessionsClient", () => {
 
     test("update (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .patch("/api/v1/sessions/sessionId")
+            .patch("/api/v1/sessions/session_id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(400)
@@ -460,19 +383,19 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.update("sessionId");
+            return await client.sessions.update("session_id");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
     test("update (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .patch("/api/v1/sessions/sessionId")
+            .patch("/api/v1/sessions/session_id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(404)
@@ -480,19 +403,19 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.update("sessionId");
+            return await client.sessions.update("session_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
     test("update (4)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .patch("/api/v1/sessions/sessionId")
+            .patch("/api/v1/sessions/session_id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(422)
@@ -500,38 +423,38 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.update("sessionId");
+            return await client.sessions.update("session_id");
         }).rejects.toThrow(TrueHarnessTypes.UnprocessableEntityError);
     });
 
     test("cancel (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = {};
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/cancel")
+            .post("/api/v1/sessions/session_id/cancel")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.cancel("sessionId");
+        const response = await client.sessions.cancel("session_id");
         expect(response).toEqual({});
     });
 
     test("cancel (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/cancel")
+            .post("/api/v1/sessions/session_id/cancel")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(404)
@@ -539,19 +462,19 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.cancel("sessionId");
+            return await client.sessions.cancel("session_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
     test("cancel (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/cancel")
+            .post("/api/v1/sessions/session_id/cancel")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(412)
@@ -559,13 +482,13 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.cancel("sessionId");
+            return await client.sessions.cancel("session_id");
         }).rejects.toThrow(TrueHarnessTypes.PreconditionFailedError);
     });
 
     test("list_events (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [
@@ -585,7 +508,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint({ once: false })
-            .get("/api/v1/sessions/sessionId/events")
+            .get("/api/v1/sessions/session_id/events")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -616,7 +539,7 @@ describe("SessionsClient", () => {
                 previousPageToken: "previous_page_token",
             },
         };
-        const page = await client.sessions.listEvents("sessionId");
+        const page = await client.sessions.listEvents("session_id");
 
         expect(expected.data).toEqual(page.data);
         expect(page.hasNextPage()).toBe(true);
@@ -626,45 +549,45 @@ describe("SessionsClient", () => {
 
     test("list_events (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/events")
+            .get("/api/v1/sessions/session_id/events")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.listEvents("sessionId");
+            return await client.sessions.listEvents("session_id");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
     test("list_events (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/events")
+            .get("/api/v1/sessions/session_id/events")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.listEvents("sessionId");
+            return await client.sessions.listEvents("session_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
     test("list_turns (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [
@@ -682,7 +605,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint({ once: false })
-            .get("/api/v1/sessions/sessionId/turns")
+            .get("/api/v1/sessions/session_id/turns")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -714,7 +637,7 @@ describe("SessionsClient", () => {
                 previousPageToken: "previous_page_token",
             },
         };
-        const page = await client.sessions.listTurns("sessionId");
+        const page = await client.sessions.listTurns("session_id");
 
         expect(expected.data).toEqual(page.data);
         expect(page.hasNextPage()).toBe(true);
@@ -724,59 +647,59 @@ describe("SessionsClient", () => {
 
     test("list_turns (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns")
+            .get("/api/v1/sessions/session_id/turns")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.listTurns("sessionId");
+            return await client.sessions.listTurns("session_id");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
     test("list_turns (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns")
+            .get("/api/v1/sessions/session_id/turns")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.listTurns("sessionId");
+            return await client.sessions.listTurns("session_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
     test("create_turn (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody =
             'event: \ndata: {"created_at":"created_at","id":"id","thread_id":"thread_id","mcp_servers":[{"auth_url":"auth_url","id":"id","name":"name"}],"type":"mcp.auth_required"}\n\n';
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/turns")
+            .post("/api/v1/sessions/session_id/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
             .sseBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.createTurn("sessionId");
+        const response = await client.sessions.createTurn("session_id");
         const events: unknown[] = [];
         for await (const event of response) {
             events.push(event);
@@ -800,13 +723,13 @@ describe("SessionsClient", () => {
 
     test("create_turn (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/turns")
+            .post("/api/v1/sessions/session_id/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(400)
@@ -814,19 +737,19 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurn("sessionId");
+            return await client.sessions.createTurn("session_id");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
     test("create_turn (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/turns")
+            .post("/api/v1/sessions/session_id/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(404)
@@ -834,19 +757,19 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurn("sessionId");
+            return await client.sessions.createTurn("session_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
     test("create_turn (4)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/turns")
+            .post("/api/v1/sessions/session_id/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(412)
@@ -854,13 +777,13 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurn("sessionId");
+            return await client.sessions.createTurn("session_id");
         }).rejects.toThrow(TrueHarnessTypes.PreconditionFailedError);
     });
 
     test("get_turn (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: {
@@ -875,13 +798,13 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId")
+            .get("/api/v1/sessions/session_id/turns/turn_id")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.getTurn("sessionId", "turnId");
+        const response = await client.sessions.getTurn("session_id", "turn_id");
         expect(response).toEqual({
             data: {
                 createdAt: "created_at",
@@ -905,26 +828,26 @@ describe("SessionsClient", () => {
 
     test("get_turn (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId")
+            .get("/api/v1/sessions/session_id/turns/turn_id")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.getTurn("sessionId", "turnId");
+            return await client.sessions.getTurn("session_id", "turn_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
     test("list_turn_events (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [
@@ -941,7 +864,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint({ once: false })
-            .get("/api/v1/sessions/sessionId/turns/turnId/events")
+            .get("/api/v1/sessions/session_id/turns/turn_id/events")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -969,7 +892,7 @@ describe("SessionsClient", () => {
                 previousPageToken: "previous_page_token",
             },
         };
-        const page = await client.sessions.listTurnEvents("sessionId", "turnId");
+        const page = await client.sessions.listTurnEvents("session_id", "turn_id");
 
         expect(expected.data).toEqual(page.data);
         expect(page.hasNextPage()).toBe(true);
@@ -979,58 +902,58 @@ describe("SessionsClient", () => {
 
     test("list_turn_events (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId/events")
+            .get("/api/v1/sessions/session_id/turns/turn_id/events")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.listTurnEvents("sessionId", "turnId");
+            return await client.sessions.listTurnEvents("session_id", "turn_id");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
     test("list_turn_events (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId/events")
+            .get("/api/v1/sessions/session_id/turns/turn_id/events")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.listTurnEvents("sessionId", "turnId");
+            return await client.sessions.listTurnEvents("session_id", "turn_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
     test("subscribe_to_turn (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody =
             'event: \ndata: {"created_at":"created_at","id":"id","thread_id":"thread_id","mcp_servers":[{"auth_url":"auth_url","id":"id","name":"name"}],"type":"mcp.auth_required"}\n\n';
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId/subscribe")
+            .get("/api/v1/sessions/session_id/turns/turn_id/subscribe")
             .respondWith()
             .statusCode(200)
             .sseBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.subscribeToTurn("sessionId", "turnId");
+        const response = await client.sessions.subscribeToTurn("session_id", "turn_id");
         const events: unknown[] = [];
         for await (const event of response) {
             events.push(event);
@@ -1054,58 +977,58 @@ describe("SessionsClient", () => {
 
     test("subscribe_to_turn (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId/subscribe")
+            .get("/api/v1/sessions/session_id/turns/turn_id/subscribe")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.subscribeToTurn("sessionId", "turnId");
+            return await client.sessions.subscribeToTurn("session_id", "turn_id");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
     test("subscribe_to_turn (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId/subscribe")
+            .get("/api/v1/sessions/session_id/turns/turn_id/subscribe")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.subscribeToTurn("sessionId", "turnId");
+            return await client.sessions.subscribeToTurn("session_id", "turn_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
     test("subscribe_to_turn (4)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId/subscribe")
+            .get("/api/v1/sessions/session_id/turns/turn_id/subscribe")
             .respondWith()
             .statusCode(412)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.subscribeToTurn("sessionId", "turnId");
+            return await client.sessions.subscribeToTurn("session_id", "turn_id");
         }).rejects.toThrow(TrueHarnessTypes.PreconditionFailedError);
     });
 });
