@@ -1,6 +1,7 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { McpServerEntrySchema } from '../legacy-registry-store/schemas';
 import { RequestErrorResponseSchema } from '../schemas/errors';
+
 const MCP_SERVERS_TAG = 'Legacy MCP Servers';
 
 // Extends the yaml-validation schema with a response-only field — `auth_status` isn't a valid

@@ -1,5 +1,6 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { ModelEntrySchema } from '../legacy-registry-store/schemas';
+
 const ListLegacyModelsResponseSchema = z
   .object({
     data: z.array(ModelEntrySchema),
