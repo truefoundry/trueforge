@@ -1,6 +1,7 @@
 /**
  * Store-backed model/MCP/skill/sandbox resolution for session admit and turns.
  */
+import { Daytona } from '@daytona/sdk';
 import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
 import {
   DaytonaSandboxProvider,
@@ -188,7 +189,7 @@ export async function resolveGitSkills({
 
 /**
  * Build a runtime SandboxProvider from the configured store row, or undefined
- * when no provider is configured. Construction is cheap (no I/O beyond the store read).
+ * when no provider is configured. Builds a fresh Daytona client per call (no network I/O).
  */
 export async function resolveSandboxProvider({
   tenant_id,
@@ -203,8 +204,10 @@ export async function resolveSandboxProvider({
   if (record === undefined) {
     return undefined;
   }
+  const { apiKey, ...settings } = toDaytonaSandboxProviderInput(record.manifest);
   return new DaytonaSandboxProvider({
-    ...toDaytonaSandboxProviderInput(record.manifest),
+    client: new Daytona({ apiKey }),
+    ...settings,
     tenantName: tenant_id,
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,

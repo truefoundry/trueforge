@@ -1,7 +1,7 @@
 import { toDaytonaSandboxProviderInput, type SandboxProviderManifest } from '../../../src/schemas/sandboxProvider';
 
 describe('toDaytonaSandboxProviderInput', () => {
-  it('maps a Daytona wire/DB manifest to DaytonaSandboxProvider ctor fields', () => {
+  it('maps a Daytona wire/DB manifest to apiKey plus provider settings', () => {
     const manifest: SandboxProviderManifest = {
       type: 'daytona',
       snapshot_name: 'truefoundry-platform-dev-2d5edee',
