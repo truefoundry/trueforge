@@ -1,4 +1,4 @@
-/** AgentSpec wire schema — the inline agent definition a session is created with. */
+/** DB AgentSpec wire schema — FQN model names and name-only skill refs. */
 import { z } from '@hono/zod-openapi';
 import { DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS } from '../../core/capabilities/builtins/ContextCompaction';
 import {
@@ -32,9 +32,21 @@ const ModelParamsSchema = z
   .passthrough() // this ensures extra model params are allowed
   .openapi('ModelParams');
 
+/** Same shape as server `parseModelFqn`: exactly one slash, non-empty provider and model. */
+function isModelFqn(name: string): boolean {
+  const slash = name.indexOf('/');
+  if (slash <= 0 || slash === name.length - 1) {
+    return false;
+  }
+  return !name.includes('/', slash + 1);
+}
+
 const ModelSpecSchema = z
   .object({
-    name: z.string().min(1, 'model.name must not be empty'),
+    name: z
+      .string()
+      .min(1, 'model.name must not be empty')
+      .refine(isModelFqn, { message: 'model.name must be a fully qualified "provider/model"' }),
     params: ModelParamsSchema.optional(),
   })
   .openapi('Model');
@@ -199,70 +211,25 @@ export const RuntimeConfigSchema = z
   .openapi('RuntimeConfig');
 
 // --- Skills ---
-// Git mounts mirror the gateway SkillMountGitSchema. The sandbox git_downloader
-// resolves `ref` (branch/tag/SHA) to an object id before sparse-cloning.
-// Name-only refs are expanded from ISkillStore on the DB sessions path.
+// Name-only refs; DB sessions expand mount fields from ISkillStore at turn time.
 
-// GitHub is exactly owner/repo; GitLab allows subgroups (group[/subgroup...]/project, ≥2 segments).
-const GIT_URL_REGEX =
-  /^https:\/\/(github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+|gitlab\.com\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)+)(\/|\.git)?$/;
-const GIT_REF_REGEX = /^[A-Za-z0-9._\-/]+$/;
 const SKILL_NAME_REGEX = /^[A-Za-z0-9._-]+$/;
-const SKILL_PATH_REGEX = /^[A-Za-z0-9._\-/]+$/;
-const hasParentTraversal = (value: string): boolean => value.split('/').includes('..');
 
-const SkillNameFieldSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(64)
-  .regex(SKILL_NAME_REGEX, 'Name may only contain letters, numbers, ".", "_", and "-"')
-  .refine(v => v !== '.' && v !== '..', 'Name must not be "." or ".."')
-  .refine(v => !v.startsWith('.tfy-'), 'Name must not use the reserved ".tfy-" prefix')
-  .describe('Name for the skill, used as directory name in sandbox.');
-
-const SkillMountSchema = z
-  .object({
-    type: z.literal('git'),
-    url: z
-      .string()
-      .trim()
-      .min(1)
-      .regex(GIT_URL_REGEX, 'Must be a GitHub or GitLab HTTPS URL')
-      .refine(v => !hasParentTraversal(v), 'URL must not contain ".." segments')
-      .describe('Full HTTPS URL of a GitHub or GitLab repository.'),
-    path: z
-      .string()
-      .trim()
-      .min(1)
-      .regex(SKILL_PATH_REGEX, 'Path may only contain letters, numbers, ".", "_", "-", and "/"')
-      .refine(v => !hasParentTraversal(v), 'Path must not contain ".." segments')
-      .refine(v => !v.split('/').includes('.'), 'Path must not contain "." segments')
-      .refine(v => v.replace(/^\/+|\/+$/g, '').length > 0, 'Path must reference a subdirectory, not only slashes')
-      .optional()
-      .describe('Path to the skill directory within the repository. Omit to use the repository root.'),
-    name: SkillNameFieldSchema,
-    description: z.string().trim().min(1).describe('Concise guidance for when the agent should use the skill.'),
-    ref: z
-      .string()
-      .trim()
-      .min(1)
-      .regex(GIT_REF_REGEX, 'Ref may only contain letters, numbers, ".", "_", "-", and "/"')
-      .refine(v => !hasParentTraversal(v), 'Ref must not contain ".." segments')
-      .refine(v => v.replace(/^\/+|\/+$/g, '').length > 0, 'Ref must not consist only of slashes')
-      .describe('Git ref — branch name, tag, or commit SHA.'),
-  })
-  .openapi('SkillMount');
-
-/** Name-only skill selection; DB sessions expand mount fields from the skill store. */
+/** Name-only skill selection; mount fields come from the skill store. */
 const SkillNameRefSchema = z
   .object({
-    name: SkillNameFieldSchema,
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(64)
+      .regex(SKILL_NAME_REGEX, 'Name may only contain letters, numbers, ".", "_", and "-"')
+      .refine(v => v !== '.' && v !== '..', 'Name must not be "." or ".."')
+      .refine(v => !v.startsWith('.tfy-'), 'Name must not use the reserved ".tfy-" prefix')
+      .describe('Name for the skill, used as directory name in sandbox.'),
   })
   .strict()
   .openapi('SkillNameRef');
-
-const AgentSkillSchema = z.union([SkillMountSchema, SkillNameRefSchema]).openapi('AgentSkill');
 
 // --- Response format / messages ---
 
@@ -285,7 +252,7 @@ export const AgentSpecSchema = z
     messages: z.array(AgentSpecUserMessageSchema).optional(),
     mcp_servers: z.array(MCPServerRequestSchema).optional(),
     response_format: ResponseFormatSchema.optional(),
-    skills: z.array(AgentSkillSchema).optional(),
+    skills: z.array(SkillNameRefSchema).optional(),
     config: RuntimeConfigSchema.optional(),
     variables: z.record(z.string(), z.string()).optional(),
   })
@@ -293,6 +260,4 @@ export const AgentSpecSchema = z
   .openapi('AgentSpec');
 
 export type AgentSpec = z.infer<typeof AgentSpecSchema>;
-export type SkillMount = z.infer<typeof SkillMountSchema>;
 export type SkillNameRef = z.infer<typeof SkillNameRefSchema>;
-export type AgentSkill = z.infer<typeof AgentSkillSchema>;

@@ -1,4 +1,5 @@
 import type { AgentSpec } from '../schemas/agentSpec';
+import type { LegacyAgentSpec } from '../schemas/legacyAgentSpec';
 
 /**
  * Every Session / SessionRecord exposes a hydrated `agent_spec`. Persistence
@@ -11,7 +12,7 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
   tenant_id: string;
   session_id: string;
   /** Always hydrated on read. Source of `spec` in SessionHandle.createTurn(). */
-  agent_spec: AgentSpec;
+  agent_spec: AgentSpec | LegacyAgentSpec;
   /**
    * Wire SessionSchema.title (nullable). Written via updateSession patch or
    * createTurn's update_session_title_if_not_exist (first write wins; caller derives).

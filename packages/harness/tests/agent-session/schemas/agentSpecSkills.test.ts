@@ -1,12 +1,12 @@
-import { AgentSpecSchema } from '../../../src/agent-session/schemas/agentSpec';
+import { LegacyAgentSpecSchema } from '../../../src/agent-session/schemas/legacyAgentSpec';
 
 const base = {
   model: { name: 'test-model' },
 };
 
-describe('AgentSpecSchema skills (git mounts)', () => {
+describe('LegacyAgentSpecSchema skills (git mounts)', () => {
   it('accepts a git skill mount', () => {
-    const spec = AgentSpecSchema.parse({
+    const spec = LegacyAgentSpecSchema.parse({
       ...base,
       skills: [
         {
@@ -33,7 +33,7 @@ describe('AgentSpecSchema skills (git mounts)', () => {
 
   it('accepts a full commit SHA as ref', () => {
     const sha = 'a'.repeat(40);
-    const spec = AgentSpecSchema.parse({
+    const spec = LegacyAgentSpecSchema.parse({
       ...base,
       skills: [
         {
@@ -48,24 +48,8 @@ describe('AgentSpecSchema skills (git mounts)', () => {
     expect(spec.skills?.[0]).toMatchObject({ ref: sha });
   });
 
-  it('accepts a name-only skill ref', () => {
-    const spec = AgentSpecSchema.parse({
-      ...base,
-      skills: [{ name: 'pr-review' }],
-    });
-    expect(spec.skills).toEqual([{ name: 'pr-review' }]);
-  });
-
-  it('rejects the legacy name/preload skill shape', () => {
-    const result = AgentSpecSchema.safeParse({
-      ...base,
-      skills: [{ name: 'pr-review', preload: false }],
-    });
-    expect(result.success).toBe(false);
-  });
-
   it('rejects a git skill mount without a description', () => {
-    const result = AgentSpecSchema.safeParse({
+    const result = LegacyAgentSpecSchema.safeParse({
       ...base,
       skills: [
         {
@@ -80,7 +64,7 @@ describe('AgentSpecSchema skills (git mounts)', () => {
   });
 
   it('strips unknown commit_sha from a git skill mount', () => {
-    const result = AgentSpecSchema.safeParse({
+    const result = LegacyAgentSpecSchema.safeParse({
       ...base,
       skills: [
         {
