@@ -4,16 +4,19 @@ import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { GetCapabilitiesResponseDataSandbox } from "./GetCapabilitiesResponseDataSandbox.js";
+import { GetCapabilitiesResponseDataSkill } from "./GetCapabilitiesResponseDataSkill.js";
 
 export const GetCapabilitiesResponseData: core.serialization.ObjectSchema<
     serializers.GetCapabilitiesResponseData.Raw,
     TrueHarness.GetCapabilitiesResponseData
 > = core.serialization.object({
     sandbox: GetCapabilitiesResponseDataSandbox,
+    skill: GetCapabilitiesResponseDataSkill,
 });
 
 export declare namespace GetCapabilitiesResponseData {
     export interface Raw {
         sandbox: GetCapabilitiesResponseDataSandbox.Raw;
+        skill: GetCapabilitiesResponseDataSkill.Raw;
     }
 }

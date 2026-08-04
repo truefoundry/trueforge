@@ -23,7 +23,7 @@ export class ServerClient {
     }
 
     /**
-     * Report optional runtime capabilities available in this server deployment.
+     * Report optional runtime capabilities available for this tenant.
      *
      * @param {ServerClient.RequestOptions} requestOptions - Request-specific configuration.
      *

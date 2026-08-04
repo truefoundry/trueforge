@@ -247,6 +247,12 @@ export interface ServerConfiguration {
    */
   SKILL_CATALOG_PATH: string | undefined;
   /**
+   * Optional override for the sandbox catalog YAML (discovery presets for
+   * GET /settings/sandbox-providers/catalog). When unset, the catalog inlined at build
+   * time is used. Separate from `REGISTRY_DIR`. Env: `SANDBOX_CATALOG_PATH`.
+   */
+  SANDBOX_CATALOG_PATH: string | undefined;
+  /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
    * Env: `FRONTEND_DIR`, defaults to `../frontend/dist` relative to the working directory.
    */
@@ -413,6 +419,10 @@ const configuration: ServerConfiguration = {
   })(),
   SKILL_CATALOG_PATH: (() => {
     const override = getEnv('SKILL_CATALOG_PATH');
+    return override === undefined || override === '' ? undefined : path.resolve(override);
+  })(),
+  SANDBOX_CATALOG_PATH: (() => {
+    const override = getEnv('SANDBOX_CATALOG_PATH');
     return override === undefined || override === '' ? undefined : path.resolve(override);
   })(),
   FRONTEND_DIR: path.resolve(getEnv('FRONTEND_DIR', { defaultValue: DEFAULT_FRONTEND_DIR }) ?? DEFAULT_FRONTEND_DIR),

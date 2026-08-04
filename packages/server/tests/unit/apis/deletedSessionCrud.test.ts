@@ -37,6 +37,7 @@ describe('public CRUD after session deletion', () => {
       '/',
       createTurnsRouter({
         sessions,
+        sessionStore,
         activeTurns,
         modelStore,
         mcpStore,

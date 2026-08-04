@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "build:gen": "node scripts/generate-catalog.mjs",
-    "build:gen:watch": "node --watch-path=src/catalog/model-catalog.yaml --watch-path=src/catalog/mcp-catalog.yaml --watch-path=src/catalog/skill-catalog.yaml scripts/generate-catalog.mjs",
+    "build:gen:watch": "node --watch-path=src/catalog/model-catalog.yaml --watch-path=src/catalog/mcp-catalog.yaml --watch-path=src/catalog/skill-catalog.yaml --watch-path=src/catalog/sandbox-catalog.yaml scripts/generate-catalog.mjs",
     "build": "pnpm run build:gen && tsc --noEmit && tsup",
     "predev": "pnpm --filter @truefoundry/utils build:gen && pnpm run build:gen",
     "dev": "pnpm run --parallel catalog-watch dev:serve",

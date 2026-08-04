@@ -64,6 +64,6 @@ export async function listSkills(): Promise<SkillEntry[]> {
 }
 
 export async function getCapabilities(): Promise<ServerCapabilities> {
-  const body = await fetchJson<DataEnvelope<ServerCapabilities>>('/api/v1/capabilities');
+  const body = await fetchJson<DataEnvelope<ServerCapabilities>>('/api/v1/legacy/capabilities');
   return body.data;
 }

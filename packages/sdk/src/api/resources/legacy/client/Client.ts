@@ -4,6 +4,7 @@ import type { BaseClientOptions } from "../../../../BaseClient.js";
 import { type NormalizedClientOptions, normalizeClientOptions } from "../../../../BaseClient.js";
 import { McpServersClient } from "../resources/mcpServers/client/Client.js";
 import { ModelsClient } from "../resources/models/client/Client.js";
+import { ServerClient } from "../resources/server/client/Client.js";
 import { SkillsClient } from "../resources/skills/client/Client.js";
 
 export declare namespace LegacyClient {
@@ -12,12 +13,17 @@ export declare namespace LegacyClient {
 
 export class LegacyClient {
     protected readonly _options: NormalizedClientOptions<LegacyClient.Options>;
+    protected _server: ServerClient | undefined;
     protected _mcpServers: McpServersClient | undefined;
     protected _models: ModelsClient | undefined;
     protected _skills: SkillsClient | undefined;
 
     constructor(options: LegacyClient.Options) {
         this._options = normalizeClientOptions(options);
+    }
+
+    public get server(): ServerClient {
+        return (this._server ??= new ServerClient(this._options));
     }
 
     public get mcpServers(): McpServersClient {
