@@ -53,7 +53,7 @@ export async function getDbProviderConfig({
     });
   }
   return {
-    provider: provider.manifest.type === 'custom' ? 'generic' : provider.manifest.type,
+    provider: provider.manifest.type,
     name,
     model_id: model.model_id,
     base_url: provider.manifest.base_url,
