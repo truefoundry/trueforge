@@ -8,6 +8,7 @@
  * token exchange lands.
  */
 import { z } from '@hono/zod-openapi';
+import { isOAuthAccessTokenUsable, type OAuthToken } from '@truefoundry/utils-core/core';
 import { NameSchema } from './common';
 
 /** Transport/kind of MCP server. Extend when non-remote kinds ship. */
@@ -104,14 +105,14 @@ export function resolveConfiguredMcpRequestHeaders(manifest: McpServerManifest):
   return {};
 }
 
-/**
- * Stub auth_status until OAuth/token store backs a real check.
- * Header credentials are already on the row → authenticated.
- * DCR still needs a user authorize flow → auth_required.
- */
-export function toStubAuthStatus(manifest: McpServerManifest): McpAuthStatus {
+export function resolveMcpAuthStatus(
+  manifest: McpServerManifest,
+  token: OAuthToken | undefined,
+  nowMs: number,
+): McpAuthStatus {
   if (manifest.auth?.type === 'dcr') {
-    return { status: 'auth_required' };
+    const authenticated = token && isOAuthAccessTokenUsable(token.expiresAt, nowMs);
+    return authenticated ? { status: 'authenticated' } : { status: 'auth_required' };
   }
   return { status: 'authenticated' };
 }

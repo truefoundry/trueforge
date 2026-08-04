@@ -1,13 +1,17 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import {
+  ensureMcpClientRegistered,
   extractErrorLogFields,
+  type IOAuthTokenStore,
   isAuthRequired,
   isMcpAuthRequired,
   McpConnectionError,
+  McpDcrConfigurationError,
+  type OAuthToken,
   RemoteMCP,
   resolveMcpAuth,
   validateRedirectUris,
-  type IOAuthTokenStore,
+  withTimeout,
 } from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import type { McpCatalog } from '../catalog/McpCatalog';
@@ -22,8 +26,11 @@ import {
   putMcpServerRoute,
 } from '../routes/mcpServerRoutes';
 import type { ConfiguredMcpServer, McpServerManifest } from '../schemas/mcpServer';
-import { resolveConfiguredMcpRequestHeaders, toStubAuthStatus } from '../schemas/mcpServer';
+import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus } from '../schemas/mcpServer';
 import { TENANT_ID } from './sessions';
+
+/** Registering a DCR OAuth client hits the MCP server's authorization server, so bound that call. */
+export const MCP_DCR_REGISTRATION_TIMEOUT_MS = 10_000;
 
 export interface McpServersRouterDeps {
   mcpCatalog: McpCatalog;
@@ -43,22 +50,54 @@ function omitUndefinedEntries(obj: Record<string, unknown>): Record<string, unkn
   return out;
 }
 
-function toConfiguredMcpServer(record: McpServerRecord): ConfiguredMcpServer {
+/**
+ * `token` is the DCR access token stored for this server (keyed by `record.id`), or undefined for
+ * header/no-auth servers and DCR servers that have never authorized. Only DCR reads it.
+ */
+function toConfiguredMcpServer(
+  record: McpServerRecord,
+  token: OAuthToken | undefined,
+  nowMs: number,
+): ConfiguredMcpServer {
   return {
     ...record.manifest,
-    auth_status: toStubAuthStatus(record.manifest),
+    auth_status: resolveMcpAuthStatus(record.manifest, token, nowMs),
   };
 }
 
-/** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers). */
+/** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers).
+ *  TODO: Remove the server via txn if DCR fails to register
+ */
 export function createMcpServersRouter(deps: McpServersRouterDeps) {
+  const registerDcrClient = async (params: {
+    serverId: string;
+    mcpServerUrl: string;
+    mcpServerName: string;
+  }): Promise<void> => {
+    await withTimeout(
+      ensureMcpClientRegistered({
+        mcpServerStore: deps.mcpServerStore,
+        serverId: params.serverId,
+        mcpServerUrl: params.mcpServerUrl,
+        mcpServerName: params.mcpServerName,
+        clientName: configuration.OAUTH_CLIENT_NAME,
+      }),
+      MCP_DCR_REGISTRATION_TIMEOUT_MS,
+      `DCR client registration for MCP server "${params.mcpServerName}"`,
+    );
+  };
+
   const catalogHandler: RouteHandler<typeof getMcpServerCatalogRoute> = c => {
     return c.json({ data: [...deps.mcpCatalog.list()] }, 200);
   };
 
   const listConfiguredHandler: RouteHandler<typeof listConfiguredMcpServersRoute> = async c => {
     const records = await deps.mcpServerStore.listServers(TENANT_ID);
-    return c.json({ data: records.map(toConfiguredMcpServer) }, 200);
+    const nowMs = Date.now();
+    // Only DCR servers have tokens; batch the lookup.
+    const dcrIds = records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
+    const tokens = await deps.tokenStore.getTokens({ ids: dcrIds });
+    return c.json({ data: records.map(record => toConfiguredMcpServer(record, tokens.get(record.id), nowMs)) }, 200);
   };
 
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
@@ -68,7 +107,34 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
       name: manifest.name,
       manifest,
     });
-    return c.json({ data: toConfiguredMcpServer(record) }, 200);
+    if (record.manifest.auth?.type === 'dcr') {
+      try {
+        await registerDcrClient({
+          serverId: record.id,
+          mcpServerUrl: record.manifest.url,
+          mcpServerName: record.manifest.name,
+        });
+      } catch (error) {
+        // Permanent config error (server advertises no DCR support): a retry can never succeed, so
+        // surface it now as a 400 for immediate feedback instead of a silently-broken server.
+        if (error instanceof McpDcrConfigurationError) {
+          deps.logger.error(
+            `DCR misconfiguration for "${record.manifest.name}"; rejecting upsert`,
+            extractErrorLogFields(error),
+          );
+          return c.json({ error: { message: error.message } }, 400);
+        }
+        // Transient (network / timeout / flaky authorization server): keep the saved server and let
+        // the next authorize retry, rather than failing the upsert on a temporary fault.
+        deps.logger.warn(
+          `Eager DCR client registration failed for "${record.manifest.name}"; will retry on authorize`,
+          extractErrorLogFields(error),
+        );
+      }
+    }
+    // A re-upsert preserves `id`, so a DCR server may already carry a token from a prior authorize.
+    const token = record.manifest.auth?.type === 'dcr' ? await deps.tokenStore.getToken({ id: record.id }) : undefined;
+    return c.json({ data: toConfiguredMcpServer(record, token, Date.now()) }, 200);
   };
 
   const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {

@@ -38,5 +38,7 @@ export interface IOAuthTokenStore {
 
   getToken(params: { id: string }): Promise<OAuthToken | undefined>;
 
+  getTokens(params: { ids: string[] }): Promise<Map<string, OAuthToken>>;
+
   deleteToken(params: { id: string }): Promise<void>;
 }
