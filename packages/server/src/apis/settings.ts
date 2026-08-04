@@ -24,7 +24,7 @@ export interface SettingsRouterDeps {
   modelProviderStore: IModelProviderStore;
   mcpCatalog: McpCatalog;
   mcpServerStore: IMcpServerStore;
-  mcpTokenStore: IOAuthTokenStore;
+  tokenStore: IOAuthTokenStore;
   skillCatalog: SkillCatalog;
   skillStore: ISkillStore;
   sandboxCatalog: SandboxCatalog;
@@ -46,7 +46,7 @@ export function createSettingsRouter(deps: SettingsRouterDeps) {
     createMcpServersRouter({
       mcpCatalog: deps.mcpCatalog,
       mcpServerStore: deps.mcpServerStore,
-      mcpTokenStore: deps.mcpTokenStore,
+      tokenStore: deps.tokenStore,
       logger: deps.logger,
     }),
   );

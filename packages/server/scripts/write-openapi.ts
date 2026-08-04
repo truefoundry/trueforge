@@ -56,7 +56,7 @@ const app = createServerApp({
   modelProviderStore: new SqliteModelProviderStore(db),
   mcpCatalog: McpCatalog.load(),
   mcpServerStore: new SqliteMcpServerStore(db),
-  mcpTokenStore: new SqliteOAuthTokenStore(db),
+  tokenStore: new SqliteOAuthTokenStore(db),
   mcpStore: McpStore.load(),
   skillCatalog: SkillCatalog.load(),
   skillStore: new SqliteSkillStore(db),

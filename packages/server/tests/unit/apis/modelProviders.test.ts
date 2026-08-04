@@ -48,7 +48,7 @@ describe('settings model-providers and models routers', () => {
       modelProviderStore,
       mcpCatalog: McpCatalog.load(),
       mcpServerStore: new SqliteMcpServerStore(db),
-      mcpTokenStore: new SqliteOAuthTokenStore(db),
+      tokenStore: new SqliteOAuthTokenStore(db),
       skillCatalog: SkillCatalog.load(),
       skillStore: new SqliteSkillStore(db),
       sandboxCatalog: SandboxCatalog.load(),

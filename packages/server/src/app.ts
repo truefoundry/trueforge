@@ -11,9 +11,9 @@ import type { Logger } from 'winston';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createLegacyCapabilitiesRouter } from './apis/legacyCapabilities';
 import { createLegacyMcpRouter } from './apis/legacyMcp';
-import { createLegacyMcpOAuthRouter } from './apis/legacyMcpOAuth';
 import { createLegacyModelsRouter } from './apis/legacyModels';
 import { createLegacySkillsRouter } from './apis/legacySkills';
+import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createAvailableMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
@@ -58,7 +58,7 @@ export interface ServerDeps {
   modelProviderStore: IModelProviderStore;
   mcpCatalog: McpCatalog;
   mcpServerStore: IMcpServerStore;
-  mcpTokenStore: IOAuthTokenStore;
+  tokenStore: IOAuthTokenStore;
   mcpStore: McpStore;
   skillCatalog: SkillCatalog;
   skillStore: ISkillStore;
@@ -87,6 +87,15 @@ export function createServerApp(deps: ServerDeps) {
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
   app.route('/api/v1/mcp-servers', createAvailableMcpServersRouter(deps.mcpServerStore));
+  // Shared OAuth callback — path must match MCP_OAUTH_CALLBACK_PATH in the harness package.
+  app.route(
+    '/api/v1/mcp-servers/oauth',
+    createMcpOAuthRouter({
+      tokenStore: deps.tokenStore,
+      mcpServerStore: deps.mcpServerStore,
+      logger: deps.logger,
+    }),
+  );
   app.route('/api/v1/skills', createAvailableSkillsRouter(deps.skillStore));
   app.route(
     '/api/v1/settings',
@@ -95,7 +104,7 @@ export function createServerApp(deps: ServerDeps) {
       modelProviderStore: deps.modelProviderStore,
       mcpCatalog: deps.mcpCatalog,
       mcpServerStore: deps.mcpServerStore,
-      mcpTokenStore: deps.mcpTokenStore,
+      tokenStore: deps.tokenStore,
       skillCatalog: deps.skillCatalog,
       skillStore: deps.skillStore,
       sandboxCatalog: deps.sandboxCatalog,
@@ -106,7 +115,6 @@ export function createServerApp(deps: ServerDeps) {
   // YAML registry surfaces — still used by sessions/turns and the legacy UI paths.
   app.route('/api/v1/legacy/models', createLegacyModelsRouter(deps.modelStore));
   app.route('/api/v1/legacy/mcp-servers', createLegacyMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
-  app.route('/api/v1/legacy/mcp-servers/oauth', createLegacyMcpOAuthRouter({ logger: deps.logger }));
   app.route('/api/v1/legacy/skills', createLegacySkillsRouter(deps.legacySkillStore));
   app.route(
     '/api/v1/legacy/capabilities',

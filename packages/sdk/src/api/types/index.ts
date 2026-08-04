@@ -68,8 +68,6 @@ export * from "./ListSkillsResponse.js";
 export * from "./ListTurnEventsOrder.js";
 export * from "./ListTurnEventsResponse.js";
 export * from "./ListTurnsResponse.js";
-export * from "./McpAuthorizeResponse.js";
-export * from "./McpAuthorizeResponseStatus.js";
 export * from "./McpAuthRequiredEvent.js";
 export * from "./McpAuthStatus.js";
 export * from "./McpAuthStatusStatus.js";

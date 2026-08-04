@@ -4,10 +4,13 @@ import {
   extractErrorLogFields,
   type IOAuthTokenStore,
   isAuthRequired,
+  isMcpAuthRequired,
   McpConnectionError,
   McpDcrConfigurationError,
   type OAuthToken,
   RemoteMCP,
+  resolveMcpAuth,
+  validateRedirectUris,
   withTimeout,
 } from '@truefoundry/utils/core';
 import type { Logger } from 'winston';
@@ -32,7 +35,7 @@ export const MCP_DCR_REGISTRATION_TIMEOUT_MS = 10_000;
 export interface McpServersRouterDeps {
   mcpCatalog: McpCatalog;
   mcpServerStore: IMcpServerStore;
-  mcpTokenStore: IOAuthTokenStore;
+  tokenStore: IOAuthTokenStore;
   logger: Logger;
 }
 
@@ -91,7 +94,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     const nowMs = Date.now();
     // Only DCR servers have tokens; batch the lookup.
     const dcrIds = records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
-    const tokens = await deps.mcpTokenStore.getTokens({ ids: dcrIds });
+    const tokens = await deps.tokenStore.getTokens({ ids: dcrIds });
     return c.json({ data: records.map(record => toConfiguredMcpServer(record, tokens.get(record.id), nowMs)) }, 200);
   };
 
@@ -128,8 +131,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
       }
     }
     // A re-upsert preserves `id`, so a DCR server may already carry a token from a prior authorize.
-    const token =
-      record.manifest.auth?.type === 'dcr' ? await deps.mcpTokenStore.getToken({ id: record.id }) : undefined;
+    const token = record.manifest.auth?.type === 'dcr' ? await deps.tokenStore.getToken({ id: record.id }) : undefined;
     return c.json({ data: toConfiguredMcpServer(record, token, Date.now()) }, 200);
   };
 
@@ -177,9 +179,35 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     if (record.manifest.auth?.type !== 'dcr') {
       return c.json({ status: 'authenticated' as const }, 200);
     }
-    // STUB: real DCR + authorize URL minting lands with the OAuth follow-up.
-    const stubAuthUrl = `https://example-authorization-server.invalid/authorize?client_id=stub&redirect_uri=${encodeURIComponent(redirectUrl)}`;
-    return c.json({ status: 'auth_required' as const, authorization_url: stubAuthUrl }, 200);
+    try {
+      if (redirectUrl) {
+        validateRedirectUris({ redirectUris: [redirectUrl] });
+      }
+      // Reuses a usable/refreshable token when present; only builds an auth URL when needed.
+      const result = await resolveMcpAuth({
+        tokenStore: deps.tokenStore,
+        mcpServerStore: deps.mcpServerStore,
+        serverId: record.id,
+        mcpServerUrl: record.manifest.url,
+        mcpServerName: record.name,
+        clientName: configuration.OAUTH_CLIENT_NAME,
+        ...(redirectUrl !== undefined ? { redirectUrl } : {}),
+      });
+      if (isMcpAuthRequired(result)) {
+        return c.json({ status: 'auth_required' as const, authorization_url: result.authUrl.href }, 200);
+      }
+      return c.json({ status: 'authenticated' as const }, 200);
+    } catch (error) {
+      if (error instanceof McpConnectionError) {
+        deps.logger.warn(`MCP authorize failed for "${name}"`, extractErrorLogFields(error));
+        if (error.statusCode === 400) {
+          return c.json({ error: { message: error.message } }, 400);
+        }
+        return c.json({ error: { message: error.message } }, 500);
+      }
+      deps.logger.error(`MCP authorize unexpected failure for "${name}"`, extractErrorLogFields(error));
+      return c.json({ error: { message: 'Internal server error' } }, 500);
+    }
   };
 
   const router = new OpenAPIHono();

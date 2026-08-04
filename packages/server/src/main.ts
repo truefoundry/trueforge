@@ -99,7 +99,7 @@ try {
     modelProviderStore: new PostgresModelProviderStore(db),
     mcpCatalog: McpCatalog.load(),
     mcpServerStore: new PostgresMcpServerStore(db),
-    mcpTokenStore: new PostgresOAuthTokenStore(db),
+    tokenStore: new PostgresOAuthTokenStore(db),
     mcpStore: McpStore.load(),
     skillCatalog: SkillCatalog.load(),
     skillStore: new PostgresSkillStore(db),
