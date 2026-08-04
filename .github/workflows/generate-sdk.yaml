@@ -57,9 +57,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The spec script imports @truefoundry/utils from its build output.
-      - name: Build utils
-        run: pnpm --filter @truefoundry/utils build
+      # The spec script imports @truefoundry/utils-core from its build output.
+      - name: Build utils-core
+        run: pnpm --filter @truefoundry/utils-core build
 
       - name: Write OpenAPI document
         run: pnpm --filter @truefoundry/server openapi:write

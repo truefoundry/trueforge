@@ -1,7 +1,7 @@
-# Releasing `@truefoundry/utils`
+# Releasing `@truefoundry/utils-core`
 
 Interim setup for the fast development phase: the library in
-`packages/harness` is published **publicly** to npm as `@truefoundry/utils`
+`packages/harness` is published **publicly** to npm as `@truefoundry/utils-core`
 so the gateway can consume it like any normal dependency. The real
 open-source release happens later — every deferred item carries a
 `TODO(oss):` comment in code so we can grep for them when that day comes.
@@ -23,7 +23,7 @@ dist-relative paths (`scripts/make-dist-package-json.mjs`), so the tarball
 root is the compiled file tree. Consequences:
 
 - Deep imports mirror the source tree with no `dist/` segment:
-  `@truefoundry/utils/core/llm/LLMTypes`, `.../core/runtime/contextUtils`.
+  `@truefoundry/utils-core/core/llm/LLMTypes`, `.../core/runtime/contextUtils`.
 - Legacy `moduleResolution: "node"` consumers (the gateway) resolve subpaths
   as literal file lookups — no `exports`/`typesVersions` support needed.
 - `require()` and `import` both work (`.js` is CJS, `.mjs` is ESM).
@@ -63,7 +63,7 @@ root is the compiled file tree. Consequences:
    during the fast 0.x churn:
 
    ```json
-   "@truefoundry/utils": "0.x.y"
+   "@truefoundry/utils-core": "0.x.y"
    ```
 
 ## Local iteration without publishing

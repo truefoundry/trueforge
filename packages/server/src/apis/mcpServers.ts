@@ -8,7 +8,7 @@ import {
   resolveMcpAuth,
   validateRedirectUris,
   type IOAuthTokenStore,
-} from '@truefoundry/utils/core';
+} from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import type { McpCatalog } from '../catalog/McpCatalog';
 import configuration from '../config';

@@ -8,8 +8,13 @@
  * Called from main.ts so a malformed SANDBOX_SETTINGS aborts startup instead
  * of failing mid-turn.
  */
-import type { TurnSandboxFactory } from '@truefoundry/utils/agent-session';
-import { createSandboxProvider, Sandbox, SandboxProviderSettingsSchema, SkillMounter } from '@truefoundry/utils/core';
+import type { TurnSandboxFactory } from '@truefoundry/utils-core/agent-session';
+import {
+  createSandboxProvider,
+  Sandbox,
+  SandboxProviderSettingsSchema,
+  SkillMounter,
+} from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import { ZodError } from 'zod';
 import { TENANT_ID } from '../apis/sessions';

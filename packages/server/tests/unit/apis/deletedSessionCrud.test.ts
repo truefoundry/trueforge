@@ -1,6 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { InMemorySessionStore, Sessions } from '@truefoundry/utils/agent-session';
-import { RequestReplyRouter } from '@truefoundry/utils/request-reply';
+import { InMemorySessionStore, Sessions } from '@truefoundry/utils-core/agent-session';
+import { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
 import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
