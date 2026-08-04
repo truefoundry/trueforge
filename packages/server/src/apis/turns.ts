@@ -254,11 +254,20 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
     const abortController = new AbortController();
     const modelName = session.agent_spec.model.name;
-    const providerConfig = await getDbProviderConfig({
-      tenant_id: TENANT_ID,
-      name: modelName,
-      store: deps.modelProviderStore,
-    });
+    let providerConfig;
+    try {
+      providerConfig = await getDbProviderConfig({
+        tenant_id: TENANT_ID,
+        name: modelName,
+        store: deps.modelProviderStore,
+      });
+    } catch (error) {
+      // Model deregistered or FQN invalid after admit — same 400 as admit/spec failures.
+      if (error instanceof Error) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      throw error;
+    }
     const resolver = createTurnResolver({
       mcpServerStore: deps.mcpServerStore,
       sandboxFactory: deps.sandboxFactory,
