@@ -105,35 +105,6 @@ jobs:
         if: steps.decide.outputs.needed == 'true'
         run: fern generate --group ts-sdk --version 0.0.0 --local --generate-tests --log-level debug
 
-      # Temporary: diagnose missing packages/sdk/.fern/verify.sh after local generate (exit 127).
-      - name: Debug Fern SDK .fern output
-        if: steps.decide.outputs.needed == 'true'
-        run: |
-          set -u
-          echo "pwd=$(pwd)"
-          echo "packages/sdk exists=$(test -d packages/sdk && echo yes || echo no)"
-          echo "packages/sdk/.fern exists=$(test -d packages/sdk/.fern && echo yes || echo no)"
-          echo "packages/sdk/.fern/verify.sh exists=$(test -e packages/sdk/.fern/verify.sh && echo yes || echo no)"
-          echo "--- ls packages/sdk (top) ---"
-          ls -la packages/sdk || true
-          echo "--- ls packages/sdk/.fern ---"
-          ls -la packages/sdk/.fern || true
-          echo "--- find verify.sh under packages/sdk ---"
-          find packages/sdk -name 'verify.sh' -ls 2>/dev/null || true
-          echo "--- git status packages/sdk/.fern ---"
-          git status --porcelain -- packages/sdk/.fern || true
-          if test -f packages/sdk/.fern/metadata.json; then
-            echo "--- metadata.json ---"
-            cat packages/sdk/.fern/metadata.json
-          fi
-          if test -f packages/sdk/.fern/verify.sh; then
-            echo "--- verify.sh ---"
-            ls -l packages/sdk/.fern/verify.sh
-            head -20 packages/sdk/.fern/verify.sh
-          else
-            echo "::warning::packages/sdk/.fern/verify.sh missing after fern generate"
-          fi
-
       # Fern generates no CI for this output mode, so this is what proves the SDK compiles.
       - name: Verify the generated SDK builds
         if: steps.decide.outputs.needed == 'true'
