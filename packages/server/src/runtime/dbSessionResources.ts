@@ -14,6 +14,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
 
 export interface DbMcpConnection {
   url: string;
@@ -104,7 +105,7 @@ function dcrHeadersResolver(params: {
 
 /**
  * Load MCP url + headers for a DB-configured server.
- * DCR uses resolveMcpAuth; no-auth servers get empty static headers.
+ * DCR uses resolveMcpAuth; header / no-auth use resolveConfiguredMcpRequestHeaders.
  * Throws HTTPException(400) if the server is not registered.
  */
 export async function getDbMcpConnection({
@@ -139,7 +140,7 @@ export async function getDbMcpConnection({
   }
   return {
     url: record.manifest.url,
-    headers: {},
+    headers: resolveConfiguredMcpRequestHeaders(record.manifest),
   };
 }
 
