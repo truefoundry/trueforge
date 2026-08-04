@@ -2,6 +2,9 @@
   "name": "@truefoundry/harness-workspace",
   "private": true,
   "packageManager": "pnpm@11.16.0+sha512.b767e9a98fc87aec0f42daefcd0e84941c2cdb45d73c4e1e68860fb2bdfdbe032ab592105479e5e05c237f740c8a5ffdbbb52385797ddc2296745a1bbb883e8d",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "build": "pnpm --filter @truefoundry/utils-core build && pnpm --filter @truefoundry/server build && pnpm --filter frontend build",
     "clean": "node scripts/clean.mjs",
@@ -23,6 +26,7 @@
     "smoke": "docker compose up --build --wait && node -e \"Promise.all([fetch('http://127.0.0.1:8791/healthz'), fetch('http://127.0.0.1:8791/')]).then(async ([health, ui]) => { if (!health.ok) throw new Error('healthz returned ' + health.status); const html = await ui.text(); if (!ui.ok || !html.includes('id=\\\"root\\\"')) throw new Error('UI did not return its app shell'); console.log('healthz and UI OK'); })\"",
     "smoke:down": "docker compose down",
     "openapi:write": "pnpm --filter @truefoundry/server openapi:write",
+    "sdk:generate": "bash scripts/generate-sdk.sh",
     "ui:shot": "node ui-shots/shot.mjs",
     "ui:clean": "node ui-shots/clean.mjs",
     "pack:dry": "pnpm --filter @truefoundry/utils-core pack:dry",

@@ -248,7 +248,7 @@ export class SessionsClient {
     /**
      * Fetch a session by ID.
      *
-     * @param {string} sessionId - Session identifier.
+     * @param {string} session_id - Session identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueHarness.NotFoundError}
@@ -256,17 +256,17 @@ export class SessionsClient {
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
      * @example
-     *     await client.sessions.get("sessionId")
+     *     await client.sessions.get("session_id")
      */
     public get(
-        sessionId: string,
+        session_id: string,
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueHarness.GetSessionResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__get(sessionId, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__get(session_id, requestOptions));
     }
 
     private async __get(
-        sessionId: string,
+        session_id: string,
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueHarness.GetSessionResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
@@ -274,7 +274,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(sessionId)}`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}`,
             ),
             method: "GET",
             headers: _headers,
@@ -320,27 +320,27 @@ export class SessionsClient {
             }
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/sessions/{sessionId}");
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/sessions/{session_id}");
     }
 
     /**
      * Delete a session and all related turns, events, and internal state. Idempotent if already gone.
      *
-     * @param {string} sessionId - Session identifier.
+     * @param {string} session_id - Session identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link errors.TrueHarnessError}
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
      * @example
-     *     await client.sessions.delete("sessionId")
+     *     await client.sessions.delete("session_id")
      */
-    public delete(sessionId: string, requestOptions?: SessionsClient.RequestOptions): core.HttpResponsePromise<void> {
-        return core.HttpResponsePromise.fromPromise(this.__delete(sessionId, requestOptions));
+    public delete(session_id: string, requestOptions?: SessionsClient.RequestOptions): core.HttpResponsePromise<void> {
+        return core.HttpResponsePromise.fromPromise(this.__delete(session_id, requestOptions));
     }
 
     private async __delete(
-        sessionId: string,
+        session_id: string,
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<void>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
@@ -348,7 +348,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(sessionId)}`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}`,
             ),
             method: "DELETE",
             headers: _headers,
@@ -375,14 +375,14 @@ export class SessionsClient {
             _response.error,
             _response.rawResponse,
             "DELETE",
-            "/api/v1/sessions/{sessionId}",
+            "/api/v1/sessions/{session_id}",
         );
     }
 
     /**
      * Update a session's inline agent spec. An empty body is a valid no-op that refreshes `updated_at`.
      *
-     * @param {string} sessionId - Session identifier.
+     * @param {string} session_id - Session identifier.
      * @param {TrueHarness.UpdateSessionRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -393,18 +393,18 @@ export class SessionsClient {
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
      * @example
-     *     await client.sessions.update("sessionId")
+     *     await client.sessions.update("session_id")
      */
     public update(
-        sessionId: string,
+        session_id: string,
         request: TrueHarness.UpdateSessionRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueHarness.GetSessionResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__update(sessionId, request, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__update(session_id, request, requestOptions));
     }
 
     private async __update(
-        sessionId: string,
+        session_id: string,
         request: TrueHarness.UpdateSessionRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueHarness.GetSessionResponse>> {
@@ -413,7 +413,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(sessionId)}`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}`,
             ),
             method: "PATCH",
             headers: _headers,
@@ -496,14 +496,14 @@ export class SessionsClient {
             _response.error,
             _response.rawResponse,
             "PATCH",
-            "/api/v1/sessions/{sessionId}",
+            "/api/v1/sessions/{session_id}",
         );
     }
 
     /**
      * Cancel the running last turn for a session.
      *
-     * @param {string} sessionId - Session identifier.
+     * @param {string} session_id - Session identifier.
      * @param {TrueHarness.CancelSessionRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -513,18 +513,18 @@ export class SessionsClient {
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
      * @example
-     *     await client.sessions.cancel("sessionId")
+     *     await client.sessions.cancel("session_id")
      */
     public cancel(
-        sessionId: string,
+        session_id: string,
         request: TrueHarness.CancelSessionRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueHarness.CancelSessionResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__cancel(sessionId, request, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__cancel(session_id, request, requestOptions));
     }
 
     private async __cancel(
-        sessionId: string,
+        session_id: string,
         request: TrueHarness.CancelSessionRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueHarness.CancelSessionResponse>> {
@@ -533,7 +533,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(sessionId)}/cancel`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}/cancel`,
             ),
             method: "POST",
             headers: _headers,
@@ -605,14 +605,14 @@ export class SessionsClient {
             _response.error,
             _response.rawResponse,
             "POST",
-            "/api/v1/sessions/{sessionId}/cancel",
+            "/api/v1/sessions/{session_id}/cancel",
         );
     }
 
     /**
      * List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor.
      *
-     * @param {string} sessionId - Session identifier.
+     * @param {string} session_id - Session identifier.
      * @param {TrueHarness.ListEventsSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -622,10 +622,10 @@ export class SessionsClient {
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
      * @example
-     *     await client.sessions.listEvents("sessionId")
+     *     await client.sessions.listEvents("session_id")
      */
     public async listEvents(
-        sessionId: string,
+        session_id: string,
         request: TrueHarness.ListEventsSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.Page<TrueHarness.SessionEventItem, TrueHarness.ListSessionEventsResponse>> {
@@ -647,7 +647,7 @@ export class SessionsClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        `api/v1/sessions/${core.url.encodePathParam(sessionId)}/events`,
+                        `api/v1/sessions/${core.url.encodePathParam(session_id)}/events`,
                     ),
                     method: "GET",
                     headers: _headers,
@@ -710,7 +710,7 @@ export class SessionsClient {
                     _response.error,
                     _response.rawResponse,
                     "GET",
-                    "/api/v1/sessions/{sessionId}/events",
+                    "/api/v1/sessions/{session_id}/events",
                 );
             },
         );
@@ -731,7 +731,7 @@ export class SessionsClient {
     /**
      * List turns for a session (newest first by default), token-paginated.
      *
-     * @param {string} sessionId - Session identifier.
+     * @param {string} session_id - Session identifier.
      * @param {TrueHarness.ListTurnsSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -741,10 +741,10 @@ export class SessionsClient {
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
      * @example
-     *     await client.sessions.listTurns("sessionId")
+     *     await client.sessions.listTurns("session_id")
      */
     public async listTurns(
-        sessionId: string,
+        session_id: string,
         request: TrueHarness.ListTurnsSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.Page<TrueHarness.Turn, TrueHarness.ListTurnsResponse>> {
@@ -765,7 +765,7 @@ export class SessionsClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns`,
+                        `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns`,
                     ),
                     method: "GET",
                     headers: _headers,
@@ -828,7 +828,7 @@ export class SessionsClient {
                     _response.error,
                     _response.rawResponse,
                     "GET",
-                    "/api/v1/sessions/{sessionId}/turns",
+                    "/api/v1/sessions/{session_id}/turns",
                 );
             },
         );
@@ -851,15 +851,15 @@ export class SessionsClient {
      * Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`).
      */
     public createTurn(
-        sessionId: string,
+        session_id: string,
         request: TrueHarness.CreateTurnRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<core.Stream<TrueHarness.TurnStreamingEvent>> {
-        return core.HttpResponsePromise.fromPromise(this.__createTurn(sessionId, request, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__createTurn(session_id, request, requestOptions));
     }
 
     private async __createTurn(
-        sessionId: string,
+        session_id: string,
         request: TrueHarness.CreateTurnRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<core.Stream<TrueHarness.TurnStreamingEvent>>> {
@@ -868,7 +868,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns`,
             ),
             method: "POST",
             headers: _headers,
@@ -961,15 +961,15 @@ export class SessionsClient {
             _response.error,
             _response.rawResponse,
             "POST",
-            "/api/v1/sessions/{sessionId}/turns",
+            "/api/v1/sessions/{session_id}/turns",
         );
     }
 
     /**
      * Fetch a single turn by ID.
      *
-     * @param {string} sessionId - Session identifier.
-     * @param {string} turnId - Turn identifier.
+     * @param {string} session_id - Session identifier.
+     * @param {string} turn_id - Turn identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueHarness.NotFoundError}
@@ -977,19 +977,19 @@ export class SessionsClient {
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
      * @example
-     *     await client.sessions.getTurn("sessionId", "turnId")
+     *     await client.sessions.getTurn("session_id", "turn_id")
      */
     public getTurn(
-        sessionId: string,
-        turnId: string,
+        session_id: string,
+        turn_id: string,
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueHarness.GetTurnResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__getTurn(sessionId, turnId, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__getTurn(session_id, turn_id, requestOptions));
     }
 
     private async __getTurn(
-        sessionId: string,
-        turnId: string,
+        session_id: string,
+        turn_id: string,
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueHarness.GetTurnResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
@@ -997,7 +997,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}`,
             ),
             method: "GET",
             headers: _headers,
@@ -1047,15 +1047,15 @@ export class SessionsClient {
             _response.error,
             _response.rawResponse,
             "GET",
-            "/api/v1/sessions/{sessionId}/turns/{turnId}",
+            "/api/v1/sessions/{session_id}/turns/{turn_id}",
         );
     }
 
     /**
      * Paginated persisted events for a turn (insertion order by default).
      *
-     * @param {string} sessionId - Session identifier.
-     * @param {string} turnId - Turn identifier.
+     * @param {string} session_id - Session identifier.
+     * @param {string} turn_id - Turn identifier.
      * @param {TrueHarness.ListTurnEventsSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -1065,11 +1065,11 @@ export class SessionsClient {
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
      * @example
-     *     await client.sessions.listTurnEvents("sessionId", "turnId")
+     *     await client.sessions.listTurnEvents("session_id", "turn_id")
      */
     public async listTurnEvents(
-        sessionId: string,
-        turnId: string,
+        session_id: string,
+        turn_id: string,
         request: TrueHarness.ListTurnEventsSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.Page<TrueHarness.SessionEvent, TrueHarness.ListTurnEventsResponse>> {
@@ -1099,7 +1099,7 @@ export class SessionsClient {
                     url: core.url.join(
                         (await core.Supplier.get(this._options.baseUrl)) ??
                             (await core.Supplier.get(this._options.environment)),
-                        `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}/events`,
+                        `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/events`,
                     ),
                     method: "GET",
                     headers: _headers,
@@ -1162,7 +1162,7 @@ export class SessionsClient {
                     _response.error,
                     _response.rawResponse,
                     "GET",
-                    "/api/v1/sessions/{sessionId}/turns/{turnId}/events",
+                    "/api/v1/sessions/{session_id}/turns/{turn_id}/events",
                 );
             },
         );
@@ -1184,17 +1184,19 @@ export class SessionsClient {
      * Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
      */
     public subscribeToTurn(
-        sessionId: string,
-        turnId: string,
+        session_id: string,
+        turn_id: string,
         request: TrueHarness.SubscribeToTurnSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<core.Stream<TrueHarness.TurnStreamingEvent>> {
-        return core.HttpResponsePromise.fromPromise(this.__subscribeToTurn(sessionId, turnId, request, requestOptions));
+        return core.HttpResponsePromise.fromPromise(
+            this.__subscribeToTurn(session_id, turn_id, request, requestOptions),
+        );
     }
 
     private async __subscribeToTurn(
-        sessionId: string,
-        turnId: string,
+        session_id: string,
+        turn_id: string,
         request: TrueHarness.SubscribeToTurnSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<core.Stream<TrueHarness.TurnStreamingEvent>>> {
@@ -1207,7 +1209,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}/subscribe`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/subscribe`,
             ),
             method: "GET",
             headers: _headers,
@@ -1228,7 +1230,7 @@ export class SessionsClient {
                 url: core.url.join(
                     (await core.Supplier.get(this._options.baseUrl)) ??
                         (await core.Supplier.get(this._options.environment)),
-                    `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}/subscribe`,
+                    `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/subscribe`,
                 ),
                 method: "GET",
                 headers: { ..._headers, "Last-Event-ID": lastEventId },
@@ -1329,7 +1331,7 @@ export class SessionsClient {
             _response.error,
             _response.rawResponse,
             "GET",
-            "/api/v1/sessions/{sessionId}/turns/{turnId}/subscribe",
+            "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe",
         );
     }
 }

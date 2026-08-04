@@ -1,163 +1,110 @@
-import { AssistantRuntimeProvider, useAui, useAuiState } from '@assistant-ui/react';
-import { ErrorToasterProvider, SlotsProvider, Thread } from '@truefoundry/agent-ui-sdk';
 import {
-  trueFoundryAttachmentAdapter,
-  useTrueFoundryAgentRuntime,
-  type AgentSpec,
-} from '@truefoundry/assistant-ui-runtime';
+  createTrueFoundryServer,
+  TrueFoundryAssistantUI,
+  useShellMode,
+  WelcomeScreen,
+  type SlotOverrides,
+  type WelcomeScreenProps,
+} from '@truefoundry/agent-ui-sdk';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ThemeProvider } from 'tfy-web-components/components/theme/useTheme';
-import { AgentSessionClient } from 'truefoundry-gateway-sdk/agents';
-import { PrivateAgentSessionClient } from 'truefoundry-gateway-sdk/agents/private';
+import './agentUiSlots';
 import { ApiErrorCard } from './ApiErrorCard';
-import { ServerCapabilitiesProvider } from './capabilities';
-import { getCapabilities, listModels, type ServerCapabilities } from './catalog';
-import { AppComposerShell } from './ComposerShell';
-import { harnessFetch } from './harnessFetch';
-import { PanelLeftIcon } from './icons';
-import { AppWelcomeScreen } from './slots';
-import { ThreadHeader } from './ThreadHeader';
-import { ThreadSidebar } from './ThreadSidebar';
+import { getCapabilities, listMcpServers, listModels, listSkills } from './catalog';
+import { createConnectorCatalog } from './connectorCatalog';
+import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';
+import { createModelProviderCatalog } from './modelProviderCatalog';
 
-const client = new AgentSessionClient({
-  baseUrl: '/',
-  auth: false,
-  fetch: harnessFetch,
-});
+/** Harness model names are `provider/model`. */
+function providerOf(name: string): string {
+  return name.split('/')[0] ?? name;
+}
 
-const privateClient = new PrivateAgentSessionClient({
-  baseUrl: '/',
-  auth: false,
-  fetch: harnessFetch,
-});
-
-const slotOverrides = {
-  WelcomeScreen: AppWelcomeScreen,
-  ComposerShell: AppComposerShell,
-  ComposerRightSection: () => null,
-  ComposerLeftSection: () => null,
-  ComposerSendButton: () => null,
-};
-
-/**
- * The backend generates the session title once the first turn streams. Reload
- * the thread list when streaming starts and ends so the sidebar and header
- * (both read from `threads.threadItems`) pick up the new title.
- */
-function ThreadTitleSync() {
-  const aui = useAui();
-  const isRunning = useAuiState(state => state.threads.main.isRunning);
-  const mountedRef = useRef(false);
+/** Opens settings once when the empty welcome screen mounts (no models configured). */
+function OpenSettingsWelcomeScreen(props: WelcomeScreenProps) {
+  const { setSettingsOpen } = useShellMode();
+  const openedRef = useRef(false);
   useEffect(() => {
-    if (!mountedRef.current) {
-      mountedRef.current = true;
+    if (openedRef.current) {
       return;
     }
-    void aui.threads().reload();
-  }, [aui, isRunning]);
-  return null;
+    openedRef.current = true;
+    setSettingsOpen(true);
+  }, [setSettingsOpen]);
+  return <WelcomeScreen {...props} />;
 }
 
-function ChatApp({
-  defaultAgentSpec,
-  capabilities,
-}: {
-  defaultAgentSpec: AgentSpec;
-  capabilities: ServerCapabilities;
-}) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const runtime = useTrueFoundryAgentRuntime({
-    client,
-    privateClient,
-    agent: {
-      mode: 'draft',
-      defaultAgentSpec,
+const server = createTrueFoundryServer<HarnessAgentSpec>({
+  chatServer: createHarnessChatServer(),
+  getModels: async () => (await listModels()).map(model => ({ name: model.name, provider: providerOf(model.name) })),
+  // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
+  getSkills: async () => {
+    const [capabilities, skills] = await Promise.all([getCapabilities(), listSkills()]);
+    return capabilities.skill.enabled
+      ? skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }))
+      : [];
+  },
+  getMcp: async () =>
+    (await listMcpServers()).map(server => ({ id: server.name, name: server.name, description: server.url })),
+  searchAgents: () => Promise.resolve([]),
+  saveAgent: () => Promise.reject(new Error('Harness has no agent registry — sessions are draft-only')),
+  catalog: {
+    modelCatalog: createModelProviderCatalog(),
+    connectorCatalog: createConnectorCatalog(),
+    // Skills settings still deferred (UI create shape is repo/directory; Harness is git manifest).
+    skillCatalog: {
+      listSkills: () => Promise.resolve([]),
+      createSkill: () => Promise.reject(new Error('not implemented')),
     },
-    adapters: { attachments: trueFoundryAttachmentAdapter },
-  });
+  },
+});
 
-  return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <ServerCapabilitiesProvider capabilities={capabilities}>
-        <ThemeProvider theme="dark">
-          <SlotsProvider theme="dark" overrides={slotOverrides}>
-            <ErrorToasterProvider>
-              <ThreadTitleSync />
-              <div className="app-shell">
-                {sidebarOpen ? (
-                  <aside className="app-sidebar">
-                    <div className="sidebar-top">
-                      <span className="sidebar-brand">Harness</span>
-                      <button
-                        type="button"
-                        className="icon-btn"
-                        aria-label="Collapse sidebar"
-                        onClick={() => {
-                          setSidebarOpen(false);
-                        }}
-                      >
-                        <PanelLeftIcon />
-                      </button>
-                    </div>
-                    <ThreadSidebar />
-                  </aside>
-                ) : null}
-                <div className="app-main">
-                  <ThreadHeader
-                    sidebarCollapsed={!sidebarOpen}
-                    onExpandSidebar={() => {
-                      setSidebarOpen(true);
-                    }}
-                  />
-                  <div className="app-thread-body">
-                    <Thread />
-                  </div>
-                  <ApiErrorCard />
-                </div>
-              </div>
-            </ErrorToasterProvider>
-          </SlotsProvider>
-        </ThemeProvider>
-      </ServerCapabilitiesProvider>
-    </AssistantRuntimeProvider>
-  );
-}
+type BootState =
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+  | { status: 'ready'; defaultAgentSpec: HarnessAgentSpec; openSettings: boolean };
 
 export function App() {
-  const [defaultAgentSpec, setDefaultAgentSpec] = useState<AgentSpec | null>(null);
-  const [capabilities, setCapabilities] = useState<ServerCapabilities | null>(null);
-  const [bootError, setBootError] = useState<string | null>(null);
-
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-    return () => {
-      document.documentElement.classList.remove('dark');
-    };
-  }, []);
+  const [boot, setBoot] = useState<BootState>({ status: 'loading' });
 
   useEffect(() => {
     const state = { cancelled: false };
     void (async () => {
       try {
-        const [models, serverCapabilities] = await Promise.all([listModels(), getCapabilities()]);
-        const first = models[0];
-        if (!first) {
-          throw new Error('No models in GET /api/v1/legacy/models — check models.yaml');
+        const [models, capabilities] = await Promise.all([listModels(), getCapabilities()]);
+        if (state.cancelled) {
+          return;
         }
-        if (!state.cancelled) {
-          const defaultReasoningEffort = first.reasoning_efforts?.[0];
-          setDefaultAgentSpec({
+        const first = models[0];
+        const sandboxConfig = { sandbox: { enabled: capabilities.sandbox.enabled } };
+        if (first === undefined) {
+          setBoot({
+            status: 'ready',
+            openSettings: true,
+            defaultAgentSpec: {
+              model: { name: '' },
+              config: sandboxConfig,
+            },
+          });
+          return;
+        }
+        const defaultReasoningEffort = first.properties.reasoningEfforts?.[0];
+        setBoot({
+          status: 'ready',
+          openSettings: false,
+          defaultAgentSpec: {
             model: {
               name: first.name,
               ...(defaultReasoningEffort ? { params: { reasoningEffort: defaultReasoningEffort } } : {}),
             },
-            config: { sandbox: { enabled: serverCapabilities.sandbox.enabled } },
-          });
-          setCapabilities(serverCapabilities);
-        }
+            config: sandboxConfig,
+          },
+        });
       } catch (err) {
         if (!state.cancelled) {
-          setBootError(err instanceof Error ? err.message : 'Failed to boot');
+          setBoot({
+            status: 'error',
+            message: err instanceof Error ? err.message : 'Failed to boot',
+          });
         }
       }
     })();
@@ -166,21 +113,21 @@ export function App() {
     };
   }, []);
 
-  const loading = useMemo(
-    () => (defaultAgentSpec == null || capabilities == null) && bootError == null,
-    [defaultAgentSpec, capabilities, bootError],
+  const overrides: SlotOverrides = useMemo(
+    () => (boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
+    [boot],
   );
 
-  if (bootError) {
+  if (boot.status === 'error') {
     return (
       <div className="boot-screen" data-error="true">
-        Failed to load application configuration: {bootError}
+        Failed to load application configuration: {boot.message}
         <ApiErrorCard />
       </div>
     );
   }
 
-  if (loading || defaultAgentSpec == null || capabilities == null) {
+  if (boot.status === 'loading') {
     return (
       <div className="boot-screen">
         Loading application…
@@ -189,5 +136,17 @@ export function App() {
     );
   }
 
-  return <ChatApp defaultAgentSpec={defaultAgentSpec} capabilities={capabilities} />;
+  return (
+    <div className="app-root">
+      <TrueFoundryAssistantUI
+        server={server}
+        layout="sidebar"
+        defaultAgentSpec={boot.defaultAgentSpec}
+        overrides={overrides}
+        theme={{ mode: 'dark' }}
+        className="app-assistant"
+      />
+      <ApiErrorCard />
+    </div>
+  );
 }

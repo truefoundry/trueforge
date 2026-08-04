@@ -11,6 +11,7 @@ import {
   SandboxNotAvailableError,
   SandboxPathIsDirectoryError,
 } from '../SandboxErrors';
+import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
 import type { ExecResult, SandboxExecParams, SandboxFileInfo, SandboxProvider } from './Provider';
 
 const SANDBOX_NOT_FOUND_STATUS = 404;
@@ -24,35 +25,31 @@ function httpUrlToWsUrl(url: string): string {
   return parsed.toString();
 }
 
-export interface DaytonaSandboxSettings {
+export interface DaytonaSandboxProviderOptions {
+  /** Caller-owned Daytona SDK client (credentials / lifetime). */
+  client: Daytona;
+  tenantName: string;
   snapshotName: string;
   timeoutMs: number;
   autoStopIntervalInMinutes: number;
   autoArchiveIntervalInMinutes: number;
   autoDeleteIntervalInMinutes: number;
-}
-
-export interface DaytonaSandboxProviderOptions {
-  apiKey: string;
-  tenantName: string;
-  settings: DaytonaSandboxSettings;
-  fileMaxBytes: number;
-  natsBridgePort: number;
-  previewUrlExpirySeconds: number;
+  fileMaxBytesForDownload: number;
+  /** Defaults to the built-in sandbox NATS WebSocket port (4444). */
+  natsBridgePort?: number;
+  /** Defaults to 1 hour (same as the gateway's max agent execution time). */
+  previewUrlExpirySeconds?: number;
   logger: Logger;
 }
 
-let daytonaClient: Daytona | undefined;
-function getDaytonaClient(apiKey: string): Daytona {
-  daytonaClient ??= new Daytona({ apiKey });
-  return daytonaClient;
-}
-
 export class DaytonaSandboxProvider implements SandboxProvider {
-  private readonly apiKey: string;
   private readonly tenantName: string;
-  private readonly settings: DaytonaSandboxSettings;
-  private readonly fileMaxBytes: number;
+  private readonly snapshotName: string;
+  private readonly timeoutMs: number;
+  private readonly autoStopIntervalInMinutes: number;
+  private readonly autoArchiveIntervalInMinutes: number;
+  private readonly autoDeleteIntervalInMinutes: number;
+  private readonly fileMaxBytesForDownload: number;
   private readonly natsBridgePort: number;
   private readonly previewUrlExpirySeconds: number;
   private readonly logger: Logger;
@@ -62,14 +59,17 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private static readonly inFlightRecoveries = new Map<string, Promise<boolean>>();
 
   constructor(options: DaytonaSandboxProviderOptions) {
-    this.apiKey = options.apiKey;
+    this.daytona = options.client;
     this.tenantName = options.tenantName;
-    this.settings = options.settings;
-    this.fileMaxBytes = options.fileMaxBytes;
-    this.natsBridgePort = options.natsBridgePort;
-    this.previewUrlExpirySeconds = options.previewUrlExpirySeconds;
+    this.snapshotName = options.snapshotName;
+    this.timeoutMs = options.timeoutMs;
+    this.autoStopIntervalInMinutes = options.autoStopIntervalInMinutes;
+    this.autoArchiveIntervalInMinutes = options.autoArchiveIntervalInMinutes;
+    this.autoDeleteIntervalInMinutes = options.autoDeleteIntervalInMinutes;
+    this.fileMaxBytesForDownload = options.fileMaxBytesForDownload;
+    this.natsBridgePort = options.natsBridgePort ?? DEFAULT_SANDBOX_NATS_WS_PORT;
+    this.previewUrlExpirySeconds = options.previewUrlExpirySeconds ?? DEFAULT_PREVIEW_URL_EXPIRY_SECONDS;
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
-    this.daytona = getDaytonaClient(this.apiKey);
   }
 
   private async getOrCreateSandbox(sandboxId?: string): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {
@@ -82,13 +82,13 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       ? await this.restoreExistingSandbox(sandboxId)
       : await this.daytona.create({
           name: `${this.tenantName}.${randomUUID()}`,
-          snapshot: this.settings.snapshotName,
-          autoStopInterval: this.settings.autoStopIntervalInMinutes,
-          autoArchiveInterval: this.settings.autoArchiveIntervalInMinutes,
-          autoDeleteInterval: this.settings.autoDeleteIntervalInMinutes,
+          snapshot: this.snapshotName,
+          autoStopInterval: this.autoStopIntervalInMinutes,
+          autoArchiveInterval: this.autoArchiveIntervalInMinutes,
+          autoDeleteInterval: this.autoDeleteIntervalInMinutes,
         });
 
-    const entry = { sandbox, defaultTimeoutMs: this.settings.timeoutMs };
+    const entry = { sandbox, defaultTimeoutMs: this.timeoutMs };
     DaytonaSandboxProvider.cachedSandboxes.set(sandbox.name, entry);
     return entry;
   }
@@ -212,8 +212,8 @@ export class DaytonaSandboxProvider implements SandboxProvider {
           if (info.isDir) {
             throw new SandboxPathIsDirectoryError(params.path);
           }
-          if (info.size > this.fileMaxBytes) {
-            throw new SandboxFileTooLargeError(params.path, info.size, this.fileMaxBytes);
+          if (info.size > this.fileMaxBytesForDownload) {
+            throw new SandboxFileTooLargeError(params.path, info.size, this.fileMaxBytesForDownload);
           }
 
           return await sandbox.fs.downloadFile(params.path);

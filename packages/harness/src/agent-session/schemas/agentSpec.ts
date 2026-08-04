@@ -49,7 +49,7 @@ const ModelSpecSchema = z
       .refine(isModelFqn, { message: 'model.name must be a fully qualified "provider/model"' }),
     params: ModelParamsSchema.optional(),
   })
-  .openapi('Model');
+  .openapi('AgentSpecModel');
 
 // --- MCP servers ---
 

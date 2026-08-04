@@ -48,6 +48,8 @@ services:
       NODE_ENV: production
       # Inside the container; host mapping above is 8791.
       PORT: 8790
+      # Host-facing origin for MCP OAuth callbacks (mapped port, not container PORT).
+      PUBLIC_BASE_URL: http://localhost:8791
       # Compose network hosts — do not use packages/server/.env localhost values.
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432

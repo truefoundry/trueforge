@@ -274,13 +274,13 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId")
+            .get("/api/v1/sessions/session_id")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.get("sessionId");
+        const response = await client.sessions.get("session_id");
         expect(response).toEqual({
             data: {
                 agentSpec: {
@@ -332,14 +332,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId")
+            .get("/api/v1/sessions/session_id")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.get("sessionId");
+            return await client.sessions.get("session_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
@@ -347,9 +347,9 @@ describe("SessionsClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
-        server.mockEndpoint().delete("/api/v1/sessions/sessionId").respondWith().statusCode(200).build();
+        server.mockEndpoint().delete("/api/v1/sessions/session_id").respondWith().statusCode(200).build();
 
-        const response = await client.sessions.delete("sessionId");
+        const response = await client.sessions.delete("session_id");
         expect(response).toEqual(undefined);
     });
 
@@ -381,14 +381,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .patch("/api/v1/sessions/sessionId")
+            .patch("/api/v1/sessions/session_id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.update("sessionId");
+        const response = await client.sessions.update("session_id");
         expect(response).toEqual({
             data: {
                 agentSpec: {
@@ -440,7 +440,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .patch("/api/v1/sessions/sessionId")
+            .patch("/api/v1/sessions/session_id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(400)
@@ -448,7 +448,7 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.update("sessionId");
+            return await client.sessions.update("session_id");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
@@ -460,7 +460,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .patch("/api/v1/sessions/sessionId")
+            .patch("/api/v1/sessions/session_id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(404)
@@ -468,7 +468,7 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.update("sessionId");
+            return await client.sessions.update("session_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
@@ -480,7 +480,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .patch("/api/v1/sessions/sessionId")
+            .patch("/api/v1/sessions/session_id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(422)
@@ -488,7 +488,7 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.update("sessionId");
+            return await client.sessions.update("session_id");
         }).rejects.toThrow(TrueHarnessTypes.UnprocessableEntityError);
     });
 
@@ -500,14 +500,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/cancel")
+            .post("/api/v1/sessions/session_id/cancel")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.cancel("sessionId");
+        const response = await client.sessions.cancel("session_id");
         expect(response).toEqual({});
     });
 
@@ -519,7 +519,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/cancel")
+            .post("/api/v1/sessions/session_id/cancel")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(404)
@@ -527,7 +527,7 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.cancel("sessionId");
+            return await client.sessions.cancel("session_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
@@ -539,7 +539,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/cancel")
+            .post("/api/v1/sessions/session_id/cancel")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(412)
@@ -547,7 +547,7 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.cancel("sessionId");
+            return await client.sessions.cancel("session_id");
         }).rejects.toThrow(TrueHarnessTypes.PreconditionFailedError);
     });
 
@@ -573,7 +573,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint({ once: false })
-            .get("/api/v1/sessions/sessionId/events")
+            .get("/api/v1/sessions/session_id/events")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -604,7 +604,7 @@ describe("SessionsClient", () => {
                 previousPageToken: "previous_page_token",
             },
         };
-        const page = await client.sessions.listEvents("sessionId");
+        const page = await client.sessions.listEvents("session_id");
 
         expect(expected.data).toEqual(page.data);
         expect(page.hasNextPage()).toBe(true);
@@ -620,14 +620,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/events")
+            .get("/api/v1/sessions/session_id/events")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.listEvents("sessionId");
+            return await client.sessions.listEvents("session_id");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
@@ -639,14 +639,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/events")
+            .get("/api/v1/sessions/session_id/events")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.listEvents("sessionId");
+            return await client.sessions.listEvents("session_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
@@ -670,7 +670,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint({ once: false })
-            .get("/api/v1/sessions/sessionId/turns")
+            .get("/api/v1/sessions/session_id/turns")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -702,7 +702,7 @@ describe("SessionsClient", () => {
                 previousPageToken: "previous_page_token",
             },
         };
-        const page = await client.sessions.listTurns("sessionId");
+        const page = await client.sessions.listTurns("session_id");
 
         expect(expected.data).toEqual(page.data);
         expect(page.hasNextPage()).toBe(true);
@@ -718,14 +718,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns")
+            .get("/api/v1/sessions/session_id/turns")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.listTurns("sessionId");
+            return await client.sessions.listTurns("session_id");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
@@ -737,14 +737,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns")
+            .get("/api/v1/sessions/session_id/turns")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.listTurns("sessionId");
+            return await client.sessions.listTurns("session_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
@@ -757,14 +757,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/turns")
+            .post("/api/v1/sessions/session_id/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
             .sseBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.createTurn("sessionId");
+        const response = await client.sessions.createTurn("session_id");
         const events: unknown[] = [];
         for await (const event of response) {
             events.push(event);
@@ -794,7 +794,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/turns")
+            .post("/api/v1/sessions/session_id/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(400)
@@ -802,7 +802,7 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurn("sessionId");
+            return await client.sessions.createTurn("session_id");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
@@ -814,7 +814,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/turns")
+            .post("/api/v1/sessions/session_id/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(404)
@@ -822,7 +822,7 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurn("sessionId");
+            return await client.sessions.createTurn("session_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
@@ -834,7 +834,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/turns")
+            .post("/api/v1/sessions/session_id/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(412)
@@ -842,7 +842,7 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurn("sessionId");
+            return await client.sessions.createTurn("session_id");
         }).rejects.toThrow(TrueHarnessTypes.PreconditionFailedError);
     });
 
@@ -863,13 +863,13 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId")
+            .get("/api/v1/sessions/session_id/turns/turn_id")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.getTurn("sessionId", "turnId");
+        const response = await client.sessions.getTurn("session_id", "turn_id");
         expect(response).toEqual({
             data: {
                 createdAt: "created_at",
@@ -899,14 +899,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId")
+            .get("/api/v1/sessions/session_id/turns/turn_id")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.getTurn("sessionId", "turnId");
+            return await client.sessions.getTurn("session_id", "turn_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
@@ -929,7 +929,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint({ once: false })
-            .get("/api/v1/sessions/sessionId/turns/turnId/events")
+            .get("/api/v1/sessions/session_id/turns/turn_id/events")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -957,7 +957,7 @@ describe("SessionsClient", () => {
                 previousPageToken: "previous_page_token",
             },
         };
-        const page = await client.sessions.listTurnEvents("sessionId", "turnId");
+        const page = await client.sessions.listTurnEvents("session_id", "turn_id");
 
         expect(expected.data).toEqual(page.data);
         expect(page.hasNextPage()).toBe(true);
@@ -973,14 +973,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId/events")
+            .get("/api/v1/sessions/session_id/turns/turn_id/events")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.listTurnEvents("sessionId", "turnId");
+            return await client.sessions.listTurnEvents("session_id", "turn_id");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
@@ -992,14 +992,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId/events")
+            .get("/api/v1/sessions/session_id/turns/turn_id/events")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.listTurnEvents("sessionId", "turnId");
+            return await client.sessions.listTurnEvents("session_id", "turn_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
@@ -1012,13 +1012,13 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId/subscribe")
+            .get("/api/v1/sessions/session_id/turns/turn_id/subscribe")
             .respondWith()
             .statusCode(200)
             .sseBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.subscribeToTurn("sessionId", "turnId");
+        const response = await client.sessions.subscribeToTurn("session_id", "turn_id");
         const events: unknown[] = [];
         for await (const event of response) {
             events.push(event);
@@ -1048,14 +1048,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId/subscribe")
+            .get("/api/v1/sessions/session_id/turns/turn_id/subscribe")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.subscribeToTurn("sessionId", "turnId");
+            return await client.sessions.subscribeToTurn("session_id", "turn_id");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
@@ -1067,14 +1067,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId/subscribe")
+            .get("/api/v1/sessions/session_id/turns/turn_id/subscribe")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.subscribeToTurn("sessionId", "turnId");
+            return await client.sessions.subscribeToTurn("session_id", "turn_id");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
@@ -1086,14 +1086,14 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/sessions/sessionId/turns/turnId/subscribe")
+            .get("/api/v1/sessions/session_id/turns/turn_id/subscribe")
             .respondWith()
             .statusCode(412)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.sessions.subscribeToTurn("sessionId", "turnId");
+            return await client.sessions.subscribeToTurn("session_id", "turn_id");
         }).rejects.toThrow(TrueHarnessTypes.PreconditionFailedError);
     });
 });

@@ -1,12 +1,6 @@
-/**
- * Canonical JSON shapes for MCP OAuth columns (`mcp_server`, `oauth_token`,
- * `oauth_pending_authorization`). Owned by the server DB layer — not the harness.
- *
- * Contract types from `@truefoundry/utils-core/core` happen to match field for field today, so the
- * converters at the bottom are the seam that lets either side change without the other noticing.
- */
 import type {
   OAuthClientRecord as ContractOAuthClientRecord,
+  OAuthPendingAuthorization as ContractOAuthPendingAuthorization,
   OAuthToken as ContractOAuthToken,
 } from '@truefoundry/utils-core/core';
 
@@ -21,48 +15,48 @@ export const PENDING_AUTHORIZATION_TTL_MS = 10 * 60 * 1000;
 
 /** RFC 8414 AS metadata cached at DCR time (`mcp_server.oauth_server`). */
 export interface OAuthServer {
-  authorizationEndpoint: string;
-  tokenEndpoint: string;
-  codeChallengeMethodsSupported: string[] | null;
+  authorization_endpoint: string;
+  token_endpoint: string;
+  code_challenge_methods_supported: string[] | null;
 }
 
 /** RFC 7591 DCR response (`mcp_server.oauth_client`). */
 export interface OAuthClient {
-  clientId: string;
-  clientSecret: string | null;
+  client_id: string;
+  client_secret: string | null;
 }
 
 /** `oauth_pending_authorization.auth_data` JSONB. */
 export interface OAuthPendingAuthorizationData {
   /** MCP server URL from authorize time — needed by the shared callback for RFC 8707 `resource`. */
-  mcpServerUrl: string;
-  codeVerifier: string | null;
-  redirectUrl: string | null;
+  mcp_server_url: string;
+  code_verifier: string | null;
+  redirect_url: string | null;
 }
 
 /** `oauth_token.token` JSONB. */
 export interface OAuthToken {
-  accessToken: string;
-  refreshToken: string | null;
+  access_token: string;
+  refresh_token: string | null;
   /** ISO 8601 */
-  expiresAt: string;
+  expires_at: string;
   scope: string | null;
 }
 
 export function toStoredOAuthToken(token: ContractOAuthToken): OAuthToken {
   return {
-    accessToken: token.accessToken,
-    refreshToken: token.refreshToken,
-    expiresAt: token.expiresAt,
+    access_token: token.accessToken,
+    refresh_token: token.refreshToken,
+    expires_at: token.expiresAt,
     scope: token.scope,
   };
 }
 
 export function fromStoredOAuthToken(stored: OAuthToken): ContractOAuthToken {
   return {
-    accessToken: stored.accessToken,
-    refreshToken: stored.refreshToken,
-    expiresAt: stored.expiresAt,
+    accessToken: stored.access_token,
+    refreshToken: stored.refresh_token,
+    expiresAt: stored.expires_at,
     scope: stored.scope,
   };
 }
@@ -73,13 +67,13 @@ export function toStoredOAuthClientRecord(record: ContractOAuthClientRecord): {
 } {
   return {
     server: {
-      authorizationEndpoint: record.server.authorizationEndpoint,
-      tokenEndpoint: record.server.tokenEndpoint,
-      codeChallengeMethodsSupported: record.server.codeChallengeMethodsSupported,
+      authorization_endpoint: record.server.authorizationEndpoint,
+      token_endpoint: record.server.tokenEndpoint,
+      code_challenge_methods_supported: record.server.codeChallengeMethodsSupported,
     },
     client: {
-      clientId: record.client.clientId,
-      clientSecret: record.client.clientSecret,
+      client_id: record.client.clientId,
+      client_secret: record.client.clientSecret,
     },
   };
 }
@@ -90,13 +84,34 @@ export function fromStoredOAuthClientRecord(params: {
 }): ContractOAuthClientRecord {
   return {
     server: {
-      authorizationEndpoint: params.server.authorizationEndpoint,
-      tokenEndpoint: params.server.tokenEndpoint,
-      codeChallengeMethodsSupported: params.server.codeChallengeMethodsSupported,
+      authorizationEndpoint: params.server.authorization_endpoint,
+      tokenEndpoint: params.server.token_endpoint,
+      codeChallengeMethodsSupported: params.server.code_challenge_methods_supported,
     },
     client: {
-      clientId: params.client.clientId,
-      clientSecret: params.client.clientSecret,
+      clientId: params.client.client_id,
+      clientSecret: params.client.client_secret,
     },
+  };
+}
+
+/** The blob half of a pending authorization; `state`/`id` live in their own columns. */
+export function toStoredOAuthPendingAuthorizationData(
+  pending: ContractOAuthPendingAuthorization,
+): OAuthPendingAuthorizationData {
+  return {
+    mcp_server_url: pending.mcpServerUrl,
+    code_verifier: pending.codeVerifier,
+    redirect_url: pending.redirectUrl,
+  };
+}
+
+export function fromStoredOAuthPendingAuthorizationData(
+  stored: OAuthPendingAuthorizationData,
+): Pick<ContractOAuthPendingAuthorization, 'mcpServerUrl' | 'codeVerifier' | 'redirectUrl'> {
+  return {
+    mcpServerUrl: stored.mcp_server_url,
+    codeVerifier: stored.code_verifier,
+    redirectUrl: stored.redirect_url,
   };
 }
