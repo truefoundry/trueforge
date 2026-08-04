@@ -1,9 +1,8 @@
 /**
- * Session route definitions.
- * DB-backed routes mount at /api/v1/sessions.
- * Handlers are registered in apis/sessions.ts.
+ * YAML-backed session route definitions (mounted at /api/v1/legacy/sessions).
+ * Handlers are registered in apis/legacySessions.ts.
  */
-import { createRoute, z } from '@hono/zod-openapi';
+import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { ListSessionEventsRequestQuerySchema, ListSessionEventsResponseSchema } from '../schemas/events';
 import {
@@ -15,20 +14,17 @@ import {
 } from '../schemas/session';
 import { CancelSessionRequestSchema, CancelSessionResponseSchema } from '../schemas/turn';
 import { TOKEN_PAGINATION } from './fernExtensions';
+import { SessionIdParamsSchema } from './sessionRoutes';
 
-const SESSIONS_TAG = 'Sessions';
+const LEGACY_SESSIONS_TAG = 'Legacy Sessions';
 
-export const SessionIdParamsSchema = z.object({
-  sessionId: z.string().min(1).max(64).describe('Session identifier.'),
-});
-
-export const createSessionRoute = createRoute({
+export const legacyCreateSessionRoute = createRoute({
   method: 'post',
   path: '/',
-  tags: [SESSIONS_TAG],
+  tags: [LEGACY_SESSIONS_TAG],
   summary: 'Create a session',
   description: 'Create a session holding an inline agent spec. Turns are executed against this spec.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'create',
   request: {
     body: {
@@ -53,13 +49,13 @@ export const createSessionRoute = createRoute({
   },
 });
 
-export const getSessionRoute = createRoute({
+export const legacyGetSessionRoute = createRoute({
   method: 'get',
   path: '/{sessionId}',
-  tags: [SESSIONS_TAG],
+  tags: [LEGACY_SESSIONS_TAG],
   summary: 'Get a session',
   description: 'Fetch a session by ID.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'get',
   request: {
     params: SessionIdParamsSchema,
@@ -76,13 +72,13 @@ export const getSessionRoute = createRoute({
   },
 });
 
-export const deleteSessionRoute = createRoute({
+export const legacyDeleteSessionRoute = createRoute({
   method: 'delete',
   path: '/{sessionId}',
-  tags: [SESSIONS_TAG],
+  tags: [LEGACY_SESSIONS_TAG],
   summary: 'Delete a session',
   description: 'Delete a session and all related turns, events, and internal state. Idempotent if already gone.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'delete',
   request: {
     params: SessionIdParamsSchema,
@@ -94,13 +90,13 @@ export const deleteSessionRoute = createRoute({
   },
 });
 
-export const updateSessionRoute = createRoute({
+export const legacyUpdateSessionRoute = createRoute({
   method: 'patch',
   path: '/{sessionId}',
-  tags: [SESSIONS_TAG],
+  tags: [LEGACY_SESSIONS_TAG],
   summary: 'Update a session',
   description: "Update a session's inline agent spec. An empty body is a valid no-op that refreshes `updated_at`.",
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'update',
   request: {
     params: SessionIdParamsSchema,
@@ -130,14 +126,14 @@ export const updateSessionRoute = createRoute({
   },
 });
 
-export const listSessionsRoute = createRoute({
+export const legacyListSessionsRoute = createRoute({
   method: 'get',
   path: '/',
-  tags: [SESSIONS_TAG],
+  tags: [LEGACY_SESSIONS_TAG],
   summary: 'List sessions',
   description:
     'List sessions (newest first by default), token-paginated. Pass `page_token` to fetch the next page, keeping the other query params constant.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
   request: {
@@ -155,13 +151,13 @@ export const listSessionsRoute = createRoute({
   },
 });
 
-export const cancelSessionRoute = createRoute({
+export const legacyCancelSessionRoute = createRoute({
   method: 'post',
   path: '/{sessionId}/cancel',
-  tags: [SESSIONS_TAG],
+  tags: [LEGACY_SESSIONS_TAG],
   summary: 'Cancel a running turn in a session',
   description: 'Cancel the running last turn for a session.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'cancel',
   request: {
     params: SessionIdParamsSchema,
@@ -187,14 +183,14 @@ export const cancelSessionRoute = createRoute({
   },
 });
 
-export const listSessionEventsRoute = createRoute({
+export const legacyListSessionEventsRoute = createRoute({
   method: 'get',
   path: '/{sessionId}/events',
-  tags: [SESSIONS_TAG],
+  tags: [LEGACY_SESSIONS_TAG],
   summary: 'List session events',
   description:
     'List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'list_events',
   'x-fern-pagination': TOKEN_PAGINATION,
   request: {

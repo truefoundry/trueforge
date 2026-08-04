@@ -3,7 +3,8 @@ import { InMemorySessionStore, Sessions } from '@truefoundry/utils/agent-session
 import { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
-import { createLegacySessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
+import { createLegacySessionsRouter } from '../../../src/apis/legacySessions';
+import { TENANT_ID } from '../../../src/apis/sessions';
 import { createLegacyTurnsRouter } from '../../../src/apis/turns';
 import { McpStore } from '../../../src/legacy-registry-store/McpStore';
 import { ModelStore } from '../../../src/legacy-registry-store/ModelStore';
