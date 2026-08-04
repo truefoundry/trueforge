@@ -12,17 +12,6 @@ import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
 /** Default git ref when a configured skill omits `ref` (matches FE catalog mounts). */
 const DEFAULT_SKILL_REF = 'HEAD';
 
-/**
- * Client/config miss when resolving a DB-registered model, MCP server, or skill.
- * Distinct from store/connectivity failures, which remain plain Errors (→ 500).
- */
-export class DbResourceNotConfiguredError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'DbResourceNotConfiguredError';
-  }
-}
-
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
 export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
   const slash = name.indexOf('/');
@@ -37,8 +26,7 @@ export function parseModelFqn(name: string): { providerName: string; modelName: 
 
 /**
  * Load turn-ready LLM config for a DB-configured FQN (`provider/model`).
- * Throws {@link DbResourceNotConfiguredError} when the FQN/provider/model is missing.
- * Store failures from `getProvider` propagate unchanged.
+ * Throws if the model is not registered.
  */
 export async function getDbProviderConfig({
   tenant_id,
@@ -51,15 +39,15 @@ export async function getDbProviderConfig({
 }): Promise<VercelAIProviderConfig> {
   const parsed = parseModelFqn(name);
   if (parsed === undefined) {
-    throw new DbResourceNotConfiguredError(`Model name must be a fully qualified "provider/model": ${name}`);
+    throw new Error(`Model name must be a fully qualified "provider/model": ${name}`);
   }
   const provider = await store.getProvider({ tenant_id, name: parsed.providerName });
   if (provider === undefined) {
-    throw new DbResourceNotConfiguredError(`Model provider not registered: ${parsed.providerName}`);
+    throw new Error(`Model provider not registered: ${parsed.providerName}`);
   }
   const model = provider.manifest.models.find(entry => entry.name === parsed.modelName);
   if (model === undefined) {
-    throw new DbResourceNotConfiguredError(`Model not registered: ${name}`);
+    throw new Error(`Model not registered: ${name}`);
   }
   return {
     provider: provider.manifest.type === 'custom' ? 'generic' : provider.manifest.type,
@@ -73,8 +61,7 @@ export async function getDbProviderConfig({
 
 /**
  * Load MCP url + request headers for a DB-configured server name.
- * Throws {@link DbResourceNotConfiguredError} when the server is not registered.
- * Store failures from `getServer` propagate unchanged.
+ * Throws if the server is not registered.
  */
 export async function getDbMcpConnection({
   tenant_id,
@@ -87,7 +74,7 @@ export async function getDbMcpConnection({
 }): Promise<{ url: string; headers: Record<string, string> }> {
   const record = await store.getServer({ tenant_id, name });
   if (record === undefined) {
-    throw new DbResourceNotConfiguredError(`MCP server not registered: ${name}`);
+    throw new Error(`MCP server not registered: ${name}`);
   }
   return {
     url: record.manifest.url,
@@ -98,8 +85,7 @@ export async function getDbMcpConnection({
 /**
  * Expand agent_spec skill names into git mounts from the skill store.
  * Wire url/path/ref/description on the request are ignored — the DB row wins.
- * Throws {@link DbResourceNotConfiguredError} when any name is not registered.
- * Store failures from `getSkill` propagate unchanged.
+ * Throws if any name is not registered.
  */
 export async function resolveDbGitSkills({
   tenant_id,
@@ -114,7 +100,7 @@ export async function resolveDbGitSkills({
   for (const skill of skills) {
     const record = await store.getSkill({ tenant_id, name: skill.name });
     if (record === undefined) {
-      throw new DbResourceNotConfiguredError(`Skill not registered: ${skill.name}`);
+      throw new Error(`Skill not registered: ${skill.name}`);
     }
     resolved.push({
       name: record.manifest.name,

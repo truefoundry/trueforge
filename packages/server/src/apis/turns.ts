@@ -36,7 +36,7 @@ import {
   listTurnsRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { DbResourceNotConfiguredError, getDbMcpConnection, getDbProviderConfig } from '../runtime/dbSessionResources';
+import { getDbMcpConnection, getDbProviderConfig } from '../runtime/dbSessionResources';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
 import { TENANT_ID } from './sessions';
 
@@ -254,20 +254,11 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
     const abortController = new AbortController();
     const modelName = session.agent_spec.model.name;
-    let providerConfig;
-    try {
-      providerConfig = await getDbProviderConfig({
-        tenant_id: TENANT_ID,
-        name: modelName,
-        store: deps.modelProviderStore,
-      });
-    } catch (error) {
-      // Missing/invalid model after admit — not store/connectivity failures (those stay 500).
-      if (error instanceof DbResourceNotConfiguredError) {
-        return c.json({ error: { message: error.message } }, 400);
-      }
-      throw error;
-    }
+    const providerConfig = await getDbProviderConfig({
+      tenant_id: TENANT_ID,
+      name: modelName,
+      store: deps.modelProviderStore,
+    });
     const resolver = createTurnResolver({
       mcpServerStore: deps.mcpServerStore,
       sandboxFactory: deps.sandboxFactory,
