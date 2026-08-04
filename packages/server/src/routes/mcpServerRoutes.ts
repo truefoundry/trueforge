@@ -9,6 +9,7 @@ import { GetMcpServerCatalogResponseSchema } from '../schemas/mcpCatalog';
 import {
   ListAvailableMcpServersResponseSchema,
   ListConfiguredMcpServersResponseSchema,
+  McpAuthStatusSchema,
   PutMcpServerRequestSchema,
   PutMcpServerResponseSchema,
 } from '../schemas/mcpServer';
@@ -146,13 +147,6 @@ const McpAuthorizeQuerySchema = z.object({
     .describe('Optional FE landing URL after OAuth (stored on pending auth; callback does not redirect yet).'),
 });
 
-const ConfiguredMcpAuthorizeResponseSchema = z
-  .object({
-    status: z.enum(['authenticated', 'auth_required']),
-    authorization_url: z.string().url().optional().describe('Present only when status is auth_required.'),
-  })
-  .openapi('ConfiguredMcpAuthorizeResponse');
-
 export const authorizeConfiguredMcpServerRoute = createRoute({
   method: 'get',
   path: '/{name}/authorize',
@@ -161,9 +155,9 @@ export const authorizeConfiguredMcpServerRoute = createRoute({
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'authorize',
   description:
-    'For servers without auth or with header credentials, returns authenticated (no browser flow). ' +
-    'For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise ' +
-    'runs DCR if needed and returns auth_required with an authorization URL. ' +
+    'For servers without auth returns not_required, and for header credentials returns authenticated ' +
+    '(no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token ' +
+    'exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. ' +
     'Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).',
   request: {
     params: McpServerNameParamsSchema,
@@ -171,7 +165,7 @@ export const authorizeConfiguredMcpServerRoute = createRoute({
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: ConfiguredMcpAuthorizeResponseSchema } },
+      content: { 'application/json': { schema: McpAuthStatusSchema } },
       description: 'Either already authenticated, or an authorization URL to redirect to.',
     },
     400: {

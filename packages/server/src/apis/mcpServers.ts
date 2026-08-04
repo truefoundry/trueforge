@@ -25,7 +25,7 @@ import {
   listMcpServerToolsRoute,
   putMcpServerRoute,
 } from '../routes/mcpServerRoutes';
-import type { ConfiguredMcpServer, McpServerManifest } from '../schemas/mcpServer';
+import type { ConfiguredMcpServer, McpAuthStatus, McpServerManifest } from '../schemas/mcpServer';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus } from '../schemas/mcpServer';
 import { TENANT_ID } from './sessions';
 
@@ -63,6 +63,11 @@ function toConfiguredMcpServer(
     ...record.manifest,
     auth_status: resolveMcpAuthStatus(record.manifest, token, nowMs),
   };
+}
+
+/** Builds the live-flow auth status for a DCR server; `authorizationUrl` is set only for `auth_required`. */
+function toDcrAuthStatus(status: McpAuthStatus['status'], authorizationUrl?: string): McpAuthStatus {
+  return authorizationUrl !== undefined ? { status, authorization_url: authorizationUrl } : { status };
 }
 
 /** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers).
@@ -177,10 +182,13 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }
-    // Header auth (and no auth): credentials already on the row — no browser flow.
+
+    // No browser flow: header auth already carries credentials; no-auth servers need nothing.
+    // resolveMcpAuthStatus already maps header -> authenticated and no-auth -> not_required.
     if (record.manifest.auth?.type !== 'dcr') {
-      return c.json({ status: 'authenticated' as const }, 200);
+      return c.json(resolveMcpAuthStatus(record.manifest, undefined, Date.now()), 200);
     }
+
     try {
       if (redirectUrl) {
         validateRedirectUris({ redirectUris: [redirectUrl] });
@@ -196,9 +204,9 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
         ...(redirectUrl !== undefined ? { redirectUrl } : {}),
       });
       if (isMcpAuthRequired(result)) {
-        return c.json({ status: 'auth_required' as const, authorization_url: result.authUrl.href }, 200);
+        return c.json(toDcrAuthStatus('auth_required', result.authUrl.href), 200);
       }
-      return c.json({ status: 'authenticated' as const }, 200);
+      return c.json(toDcrAuthStatus('authenticated'), 200);
     } catch (error) {
       if (error instanceof McpConnectionError) {
         deps.logger.warn(`MCP authorize failed for "${name}"`, extractErrorLogFields(error));

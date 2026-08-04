@@ -339,12 +339,12 @@ export interface McpServerTable {
   /** the uniqueness target; also duplicated inside `manifest` */
   name: string;
   manifest: JSONColumnType<McpServerManifest, McpServerManifest, McpServerManifest>;
-  /** OAuthServer — { authorizationEndpoint, tokenEndpoint, codeChallengeMethodsSupported? }.
+  /** OAuthServer — { authorization_endpoint, token_endpoint, code_challenge_methods_supported }.
    * RFC 8414 authorization-server metadata, discovered once at registration time.
    */
   oauth_server: JSONColumnType<OAuthServer, OAuthServer, OAuthServer> | null;
-  /** OAuthClient — { clientId, clientSecret? }. RFC 7591 DCR response.
-   * Token auth is form-body (client_secret_post) when clientSecret is set; presence of secret
+  /** OAuthClient — { client_id, client_secret }. RFC 7591 DCR response.
+   * Token auth is form-body (client_secret_post) when client_secret is set; presence of secret
    * alone decides the method (same as servicefoundry outbound DCR). Both oauth_server and
    * oauth_client are null until first successful DCR.
    */
