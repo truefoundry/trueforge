@@ -381,7 +381,7 @@ describe('buildMcpAuthorizationUrl', () => {
         clientName: CLIENT_NAME,
       }),
     ).rejects.toMatchObject({
-      name: 'McpConnectionError',
+      name: 'McpDcrConfigurationError',
       message: expect.stringContaining('without S256'),
     });
   });
