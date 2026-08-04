@@ -45,7 +45,7 @@ jobs:
         # TODO(oss): add --provenance once the repo is public. Do NOT add it now:
         # provenance publicly attests the source repo and commit.
 
-      # App + CLI: package root includes dist/, frontend/.
+      # App + CLI: package root includes dist/ (with dist/frontend/) and registry-default/.
       # pnpm publish rewrites workspace:* deps to concrete versions.
       - name: Publish @truefoundry/utils
         working-directory: packages/server

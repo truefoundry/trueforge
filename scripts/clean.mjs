@@ -18,6 +18,8 @@ const packageDirectories = (await readdir(packagesDir, { withFileTypes: true }))
 const targets = [
   path.join(rootDir, '.eslintcache'),
   ...packageDirectories.map(directory => path.join(directory, 'dist')),
+  // Legacy location before the UI lived under packages/server/dist/frontend.
+  path.join(packagesDir, 'server', 'frontend'),
 ];
 
 if (removeDependencies) {

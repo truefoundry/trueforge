@@ -2,10 +2,10 @@
 
 Two public packages ship from this repo:
 
-| Package                   | Source             | How it publishes                              |
-| ------------------------- | ------------------ | --------------------------------------------- |
-| `@truefoundry/utils-core` | `packages/harness` | From staged `packages/harness/dist` (library) |
-| `@truefoundry/utils`      | `packages/server`  | From package root (`dist/` + `frontend/`)     |
+| Package                   | Source             | How it publishes                                                        |
+| ------------------------- | ------------------ | ----------------------------------------------------------------------- |
+| `@truefoundry/utils-core` | `packages/harness` | From staged `packages/harness/dist` (library)                           |
+| `@truefoundry/utils`      | `packages/server`  | From package root (`dist/` incl. `dist/frontend/`, `registry-default/`) |
 
 The tag `v*` must match **`packages/harness` (`@truefoundry/utils-core`) version**. Bump `@truefoundry/utils` in the same release PR when the app changes.
 

@@ -120,11 +120,11 @@ export const DEFAULT_PORT = 8790;
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * Prefer the in-package `frontend/` copy shipped in the npm tarball (npx).
- * Fall back to the monorepo sibling `../frontend/dist` (host-dev and Docker).
+ * Prefer `dist/frontend` shipped in the npm tarball (npx / `pnpm server:bin`).
+ * Fall back to the monorepo sibling `../frontend/dist` (host-dev before a copy).
  */
 function resolveDefaultFrontendDir(): string {
-  const packaged = path.join(PACKAGE_ROOT, 'frontend');
+  const packaged = path.join(PACKAGE_ROOT, 'dist', 'frontend');
   if (existsSync(path.join(packaged, 'index.html'))) {
     return packaged;
   }
@@ -246,8 +246,8 @@ export interface ServerConfiguration {
   SANDBOX_CATALOG_PATH: string | undefined;
   /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
-   * Env: `FRONTEND_DIR`. Default: packaged `frontend/` (npx tarball) or monorepo
-   * `packages/frontend/dist` — always absolute, independent of CWD.
+   * Env: `FRONTEND_DIR`. Default: packaged `dist/frontend` (npx tarball) or
+   * monorepo `packages/frontend/dist` — always absolute, independent of CWD.
    */
   FRONTEND_DIR: string;
   /**

@@ -82,13 +82,11 @@ COPY --from=prod-deps /app/packages/server/node_modules ./packages/server/node_m
 COPY --from=builder /app/packages/harness/package.json ./packages/harness/package.json
 COPY --from=builder /app/packages/harness/dist ./packages/harness/dist
 
-# Built server.
+# Built server (JS + UI under dist/frontend when present from a full workspace build).
 COPY --from=builder /app/packages/server/package.json ./packages/server/package.json
 COPY --from=builder /app/packages/server/dist ./packages/server/dist
-
-# Sibling of packages/server — config falls back to ../frontend/dist when
-# packages/server/frontend is absent (same layout as host-dev).
-COPY --from=frontend-builder /app/packages/frontend/dist ./packages/frontend/dist
+# Frontend builds in a parallel stage; place it at the same path as the npm tarball.
+COPY --from=frontend-builder /app/packages/frontend/dist ./packages/server/dist/frontend
 
 WORKDIR /app/packages/server
 

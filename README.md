@@ -54,6 +54,7 @@ Server dev scripts regenerate the embedded sandbox Python helpers before startup
 | `pnpm dev:no-watch` | Same, but API without hot reload (`NODE_ENV=production`) so Ctrl+C exercises drain |
 | `pnpm clean`        | Workspace build outputs and the ESLint cache                                       |
 | `pnpm clean:all`    | The same outputs plus all workspace `node_modules` directories                     |
+| `pnpm server:bin`   | Built CLI (`node dist/cli.js`) — same entry as `npx @truefoundry/utils`            |
 
 Migrations run automatically on server startup. To migrate without starting HTTP:
 
@@ -61,11 +62,12 @@ Migrations run automatically on server startup. To migrate without starting HTTP
 pnpm --filter @truefoundry/utils migrate
 ```
 
-Zero-env single-binary (SQLite + UI):
+Zero-env single-binary (SQLite + UI), same path as published `npx`:
 
 ```bash
-pnpm --filter frontend build && pnpm --filter @truefoundry/utils build
-pnpm --filter @truefoundry/utils exec node dist/cli.js
+pnpm clean
+pnpm build
+pnpm server:bin
 # or after publish: npx @truefoundry/utils
 ```
 
@@ -82,10 +84,11 @@ Root `build` / `typecheck` (and CI) include utils-core, server, and frontend. `F
 ## Serving the UI from the server
 
 Deployments are one process on one origin: `/api/*` (including `/api/v1/docs` and `/api/v1/openapi.json`) and
-`/healthz` are the API, everything else resolves to the UI. Frontend resolution prefers the in-package
-`frontend/` copy (npm tarball), then the monorepo sibling `../frontend/dist` (host-dev and Docker).
-Override with `FRONTEND_DIR` if needed. With no build at that path the server logs a warning and serves
-the API only, which is what running the server behind Vite needs.
+`/healthz` are the API, everything else resolves to the UI. Frontend resolution prefers packaged
+`dist/frontend` (npm tarball / Docker / `pnpm server:bin`), then the monorepo sibling
+`packages/frontend/dist` (host-dev before a copy). Override with `FRONTEND_DIR` if needed. With no
+build at that path the server logs a warning and serves the API only, which is what running the
+server behind Vite needs.
 
 ## Docker Compose smoke test
 
