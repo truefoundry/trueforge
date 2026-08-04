@@ -8,14 +8,23 @@ describe("ServerClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
-        const rawResponseBody = { data: { sandbox: { enabled: true } } };
+        const rawResponseBody = { data: { sandbox: { enabled: true }, skill: { enabled: true } } };
 
-        server.mockEndpoint().get("/v1/capabilities").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
+        server
+            .mockEndpoint()
+            .get("/api/v1/capabilities")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
 
         const response = await client.server.getCapabilities();
         expect(response).toEqual({
             data: {
                 sandbox: {
+                    enabled: true,
+                },
+                skill: {
                     enabled: true,
                 },
             },

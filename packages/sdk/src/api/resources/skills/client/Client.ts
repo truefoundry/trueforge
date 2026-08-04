@@ -23,7 +23,7 @@ export class SkillsClient {
     }
 
     /**
-     * Agent skills declared in skills.yaml.
+     * Configured skills as a slim name/description list for the composer.
      *
      * @param {SkillsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -35,19 +35,19 @@ export class SkillsClient {
      */
     public list(
         requestOptions?: SkillsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.ListSkillsResponse> {
+    ): core.HttpResponsePromise<TrueHarness.ListAvailableSkillsResponse> {
         return core.HttpResponsePromise.fromPromise(this.__list(requestOptions));
     }
 
     private async __list(
         requestOptions?: SkillsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.ListSkillsResponse>> {
+    ): Promise<core.WithRawResponse<TrueHarness.ListAvailableSkillsResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "v1/skills",
+                "api/v1/skills",
             ),
             method: "GET",
             headers: _headers,
@@ -60,7 +60,7 @@ export class SkillsClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.ListSkillsResponse.parseOrThrow(_response.body, {
+                data: serializers.ListAvailableSkillsResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -79,6 +79,6 @@ export class SkillsClient {
             });
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/v1/skills");
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/skills");
     }
 }

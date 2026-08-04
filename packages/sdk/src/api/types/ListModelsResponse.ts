@@ -3,5 +3,5 @@
 import type * as TrueHarness from "../index.js";
 
 export interface ListModelsResponse {
-    data: TrueHarness.ModelEntry[];
+    data: TrueHarness.Model[];
 }
