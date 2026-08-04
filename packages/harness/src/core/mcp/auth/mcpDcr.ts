@@ -174,7 +174,7 @@ export async function ensureMcpClientRegistered(params: {
 }
 
 /**
- * SF parity: PKCE only when the AS explicitly lists S256.
+ * PKCE only when the AS explicitly lists S256.
  * Without it, `exchangeAuthorization` cannot be used (it always requires a verifier).
  */
 async function exchangeAuthorizationCode(params: {
@@ -350,7 +350,8 @@ export async function resolveMcpAuth(params: {
 
 /**
  * OAuth callback: exchange `code` for tokens. Route must already reject IdP `error` params.
- * On `invalid_client`, clears stored client + token so the next authorize re-registers.
+ * Claims pending state atomically (`consumePendingAuthorization`) so duplicate callbacks lose
+ * the race. On `invalid_client`, clears stored client + token so the next authorize re-registers.
  */
 export async function completeMcpAuthorization(params: {
   tokenStore: IOAuthTokenStore;
@@ -363,7 +364,8 @@ export async function completeMcpAuthorization(params: {
 }): Promise<CompleteMcpAuthorizationResult> {
   const nowMs = params.nowMs ?? Date.now();
 
-  const pending = await params.tokenStore.getPendingAuthorization({ state: params.state });
+  // Consume first so a concurrent/duplicate callback cannot redeem the same state.
+  const pending = await params.tokenStore.consumePendingAuthorization({ state: params.state });
   if (!pending) {
     throw new McpConnectionError('Unknown or expired OAuth state', 400);
   }
@@ -402,7 +404,6 @@ export async function completeMcpAuthorization(params: {
     id: pending.id,
     token: oauthTokensToOAuthToken(tokens, nowMs, null),
   });
-  await params.tokenStore.deletePendingAuthorization({ state: params.state });
 
   return { serverId: pending.id, redirectUrl: pending.redirectUrl };
 }

@@ -296,7 +296,7 @@ describe('buildMcpAuthorizationUrl', () => {
 
     const state = authUrl.searchParams.get('state');
     expect(state).toBeTruthy();
-    const pending = await tokenStore.getPendingAuthorization({ state: state! });
+    const pending = await tokenStore.consumePendingAuthorization({ state: state! });
     expect(pending).toMatchObject({
       state,
       id: SERVER_ID,
@@ -334,7 +334,7 @@ describe('buildMcpAuthorizationUrl', () => {
 
     const state = authUrl.searchParams.get('state');
     expect(state).toBeTruthy();
-    const pending = await tokenStore.getPendingAuthorization({ state: state! });
+    const pending = await tokenStore.consumePendingAuthorization({ state: state! });
     expect(pending?.codeVerifier).toBeNull();
   });
 
@@ -360,7 +360,7 @@ describe('buildMcpAuthorizationUrl', () => {
 
     expect(authUrl.searchParams.get('code_challenge')).toBeNull();
     const state = authUrl.searchParams.get('state');
-    expect((await tokenStore.getPendingAuthorization({ state: state! }))?.codeVerifier).toBeNull();
+    expect((await tokenStore.consumePendingAuthorization({ state: state! }))?.codeVerifier).toBeNull();
   });
 });
 
@@ -546,15 +546,12 @@ describe('completeMcpAuthorization', () => {
   it('exchanges the code, saves the token, clears pending, and returns redirectUrl', async () => {
     const stores = newStores();
     await stores.clientStore.saveClient({ id: SERVER_ID, record: sampleClient });
-    stubOauthFetch({});
 
     const authUrl = await buildMcpAuthorizationUrl({
       ...resolveParams(stores),
       redirectUrl: 'https://app.example.com/connected',
     });
     const state = authUrl.searchParams.get('state')!;
-    const pendingBefore = await stores.tokenStore.getPendingAuthorization({ state });
-    expect(pendingBefore?.codeVerifier).toBeTruthy();
 
     const { tokenBodies } = stubOauthFetch({
       tokenResponse: {
@@ -580,7 +577,8 @@ describe('completeMcpAuthorization', () => {
       serverId: SERVER_ID,
       redirectUrl: 'https://app.example.com/connected',
     });
-    expect(await stores.tokenStore.getPendingAuthorization({ state })).toBeUndefined();
+    // Complete claimed the pending row; a second callback would fail.
+    expect(await stores.tokenStore.consumePendingAuthorization({ state })).toBeUndefined();
     const saved = await stores.tokenStore.getToken({ id: SERVER_ID });
     expect(saved?.accessToken).toBe('exchanged-access');
     expect(saved?.refreshToken).toBe('exchanged-refresh');
@@ -589,7 +587,7 @@ describe('completeMcpAuthorization', () => {
     const tokenBody = new URLSearchParams(String(tokenBodies[0]));
     expect(tokenBody.get('grant_type')).toBe('authorization_code');
     expect(tokenBody.get('code')).toBe('auth-code-1');
-    expect(tokenBody.get('code_verifier')).toBe(pendingBefore?.codeVerifier);
+    expect(tokenBody.get('code_verifier')).toBeTruthy();
   });
 
   it('exchanges without code_verifier when authorize skipped PKCE', async () => {
@@ -607,7 +605,6 @@ describe('completeMcpAuthorization', () => {
       redirectUrl: 'https://app.example.com/connected',
     });
     const state = authUrl.searchParams.get('state')!;
-    expect((await stores.tokenStore.getPendingAuthorization({ state }))?.codeVerifier).toBeNull();
 
     const { tokenBodies } = stubOauthFetch({
       tokenResponse: {
@@ -655,7 +652,6 @@ describe('completeMcpAuthorization', () => {
   it('clears client state on invalid_client and surfaces a re-connect error', async () => {
     const stores = newStores();
     await stores.clientStore.saveClient({ id: SERVER_ID, record: sampleClient });
-    stubOauthFetch({});
     const authUrl = await buildMcpAuthorizationUrl({
       ...resolveParams(stores),
       redirectUrl: 'https://app.example.com/after',

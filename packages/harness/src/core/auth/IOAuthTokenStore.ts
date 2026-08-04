@@ -23,13 +23,11 @@ export interface IOAuthTokenStore {
   savePendingAuthorization(pending: OAuthPendingAuthorization): Promise<void>;
 
   /**
-   * Expires on read: a pending authorization past its age limit is never returned, so nothing
-   * has to sweep the store. The limit itself is the implementation's to choose.
+   * Atomically load and delete a pending authorization for `state` so a callback can be redeemed
+   * only once (safe under concurrent duplicate redirects). Past-TTL rows are never returned
+   * (same rule as a pure read would apply); the TTL itself is the implementation's to choose.
    */
-  getPendingAuthorization(params: { state: string }): Promise<OAuthPendingAuthorization | undefined>;
-
-  /** Makes `state` single-use — call once the callback has been redeemed or abandoned. */
-  deletePendingAuthorization(params: { state: string }): Promise<void>;
+  consumePendingAuthorization(params: { state: string }): Promise<OAuthPendingAuthorization | undefined>;
 
   saveToken(params: { id: string; token: OAuthToken }): Promise<void>;
 
