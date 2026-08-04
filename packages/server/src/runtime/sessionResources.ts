@@ -1,13 +1,35 @@
 /**
- * DB-backed model/MCP/skill resolution for /api/v1/sessions admit and turns.
+ * Store-backed model/MCP/skill/sandbox resolution for session admit and turns.
  */
+import { Daytona } from '@daytona/sdk';
 import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
-import type { GitSkill, VercelAIProviderConfig } from '@truefoundry/utils-core/core';
+import {
+  DaytonaSandboxProvider,
+  isMcpAuthRequired,
+  resolveMcpAuth,
+  Sandbox,
+  SkillMounter,
+  type AgentTracing,
+  type GitSkill,
+  type IOAuthTokenStore,
+  type RemoteMcpHeaders,
+  type SandboxProvider,
+  type VercelAIProviderConfig,
+} from '@truefoundry/utils-core/core';
 import { HTTPException } from 'hono/http-exception';
-import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { Logger } from 'winston';
+import configuration from '../config';
+import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
+import { toDaytonaSandboxProviderInput } from '../schemas/sandboxProvider';
+
+export interface McpConnection {
+  url: string;
+  headers: RemoteMcpHeaders;
+}
 
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
 export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
@@ -22,11 +44,11 @@ export function parseModelFqn(name: string): { providerName: string; modelName: 
 }
 
 /**
- * Load turn-ready LLM config for a DB-configured FQN (`provider/model`).
+ * Load turn-ready LLM config for a configured FQN (`provider/model`).
  * Missing provider/model → HTTPException(400) (e.g. deleted after admit).
  * Malformed FQN after admit is an invariant → plain Error (500).
  */
-export async function getDbProviderConfig({
+export async function getProviderConfig({
   tenant_id,
   name,
   store,
@@ -62,24 +84,69 @@ export async function getDbProviderConfig({
   };
 }
 
+function dcrHeadersResolver(params: {
+  record: McpServerRecord;
+  tokenStore: IOAuthTokenStore;
+  mcpServerStore: IMcpServerStore;
+  clientName: string;
+}): RemoteMcpHeaders {
+  const { record, tokenStore, mcpServerStore, clientName } = params;
+  return async () => {
+    const result = await resolveMcpAuth({
+      tokenStore,
+      mcpServerStore,
+      serverId: record.id,
+      mcpServerUrl: record.manifest.url,
+      mcpServerName: record.name,
+      clientName,
+    });
+    if (isMcpAuthRequired(result)) {
+      // Wire `id` must match RemoteMCP.id (AgentSpec name), not the DB row ULID —
+      // init events, tool-call metadata, and snapshots all key by name.
+      return {
+        authRequired: {
+          servers: [{ id: record.name, name: record.name, auth_url: result.authUrl.href }],
+        },
+      };
+    }
+    return { headers: result.headers };
+  };
+}
+
 /**
- * Load MCP url + request headers for a DB-configured server name.
+ * Load MCP url + headers for a configured server.
+ * DCR uses resolveMcpAuth; header / no-auth use resolveConfiguredMcpRequestHeaders.
  * Throws HTTPException(400) if the server is not registered.
  */
-export async function getDbMcpConnection({
+export async function getMcpConnection({
   tenant_id,
   name,
   store,
+  tokenStore,
+  clientName,
 }: {
   tenant_id: string;
   name: string;
   store: IMcpServerStore;
-}): Promise<{ url: string; headers: Record<string, string> }> {
+  tokenStore: IOAuthTokenStore;
+  clientName: string;
+}): Promise<McpConnection> {
   const record = await store.getServer({ tenant_id, name });
   if (record === undefined) {
     throw new HTTPException(400, {
       message: `Unknown MCP server "${name}" — not configured`,
     });
+  }
+  if (record.manifest.auth?.type === 'dcr') {
+    return {
+      url: record.manifest.url,
+      headers: dcrHeadersResolver({
+        record,
+        tokenStore,
+        mcpServerStore: store,
+        clientName,
+      }),
+    };
   }
   return {
     url: record.manifest.url,
@@ -89,10 +156,10 @@ export async function getDbMcpConnection({
 
 /**
  * Expand agent_spec skill names into git mounts from the skill store.
- * Wire url/path/ref/description on the request are ignored — the DB row wins.
+ * Wire url/path/ref/description on the request are ignored — the store row wins.
  * Throws HTTPException(400) if any name is not registered.
  */
-export async function resolveDbGitSkills({
+export async function resolveGitSkills({
   tenant_id,
   skills,
   store,
@@ -121,24 +188,79 @@ export async function resolveDbGitSkills({
 }
 
 /**
- * Cross-checks an AgentSpec against DB-configured models / MCP / skills and
+ * Build a runtime SandboxProvider from the configured store row, or undefined
+ * when no provider is configured. Builds a fresh Daytona client per call (no network I/O).
+ */
+export async function resolveSandboxProvider({
+  tenant_id,
+  store,
+  logger,
+}: {
+  tenant_id: string;
+  store: ISandboxProviderStore;
+  logger: Logger;
+}): Promise<SandboxProvider | undefined> {
+  const record = await store.getSandboxProvider(tenant_id);
+  if (record === undefined) {
+    return undefined;
+  }
+  const { apiKey, ...settings } = toDaytonaSandboxProviderInput(record.manifest);
+  return new DaytonaSandboxProvider({
+    client: new Daytona({ apiKey }),
+    ...settings,
+    tenantName: tenant_id,
+    fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
+    logger,
+  });
+}
+
+/**
+ * Builds a Sandbox for one turn from a resolved provider and git mounts.
+ * `tenantName` must match the name given to DaytonaSandboxProvider (ownership check).
+ */
+export function buildTurnSandbox(input: {
+  provider: SandboxProvider;
+  logger: Logger;
+  gitSkills: readonly GitSkill[];
+  fileDownloadEnabled: boolean;
+  existingSandboxId?: string | undefined;
+  tracing: AgentTracing;
+  tenantName: string;
+}): Sandbox {
+  const skillMounter = input.gitSkills.length > 0 ? new SkillMounter([...input.gitSkills]) : undefined;
+  return new Sandbox({
+    provider: input.provider,
+    existingSandboxId: input.existingSandboxId,
+    fileDownloadEnabled: input.fileDownloadEnabled,
+    blockDestructiveToolsInCodeMode: true,
+    // Sandbox reads its tenant from TFY_TENANT_NAME for the ownership check
+    // against provider-created sandbox ids (`<tenant>.<uuid>`).
+    execExtraEnv: { TFY_TENANT_NAME: input.tenantName },
+    ...(skillMounter ? { skillMounter } : {}),
+    tracing: input.tracing,
+    logger: input.logger,
+  });
+}
+
+/**
+ * Cross-checks an AgentSpec against configured models / MCP / skills and
  * sandbox capability. Throws HTTPException: 400 unknown refs, 422 missing sandbox.
  * Skills are admitted by name only; mounts expand at turn time.
  */
-export async function validateAgentSpecDb({
+export async function validateAgentSpec({
   spec,
   tenant_id,
   modelProviderStore,
   mcpServerStore,
   skillStore,
-  sandboxSupported,
+  sandboxProviderStore,
 }: {
   spec: AgentSpec;
   tenant_id: string;
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerStore;
   skillStore: ISkillStore;
-  sandboxSupported: boolean;
+  sandboxProviderStore: ISandboxProviderStore;
 }): Promise<void> {
   // FQN shape is enforced by AgentSpecSchema; parse failure here is an invariant.
   const parsed = parseModelFqn(spec.model.name);
@@ -189,11 +311,14 @@ export async function validateAgentSpecDb({
 
   const wantsSandbox = spec.config?.sandbox?.enabled === true;
   const hasSkills = (spec.skills?.length ?? 0) > 0;
-  if ((wantsSandbox || hasSkills) && !sandboxSupported) {
-    throw new HTTPException(422, {
-      message: hasSkills
-        ? 'skills require a sandbox provider — set SANDBOX_SETTINGS (and SANDBOX_API_KEY)'
-        : 'sandbox is enabled in the agent spec but this server has no sandbox provider configured — set SANDBOX_SETTINGS (and SANDBOX_API_KEY)',
-    });
+  if (wantsSandbox || hasSkills) {
+    const record = await sandboxProviderStore.getSandboxProvider(tenant_id);
+    if (record === undefined) {
+      throw new HTTPException(422, {
+        message: hasSkills
+          ? 'skills require a sandbox provider — configure via PUT /settings/sandbox-providers'
+          : 'sandbox is enabled but no sandbox provider is configured — PUT /settings/sandbox-providers',
+      });
+    }
   }
 }

@@ -20,6 +20,7 @@ import { z } from 'zod';
 import configuration from '../config';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import {
   cancelSessionRoute,
@@ -31,8 +32,8 @@ import {
   updateSessionRoute,
 } from '../routes/sessionRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { validateAgentSpecDb } from '../runtime/dbSessionResources';
 import { executorFromTurnId } from '../runtime/peeringIds';
+import { validateAgentSpec } from '../runtime/sessionResources';
 import type { Session } from '../schemas/session';
 
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
@@ -66,7 +67,7 @@ export interface SessionsRouterDeps {
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerStore;
   skillStore: ISkillStore;
-  sandboxSupported: boolean;
+  sandboxProviderStore: ISandboxProviderStore;
   redis?: RedisClientType | undefined;
   requestReplyRouter: RequestReplyRouter;
 }
@@ -183,13 +184,13 @@ export async function cancelSessionTurn(
 export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
-    await validateAgentSpecDb({
+    await validateAgentSpec({
       spec: body.agent_spec,
       tenant_id: TENANT_ID,
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
       skillStore: deps.skillStore,
-      sandboxSupported: deps.sandboxSupported,
+      sandboxProviderStore: deps.sandboxProviderStore,
     });
     const session = await deps.sessions.create({
       tenant_id: TENANT_ID,
@@ -200,7 +201,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   };
 
   const getSessionHandler: RouteHandler<typeof getSessionRoute> = async c => {
-    const { sessionId } = c.req.valid('param');
+    const { session_id: sessionId } = c.req.valid('param');
     const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
@@ -209,22 +210,22 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   };
 
   const deleteSessionHandler: RouteHandler<typeof deleteSessionRoute> = async c => {
-    const { sessionId } = c.req.valid('param');
+    const { session_id: sessionId } = c.req.valid('param');
     await deps.sessionStore.deleteSession({ tenant_id: TENANT_ID, session_id: sessionId });
     return c.body(null, 204);
   };
 
   const updateSessionHandler: RouteHandler<typeof updateSessionRoute> = async c => {
-    const { sessionId } = c.req.valid('param');
+    const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
     if (body.agent_spec) {
-      await validateAgentSpecDb({
+      await validateAgentSpec({
         spec: body.agent_spec,
         tenant_id: TENANT_ID,
         modelProviderStore: deps.modelProviderStore,
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,
-        sandboxSupported: deps.sandboxSupported,
+        sandboxProviderStore: deps.sandboxProviderStore,
       });
     }
     try {
@@ -268,7 +269,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   };
 
   const cancelSessionHandler: RouteHandler<typeof cancelSessionRoute> = async c => {
-    const { sessionId } = c.req.valid('param');
+    const { session_id: sessionId } = c.req.valid('param');
     const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
@@ -283,7 +284,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   };
 
   const listSessionEventsHandler: RouteHandler<typeof listSessionEventsRoute> = async c => {
-    const { sessionId } = c.req.valid('param');
+    const { session_id: sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!session) {

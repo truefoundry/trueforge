@@ -57,6 +57,7 @@ export type {
   OAuthServerMetadata,
 } from './auth/IOAuthClientStore';
 export type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from './auth/IOAuthTokenStore';
+export { isOAuthAccessTokenUsable } from './auth/oauthToken';
 
 // MCP contracts
 export type { ApprovalDecision } from './events/schema';
@@ -143,8 +144,9 @@ export type {
 } from './tracing/AgentTracing';
 
 // Errors / utils
-export { AgentHarnessError, McpConnectionError } from './errors';
+export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
 export { extractErrorLogFields } from './util/errorLogFields';
+export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
 
 // MCP OAuth
 export {
@@ -170,14 +172,8 @@ export type {
 } from './mcp/auth';
 
 // Sandbox (concrete implementation; provider details exported for composition)
-export {
-  DaytonaSandboxProviderSettingsSchema,
-  SandboxProviderSettingsSchema,
-  createSandboxProvider,
-} from './sandbox/provider/createSandboxProvider';
-export type { CreateSandboxProviderInput, SandboxProviderSettings } from './sandbox/provider/createSandboxProvider';
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
-export type { DaytonaSandboxSettings } from './sandbox/provider/DaytonaProvider';
+export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
 export type { SandboxExecParams, SandboxInit, SandboxProvider } from './sandbox/provider/Provider';
 export { TFYSandboxProvider } from './sandbox/provider/TFYSandboxProvider';
 export { SKILL_DOWNLOAD_TIMEOUT_SECONDS, Sandbox, buildWriteAndRunScriptCommand } from './sandbox/Sandbox';

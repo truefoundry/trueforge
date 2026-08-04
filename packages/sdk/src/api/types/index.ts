@@ -23,8 +23,6 @@ export * from "./ChatCompletionContentPartRefusal.js";
 export * from "./ChatCompletionContentPartText.js";
 export * from "./ChatCompletionMessageToolCall.js";
 export * from "./ChatCompletionMessageToolCallFunction.js";
-export * from "./ConfiguredMcpAuthorizeResponse.js";
-export * from "./ConfiguredMcpAuthorizeResponseStatus.js";
 export * from "./ConfiguredMcpServer.js";
 export * from "./ConfiguredMcpServerAuth.js";
 export * from "./ContextManagementConfig.js";

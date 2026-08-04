@@ -26,7 +26,6 @@ try {
     { default: configuration },
     { Sessions, CancellationReason },
     { ActiveTurnRegistry },
-    { createServerSandboxProvider },
     { connectRedis },
     { RequestReplyExecutor, RequestReplyRouter },
     { EventSubscriptionRegistry },
@@ -40,7 +39,6 @@ try {
     import('./config'),
     import('@truefoundry/utils-core/agent-session'),
     import('./runtime/activeTurns'),
-    import('./runtime/sandboxFactory'),
     import('./runtime/redis'),
     import('@truefoundry/utils-core/request-reply'),
     import('./runtime/event-subscription'),
@@ -146,8 +144,6 @@ try {
     destroyDb = () => db.destroy();
   }
 
-  // Throws on malformed SANDBOX_SETTINGS; undefined when sandbox is not configured.
-  const sandboxProvider = createServerSandboxProvider({ logger });
   const activeTurns = new ActiveTurnRegistry();
 
   let redis: RedisClientType | undefined;
@@ -173,7 +169,6 @@ try {
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,
-    ...(sandboxProvider ? { sandboxProvider } : {}),
     redis,
     requestReplyRouter,
     eventSubscriptions,

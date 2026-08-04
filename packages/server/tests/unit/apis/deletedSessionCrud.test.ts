@@ -9,8 +9,10 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { ListSessionsResponseSchema } from '../../../src/schemas/session';
@@ -24,7 +26,9 @@ describe('public CRUD after session deletion', () => {
     const activeTurns = new ActiveTurnRegistry();
     const modelProviderStore = new SqliteModelProviderStore(db);
     const mcpServerStore = new SqliteMcpServerStore(db);
+    const tokenStore = new SqliteOAuthTokenStore(db);
     const skillStore = new SqliteSkillStore(db);
+    const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const app = new OpenAPIHono();
 
     app.route(
@@ -36,7 +40,7 @@ describe('public CRUD after session deletion', () => {
         modelProviderStore,
         mcpServerStore,
         skillStore,
-        sandboxSupported: false,
+        sandboxProviderStore,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
       }),
@@ -49,8 +53,10 @@ describe('public CRUD after session deletion', () => {
         activeTurns,
         modelProviderStore,
         mcpServerStore,
+        tokenStore,
         skillStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
+        sandboxProviderStore,
         logger: createLogger({ silent: true }),
       }),
     );

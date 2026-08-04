@@ -91,25 +91,10 @@ jobs:
             echo "needed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # Pinned in one place so CI and local runs agree; upgrades are manual edits.
-      - name: Install Fern
+      # Same entrypoint as local `pnpm sdk:generate` (re-runs openapi:write; idempotent).
+      - name: Generate OpenAPI document and TypeScript SDK
         if: steps.decide.outputs.needed == 'true'
-        run: npm install -g "fern-api@$(jq -r .version fern/fern.config.json)"
-
-      - name: Check API is valid
-        if: steps.decide.outputs.needed == 'true'
-        run: fern check
-
-      # `--generate-tests` is the only thing that makes Fern emit a full package rather than loose sources.
-      - name: Generate TypeScript SDK
-        if: steps.decide.outputs.needed == 'true'
-        run: fern generate --group ts-sdk --version 0.0.0 --local --generate-tests --log-level debug
-
-      # Fern generates no CI for this output mode, so this is what proves the SDK compiles.
-      - name: Verify the generated SDK builds
-        if: steps.decide.outputs.needed == 'true'
-        working-directory: packages/sdk
-        run: bash .fern/verify.sh
+        run: pnpm sdk:generate
 
       # Forks get a read-only token, so only the commit is skipped. TODO: an approval flow that can push to the fork.
       - name: Commit generated output

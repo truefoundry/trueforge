@@ -244,7 +244,7 @@ export class McpServersClient {
     }
 
     /**
-     * For servers without auth or with header credentials, returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).
+     * For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).
      *
      * @param {string} name - Configured MCP server name.
      * @param {TrueHarness.settings.AuthorizeMcpServersRequest} request
@@ -263,7 +263,7 @@ export class McpServersClient {
         name: string,
         request: TrueHarness.settings.AuthorizeMcpServersRequest = {},
         requestOptions?: McpServersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.ConfiguredMcpAuthorizeResponse> {
+    ): core.HttpResponsePromise<TrueHarness.McpAuthStatus> {
         return core.HttpResponsePromise.fromPromise(this.__authorize(name, request, requestOptions));
     }
 
@@ -271,7 +271,7 @@ export class McpServersClient {
         name: string,
         request: TrueHarness.settings.AuthorizeMcpServersRequest = {},
         requestOptions?: McpServersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.ConfiguredMcpAuthorizeResponse>> {
+    ): Promise<core.WithRawResponse<TrueHarness.McpAuthStatus>> {
         const { redirectUrl } = request;
         const _queryParams: Record<string, unknown> = {
             redirect_url: redirectUrl,
@@ -298,7 +298,7 @@ export class McpServersClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.ConfiguredMcpAuthorizeResponse.parseOrThrow(_response.body, {
+                data: serializers.McpAuthStatus.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
