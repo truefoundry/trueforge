@@ -41,7 +41,9 @@ export function defineTool<T extends z.ZodType>(config: {
   // user approves an approval-gated tool). Handlers that don't declare it ignore it.
   handler: (input: z.infer<T>, approvalDecision?: ApprovalDecision) => Promise<CallToolResponse>;
 }): ToolDefinition {
-  const jsonSchema = config.schema.toJSONSchema() as ToolInputSchema;
+  // Advertise the *input* shape: fields with `.default()` are optional to callers
+  // (Zod 4's default `io: "output"` would mark them required after defaults apply).
+  const jsonSchema = config.schema.toJSONSchema({ io: 'input' }) as ToolInputSchema;
   return {
     name: config.name,
     description: config.description,
