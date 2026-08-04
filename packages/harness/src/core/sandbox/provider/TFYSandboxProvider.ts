@@ -27,7 +27,7 @@ export interface TFYSandboxProviderOptions {
   serverUrl: string;
   natsBridgeUrl: string;
   tenantName: string;
-  fileMaxBytes: number;
+  fileMaxBytesForDownload: number;
   defaultExecTimeoutMs?: number | undefined;
   logger: Logger;
 }
@@ -41,7 +41,7 @@ export class TFYSandboxProvider implements SandboxProvider {
   private readonly serverUrl: string;
   private readonly natsBridgeUrl: string;
   private readonly tenantName: string;
-  private readonly fileMaxBytes: number;
+  private readonly fileMaxBytesForDownload: number;
   private readonly defaultExecTimeoutSeconds: number;
   private readonly logger: Logger;
 
@@ -49,7 +49,7 @@ export class TFYSandboxProvider implements SandboxProvider {
     this.serverUrl = options.serverUrl.replace(/\/+$/, '');
     this.natsBridgeUrl = options.natsBridgeUrl;
     this.tenantName = options.tenantName;
-    this.fileMaxBytes = options.fileMaxBytes;
+    this.fileMaxBytesForDownload = options.fileMaxBytesForDownload;
     this.defaultExecTimeoutSeconds = Math.ceil((options.defaultExecTimeoutMs ?? DEFAULT_TIMEOUT_SECONDS * 1000) / 1000);
     this.logger = options.logger.child({ module: 'TFYSandboxProvider' });
   }
@@ -127,8 +127,8 @@ export class TFYSandboxProvider implements SandboxProvider {
     if (info.isDir) {
       throw new SandboxPathIsDirectoryError(params.path);
     }
-    if (info.size > this.fileMaxBytes) {
-      throw new SandboxFileTooLargeError(params.path, info.size, this.fileMaxBytes);
+    if (info.size > this.fileMaxBytesForDownload) {
+      throw new SandboxFileTooLargeError(params.path, info.size, this.fileMaxBytesForDownload);
     }
 
     const result = await this.exec({

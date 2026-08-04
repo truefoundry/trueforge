@@ -1,5 +1,4 @@
 export {
-  DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
   buildMcpAuthorizationUrl,
   completeMcpAuthorization,
   createMcpOAuthClient,
@@ -14,9 +13,11 @@ export type {
   ResolveMcpAuthResult,
 } from './mcpDcr';
 export {
+  DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
   MCP_OAUTH_CALLBACK_PATH,
   mcpAuthorizationServerMetadata,
   mcpAuthorizationServerOrigin,
   mcpClientInformation,
   mcpOAuthCallbackUrl,
 } from './mcpOAuthHelpers';
+export { validateRedirectUris } from './redirectUri';

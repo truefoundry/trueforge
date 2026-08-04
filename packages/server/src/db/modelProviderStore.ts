@@ -1,15 +1,15 @@
 /**
  * DB-backed configured model providers: one row per provider per tenant,
- * identity as columns plus a Zod-validated `ProviderManifest` jsonb document.
+ * identity as columns plus a Zod-validated `ModelProviderManifest` jsonb document.
  * Implementations: PostgresModelProviderStore and SqliteModelProviderStore.
  */
 import type { ResourceName } from '../schemas/common';
-import type { Model, ProviderManifest } from '../schemas/modelProvider';
+import type { Model, ModelProviderManifest } from '../schemas/modelProvider';
 
 export interface ModelProviderRecord {
   tenant_id: string;
   name: ResourceName;
-  manifest: ProviderManifest;
+  manifest: ModelProviderManifest;
   /** ISO-8601 UTC instant. */
   created_at: string;
   /** ISO-8601 UTC instant. */
@@ -24,7 +24,7 @@ export interface GetProviderInput {
 export interface UpsertProviderInput {
   tenant_id: string;
   name: ResourceName;
-  manifest: ProviderManifest;
+  manifest: ModelProviderManifest;
 }
 
 export interface IModelProviderStore {

@@ -9,7 +9,7 @@ import {
   TokenPaginationSchema,
   TurnCreatedEventSchema,
   TurnDoneEventSchema,
-} from '@truefoundry/utils/agent-session';
+} from '@truefoundry/utils-core/agent-session';
 import {
   MCPAuthRequiredEventSchema,
   MCPInitializeEventSchema,
@@ -21,9 +21,9 @@ import {
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
-} from '@truefoundry/utils/core';
+} from '@truefoundry/utils-core/core';
 
-export type { TurnCreatedEvent } from '@truefoundry/utils/agent-session';
+export type { TurnCreatedEvent } from '@truefoundry/utils-core/agent-session';
 export { EventType };
 
 /** Live SSE stream for session turns — content events, deltas and lifecycle. */

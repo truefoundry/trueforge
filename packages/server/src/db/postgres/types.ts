@@ -2,7 +2,7 @@
  * Live app schema for the runtime Kysely client / Postgres-backed session store.
  * Migrations must not use this type — use `Kysely<unknown>` instead.
  */
-import type { AgentSpec, PersistedTurnEvent, TurnInputItem, TurnState } from '@truefoundry/utils/agent-session';
+import type { AgentSpec, PersistedTurnEvent, TurnInputItem, TurnState } from '@truefoundry/utils-core/agent-session';
 import type {
   AgentInfo,
   AgentParent,
@@ -11,11 +11,11 @@ import type {
   MCPServerInitInfo,
   SandboxInfo,
   SubAgentCompletionMarker,
-} from '@truefoundry/utils/core';
-import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
+} from '@truefoundry/utils-core/core';
+import type { CurrentContextUsage } from '@truefoundry/utils-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
-import type { ProviderManifest } from '../../schemas/modelProvider';
+import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type { SandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpOAuthTypes';
@@ -295,8 +295,8 @@ export interface ModelProviderTable {
   tenant_id: string;
   /** key: natural key within tenant; first segment of fully qualified model names */
   name: string;
-  /** ProviderManifest document; replaced whole on every upsert */
-  manifest: JSONColumnType<ProviderManifest, ProviderManifest, ProviderManifest>;
+  /** ModelProviderManifest document; replaced whole on every upsert */
+  manifest: JSONColumnType<ModelProviderManifest, ModelProviderManifest, ModelProviderManifest>;
   created_at: Date;
   updated_at: Date;
 }
@@ -339,12 +339,12 @@ export interface McpServerTable {
   /** the uniqueness target; also duplicated inside `manifest` */
   name: string;
   manifest: JSONColumnType<McpServerManifest, McpServerManifest, McpServerManifest>;
-  /** OAuthServer — { authorizationEndpoint, tokenEndpoint, codeChallengeMethodsSupported? }.
+  /** OAuthServer — { authorization_endpoint, token_endpoint, code_challenge_methods_supported }.
    * RFC 8414 authorization-server metadata, discovered once at registration time.
    */
   oauth_server: JSONColumnType<OAuthServer, OAuthServer, OAuthServer> | null;
-  /** OAuthClient — { clientId, clientSecret? }. RFC 7591 DCR response.
-   * Token auth is form-body (client_secret_post) when clientSecret is set; presence of secret
+  /** OAuthClient — { client_id, client_secret }. RFC 7591 DCR response.
+   * Token auth is form-body (client_secret_post) when client_secret is set; presence of secret
    * alone decides the method (same as servicefoundry outbound DCR). Both oauth_server and
    * oauth_client are null until first successful DCR.
    */

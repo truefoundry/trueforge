@@ -2,7 +2,7 @@
  * Backend-agnostic behavioural contract for IMcpServerStore.
  * Runs under jest against a fresh store per test (see backend test files).
  */
-import type { OAuthClientRecord } from '@truefoundry/utils/core';
+import type { OAuthClientRecord } from '@truefoundry/utils-core/core';
 import type { IMcpServerStore } from '../../src/db/mcpServerStore';
 import type { McpServerManifest } from '../../src/schemas/mcpServer';
 

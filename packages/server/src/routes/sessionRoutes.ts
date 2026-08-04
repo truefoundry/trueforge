@@ -1,6 +1,7 @@
 /**
- * Session route definitions (mounted at /api/v1/sessions). A session holds an
- * inline agent spec. Handlers are registered in apis/sessions.ts.
+ * Session route definitions.
+ * DB-backed routes mount at /api/v1/sessions.
+ * Handlers are registered in apis/sessions.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -18,7 +19,7 @@ import { TOKEN_PAGINATION } from './fernExtensions';
 const SESSIONS_TAG = 'Sessions';
 
 export const SessionIdParamsSchema = z.object({
-  sessionId: z.string().min(1).max(64).describe('Session identifier.'),
+  session_id: z.string().min(1).max(64).describe('Session identifier.'),
 });
 
 export const createSessionRoute = createRoute({
@@ -54,7 +55,7 @@ export const createSessionRoute = createRoute({
 
 export const getSessionRoute = createRoute({
   method: 'get',
-  path: '/{sessionId}',
+  path: '/{session_id}',
   tags: [SESSIONS_TAG],
   summary: 'Get a session',
   description: 'Fetch a session by ID.',
@@ -77,7 +78,7 @@ export const getSessionRoute = createRoute({
 
 export const deleteSessionRoute = createRoute({
   method: 'delete',
-  path: '/{sessionId}',
+  path: '/{session_id}',
   tags: [SESSIONS_TAG],
   summary: 'Delete a session',
   description: 'Delete a session and all related turns, events, and internal state. Idempotent if already gone.',
@@ -95,7 +96,7 @@ export const deleteSessionRoute = createRoute({
 
 export const updateSessionRoute = createRoute({
   method: 'patch',
-  path: '/{sessionId}',
+  path: '/{session_id}',
   tags: [SESSIONS_TAG],
   summary: 'Update a session',
   description: "Update a session's inline agent spec. An empty body is a valid no-op that refreshes `updated_at`.",
@@ -156,7 +157,7 @@ export const listSessionsRoute = createRoute({
 
 export const cancelSessionRoute = createRoute({
   method: 'post',
-  path: '/{sessionId}/cancel',
+  path: '/{session_id}/cancel',
   tags: [SESSIONS_TAG],
   summary: 'Cancel a running turn in a session',
   description: 'Cancel the running last turn for a session.',
@@ -188,7 +189,7 @@ export const cancelSessionRoute = createRoute({
 
 export const listSessionEventsRoute = createRoute({
   method: 'get',
-  path: '/{sessionId}/events',
+  path: '/{session_id}/events',
   tags: [SESSIONS_TAG],
   summary: 'List session events',
   description:

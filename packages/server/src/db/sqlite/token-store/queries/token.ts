@@ -30,6 +30,19 @@ export async function getToken(db: Kysely<Database>, params: { id: string }): Pr
   return row === undefined ? undefined : row.token;
 }
 
+export async function getTokens(db: Kysely<Database>, params: { ids: string[] }): Promise<Map<string, OAuthToken>> {
+  if (params.ids.length === 0) {
+    return new Map();
+  }
+  const rows = await db
+    .selectFrom('oauth_token')
+    .select(['oauth_server_id', jsonText<OAuthToken>(sql.ref('token')).as('token')])
+    .where('oauth_server_id', 'in', params.ids)
+    .execute();
+
+  return new Map(rows.map(row => [row.oauth_server_id, row.token]));
+}
+
 export async function deleteToken(db: Kysely<Database>, params: { id: string }): Promise<void> {
   await db.deleteFrom('oauth_token').where('oauth_server_id', '=', params.id).execute();
 }

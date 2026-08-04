@@ -5,9 +5,9 @@ import type {
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   RemoveThreadsInput,
-} from '@truefoundry/utils/agent-session/store/ISessionStore';
-import type { ContextMessage, SubAgentCompletionMarker } from '@truefoundry/utils/core/runtime/AgentThread.types';
-import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
+} from '@truefoundry/utils-core/agent-session/store/ISessionStore';
+import type { ContextMessage, SubAgentCompletionMarker } from '@truefoundry/utils-core/core/runtime/AgentThread.types';
+import type { CurrentContextUsage } from '@truefoundry/utils-core/core/runtime/contextUsage';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
 import { jsonbBind, jsonbSet, nowIso } from '../../sqlExpressions';
 import type { Database, TurnThreadCheckpoint } from '../../types';

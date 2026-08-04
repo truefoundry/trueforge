@@ -1,5 +1,5 @@
-import type { ISessionStore, TurnRecord, TurnState } from '@truefoundry/utils/agent-session';
-import { CancellationReason } from '@truefoundry/utils/agent-session';
+import type { ISessionStore, TurnRecord, TurnState } from '@truefoundry/utils-core/agent-session';
+import { CancellationReason } from '@truefoundry/utils-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
 import { createClient, type RedisClientType } from 'redis';
 import { cancelSessionTurn } from '../../../src/apis/sessions';

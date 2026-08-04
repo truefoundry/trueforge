@@ -3,11 +3,11 @@
  *
  * The real app is built in-process and asked for its document, so the committed
  * spec cannot drift from what the server serves. Nothing listens or dials out:
- * `.env.test` supplies dummy connection strings and the registry fixtures.
+ * `.env.test` supplies dummy connection strings.
  */
-import type { TurnStreamingEvent } from '@truefoundry/utils/agent-session';
-import { InMemorySessionStore, Sessions } from '@truefoundry/utils/agent-session';
-import { RequestReplyRouter } from '@truefoundry/utils/request-reply';
+import type { TurnStreamingEvent } from '@truefoundry/utils-core/agent-session';
+import { InMemorySessionStore, Sessions } from '@truefoundry/utils-core/agent-session';
+import { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import winston from 'winston';
@@ -21,9 +21,7 @@ import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMc
 import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxProviderStore } from '../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
-import { McpStore } from '../src/legacy-registry-store/McpStore';
-import { ModelStore } from '../src/legacy-registry-store/ModelStore';
-import { SkillStore } from '../src/legacy-registry-store/SkillStore';
+import { SqliteOAuthTokenStore } from '../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../src/runtime/event-subscription';
 
@@ -50,17 +48,15 @@ function canonicalise(value: unknown): unknown {
 const sessionStore = new InMemorySessionStore();
 const db = createSqliteDb(':memory:');
 const app = createServerApp({
-  modelStore: ModelStore.load(),
   modelCatalog: ModelCatalog.load(),
   modelProviderStore: new SqliteModelProviderStore(db),
   mcpCatalog: McpCatalog.load(),
   mcpServerStore: new SqliteMcpServerStore(db),
-  mcpStore: McpStore.load(),
+  tokenStore: new SqliteOAuthTokenStore(db),
   skillCatalog: SkillCatalog.load(),
   skillStore: new SqliteSkillStore(db),
   sandboxCatalog: SandboxCatalog.load(),
   sandboxProviderStore: new SqliteSandboxProviderStore(db),
-  legacySkillStore: SkillStore.load(),
   sessionStore,
   sessions: new Sessions({ sessionStore }),
   activeTurns: new ActiveTurnRegistry(),

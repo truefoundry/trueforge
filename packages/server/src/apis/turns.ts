@@ -1,5 +1,8 @@
+/**
+ * DB-backed turns API (mounted at /api/v1/sessions).
+ */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
+import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefoundry/utils-core/agent-session';
 import {
   CancellationReason,
   EventType,
@@ -9,8 +12,7 @@ import {
   TurnResourceResolver,
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
-  type TurnSandboxFactory,
-} from '@truefoundry/utils/agent-session';
+} from '@truefoundry/utils-core/agent-session';
 import {
   AgentHarnessError,
   extractErrorLogFields,
@@ -18,14 +20,18 @@ import {
   isFileContentPart,
   McpConnectionError,
   VercelAILLM,
-} from '@truefoundry/utils/core';
+  type IOAuthTokenStore,
+  type VercelAIProviderConfig,
+} from '@truefoundry/utils-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import configuration from '../config';
-import type { McpStore } from '../legacy-registry-store/McpStore';
-import type { ModelStore } from '../legacy-registry-store/ModelStore';
+import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
+import type { ISkillStore } from '../db/skillStore';
 import {
   createAndExecuteTurnRoute,
   getTurnRoute,
@@ -36,9 +42,16 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { StreamGoneError, type EventSubscriptionRegistry } from '../runtime/event-subscription';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
+import {
+  buildTurnSandbox,
+  getMcpConnection,
+  getProviderConfig,
+  resolveGitSkills,
+  resolveSandboxProvider,
+} from '../runtime/sessionResources';
 import { TENANT_ID } from './sessions';
 
-function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
+export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
   return {
     id: record.turn_id,
     session_id: record.session_id,
@@ -53,44 +66,77 @@ export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  modelStore: ModelStore;
-  mcpStore: McpStore;
+  modelProviderStore: IModelProviderStore;
+  mcpServerStore: IMcpServerStore;
+  tokenStore: IOAuthTokenStore;
+  skillStore: ISkillStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
-  /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
-  sandboxFactory?: TurnSandboxFactory;
+  sandboxProviderStore: ISandboxProviderStore;
   logger: Logger;
 }
 
 /**
- * Per-run resource wiring: maps the YAML catalogs onto the agentSession
- * TurnResourceResolver. Each model carries its own provider config from
- * models.yaml; MCP servers resolve to url + env-configured headers;
- * the sandbox factory (when configured) creates/reattaches the run's Sandbox.
+ * TurnResourceResolver requires a sync llm factory; preload the session model
+ * config so the factory stays sync while the store read stays async.
  */
 function createTurnResolver(deps: {
-  modelStore: ModelStore;
-  mcpStore: McpStore;
-  sandboxFactory?: TurnSandboxFactory | undefined;
+  mcpServerStore: IMcpServerStore;
+  tokenStore: IOAuthTokenStore;
+  skillStore: ISkillStore;
+  sandboxProviderStore: ISandboxProviderStore;
   logger: Logger;
   signal: AbortSignal;
+  modelName: string;
+  providerConfig: VercelAIProviderConfig;
 }): TurnResourceResolver {
-  const { modelStore, mcpStore, logger, signal } = deps;
+  const { mcpServerStore, tokenStore, skillStore, sandboxProviderStore, logger, signal, modelName, providerConfig } =
+    deps;
   return new TurnResourceResolver({
-    llm: name =>
-      new VercelAILLM({
-        providerConfig: modelStore.getProviderConfig(name),
+    llm: name => {
+      if (name !== modelName) {
+        throw new Error(`Model not registered: ${name}`);
+      }
+      return new VercelAILLM({
+        providerConfig,
         logger,
         signal,
-      }),
-    mcp: name => {
-      const entry = mcpStore.get(name);
-      if (!entry) {
-        throw new Error(`MCP server not declared in mcp.yaml: ${name}`);
-      }
-      return Promise.resolve({ url: entry.url, headers: mcpStore.getHeaders(name) });
+      });
     },
-    ...(deps.sandboxFactory ? { sandboxProvider: deps.sandboxFactory } : {}),
+    mcp: async name =>
+      getMcpConnection({
+        tenant_id: TENANT_ID,
+        name,
+        store: mcpServerStore,
+        tokenStore,
+        clientName: configuration.OAUTH_CLIENT_NAME,
+      }),
+    sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
+      const provider = await resolveSandboxProvider({
+        tenant_id: TENANT_ID,
+        store: sandboxProviderStore,
+        logger,
+      });
+      if (provider === undefined) {
+        throw new HTTPException(422, {
+          message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
+        });
+      }
+      const gitSkills = await resolveGitSkills({
+        tenant_id: TENANT_ID,
+        skills: spec.skills ?? [],
+        store: skillStore,
+      });
+      return buildTurnSandbox({
+        provider,
+        logger,
+        gitSkills,
+        fileDownloadEnabled: spec.config?.sandbox?.file_downloads ?? false,
+        existingSandboxId,
+        tracing,
+        tenantName: TENANT_ID,
+      });
+    },
     logger,
   });
 }
@@ -102,7 +148,7 @@ const MAX_SESSION_TITLE_LENGTH = 50;
  * trimmed text (capped at {@link MAX_SESSION_TITLE_LENGTH}) or `undefined` when no usable
  * text is present (e.g. file-only or tool-approval input).
  */
-function deriveSessionTitle(input: TurnInputItem[] | undefined): string | undefined {
+export function deriveSessionTitle(input: TurnInputItem[] | undefined): string | undefined {
   const firstUserMessage = input?.find(isAgentInputUserMessage);
   if (!firstUserMessage) {
     return undefined;
@@ -123,8 +169,12 @@ function deriveSessionTitle(input: TurnInputItem[] | undefined): string | undefi
   return trimmed.slice(0, MAX_SESSION_TITLE_LENGTH);
 }
 
-/** SSE payload: `id` carries the per-stream sequence number; the body is not numbered. */
-function turnEventSsePayload(event: TurnStreamingEvent, sequenceNumber: number): { id: string; data: string } {
+/**
+ * SSE payload for one turn event. The `id` field carries the per-stream
+ * sequence number; the event body itself is not numbered (yield order is
+ * persist order, so the transport boundary stamps).
+ */
+export function turnEventSsePayload(event: TurnStreamingEvent, sequenceNumber: number): { id: string; data: string } {
   return {
     id: String(sequenceNumber),
     data: JSON.stringify(event),
@@ -135,7 +185,7 @@ function turnEventSsePayload(event: TurnStreamingEvent, sequenceNumber: number):
  * turn.created arms the active-run TTL, turn.done shortens it to the
  * post-completion drain window; mid-run events leave the TTL untouched.
  */
-function streamTTLSecondsFor(event: TurnStreamingEvent): number | undefined {
+export function streamTTLSecondsFor(event: TurnStreamingEvent): number | undefined {
   if (event.type === EventType.TURN_CREATED) {
     return configuration.TURN_STREAM_TTL_SECONDS;
   }
@@ -146,7 +196,7 @@ function streamTTLSecondsFor(event: TurnStreamingEvent): number | undefined {
 }
 
 /** Redis/in-memory key for one turn's resumable event stream. */
-function turnStreamId(tenantId: string, sessionId: string, turnId: string): string {
+export function turnStreamId(tenantId: string, sessionId: string, turnId: string): string {
   return `agent:turn:${tenantId}:${sessionId}:${turnId}:stream`;
 }
 
@@ -156,7 +206,7 @@ function turnStreamId(tenantId: string, sessionId: string, turnId: string): stri
  * event, whereas the body is the original caller-supplied cursor and never
  * changes between reconnect attempts.
  */
-function resolveAfterSequenceNumber(c: Context, bodyAfterSequenceNumber?: number): number | undefined {
+export function resolveAfterSequenceNumber(c: Context, bodyAfterSequenceNumber?: number): number | undefined {
   const lastEventId = c.req.header('last-event-id');
   if (lastEventId) {
     const sequenceNumber = Number(lastEventId);
@@ -168,9 +218,10 @@ function resolveAfterSequenceNumber(c: Context, bodyAfterSequenceNumber?: number
   return bodyAfterSequenceNumber;
 }
 
+/** DB-backed turns (mounted at /api/v1/sessions). */
 export function createTurnsRouter(deps: TurnsRouterDeps) {
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
-    const { sessionId } = c.req.valid('param');
+    const { session_id: sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!session) {
@@ -191,7 +242,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   };
 
   const getTurnHandler: RouteHandler<typeof getTurnRoute> = async c => {
-    const { sessionId, turnId } = c.req.valid('param');
+    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const turn = await TurnHandle.get({
       store: deps.sessionStore,
       session_id: sessionId,
@@ -204,7 +255,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   };
 
   const listTurnEventsHandler: RouteHandler<typeof listTurnEventsRoute> = async c => {
-    const { sessionId, turnId } = c.req.valid('param');
+    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const query = c.req.valid('query');
     const turn = await TurnHandle.get({
       store: deps.sessionStore,
@@ -230,7 +281,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   };
 
   const createAndExecuteTurnHandler: RouteHandler<typeof createAndExecuteTurnRoute> = async c => {
-    const { sessionId } = c.req.valid('param');
+    const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
 
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
@@ -239,12 +290,21 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }
 
     const abortController = new AbortController();
+    const modelName = session.agent_spec.model.name;
+    const providerConfig = await getProviderConfig({
+      tenant_id: TENANT_ID,
+      name: modelName,
+      store: deps.modelProviderStore,
+    });
     const resolver = createTurnResolver({
-      modelStore: deps.modelStore,
-      mcpStore: deps.mcpStore,
-      sandboxFactory: deps.sandboxFactory,
+      mcpServerStore: deps.mcpServerStore,
+      tokenStore: deps.tokenStore,
+      skillStore: deps.skillStore,
+      sandboxProviderStore: deps.sandboxProviderStore,
       logger: deps.logger,
       signal: abortController.signal,
+      modelName,
+      providerConfig,
     });
 
     // First turn only: derive the title from the first user message. The store
@@ -262,20 +322,15 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         update_session_title_if_not_exist: title,
       });
     } catch (error) {
-      // Unknown previous_turn_id (nothing was persisted).
       if (error instanceof SessionStoreNotFoundError) {
         return c.json({ error: { message: error.message } }, 404);
       }
-      // Input/spec validation failures from the harness. MCP failures carry
-      // their own status but the wire contract only declares 400 here.
       if (error instanceof AgentHarnessError && !(error instanceof McpConnectionError)) {
         return c.json({ error: { message: error.message } }, 400);
       }
       throw error;
     }
 
-    // Long timer not tied to any await; without unref() it would keep the process alive.
-    // Armed only after createTurn succeeds so a 4xx path never leaks a pending timer.
     const maxExecutionTimer = setTimeout(() => {
       if (!abortController.signal.aborted) {
         abortController.abort(CancellationReason.ServerExecutionTimeout);
@@ -294,15 +349,10 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     // Held for the whole turn; the stream's sequence counter dies with it.
     const turnEventStream = deps.eventSubscriptions.get(turnStreamId(TENANT_ID, sessionId, turn.id));
     return streamSSE(c, async stream => {
-      // On client disconnect stop writing but keep draining, so the turn
-      // completes and its events persist.
       stream.onAbort(() => {
         shouldWriteToSSEStream = false;
       });
       try {
-        // Slow SSE writes backpressure turn.stream() (and thus agent execution /
-        // persistence). Acceptable for now; reintroduce an eager buffer if clients
-        // stall turns in practice.
         for await (const event of trackedStream) {
           // Dual-write before SSE so subscribers can resume even after the
           // creating client disconnects; the returned sequence is the SSE id.
@@ -319,7 +369,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
           }
         }
       } catch (error) {
-        // Session delete can cascade mid-stream; store misses leave the DB clean but end SSE here.
         if (error instanceof SessionStoreNotFoundError) {
           deps.logger.warn('Turn stream ended after session/turn was removed', {
             sessionId,
@@ -341,7 +390,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   };
 
   const subscribeTurnHandler: RouteHandler<typeof subscribeTurnRoute> = async c => {
-    const { sessionId, turnId } = c.req.valid('param');
+    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const query = c.req.valid('query');
     const afterSequenceNumber = resolveAfterSequenceNumber(c, query.after_sequence_number);
 

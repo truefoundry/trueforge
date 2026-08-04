@@ -4,10 +4,8 @@
  * pointing at the offending file.
  */
 import fs from 'node:fs';
-import path from 'node:path';
 import { parse } from 'yaml';
 import type { z } from 'zod';
-import configuration from '../config';
 
 /** Parses and validates YAML text. `label` is used in error messages. */
 export function parseYamlString<T>(raw: string, schema: z.ZodType<T>, label: string): T {
@@ -42,9 +40,4 @@ export function loadYamlAtPath<T>(filePath: string, schema: z.ZodType<T>): T {
   }
 
   return parseYamlString(raw, schema, filePath);
-}
-
-/** Loads a YAML file from `REGISTRY_DIR` (legacy registry stores). */
-export function loadYamlFile<T>(fileName: string, schema: z.ZodType<T>): T {
-  return loadYamlAtPath(path.join(configuration.REGISTRY_DIR, fileName), schema);
 }

@@ -3,12 +3,11 @@
  * document, admin/chat list projections, and auth_status. Catalog file schemas
  * live in mcpCatalog.ts.
  *
- * Auth mirrors gateway MCP header/DCR shapes in reduced form: `header` stores
- * shared request headers on the row; `dcr` is the OAuth/DCR stub until real
- * token exchange lands. Legacy YAML still uses MCP_HEADERS /
- * MCP_{NAME}_HEADERS env vars — not this schema.
+ * Auth: `header` stores shared request headers on the row (settings listTools);
+ * turn execution resolves DCR tokens via resolveMcpAuth.
  */
 import { z } from '@hono/zod-openapi';
+import { isOAuthAccessTokenUsable, type OAuthToken } from '@truefoundry/utils-core/core';
 import { NameSchema } from './common';
 
 /** Transport/kind of MCP server. Extend when non-remote kinds ship. */
@@ -53,11 +52,11 @@ export const McpServerManifestSchema = McpServerManifestObjectSchema.openapi('Mc
 
 export const McpAuthStatusSchema = z
   .object({
-    status: z.enum(['authenticated', 'auth_required']),
+    status: z.enum(['authenticated', 'auth_required', 'not_required']),
     authorization_url: z
       .url()
       .optional()
-      .describe('Present only when status is auth_required and a live authorize flow produced a URL.'),
+      .describe('When auth is required, this contains the URL to redirect the user to for authorization.'),
   })
   .strict()
   .openapi('McpAuthStatus');
@@ -95,8 +94,8 @@ export type McpServerReadEntry = z.infer<typeof McpServerReadEntrySchema>;
 
 /**
  * Headers for live MCP calls against a configured server.
- * Only `auth.type === 'header'` contributes; DCR uses tokens later, not env
- * MCP_HEADERS (those remain on the legacy YAML path).
+ * Only `auth.type === 'header'` contributes. Turn execution uses DCR via
+ * resolveMcpAuth instead of this helper.
  */
 export function resolveConfiguredMcpRequestHeaders(manifest: McpServerManifest): Record<string, string> {
   if (manifest.auth?.type === 'header') {
@@ -105,14 +104,21 @@ export function resolveConfiguredMcpRequestHeaders(manifest: McpServerManifest):
   return {};
 }
 
-/**
- * Stub auth_status until OAuth/token store backs a real check.
- * Header credentials are already on the row → authenticated.
- * DCR still needs a user authorize flow → auth_required.
- */
-export function toStubAuthStatus(manifest: McpServerManifest): McpAuthStatus {
+export function resolveMcpAuthStatus({
+  manifest,
+  token,
+  nowMs = Date.now(),
+}: {
+  manifest: McpServerManifest;
+  token?: OAuthToken;
+  nowMs?: number;
+}): McpAuthStatus {
   if (manifest.auth?.type === 'dcr') {
-    return { status: 'auth_required' };
+    const authenticated = token && isOAuthAccessTokenUsable(token.expiresAt, nowMs);
+    return authenticated ? { status: 'authenticated' } : { status: 'auth_required' };
   }
-  return { status: 'authenticated' };
+  if (manifest.auth?.type === 'header') {
+    return { status: 'authenticated' };
+  }
+  return { status: 'not_required' };
 }

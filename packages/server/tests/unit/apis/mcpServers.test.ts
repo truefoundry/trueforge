@@ -1,9 +1,11 @@
 import winston from 'winston';
 import { createAvailableMcpServersRouter, createMcpServersRouter } from '../../../src/apis/mcpServers';
+import { TENANT_ID } from '../../../src/apis/sessions';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 
 const putBody = {
   type: 'remote' as const,
@@ -39,17 +41,31 @@ function putInit(body: unknown): RequestInit {
 describe('mcp-servers routers', () => {
   let settingsRouter: ReturnType<typeof createMcpServersRouter>;
   let availableRouter: ReturnType<typeof createAvailableMcpServersRouter>;
+  let mcpServerStore: SqliteMcpServerStore;
+  let tokenStore: SqliteOAuthTokenStore;
+  const originalFetch = globalThis.fetch;
 
   beforeAll(async () => {
+    // Eager DCR registration dials the MCP server's authorization server. Fail that outbound call
+    // fast so DCR upserts stay hermetic; the handler treats it as transient and still returns 200.
+    globalThis.fetch = (async () => {
+      throw new Error('network disabled in tests');
+    }) as typeof fetch;
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
-    const mcpServerStore = new SqliteMcpServerStore(db);
+    mcpServerStore = new SqliteMcpServerStore(db);
+    tokenStore = new SqliteOAuthTokenStore(db);
     settingsRouter = createMcpServersRouter({
       mcpCatalog: McpCatalog.load(),
       mcpServerStore,
+      tokenStore,
       logger: winston.createLogger({ silent: true }),
     });
     availableRouter = createAvailableMcpServersRouter(mcpServerStore);
+  });
+
+  afterAll(() => {
+    globalThis.fetch = originalFetch;
   });
 
   it('GET /catalog returns the shipped catalog verbatim', async () => {
@@ -63,26 +79,92 @@ describe('mcp-servers routers', () => {
     );
   });
 
-  it('PUT upserts a server and returns stub auth_status', async () => {
+  it('PUT upserts a server and returns not_required auth_status for no-auth servers', async () => {
     const response = await settingsRouter.request('/', putInit(putBody));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: { ...putBody, auth_status: { status: 'authenticated' } },
+      data: { ...putBody, auth_status: { status: 'not_required' } },
     });
 
     const list = await settingsRouter.request('/');
     expect(list.status).toBe(200);
     expect(await list.json()).toEqual({
-      data: [{ ...putBody, auth_status: { status: 'authenticated' } }],
+      data: [{ ...putBody, auth_status: { status: 'not_required' } }],
     });
   });
 
-  it('PUT with DCR auth stubs auth_required without authorization_url', async () => {
+  it('PUT with DCR auth reports auth_required while no token is stored', async () => {
     const response = await settingsRouter.request('/', putInit(putBodyWithDcr));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: { ...putBodyWithDcr, auth_status: { status: 'auth_required' } },
     });
+  });
+
+  it('DCR server reads authenticated once an unexpired token is stored, auth_required once expired', async () => {
+    await settingsRouter.request('/', putInit(putBodyWithDcr));
+    const record = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithDcr.name });
+    if (record === undefined) throw new Error('expected DCR server to exist');
+
+    await tokenStore.saveToken({
+      id: record.id,
+      token: {
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        scope: null,
+      },
+    });
+
+    const authed = await settingsRouter.request('/');
+    const authedBody = (await authed.json()) as { data: { name: string; auth_status: { status: string } }[] };
+    expect(authedBody.data.find(server => server.name === putBodyWithDcr.name)?.auth_status).toEqual({
+      status: 'authenticated',
+    });
+
+    await tokenStore.saveToken({
+      id: record.id,
+      token: {
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+        expiresAt: '2000-01-01T00:00:00.000Z',
+        scope: null,
+      },
+    });
+
+    const expired = await settingsRouter.request('/');
+    const expiredBody = (await expired.json()) as { data: { name: string; auth_status: { status: string } }[] };
+    expect(expiredBody.data.find(server => server.name === putBodyWithDcr.name)?.auth_status).toEqual({
+      status: 'auth_required',
+    });
+
+    await tokenStore.deleteToken({ id: record.id });
+  });
+
+  it('PUT re-upsert of a DCR server reports authenticated when a usable token already exists', async () => {
+    // First upsert creates the row (no token yet) so we can key a token off its id.
+    await settingsRouter.request('/', putInit(putBodyWithDcr));
+    const record = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithDcr.name });
+    if (record === undefined) throw new Error('expected DCR server to exist');
+
+    await tokenStore.saveToken({
+      id: record.id,
+      token: {
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        scope: null,
+      },
+    });
+
+    // A re-upsert preserves the id, so the PUT response must reflect the carried-over token.
+    const response = await settingsRouter.request('/', putInit(putBodyWithDcr));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      data: { ...putBodyWithDcr, auth_status: { status: 'authenticated' } },
+    });
+
+    await tokenStore.deleteToken({ id: record.id });
   });
 
   it('PUT with header auth stores headers and reports authenticated', async () => {
@@ -120,22 +202,87 @@ describe('mcp-servers routers', () => {
     expect(emptyHeaders.status).toBe(400);
   });
 
-  it('GET /{name}/authorize stubs auth for configured servers', async () => {
-    const authenticated = await settingsRouter.request('/deepwiki/authorize?redirect_url=https://example.com/callback');
-    expect(authenticated.status).toBe(200);
-    expect(await authenticated.json()).toEqual({ status: 'authenticated' });
+  it('GET /{name}/authorize short-circuits non-DCR servers and 404s unknowns', async () => {
+    const noAuth = await settingsRouter.request('/deepwiki/authorize?redirect_url=https://example.com/callback');
+    expect(noAuth.status).toBe(200);
+    expect(await noAuth.json()).toEqual({ status: 'not_required' });
 
     const headerAuth = await settingsRouter.request('/private-mcp/authorize?redirect_url=https://example.com/callback');
     expect(headerAuth.status).toBe(200);
     expect(await headerAuth.json()).toEqual({ status: 'authenticated' });
 
-    const required = await settingsRouter.request('/linear/authorize?redirect_url=https://example.com/callback');
-    expect(required.status).toBe(200);
-    const body = (await required.json()) as { status: string; authorization_url?: string };
-    expect(body.status).toBe('auth_required');
-    expect(body.authorization_url?.includes('redirect_uri=')).toBe(true);
-
     const missing = await settingsRouter.request('/missing/authorize?redirect_url=https://example.com/callback');
     expect(missing.status).toBe(404);
+  });
+
+  it('GET /{name}/authorize for DCR returns auth_required with an authorization_url', async () => {
+    const asOrigin = 'https://auth.example.com';
+    const mcpUrl = 'https://mcp.example.com/sse';
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+      if (url.includes('oauth-protected-resource')) {
+        return new Response(JSON.stringify({ resource: mcpUrl, authorization_servers: [asOrigin] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.includes('oauth-authorization-server') || url.includes('openid-configuration')) {
+        return new Response(
+          JSON.stringify({
+            issuer: asOrigin,
+            authorization_endpoint: `${asOrigin}/authorize`,
+            token_endpoint: `${asOrigin}/token`,
+            registration_endpoint: `${asOrigin}/register`,
+            response_types_supported: ['code'],
+            code_challenge_methods_supported: ['S256'],
+            grant_types_supported: ['authorization_code', 'refresh_token'],
+            token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.includes('/register') && init?.method === 'POST') {
+        return new Response(
+          JSON.stringify({
+            client_id: 'dyn-client-1',
+            client_secret: 'dyn-secret-1',
+            token_endpoint_auth_method: 'client_secret_post',
+            redirect_uris: [`${process.env['PUBLIC_BASE_URL'] ?? ''}/api/v1/mcp-servers/oauth/callback`],
+            grant_types: ['authorization_code', 'refresh_token'],
+            response_types: ['code'],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      return new Response(`unexpected url: ${url}`, { status: 404 });
+    }) as typeof fetch;
+
+    try {
+      const put = await settingsRouter.request(
+        '/',
+        putInit({
+          type: 'remote',
+          name: 'oauth-mcp',
+          url: mcpUrl,
+          auth: { type: 'dcr' },
+        }),
+      );
+      expect(put.status).toBe(200);
+
+      const authorize = await settingsRouter.request(
+        '/oauth-mcp/authorize?redirect_url=https://example.com/after-oauth',
+      );
+      expect(authorize.status).toBe(200);
+      const body = (await authorize.json()) as { status: string; authorization_url?: string };
+      expect(body.status).toBe('auth_required');
+      expect(body.authorization_url).toBeDefined();
+      const authUrl = new URL(body.authorization_url ?? '');
+      expect(authUrl.origin).toBe(asOrigin);
+      expect(authUrl.searchParams.get('client_id')).toBe('dyn-client-1');
+      expect(authUrl.searchParams.get('state')).toBeTruthy();
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   });
 });

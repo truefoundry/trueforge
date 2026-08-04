@@ -5,9 +5,9 @@ import {
   SessionSchema,
   TokenPaginationSchema,
   UpdateSessionRequestSchema,
-} from '@truefoundry/utils/agent-session';
+} from '@truefoundry/utils-core/agent-session';
 
-export type { Session } from '@truefoundry/utils/agent-session';
+export type { Session } from '@truefoundry/utils-core/agent-session';
 export { CreateSessionRequestSchema, UpdateSessionRequestSchema };
 
 export const DEFAULT_SESSIONS_LIMIT = 10;
