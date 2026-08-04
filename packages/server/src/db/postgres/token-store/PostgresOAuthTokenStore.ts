@@ -3,7 +3,7 @@ import type { Kysely } from 'kysely';
 import { fromStoredOAuthToken, toStoredOAuthToken } from '../../mcpOAuthTypes';
 import type { Database } from '../types';
 import { consumePendingAuthorization, savePendingAuthorization } from './queries/pendingAuthorization';
-import { deleteToken, getToken, saveToken } from './queries/token';
+import { deleteToken, getToken, getTokens, saveToken } from './queries/token';
 
 export class PostgresOAuthTokenStore implements IOAuthTokenStore {
   constructor(private readonly db: Kysely<Database>) {}
@@ -23,6 +23,11 @@ export class PostgresOAuthTokenStore implements IOAuthTokenStore {
   async getToken(params: { id: string }): Promise<OAuthToken | undefined> {
     const stored = await getToken(this.db, params);
     return stored === undefined ? undefined : fromStoredOAuthToken(stored);
+  }
+
+  async getTokens(params: { ids: string[] }): Promise<Map<string, OAuthToken>> {
+    const stored = await getTokens(this.db, params);
+    return new Map([...stored].map(([id, token]) => [id, fromStoredOAuthToken(token)]));
   }
 
   deleteToken(params: { id: string }): Promise<void> {
