@@ -5,13 +5,17 @@ Private draft-only agent chat UI for the harness server. **Not published to npm*
 Built on:
 
 ```
-truefoundry-gateway-sdk (AgentSessionClient + PrivateAgentSessionClient)
-  → @truefoundry/assistant-ui-runtime (useTrueFoundryAgentRuntime, mode: draft)
-    → @assistant-ui/react
-      → @truefoundry/agent-ui-sdk (Thread, ThreadListContainer)
+trueharness (local Harness SDK)
+  → Harness AgentChatServer adapter
+    → createTrueFoundryServer (chat port + catalog callbacks)
+      → @truefoundry/agent-ui-sdk (TrueFoundryAssistantUI, layout="sidebar")
 ```
 
-No login (`auth: false`). Skills are not wired in v1.
+The SDK owns the shell: sidebar, thread list, composer, model and connector pickers, and the
+runtime wiring. [`App.tsx`](src/App.tsx) only seeds `defaultAgentSpec` from the Harness catalogs
+and renders the API error card.
+
+No login is required.
 
 ## Local development
 
@@ -28,18 +32,19 @@ restart) and proxies `/api/*` to `VITE_SERVER_URL`, default `http://localhost:87
 moves Vite off `:3000`. That proxy is the only dev-specific wiring and lives entirely in
 [`vite.config.ts`](vite.config.ts); the server needs no build to answer the API.
 
-### Session paths
+### Server adapter
 
-The gateway SDK's session routes sit under `/v1/agents`, with draft sessions as a separate resource. The
-harness YAML-backed surface is `/api/v1/legacy/sessions`, so [`src/harnessFetch.ts`](src/harnessFetch.ts)
-rewrites requests on their way out and is handed to both clients as their `fetch`:
+[`src/harnessServer.ts`](src/harnessServer.ts) wraps the Harness SDK with the flat `AgentChatServer`
+contract. It maps mutable session DTOs, pagination, turns, event history, cancellation, and SSE
+metadata while keeping the browser pointed directly at `/api/v1/sessions`.
 
-| SDK request                  | Harness route              |
-| ---------------------------- | -------------------------- |
-| `/v1/agents/draft-sessions*` | `/api/v1/legacy/sessions*` |
-| `/v1/agents/sessions*`       | `/api/v1/legacy/sessions*` |
+`agent-ui-sdk` still declares the pre-0.1.6 contract (mounts carry `id`, list results are
+`PageResult`, absent values are `undefined`) while the runtime it delegates to reads `nextPageToken`
+and tolerates `null`. The adapter emits values valid under both — derived mount ids, pages carrying
+`nextPageToken` _and_ `hasNextPage()`, `null` normalised to absent — so no layer needs a cast.
 
-It runs in the browser, so the mapping is identical in dev and production; the dev proxy just forwards.
+The local SDK is linked as `trueharness`. Frontend dev, typecheck, test, and build scripts build it first,
+so clean checkouts do not rely on committed `dist/` output.
 
 ## Production
 
@@ -52,24 +57,35 @@ those on the fly.
 docker compose up --build   # UI + API on http://localhost:8791
 ```
 
-## Catalogs (model + MCP)
+## Catalogs (model + MCP + skills)
 
-The SDK has no catalog client. On boot the app:
+[`src/catalog.ts`](src/catalog.ts) calls the DB-backed list endpoints via `trueharness`.
+`App.tsx` passes the results into `createTrueFoundryServer`:
 
-1. `GET /api/v1/legacy/models` → seeds `defaultAgentSpec.model.name`
-2. Renders custom `ComposerRightSection` controls that `fetch` models/MCP and call `updateAgentSpec`
+| Callback       | Source                                                            |
+| -------------- | ----------------------------------------------------------------- |
+| `getModels`    | `GET /api/v1/models` (also seeds `defaultAgentSpec.model`)        |
+| `getMcp`       | `GET /api/v1/mcp-servers`                                         |
+| `getSkills`    | `GET /api/v1/skills` when `GET /api/v1/capabilities` has skill on |
+| `searchAgents` | Empty — Harness has no agent registry                             |
+| `saveAgent`    | Rejects — sessions are draft-only                                 |
 
-Skills: catalog UI lists `GET /api/v1/legacy/skills` (empty state when none). Selection is local-only — session admission still rejects `agent_spec.skills`.
+The SDK's picker round-trips a skill as `{ id, name }`. Harness persists name refs only
+(`{ name }`), so `harnessServer` derives `id` from `name` on read and strips `id` on write.
+Skills stay empty in the picker when the skill capability is off (no sandbox provider configured).
+
+The Agents Library button still renders (the SDK shows it whenever `agentName` is omitted) and
+opens an empty list; `AgentsLibraryButton` is not part of the publicly typed `AtomSlots`, so it
+cannot be overridden away without a cast.
 
 ## Gaps
 
-| Item                                  | Status                                        |
-| ------------------------------------- | --------------------------------------------- |
-| Subscribe turn SSE                    | Deferred (route defined, not registered)      |
-| Skills                                | Deferred                                      |
-| Attachments / sandbox download        | On (adapter wired; sandbox download deferred) |
-| Session `type` / `created_by_subject` | Soft — not required for draft FE              |
-| `turn.created.created_by`             | Soft — stream adopt tolerates missing         |
+| Item                                  | Status                                   |
+| ------------------------------------- | ---------------------------------------- |
+| Subscribe turn SSE                    | Deferred (route defined, not registered) |
+| Attachments / sandbox download        | Off                                      |
+| Session `type` / `created_by_subject` | Soft — not required for draft FE         |
+| `turn.created.created_by`             | Soft — stream adopt tolerates missing    |
 
 ## Scripts
 

@@ -13,6 +13,7 @@ import {
   validateRedirectUris,
   withTimeout,
 } from '@truefoundry/utils-core/core';
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { McpCatalog } from '../catalog/McpCatalog';
 import configuration from '../config';
@@ -25,8 +26,9 @@ import {
   listMcpServerToolsRoute,
   putMcpServerRoute,
 } from '../routes/mcpServerRoutes';
+import { getMcpConnection } from '../runtime/sessionResources';
 import type { ConfiguredMcpServer, McpAuthStatus, McpServerManifest } from '../schemas/mcpServer';
-import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus } from '../schemas/mcpServer';
+import { resolveMcpAuthStatus } from '../schemas/mcpServer';
 import { TENANT_ID } from './sessions';
 
 /** Registering a DCR OAuth client hits the MCP server's authorization server, so bound that call. */
@@ -150,15 +152,28 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
 
   const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {
     const { name } = c.req.valid('param');
-    const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
-    if (!record) {
-      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
+    // Same url + header resolution as turn execution (DCR via resolveMcpAuth, header/no-auth static).
+    let connection;
+    try {
+      connection = await getMcpConnection({
+        tenant_id: TENANT_ID,
+        name,
+        store: deps.mcpServerStore,
+        tokenStore: deps.tokenStore,
+        clientName: configuration.OAUTH_CLIENT_NAME,
+      });
+    } catch (error) {
+      // getMcpConnection throws HTTPException(400) for unknown names; settings wire uses 404.
+      if (error instanceof HTTPException && error.status === 400) {
+        return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
+      }
+      throw error;
     }
     const remote = new RemoteMCP({
       id: name,
       name,
-      url: record.manifest.url,
-      headers: resolveConfiguredMcpRequestHeaders(record.manifest),
+      url: connection.url,
+      headers: connection.headers,
       logger: deps.logger,
       signal: c.req.raw.signal,
     });

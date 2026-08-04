@@ -2,6 +2,7 @@
 
 import type * as TrueHarness from "../index.js";
 
-export interface AgentSpecModel extends TrueHarness.Model {
+export interface AgentSpecModel {
+    name: string;
     params?: TrueHarness.ModelParams;
 }

@@ -1,4 +1,3 @@
-import '@truefoundry/agent-ui-sdk/styles.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { installApiErrorInterceptor } from './apiErrors';
