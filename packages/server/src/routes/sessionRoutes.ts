@@ -1,6 +1,6 @@
 /**
- * Session route definitions (mounted at /api/v1/sessions). A session holds an
- * inline agent spec. Handlers are registered in apis/sessions.ts.
+ * YAML-backed session route definitions (mounted at /api/v1/legacy/sessions).
+ * A session holds an inline agent spec. Handlers are registered in apis/sessions.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -15,7 +15,7 @@ import {
 import { CancelSessionRequestSchema, CancelSessionResponseSchema } from '../schemas/turn';
 import { TOKEN_PAGINATION } from './fernExtensions';
 
-const SESSIONS_TAG = 'Sessions';
+const SESSIONS_TAG = 'Legacy Sessions';
 
 export const SessionIdParamsSchema = z.object({
   sessionId: z.string().min(1).max(64).describe('Session identifier.'),
@@ -27,7 +27,7 @@ export const createSessionRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Create a session',
   description: 'Create a session holding an inline agent spec. Turns are executed against this spec.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'create',
   request: {
     body: {
@@ -58,7 +58,7 @@ export const getSessionRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Get a session',
   description: 'Fetch a session by ID.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'get',
   request: {
     params: SessionIdParamsSchema,
@@ -81,7 +81,7 @@ export const deleteSessionRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Delete a session',
   description: 'Delete a session and all related turns, events, and internal state. Idempotent if already gone.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'delete',
   request: {
     params: SessionIdParamsSchema,
@@ -99,7 +99,7 @@ export const updateSessionRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Update a session',
   description: "Update a session's inline agent spec. An empty body is a valid no-op that refreshes `updated_at`.",
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'update',
   request: {
     params: SessionIdParamsSchema,
@@ -136,7 +136,7 @@ export const listSessionsRoute = createRoute({
   summary: 'List sessions',
   description:
     'List sessions (newest first by default), token-paginated. Pass `page_token` to fetch the next page, keeping the other query params constant.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
   request: {
@@ -160,7 +160,7 @@ export const cancelSessionRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Cancel a running turn in a session',
   description: 'Cancel the running last turn for a session.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'cancel',
   request: {
     params: SessionIdParamsSchema,
@@ -193,7 +193,7 @@ export const listSessionEventsRoute = createRoute({
   summary: 'List session events',
   description:
     'List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'list_events',
   'x-fern-pagination': TOKEN_PAGINATION,
   request: {

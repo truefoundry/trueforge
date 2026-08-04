@@ -1,7 +1,7 @@
 /**
- * Turn route definitions (mounted at /api/v1/sessions). Creating a turn responds
- * with a Server-Sent Events stream; a running turn can be re-subscribed to
- * with resume support. Handlers are registered in apis/turns.ts.
+ * YAML-backed turn route definitions (mounted at /api/v1/legacy/sessions).
+ * Creating a turn responds with a Server-Sent Events stream; a running turn can
+ * be re-subscribed to with resume support. Handlers are registered in apis/turns.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -18,7 +18,7 @@ import {
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { SessionIdParamsSchema } from './sessionRoutes';
 
-const SESSIONS_TAG = 'Sessions';
+const SESSIONS_TAG = 'Legacy Sessions';
 
 export const TurnIdParamsSchema = SessionIdParamsSchema.extend({
   turnId: z.string().min(1).describe('Turn identifier.'),
@@ -30,7 +30,7 @@ export const listTurnsRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'List turns in a session',
   description: 'List turns for a session (newest first by default), token-paginated.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'list_turns',
   'x-fern-pagination': TOKEN_PAGINATION,
   request: {
@@ -59,7 +59,7 @@ export const getTurnRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Get a turn',
   description: 'Fetch a single turn by ID.',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'get_turn',
   request: {
     params: TurnIdParamsSchema,
@@ -82,7 +82,7 @@ export const listTurnEventsRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'List turn events',
   description: 'Paginated persisted events for a turn (insertion order by default).',
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'list_turn_events',
   'x-fern-pagination': TOKEN_PAGINATION,
   request: {
@@ -112,7 +112,7 @@ export const createAndExecuteTurnRoute = createRoute({
   summary: 'Create and execute a turn in a session',
   description: `Create a turn within a session and stream its execution as Server-Sent Events.
 Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`).`,
-  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
   'x-fern-sdk-method-name': 'create_turn',
   // Not resumable: subscribeTurnRoute, which would reattach, is not registered.
   'x-fern-streaming': { format: 'sse', resumable: false },

@@ -90,13 +90,13 @@ export function createServerApp(deps: ServerDeps) {
       logger: deps.logger,
     }),
   );
-  // YAML registry surfaces — still used by sessions/turns and the legacy UI paths.
+  // YAML registry + YAML-backed session/turn surface (FE uses these until DB sessions land).
   app.route('/api/v1/legacy/models', createLegacyModelsRouter(deps.modelStore));
   app.route('/api/v1/legacy/mcp-servers', createLegacyMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
   app.route('/api/v1/legacy/mcp-servers/oauth', createLegacyMcpOAuthRouter({ logger: deps.logger }));
   app.route('/api/v1/legacy/skills', createLegacySkillsRouter(deps.legacySkillStore));
   app.route(
-    '/api/v1/sessions',
+    '/api/v1/legacy/sessions',
     createSessionsRouter({
       sessions: deps.sessions,
       sessionStore: deps.sessionStore,
@@ -109,7 +109,7 @@ export function createServerApp(deps: ServerDeps) {
     }),
   );
   app.route(
-    '/api/v1/sessions',
+    '/api/v1/legacy/sessions',
     createTurnsRouter({
       sessions: deps.sessions,
       activeTurns: deps.activeTurns,
