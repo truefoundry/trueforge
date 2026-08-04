@@ -39,7 +39,7 @@ describe("SkillsClient", () => {
     test("upsert (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = { description: "description", name: "name", type: "git", url: "url" };
+        const rawRequestBody = { description: "description", name: "name", ref: "ref", type: "git", url: "url" };
         const rawResponseBody = {
             data: { description: "description", name: "name", path: "path", ref: "ref", type: "git", url: "url" },
         };
@@ -56,6 +56,7 @@ describe("SkillsClient", () => {
         const response = await client.settings.skills.upsert({
             description: "description",
             name: "name",
+            ref: "ref",
             type: "git",
             url: "url",
         });
@@ -74,7 +75,7 @@ describe("SkillsClient", () => {
     test("upsert (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = { description: "x", name: "xy", type: "git", url: "x" };
+        const rawRequestBody = { description: "x", name: "xy", ref: "x", type: "git", url: "x" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -90,6 +91,7 @@ describe("SkillsClient", () => {
             return await client.settings.skills.upsert({
                 description: "x",
                 name: "xy",
+                ref: "x",
                 type: "git",
                 url: "x",
             });

@@ -69,8 +69,7 @@ const RequireApprovalToolSelectorSchema = z.union([
 ]);
 
 // `preload` defaults to false; use `preload_tools` to eagerly load specific tools when not fully preloading.
-// Auth headers are not part of the spec — they come from the MCP_HEADERS /
-// MCP_{NAME}_HEADERS env vars.
+// Auth headers are not part of the spec — they come from the configured MCP server store.
 const MCPServerRequestSchema = z
   .object({
     name: z.string().min(1, 'mcp_servers[].name must not be empty'),

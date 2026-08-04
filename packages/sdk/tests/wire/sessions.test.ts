@@ -102,7 +102,7 @@ describe("SessionsClient", () => {
                         properties: { context_length: 1, max_output_tokens: 1 },
                     },
                     response_format: { type: "json_object" },
-                    skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
+                    skills: [{ name: "name" }],
                     variables: { key: "value" },
                 },
                 created_at: "created_at",
@@ -161,11 +161,7 @@ describe("SessionsClient", () => {
                     },
                     skills: [
                         {
-                            description: "description",
                             name: "name",
-                            ref: "ref",
-                            type: "git",
-                            url: "url",
                         },
                     ],
                     variables: {
@@ -266,7 +262,7 @@ describe("SessionsClient", () => {
                         properties: { context_length: 1, max_output_tokens: 1 },
                     },
                     response_format: { type: "json_object" },
-                    skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
+                    skills: [{ name: "name" }],
                     variables: { key: "value" },
                 },
                 created_at: "created_at",
@@ -313,11 +309,7 @@ describe("SessionsClient", () => {
                     },
                     skills: [
                         {
-                            description: "description",
                             name: "name",
-                            ref: "ref",
-                            type: "git",
-                            url: "url",
                         },
                     ],
                     variables: {
@@ -377,7 +369,7 @@ describe("SessionsClient", () => {
                         properties: { context_length: 1, max_output_tokens: 1 },
                     },
                     response_format: { type: "json_object" },
-                    skills: [{ description: "description", name: "name", ref: "ref", type: "git", url: "url" }],
+                    skills: [{ name: "name" }],
                     variables: { key: "value" },
                 },
                 created_at: "created_at",
@@ -425,11 +417,7 @@ describe("SessionsClient", () => {
                     },
                     skills: [
                         {
-                            description: "description",
                             name: "name",
-                            ref: "ref",
-                            type: "git",
-                            url: "url",
                         },
                     ],
                     variables: {

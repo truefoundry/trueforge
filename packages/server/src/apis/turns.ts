@@ -1,6 +1,5 @@
 /**
  * DB-backed turns API (mounted at /api/v1/sessions).
- * Shared wire/SSE helpers are also used by the legacy turns router.
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefoundry/utils/agent-session';

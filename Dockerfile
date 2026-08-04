@@ -92,11 +92,6 @@ ENV FRONTEND_DIR=/app/packages/frontend/dist
 
 WORKDIR /app/packages/server
 
-# The YAML registry (models.yaml, mcp.yaml, skills.yaml) is read at runtime from
-# ./registry and is provided via a volume mount rather than baked into the image.
-RUN mkdir -p registry
-VOLUME ["/app/packages/server/registry"]
-
 EXPOSE 8790
 
 CMD ["node", "dist/main.js"]

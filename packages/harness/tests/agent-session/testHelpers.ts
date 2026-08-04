@@ -1,8 +1,8 @@
 import { ulid } from 'ulid';
 import type { ITurnResourceResolver } from '../../src/agent-session/ITurnResourceResolver';
 import { MAIN_THREAD_ID, type TurnRecord } from '../../src/agent-session/models/TurnRecord';
+import { AgentSpecSchema, type AgentSpec } from '../../src/agent-session/schemas/agentSpec';
 import { EventType } from '../../src/agent-session/schemas/events';
-import { LegacyAgentSpecSchema, type LegacyAgentSpec } from '../../src/agent-session/schemas/legacyAgentSpec';
 import { CancellationReason, type TerminalTurnState } from '../../src/agent-session/schemas/turn';
 import type { CreateTurnInput, NewThreadInit, TurnContextAppend } from '../../src/agent-session/store/ISessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
@@ -25,7 +25,7 @@ export function mintTestTurnId(): string {
   return ulid().toLowerCase();
 }
 
-/** Minimal legacy AgentSpec for session/turn tests — interactive builtins off. */
+/** Minimal AgentSpec for session/turn tests — interactive builtins off; FQN model required. */
 export function makeAgentSpec(
   overrides: {
     instructions?: string;
@@ -42,9 +42,9 @@ export function makeAgentSpec(
       };
     };
   } = {},
-): LegacyAgentSpec {
-  return LegacyAgentSpecSchema.parse({
-    model: overrides.model ?? { name: 'test-model' },
+): AgentSpec {
+  return AgentSpecSchema.parse({
+    model: overrides.model ?? { name: 'test-provider/test-model' },
     instructions: overrides.instructions ?? 'You are a test agent.',
     config: {
       iteration_limit: 5,

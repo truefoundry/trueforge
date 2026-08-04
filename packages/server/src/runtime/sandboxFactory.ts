@@ -3,7 +3,7 @@
  * builder that takes already-resolved git skill mounts (no skill store).
  *
  * Called from main.ts so a malformed SANDBOX_SETTINGS aborts startup instead
- * of failing mid-turn. Skill expansion stays in the DB / legacy turn resolvers.
+ * of failing mid-turn. Skill expansion stays in the DB turn resolvers.
  */
 import {
   createSandboxProvider,
@@ -47,7 +47,7 @@ function parseSandboxSettings(rawJson: string) {
 
 /**
  * Builds a Sandbox for one turn from resolved git mounts. Callers expand
- * skills (inline Legacy mounts or ISkillStore) before invoking this.
+ * skills from ISkillStore before invoking this.
  */
 export function buildTurnSandbox(input: {
   provider: SandboxProvider;

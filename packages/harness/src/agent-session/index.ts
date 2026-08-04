@@ -6,9 +6,6 @@
 export { AgentSpecSchema, DEFAULT_AGENT_CONFIG_ITERATION_LIMIT, RuntimeConfigSchema } from './schemas/agentSpec';
 export type { AgentSpec, SkillNameRef } from './schemas/agentSpec';
 
-export { LegacyAgentSpecSchema } from './schemas/legacyAgentSpec';
-export type { LegacyAgentSpec, SkillMount } from './schemas/legacyAgentSpec';
-
 export {
   CancellationReason,
   CreateTurnRequestSchema,
@@ -27,13 +24,6 @@ export type { TerminalTurnState, Turn, TurnInputItem, TurnMetrics, TurnState } f
 
 export { CreateSessionRequestSchema, SessionSchema, UpdateSessionRequestSchema } from './schemas/session';
 export type { Session } from './schemas/session';
-
-export {
-  LegacyCreateSessionRequestSchema,
-  LegacySessionSchema,
-  LegacyUpdateSessionRequestSchema,
-} from './schemas/legacySession';
-export type { LegacySession } from './schemas/legacySession';
 
 export {
   EventType,

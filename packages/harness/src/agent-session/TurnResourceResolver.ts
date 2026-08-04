@@ -13,7 +13,6 @@ import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
-import type { LegacyAgentSpec } from './schemas/legacyAgentSpec';
 
 /**
  * Factory that creates a Sandbox handle for a run (reattach via
@@ -22,13 +21,13 @@ import type { LegacyAgentSpec } from './schemas/legacyAgentSpec';
  * Sandbox per run without the factory type growing a field per option.
  */
 export type TurnSandboxFactory = (input: {
-  spec: AgentSpec | LegacyAgentSpec;
+  spec: AgentSpec;
   existingSandboxId?: string | undefined;
   signal: AbortSignal;
   tracing: AgentTracing;
 }) => Promise<Sandbox>;
 
-function specWantsSandbox(spec: AgentSpec | LegacyAgentSpec): boolean {
+function specWantsSandbox(spec: AgentSpec): boolean {
   return spec.config?.sandbox?.enabled === true;
 }
 
@@ -91,7 +90,7 @@ export class TurnResourceResolver<
    * close() can release it (or override close() too).
    */
   async resolveSandbox(input: {
-    spec: AgentSpec | LegacyAgentSpec;
+    spec: AgentSpec;
     existing?: SandboxInfo | undefined;
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;
@@ -137,7 +136,7 @@ export class TurnResourceResolver<
    * MCP session_id into RemoteMCP for cross-turn stateful resume.
    */
   async resolveAgentDefinition(input: {
-    spec: AgentSpec | LegacyAgentSpec;
+    spec: AgentSpec;
     thread_id: string;
     agent_info?: AgentInfo | undefined;
     previousTurn?: TurnRecord<TTurnCustom> | undefined;

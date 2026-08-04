@@ -1,34 +1,41 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { InMemorySessionStore, Sessions } from '@truefoundry/utils/agent-session';
+import { Sessions } from '@truefoundry/utils/agent-session';
 import { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
-import { createLegacySessionsRouter } from '../../../src/apis/legacySessions';
-import { createLegacyTurnsRouter } from '../../../src/apis/legacyTurns';
-import { TENANT_ID } from '../../../src/apis/sessions';
-import { McpStore } from '../../../src/legacy-registry-store/McpStore';
-import { ModelStore } from '../../../src/legacy-registry-store/ModelStore';
+import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
+import { createTurnsRouter } from '../../../src/apis/turns';
+import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
+import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { ListSessionsResponseSchema } from '../../../src/schemas/session';
 
 describe('public CRUD after session deletion', () => {
   it('returns not found for session and turn operations', async () => {
-    const sessionStore = new InMemorySessionStore();
+    const db = createSqliteDb(':memory:');
+    await migrateSqliteToLatest(db);
+    const sessionStore = new SqliteSessionStore(db);
     const sessions = new Sessions({ sessionStore });
     const activeTurns = new ActiveTurnRegistry();
-    const modelStore = new ModelStore([]);
-    const mcpStore = new McpStore([]);
+    const modelProviderStore = new SqliteModelProviderStore(db);
+    const mcpServerStore = new SqliteMcpServerStore(db);
+    const skillStore = new SqliteSkillStore(db);
     const app = new OpenAPIHono();
 
     app.route(
       '/',
-      createLegacySessionsRouter({
+      createSessionsRouter({
         sessions,
         sessionStore,
         activeTurns,
-        modelStore,
-        mcpStore,
+        modelProviderStore,
+        mcpServerStore,
+        skillStore,
         sandboxSupported: false,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
@@ -36,12 +43,13 @@ describe('public CRUD after session deletion', () => {
     );
     app.route(
       '/',
-      createLegacyTurnsRouter({
+      createTurnsRouter({
         sessions,
         sessionStore,
         activeTurns,
-        modelStore,
-        mcpStore,
+        modelProviderStore,
+        mcpServerStore,
+        skillStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         logger: createLogger({ silent: true }),
       }),
@@ -51,7 +59,7 @@ describe('public CRUD after session deletion', () => {
       tenant_id: TENANT_ID,
       session_id: 's1',
       agent_spec: {
-        model: { name: 'test-model' },
+        model: { name: 'test-provider/test-model' },
         instructions: 'test',
       },
       custom: null,

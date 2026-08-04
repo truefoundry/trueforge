@@ -9,12 +9,6 @@ import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { createCapabilitiesRouter } from './apis/capabilities';
-import { createLegacyCapabilitiesRouter } from './apis/legacyCapabilities';
-import { createLegacyMcpRouter } from './apis/legacyMcp';
-import { createLegacyModelsRouter } from './apis/legacyModels';
-import { createLegacySessionsRouter } from './apis/legacySessions';
-import { createLegacySkillsRouter } from './apis/legacySkills';
-import { createLegacyTurnsRouter } from './apis/legacyTurns';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createAvailableMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
@@ -30,9 +24,6 @@ import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { ISkillStore } from './db/skillStore';
-import type { McpStore } from './legacy-registry-store/McpStore';
-import type { ModelStore } from './legacy-registry-store/ModelStore';
-import type { SkillStore } from './legacy-registry-store/SkillStore';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 
@@ -40,7 +31,7 @@ const openApiDocConfig = {
   openapi: '3.1.0',
   info: {
     title: 'Agent Server',
-    description: 'Agent server exposing models, MCP servers and skills from local YAML config.',
+    description: 'Agent server with DB-backed sessions, settings catalogs, and model/MCP/skill providers.',
     version: '0.1.0',
   },
 };
@@ -55,18 +46,15 @@ function routeNotFound(c: Context) {
 }
 
 export interface ServerDeps {
-  modelStore: ModelStore;
   modelCatalog: ModelCatalog;
   modelProviderStore: IModelProviderStore;
   mcpCatalog: McpCatalog;
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
-  mcpStore: McpStore;
   skillCatalog: SkillCatalog;
   skillStore: ISkillStore;
   sandboxCatalog: SandboxCatalog;
   sandboxProviderStore: ISandboxProviderStore;
-  legacySkillStore: SkillStore;
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
@@ -114,7 +102,6 @@ export function createServerApp(deps: ServerDeps) {
       logger: deps.logger,
     }),
   );
-  // DB-backed sessions (admit + turn resolve against registered providers/MCP/skills).
   app.route(
     '/api/v1/sessions',
     createSessionsRouter({
@@ -126,6 +113,7 @@ export function createServerApp(deps: ServerDeps) {
       skillStore: deps.skillStore,
       sandboxSupported: deps.sandboxProvider !== undefined,
       redis: deps.redis,
+      requestReplyRouter: deps.requestReplyRouter,
     }),
   );
   app.route(
@@ -137,40 +125,6 @@ export function createServerApp(deps: ServerDeps) {
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
       skillStore: deps.skillStore,
-      eventSubscriptions: deps.eventSubscriptions,
-      ...(deps.sandboxProvider ? { sandboxProvider: deps.sandboxProvider } : {}),
-      logger: deps.logger,
-    }),
-  );
-  // YAML-backed session/turn surface and registries.
-  app.route('/api/v1/legacy/models', createLegacyModelsRouter(deps.modelStore));
-  app.route('/api/v1/legacy/mcp-servers', createLegacyMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
-  app.route('/api/v1/legacy/skills', createLegacySkillsRouter(deps.legacySkillStore));
-  app.route(
-    '/api/v1/legacy/capabilities',
-    createLegacyCapabilitiesRouter({ sandboxEnabled: deps.sandboxProvider !== undefined }),
-  );
-  app.route(
-    '/api/v1/legacy/sessions',
-    createLegacySessionsRouter({
-      sessions: deps.sessions,
-      sessionStore: deps.sessionStore,
-      activeTurns: deps.activeTurns,
-      modelStore: deps.modelStore,
-      mcpStore: deps.mcpStore,
-      sandboxSupported: deps.sandboxProvider !== undefined,
-      redis: deps.redis,
-      requestReplyRouter: deps.requestReplyRouter,
-    }),
-  );
-  app.route(
-    '/api/v1/legacy/sessions',
-    createLegacyTurnsRouter({
-      sessions: deps.sessions,
-      sessionStore: deps.sessionStore,
-      activeTurns: deps.activeTurns,
-      modelStore: deps.modelStore,
-      mcpStore: deps.mcpStore,
       eventSubscriptions: deps.eventSubscriptions,
       ...(deps.sandboxProvider ? { sandboxProvider: deps.sandboxProvider } : {}),
       logger: deps.logger,

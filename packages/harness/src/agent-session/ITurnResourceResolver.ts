@@ -6,7 +6,6 @@ import type { Sandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
-import type { LegacyAgentSpec } from './schemas/legacyAgentSpec';
 
 /**
  * Per-run wiring contract consumed by SessionHandle.createTurn(). Implementations hold
@@ -24,7 +23,7 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
    * turn's sandbox info for cross-turn reattach.
    */
   resolveSandbox(input: {
-    spec: AgentSpec | LegacyAgentSpec;
+    spec: AgentSpec;
     existing?: SandboxInfo | undefined;
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;
@@ -39,7 +38,7 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
    * `extraCapabilities` are appended after the built-in capabilities.
    */
   resolveAgentDefinition(input: {
-    spec: AgentSpec | LegacyAgentSpec;
+    spec: AgentSpec;
     thread_id: string;
     agent_info?: AgentInfo | undefined;
     previousTurn?: TurnRecord<TTurnCustom> | undefined;

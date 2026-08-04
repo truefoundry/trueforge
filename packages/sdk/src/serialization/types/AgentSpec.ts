@@ -8,7 +8,7 @@ import { AgentSpecUserMessage } from "./AgentSpecUserMessage.js";
 import { McpServer } from "./McpServer.js";
 import { ResponseFormat } from "./ResponseFormat.js";
 import { RuntimeConfig } from "./RuntimeConfig.js";
-import { SkillMount } from "./SkillMount.js";
+import { SkillNameRef } from "./SkillNameRef.js";
 
 export const AgentSpec: core.serialization.ObjectSchema<serializers.AgentSpec.Raw, TrueHarness.AgentSpec> =
     core.serialization.object({
@@ -18,7 +18,7 @@ export const AgentSpec: core.serialization.ObjectSchema<serializers.AgentSpec.Ra
         messages: core.serialization.list(AgentSpecUserMessage).optional(),
         model: AgentSpecModel,
         responseFormat: core.serialization.property("response_format", ResponseFormat.optional()),
-        skills: core.serialization.list(SkillMount).optional(),
+        skills: core.serialization.list(SkillNameRef).optional(),
         variables: core.serialization.record(core.serialization.string(), core.serialization.string()).optional(),
     });
 
@@ -30,7 +30,7 @@ export declare namespace AgentSpec {
         messages?: AgentSpecUserMessage.Raw[] | null;
         model: AgentSpecModel.Raw;
         response_format?: ResponseFormat.Raw | null;
-        skills?: SkillMount.Raw[] | null;
+        skills?: SkillNameRef.Raw[] | null;
         variables?: Record<string, string> | null;
     }
 }

@@ -13,10 +13,9 @@ import { openUI } from '../core/capabilities/builtins/OpenUI';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import type { AgentSpec } from './schemas/agentSpec';
-import type { LegacyAgentSpec } from './schemas/legacyAgentSpec';
 
 export function builtinsFromSpec(input: {
-  spec: AgentSpec | LegacyAgentSpec;
+  spec: AgentSpec;
   definition: AgentDefinition;
   /** Root thread only — child threads omit interactive builtins. */
   isChild: boolean;

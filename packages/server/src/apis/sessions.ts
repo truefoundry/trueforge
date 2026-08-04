@@ -1,6 +1,5 @@
 /**
  * DB-backed sessions API (mounted at /api/v1/sessions).
- * Peer cancel helpers are shared with the legacy sessions router.
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ISessionStore, SessionRecord, Sessions } from '@truefoundry/utils/agent-session';
@@ -9,7 +8,7 @@ import {
   SessionStoreConflictError,
   SessionStoreNotFoundError,
 } from '@truefoundry/utils/agent-session';
-import type { RouteHandler as RequestReplyRouteHandler } from '@truefoundry/utils/request-reply';
+import type { RouteHandler as RequestReplyRouteHandler, RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundry/utils/request-reply';
 import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
@@ -66,6 +65,7 @@ export interface SessionsRouterDeps {
   skillStore: ISkillStore;
   sandboxSupported: boolean;
   redis?: RedisClientType | undefined;
+  requestReplyRouter: RequestReplyRouter;
 }
 
 function cancelTurnOnThisExecutor(
@@ -312,5 +312,6 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);
   router.openapi(listSessionEventsRoute, listSessionEventsHandler);
+  deps.requestReplyRouter.registerRoute(SESSIONS_CANCEL_PATH, cancelSessionTurnPeerHandler(deps.activeTurns));
   return router;
 }
