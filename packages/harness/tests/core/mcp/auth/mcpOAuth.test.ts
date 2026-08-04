@@ -76,7 +76,10 @@ const AS_METADATA = {
 function stubOauthFetch(options: {
   registrationFailFirst?: boolean;
   registrationFailAlways?: boolean;
+  /** Non-OAuth registration failure (e.g. 500) — must not trigger auth-method fallback. */
+  registrationHttpError?: { status: number; body?: string };
   skipRegistrationEndpoint?: boolean;
+  codeChallengeMethodsSupported?: string[] | null;
   registeredClient?: { client_id: string; client_secret?: string; token_endpoint_auth_method?: string };
   tokenResponse?: { access_token: string; refresh_token?: string; expires_in?: number; token_type?: string };
   tokenFail?: boolean;
@@ -104,15 +107,26 @@ function stubOauthFetch(options: {
     }
 
     if (url.includes('oauth-authorization-server') || url.includes('openid-configuration')) {
-      const metadata = options.skipRegistrationEndpoint
-        ? Object.fromEntries(Object.entries(AS_METADATA).filter(([k]) => k !== 'registration_endpoint'))
-        : AS_METADATA;
+      const metadata: Record<string, unknown> = { ...AS_METADATA };
+      if (options.skipRegistrationEndpoint) {
+        delete metadata['registration_endpoint'];
+      }
+      if (options.codeChallengeMethodsSupported === null) {
+        delete metadata['code_challenge_methods_supported'];
+      } else if (options.codeChallengeMethodsSupported !== undefined) {
+        metadata['code_challenge_methods_supported'] = options.codeChallengeMethodsSupported;
+      }
       return json(metadata);
     }
 
     if (url === `${AS_ORIGIN}/register` && init?.method === 'POST') {
       registerCalls += 1;
       registerBodies.push(JSON.parse(String(init.body)));
+      if (options.registrationHttpError) {
+        return new Response(options.registrationHttpError.body ?? 'server error', {
+          status: options.registrationHttpError.status,
+        });
+      }
       if (options.registrationFailAlways || (options.registrationFailFirst && registerCalls === 1)) {
         return json({ error: 'invalid_client_metadata' }, 400);
       }
@@ -209,7 +223,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
     expect(body['redirect_uris']).toEqual([mcpOAuthCallbackUrl()]);
   });
 
-  it('retries registration without token_endpoint_auth_method when the first attempt fails', async () => {
+  it('retries registration without token_endpoint_auth_method on invalid_client_metadata', async () => {
     const { mcpServerStore } = newStores();
     const { registerBodies, registerCallCount } = stubOauthFetch({
       registrationFailFirst: true,
@@ -229,6 +243,24 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
     expect(registerCallCount()).toBe(2);
     expect((registerBodies[0] as Record<string, unknown>)['token_endpoint_auth_method']).toBe('client_secret_post');
     expect((registerBodies[1] as Record<string, unknown>)['token_endpoint_auth_method']).toBeUndefined();
+  });
+
+  it('does not retry registration on non-metadata failures', async () => {
+    const { mcpServerStore } = newStores();
+    const { registerCallCount } = stubOauthFetch({
+      registrationHttpError: { status: 500, body: 'boom' },
+    });
+
+    await expect(
+      ensureMcpClientRegistered({
+        mcpServerStore,
+        serverId: SERVER_ID,
+        mcpServerUrl: SERVER_URL,
+        mcpServerName: SERVER_NAME,
+        clientName: CLIENT_NAME,
+      }),
+    ).rejects.toBeInstanceOf(McpConnectionError);
+    expect(registerCallCount()).toBe(1);
   });
 
   it('throws when the AS has no registration_endpoint', async () => {
@@ -315,7 +347,7 @@ describe('buildMcpAuthorizationUrl', () => {
     expect(pending?.codeVerifier).toBeTruthy();
   });
 
-  it('throws when the AS does not advertise S256', async () => {
+  it('still uses PKCE S256 when the AS does not advertise code_challenge_methods', async () => {
     const { tokenStore, mcpServerStore } = newStores();
     await mcpServerStore.saveClient({
       id: SERVER_ID,
@@ -325,22 +357,36 @@ describe('buildMcpAuthorizationUrl', () => {
       },
     });
 
+    const authUrl = await buildMcpAuthorizationUrl({
+      tokenStore,
+      mcpServerStore,
+      serverId: SERVER_ID,
+      mcpServerUrl: SERVER_URL,
+      mcpServerName: SERVER_NAME,
+      clientName: CLIENT_NAME,
+    });
+
+    expect(authUrl.searchParams.get('code_challenge_method')).toBe('S256');
+    expect(authUrl.searchParams.get('code_challenge')).toBeTruthy();
+  });
+
+  it('rejects at registration when the AS advertises PKCE methods without S256', async () => {
+    stubOauthFetch({ codeChallengeMethodsSupported: ['plain'] });
+
     await expect(
-      buildMcpAuthorizationUrl({
-        tokenStore,
-        mcpServerStore,
-        serverId: SERVER_ID,
+      createMcpOAuthClient({
         mcpServerUrl: SERVER_URL,
         mcpServerName: SERVER_NAME,
+        redirectUri: mcpOAuthCallbackUrl(),
         clientName: CLIENT_NAME,
       }),
     ).rejects.toMatchObject({
       name: 'McpConnectionError',
-      message: expect.stringContaining('PKCE S256'),
+      message: expect.stringContaining('without S256'),
     });
   });
 
-  it('throws when only non-S256 methods are advertised', async () => {
+  it('throws when stored client metadata lists only non-S256 methods', async () => {
     const { tokenStore, mcpServerStore } = newStores();
     await mcpServerStore.saveClient({
       id: SERVER_ID,
@@ -361,7 +407,7 @@ describe('buildMcpAuthorizationUrl', () => {
       }),
     ).rejects.toMatchObject({
       name: 'McpConnectionError',
-      message: expect.stringContaining('PKCE S256'),
+      message: expect.stringContaining('Failed to start OAuth authorization'),
     });
   });
 });

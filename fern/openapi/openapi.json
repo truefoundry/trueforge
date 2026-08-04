@@ -1607,23 +1607,17 @@
         ],
         "type": "object"
       },
-      "McpAuthorizeResponse": {
+      "McpOAuthCallbackSuccess": {
         "properties": {
-          "auth_url": {
-            "description": "Present only when status is authentication_required.",
-            "format": "uri",
-            "type": "string"
-          },
-          "status": {
+          "success": {
             "enum": [
-              "authenticated",
-              "authentication_required"
+              true
             ],
-            "type": "string"
+            "type": "boolean"
           }
         },
         "required": [
-          "status"
+          "success"
         ],
         "type": "object"
       },
@@ -1667,7 +1661,7 @@
             "$ref": "#/components/schemas/McpServerAuthSettings"
           },
           "auth_status": {
-            "description": "Passive check only: whether a stored, unexpired token exists. Never attempts a live refresh, so an expired-but-refreshable token still reads as `authentication_required` here — call `/authorize` to actually resolve it. `not_required` for servers without `auth` configured.",
+            "description": "Passive check only: whether a stored, unexpired token exists. Never attempts a live refresh, so an expired-but-refreshable token still reads as `authentication_required` here. `not_required` for servers without `auth` configured.",
             "enum": [
               "authenticated",
               "authentication_required",
@@ -3671,132 +3665,6 @@
         "x-fern-sdk-method-name": "list"
       }
     },
-    "/api/v1/legacy/mcp-servers/oauth/callback": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Opaque token; correlates this callback to its pending authorization.",
-            "in": "query",
-            "name": "state",
-            "required": true,
-            "schema": {
-              "description": "Opaque token; correlates this callback to its pending authorization.",
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
-            "description": "Authorization code, present when the user granted consent.",
-            "in": "query",
-            "name": "code",
-            "required": false,
-            "schema": {
-              "description": "Authorization code, present when the user granted consent.",
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
-            "description": "OAuth error code, present instead of `code` if the user denied consent or the IdP errored.",
-            "in": "query",
-            "name": "error",
-            "required": false,
-            "schema": {
-              "description": "OAuth error code, present instead of `code` if the user denied consent or the IdP errored.",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "error_description",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "302": {
-            "description": "Redirects to the original `redirect_url` on success, or a failure page if `error` was present."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Unknown or expired `state` (no matching pending authorization), or `code`/`error` both missing."
-          }
-        },
-        "summary": "OAuth callback for MCP authorization",
-        "tags": [
-          "Legacy MCP OAuth"
-        ],
-        "x-fern-ignore": true
-      }
-    },
-    "/api/v1/legacy/mcp-servers/{name}/authorize": {
-      "get": {
-        "description": "Registers a DCR client for this server if none exists yet, then returns an authorization URL to redirect the user to so they can complete the OAuth consent flow. Short-circuits to `{status: authenticated}` with no URL if the server is already connected.",
-        "parameters": [
-          {
-            "description": "MCP server name from mcp.yaml.",
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "description": "MCP server name from mcp.yaml.",
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
-            "description": "Where to send the browser after OAuth completes.",
-            "in": "query",
-            "name": "redirect_url",
-            "required": true,
-            "schema": {
-              "description": "Where to send the browser after OAuth completes.",
-              "format": "uri",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/McpAuthorizeResponse"
-                }
-              }
-            },
-            "description": "Either already authenticated, or an authorization URL to redirect to."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "MCP server not found."
-          }
-        },
-        "summary": "Start (or short-circuit) the auth flow for an MCP server",
-        "tags": [
-          "Legacy MCP Servers"
-        ],
-        "x-fern-sdk-group-name": [
-          "legacy",
-          "mcp_servers"
-        ],
-        "x-fern-sdk-method-name": "authorize"
-      }
-    },
     "/api/v1/legacy/mcp-servers/{name}/tools": {
       "get": {
         "description": "All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call. No agent-spec tool selectors are applied — this is the raw server catalog.",
@@ -3941,6 +3809,89 @@
           "mcpServers"
         ],
         "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/mcp-servers/oauth/callback": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Opaque token; correlates this callback to its pending authorization.",
+            "in": "query",
+            "name": "state",
+            "required": true,
+            "schema": {
+              "description": "Opaque token; correlates this callback to its pending authorization.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Authorization code, present when the user granted consent.",
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "description": "Authorization code, present when the user granted consent.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "OAuth error code, present instead of `code` if the user denied consent or the IdP errored.",
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "description": "OAuth error code, present instead of `code` if the user denied consent or the IdP errored.",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error_description",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpOAuthCallbackSuccess"
+                }
+              }
+            },
+            "description": "Token exchanged successfully; no browser redirect."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "IdP `error`, unknown/expired `state`, token exchange failure, or `code`/`error` both missing."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected failure during token exchange."
+          }
+        },
+        "summary": "OAuth callback for MCP authorization",
+        "tags": [
+          "MCP OAuth"
+        ],
+        "x-fern-ignore": true
       }
     },
     "/api/v1/models": {
@@ -4968,7 +4919,7 @@
     },
     "/api/v1/settings/mcp-servers/{name}/authorize": {
       "get": {
-        "description": "Stub: returns authenticated when the server has no auth or header credentials on the row; auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.",
+        "description": "For servers without auth or with header credentials, returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).",
         "parameters": [
           {
             "description": "Configured MCP server name.",
@@ -4982,12 +4933,12 @@
             }
           },
           {
-            "description": "Where to send the browser after OAuth completes.",
+            "description": "Optional FE landing URL after OAuth (stored on pending auth; callback does not redirect yet).",
             "in": "query",
             "name": "redirect_url",
-            "required": true,
+            "required": false,
             "schema": {
-              "description": "Where to send the browser after OAuth completes.",
+              "description": "Optional FE landing URL after OAuth (stored on pending auth; callback does not redirect yet).",
               "format": "uri",
               "type": "string"
             }
@@ -5004,6 +4955,16 @@
             },
             "description": "Either already authenticated, or an authorization URL to redirect to."
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "DCR or authorize URL construction failed (e.g. server lacks registration_endpoint)."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -5013,6 +4974,16 @@
               }
             },
             "description": "MCP server not found."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Server misconfiguration (e.g. PUBLIC_BASE_URL unset)."
           }
         },
         "summary": "Start (or short-circuit) the auth flow for a configured MCP server",

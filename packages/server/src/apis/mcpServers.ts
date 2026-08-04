@@ -1,7 +1,17 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/utils/core';
+import {
+  extractErrorLogFields,
+  isAuthRequired,
+  isMcpAuthRequired,
+  McpConnectionError,
+  RemoteMCP,
+  resolveMcpAuth,
+  validateRedirectUris,
+  type IOAuthTokenStore,
+} from '@truefoundry/utils/core';
 import type { Logger } from 'winston';
 import type { McpCatalog } from '../catalog/McpCatalog';
+import configuration from '../config';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
 import {
   authorizeConfiguredMcpServerRoute,
@@ -18,6 +28,7 @@ import { TENANT_ID } from './sessions';
 export interface McpServersRouterDeps {
   mcpCatalog: McpCatalog;
   mcpServerStore: IMcpServerStore;
+  tokenStore: IOAuthTokenStore;
   logger: Logger;
 }
 
@@ -104,9 +115,35 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     if (record.manifest.auth?.type !== 'dcr') {
       return c.json({ status: 'authenticated' as const }, 200);
     }
-    // STUB: real DCR + authorize URL minting lands with the OAuth follow-up.
-    const stubAuthUrl = `https://example-authorization-server.invalid/authorize?client_id=stub&redirect_uri=${encodeURIComponent(redirectUrl)}`;
-    return c.json({ status: 'auth_required' as const, authorization_url: stubAuthUrl }, 200);
+    try {
+      if (redirectUrl) {
+        validateRedirectUris({ redirectUris: [redirectUrl] });
+      }
+      // Reuses a usable/refreshable token when present; only builds an auth URL when needed.
+      const result = await resolveMcpAuth({
+        tokenStore: deps.tokenStore,
+        mcpServerStore: deps.mcpServerStore,
+        serverId: record.id,
+        mcpServerUrl: record.manifest.url,
+        mcpServerName: record.name,
+        clientName: configuration.OAUTH_CLIENT_NAME,
+        ...(redirectUrl !== undefined ? { redirectUrl } : {}),
+      });
+      if (isMcpAuthRequired(result)) {
+        return c.json({ status: 'auth_required' as const, authorization_url: result.authUrl.href }, 200);
+      }
+      return c.json({ status: 'authenticated' as const }, 200);
+    } catch (error) {
+      if (error instanceof McpConnectionError) {
+        deps.logger.warn(`MCP authorize failed for "${name}"`, extractErrorLogFields(error));
+        if (error.statusCode === 400) {
+          return c.json({ error: { message: error.message } }, 400);
+        }
+        return c.json({ error: { message: error.message } }, 500);
+      }
+      deps.logger.error(`MCP authorize unexpected failure for "${name}"`, extractErrorLogFields(error));
+      return c.json({ error: { message: 'Internal server error' } }, 500);
+    }
   };
 
   const router = new OpenAPIHono();
