@@ -52,12 +52,12 @@ export const McpServerManifestSchema = McpServerManifestObjectSchema.openapi('Mc
 
 export const McpAuthStatusSchema = z
   .object({
-    status: z.enum(['authenticated', 'auth_required']),
+    status: z.enum(['authenticated', 'auth_required', 'not_required']),
     authorization_url: z
       .string()
       .url()
       .optional()
-      .describe('Present only when status is auth_required and a live authorize flow produced a URL.'),
+      .describe('When auth is required, this contains the URL to redirect the user to for authorization.'),
   })
   .strict()
   .openapi('McpAuthStatus');
@@ -105,14 +105,21 @@ export function resolveConfiguredMcpRequestHeaders(manifest: McpServerManifest):
   return {};
 }
 
-export function resolveMcpAuthStatus(
-  manifest: McpServerManifest,
-  token: OAuthToken | undefined,
-  nowMs: number,
-): McpAuthStatus {
+export function resolveMcpAuthStatus({
+  manifest,
+  token,
+  nowMs = Date.now(),
+}: {
+  manifest: McpServerManifest;
+  token?: OAuthToken;
+  nowMs?: number;
+}): McpAuthStatus {
   if (manifest.auth?.type === 'dcr') {
     const authenticated = token && isOAuthAccessTokenUsable(token.expiresAt, nowMs);
     return authenticated ? { status: 'authenticated' } : { status: 'auth_required' };
   }
-  return { status: 'authenticated' };
+  if (manifest.auth?.type === 'header') {
+    return { status: 'authenticated' };
+  }
+  return { status: 'not_required' };
 }

@@ -79,17 +79,17 @@ describe('mcp-servers routers', () => {
     );
   });
 
-  it('PUT upserts a server and returns authenticated auth_status for no-auth servers', async () => {
+  it('PUT upserts a server and returns not_required auth_status for no-auth servers', async () => {
     const response = await settingsRouter.request('/', putInit(putBody));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: { ...putBody, auth_status: { status: 'authenticated' } },
+      data: { ...putBody, auth_status: { status: 'not_required' } },
     });
 
     const list = await settingsRouter.request('/');
     expect(list.status).toBe(200);
     expect(await list.json()).toEqual({
-      data: [{ ...putBody, auth_status: { status: 'authenticated' } }],
+      data: [{ ...putBody, auth_status: { status: 'not_required' } }],
     });
   });
 
@@ -141,6 +141,32 @@ describe('mcp-servers routers', () => {
     await tokenStore.deleteToken({ id: record.id });
   });
 
+  it('PUT re-upsert of a DCR server reports authenticated when a usable token already exists', async () => {
+    // First upsert creates the row (no token yet) so we can key a token off its id.
+    await settingsRouter.request('/', putInit(putBodyWithDcr));
+    const record = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithDcr.name });
+    if (record === undefined) throw new Error('expected DCR server to exist');
+
+    await tokenStore.saveToken({
+      id: record.id,
+      token: {
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        scope: null,
+      },
+    });
+
+    // A re-upsert preserves the id, so the PUT response must reflect the carried-over token.
+    const response = await settingsRouter.request('/', putInit(putBodyWithDcr));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      data: { ...putBodyWithDcr, auth_status: { status: 'authenticated' } },
+    });
+
+    await tokenStore.deleteToken({ id: record.id });
+  });
+
   it('PUT with header auth stores headers and reports authenticated', async () => {
     const response = await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
     expect(response.status).toBe(200);
@@ -177,9 +203,9 @@ describe('mcp-servers routers', () => {
   });
 
   it('GET /{name}/authorize short-circuits non-DCR servers and 404s unknowns', async () => {
-    const authenticated = await settingsRouter.request('/deepwiki/authorize?redirect_url=https://example.com/callback');
-    expect(authenticated.status).toBe(200);
-    expect(await authenticated.json()).toEqual({ status: 'authenticated' });
+    const noAuth = await settingsRouter.request('/deepwiki/authorize?redirect_url=https://example.com/callback');
+    expect(noAuth.status).toBe(200);
+    expect(await noAuth.json()).toEqual({ status: 'not_required' });
 
     const headerAuth = await settingsRouter.request('/private-mcp/authorize?redirect_url=https://example.com/callback');
     expect(headerAuth.status).toBe(200);

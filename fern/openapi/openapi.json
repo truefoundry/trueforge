@@ -527,26 +527,6 @@
         ],
         "type": "object"
       },
-      "ConfiguredMcpAuthorizeResponse": {
-        "properties": {
-          "authorization_url": {
-            "description": "Present only when status is auth_required.",
-            "format": "uri",
-            "type": "string"
-          },
-          "status": {
-            "enum": [
-              "authenticated",
-              "auth_required"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "status"
-        ],
-        "type": "object"
-      },
       "ConfiguredMcpServer": {
         "additionalProperties": false,
         "properties": {
@@ -1386,14 +1366,15 @@
         "additionalProperties": false,
         "properties": {
           "authorization_url": {
-            "description": "Present only when status is auth_required and a live authorize flow produced a URL.",
+            "description": "When auth is required, this contains the URL to redirect the user to for authorization.",
             "format": "uri",
             "type": "string"
           },
           "status": {
             "enum": [
               "authenticated",
-              "auth_required"
+              "auth_required",
+              "not_required"
             ],
             "type": "string"
           }
@@ -4394,7 +4375,7 @@
     },
     "/api/v1/settings/mcp-servers/{name}/authorize": {
       "get": {
-        "description": "For servers without auth or with header credentials, returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).",
+        "description": "For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).",
         "parameters": [
           {
             "description": "Configured MCP server name.",
@@ -4424,7 +4405,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConfiguredMcpAuthorizeResponse"
+                  "$ref": "#/components/schemas/McpAuthStatus"
                 }
               }
             },
