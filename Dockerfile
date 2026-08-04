@@ -26,7 +26,6 @@ RUN apt-get update \
 # ---------------------------------------------------------------------------
 FROM build-base AS store
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY patches patches
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 
 # ---------------------------------------------------------------------------

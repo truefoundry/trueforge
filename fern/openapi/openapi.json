@@ -86,25 +86,7 @@
             "type": "array"
           },
           "model": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Model"
-              },
-              {
-                "properties": {
-                  "name": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "params": {
-                    "$ref": "#/components/schemas/ModelParams"
-                  }
-                },
-                "required": [
-                  "name"
-                ]
-              }
-            ]
+            "$ref": "#/components/schemas/AgentSpecModel"
           },
           "response_format": {
             "$ref": "#/components/schemas/ResponseFormat"
@@ -124,6 +106,21 @@
         },
         "required": [
           "model"
+        ],
+        "type": "object"
+      },
+      "AgentSpecModel": {
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "params": {
+            "$ref": "#/components/schemas/ModelParams"
+          }
+        },
+        "required": [
+          "name"
         ],
         "type": "object"
       },

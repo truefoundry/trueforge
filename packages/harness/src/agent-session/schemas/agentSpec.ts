@@ -37,7 +37,7 @@ const ModelSpecSchema = z
     name: z.string().min(1, 'model.name must not be empty'),
     params: ModelParamsSchema.optional(),
   })
-  .openapi('Model');
+  .openapi('AgentSpecModel');
 
 // --- MCP servers ---
 

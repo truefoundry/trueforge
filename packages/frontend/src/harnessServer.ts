@@ -27,7 +27,7 @@ import { TrueHarnessClient } from 'trueharness';
 export type HarnessSkillMount = SkillMount & Harness.SkillMount;
 export type HarnessMcpServerMount = McpServerMount & Harness.McpServer;
 
-export interface HarnessAgentSpec extends AgentSpec<Harness.Model, HarnessSkillMount, HarnessMcpServerMount> {
+export interface HarnessAgentSpec extends AgentSpec<Harness.AgentSpecModel, HarnessSkillMount, HarnessMcpServerMount> {
   config?: Harness.RuntimeConfig;
   instructions?: string;
   messages?: Harness.AgentSpecUserMessage[];
