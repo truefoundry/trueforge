@@ -157,8 +157,9 @@ export const authorizeConfiguredMcpServerRoute = createRoute({
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'authorize',
   description:
-    'Stub: returns authenticated when the server has no auth or header credentials on the row; ' +
-    'auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.',
+    'For servers without auth or with header credentials, returns authenticated (no browser flow). ' +
+    'For auth.type dcr, runs DCR if needed and returns auth_required with an authorization URL. ' +
+    'Pass redirect_url as the FE landing page after the OAuth callback.',
   request: {
     params: McpServerNameParamsSchema,
     query: McpAuthorizeQuerySchema,
@@ -168,9 +169,17 @@ export const authorizeConfiguredMcpServerRoute = createRoute({
       content: { 'application/json': { schema: ConfiguredMcpAuthorizeResponseSchema } },
       description: 'Either already authenticated, or an authorization URL to redirect to.',
     },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'DCR or authorize URL construction failed (e.g. server lacks registration_endpoint).',
+    },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'MCP server not found.',
+    },
+    500: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Server misconfiguration (e.g. PUBLIC_BASE_URL unset).',
     },
   },
 });

@@ -4,6 +4,7 @@ import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 
 const putBody = {
   type: 'remote' as const,
@@ -44,9 +45,11 @@ describe('mcp-servers routers', () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const mcpServerStore = new SqliteMcpServerStore(db);
+    const tokenStore = new SqliteOAuthTokenStore(db);
     settingsRouter = createMcpServersRouter({
       mcpCatalog: McpCatalog.load(),
       mcpServerStore,
+      tokenStore,
       logger: winston.createLogger({ silent: true }),
     });
     availableRouter = createAvailableMcpServersRouter(mcpServerStore);
@@ -120,7 +123,7 @@ describe('mcp-servers routers', () => {
     expect(emptyHeaders.status).toBe(400);
   });
 
-  it('GET /{name}/authorize stubs auth for configured servers', async () => {
+  it('GET /{name}/authorize short-circuits non-DCR servers and 404s unknowns', async () => {
     const authenticated = await settingsRouter.request('/deepwiki/authorize?redirect_url=https://example.com/callback');
     expect(authenticated.status).toBe(200);
     expect(await authenticated.json()).toEqual({ status: 'authenticated' });
@@ -128,12 +131,6 @@ describe('mcp-servers routers', () => {
     const headerAuth = await settingsRouter.request('/private-mcp/authorize?redirect_url=https://example.com/callback');
     expect(headerAuth.status).toBe(200);
     expect(await headerAuth.json()).toEqual({ status: 'authenticated' });
-
-    const required = await settingsRouter.request('/linear/authorize?redirect_url=https://example.com/callback');
-    expect(required.status).toBe(200);
-    const body = (await required.json()) as { status: string; authorization_url?: string };
-    expect(body.status).toBe('auth_required');
-    expect(body.authorization_url?.includes('redirect_uri=')).toBe(true);
 
     const missing = await settingsRouter.request('/missing/authorize?redirect_url=https://example.com/callback');
     expect(missing.status).toBe(404);

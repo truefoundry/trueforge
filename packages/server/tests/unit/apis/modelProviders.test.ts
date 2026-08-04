@@ -11,6 +11,7 @@ import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/Sq
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 
 const putBody = {
   type: 'anthropic',
@@ -47,6 +48,7 @@ describe('settings model-providers and models routers', () => {
       modelProviderStore,
       mcpCatalog: McpCatalog.load(),
       mcpServerStore: new SqliteMcpServerStore(db),
+      tokenStore: new SqliteOAuthTokenStore(db),
       skillCatalog: SkillCatalog.load(),
       skillStore: new SqliteSkillStore(db),
       sandboxCatalog: SandboxCatalog.load(),
