@@ -1,8 +1,8 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Logger } from 'winston';
-import { mcpOAuthCallbackRoute } from '../routes/legacyMcpOAuthRoutes';
+import { mcpOAuthCallbackRoute } from '../routes/mcpOAuthRoutes';
 
-export interface LegacyMcpOAuthRouterDeps {
+export interface McpOAuthRouterDeps {
   logger: Logger;
 }
 
@@ -10,7 +10,8 @@ export interface LegacyMcpOAuthRouterDeps {
 const STUB_CONNECTED_REDIRECT = '/mcp/oauth/connected';
 const STUB_FAILED_REDIRECT = '/mcp/oauth/failed';
 
-export function createLegacyMcpOAuthRouter(deps: LegacyMcpOAuthRouterDeps) {
+/** Shared OAuth callback (mounted at /api/v1/mcp-servers/oauth). */
+export function createMcpOAuthRouter(deps: McpOAuthRouterDeps) {
   const callbackHandler: RouteHandler<typeof mcpOAuthCallbackRoute> = c => {
     const { state, code, error, error_description: errorDescription } = c.req.valid('query');
 
