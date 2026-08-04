@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { TrueHarness } from 'trueharness';
 import {
   toHarnessModelEntry,
   toHarnessModelProvider,
@@ -157,5 +158,24 @@ describe('modelProviderCatalog mappers', () => {
         }),
       /base URL/i,
     );
+  });
+
+  // Catalog presets are copied straight into this form, so a type the API accepts but this mapper
+  // does not is a preset the user cannot save.
+  it('builds a body for every provider type the API accepts', () => {
+    const types = [
+      ...Object.values(TrueHarness.WellKnownModelProviderType),
+      ...Object.values(TrueHarness.CallerSuppliedModelProviderType),
+    ];
+    for (const type of types) {
+      const body = toHarnessModelProvider({
+        type,
+        name: type,
+        apiKey: 'sk',
+        baseUrl: 'https://example.com/v1',
+        models: [{ id: 'm', name: 'm' }],
+      });
+      assert.equal(body.type, type);
+    }
   });
 });

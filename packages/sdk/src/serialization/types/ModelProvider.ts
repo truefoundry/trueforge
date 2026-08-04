@@ -3,13 +3,12 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { AnthropicModelProvider } from "./AnthropicModelProvider.js";
-import { CustomModelProvider } from "./CustomModelProvider.js";
-import { OpenAiModelProvider } from "./OpenAiModelProvider.js";
+import { CallerSuppliedModelProvider } from "./CallerSuppliedModelProvider.js";
+import { WellKnownModelProvider } from "./WellKnownModelProvider.js";
 
 export const ModelProvider: core.serialization.Schema<serializers.ModelProvider.Raw, TrueHarness.ModelProvider> =
-    core.serialization.undiscriminatedUnion([AnthropicModelProvider, CustomModelProvider, OpenAiModelProvider]);
+    core.serialization.undiscriminatedUnion([WellKnownModelProvider, CallerSuppliedModelProvider]);
 
 export declare namespace ModelProvider {
-    export type Raw = AnthropicModelProvider.Raw | CustomModelProvider.Raw | OpenAiModelProvider.Raw;
+    export type Raw = WellKnownModelProvider.Raw | CallerSuppliedModelProvider.Raw;
 }

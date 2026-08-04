@@ -106,13 +106,10 @@ export class ModelProvidersClient {
      *         models: [{
      *                 modelId: "model_id",
      *                 name: "name",
-     *                 properties: {
-     *                     contextLength: 1,
-     *                     maxOutputTokens: 1
-     *                 }
+     *                 properties: {}
      *             }],
      *         name: "name",
-     *         type: "anthropic"
+     *         type: "openai"
      *     })
      */
     public upsert(

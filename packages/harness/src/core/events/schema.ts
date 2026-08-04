@@ -202,7 +202,7 @@ export const ThreadStateErrorSchema = z
   .object({
     status: z.literal('error'),
     error: z.string(),
-    output: z.optional(ModelMessageEventSchema),
+    output: ModelMessageEventSchema.optional(),
   })
   .openapi('ThreadStateError');
 
