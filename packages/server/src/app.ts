@@ -48,7 +48,6 @@ function routeNotFound(c: Context) {
 }
 
 export interface ServerDeps {
-  // TODO(AGE-1547): drop YAML registry deps once /api/v1/legacy/* is removed.
   modelStore: ModelStore;
   modelCatalog: ModelCatalog;
   modelProviderStore: IModelProviderStore;
@@ -61,7 +60,6 @@ export interface ServerDeps {
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
-  // TODO(AGE-1547): after legacy removal, keep a single sandboxFactory (DB skill expand) and drop dbSandboxFactory.
   /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. Legacy YAML mounts. */
   sandboxFactory?: TurnSandboxFactory;
   /** Same provider as sandboxFactory, but expands skills from ISkillStore by name. */
@@ -115,13 +113,11 @@ export function createServerApp(deps: ServerDeps) {
       activeTurns: deps.activeTurns,
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
-      // TODO(AGE-1547): use sandboxFactory only (DB expand); drop dbSandboxFactory indirection.
       ...(deps.dbSandboxFactory ? { sandboxFactory: deps.dbSandboxFactory } : {}),
       logger: deps.logger,
     }),
   );
-  // TODO(AGE-1547): remove /api/v1/legacy/* mounts, createLegacy* routers, and YAML registry wiring.
-  // YAML registry + YAML-backed session/turn surface (FE uses these until DB sessions land).
+  // YAML-backed session/turn surface and registries.
   app.route('/api/v1/legacy/models', createLegacyModelsRouter(deps.modelStore));
   app.route('/api/v1/legacy/mcp-servers', createLegacyMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
   app.route('/api/v1/legacy/mcp-servers/oauth', createLegacyMcpOAuthRouter({ logger: deps.logger }));

@@ -85,7 +85,6 @@ try {
   const requestReplyRouter = new RequestReplyRouter();
 
   const app = createServerApp({
-    // TODO(AGE-1547): stop loading YAML ModelStore/McpStore/SkillStore once /api/v1/legacy/* is gone.
     modelStore: ModelStore.load(),
     modelCatalog: ModelCatalog.load(),
     modelProviderStore: new PostgresModelProviderStore(db),
@@ -98,7 +97,6 @@ try {
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,
-    // TODO(AGE-1547): pass a single DB skill-expanding sandboxFactory; drop the dual-factory split.
     ...(sandboxFactories
       ? { sandboxFactory: sandboxFactories.sandboxFactory, dbSandboxFactory: sandboxFactories.dbSandboxFactory }
       : {}),

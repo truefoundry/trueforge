@@ -2,8 +2,6 @@
  * Maps skills.yaml catalog rows to git mounts persisted on agent_spec.skills.
  * Always sends `ref` (catalog `ref`, or HEAD when omitted). The sandbox
  * git_downloader resolves branch/tag refs via git ls-remote before sparse-clone.
- *
- * TODO(AGE-1547): after FE leaves legacy, put name-only refs on agent_spec.skills (DB expands mounts).
  */
 import type { AgentSpec } from '@truefoundry/assistant-ui-runtime';
 import type { SkillEntry } from './catalog';

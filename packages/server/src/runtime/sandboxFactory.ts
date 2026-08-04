@@ -61,7 +61,6 @@ function createTurnSandboxFactory(deps: {
   const { provider, logger, skillStore } = deps;
   return async ({ spec, existingSandboxId, tracing }) => {
     const skills = spec.skills ?? [];
-    // TODO(AGE-1547): drop the inline SkillMount branch; always expand via skillStore / resolveDbGitSkills.
     const gitSkills =
       skillStore !== undefined
         ? await resolveDbGitSkills({ tenant_id: TENANT_ID, skills, store: skillStore })
@@ -106,8 +105,6 @@ export interface ServerSandboxFactories {
 /**
  * Builds legacy + DB per-run sandbox factories sharing one provider, or
  * undefined when sandbox is not configured. Throws on any misconfiguration.
- *
- * TODO(AGE-1547): collapse to a single factory that always expands skills from ISkillStore.
  */
 export function createServerSandboxFactories(deps: {
   logger: Logger;

@@ -201,9 +201,7 @@ export const RuntimeConfigSchema = z
 // --- Skills ---
 // Git mounts mirror the gateway SkillMountGitSchema. The sandbox git_downloader
 // resolves `ref` (branch/tag/SHA) to an object id before sparse-cloning.
-// Name-only refs are for DB-backed sessions: the server expands url/path/ref
-// from ISkillStore. Legacy YAML sessions still send full SkillMount objects.
-// TODO(AGE-1547): drop SkillMountSchema from agent_spec.skills; keep name-only refs (SkillNameRef).
+// Name-only refs are expanded from ISkillStore on the DB sessions path.
 
 // GitHub is exactly owner/repo; GitLab allows subgroups (group[/subgroup...]/project, ≥2 segments).
 const GIT_URL_REGEX =

@@ -1,6 +1,5 @@
 /**
  * DB-backed model/MCP/skill resolution for /api/v1/sessions admit and turns.
- * #2 agents can reuse these helpers after expanding agent_id → agent_spec.
  */
 import type { AgentSpec } from '@truefoundry/utils/agent-session';
 import type { GitSkill, VercelAIProviderConfig } from '@truefoundry/utils/core';

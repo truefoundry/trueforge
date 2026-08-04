@@ -71,7 +71,6 @@ export function toWireSession(record: SessionRecord): Session {
  * when the spec is valid but this deployment cannot satisfy it (missing
  * sandbox provider).
  */
-// TODO(AGE-1547): remove with YAML legacy sessions.
 function validateAgentSpecLegacy(
   spec: AgentSpec,
   deps: { modelStore: ModelStore; mcpStore: McpStore; sandboxSupported: boolean },
@@ -108,7 +107,6 @@ function validateAgentSpecLegacy(
 }
 
 export interface LegacySessionsRouterDeps {
-  // TODO(AGE-1547): remove with createLegacySessionsRouter.
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
@@ -131,7 +129,6 @@ export interface SessionsRouterDeps {
   skillStore: ISkillStore;
   sandboxSupported: boolean;
   redis?: RedisClientType | undefined;
-  // TODO(AGE-1547): add requestReplyRouter and register SESSIONS_CANCEL_PATH (today only legacy registers).
 }
 
 function cancelTurnOnThisExecutor(
@@ -149,9 +146,6 @@ function cancelTurnOnThisExecutor(
  * Peer-facing cancel handler (registered in createLegacySessionsRouter): aborts the
  * turn if it runs in this process. 200 = abort fired, 412 = not running here
  * (treated by callers as a no-op).
- *
- * TODO(AGE-1547): register this on createSessionsRouter once legacy no longer owns the path
- * (RequestReplyRouter.registerRoute throws on duplicate registration).
  */
 export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): RequestReplyRouteHandler {
   // Synchronous by nature; the transport expects a Promise and require-await
@@ -247,7 +241,6 @@ export async function cancelSessionTurn(
 }
 
 /** DB-backed sessions (mounted at /api/v1/sessions). Only agent_spec admission differs from legacy. */
-// TODO(AGE-1547): register Redis request-reply cancel route (SESSIONS_CANCEL_PATH) here when legacy is removed.
 export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
@@ -393,13 +386,10 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);
   router.openapi(listSessionEventsRoute, listSessionEventsHandler);
-  // TODO(AGE-1547): deps.requestReplyRouter.registerRoute(SESSIONS_CANCEL_PATH, cancelSessionTurnPeerHandler(...))
-  // once legacy no longer registers the same path (duplicate registration throws).
   return router;
 }
 
 /** YAML-backed sessions (mounted at /api/v1/legacy/sessions). */
-// TODO(AGE-1547): remove createLegacySessionsRouter and move peer-cancel route registration onto createSessionsRouter.
 export function createLegacySessionsRouter(deps: LegacySessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof legacyCreateSessionRoute> = async c => {
     const body = c.req.valid('json');

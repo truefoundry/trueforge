@@ -1,7 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { SkillEntrySchema } from '../legacy-registry-store/schemas';
-
-// TODO(AGE-1547): remove with /api/v1/legacy/skills.
 const ListSkillsResponseSchema = z
   .object({
     data: z.array(SkillEntrySchema),

@@ -1,7 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
-
-// TODO(AGE-1547): remove with /api/v1/legacy/mcp-servers/oauth.
 const MCP_OAUTH_TAG = 'Legacy MCP OAuth';
 
 const McpOAuthCallbackQuerySchema = z.object({

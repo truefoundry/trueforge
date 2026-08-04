@@ -23,8 +23,6 @@ import { ModelStore } from '../src/legacy-registry-store/ModelStore';
 import { SkillStore } from '../src/legacy-registry-store/SkillStore';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
 
-// TODO(AGE-1547): drop YAML ModelStore/McpStore/SkillStore from this fixture once /api/v1/legacy/* is gone.
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }

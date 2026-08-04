@@ -189,7 +189,6 @@ export const subscribeTurnRoute = createRoute({
 });
 
 // --- YAML legacy (/api/v1/legacy/sessions) ---
-// TODO(AGE-1547): remove all legacy* turn routes below.
 
 export const legacyListTurnsRoute = createRoute({
   method: 'get',
