@@ -15,7 +15,7 @@ import {
 } from '../runtime/DeferredTool';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
-import { SANDBOX_FILE_UPLOADS_DIR, SANDBOX_NATS_WS_PORT } from './constants';
+import { DEFAULT_SANDBOX_NATS_WS_PORT, SANDBOX_FILE_UPLOADS_DIR } from './constants';
 import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
 import { validateNoPathTraversal, validateSandboxOwnedByTenant } from './SandboxErrors';
 import { SandboxNatsBridge } from './SandboxNatsBridge';
@@ -145,7 +145,7 @@ function injectMCPClientEnv(params: {
       TFY_MCP_SERVERS: Buffer.from(JSON.stringify(params.mcpServers)).toString('base64'),
     }),
     ...(params.natsBridgeSubjectPrefix && {
-      TFY_NATS_URL: `ws://localhost:${String(SANDBOX_NATS_WS_PORT)}`,
+      TFY_NATS_URL: `ws://localhost:${String(DEFAULT_SANDBOX_NATS_WS_PORT)}`,
       TFY_NATS_SUBJECT_PREFIX: params.natsBridgeSubjectPrefix,
       // W3C trace context captured per-exec so each NATS request carries the originating
       // Sandbox: exec span as parent. Without this, MCP spans dispatched via the bridge

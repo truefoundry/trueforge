@@ -6,6 +6,7 @@
  * Singleton per tenant — no identity `name` (unlike model providers / skills).
  */
 import { z } from '@hono/zod-openapi';
+import type { DaytonaSandboxProviderOptions } from '@truefoundry/utils-core/core';
 
 const DaytonaSandboxProviderAuthSchema = z
   .object({
@@ -58,3 +59,25 @@ export const GetSandboxProviderResponseSchema = z
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
 export type SandboxProvider = z.infer<typeof SandboxProviderSchema>;
 export type PutSandboxProviderRequest = SandboxProvider;
+
+/** Wire/persisted snake_case → DaytonaSandboxProvider ctor fields from the manifest. */
+export function toDaytonaSandboxProviderInput(
+  manifest: SandboxProviderManifest,
+): Pick<
+  DaytonaSandboxProviderOptions,
+  | 'apiKey'
+  | 'snapshotName'
+  | 'timeoutMs'
+  | 'autoStopIntervalInMinutes'
+  | 'autoArchiveIntervalInMinutes'
+  | 'autoDeleteIntervalInMinutes'
+> {
+  return {
+    apiKey: manifest.auth.api_key,
+    snapshotName: manifest.snapshot_name,
+    timeoutMs: manifest.exec_timeout_ms,
+    autoStopIntervalInMinutes: manifest.auto_stop_interval_in_minutes,
+    autoArchiveIntervalInMinutes: manifest.auto_archive_interval_in_minutes,
+    autoDeleteIntervalInMinutes: manifest.auto_delete_interval_in_minutes,
+  };
+}

@@ -3,9 +3,9 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
-import { getDbMcpConnection } from '../../../src/runtime/dbSessionResources';
+import { getMcpConnection } from '../../../src/runtime/sessionResources';
 
-describe('getDbMcpConnection', () => {
+describe('getMcpConnection', () => {
   let mcpServerStore: SqliteMcpServerStore;
   let tokenStore: SqliteOAuthTokenStore;
 
@@ -71,7 +71,7 @@ describe('getDbMcpConnection', () => {
         },
       });
 
-      const connection = await getDbMcpConnection({
+      const connection = await getMcpConnection({
         tenant_id: TENANT_ID,
         name: 'oauth-mcp',
         store: mcpServerStore,
@@ -124,7 +124,7 @@ describe('getDbMcpConnection', () => {
       },
     });
 
-    const connection = await getDbMcpConnection({
+    const connection = await getMcpConnection({
       tenant_id: TENANT_ID,
       name: 'tokened-mcp',
       store: mcpServerStore,
@@ -150,7 +150,7 @@ describe('getDbMcpConnection', () => {
       },
     });
 
-    const connection = await getDbMcpConnection({
+    const connection = await getMcpConnection({
       tenant_id: TENANT_ID,
       name: 'open-mcp',
       store: mcpServerStore,
@@ -174,7 +174,7 @@ describe('getDbMcpConnection', () => {
       },
     });
 
-    const connection = await getDbMcpConnection({
+    const connection = await getMcpConnection({
       tenant_id: TENANT_ID,
       name: 'header-mcp',
       store: mcpServerStore,
