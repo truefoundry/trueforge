@@ -6,24 +6,25 @@ import type * as serializers from "../index.js";
 import { ModelEntry } from "./ModelEntry.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
 import { ResourceName } from "./ResourceName.js";
+import { WellKnownModelProviderType } from "./WellKnownModelProviderType.js";
 
-export const AnthropicModelProvider: core.serialization.ObjectSchema<
-    serializers.AnthropicModelProvider.Raw,
-    TrueHarness.AnthropicModelProvider
+export const WellKnownModelProvider: core.serialization.ObjectSchema<
+    serializers.WellKnownModelProvider.Raw,
+    TrueHarness.WellKnownModelProvider
 > = core.serialization.object({
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
     name: ResourceName,
-    type: core.serialization.stringLiteral("anthropic"),
+    type: WellKnownModelProviderType,
 });
 
-export declare namespace AnthropicModelProvider {
+export declare namespace WellKnownModelProvider {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
         name: ResourceName.Raw;
-        type: "anthropic";
+        type: WellKnownModelProviderType.Raw;
     }
 }

@@ -5,18 +5,806 @@ providers:
   - type: openai
     name: openai
     models:
+      - model_id: chat-latest
+        name: chat-latest
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - medium
+      - model_id: gpt-3.5-turbo-0125
+        name: gpt-3-5-turbo-0125
+        properties:
+          context_length: 16385
+          max_output_tokens: 4096
+      - model_id: gpt-3.5-turbo-1106
+        name: gpt-3-5-turbo-1106
+        properties:
+          max_output_tokens: 4096
+      - model_id: gpt-3.5-turbo
+        name: gpt-3-5-turbo
+        properties:
+          max_output_tokens: 4096
+      - model_id: gpt-4.1-2025-04-14
+        name: gpt-4-1-2025-04-14
+        properties:
+          context_length: 1047576
+          max_output_tokens: 32768
+      - model_id: gpt-4.1-mini-2025-04-14
+        name: gpt-4-1-mini-2025-04-14
+        properties:
+          context_length: 1047576
+          max_output_tokens: 32768
+      - model_id: gpt-4.1-mini
+        name: gpt-4-1-mini
+        properties:
+          context_length: 1047576
+          max_output_tokens: 32768
+      - model_id: gpt-4.1
+        name: gpt-4-1
+        properties:
+          context_length: 1047576
+          max_output_tokens: 32768
+      - model_id: gpt-4o-2024-11-20
+        name: gpt-4o-2024-11-20
+        properties:
+          context_length: 128000
+          max_output_tokens: 16384
+      - model_id: gpt-4o-mini-2024-07-18
+        name: gpt-4o-mini-2024-07-18
+        properties:
+          context_length: 128000
+          max_output_tokens: 16384
+      - model_id: gpt-4o-mini
+        name: gpt-4o-mini
+        properties:
+          context_length: 128000
+          max_output_tokens: 16384
+      - model_id: gpt-4o
+        name: gpt-4o
+        properties:
+          context_length: 128000
+          max_output_tokens: 16384
+      - model_id: gpt-5-mini
+        name: gpt-5-mini
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - minimal
+            - low
+            - medium
+            - high
+      - model_id: gpt-5-nano
+        name: gpt-5-nano
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+      - model_id: gpt-5-pro
+        name: gpt-5-pro
+        properties:
+          context_length: 400000
+          max_output_tokens: 272000
+      - model_id: gpt-5.1-2025-11-13
+        name: gpt-5-1-2025-11-13
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+      - model_id: gpt-5.1
+        name: gpt-5-1
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+      - model_id: gpt-5.2-2025-12-11
+        name: gpt-5-2-2025-12-11
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.2-pro-2025-12-11
+        name: gpt-5-2-pro-2025-12-11
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.2-pro
+        name: gpt-5-2-pro
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.2
+        name: gpt-5-2
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.4-2026-03-05
+        name: gpt-5-4-2026-03-05
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.4-mini-2026-03-17
+        name: gpt-5-4-mini-2026-03-17
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.4-mini
+        name: gpt-5-4-mini
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.4-nano-2026-03-17
+        name: gpt-5-4-nano-2026-03-17
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.4-nano
+        name: gpt-5-4-nano
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.4-pro-2026-03-05
+        name: gpt-5-4-pro-2026-03-05
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.4-pro
+        name: gpt-5-4-pro
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.4
+        name: gpt-5-4
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.5-2026-04-23
+        name: gpt-5-5-2026-04-23
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.5-pro-2026-04-23
+        name: gpt-5-5-pro-2026-04-23
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.5-pro
+        name: gpt-5-5-pro
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.5
+        name: gpt-5-5
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.6-luna
+        name: gpt-5-6-luna
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: gpt-5.6-sol
         name: gpt-5-6-sol
         properties:
-          context_length: 400000
-          max_output_tokens: 32768
-          reasoning_efforts: [low, medium, high]
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: gpt-5.6-terra
+        name: gpt-5-6-terra
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
   - type: anthropic
     name: anthropic
     models:
+      - model_id: claude-fable-5
+        name: claude-fable-5
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+      - model_id: claude-haiku-4-5-20251001
+        name: claude-haiku-4-5-20251001
+        properties:
+          context_length: 200000
+          max_output_tokens: 64000
+      - model_id: claude-haiku-4-5
+        name: claude-haiku-4-5
+        properties:
+          context_length: 200000
+          max_output_tokens: 64000
+      - model_id: claude-opus-4-5-20251101
+        name: claude-opus-4-5-20251101
+        properties:
+          context_length: 200000
+          max_output_tokens: 64000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+      - model_id: claude-opus-4-5
+        name: claude-opus-4-5
+        properties:
+          context_length: 200000
+          max_output_tokens: 64000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+      - model_id: claude-opus-4-6
+        name: claude-opus-4-6
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - max
+      - model_id: claude-opus-4-7
+        name: claude-opus-4-7
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+      - model_id: claude-opus-4-8
+        name: claude-opus-4-8
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+      - model_id: claude-opus-5
+        name: claude-opus-5
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+      - model_id: claude-sonnet-4-5-20250929
+        name: claude-sonnet-4-5-20250929
+        properties:
+          context_length: 200000
+          max_output_tokens: 64000
+      - model_id: claude-sonnet-4-5
+        name: claude-sonnet-4-5
+        properties:
+          context_length: 200000
+          max_output_tokens: 64000
       - model_id: claude-sonnet-4-6
         name: claude-sonnet-4-6
         properties:
-          context_length: 200000
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - max
+      - model_id: claude-sonnet-5
+        name: claude-sonnet-5
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+  - type: google-gemini
+    name: google-gemini
+    models:
+      - model_id: gemini-2.5-flash-lite
+        name: gemini-2-5-flash-lite
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+      - model_id: gemini-2.5-flash
+        name: gemini-2-5-flash
+        properties:
+          max_output_tokens: 65536
+      - model_id: gemini-2.5-pro
+        name: gemini-2-5-pro
+        properties:
+          max_output_tokens: 65536
+      - model_id: gemini-3-flash-preview
+        name: gemini-3-flash-preview
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+      - model_id: gemini-3.1-flash-lite
+        name: gemini-3-1-flash-lite
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - minimal
+            - low
+            - medium
+            - high
+      - model_id: gemini-3.1-pro-preview-customtools
+        name: gemini-3-1-pro-preview-customtools
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+      - model_id: gemini-3.1-pro-preview
+        name: gemini-3-1-pro-preview
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+      - model_id: gemini-3.5-flash-lite
+        name: gemini-3-5-flash-lite
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+      - model_id: gemini-3.5-flash
+        name: gemini-3-5-flash
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+      - model_id: gemini-3.6-flash
+        name: gemini-3-6-flash
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+      - model_id: gemini-flash-latest
+        name: gemini-flash-latest
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+      - model_id: gemini-flash-lite-latest
+        name: gemini-flash-lite-latest
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+      - model_id: gemini-pro-latest
+        name: gemini-pro-latest
+        properties:
+          max_output_tokens: 65536
+      - model_id: gemini-robotics-er-1.6-preview
+        name: gemini-robotics-er-1-6-preview
+        properties:
+          context_length: 131072
+          max_output_tokens: 65536
+      - model_id: gemini-robotics-er-2-preview
+        name: gemini-robotics-er-2-preview
+        properties:
+          context_length: 131072
+          max_output_tokens: 65536
+      - model_id: gemma-4-26b-a4b-it
+        name: gemma-4-26b-a4b-it
+        properties:
+          context_length: 262144
           max_output_tokens: 32768
-          reasoning_efforts: [low, medium, high]
+      - model_id: gemma-4-31b-it
+        name: gemma-4-31b-it
+        properties:
+          context_length: 256000
+  - type: fireworks
+    name: fireworks
+    models:
+      - model_id: accounts/fireworks/models/deepseek-v4-flash
+        name: deepseek-v4-flash
+        properties:
+          context_length: 1048576
+      - model_id: accounts/fireworks/models/deepseek-v4-flash-0731
+        name: deepseek-v4-flash-0731
+        properties:
+          context_length: 1048576
+      - model_id: accounts/fireworks/models/deepseek-v4-pro
+        name: deepseek-v4-pro
+        properties:
+          context_length: 1048576
+      - model_id: accounts/fireworks/models/glm-5p2
+        name: glm-5p2
+        properties:
+          context_length: 1048576
+      - model_id: accounts/fireworks/models/gpt-oss-120b
+        name: gpt-oss-120b
+        properties:
+          context_length: 131072
+      - model_id: accounts/fireworks/models/gpt-oss-20b
+        name: gpt-oss-20b
+        properties:
+          context_length: 131072
+      - model_id: accounts/fireworks/models/inkling
+        name: inkling
+        properties:
+          context_length: 1048576
+      - model_id: accounts/fireworks/models/kimi-k2p6
+        name: kimi-k2p6
+        properties:
+          context_length: 262144
+      - model_id: accounts/fireworks/models/kimi-k2p7-code
+        name: kimi-k2p7-code
+        properties:
+          context_length: 262144
+      - model_id: accounts/fireworks/models/kimi-k3
+        name: kimi-k3
+        properties:
+          context_length: 1048576
+      - model_id: accounts/fireworks/models/minimax-m2p7
+        name: minimax-m2p7
+        properties:
+          context_length: 196608
+      - model_id: accounts/fireworks/models/minimax-m3
+        name: minimax-m3
+        properties:
+          context_length: 512000
+      - model_id: accounts/fireworks/models/nemotron-3-ultra-nvfp4
+        name: nemotron-3-ultra-nvfp4
+        properties:
+          context_length: 262144
+      - model_id: accounts/fireworks/routers/glm-5p2-fast
+        name: glm-5p2-fast
+        properties:
+          context_length: 1048576
+      - model_id: accounts/fireworks/routers/kimi-k2p6-turbo
+        name: kimi-k2p6-turbo
+        properties:
+          context_length: 262144
+      - model_id: accounts/fireworks/routers/kimi-k2p7-code-fast
+        name: kimi-k2p7-code-fast
+        properties:
+          context_length: 262144
+      - model_id: accounts/fireworks/routers/kimi-k3-fast
+        name: kimi-k3-fast
+        properties:
+          context_length: 1048576
+  - type: zai
+    name: zai
+    models:
+      - model_id: glm-4.5
+        name: glm-4-5
+        properties: {}
+      - model_id: glm-4.5-air
+        name: glm-4-5-air
+        properties: {}
+      - model_id: glm-4.6
+        name: glm-4-6
+        properties: {}
+      - model_id: glm-4.7
+        name: glm-4-7
+        properties: {}
+      - model_id: glm-5
+        name: glm-5
+        properties: {}
+      - model_id: glm-5-turbo
+        name: glm-5-turbo
+        properties: {}
+      - model_id: glm-5.1
+        name: glm-5-1
+        properties: {}
+      - model_id: glm-5.2
+        name: glm-5-2
+        properties: {}
+  - type: moonshot
+    name: moonshot
+    models:
+      - model_id: kimi-k2.6
+        name: kimi-k2-6
+        properties:
+          context_length: 262144
+      - model_id: kimi-k2.7-code
+        name: kimi-k2-7-code
+        properties:
+          context_length: 262144
+      - model_id: kimi-k2.7-code-highspeed
+        name: kimi-k2-7-code-highspeed
+        properties:
+          context_length: 262144
+      - model_id: kimi-k3
+        name: kimi-k3
+        properties:
+          context_length: 1048576
+          reasoning_efforts:
+            - low
+            - high
+            - max
+  - type: alibaba
+    name: alibaba
+    models:
+      - model_id: deepseek-v3.2
+        name: deepseek-v3-2
+        properties: {}
+      - model_id: deepseek-v4-flash
+        name: deepseek-v4-flash
+        properties: {}
+      - model_id: deepseek-v4-flash-0731
+        name: deepseek-v4-flash-0731
+        properties: {}
+      - model_id: deepseek-v4-pro
+        name: deepseek-v4-pro
+        properties: {}
+      - model_id: glm-5.1
+        name: glm-5-1
+        properties: {}
+      - model_id: glm-5.2
+        name: glm-5-2
+        properties: {}
+      - model_id: kimi-k2.7-code
+        name: kimi-k2-7-code
+        properties: {}
+      - model_id: qwen-coder-plus
+        name: qwen-coder-plus
+        properties: {}
+      - model_id: qwen-flash
+        name: qwen-flash
+        properties: {}
+      - model_id: qwen-flash-character
+        name: qwen-flash-character
+        properties: {}
+      - model_id: qwen-max
+        name: qwen-max
+        properties: {}
+      - model_id: qwen-plus
+        name: qwen-plus
+        properties: {}
+      - model_id: qwen-plus-2025-04-28
+        name: qwen-plus-2025-04-28
+        properties: {}
+      - model_id: qwen-plus-2025-09-11
+        name: qwen-plus-2025-09-11
+        properties: {}
+      - model_id: qwen-plus-2025-12-01
+        name: qwen-plus-2025-12-01
+        properties: {}
+      - model_id: qwen-plus-character
+        name: qwen-plus-character
+        properties: {}
+      - model_id: qwen-plus-latest
+        name: qwen-plus-latest
+        properties: {}
+      - model_id: qwen-turbo
+        name: qwen-turbo
+        properties: {}
+      - model_id: qwen3-14b
+        name: qwen3-14b
+        properties: {}
+      - model_id: qwen3-235b-a22b
+        name: qwen3-235b-a22b
+        properties: {}
+      - model_id: qwen3-235b-a22b-instruct-2507
+        name: qwen3-235b-a22b-instruct-2507
+        properties: {}
+      - model_id: qwen3-235b-a22b-thinking-2507
+        name: qwen3-235b-a22b-thinking-2507
+        properties: {}
+      - model_id: qwen3-30b-a3b
+        name: qwen3-30b-a3b
+        properties: {}
+      - model_id: qwen3-30b-a3b-instruct-2507
+        name: qwen3-30b-a3b-instruct-2507
+        properties: {}
+      - model_id: qwen3-30b-a3b-thinking-2507
+        name: qwen3-30b-a3b-thinking-2507
+        properties: {}
+      - model_id: qwen3-8b
+        name: qwen3-8b
+        properties: {}
+      - model_id: qwen3-coder-480b-a35b-instruct
+        name: qwen3-coder-480b-a35b-instruct
+        properties: {}
+      - model_id: qwen3-coder-flash
+        name: qwen3-coder-flash
+        properties: {}
+      - model_id: qwen3-coder-next
+        name: qwen3-coder-next
+        properties: {}
+      - model_id: qwen3-coder-plus
+        name: qwen3-coder-plus
+        properties: {}
+      - model_id: qwen3-coder-plus-2025-07-22
+        name: qwen3-coder-plus-2025-07-22
+        properties: {}
+      - model_id: qwen3-coder-plus-2025-09-23
+        name: qwen3-coder-plus-2025-09-23
+        properties: {}
+      - model_id: qwen3-max
+        name: qwen3-max
+        properties: {}
+      - model_id: qwen3-max-2025-09-23
+        name: qwen3-max-2025-09-23
+        properties: {}
+      - model_id: qwen3-max-2026-01-23
+        name: qwen3-max-2026-01-23
+        properties: {}
+      - model_id: qwen3-max-preview
+        name: qwen3-max-preview
+        properties: {}
+      - model_id: qwen3-next-80b-a3b-instruct
+        name: qwen3-next-80b-a3b-instruct
+        properties: {}
+      - model_id: qwen3-next-80b-a3b-thinking
+        name: qwen3-next-80b-a3b-thinking
+        properties: {}
+      - model_id: qwen3.5-122b-a10b
+        name: qwen3-5-122b-a10b
+        properties: {}
+      - model_id: qwen3.5-27b
+        name: qwen3-5-27b
+        properties: {}
+      - model_id: qwen3.5-35b-a3b
+        name: qwen3-5-35b-a3b
+        properties: {}
+      - model_id: qwen3.5-397b-a17b
+        name: qwen3-5-397b-a17b
+        properties: {}
+      - model_id: qwen3.5-flash
+        name: qwen3-5-flash
+        properties: {}
+      - model_id: qwen3.5-flash-2026-02-23
+        name: qwen3-5-flash-2026-02-23
+        properties: {}
+      - model_id: qwen3.5-plus
+        name: qwen3-5-plus
+        properties: {}
+      - model_id: qwen3.5-plus-2026-02-15
+        name: qwen3-5-plus-2026-02-15
+        properties: {}
+      - model_id: qwen3.5-plus-2026-04-20
+        name: qwen3-5-plus-2026-04-20
+        properties: {}
+      - model_id: qwen3.6-27b
+        name: qwen3-6-27b
+        properties: {}
+      - model_id: qwen3.6-35b-a3b
+        name: qwen3-6-35b-a3b
+        properties: {}
+      - model_id: qwen3.6-flash
+        name: qwen3-6-flash
+        properties: {}
+      - model_id: qwen3.6-flash-2026-04-16
+        name: qwen3-6-flash-2026-04-16
+        properties: {}
+      - model_id: qwen3.6-max-preview
+        name: qwen3-6-max-preview
+        properties: {}
+      - model_id: qwen3.6-plus
+        name: qwen3-6-plus
+        properties: {}
+      - model_id: qwen3.6-plus-2026-04-02
+        name: qwen3-6-plus-2026-04-02
+        properties: {}
+      - model_id: qwen3.7-flash
+        name: qwen3-7-flash
+        properties: {}
+      - model_id: qwen3.7-flash-2026-07-15
+        name: qwen3-7-flash-2026-07-15
+        properties: {}
+      - model_id: qwen3.7-max
+        name: qwen3-7-max
+        properties: {}
+      - model_id: qwen3.7-max-2026-05-17
+        name: qwen3-7-max-2026-05-17
+        properties: {}
+      - model_id: qwen3.7-max-2026-05-20
+        name: qwen3-7-max-2026-05-20
+        properties: {}
+      - model_id: qwen3.7-max-2026-06-08
+        name: qwen3-7-max-2026-06-08
+        properties: {}
+      - model_id: qwen3.7-max-preview
+        name: qwen3-7-max-preview
+        properties: {}
+      - model_id: qwen3.7-plus
+        name: qwen3-7-plus
+        properties: {}
+      - model_id: qwen3.7-plus-2026-05-26
+        name: qwen3-7-plus-2026-05-26
+        properties: {}
+      - model_id: qwen3.8-max
+        name: qwen3-8-max
+        properties: {}

@@ -82,10 +82,14 @@
     "pack:dry": "cd dist && pnpm pack --dry-run"
   },
   "dependencies": {
+    "@ai-sdk/alibaba": "^2.0.24",
     "@ai-sdk/anthropic": "^4.0.25",
     "@ai-sdk/google": "^4.0.29",
+    "@ai-sdk/moonshotai": "^3.0.25",
     "@ai-sdk/openai": "^4.0.25",
     "@ai-sdk/openai-compatible": "^3.0.18",
+    "@ai-sdk/provider": "^4.0.4",
+    "@ai-sdk/provider-utils": "^5.0.16",
     "@daytona/sdk": "^0.190.0",
     "@hono/zod-openapi": "^0.19.10",
     "@modelcontextprotocol/sdk": "^1.29.0",

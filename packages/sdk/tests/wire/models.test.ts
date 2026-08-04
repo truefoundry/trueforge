@@ -8,9 +8,7 @@ describe("ModelsClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
-        const rawResponseBody = {
-            data: [{ model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } }],
-        };
+        const rawResponseBody = { data: [{ model_id: "model_id", name: "name", properties: {} }] };
 
         server.mockEndpoint().get("/api/v1/models").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
 
@@ -20,10 +18,7 @@ describe("ModelsClient", () => {
                 {
                     modelId: "model_id",
                     name: "name",
-                    properties: {
-                        contextLength: 1,
-                        maxOutputTokens: 1,
-                    },
+                    properties: {},
                 },
             ],
         });

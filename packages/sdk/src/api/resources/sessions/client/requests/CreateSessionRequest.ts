@@ -7,12 +7,7 @@ import type * as TrueHarness from "../../../../index.js";
  *     {
  *         agentSpec: {
  *             model: {
- *                 modelId: "model_id",
- *                 name: "name",
- *                 properties: {
- *                     contextLength: 1,
- *                     maxOutputTokens: 1
- *                 }
+ *                 name: "name"
  *             }
  *         }
  *     }

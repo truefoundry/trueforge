@@ -4,15 +4,62 @@
  * ModelCatalog.
  */
 import { z } from '@hono/zod-openapi';
+import type { VercelAIProviderName } from '@truefoundry/utils-core/core';
+import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/utils-core/core';
 import { NameSchema, uniqueNames } from './common';
 
-export const ProviderTypeSchema = z.enum(['openai', 'anthropic', 'custom']).openapi('ProviderType');
+/**
+ * A provider's endpoint is either already known or it isn't, and that is the only thing the wire
+ * shape turns on. `openai`, `anthropic` and `google-gemini` get theirs from their dedicated Vercel
+ * AI SDK adapter; the OpenAI-compatible ones named here get {@link PROVIDER_DEFAULT_BASE_URLS}.
+ *
+ * `satisfies` ties both lists to the adapters the harness can actually build. A type missing from
+ * them is the dangerous direction — its catalog entries would be unconfigurable — so a test asserts
+ * the two together cover every adapter.
+ */
+const WELL_KNOWN_BASE_URL_TYPES = [
+  'openai',
+  'anthropic',
+  'google-gemini',
+  'fireworks',
+  'zai',
+  'moonshot',
+] as const satisfies readonly VercelAIProviderName[];
+
+/** `alibaba` scopes its endpoint to the caller's workspace, `custom` is arbitrary by definition. */
+const CALLER_SUPPLIED_BASE_URL_TYPES = ['alibaba', 'custom'] as const satisfies readonly VercelAIProviderName[];
+
+export const ProviderTypeSchema = z
+  .enum([...WELL_KNOWN_BASE_URL_TYPES, ...CALLER_SUPPLIED_BASE_URL_TYPES])
+  .openapi('ProviderType');
+
+export type ProviderType = z.infer<typeof ProviderTypeSchema>;
+
+/**
+ * Endpoint to use when a manifest omits `base_url`. Absent means the provider's adapter supplies its
+ * own, or that the schema required a `base_url` in the first place.
+ */
+export const PROVIDER_DEFAULT_BASE_URLS: Partial<Record<ProviderType, string>> = {
+  fireworks: 'https://api.fireworks.ai/inference/v1',
+  zai: 'https://api.z.ai/api/paas/v4',
+  moonshot: 'https://api.moonshot.ai/v1',
+};
 
 export const ModelPropertiesSchema = z
   .object({
-    context_length: z.number().int().positive(),
-    max_output_tokens: z.number().int().positive(),
-    reasoning_efforts: z.array(z.string().min(1)).min(1).optional(),
+    context_length: z.number().int().positive().optional(),
+    max_output_tokens: z.number().int().positive().optional(),
+    reasoning_efforts: z
+      .array(
+        z
+          .string()
+          .min(1)
+          .refine(effort => SUPPORTED_REASONING_EFFORTS.includes(effort), {
+            message: `Reasoning effort must be one of: ${SUPPORTED_REASONING_EFFORTS.join(', ')}`,
+          }),
+      )
+      .min(1)
+      .optional(),
   })
   .strict()
   .openapi('ModelProperties');
@@ -56,22 +103,15 @@ const ModelProviderManifestBaseSchema = z
   })
   .strict();
 
-/** Shared by openai/anthropic: optional override of the provider's default endpoint. */
-const WellKnownModelProviderManifestBaseSchema = ModelProviderManifestBaseSchema.extend({
+/** The endpoint is already known, so `base_url` only overrides it. */
+const WellKnownModelProviderManifestSchema = ModelProviderManifestBaseSchema.extend({
+  type: z.enum(WELL_KNOWN_BASE_URL_TYPES),
   base_url: z.string().url().optional().describe("Optional override of the provider's default API base URL."),
 }).strict();
 
-const OpenAIModelProviderManifestSchema = WellKnownModelProviderManifestBaseSchema.extend({
-  type: z.literal('openai'),
-}).strict();
-
-const AnthropicModelProviderManifestSchema = WellKnownModelProviderManifestBaseSchema.extend({
-  type: z.literal('anthropic'),
-}).strict();
-
-/** Same fields as well-known providers, but base_url is required (no canonical endpoint). */
-const CustomModelProviderManifestSchema = ModelProviderManifestBaseSchema.extend({
-  type: z.literal('custom'),
+/** Nothing to fall back on, so `base_url` is required. */
+const CallerSuppliedModelProviderManifestSchema = ModelProviderManifestBaseSchema.extend({
+  type: z.enum(CALLER_SUPPLIED_BASE_URL_TYPES),
   base_url: z.string().url().describe("Base URL of the provider's API."),
 }).strict();
 
@@ -79,10 +119,9 @@ const CustomModelProviderManifestSchema = ModelProviderManifestBaseSchema.extend
  * Non-identity fields of a configured provider, shared verbatim between the
  * PUT request body and the persisted `model_provider.manifest` document.
  */
-export const ModelProviderManifestObjectSchema = z.discriminatedUnion('type', [
-  OpenAIModelProviderManifestSchema,
-  AnthropicModelProviderManifestSchema,
-  CustomModelProviderManifestSchema,
+export const ModelProviderManifestObjectSchema = z.union([
+  WellKnownModelProviderManifestSchema,
+  CallerSuppliedModelProviderManifestSchema,
 ]);
 
 export function refineModelProviderManifest(
@@ -95,30 +134,20 @@ export function refineModelProviderManifest(
 export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
 export type ModelProviderManifest = z.infer<typeof ModelProviderManifestObjectSchema>;
 
-const OpenAIModelProviderSchema = OpenAIModelProviderManifestSchema.extend({
-  name: NameSchema,
-})
+const WellKnownModelProviderSchema = WellKnownModelProviderManifestSchema.extend({ name: NameSchema })
   .strict()
-  .openapi('OpenAIModelProvider');
+  .openapi('WellKnownModelProvider');
 
-const AnthropicModelProviderSchema = AnthropicModelProviderManifestSchema.extend({
-  name: NameSchema,
-})
+const CallerSuppliedModelProviderSchema = CallerSuppliedModelProviderManifestSchema.extend({ name: NameSchema })
   .strict()
-  .openapi('AnthropicModelProvider');
-
-const CustomModelProviderSchema = CustomModelProviderManifestSchema.extend({
-  name: NameSchema,
-})
-  .strict()
-  .openapi('CustomModelProvider');
+  .openapi('CallerSuppliedModelProvider');
 
 /**
  * Configured provider: PUT body and list/upsert response data (identity `name`
  * plus manifest fields, including `auth.api_key`).
  */
 export const ModelProviderSchema = z
-  .discriminatedUnion('type', [OpenAIModelProviderSchema, AnthropicModelProviderSchema, CustomModelProviderSchema])
+  .union([WellKnownModelProviderSchema, CallerSuppliedModelProviderSchema])
   .superRefine(refineModelProviderManifest)
   .openapi('ModelProvider');
 

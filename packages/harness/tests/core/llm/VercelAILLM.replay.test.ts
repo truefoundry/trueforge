@@ -132,12 +132,17 @@ describe('Gemini tool thoughtSignature replay round-trip', () => {
 
 // ─────────── Reasoning signature round-trips ───────────
 
+/**
+ * `metadataKey`/`signatureField` are where the response carries the token; `expectedProviderOptions`
+ * is what replay must attach to the next request. The keys differ per provider.
+ */
 type ReasoningRoundTripCase = {
   provider: VercelAIProviderName;
   metadataKey: string;
   signatureField: string;
   signatureValue: string;
-  expectedProviderOptions: Record<string, unknown>;
+  /** `undefined` for providers whose adapter has nowhere to put the token. */
+  expectedProviderOptions: Record<string, unknown> | undefined;
 };
 
 const REASONING_CASES: ReasoningRoundTripCase[] = [
@@ -146,7 +151,7 @@ const REASONING_CASES: ReasoningRoundTripCase[] = [
     metadataKey: 'openai',
     signatureField: 'reasoningEncryptedContent',
     signatureValue: 'enc-content-openai',
-    expectedProviderOptions: { openai: { encryptedContent: 'enc-content-openai' } },
+    expectedProviderOptions: { openai: { reasoningEncryptedContent: 'enc-content-openai' } },
   },
   {
     provider: 'anthropic',
@@ -157,10 +162,11 @@ const REASONING_CASES: ReasoningRoundTripCase[] = [
   },
   {
     provider: 'custom',
+    // Synthetic namespace: real OpenAI-compatible endpoints send unsigned `reasoning_content` text.
     metadataKey: 'custom',
     signatureField: 'reasoningEncryptedContent',
     signatureValue: 'enc-content-custom',
-    expectedProviderOptions: { custom: { encryptedContent: 'enc-content-custom' } },
+    expectedProviderOptions: undefined,
   },
 ];
 
@@ -204,6 +210,41 @@ describe.each(REASONING_CASES)(
     });
   },
 );
+
+describe('anthropic reasoning replay, on the shape Anthropic actually sends', () => {
+  // Anthropic delivers its signature on a text-less reasoning-delta, never on reasoning-end, and a
+  // tool turn replays thinking and the tool call together with thinking first.
+  it('replays a delta-delivered signature, with thinking ahead of the tool call', async () => {
+    const { output } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: 'r1' },
+          { type: 'reasoning-delta', id: 'r1', text: 'need the weather' },
+          { type: 'reasoning-delta', id: 'r1', text: '', providerMetadata: { anthropic: { signature: 'ant-delta' } } },
+          { type: 'reasoning-end', id: 'r1' },
+          { type: 'tool-input-start', id: 'call-a1', toolName: 'get_weather' },
+          { type: 'tool-input-delta', id: 'call-a1', delta: '{"city":"Paris"}' },
+          makeFinishStep('tool-calls'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    const assistantMsg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
+      role: 'assistant',
+      content: null,
+      ...(output.tool_calls !== undefined ? { tool_calls: output.tool_calls } : {}),
+    };
+    Reflect.set(assistantMsg, 'thinking_blocks', output.thinking_blocks);
+    const parts = toAssistantModelMessage({ msg: assistantMsg, provider: 'anthropic' }).content as Array<{
+      type: string;
+      providerOptions?: unknown;
+    }>;
+
+    expect(parts.map(p => p.type)).toEqual(['reasoning', 'tool-call']);
+    expect(parts[0]?.providerOptions).toEqual({ anthropic: { signature: 'ant-delta' } });
+  });
+});
 
 describe('google-gemini reasoning replay round-trip', () => {
   it('emits a reasoning part with no providerOptions (signature is per-tool-call for Gemini)', async () => {

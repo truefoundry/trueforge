@@ -42,15 +42,15 @@ function putInit(body: unknown): RequestInit {
   };
 }
 
-describe('settings model-providers and models routers', () => {
-  let settingsRouter: ReturnType<typeof createSettingsRouter>;
-  let modelsRouter: ReturnType<typeof createModelsRouter>;
-
-  beforeAll(async () => {
-    const db = createSqliteDb(':memory:');
-    await migrateSqliteToLatest(db);
-    const modelProviderStore = new SqliteModelProviderStore(db);
-    settingsRouter = createSettingsRouter({
+async function createRouters(): Promise<{
+  settingsRouter: ReturnType<typeof createSettingsRouter>;
+  modelsRouter: ReturnType<typeof createModelsRouter>;
+}> {
+  const db = createSqliteDb(':memory:');
+  await migrateSqliteToLatest(db);
+  const modelProviderStore = new SqliteModelProviderStore(db);
+  return {
+    settingsRouter: createSettingsRouter({
       modelCatalog: ModelCatalog.load(),
       modelProviderStore,
       mcpCatalog: McpCatalog.load(),
@@ -61,8 +61,17 @@ describe('settings model-providers and models routers', () => {
       sandboxCatalog: SandboxCatalog.load(),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: winston.createLogger({ silent: true }),
-    });
-    modelsRouter = createModelsRouter(modelProviderStore);
+    }),
+    modelsRouter: createModelsRouter(modelProviderStore),
+  };
+}
+
+describe('settings model-providers and models routers', () => {
+  let settingsRouter: ReturnType<typeof createSettingsRouter>;
+  let modelsRouter: ReturnType<typeof createModelsRouter>;
+
+  beforeAll(async () => {
+    ({ settingsRouter, modelsRouter } = await createRouters());
   });
 
   it('GET /model-providers/catalog returns the shipped catalog verbatim', async () => {
@@ -119,5 +128,22 @@ describe('settings model-providers and models routers', () => {
         },
       ],
     });
+  });
+});
+
+describe('catalog presets are configurable', () => {
+  // A preset is meant to be copied into a PUT body with an api_key added. Every type the catalog
+  // ships must therefore be in the configuration union; five of them once were not.
+  it.each(ModelCatalog.load().list())('PUT accepts the $type preset', async preset => {
+    const { settingsRouter } = await createRouters();
+    const body = {
+      ...preset,
+      auth: { api_key: `sk-${preset.name}` },
+      // Alibaba is the one catalog type that also needs a base_url: a MaaS host embeds the
+      // workspace id, so there is nothing to default to.
+      ...(preset.type === 'alibaba' ? { base_url: 'https://ws-x.ap-southeast-1.maas.aliyuncs.com/v1' } : {}),
+    };
+    const response = await settingsRouter.request('/model-providers', putInit(body));
+    expect(response.status).toBe(200);
   });
 });

@@ -8,7 +8,7 @@ import { buildProviderOptions, toReasoningLevel, toStructuredOutputSpec } from '
 function makeConfig(
   overrides: Partial<VercelAIProviderConfig> & { provider: VercelAIProviderConfig['provider'] },
 ): VercelAIProviderConfig {
-  return { name: 'test', apiKey: 'sk-test', headers: {}, ...overrides };
+  return { name: 'test', modelId: 'test-model', apiKey: 'sk-test', headers: {}, ...overrides };
 }
 
 // ─────────── toStructuredOutputSpec ───────────
@@ -87,26 +87,21 @@ describe('toStructuredOutputSpec', () => {
 // ─────────── toReasoningLevel ───────────
 
 describe('toReasoningLevel', () => {
-  it('returns undefined for non-google-gemini providers regardless of effort', () => {
-    expect(toReasoningLevel({ provider: 'openai', reasoningEffort: 'high' })).toBeUndefined();
-    expect(toReasoningLevel({ provider: 'anthropic', reasoningEffort: 'medium' })).toBeUndefined();
-    expect(toReasoningLevel({ provider: 'custom', reasoningEffort: 'low' })).toBeUndefined();
-  });
-
-  it('returns undefined when reasoningEffort is undefined', () => {
-    expect(toReasoningLevel({ provider: 'google-gemini', reasoningEffort: undefined })).toBeUndefined();
-  });
-
-  it('returns undefined when reasoningEffort is not a valid ReasoningLevel', () => {
-    expect(toReasoningLevel({ provider: 'google-gemini', reasoningEffort: 'ultra' })).toBeUndefined();
-    expect(toReasoningLevel({ provider: 'google-gemini', reasoningEffort: '' })).toBeUndefined();
-  });
-
-  it('returns the level for all valid ReasoningLevel values on google-gemini', () => {
+  it('passes through every level the SDK union can express', () => {
     const validLevels = ['provider-default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
     for (const level of validLevels) {
-      expect(toReasoningLevel({ provider: 'google-gemini', reasoningEffort: level })).toBe(level);
+      expect(toReasoningLevel(level)).toBe(level);
     }
+  });
+
+  it('returns undefined for an absent or unrecognised effort', () => {
+    expect(toReasoningLevel(undefined)).toBeUndefined();
+    expect(toReasoningLevel('ultra')).toBeUndefined();
+    expect(toReasoningLevel('')).toBeUndefined();
+  });
+
+  it('maps `max` onto the SDK ceiling, which adapters raise back for models lacking xhigh', () => {
+    expect(toReasoningLevel('max')).toBe('xhigh');
   });
 });
 
@@ -141,26 +136,6 @@ describe('buildProviderOptions', () => {
         rawBody: {},
       });
       expect(opts['openai']).toMatchObject({ store: false, include: ['reasoning.encrypted_content'] });
-    });
-
-    it('includes reasoningEffort when present', () => {
-      const opts = buildProviderOptions({
-        config: config,
-        reasoningEffort: 'high',
-        structuredOutputSpec: textSpec,
-        rawBody: {},
-      });
-      expect(opts['openai']).toMatchObject({ reasoningEffort: 'high' });
-    });
-
-    it('omits reasoningEffort key when undefined', () => {
-      const opts = buildProviderOptions({
-        config: config,
-        reasoningEffort: undefined,
-        structuredOutputSpec: textSpec,
-        rawBody: {},
-      });
-      expect(opts['openai']).not.toHaveProperty('reasoningEffort');
     });
 
     it('includes strictJsonSchema:true when spec is json_schema with strict:true', () => {
@@ -219,45 +194,32 @@ describe('buildProviderOptions', () => {
   describe('anthropic provider', () => {
     const config = makeConfig({ provider: 'anthropic' });
 
-    it('returns empty options when reasoningEffort is absent', () => {
-      const opts = buildProviderOptions({
-        config: config,
-        reasoningEffort: undefined,
-        structuredOutputSpec: textSpec,
-        rawBody: {},
-      });
-      expect(opts).toEqual({});
-    });
-
-    it('maps low → 1024, medium → 8192, high → 32768', () => {
-      expect(
-        buildProviderOptions({ config: config, reasoningEffort: 'low', structuredOutputSpec: textSpec, rawBody: {} })[
-          'anthropic'
-        ],
-      ).toEqual({ thinking: { type: 'enabled', budgetTokens: 1024 } });
-      expect(
-        buildProviderOptions({
+    it('leaves thinking to the SDK so per-model shapes stay correct', () => {
+      // Pinning `thinking` here would override the SDK's per-model mapping and send
+      // `thinking.type: 'enabled'` to Claude 5, which only accepts 'adaptive'.
+      for (const reasoningEffort of [undefined, 'high']) {
+        const opts = buildProviderOptions({
           config: config,
-          reasoningEffort: 'medium',
+          reasoningEffort,
           structuredOutputSpec: textSpec,
           rawBody: {},
-        })['anthropic'],
-      ).toEqual({ thinking: { type: 'enabled', budgetTokens: 8192 } });
-      expect(
-        buildProviderOptions({ config: config, reasoningEffort: 'high', structuredOutputSpec: textSpec, rawBody: {} })[
-          'anthropic'
-        ],
-      ).toEqual({ thinking: { type: 'enabled', budgetTokens: 32768 } });
+        });
+        expect(opts).toEqual({});
+      }
     });
 
-    it('falls back to 8192 for an unrecognised effort level', () => {
+    it('forwards a caller-supplied thinking and effort, which override the per-model shape', () => {
+      // The caller's only route to disabling thinking, a raw effort, or Claude 5's `display`.
       const opts = buildProviderOptions({
-        config: config,
-        reasoningEffort: 'ultra',
+        config,
+        reasoningEffort: 'high',
         structuredOutputSpec: textSpec,
-        rawBody: {},
+        rawBody: { thinking: { type: 'adaptive', display: 'summarized' }, effort: 'max' },
       });
-      expect(opts['anthropic']).toEqual({ thinking: { type: 'enabled', budgetTokens: 8192 } });
+      expect(opts['anthropic']).toEqual({
+        thinking: { type: 'adaptive', display: 'summarized' },
+        effort: 'max',
+      });
     });
 
     it('ignores strictJsonSchema (no anthropic key for structured-output strictness)', () => {
@@ -282,69 +244,89 @@ describe('buildProviderOptions', () => {
         disableParallelToolUse: true,
       });
     });
-
-    it('omits anthropic key when rawBody fields are absent and no reasoningEffort', () => {
-      const opts = buildProviderOptions({
-        config,
-        reasoningEffort: undefined,
-        structuredOutputSpec: textSpec,
-        rawBody: {},
-      });
-      expect(opts).not.toHaveProperty('anthropic');
-    });
   });
 
   describe('custom provider', () => {
-    const config = makeConfig({ provider: 'custom', base_url: 'http://localhost/v1' });
+    const config = makeConfig({ provider: 'custom', baseUrl: 'http://localhost/v1' });
 
-    it('returns empty options when both reasoningEffort and strictJsonSchema are absent', () => {
+    // The compatible adapter reads options from a key matching the name it was built with, so each
+    // OpenAI-compatible provider gets its own bucket rather than a shared one.
+    it.each(['custom', 'fireworks', 'zai'] as const)('%s: passes strictJsonSchema under its own key', provider => {
+      const opts = buildProviderOptions({
+        config: makeConfig({ provider, baseUrl: 'http://localhost/v1' }),
+        reasoningEffort: undefined,
+        structuredOutputSpec: schemaSpecStrict,
+        rawBody: {},
+      });
+      expect(opts).toEqual({ [provider]: { strictJsonSchema: true } });
+    });
+
+    it('omits the custom key when the resulting object would be empty', () => {
       const opts = buildProviderOptions({
         config: config,
-        reasoningEffort: undefined,
+        reasoningEffort: 'high',
+        structuredOutputSpec: textSpec,
+        rawBody: {},
+      });
+      expect(opts).toEqual({});
+    });
+  });
+
+  describe('moonshot provider', () => {
+    const config = makeConfig({ provider: 'moonshot' });
+
+    it('sends `max` as an effort of its own, since the top-level setting caps at xhigh', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: 'max',
+        structuredOutputSpec: textSpec,
+        rawBody: {},
+      });
+      expect(opts).toEqual({ moonshotai: { reasoningEffort: 'max' } });
+    });
+
+    it('leaves every other effort to the top-level setting', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: 'high',
         structuredOutputSpec: textSpec,
         rawBody: {},
       });
       expect(opts).toEqual({});
     });
 
-    it('passes reasoningEffort through', () => {
+    it('forwards thinking and reasoning_history from rawBody', () => {
       const opts = buildProviderOptions({
-        config: config,
-        reasoningEffort: 'medium',
+        config,
+        reasoningEffort: undefined,
         structuredOutputSpec: textSpec,
-        rawBody: {},
+        rawBody: { thinking: { type: 'disabled' }, reasoning_history: 'preserved' },
       });
-      expect(opts['custom']).toMatchObject({ reasoningEffort: 'medium' });
+      expect(opts['moonshotai']).toEqual({ thinking: { type: 'disabled' }, reasoningHistory: 'preserved' });
+    });
+  });
+
+  describe('alibaba provider', () => {
+    const config = makeConfig({ provider: 'alibaba', baseUrl: 'http://localhost/v1' });
+
+    it('forwards thinking overrides and parallel_tool_calls, which the compatible adapter drops', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: 'high',
+        structuredOutputSpec: textSpec,
+        rawBody: { enable_thinking: false, thinking_budget: 512, parallel_tool_calls: false },
+      });
+      expect(opts['alibaba']).toEqual({ enableThinking: false, thinkingBudget: 512, parallelToolCalls: false });
     });
 
-    it('passes strictJsonSchema for json_schema mode', () => {
+    it('sends nothing of its own when rawBody carries no overrides', () => {
       const opts = buildProviderOptions({
-        config: config,
-        reasoningEffort: undefined,
+        config,
+        reasoningEffort: 'high',
         structuredOutputSpec: schemaSpecStrict,
         rawBody: {},
       });
-      expect(opts['custom']).toMatchObject({ strictJsonSchema: true });
-    });
-
-    it('includes both when both are present', () => {
-      const opts = buildProviderOptions({
-        config: config,
-        reasoningEffort: 'low',
-        structuredOutputSpec: schemaSpecStrict,
-        rawBody: {},
-      });
-      expect(opts['custom']).toEqual({ reasoningEffort: 'low', strictJsonSchema: true });
-    });
-
-    it('omits the custom key when the resulting object would be empty', () => {
-      const opts = buildProviderOptions({
-        config: config,
-        reasoningEffort: undefined,
-        structuredOutputSpec: textSpec,
-        rawBody: {},
-      });
-      expect(opts).not.toHaveProperty('custom');
+      expect(opts).toEqual({});
     });
   });
 
@@ -361,9 +343,6 @@ describe('buildProviderOptions', () => {
         }),
       ).toEqual({});
       expect(
-        buildProviderOptions({ config: config, reasoningEffort: 'high', structuredOutputSpec: textSpec, rawBody: {} }),
-      ).toEqual({});
-      expect(
         buildProviderOptions({
           config: config,
           reasoningEffort: undefined,
@@ -371,6 +350,23 @@ describe('buildProviderOptions', () => {
           rawBody: {},
         }),
       ).toEqual({});
+    });
+
+    it('requests thought summaries when a reasoning effort is set', () => {
+      expect(
+        buildProviderOptions({ config, reasoningEffort: 'high', structuredOutputSpec: textSpec, rawBody: {} }),
+      ).toEqual({ google: { thinkingConfig: { includeThoughts: true } } });
+    });
+
+    it('keeps an explicit thinking_config while still requesting thought summaries', () => {
+      expect(
+        buildProviderOptions({
+          config,
+          reasoningEffort: 'high',
+          structuredOutputSpec: textSpec,
+          rawBody: { thinking_config: { thinkingBudget: 2048 } },
+        }),
+      ).toEqual({ google: { thinkingConfig: { includeThoughts: true, thinkingBudget: 2048 } } });
     });
 
     it('forwards safety_settings, thinking_config, cached_content from rawBody', () => {
@@ -392,29 +388,35 @@ describe('buildProviderOptions', () => {
     });
   });
 
-  describe('cross-provider completeness: every provider must surface reasoningEffort somewhere', () => {
-    const providers: VercelAIProviderConfig['provider'][] = ['openai', 'anthropic', 'custom', 'google-gemini'];
-    const effort = 'high';
+  describe('cross-provider completeness', () => {
+    const providers: VercelAIProviderConfig['provider'][] = [
+      'openai',
+      'anthropic',
+      'custom',
+      'google-gemini',
+      'moonshot',
+      'alibaba',
+    ];
 
-    it.each(providers)('%s: reasoningEffort reaches providerOptions or toReasoningLevel', provider => {
+    // Reasoning travels only on the top-level setting. A providerOptions copy would take precedence
+    // over it, so any provider growing one here would silently shadow the requested effort. Moonshot
+    // is the deliberate exception, and only for `max`, which the top-level setting cannot express.
+    it.each(providers)('%s: no providerOptions entry carries the effort', provider => {
       const config = makeConfig({
         provider,
-        ...(provider === 'custom' ? { base_url: 'http://localhost/v1' } : {}),
+        ...(provider === 'custom' || provider === 'alibaba' ? { baseUrl: 'http://localhost/v1' } : {}),
       });
       const opts = buildProviderOptions({
-        config: config,
-        reasoningEffort: effort,
+        config,
+        reasoningEffort: 'high',
         structuredOutputSpec: textSpec,
         rawBody: {},
       });
-      const reasoningLevel = toReasoningLevel({ provider: provider, reasoningEffort: effort });
 
-      const inProviderOptions =
-        (opts['openai'] !== undefined && 'reasoningEffort' in opts['openai']) ||
-        opts['anthropic'] !== undefined ||
-        (opts['custom'] !== undefined && 'reasoningEffort' in opts['custom']);
-
-      expect(inProviderOptions || reasoningLevel !== undefined).toBe(true);
+      expect(toReasoningLevel('high')).toBe('high');
+      for (const entry of Object.values(opts)) {
+        expect(entry === undefined || !('reasoningEffort' in entry)).toBe(true);
+      }
     });
   });
 });

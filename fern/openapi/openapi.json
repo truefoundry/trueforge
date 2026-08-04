@@ -143,42 +143,6 @@
         ],
         "type": "object"
       },
-      "AnthropicModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "description": "Optional override of the provider's default API base URL.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "enum": [
-              "anthropic"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type",
-          "name"
-        ],
-        "type": "object"
-      },
       "ApprovalAllow": {
         "properties": {
           "status": {
@@ -277,6 +241,44 @@
         ],
         "type": "object"
       },
+      "CallerSuppliedModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "description": "Base URL of the provider's API.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "type": {
+            "enum": [
+              "alibaba",
+              "custom"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type",
+          "base_url",
+          "name"
+        ],
+        "type": "object"
+      },
       "CancelSessionRequest": {
         "properties": {},
         "type": "object"
@@ -368,7 +370,12 @@
           "type": {
             "enum": [
               "openai",
-              "anthropic"
+              "anthropic",
+              "google-gemini",
+              "fireworks",
+              "zai",
+              "moonshot",
+              "alibaba"
             ],
             "type": "string"
           }
@@ -626,43 +633,6 @@
             "$ref": "#/components/schemas/PreviousTurnIdInput"
           }
         },
-        "type": "object"
-      },
-      "CustomModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "description": "Base URL of the provider's API.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "enum": [
-              "custom"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type",
-          "base_url",
-          "name"
-        ],
         "type": "object"
       },
       "DaytonaSandboxProvider": {
@@ -1761,30 +1731,15 @@
             "type": "array"
           }
         },
-        "required": [
-          "context_length",
-          "max_output_tokens"
-        ],
         "type": "object"
       },
       "ModelProvider": {
-        "discriminator": {
-          "mapping": {
-            "anthropic": "#/components/schemas/AnthropicModelProvider",
-            "custom": "#/components/schemas/CustomModelProvider",
-            "openai": "#/components/schemas/OpenAIModelProvider"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
+        "anyOf": [
           {
-            "$ref": "#/components/schemas/OpenAIModelProvider"
+            "$ref": "#/components/schemas/WellKnownModelProvider"
           },
           {
-            "$ref": "#/components/schemas/AnthropicModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/CustomModelProvider"
+            "$ref": "#/components/schemas/CallerSuppliedModelProvider"
           }
         ]
       },
@@ -1798,42 +1753,6 @@
         },
         "required": [
           "api_key"
-        ],
-        "type": "object"
-      },
-      "OpenAIModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "description": "Optional override of the provider's default API base URL.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "enum": [
-              "openai"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type",
-          "name"
         ],
         "type": "object"
       },
@@ -3202,6 +3121,47 @@
           "thread_id",
           "tool_call_id",
           "content"
+        ],
+        "type": "object"
+      },
+      "WellKnownModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "description": "Optional override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "type": {
+            "enum": [
+              "openai",
+              "anthropic",
+              "google-gemini",
+              "fireworks",
+              "zai",
+              "moonshot"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type",
+          "name"
         ],
         "type": "object"
       }

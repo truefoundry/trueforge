@@ -14,11 +14,9 @@ describe("ModelProvidersClient", () => {
                 {
                     auth: { api_key: "api_key" },
                     base_url: "base_url",
-                    models: [
-                        { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
-                    ],
+                    models: [{ model_id: "model_id", name: "name", properties: {} }],
                     name: "name",
-                    type: "anthropic",
+                    type: "openai",
                 },
             ],
         };
@@ -43,14 +41,11 @@ describe("ModelProvidersClient", () => {
                         {
                             modelId: "model_id",
                             name: "name",
-                            properties: {
-                                contextLength: 1,
-                                maxOutputTokens: 1,
-                            },
+                            properties: {},
                         },
                     ],
                     name: "name",
-                    type: "anthropic",
+                    type: "openai",
                 },
             ],
         });
@@ -61,19 +56,17 @@ describe("ModelProvidersClient", () => {
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
         const rawRequestBody = {
             auth: { api_key: "api_key" },
-            models: [{ model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } }],
+            models: [{ model_id: "model_id", name: "name", properties: {} }],
             name: "name",
-            type: "anthropic",
+            type: "openai",
         };
         const rawResponseBody = {
             data: {
                 auth: { api_key: "api_key" },
                 base_url: "base_url",
-                models: [
-                    { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
-                ],
+                models: [{ model_id: "model_id", name: "name", properties: {} }],
                 name: "name",
-                type: "anthropic",
+                type: "openai",
             },
         };
 
@@ -94,14 +87,11 @@ describe("ModelProvidersClient", () => {
                 {
                     modelId: "model_id",
                     name: "name",
-                    properties: {
-                        contextLength: 1,
-                        maxOutputTokens: 1,
-                    },
+                    properties: {},
                 },
             ],
             name: "name",
-            type: "anthropic",
+            type: "openai",
         });
         expect(response).toEqual({
             data: {
@@ -113,14 +103,11 @@ describe("ModelProvidersClient", () => {
                     {
                         modelId: "model_id",
                         name: "name",
-                        properties: {
-                            contextLength: 1,
-                            maxOutputTokens: 1,
-                        },
+                        properties: {},
                     },
                 ],
                 name: "name",
-                type: "anthropic",
+                type: "openai",
             },
         });
     });
@@ -131,11 +118,11 @@ describe("ModelProvidersClient", () => {
         const rawRequestBody = {
             auth: { api_key: "x" },
             models: [
-                { model_id: "x", name: "xy", properties: { context_length: 1, max_output_tokens: 1 } },
-                { model_id: "x", name: "xy", properties: { context_length: 1, max_output_tokens: 1 } },
+                { model_id: "x", name: "xy", properties: {} },
+                { model_id: "x", name: "xy", properties: {} },
             ],
             name: "xy",
-            type: "anthropic",
+            type: "openai",
         };
         const rawResponseBody = { error: { message: "message" } };
 
@@ -157,22 +144,16 @@ describe("ModelProvidersClient", () => {
                     {
                         modelId: "x",
                         name: "xy",
-                        properties: {
-                            contextLength: 1,
-                            maxOutputTokens: 1,
-                        },
+                        properties: {},
                     },
                     {
                         modelId: "x",
                         name: "xy",
-                        properties: {
-                            contextLength: 1,
-                            maxOutputTokens: 1,
-                        },
+                        properties: {},
                     },
                 ],
                 name: "xy",
-                type: "anthropic",
+                type: "openai",
             });
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
@@ -182,15 +163,7 @@ describe("ModelProvidersClient", () => {
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
         const rawResponseBody = {
-            data: [
-                {
-                    models: [
-                        { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
-                    ],
-                    name: "name",
-                    type: "openai",
-                },
-            ],
+            data: [{ models: [{ model_id: "model_id", name: "name", properties: {} }], name: "name", type: "openai" }],
         };
 
         server
@@ -209,10 +182,7 @@ describe("ModelProvidersClient", () => {
                         {
                             modelId: "model_id",
                             name: "name",
-                            properties: {
-                                contextLength: 1,
-                                maxOutputTokens: 1,
-                            },
+                            properties: {},
                         },
                     ],
                     name: "name",

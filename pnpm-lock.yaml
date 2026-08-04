@@ -104,18 +104,30 @@ importers:
 
   packages/harness:
     dependencies:
+      '@ai-sdk/alibaba':
+        specifier: ^2.0.24
+        version: 2.0.24(zod@3.25.76)
       '@ai-sdk/anthropic':
         specifier: ^4.0.25
         version: 4.0.29(zod@3.25.76)
       '@ai-sdk/google':
         specifier: ^4.0.29
         version: 4.0.33(zod@3.25.76)
+      '@ai-sdk/moonshotai':
+        specifier: ^3.0.25
+        version: 3.0.25(zod@3.25.76)
       '@ai-sdk/openai':
         specifier: ^4.0.25
         version: 4.0.29(zod@3.25.76)
       '@ai-sdk/openai-compatible':
         specifier: ^3.0.18
         version: 3.0.22(zod@3.25.76)
+      '@ai-sdk/provider':
+        specifier: ^4.0.4
+        version: 4.0.5
+      '@ai-sdk/provider-utils':
+        specifier: ^5.0.16
+        version: 5.0.20(zod@3.25.76)
       '@daytona/sdk':
         specifier: ^0.190.0
         version: 0.190.1(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)(ws@8.21.1)
@@ -271,6 +283,12 @@ packages:
   '@ag-ui/core@0.0.53':
     resolution: {integrity: sha512-11UocR7fFdMWw503bWCX2IOK15vbWfxT11Mn9xOiPBVO/UVcn57ywGrlLL4UaBlPgmUTvuzr2yYR2ElSqiN2wQ==}
 
+  '@ai-sdk/alibaba@2.0.24':
+    resolution: {integrity: sha512-54kjLyttw8BnymvSUZ46tcL1ktkWY6kIYvKOwIMp5GDDkllD2Tistm9Il8tPgj8IowDxKzoQhcGjxfR7z3JstA==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/anthropic@4.0.29':
     resolution: {integrity: sha512-e5McXB9sqfGBCCPVjoxKVGuWT8LIwRI4k6a8MbZWq6J+W1hmAsWv6oK0sD8z9GIcGJ66aEJSuzMuLyg+FtL4Ew==}
     engines: {node: '>=22'}
@@ -285,6 +303,12 @@ packages:
 
   '@ai-sdk/google@4.0.33':
     resolution: {integrity: sha512-xj3rhHYT3Dj8Xixjo4ZqGPqXz2GkubrikoqSN5IOyM9pEmNasSw303stcV7CeW8VS9BJX4oqbY5ohSFclDckYg==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/moonshotai@3.0.25':
+    resolution: {integrity: sha512-GGkfFh0DpjciBISrM5uioGupReE0t5+veZAWQw99+EAm/Fl+DhnnocOrP44ZJT0FWhdZbzVoChUOKCZT3tvnUg==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -6015,6 +6039,13 @@ snapshots:
     dependencies:
       zod: 3.25.76
 
+  '@ai-sdk/alibaba@2.0.24(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/openai-compatible': 3.0.22(zod@3.25.76)
+      '@ai-sdk/provider': 4.0.5
+      '@ai-sdk/provider-utils': 5.0.20(zod@3.25.76)
+      zod: 3.25.76
+
   '@ai-sdk/anthropic@4.0.29(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 4.0.5
@@ -6030,6 +6061,13 @@ snapshots:
 
   '@ai-sdk/google@4.0.33(zod@3.25.76)':
     dependencies:
+      '@ai-sdk/provider': 4.0.5
+      '@ai-sdk/provider-utils': 5.0.20(zod@3.25.76)
+      zod: 3.25.76
+
+  '@ai-sdk/moonshotai@3.0.25(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/openai-compatible': 3.0.22(zod@3.25.76)
       '@ai-sdk/provider': 4.0.5
       '@ai-sdk/provider-utils': 5.0.20(zod@3.25.76)
       zod: 3.25.76
