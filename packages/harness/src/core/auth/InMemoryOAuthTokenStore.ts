@@ -37,7 +37,7 @@ export class InMemoryOAuthTokenStore implements IOAuthTokenStore {
     const out = new Map<string, OAuthToken>();
     for (const id of params.ids) {
       const token = this.tokens.get(id);
-      if (token !== undefined) {
+      if (token) {
         out.set(id, token);
       }
     }
