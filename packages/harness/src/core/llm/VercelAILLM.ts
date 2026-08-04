@@ -54,7 +54,7 @@ interface ReasoningPart {
 }
 
 /** Providers with a dedicated code path in {@link buildLanguageModel}. */
-export type VercelAIProviderName = 'openai' | 'anthropic' | 'google-gemini' | 'generic';
+export type VercelAIProviderName = 'openai' | 'anthropic' | 'google-gemini' | 'custom';
 
 /** Structural config accepted by VercelAILLM; compatible with server's ProviderConfig. */
 export interface VercelAIProviderConfig {
@@ -67,7 +67,7 @@ export interface VercelAIProviderConfig {
   base_url?: string | undefined;
   apiKey: string;
   headers: Record<string, string>;
-  /** API format for the `generic` provider. Only option today; defaults when absent. */
+  /** API format for the `custom` provider. Only option today; defaults when absent. */
   api_format?: 'openai-chat-completions' | undefined;
 }
 
@@ -107,12 +107,12 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
       });
       return client(modelId);
     }
-    case 'generic': {
+    case 'custom': {
       if (base_url === undefined) {
-        throw new Error('Provider "generic" requires a base_url in models.yaml');
+        throw new Error('Provider "custom" requires a base_url in models.yaml');
       }
       const client = createOpenAICompatible({
-        name: 'generic',
+        name: 'custom',
         baseURL: base_url,
         apiKey,
         // Without this, @ai-sdk/openai-compatible silently downgrades json_schema requests
@@ -179,7 +179,7 @@ function isReasoningLevel(v: string): v is ReasoningLevel {
 /**
  * Maps a harness `reasoning_effort` to the SDK's standardized `reasoning` setting. Only
  * `google-gemini` needs this — `@ai-sdk/google` derives its `thinkingConfig` from it, since it has
- * no `providerOptions.google.reasoningEffort` lever like openai/anthropic/generic do.
+ * no `providerOptions.google.reasoningEffort` lever like openai/anthropic/custom do.
  */
 export function toReasoningLevel({
   provider,
@@ -277,7 +277,7 @@ function googleProviderOptions(rawBody: unknown): JSONObject | undefined {
   return Object.keys(opts).length > 0 ? opts : undefined;
 }
 
-function genericProviderOptions(
+function customProviderOptions(
   rawBody: unknown,
   reasoningEffort: string | undefined,
   strictJsonSchema: boolean | undefined,
@@ -319,10 +319,10 @@ export function buildProviderOptions({
     const google = googleProviderOptions(rawBody);
     return google !== undefined ? { google } : {};
   } else {
-    // 'generic' — @ai-sdk/openai-compatible registers under the name 'generic'.
+    // 'custom' — @ai-sdk/openai-compatible registers under the name 'custom'.
     // this will have to become api_format specific in the future.
-    const generic = genericProviderOptions(rawBody, reasoningEffort, strictJsonSchema);
-    return generic !== undefined ? { generic } : {};
+    const custom = customProviderOptions(rawBody, reasoningEffort, strictJsonSchema);
+    return custom !== undefined ? { custom } : {};
   }
 }
 
@@ -406,7 +406,7 @@ export function toUserContent(content: string | ChatCompletionContentPart[]): Us
  * field in its TypeScript type, we read it via Reflect.get so no assertion is needed.
  *
  * `provider` is used to place the opaque reasoning-replay token under the correct providerOptions key:
- * - `'openai'` / `'generic'` → `providerOptions[provider].encryptedContent` (Responses API)
+ * - `'openai'` / `'custom'` → `providerOptions[provider].encryptedContent` (Responses API)
  * - `'anthropic'`            → `providerOptions.anthropic.signature`
  * - `'google-gemini'`        → no standalone reasoning block; replay token is per-tool-call (see below)
  *
@@ -442,7 +442,7 @@ export function toAssistantModelMessage({
         const signature = 'signature' in tb && typeof tb.signature === 'string' ? tb.signature : undefined;
         let reasoningProviderOptions: ProviderOptions | undefined;
         if (signature !== undefined && provider !== 'google-gemini') {
-          if (provider === 'openai' || provider === 'generic') {
+          if (provider === 'openai' || provider === 'custom') {
             reasoningProviderOptions = { [provider]: { encryptedContent: signature } };
           } else {
             reasoningProviderOptions = { anthropic: { signature } };
