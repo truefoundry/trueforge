@@ -6,6 +6,9 @@
 export { AgentSpecSchema, DEFAULT_AGENT_CONFIG_ITERATION_LIMIT, RuntimeConfigSchema } from './schemas/agentSpec';
 export type { AgentSkill, AgentSpec, SkillMount, SkillNameRef } from './schemas/agentSpec';
 
+export { LegacyAgentSpecSchema } from './schemas/legacyAgentSpec';
+export type { LegacyAgentSpec } from './schemas/legacyAgentSpec';
+
 export {
   CancellationReason,
   CreateTurnRequestSchema,
