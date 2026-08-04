@@ -1,5 +1,7 @@
+import type { OAuthClientRecord } from '@truefoundry/utils/core';
 import type { Kysely, Selectable } from 'kysely';
 import { ulid } from 'ulid';
+import { fromStoredOAuthClientRecord, toStoredOAuthClientRecord } from '../../mcpOAuthTypes';
 import type { GetMcpServerInput, IMcpServerStore, McpServerRecord, UpsertMcpServerInput } from '../../mcpServerStore';
 import { json, now } from '../sqlExpressions';
 import type { Database, McpServerTable } from '../types';
@@ -64,5 +66,40 @@ export class PostgresMcpServerStore implements IMcpServerStore {
       .returningAll()
       .executeTakeFirstOrThrow();
     return toRecord(row);
+  }
+
+  async getClient(params: { id: string }): Promise<OAuthClientRecord | undefined> {
+    const row = await this.#db
+      .selectFrom('mcp_server')
+      .select(['oauth_server', 'oauth_client'])
+      .where('id', '=', params.id)
+      .executeTakeFirst();
+    if (row?.oauth_server == null || row.oauth_client == null) {
+      return undefined;
+    }
+    return fromStoredOAuthClientRecord({ server: row.oauth_server, client: row.oauth_client });
+  }
+
+  async saveClient(params: { id: string; record: OAuthClientRecord }): Promise<void> {
+    const stored = toStoredOAuthClientRecord(params.record);
+    await this.#db
+      .updateTable('mcp_server')
+      .set({
+        oauth_server: json(stored.server),
+        oauth_client: json(stored.client),
+      })
+      .where('id', '=', params.id)
+      .execute();
+  }
+
+  async deleteClient(params: { id: string }): Promise<void> {
+    await this.#db
+      .updateTable('mcp_server')
+      .set({
+        oauth_server: null,
+        oauth_client: null,
+      })
+      .where('id', '=', params.id)
+      .execute();
   }
 }

@@ -21,8 +21,15 @@ export interface OAuthClientRecord {
   client: OAuthClientCredentials;
 }
 
+/**
+ * OAuth client registration columns on an MCP server row (`oauth_server` + `oauth_client`).
+ * Implemented by the MCP server store — not a separate persistence root.
+ */
 export interface IOAuthClientStore {
   saveClient(params: { id: string; record: OAuthClientRecord }): Promise<void>;
 
   getClient(params: { id: string }): Promise<OAuthClientRecord | undefined>;
+
+  /** Drop a stale registration so the next authorize can re-run DCR (e.g. invalid_client). */
+  deleteClient(params: { id: string }): Promise<void>;
 }
