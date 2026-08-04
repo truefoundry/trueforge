@@ -16,7 +16,7 @@ import { randomBytes } from 'node:crypto';
 import type { IOAuthClientStore, OAuthClientRecord } from '../../auth/IOAuthClientStore';
 import type { IOAuthTokenStore } from '../../auth/IOAuthTokenStore';
 import { isOAuthAccessTokenUsable } from '../../auth/oauthToken';
-import { McpConnectionError } from '../../errors';
+import { McpConnectionError, McpDcrConfigurationError } from '../../errors';
 import {
   mcpAuthorizationServerMetadata,
   mcpAuthorizationServerOrigin,
@@ -115,16 +115,14 @@ export async function createMcpOAuthClient(params: {
   const { authorizationServerUrl, authorizationServerMetadata: metadata } = await discoverOAuthServerInfo(mcpServerUrl);
 
   if (!metadata?.registration_endpoint) {
-    throw new McpConnectionError(
+    throw new McpDcrConfigurationError(
       `MCP server '${mcpServerName}' has no DCR support (missing registration_endpoint); auth.type: dcr is misconfigured for this server`,
-      400,
     );
   }
 
   if (!metadata.authorization_endpoint || !metadata.token_endpoint) {
-    throw new McpConnectionError(
+    throw new McpDcrConfigurationError(
       `Authorization server for MCP server '${mcpServerName}' is missing authorization_endpoint or token_endpoint`,
-      400,
     );
   }
 

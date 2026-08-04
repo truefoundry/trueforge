@@ -60,3 +60,13 @@ export class McpConnectionError extends AgentHarnessError {
     this.name = 'McpConnectionError';
   }
 }
+
+/**
+ * An MCP server's `auth.type: dcr` is unsatisfiable by configuration, not by a transient fault
+ */
+export class McpDcrConfigurationError extends McpConnectionError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, 400, options);
+    this.name = 'McpDcrConfigurationError';
+  }
+}

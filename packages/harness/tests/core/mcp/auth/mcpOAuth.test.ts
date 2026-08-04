@@ -244,7 +244,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
         clientName: CLIENT_NAME,
       }),
     ).rejects.toMatchObject({
-      name: 'McpConnectionError',
+      name: 'McpDcrConfigurationError',
       message: expect.stringContaining('no DCR support'),
     });
   });

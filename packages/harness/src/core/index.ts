@@ -144,7 +144,7 @@ export type {
 } from './tracing/AgentTracing';
 
 // Errors / utils
-export { AgentHarnessError, McpConnectionError } from './errors';
+export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
 export { extractErrorLogFields } from './util/errorLogFields';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
 
