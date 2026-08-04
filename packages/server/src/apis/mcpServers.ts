@@ -65,11 +65,6 @@ function toConfiguredMcpServer(
   };
 }
 
-/** Builds the live-flow auth status for a DCR server; `authorizationUrl` is set only for `auth_required`. */
-function toDcrAuthStatus(status: McpAuthStatus['status'], authorizationUrl?: string): McpAuthStatus {
-  return authorizationUrl !== undefined ? { status, authorization_url: authorizationUrl } : { status };
-}
-
 /** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers).
  *  TODO: Remove the server via txn if DCR fails to register
  */
@@ -203,10 +198,10 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
         clientName: configuration.OAUTH_CLIENT_NAME,
         ...(redirectUrl !== undefined ? { redirectUrl } : {}),
       });
-      if (isMcpAuthRequired(result)) {
-        return c.json(toDcrAuthStatus('auth_required', result.authUrl.href), 200);
-      }
-      return c.json(toDcrAuthStatus('authenticated'), 200);
+      const authStatus: McpAuthStatus = isMcpAuthRequired(result)
+        ? { status: 'auth_required', authorization_url: result.authUrl.href }
+        : { status: 'authenticated' };
+      return c.json(authStatus, 200);
     } catch (error) {
       if (error instanceof McpConnectionError) {
         deps.logger.warn(`MCP authorize failed for "${name}"`, extractErrorLogFields(error));
