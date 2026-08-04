@@ -5,6 +5,7 @@
  * SQLite migrations are packaged under dist/ but are not run at startup.
  */
 import { serve } from '@hono/node-server';
+import type { TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import type { RedisClientType } from 'redis';
 import winston from 'winston';
 
@@ -24,12 +25,15 @@ try {
     { connectRedis },
     { RequestReplyExecutor, RequestReplyRouter },
     { PostgresSessionStore },
+    { EventSubscriptionRegistry },
     { ModelCatalog },
     { PostgresModelProviderStore },
     { McpCatalog },
     { PostgresMcpServerStore },
     { SkillCatalog },
     { PostgresSkillStore },
+    { SandboxCatalog },
+    { PostgresSandboxProviderStore },
   ] = await Promise.all([
     import('./app'),
     import('./frontend'),
@@ -45,12 +49,15 @@ try {
     import('./runtime/redis'),
     import('@truefoundry/utils/request-reply'),
     import('./db/postgres/session-store/PostgresSessionStore'),
+    import('./runtime/event-subscription'),
     import('./catalog/ModelCatalog'),
     import('./db/postgres/model-provider-store/PostgresModelProviderStore'),
     import('./catalog/McpCatalog'),
     import('./db/postgres/mcp-server-store/PostgresMcpServerStore'),
     import('./catalog/SkillCatalog'),
     import('./db/postgres/skill-store/PostgresSkillStore'),
+    import('./catalog/SandboxCatalog'),
+    import('./db/postgres/sandbox-provider-store/PostgresSandboxProviderStore'),
   ]);
 
   // Console logger shared by the server runtime (harness components require one).
@@ -83,6 +90,7 @@ try {
     redis = await connectRedis({ url: configuration.REDIS_URL, logger });
   }
   const requestReplyRouter = new RequestReplyRouter();
+  const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
 
   const app = createServerApp({
     modelStore: ModelStore.load(),
@@ -93,6 +101,8 @@ try {
     mcpStore: McpStore.load(),
     skillCatalog: SkillCatalog.load(),
     skillStore,
+    sandboxCatalog: SandboxCatalog.load(),
+    sandboxProviderStore: new PostgresSandboxProviderStore(db),
     legacySkillStore,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
@@ -100,6 +110,7 @@ try {
     ...(sandboxProvider ? { sandboxProvider } : {}),
     redis,
     requestReplyRouter,
+    eventSubscriptions,
     logger,
   });
 

@@ -309,16 +309,10 @@ export class SessionHandle<
 
   /** Returns the turn handle (store-backed; not executable), or undefined if not found. */
   async getTurn(turn_id: string): Promise<TurnHandle<TTurnCustom> | undefined> {
-    const turn = await this.store.getTurn({
+    return TurnHandle.get({
+      store: this.store,
       session_id: this.session.session_id,
       turn_id,
-    });
-    if (!turn) {
-      return undefined;
-    }
-    return TurnHandle.fromRecord({
-      store: this.store,
-      turn,
     });
   }
 

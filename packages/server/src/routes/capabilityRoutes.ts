@@ -4,7 +4,12 @@ const GetCapabilitiesResponseSchema = z
   .object({
     data: z.object({
       sandbox: z.object({
-        enabled: z.boolean().describe('Whether this server has a sandbox provider configured.'),
+        enabled: z.boolean().describe('Whether a sandbox provider is configured for this tenant.'),
+      }),
+      skill: z.object({
+        enabled: z
+          .boolean()
+          .describe('Whether skills are available. False when sandbox is not enabled (skills require a sandbox).'),
       }),
     }),
   })
@@ -17,7 +22,7 @@ export const getCapabilitiesRoute = createRoute({
   summary: 'Get server capabilities',
   'x-fern-sdk-group-name': ['server'],
   'x-fern-sdk-method-name': 'get_capabilities',
-  description: 'Report optional runtime capabilities available in this server deployment.',
+  description: 'Report optional runtime capabilities available for this tenant.',
   responses: {
     200: {
       content: { 'application/json': { schema: GetCapabilitiesResponseSchema } },

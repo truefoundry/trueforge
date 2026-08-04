@@ -1,11 +1,12 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Sessions } from '@truefoundry/utils/agent-session';
-import { TurnNotFoundError } from '@truefoundry/utils/agent-session';
+import { InMemorySessionStore, TurnNotFoundError } from '@truefoundry/utils/agent-session';
 import { createLogger } from 'winston';
 import { createLegacyTurnsRouter } from '../../../src/apis/legacyTurns';
 import { McpStore } from '../../../src/legacy-registry-store/McpStore';
 import { ModelStore } from '../../../src/legacy-registry-store/ModelStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 
 describe('turn SSE after session deletion', () => {
   it('warns when the stream ends because the session/turn was removed', async () => {
@@ -35,9 +36,11 @@ describe('turn SSE after session deletion', () => {
       '/',
       createLegacyTurnsRouter({
         sessions,
+        sessionStore: new InMemorySessionStore(),
         activeTurns: new ActiveTurnRegistry(),
         modelStore: new ModelStore([]),
         mcpStore: new McpStore([]),
+        eventSubscriptions: new EventSubscriptionRegistry(undefined),
         logger,
       }),
     );

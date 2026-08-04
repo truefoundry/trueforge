@@ -1,17 +1,22 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
+import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
+import { TENANT_ID } from './sessions';
 
-export function createCapabilitiesRouter(deps: { sandboxEnabled: boolean }) {
+export function createCapabilitiesRouter(deps: { sandboxProviderStore: ISandboxProviderStore }) {
   const router = new OpenAPIHono();
-  router.openapi(getCapabilitiesRoute, c =>
-    c.json(
+  router.openapi(getCapabilitiesRoute, async c => {
+    const record = await deps.sandboxProviderStore.getSandboxProvider(TENANT_ID);
+    const sandboxEnabled = record !== undefined;
+    return c.json(
       {
         data: {
-          sandbox: { enabled: deps.sandboxEnabled },
+          sandbox: { enabled: sandboxEnabled },
+          skill: { enabled: sandboxEnabled },
         },
       },
       200,
-    ),
-  );
+    );
+  });
   return router;
 }

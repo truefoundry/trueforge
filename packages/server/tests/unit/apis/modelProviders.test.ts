@@ -3,11 +3,13 @@ import { createModelsRouter } from '../../../src/apis/models';
 import { createSettingsRouter } from '../../../src/apis/settings';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
+import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 
 const putBody = {
@@ -47,6 +49,8 @@ describe('settings model-providers and models routers', () => {
       mcpServerStore: new SqliteMcpServerStore(db),
       skillCatalog: SkillCatalog.load(),
       skillStore: new SqliteSkillStore(db),
+      sandboxCatalog: SandboxCatalog.load(),
+      sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: winston.createLogger({ silent: true }),
     });
     modelsRouter = createModelsRouter(modelProviderStore);
@@ -79,7 +83,7 @@ describe('settings model-providers and models routers', () => {
     const missingBaseUrl = await settingsRouter.request('/model-providers', putInit(withoutBaseUrl));
     expect(missingBaseUrl.status).toBe(400);
 
-    const badName = await settingsRouter.request('/model-providers', putInit({ ...putBody, name: 'Not A Slug' }));
+    const badName = await settingsRouter.request('/model-providers', putInit({ ...putBody, name: 'Not A Name' }));
     expect(badName.status).toBe(400);
   });
 

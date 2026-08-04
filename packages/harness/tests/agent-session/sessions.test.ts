@@ -1,6 +1,7 @@
 import { EventType } from '../../src/agent-session/schemas/events';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
+import { TurnHandle } from '../../src/agent-session/TurnHandle';
 import { makeAgentSpec, makeTestResolver, mintTestTurnId } from './testHelpers';
 
 describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
@@ -50,6 +51,42 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const sessionRecord = await store.getSession({ tenant_id: tenant, session_id: 's1' });
     expect(sessionRecord?.title).toBe('From first message');
     expect(sessionRecord?.last_turn_id).toBe(turn.id);
+  });
+
+  it('loads turn handles without reading the session', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: tenant,
+      session_id: 's1',
+      agent_spec: makeAgentSpec(),
+    });
+    const created = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      previous_turn_id: null,
+      signal: new AbortController().signal,
+      resolver: makeTestResolver(),
+    });
+    const getSession = jest.spyOn(store, 'getSession');
+
+    const direct = await TurnHandle.get({
+      store,
+      session_id: 's1',
+      turn_id: created.id,
+    });
+    const throughSession = await session.getTurn(created.id);
+    const missingDirect = await TurnHandle.get({
+      store,
+      session_id: 's1',
+      turn_id: 'missing-turn',
+    });
+    const missingThroughSession = await session.getTurn('missing-turn');
+
+    expect(direct?.id).toBe(created.id);
+    expect(throughSession?.id).toBe(created.id);
+    expect(missingDirect).toBeUndefined();
+    expect(missingThroughSession).toBeUndefined();
+    expect(getSession).not.toHaveBeenCalled();
   });
 
   it('custom value vs merge-fn', async () => {

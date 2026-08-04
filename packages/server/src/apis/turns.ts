@@ -3,11 +3,13 @@
  * Shared wire/SSE helpers are also used by the legacy turns router.
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { Sessions, Turn, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
+import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import {
   CancellationReason,
+  EventType,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
+  TurnHandle,
   TurnResourceResolver,
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
@@ -22,15 +24,24 @@ import {
   type SandboxProvider,
   type VercelAIProviderConfig,
 } from '@truefoundry/utils/core';
+import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import configuration from '../config';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISkillStore } from '../db/skillStore';
-import { createAndExecuteTurnRoute, getTurnRoute, listTurnEventsRoute, listTurnsRoute } from '../routes/turnRoutes';
+import {
+  createAndExecuteTurnRoute,
+  getTurnRoute,
+  listTurnEventsRoute,
+  listTurnsRoute,
+  subscribeTurnRoute,
+} from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { getDbMcpConnection, getDbProviderConfig, resolveDbGitSkills } from '../runtime/dbSessionResources';
+import { StreamGoneError, type EventSubscriptionRegistry } from '../runtime/event-subscription';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
 import { buildTurnSandbox } from '../runtime/sandboxFactory';
 import { TENANT_ID } from './sessions';
@@ -48,10 +59,13 @@ export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
 
 export interface TurnsRouterDeps {
   sessions: Sessions;
+  sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerStore;
   skillStore: ISkillStore;
+  /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
+  eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   /** Shared provider from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
   sandboxProvider?: SandboxProvider;
   logger: Logger;
@@ -152,6 +166,43 @@ export function turnEventSsePayload(event: TurnStreamingEvent, sequenceNumber: n
   };
 }
 
+/**
+ * turn.created arms the active-run TTL, turn.done shortens it to the
+ * post-completion drain window; mid-run events leave the TTL untouched.
+ */
+export function streamTTLSecondsFor(event: TurnStreamingEvent): number | undefined {
+  if (event.type === EventType.TURN_CREATED) {
+    return configuration.TURN_STREAM_TTL_SECONDS;
+  }
+  if (event.type === EventType.TURN_DONE) {
+    return configuration.TURN_STREAM_POST_COMPLETION_TTL_SECONDS;
+  }
+  return undefined;
+}
+
+/** Redis/in-memory key for one turn's resumable event stream. */
+export function turnStreamId(tenantId: string, sessionId: string, turnId: string): string {
+  return `agent:turn:${tenantId}:${sessionId}:${turnId}:stream`;
+}
+
+/**
+ * Resume cursor: `Last-Event-ID` header wins over the body value because the
+ * header is updated by the SDK on every reconnect to reflect the last delivered
+ * event, whereas the body is the original caller-supplied cursor and never
+ * changes between reconnect attempts.
+ */
+export function resolveAfterSequenceNumber(c: Context, bodyAfterSequenceNumber?: number): number | undefined {
+  const lastEventId = c.req.header('last-event-id');
+  if (lastEventId) {
+    const sequenceNumber = Number(lastEventId);
+    if (!Number.isInteger(sequenceNumber) || sequenceNumber < 0) {
+      throw new HTTPException(400, { message: 'Invalid Last-Event-Id header' });
+    }
+    return sequenceNumber;
+  }
+  return bodyAfterSequenceNumber;
+}
+
 /** DB-backed turns (mounted at /api/v1/sessions). */
 export function createTurnsRouter(deps: TurnsRouterDeps) {
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
@@ -177,11 +228,11 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
   const getTurnHandler: RouteHandler<typeof getTurnRoute> = async c => {
     const { sessionId, turnId } = c.req.valid('param');
-    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
-    if (!session) {
-      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
-    }
-    const turn = await session.getTurn(turnId);
+    const turn = await TurnHandle.get({
+      store: deps.sessionStore,
+      session_id: sessionId,
+      turn_id: turnId,
+    });
     if (!turn) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
@@ -191,11 +242,11 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   const listTurnEventsHandler: RouteHandler<typeof listTurnEventsRoute> = async c => {
     const { sessionId, turnId } = c.req.valid('param');
     const query = c.req.valid('query');
-    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
-    if (!session) {
-      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
-    }
-    const turn = await session.getTurn(turnId);
+    const turn = await TurnHandle.get({
+      store: deps.sessionStore,
+      session_id: sessionId,
+      turn_id: turnId,
+    });
     if (!turn) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
@@ -279,14 +330,19 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     });
 
     let shouldWriteToSSEStream = true;
-    let sequenceNumber = -1;
+    // Held for the whole turn; the stream's sequence counter dies with it.
+    const turnEventStream = deps.eventSubscriptions.get(turnStreamId(TENANT_ID, sessionId, turn.id));
     return streamSSE(c, async stream => {
       stream.onAbort(() => {
         shouldWriteToSSEStream = false;
       });
       try {
         for await (const event of trackedStream) {
-          sequenceNumber += 1;
+          // Dual-write before SSE so subscribers can resume even after the
+          // creating client disconnects; the returned sequence is the SSE id.
+          const sequenceNumber = await turnEventStream.put(event, {
+            streamTTLSeconds: streamTTLSecondsFor(event),
+          });
           if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
             try {
               await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
@@ -317,13 +373,80 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     });
   };
 
+  const subscribeTurnHandler: RouteHandler<typeof subscribeTurnRoute> = async c => {
+    const { sessionId, turnId } = c.req.valid('param');
+    const query = c.req.valid('query');
+    const afterSequenceNumber = resolveAfterSequenceNumber(c, query.after_sequence_number);
+
+    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    const turn = await session.getTurn(turnId);
+    if (!turn) {
+      return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
+    }
+
+    const turnEventStream = deps.eventSubscriptions.get(turnStreamId(TENANT_ID, sessionId, turnId));
+
+    // Admission check before SSE headers are sent, so it can still map to HTTP 412.
+    try {
+      await turnEventStream.assertSubscribable();
+    } catch (error) {
+      if (error instanceof StreamGoneError) {
+        throw new HTTPException(412, { message: error.message, cause: error });
+      }
+      throw error;
+    }
+
+    // One lifecycle controller: server-side timeout, client disconnect, and
+    // normal teardown all abort it, which ends poll even while it is parked
+    // waiting for events.
+    const subscribeAbort = new AbortController();
+    const timeoutMs = configuration.TURN_SUBSCRIBE_TIMEOUT_MS;
+    const timeoutHandler = setTimeout(() => {
+      deps.logger.info('Subscribe turn stream server-side timeout reached, closing stream', {
+        sessionId,
+        turnId,
+        afterSequenceNumber,
+        timeoutMs,
+      });
+      subscribeAbort.abort(new Error('subscribe-timeout'));
+    }, timeoutMs);
+
+    return streamSSE(c, async stream => {
+      stream.onAbort(() => {
+        subscribeAbort.abort(new Error('client-disconnected'));
+      });
+
+      const generator = turnEventStream.poll(afterSequenceNumber, { signal: subscribeAbort.signal });
+      try {
+        for await (const { sequence_number: sequenceNumber, ...event } of generator) {
+          await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
+          if (event.type === EventType.TURN_DONE) {
+            break;
+          }
+        }
+      } catch (error) {
+        if (!subscribeAbort.signal.aborted) {
+          deps.logger.error('Unexpected error in turn subscribe SSE loop', extractErrorLogFields(error));
+        }
+      } finally {
+        clearTimeout(timeoutHandler);
+        // Poll loops forever by design; aborting releases a parked generator
+        // immediately so the return() below settles right away.
+        subscribeAbort.abort();
+        await generator.return(undefined);
+        await stream.close();
+      }
+    });
+  };
+
   const router = new OpenAPIHono();
   router.openapi(listTurnsRoute, listTurnsHandler);
   router.openapi(getTurnRoute, getTurnHandler);
   router.openapi(listTurnEventsRoute, listTurnEventsHandler);
   router.openapi(createAndExecuteTurnRoute, createAndExecuteTurnHandler);
-  // subscribeTurnRoute (routes/turnRoutes.ts) is defined but not registered:
-  // re-subscribing to a running turn needs a live-stream registry that this
-  // single-process server does not have yet.
+  router.openapi(subscribeTurnRoute, subscribeTurnHandler);
   return router;
 }

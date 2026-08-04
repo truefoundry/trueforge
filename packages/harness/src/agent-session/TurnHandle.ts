@@ -115,6 +115,24 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return new TurnHandle(options);
   }
 
+  static async get<TCustom extends object = Record<string, never>>(options: {
+    store: ISessionStore<object, TCustom>;
+    session_id: string;
+    turn_id: string;
+  }): Promise<TurnHandle<TCustom> | undefined> {
+    const turn = await options.store.getTurn({
+      session_id: options.session_id,
+      turn_id: options.turn_id,
+    });
+    if (!turn) {
+      return undefined;
+    }
+    return TurnHandle.fromRecord({
+      store: options.store,
+      turn,
+    });
+  }
+
   get id(): string {
     return this.turn.turn_id;
   }
@@ -300,8 +318,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       } else {
         terminalState = {
           status: 'done',
-          // TODO: revert alongside TurnStateDone.output.
-          ...(executeResult.output && { output: executeResult.output }),
+          output: executeResult.output,
           required_actions: executeResult.required_actions,
           completed_at: createdAtIso,
           metrics,

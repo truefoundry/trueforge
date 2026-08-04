@@ -13,7 +13,7 @@ import {
   ListTurnEventsResponseSchema,
   ListTurnsRequestQuerySchema,
   ListTurnsResponseSchema,
-  SubscribeTurnRequestSchema,
+  SubscribeTurnQuerySchema,
 } from '../schemas/turn';
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { SessionIdParamsSchema } from './sessionRoutes';
@@ -114,7 +114,6 @@ export const createAndExecuteTurnRoute = createRoute({
 Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`).`,
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create_turn',
-  // Not resumable: subscribeTurnRoute, which would reattach, is not registered.
   'x-fern-streaming': { format: 'sse', resumable: false },
   request: {
     params: SessionIdParamsSchema,
@@ -148,18 +147,18 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
 });
 
 export const subscribeTurnRoute = createRoute({
-  method: 'post',
+  method: 'get',
   path: '/{sessionId}/turns/{turnId}/subscribe',
   tags: [SESSIONS_TAG],
   summary: 'Subscribe to a running turn',
   description:
     'Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).',
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'subscribe_to_turn',
+  'x-fern-streaming': { format: 'sse', resumable: true },
   request: {
     params: TurnIdParamsSchema,
-    body: {
-      content: { 'application/json': { schema: SubscribeTurnRequestSchema } },
-      required: true,
-    },
+    query: SubscribeTurnQuerySchema,
   },
   responses: {
     200: {
