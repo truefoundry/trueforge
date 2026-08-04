@@ -7,7 +7,7 @@ export type { Turn } from '@truefoundry/utils/agent-session';
 
 export const SubscribeTurnQuerySchema = z
   .object({
-    after_sequence_number: z.number().int().nonnegative().optional(),
+    after_sequence_number: z.coerce.number().int().nonnegative().optional(),
   })
   .openapi('SubscribeTurnQuery');
 
