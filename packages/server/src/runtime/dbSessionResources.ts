@@ -103,7 +103,8 @@ function dcrHeadersResolver(params: {
 }
 
 /**
- * Load MCP url + OAuth headers resolver for a DB-configured server.
+ * Load MCP url + headers for a DB-configured server.
+ * DCR uses resolveMcpAuth; no-auth servers get empty static headers.
  * Throws HTTPException(400) if the server is not registered.
  */
 export async function getDbMcpConnection({
@@ -125,14 +126,20 @@ export async function getDbMcpConnection({
       message: `Unknown MCP server "${name}" — not configured`,
     });
   }
+  if (record.manifest.auth?.type === 'dcr') {
+    return {
+      url: record.manifest.url,
+      headers: dcrHeadersResolver({
+        record,
+        tokenStore,
+        mcpServerStore: store,
+        clientName,
+      }),
+    };
+  }
   return {
     url: record.manifest.url,
-    headers: dcrHeadersResolver({
-      record,
-      tokenStore,
-      mcpServerStore: store,
-      clientName,
-    }),
+    headers: {},
   };
 }
 

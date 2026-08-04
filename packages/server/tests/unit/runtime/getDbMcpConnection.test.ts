@@ -138,4 +138,27 @@ describe('getDbMcpConnection', () => {
       headers: { Authorization: 'Bearer live-access' },
     });
   });
+
+  it('returns empty static headers when the server has no auth', async () => {
+    await mcpServerStore.upsertServer({
+      tenant_id: TENANT_ID,
+      name: 'open-mcp',
+      manifest: {
+        type: 'remote',
+        name: 'open-mcp',
+        url: 'https://mcp.open.example/mcp',
+      },
+    });
+
+    const connection = await getDbMcpConnection({
+      tenant_id: TENANT_ID,
+      name: 'open-mcp',
+      store: mcpServerStore,
+      tokenStore,
+      clientName: 'test-client',
+    });
+
+    expect(connection.url).toBe('https://mcp.open.example/mcp');
+    expect(connection.headers).toEqual({});
+  });
 });
