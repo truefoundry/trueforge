@@ -42,28 +42,50 @@ export function refineUniqueModels(models: { model_id: string; name: string }[],
   }
 }
 
-const ProviderAuthSchema = z
+const ModelProviderAuthSchema = z
   .object({
     api_key: z.string().min(1),
   })
   .strict()
   .openapi('ModelProviderAuth');
 
-/**
- * Non-identity fields of a configured provider, shared verbatim between the
- * PUT request body and the persisted `model_provider.manifest` document.
- * Compose with `.superRefine(refineProviderManifest)` after any `.extend()`.
- */
-export const ProviderManifestObjectSchema = z
+const ModelProviderManifestBaseSchema = z
   .object({
-    type: ProviderTypeSchema,
-    base_url: z.string().url().describe("Base URL of the provider's API."),
-    auth: ProviderAuthSchema,
+    auth: ModelProviderAuthSchema,
     models: z.array(ModelEntrySchema).min(1),
   })
   .strict();
 
-export function refineProviderManifest(
+/** Shared by openai/anthropic: optional override of the provider's default endpoint. */
+const WellKnownModelProviderManifestBaseSchema = ModelProviderManifestBaseSchema.extend({
+  base_url: z.string().url().optional().describe("Optional override of the provider's default API base URL."),
+}).strict();
+
+const OpenAIModelProviderManifestSchema = WellKnownModelProviderManifestBaseSchema.extend({
+  type: z.literal('openai'),
+}).strict();
+
+const AnthropicModelProviderManifestSchema = WellKnownModelProviderManifestBaseSchema.extend({
+  type: z.literal('anthropic'),
+}).strict();
+
+/** Same fields as well-known providers, but base_url is required (no canonical endpoint). */
+const CustomModelProviderManifestSchema = ModelProviderManifestBaseSchema.extend({
+  type: z.literal('custom'),
+  base_url: z.string().url().describe("Base URL of the provider's API."),
+}).strict();
+
+/**
+ * Non-identity fields of a configured provider, shared verbatim between the
+ * PUT request body and the persisted `model_provider.manifest` document.
+ */
+export const ModelProviderManifestObjectSchema = z.discriminatedUnion('type', [
+  OpenAIModelProviderManifestSchema,
+  AnthropicModelProviderManifestSchema,
+  CustomModelProviderManifestSchema,
+]);
+
+export function refineModelProviderManifest(
   manifest: { models: { model_id: string; name: string }[] },
   ctx: z.RefinementCtx,
 ): void {
@@ -71,16 +93,33 @@ export function refineProviderManifest(
 }
 
 export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
-export type ProviderManifest = z.infer<typeof ProviderManifestObjectSchema>;
+export type ModelProviderManifest = z.infer<typeof ModelProviderManifestObjectSchema>;
+
+const OpenAIModelProviderSchema = OpenAIModelProviderManifestSchema.extend({
+  name: NameSchema,
+})
+  .strict()
+  .openapi('OpenAIModelProvider');
+
+const AnthropicModelProviderSchema = AnthropicModelProviderManifestSchema.extend({
+  name: NameSchema,
+})
+  .strict()
+  .openapi('AnthropicModelProvider');
+
+const CustomModelProviderSchema = CustomModelProviderManifestSchema.extend({
+  name: NameSchema,
+})
+  .strict()
+  .openapi('CustomModelProvider');
 
 /**
  * Configured provider: PUT body and list/upsert response data (identity `name`
  * plus manifest fields, including `auth.api_key`).
  */
-export const ModelProviderSchema = ProviderManifestObjectSchema.extend({
-  name: NameSchema,
-})
-  .superRefine(refineProviderManifest)
+export const ModelProviderSchema = z
+  .discriminatedUnion('type', [OpenAIModelProviderSchema, AnthropicModelProviderSchema, CustomModelProviderSchema])
+  .superRefine(refineModelProviderManifest)
   .openapi('ModelProvider');
 
 export const PutModelProviderRequestSchema = ModelProviderSchema;
@@ -118,3 +157,10 @@ export const ListModelsResponseSchema = z
 export type ModelProvider = z.infer<typeof ModelProviderSchema>;
 export type PutModelProviderRequest = ModelProvider;
 export type Model = z.infer<typeof ModelSchema>;
+
+/** Strip wire identity `name`; remaining fields are the persisted manifest document. */
+export function toModelProviderManifest(provider: ModelProvider): ModelProviderManifest {
+  const { name, ...manifest } = provider;
+  void name;
+  return manifest;
+}

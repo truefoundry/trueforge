@@ -15,8 +15,8 @@ module.exports = {
   },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
-    '^@truefoundry/utils/agent-session/(.*)$': '<rootDir>/../harness/src/agent-session/$1',
-    '^@truefoundry/utils/core/(.*)$': '<rootDir>/../harness/src/core/$1',
+    '^@truefoundry/utils-core/agent-session/(.*)$': '<rootDir>/../harness/src/agent-session/$1',
+    '^@truefoundry/utils-core/core/(.*)$': '<rootDir>/../harness/src/core/$1',
   },
   testTimeout: 30_000,
   maxWorkers: '50%',

@@ -2,11 +2,11 @@
 
 pnpm workspace with:
 
-| Package               | Path                                     | Role                                              |
-| --------------------- | ---------------------------------------- | ------------------------------------------------- |
-| `@truefoundry/utils`  | [`packages/harness`](packages/harness)   | Published library (`core` + `agent-session`)      |
-| `@truefoundry/server` | [`packages/server`](packages/server)     | HTTP server + UI host (private; depends on utils) |
-| `frontend`            | [`packages/frontend`](packages/frontend) | Private draft-only agent chat UI (not published)  |
+| Package                   | Path                                     | Role                                                   |
+| ------------------------- | ---------------------------------------- | ------------------------------------------------------ |
+| `@truefoundry/utils-core` | [`packages/harness`](packages/harness)   | Published library (`core` + `agent-session`)           |
+| `@truefoundry/server`     | [`packages/server`](packages/server)     | HTTP server + UI host (private; depends on utils-core) |
+| `frontend`                | [`packages/frontend`](packages/frontend) | Private draft-only agent chat UI (not published)       |
 
 ## Development
 
@@ -17,10 +17,9 @@ The API and frontend run on the host with hot reload. Postgres and Redis run in 
 ```bash
 pnpm install
 cp packages/server/.env.example packages/server/.env
-cp -R packages/server/registry-example packages/server/registry
 ```
 
-Fill in `MODEL_API_KEY` in `packages/server/.env`. The copied defaults already connect the host server to the Compose services.
+Fill in any required secrets in `packages/server/.env`. The copied defaults already connect the host server to the Compose services.
 
 ### Day-to-day
 
@@ -36,9 +35,9 @@ Terminal 2:
 pnpm dev         # API on :8790 and Vite on :3000
 ```
 
-Open `http://localhost:3000`. Frontend changes update through Vite HMR; server changes automatically restart the API on `:8790`. Vite proxies `/api/*` to the API. Local server scripts resolve `@truefoundry/utils` from source (`exports.development`), so a utils `dist/` build is not required for `pnpm dev`. For drain testing without server hot reload, use `pnpm dev:no-watch` instead of `pnpm dev`.
+Open `http://localhost:3000`. Frontend changes update through Vite HMR; server changes automatically restart the API on `:8790`. Vite proxies `/api/*` to the API. Local server scripts resolve `@truefoundry/utils-core` from source (`exports.development`), so a utils-core `dist/` build is not required for `pnpm dev`. For drain testing without server hot reload, use `pnpm dev:no-watch` instead of `pnpm dev`.
 
-The workspace utils package is ESM so the host server and source schemas share one ESM dependency graph. `NODE_OPTIONS=--conditions=development` selects `src/` at runtime, and TypeScript uses the same condition for source-based static analysis. Development, lint, typecheck, tests, OpenAPI generation, and migrations do not read or recreate `packages/harness/dist`; release builds, package checks, and Docker smoke tests create it intentionally.
+The workspace utils-core package is ESM so the host server and source schemas share one ESM dependency graph. `NODE_OPTIONS=--conditions=development` selects `src/` at runtime, and TypeScript uses the same condition for source-based static analysis. Development, lint, typecheck, tests, OpenAPI generation, and migrations do not read or recreate `packages/harness/dist`; release builds, package checks, and Docker smoke tests create it intentionally.
 
 Server dev scripts regenerate the embedded sandbox Python helpers before startup. Root `pnpm dev` also watches those Python files, regenerates the TypeScript source module after edits, and lets the server watcher restart normally. Neither path builds `dist`.
 
@@ -64,7 +63,7 @@ pnpm test
 pnpm typecheck
 ```
 
-Root `build` / `typecheck` (and CI) include utils, server, and frontend. `FRONTEND_PORT` moves Vite off `:3000`, `VITE_SERVER_URL` points it at another API. See [`packages/frontend/README.md`](packages/frontend/README.md).
+Root `build` / `typecheck` (and CI) include utils-core, server, and frontend. `FRONTEND_PORT` moves Vite off `:3000`, `VITE_SERVER_URL` points it at another API. See [`packages/frontend/README.md`](packages/frontend/README.md).
 
 ## Serving the UI from the server
 
@@ -82,9 +81,9 @@ pnpm smoke       # build, wait for healthy services, then check /healthz and the
 pnpm smoke:down  # stop the stack
 ```
 
-Open `http://localhost:8791`. Secrets and Postgres credentials come from `packages/server/.env` (`MODEL_API_KEY`, etc.). Host ports and in-network DB/Redis targets are fixed in Compose so they do not collide with development: Postgres `:5433`, Redis `:6380`, app `:8791` (vs `pnpm dev:infra` on `:5432`/`:6379` and `pnpm dev` on `:8790`/`:3000`).
+Open `http://localhost:8791`. Secrets and Postgres credentials come from `packages/server/.env`. Host ports and in-network DB/Redis targets are fixed in Compose so they do not collide with development: Postgres `:5433`, Redis `:6380`, app `:8791` (vs `pnpm dev:infra` on `:5432`/`:6379` and `pnpm dev` on `:8790`/`:3000`).
 
-Requires `packages/server/.env` and a `packages/server/registry/` directory (mounted read-only). `.env`, `registry/`, and `data/` are gitignored. Development infra stores Postgres under `./data/dev/postgres`.
+Requires `packages/server/.env`. `.env` and `data/` are gitignored. Development infra stores Postgres under `./data/dev/postgres`.
 
 ## SDK generation
 
@@ -101,16 +100,16 @@ fern check && fern generate --group ts-sdk --version 0.0.0 --local --generate-te
 ## Library imports
 
 ```ts
-import { AgentThread } from '@truefoundry/utils/core';
-import { Sessions } from '@truefoundry/utils/agent-session';
+import { AgentThread } from '@truefoundry/utils-core/core';
+import { Sessions } from '@truefoundry/utils-core/agent-session';
 ```
 
 Or namespaced:
 
 ```ts
-import { core, agentSession } from '@truefoundry/utils';
+import { core, agentSession } from '@truefoundry/utils-core';
 ```
 
-Workspace-only `development` exports are removed from the published package. Its staged `dist/package.json` remains CommonJS so `require()` uses `.js`, while ESM consumers use `.mjs`. This preserves existing consumers such as `tfy-llm-gateway`; they do not need source changes. Consumer compatibility is checked against a packed artifact, including root, barrel, deep skill imports, and both CJS and ESM loading.
+Workspace-only `development` exports are removed from the published package. Its staged `dist/package.json` remains CommonJS so `require()` uses `.js`, while ESM consumers use `.mjs`. After switching from `@truefoundry/utils` to `@truefoundry/utils-core`, consumers such as `tfy-llm-gateway` keep the same deep-import and CJS/ESM layout. Consumer compatibility is checked against a packed artifact, including root, barrel, deep skill imports, and both CJS and ESM loading.
 
 Server-only deps (`hono`, `@hono/node-server`, `@hono/swagger-ui`, `yaml`) live in `packages/server` and never reach library consumers.

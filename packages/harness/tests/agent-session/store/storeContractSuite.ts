@@ -166,7 +166,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const session = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       expect(session).toBeDefined();
       expect(mustGet(session).tenant_id).toBe(tenant);
-      expect(mustGet(session).agent_spec.model.name).toBe('test-model');
+      expect(mustGet(session).agent_spec.model.name).toBe('test-provider/test-model');
       expect(mustGet(session).last_activity_timestamp_ms).toBeGreaterThanOrEqual(before);
       expect(mustGet(session).title).toBeNull();
     });

@@ -5,7 +5,7 @@
  * JSON payload columns are BLOB JSONB on disk. Reads must project `json(column)`;
  * `ParseJSONResultsPlugin` (configured in createSqliteDb) parses those top-level columns only.
  */
-import type { AgentSpec, PersistedTurnEvent, TurnInputItem, TurnState } from '@truefoundry/utils/agent-session';
+import type { AgentSpec, PersistedTurnEvent, TurnInputItem, TurnState } from '@truefoundry/utils-core/agent-session';
 import type {
   AgentInfo,
   AgentParent,
@@ -14,11 +14,11 @@ import type {
   MCPServerInitInfo,
   SandboxInfo,
   SubAgentCompletionMarker,
-} from '@truefoundry/utils/core';
-import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
+} from '@truefoundry/utils-core/core';
+import type { CurrentContextUsage } from '@truefoundry/utils-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
-import type { ProviderManifest } from '../../schemas/modelProvider';
+import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type { SandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpOAuthTypes';
@@ -149,8 +149,8 @@ export interface ThreadCapabilityStateTable {
 export interface ModelProviderTable {
   tenant_id: string;
   name: string;
-  /** ProviderManifest document; replaced whole on every upsert */
-  manifest: JsonbColumn<ProviderManifest>;
+  /** ModelProviderManifest document; replaced whole on every upsert */
+  manifest: JsonbColumn<ModelProviderManifest>;
   created_at: string;
   updated_at: string;
 }

@@ -2,13 +2,13 @@
  * Canonical JSON shapes for MCP OAuth columns (`mcp_server`, `oauth_token`,
  * `oauth_pending_authorization`). Owned by the server DB layer — not the harness.
  *
- * Contract types from `@truefoundry/utils/core` happen to match field for field today, so the
+ * Contract types from `@truefoundry/utils-core/core` happen to match field for field today, so the
  * converters at the bottom are the seam that lets either side change without the other noticing.
  */
 import type {
   OAuthClientRecord as ContractOAuthClientRecord,
   OAuthToken as ContractOAuthToken,
-} from '@truefoundry/utils/core';
+} from '@truefoundry/utils-core/core';
 
 // Absence is an explicit `| null`, not an optional `?:`
 

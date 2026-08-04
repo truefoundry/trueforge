@@ -1,7 +1,7 @@
 /**
  * DB-backed MCP server route definitions.
  * Admin routes mount at /api/v1/settings/mcp-servers; the chat list mounts at
- * /api/v1/mcp-servers. Legacy YAML stays under /api/v1/legacy/mcp-servers.
+ * /api/v1/mcp-servers.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
