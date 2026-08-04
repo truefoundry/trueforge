@@ -132,12 +132,10 @@ export async function validateAgentSpecDb({
   skillStore: ISkillStore;
   sandboxSupported: boolean;
 }): Promise<{ status: 400 | 422; message: string } | undefined> {
+  // FQN shape is enforced by AgentSpecSchema; parse failure here is an invariant.
   const parsed = parseModelFqn(spec.model.name);
   if (parsed === undefined) {
-    return {
-      status: 400,
-      message: `Unknown model "${spec.model.name}" — expected fully qualified "provider/model"`,
-    };
+    throw new Error(`Model name must be a fully qualified "provider/model": ${spec.model.name}`);
   }
   const provider = await modelProviderStore.getProvider({ tenant_id, name: parsed.providerName });
   if (provider === undefined) {
