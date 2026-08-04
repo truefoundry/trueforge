@@ -1,23 +1,10 @@
 import { createCapabilitiesRouter } from '../../../src/apis/capabilities';
-import { createLegacyCapabilitiesRouter } from '../../../src/apis/legacyCapabilities';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 
 describe('capabilities routers', () => {
-  it('legacy capabilities report boot-time sandboxEnabled', async () => {
-    const enabled = createLegacyCapabilitiesRouter({ sandboxEnabled: true });
-    const enabledRes = await enabled.request('/');
-    expect(enabledRes.status).toBe(200);
-    expect(await enabledRes.json()).toEqual({ data: { sandbox: { enabled: true } } });
-
-    const disabled = createLegacyCapabilitiesRouter({ sandboxEnabled: false });
-    const disabledRes = await disabled.request('/');
-    expect(disabledRes.status).toBe(200);
-    expect(await disabledRes.json()).toEqual({ data: { sandbox: { enabled: false } } });
-  });
-
-  it('new capabilities derive sandbox and skill from the store', async () => {
+  it('capabilities derive sandbox and skill from the store', async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const store = new SqliteSandboxProviderStore(db);

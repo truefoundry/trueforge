@@ -97,6 +97,7 @@ export class SkillsClient {
      *     await client.settings.skills.upsert({
      *         description: "description",
      *         name: "name",
+     *         ref: "ref",
      *         type: "git",
      *         url: "url"
      *     })

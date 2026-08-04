@@ -14,13 +14,15 @@ import type {
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { randomBytes } from 'node:crypto';
 import type { IOAuthClientStore, OAuthClientRecord } from '../../auth/IOAuthClientStore';
-import type { IOAuthTokenStore, OAuthToken } from '../../auth/IOAuthTokenStore';
-import { McpConnectionError } from '../../errors';
+import type { IOAuthTokenStore } from '../../auth/IOAuthTokenStore';
+import { isOAuthAccessTokenUsable } from '../../auth/oauthToken';
+import { McpConnectionError, McpDcrConfigurationError } from '../../errors';
 import {
   mcpAuthorizationServerMetadata,
   mcpAuthorizationServerOrigin,
   mcpClientInformation,
   mcpOAuthCallbackUrl,
+  oauthTokensToOAuthToken,
 } from './mcpOAuthHelpers';
 
 export interface McpAuthResolvedResult {
@@ -45,14 +47,11 @@ export interface CompleteMcpAuthorizationResult {
 }
 
 /**
+ * Prefer `client_secret_post` (confidential). Authorization servers that only issue public
+ * clients or only accept other methods can reject that; retry once without the field (same as
+ * servicefoundry outbound DCR), then surface. Not a loop.
  * When the token response omits `expires_in` (allowed by RFC 6749), use a 1h TTL so
  * the saved token is not treated as already expired on the next `resolveMcpAuth`.
- */
-export const DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS = 3600;
-
-/**
- * Prefer `client_secret_post` (confidential). Retry without the field only when the AS rejects
- * that metadata (`invalid_client_metadata`); other failures (network, 5xx, etc.) surface as-is.
  */
 async function registerMcpClientWithAuthMethodFallback(params: {
   authorizationServerUrl: string;
@@ -125,16 +124,14 @@ export async function createMcpOAuthClient(params: {
   const { authorizationServerUrl, authorizationServerMetadata: metadata } = await discoverOAuthServerInfo(mcpServerUrl);
 
   if (!metadata?.registration_endpoint) {
-    throw new McpConnectionError(
+    throw new McpDcrConfigurationError(
       `MCP server '${mcpServerName}' has no DCR support (missing registration_endpoint); auth.type: dcr is misconfigured for this server`,
-      400,
     );
   }
 
   if (!metadata.authorization_endpoint || !metadata.token_endpoint) {
-    throw new McpConnectionError(
+    throw new McpDcrConfigurationError(
       `Authorization server for MCP server '${mcpServerName}' is missing authorization_endpoint or token_endpoint`,
-      400,
     );
   }
 
@@ -142,9 +139,8 @@ export async function createMcpOAuthClient(params: {
   // Missing/omitted advertisement → still try S256 (many servers support it but do not publish).
   const pkceMethods = metadata.code_challenge_methods_supported;
   if (pkceMethods && !pkceMethods.includes('S256')) {
-    throw new McpConnectionError(
+    throw new McpDcrConfigurationError(
       `Authorization server for MCP server '${mcpServerName}' advertises PKCE methods without S256`,
-      400,
     );
   }
 
@@ -236,22 +232,6 @@ export async function buildMcpAuthorizationUrl(params: {
   return started.authorizationUrl;
 }
 
-function isMcpAccessTokenUsable(expiresAtIso: string, nowMs: number): boolean {
-  const expiresAtMs = Date.parse(expiresAtIso);
-  return !Number.isNaN(expiresAtMs) && expiresAtMs > nowMs;
-}
-
-function oauthTokensToOAuthToken(tokens: OAuthTokens, nowMs: number, fallbackRefreshToken: string | null): OAuthToken {
-  const expiresInSeconds = tokens.expires_in ?? DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS;
-  const expiresAtMs = nowMs + expiresInSeconds * 1000;
-  return {
-    accessToken: tokens.access_token,
-    refreshToken: tokens.refresh_token ?? fallbackRefreshToken,
-    expiresAt: new Date(expiresAtMs).toISOString(),
-    scope: tokens.scope ?? null,
-  };
-}
-
 export async function resolveMcpAuth(params: {
   tokenStore: IOAuthTokenStore;
   mcpServerStore: IOAuthClientStore;
@@ -265,7 +245,7 @@ export async function resolveMcpAuth(params: {
   const nowMs = Date.now();
   const token = await params.tokenStore.getToken({ id: params.serverId });
 
-  if (token && isMcpAccessTokenUsable(token.expiresAt, nowMs)) {
+  if (token && isOAuthAccessTokenUsable(token.expiresAt, nowMs)) {
     return { headers: { Authorization: `Bearer ${token.accessToken}` } };
   }
 

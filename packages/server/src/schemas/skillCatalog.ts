@@ -19,7 +19,7 @@ export const CatalogSkillSchema = z
     name: NameSchema,
     url: SkillGitUrlSchema,
     path: SkillGitPathSchema.optional(),
-    ref: SkillGitRefSchema.optional(),
+    ref: SkillGitRefSchema,
     description: SkillDescriptionSchema,
   })
   .strict()

@@ -1,7 +1,7 @@
 /**
  * DB-backed skill route definitions.
  * Admin routes mount at /api/v1/settings/skills; the chat list mounts at
- * /api/v1/skills. Legacy YAML stays under /api/v1/legacy/skills.
+ * /api/v1/skills.
  */
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';

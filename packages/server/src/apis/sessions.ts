@@ -1,5 +1,8 @@
+/**
+ * DB-backed sessions API (mounted at /api/v1/sessions).
+ */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { AgentSpec, ISessionStore, SessionRecord, Sessions } from '@truefoundry/utils-core/agent-session';
+import type { ISessionStore, SessionRecord, Sessions } from '@truefoundry/utils-core/agent-session';
 import {
   CancellationReason,
   SessionStoreConflictError,
@@ -15,8 +18,9 @@ import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import configuration from '../config';
-import type { McpStore } from '../legacy-registry-store/McpStore';
-import type { ModelStore } from '../legacy-registry-store/ModelStore';
+import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISkillStore } from '../db/skillStore';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -27,6 +31,7 @@ import {
   updateSessionRoute,
 } from '../routes/sessionRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
+import { validateAgentSpecDb } from '../runtime/dbSessionResources';
 import { executorFromTurnId } from '../runtime/peeringIds';
 import type { Session } from '../schemas/session';
 
@@ -54,61 +59,15 @@ export function toWireSession(record: SessionRecord): Session {
   };
 }
 
-/**
- * Cross-checks an AgentSpec against the YAML catalogs and the server's
- * capabilities before a session is created or updated, so misconfigured specs
- * fail at admission instead of at turn time. Returns undefined when the spec
- * is usable; otherwise an error with the status to respond with: 400 when the
- * spec references unknown catalog entries (a client-side spec problem), 422
- * when the spec is valid but this deployment cannot satisfy it (missing
- * sandbox provider).
- */
-function validateAgentSpec(
-  spec: AgentSpec,
-  deps: { modelStore: ModelStore; mcpStore: McpStore; sandboxSupported: boolean },
-): { status: 400 | 422; message: string } | undefined {
-  const model = deps.modelStore.get(spec.model.name);
-  if (!model) {
-    return { status: 400, message: `Unknown model "${spec.model.name}" — not declared in models.yaml` };
-  }
-  const reasoningEffort = spec.model.params?.reasoning_effort;
-  if (reasoningEffort !== undefined && !model.reasoning_efforts?.includes(reasoningEffort)) {
-    return {
-      status: 400,
-      message: model.reasoning_efforts
-        ? `Reasoning effort "${reasoningEffort}" is not supported by model "${model.name}"`
-        : `Model "${model.name}" does not support configurable reasoning effort`,
-    };
-  }
-  for (const server of spec.mcp_servers ?? []) {
-    if (!deps.mcpStore.get(server.name)) {
-      return { status: 400, message: `Unknown MCP server "${server.name}" — not declared in mcp.yaml` };
-    }
-  }
-  const wantsSandbox = spec.config?.sandbox?.enabled === true;
-  const hasSkills = (spec.skills?.length ?? 0) > 0;
-  if ((wantsSandbox || hasSkills) && !deps.sandboxSupported) {
-    return {
-      status: 422,
-      message: hasSkills
-        ? 'skills require a sandbox provider — set SANDBOX_SETTINGS (and SANDBOX_API_KEY)'
-        : 'sandbox is enabled in the agent spec but this server has no sandbox provider configured — set SANDBOX_SETTINGS (and SANDBOX_API_KEY)',
-    };
-  }
-  return undefined;
-}
-
 export interface SessionsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  modelStore: ModelStore;
-  mcpStore: McpStore;
-  /** Whether a sandbox provider is configured (SANDBOX_SETTINGS); gates spec admission. */
+  modelProviderStore: IModelProviderStore;
+  mcpServerStore: IMcpServerStore;
+  skillStore: ISkillStore;
   sandboxSupported: boolean;
-  /** Reaches peer executors; undefined in single-binary mode. */
   redis?: RedisClientType | undefined;
-  /** Request-reply dispatch table this replica serves; cancel registers here. */
   requestReplyRouter: RequestReplyRouter;
 }
 
@@ -124,9 +83,8 @@ function cancelTurnOnThisExecutor(
 }
 
 /**
- * Peer-facing cancel handler (registered in createSessionsRouter): aborts the
- * turn if it runs in this process. 200 = abort fired, 412 = not running here
- * (treated by callers as a no-op).
+ * Peer-facing cancel handler: aborts the turn if it runs in this process.
+ * 200 = abort fired, 412 = not running here (treated by callers as a no-op).
  */
 export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): RequestReplyRouteHandler {
   // Synchronous by nature; the transport expects a Promise and require-await
@@ -221,16 +179,18 @@ export async function cancelSessionTurn(
   cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
 }
 
+/** DB-backed sessions (mounted at /api/v1/sessions). */
 export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
-    const specError = validateAgentSpec(body.agent_spec, deps);
-    if (specError) {
-      // Hono's typed responses require a literal status per call site.
-      return specError.status === 422
-        ? c.json({ error: { message: specError.message } }, 422)
-        : c.json({ error: { message: specError.message } }, 400);
-    }
+    await validateAgentSpecDb({
+      spec: body.agent_spec,
+      tenant_id: TENANT_ID,
+      modelProviderStore: deps.modelProviderStore,
+      mcpServerStore: deps.mcpServerStore,
+      skillStore: deps.skillStore,
+      sandboxSupported: deps.sandboxSupported,
+    });
     const session = await deps.sessions.create({
       tenant_id: TENANT_ID,
       session_id: ulid().toLowerCase(),
@@ -258,12 +218,14 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const { sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
     if (body.agent_spec) {
-      const specError = validateAgentSpec(body.agent_spec, deps);
-      if (specError) {
-        return specError.status === 422
-          ? c.json({ error: { message: specError.message } }, 422)
-          : c.json({ error: { message: specError.message } }, 400);
-      }
+      await validateAgentSpecDb({
+        spec: body.agent_spec,
+        tenant_id: TENANT_ID,
+        modelProviderStore: deps.modelProviderStore,
+        mcpServerStore: deps.mcpServerStore,
+        skillStore: deps.skillStore,
+        sandboxSupported: deps.sandboxSupported,
+      });
     }
     try {
       await deps.sessionStore.updateSession({
@@ -305,9 +267,6 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
   };
 
-  // Cancels only the session's tail (last_turn_id). Cancelling with no
-  // running turn is a 200 no-op, matching the turn state machine (first
-  // terminal write wins).
   const cancelSessionHandler: RouteHandler<typeof cancelSessionRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
@@ -355,7 +314,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   router.openapi(updateSessionRoute, updateSessionHandler);
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);
-  deps.requestReplyRouter.registerRoute(SESSIONS_CANCEL_PATH, cancelSessionTurnPeerHandler(deps.activeTurns));
   router.openapi(listSessionEventsRoute, listSessionEventsHandler);
+  deps.requestReplyRouter.registerRoute(SESSIONS_CANCEL_PATH, cancelSessionTurnPeerHandler(deps.activeTurns));
   return router;
 }

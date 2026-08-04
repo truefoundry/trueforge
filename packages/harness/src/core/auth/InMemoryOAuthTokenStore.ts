@@ -33,6 +33,17 @@ export class InMemoryOAuthTokenStore implements IOAuthTokenStore {
     return this.tokens.get(params.id);
   }
 
+  async getTokens(params: { ids: string[] }): Promise<Map<string, OAuthToken>> {
+    const out = new Map<string, OAuthToken>();
+    for (const id of params.ids) {
+      const token = this.tokens.get(id);
+      if (token) {
+        out.set(id, token);
+      }
+    }
+    return out;
+  }
+
   async deleteToken(params: { id: string }): Promise<void> {
     this.tokens.delete(params.id);
   }

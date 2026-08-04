@@ -70,6 +70,23 @@ export function runOAuthTokenStoreContractSuite(getHarness: () => OAuthTokenStor
     expect(await h.store.getToken({ id: RESOURCE_ID })).toBeUndefined();
   });
 
+  it('getTokens batches only the ids that have a stored token', async () => {
+    const h = getHarness();
+    await h.seedResource(RESOURCE_ID);
+    await h.seedResource(OTHER_RESOURCE_ID);
+    const first = token();
+    await h.store.saveToken({ id: RESOURCE_ID, token: first });
+
+    const found = await h.store.getTokens({ ids: [RESOURCE_ID, OTHER_RESOURCE_ID, 'mcp-server-absent'] });
+
+    expect(found).toEqual(new Map([[RESOURCE_ID, first]]));
+  });
+
+  it('getTokens returns an empty map for no ids', async () => {
+    const h = getHarness();
+    expect(await h.store.getTokens({ ids: [] })).toEqual(new Map());
+  });
+
   it('tokens are scoped per resource', async () => {
     const h = getHarness();
     await h.seedResource(RESOURCE_ID);

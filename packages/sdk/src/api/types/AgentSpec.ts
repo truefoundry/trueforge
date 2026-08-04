@@ -12,6 +12,6 @@ export interface AgentSpec {
     messages?: TrueHarness.AgentSpecUserMessage[];
     model: TrueHarness.AgentSpecModel;
     responseFormat?: TrueHarness.ResponseFormat;
-    skills?: TrueHarness.SkillMount[];
+    skills?: TrueHarness.SkillNameRef[];
     variables?: Record<string, string>;
 }
