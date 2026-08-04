@@ -173,26 +173,10 @@ export interface ServerConfiguration {
    */
   OAUTH_CLIENT_NAME: string;
   /**
-   * Sandbox provider settings as a JSON object discriminated on `type`
-   * (see SandboxProviderSettingsSchema in the harness; today: "daytona").
-   * Unset = sandbox unsupported: specs with `config.sandbox.enabled` are
-   * rejected at session creation. Validated at boot by the sandbox factory.
-   * Env: `SANDBOX_SETTINGS`.
+   * Max bytes for a single file download out of the sandbox.
+   * Env: `SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD`. Default 20 MB (same as gateway).
    */
-  SANDBOX_SETTINGS: string | undefined;
-  /**
-   * Provider API key, kept out of the SANDBOX_SETTINGS JSON blob; overrides
-   * an inline `apiKey` when both are set. Env: `SANDBOX_API_KEY`.
-   */
-  SANDBOX_API_KEY: string | undefined;
-  /** Max bytes for a single file download out of the sandbox. Env: `SANDBOX_FILE_MAX_BYTES`. Default 20 MB. */
-  SANDBOX_FILE_MAX_BYTES: number;
-  /**
-   * Lifetime of the signed preview URL minted for the sandbox NATS bridge;
-   * effectively the max duration of one turn's sandbox connection.
-   * Env: `SANDBOX_PREVIEW_URL_EXPIRY_SECONDS`. Default 1 hour.
-   */
-  SANDBOX_PREVIEW_URL_EXPIRY_SECONDS: number;
+  SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: number;
   /**
    * Max seconds to wait for turn cancellation + connection drain on SIGTERM/SIGINT.
    * Env: `GRACEFUL_TIMEOUT_SECONDS`. Default 30.
@@ -306,17 +290,10 @@ const configuration: ServerConfiguration = {
   FRONTEND_DIR: path.resolve(getEnv('FRONTEND_DIR', { defaultValue: DEFAULT_FRONTEND_DIR }) ?? DEFAULT_FRONTEND_DIR),
   PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { required: true }) ?? '',
   OAUTH_CLIENT_NAME: getEnv('OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
-  SANDBOX_SETTINGS: getEnv('SANDBOX_SETTINGS'),
-  SANDBOX_API_KEY: getEnv('SANDBOX_API_KEY'),
-  SANDBOX_FILE_MAX_BYTES: parsePositiveInt({
-    envKey: 'SANDBOX_FILE_MAX_BYTES',
-    raw: getEnv('SANDBOX_FILE_MAX_BYTES'),
+  SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: parsePositiveInt({
+    envKey: 'SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD',
+    raw: getEnv('SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD'),
     defaultValue: 20_971_520,
-  }),
-  SANDBOX_PREVIEW_URL_EXPIRY_SECONDS: parsePositiveInt({
-    envKey: 'SANDBOX_PREVIEW_URL_EXPIRY_SECONDS',
-    raw: getEnv('SANDBOX_PREVIEW_URL_EXPIRY_SECONDS'),
-    defaultValue: 3600,
   }),
   GRACEFUL_TIMEOUT_SECONDS: parsePositiveInt({
     envKey: 'GRACEFUL_TIMEOUT_SECONDS',

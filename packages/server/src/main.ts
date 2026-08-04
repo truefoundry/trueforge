@@ -17,7 +17,6 @@ try {
     { migrateToLatest },
     { Sessions, CancellationReason },
     { ActiveTurnRegistry },
-    { createServerSandboxProvider },
     { connectRedis },
     { RequestReplyExecutor, RequestReplyRouter },
     { PostgresSessionStore },
@@ -39,7 +38,6 @@ try {
     import('./db/migratePostgres'),
     import('@truefoundry/utils-core/agent-session'),
     import('./runtime/activeTurns'),
-    import('./runtime/sandboxFactory'),
     import('./runtime/redis'),
     import('@truefoundry/utils-core/request-reply'),
     import('./db/postgres/session-store/PostgresSessionStore'),
@@ -71,9 +69,7 @@ try {
   await migrateToLatest(db);
 
   const sessionStore = new PostgresSessionStore(db);
-  // Throws on malformed SANDBOX_SETTINGS; undefined when sandbox is not configured.
   const skillStore = new PostgresSkillStore(db);
-  const sandboxProvider = createServerSandboxProvider({ logger });
   const activeTurns = new ActiveTurnRegistry();
 
   let redis: RedisClientType | undefined;
@@ -99,7 +95,6 @@ try {
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,
-    ...(sandboxProvider ? { sandboxProvider } : {}),
     redis,
     requestReplyRouter,
     eventSubscriptions,

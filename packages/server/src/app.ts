@@ -2,7 +2,7 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/utils-core/agent-session';
-import type { IOAuthTokenStore, SandboxProvider } from '@truefoundry/utils-core/core';
+import type { IOAuthTokenStore } from '@truefoundry/utils-core/core';
 import type { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -58,8 +58,6 @@ export interface ServerDeps {
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
-  /** Shared SandboxProvider from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
-  sandboxProvider?: SandboxProvider;
   /** Primary Redis client (server-owned); undefined in single-binary mode. */
   redis?: RedisClientType | undefined;
   /** Request-reply dispatch table served by this replica's executor. */
@@ -111,7 +109,7 @@ export function createServerApp(deps: ServerDeps) {
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
       skillStore: deps.skillStore,
-      sandboxSupported: deps.sandboxProvider !== undefined,
+      sandboxProviderStore: deps.sandboxProviderStore,
       redis: deps.redis,
       requestReplyRouter: deps.requestReplyRouter,
     }),
@@ -127,7 +125,7 @@ export function createServerApp(deps: ServerDeps) {
       tokenStore: deps.tokenStore,
       skillStore: deps.skillStore,
       eventSubscriptions: deps.eventSubscriptions,
-      ...(deps.sandboxProvider ? { sandboxProvider: deps.sandboxProvider } : {}),
+      sandboxProviderStore: deps.sandboxProviderStore,
       logger: deps.logger,
     }),
   );

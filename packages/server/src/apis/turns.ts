@@ -21,7 +21,6 @@ import {
   McpConnectionError,
   VercelAILLM,
   type IOAuthTokenStore,
-  type SandboxProvider,
   type VercelAIProviderConfig,
 } from '@truefoundry/utils-core/core';
 import type { Context } from 'hono';
@@ -31,6 +30,7 @@ import type { Logger } from 'winston';
 import configuration from '../config';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import {
   createAndExecuteTurnRoute,
@@ -40,10 +40,15 @@ import {
   subscribeTurnRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { getDbMcpConnection, getDbProviderConfig, resolveDbGitSkills } from '../runtime/dbSessionResources';
 import { StreamGoneError, type EventSubscriptionRegistry } from '../runtime/event-subscription';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
-import { buildTurnSandbox } from '../runtime/sandboxFactory';
+import {
+  buildTurnSandbox,
+  getMcpConnection,
+  getProviderConfig,
+  resolveGitSkills,
+  resolveSandboxProvider,
+} from '../runtime/sessionResources';
 import { TENANT_ID } from './sessions';
 
 export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
@@ -67,8 +72,7 @@ export interface TurnsRouterDeps {
   skillStore: ISkillStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
-  /** Shared provider from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
-  sandboxProvider?: SandboxProvider;
+  sandboxProviderStore: ISandboxProviderStore;
   logger: Logger;
 }
 
@@ -80,14 +84,14 @@ function createTurnResolver(deps: {
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
-  sandboxProvider?: SandboxProvider | undefined;
+  sandboxProviderStore: ISandboxProviderStore;
   logger: Logger;
   signal: AbortSignal;
   modelName: string;
   providerConfig: VercelAIProviderConfig;
 }): TurnResourceResolver {
-  const { mcpServerStore, tokenStore, skillStore, logger, signal, modelName, providerConfig } = deps;
-  const sandboxProvider = deps.sandboxProvider;
+  const { mcpServerStore, tokenStore, skillStore, sandboxProviderStore, logger, signal, modelName, providerConfig } =
+    deps;
   return new TurnResourceResolver({
     llm: name => {
       if (name !== modelName) {
@@ -100,32 +104,39 @@ function createTurnResolver(deps: {
       });
     },
     mcp: async name =>
-      getDbMcpConnection({
+      getMcpConnection({
         tenant_id: TENANT_ID,
         name,
         store: mcpServerStore,
         tokenStore,
         clientName: configuration.OAUTH_CLIENT_NAME,
       }),
-    ...(sandboxProvider
-      ? {
-          sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
-            const gitSkills = await resolveDbGitSkills({
-              tenant_id: TENANT_ID,
-              skills: spec.skills ?? [],
-              store: skillStore,
-            });
-            return buildTurnSandbox({
-              provider: sandboxProvider,
-              logger,
-              gitSkills,
-              fileDownloadEnabled: spec.config?.sandbox?.file_downloads ?? false,
-              existingSandboxId,
-              tracing,
-            });
-          },
-        }
-      : {}),
+    sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
+      const provider = await resolveSandboxProvider({
+        tenant_id: TENANT_ID,
+        store: sandboxProviderStore,
+        logger,
+      });
+      if (provider === undefined) {
+        throw new HTTPException(422, {
+          message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
+        });
+      }
+      const gitSkills = await resolveGitSkills({
+        tenant_id: TENANT_ID,
+        skills: spec.skills ?? [],
+        store: skillStore,
+      });
+      return buildTurnSandbox({
+        provider,
+        logger,
+        gitSkills,
+        fileDownloadEnabled: spec.config?.sandbox?.file_downloads ?? false,
+        existingSandboxId,
+        tracing,
+        tenantName: TENANT_ID,
+      });
+    },
     logger,
   });
 }
@@ -210,7 +221,7 @@ export function resolveAfterSequenceNumber(c: Context, bodyAfterSequenceNumber?:
 /** DB-backed turns (mounted at /api/v1/sessions). */
 export function createTurnsRouter(deps: TurnsRouterDeps) {
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
-    const { sessionId } = c.req.valid('param');
+    const { session_id: sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!session) {
@@ -231,7 +242,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   };
 
   const getTurnHandler: RouteHandler<typeof getTurnRoute> = async c => {
-    const { sessionId, turnId } = c.req.valid('param');
+    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const turn = await TurnHandle.get({
       store: deps.sessionStore,
       session_id: sessionId,
@@ -244,7 +255,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   };
 
   const listTurnEventsHandler: RouteHandler<typeof listTurnEventsRoute> = async c => {
-    const { sessionId, turnId } = c.req.valid('param');
+    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const query = c.req.valid('query');
     const turn = await TurnHandle.get({
       store: deps.sessionStore,
@@ -270,7 +281,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   };
 
   const createAndExecuteTurnHandler: RouteHandler<typeof createAndExecuteTurnRoute> = async c => {
-    const { sessionId } = c.req.valid('param');
+    const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
 
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
@@ -280,7 +291,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
     const abortController = new AbortController();
     const modelName = session.agent_spec.model.name;
-    const providerConfig = await getDbProviderConfig({
+    const providerConfig = await getProviderConfig({
       tenant_id: TENANT_ID,
       name: modelName,
       store: deps.modelProviderStore,
@@ -289,7 +300,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       mcpServerStore: deps.mcpServerStore,
       tokenStore: deps.tokenStore,
       skillStore: deps.skillStore,
-      sandboxProvider: deps.sandboxProvider,
+      sandboxProviderStore: deps.sandboxProviderStore,
       logger: deps.logger,
       signal: abortController.signal,
       modelName,
@@ -379,7 +390,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   };
 
   const subscribeTurnHandler: RouteHandler<typeof subscribeTurnRoute> = async c => {
-    const { sessionId, turnId } = c.req.valid('param');
+    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const query = c.req.valid('query');
     const afterSequenceNumber = resolveAfterSequenceNumber(c, query.after_sequence_number);
 

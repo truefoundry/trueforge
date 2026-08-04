@@ -23,6 +23,7 @@
     "smoke": "docker compose up --build --wait && node -e \"Promise.all([fetch('http://127.0.0.1:8791/healthz'), fetch('http://127.0.0.1:8791/')]).then(async ([health, ui]) => { if (!health.ok) throw new Error('healthz returned ' + health.status); const html = await ui.text(); if (!ui.ok || !html.includes('id=\\\"root\\\"')) throw new Error('UI did not return its app shell'); console.log('healthz and UI OK'); })\"",
     "smoke:down": "docker compose down",
     "openapi:write": "pnpm --filter @truefoundry/server openapi:write",
+    "sdk:generate": "bash scripts/generate-sdk.sh",
     "ui:shot": "node ui-shots/shot.mjs",
     "ui:clean": "node ui-shots/clean.mjs",
     "pack:dry": "pnpm --filter @truefoundry/utils-core pack:dry",

@@ -48,7 +48,7 @@ Instantiate and use the client with the following:
 import { TrueHarness } from "trueharness";
 
 const client = new TrueHarness({ baseUrl: "YOUR_BASE_URL" });
-const response = await client.sessions.createTurn("sessionId");
+const response = await client.sessions.createTurn("session_id");
 for await (const item of response) {
     console.log(item);
 }
@@ -96,7 +96,7 @@ The SDK uses async iterators, so you can consume the responses using a `for awai
 import { TrueHarness } from "trueharness";
 
 const client = new TrueHarness({ baseUrl: "YOUR_BASE_URL" });
-const response = await client.sessions.createTurn("sessionId");
+const response = await client.sessions.createTurn("session_id");
 for await (const item of response) {
     console.log(item);
 }
