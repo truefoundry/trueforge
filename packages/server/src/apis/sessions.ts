@@ -180,7 +180,7 @@ export async function cancelSessionTurn(
 export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
-    const specError = await validateAgentSpecDb({
+    await validateAgentSpecDb({
       spec: body.agent_spec,
       tenant_id: TENANT_ID,
       modelProviderStore: deps.modelProviderStore,
@@ -188,11 +188,6 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       skillStore: deps.skillStore,
       sandboxSupported: deps.sandboxSupported,
     });
-    if (specError) {
-      return specError.status === 422
-        ? c.json({ error: { message: specError.message } }, 422)
-        : c.json({ error: { message: specError.message } }, 400);
-    }
     const session = await deps.sessions.create({
       tenant_id: TENANT_ID,
       session_id: ulid().toLowerCase(),
@@ -220,7 +215,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const { sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
     if (body.agent_spec) {
-      const specError = await validateAgentSpecDb({
+      await validateAgentSpecDb({
         spec: body.agent_spec,
         tenant_id: TENANT_ID,
         modelProviderStore: deps.modelProviderStore,
@@ -228,11 +223,6 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         skillStore: deps.skillStore,
         sandboxSupported: deps.sandboxSupported,
       });
-      if (specError) {
-        return specError.status === 422
-          ? c.json({ error: { message: specError.message } }, 422)
-          : c.json({ error: { message: specError.message } }, 400);
-      }
     }
     try {
       await deps.sessionStore.updateSession({

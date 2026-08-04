@@ -3,6 +3,7 @@
  */
 import type { AgentSpec } from '@truefoundry/utils/agent-session';
 import type { GitSkill, VercelAIProviderConfig } from '@truefoundry/utils/core';
+import { HTTPException } from 'hono/http-exception';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISkillStore } from '../db/skillStore';
@@ -114,8 +115,8 @@ export async function resolveDbGitSkills({
 
 /**
  * Cross-checks an AgentSpec against DB-configured models / MCP / skills and
- * sandbox capability. Same statuses as the YAML validator: 400 unknown refs,
- * 422 missing sandbox. Skills are admitted by name only; mounts expand at turn time.
+ * sandbox capability. Throws HTTPException: 400 unknown refs, 422 missing sandbox.
+ * Skills are admitted by name only; mounts expand at turn time.
  */
 export async function validateAgentSpecDb({
   spec,
@@ -131,7 +132,7 @@ export async function validateAgentSpecDb({
   mcpServerStore: IMcpServerStore;
   skillStore: ISkillStore;
   sandboxSupported: boolean;
-}): Promise<{ status: 400 | 422; message: string } | undefined> {
+}): Promise<void> {
   // FQN shape is enforced by AgentSpecSchema; parse failure here is an invariant.
   const parsed = parseModelFqn(spec.model.name);
   if (parsed === undefined) {
@@ -139,48 +140,53 @@ export async function validateAgentSpecDb({
   }
   const provider = await modelProviderStore.getProvider({ tenant_id, name: parsed.providerName });
   if (provider === undefined) {
-    return { status: 400, message: `Unknown model "${spec.model.name}" — provider not configured` };
+    throw new HTTPException(400, {
+      message: `Unknown model "${spec.model.name}" — provider not configured`,
+    });
   }
   const model = provider.manifest.models.find(entry => entry.name === parsed.modelName);
   if (model === undefined) {
-    return { status: 400, message: `Unknown model "${spec.model.name}" — not configured on provider` };
+    throw new HTTPException(400, {
+      message: `Unknown model "${spec.model.name}" — not configured on provider`,
+    });
   }
   const reasoningEffort = spec.model.params?.reasoning_effort;
   if (reasoningEffort !== undefined) {
     const efforts = model.properties.reasoning_efforts;
     if (!efforts?.includes(reasoningEffort)) {
-      return {
-        status: 400,
+      throw new HTTPException(400, {
         message: efforts
           ? `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`
           : `Model "${spec.model.name}" does not support configurable reasoning effort`,
-      };
+      });
     }
   }
 
   for (const server of spec.mcp_servers ?? []) {
     const record = await mcpServerStore.getServer({ tenant_id, name: server.name });
     if (record === undefined) {
-      return { status: 400, message: `Unknown MCP server "${server.name}" — not configured` };
+      throw new HTTPException(400, {
+        message: `Unknown MCP server "${server.name}" — not configured`,
+      });
     }
   }
 
   for (const skill of spec.skills ?? []) {
     const record = await skillStore.getSkill({ tenant_id, name: skill.name });
     if (record === undefined) {
-      return { status: 400, message: `Unknown skill "${skill.name}" — not configured` };
+      throw new HTTPException(400, {
+        message: `Unknown skill "${skill.name}" — not configured`,
+      });
     }
   }
 
   const wantsSandbox = spec.config?.sandbox?.enabled === true;
   const hasSkills = (spec.skills?.length ?? 0) > 0;
   if ((wantsSandbox || hasSkills) && !sandboxSupported) {
-    return {
-      status: 422,
+    throw new HTTPException(422, {
       message: hasSkills
         ? 'skills require a sandbox provider — set SANDBOX_SETTINGS (and SANDBOX_API_KEY)'
         : 'sandbox is enabled in the agent spec but this server has no sandbox provider configured — set SANDBOX_SETTINGS (and SANDBOX_API_KEY)',
-    };
+    });
   }
-  return undefined;
 }
