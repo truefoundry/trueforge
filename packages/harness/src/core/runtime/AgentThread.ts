@@ -226,7 +226,7 @@ function buildModelMessageEvent({
 }: {
   assistantMessage: InternalEnrichedAssistantMessage;
   threadId: string;
-  finishReason: FinishReason;
+  finishReason: FinishReason | null;
   usage: ModelMessageUsage | undefined;
   id: string;
 }): ModelMessageEvent {
@@ -827,7 +827,7 @@ export class AgentThread {
     if (requestBody.tools) {
       for (const tool of requestBody.tools) {
         const toolTokens = Math.round(estimateTokensForString(JSON.stringify(tool)));
-        const info = toolMapping.get(tool.function.name);
+        const info = 'function' in tool ? toolMapping.get(tool.function.name) : undefined;
         if (info && this.tfyManagedServerNames.has(info.toolSet.name)) {
           tfyManagedToolTokens += toolTokens;
         } else {

@@ -174,7 +174,7 @@ describe('toAssistantModelMessage', () => {
     expect(toolCallPart?.input).toEqual({});
   });
 
-  it('places thinking_blocks as reasoning parts — openai provider → encryptedContent', () => {
+  it('places thinking_blocks as reasoning parts — openai provider → reasoningEncryptedContent', () => {
     const msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
       role: 'assistant',
       content: null,
@@ -186,7 +186,8 @@ describe('toAssistantModelMessage', () => {
       p => p.type === 'reasoning',
     );
     expect(reasoningPart?.text).toBe('step one');
-    expect(reasoningPart?.providerOptions).toEqual({ openai: { encryptedContent: 'sig-openai' } });
+    // Key name is the one @ai-sdk/openai reads; anything else and it silently drops the part.
+    expect(reasoningPart?.providerOptions).toEqual({ openai: { reasoningEncryptedContent: 'sig-openai' } });
   });
 
   it('places thinking_blocks as reasoning parts — anthropic provider → signature', () => {
@@ -203,7 +204,7 @@ describe('toAssistantModelMessage', () => {
     expect(reasoningPart?.providerOptions).toEqual({ anthropic: { signature: 'sig-ant' } });
   });
 
-  it('places thinking_blocks as reasoning parts — custom provider → encryptedContent', () => {
+  it('places thinking_blocks as reasoning parts — custom provider carries no replay token', () => {
     const msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
       role: 'assistant',
       content: null,
@@ -211,10 +212,12 @@ describe('toAssistantModelMessage', () => {
     Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step', signature: 'sig-gen' }]);
 
     const result = toAssistantModelMessage({ msg: msg, provider: 'custom' });
-    const reasoningPart = (result.content as Array<{ type: string; providerOptions?: unknown }>).find(
+    const reasoningPart = (result.content as Array<{ type: string; text?: string; providerOptions?: unknown }>).find(
       p => p.type === 'reasoning',
     );
-    expect(reasoningPart?.providerOptions).toEqual({ custom: { encryptedContent: 'sig-gen' } });
+    // OpenAI-compatible replays reasoning as `reasoning_content` text and ignores providerOptions.
+    expect(reasoningPart?.text).toBe('step');
+    expect(reasoningPart?.providerOptions).toBeUndefined();
   });
 
   it('omits providerOptions on reasoning part when provider is google-gemini', () => {

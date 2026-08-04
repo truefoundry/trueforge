@@ -5,4 +5,6 @@ import type * as TrueHarness from "../index.js";
 export interface ResponseFormatJsonSchema {
     jsonSchema: TrueHarness.ResponseFormatJsonSchemaJsonSchema;
     type: "json_schema";
+    /** Accepts any additional properties */
+    [key: string]: any;
 }

@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/utils-core",
-  "version": "0.1.9-rc.1",
+  "version": "0.1.9-rc.2",
   "description": "TrueFoundry agent core and session library",
   "author": "Truefoundry",
   "license": "UNLICENSED",
@@ -82,24 +82,27 @@
     "pack:dry": "cd dist && pnpm pack --dry-run"
   },
   "dependencies": {
+    "@ai-sdk/alibaba": "^2.0.24",
     "@ai-sdk/anthropic": "^4.0.25",
     "@ai-sdk/google": "^4.0.29",
+    "@ai-sdk/moonshotai": "^3.0.25",
     "@ai-sdk/openai": "^4.0.25",
     "@ai-sdk/openai-compatible": "^3.0.18",
+    "@ai-sdk/provider": "^4.0.4",
+    "@ai-sdk/provider-utils": "^5.0.16",
     "@daytona/sdk": "^0.190.0",
-    "@hono/zod-openapi": "^0.19.10",
+    "@hono/zod-openapi": "^1.5.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@nats-io/nats-core": "3.0.2",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/core": "^2.9.0",
     "ai": "^7.0.44",
     "dedent": "^1.7.2",
-    "openai": "^4.104.0",
+    "openai": "^7.2.0",
     "ulid": "^3.0.2",
     "winston": "^3.13.0",
     "ws": "^8.21.0",
-    "zod": "^3.24.3",
-    "zod-to-json-schema": "^3.25.1"
+    "zod": "^4.4.3"
   },
   "peerDependencies": {
     "redis": "^5.10.0"

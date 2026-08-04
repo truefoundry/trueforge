@@ -35,12 +35,11 @@ groups:
   ts-sdk:
     generators:
       - name: fernapi/fern-typescript-node-sdk
-        version: 3.86.0
+        version: 3.87.1
         output:
           location: local-file-system
           path: ../packages/sdk
         config:
-          # TODO: settle the public name before the first publish.
           packageJson:
             name: trueharness
           allowExtraFields: true
@@ -57,6 +56,7 @@ groups:
             client: TrueHarness
           noSerdeLayer: false
           omitUndefined: true
+          requireBaseUrl: true
           retainOriginalCasing: false
           skipResponseValidation: true
           streamType: web

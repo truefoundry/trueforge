@@ -14,8 +14,7 @@ export const DEFAULT_SESSIONS_LIMIT = 10;
 export const SESSIONS_MAX_LIMIT = 100;
 
 /** Wire ISO-8601 (RFC 3339, offsets allowed) → Date for the store. */
-const IsoTimestampQueryParam = z
-  .string()
+const IsoTimestampQueryParam = z.iso
   .datetime({ offset: true })
   .openapi({ type: 'string', format: 'date-time' })
   .transform(s => new Date(s));

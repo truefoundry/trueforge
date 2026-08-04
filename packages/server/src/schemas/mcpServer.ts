@@ -43,7 +43,7 @@ export const McpServerManifestObjectSchema = z
   .object({
     type: McpServerTypeSchema,
     name: NameSchema,
-    url: z.string().url().describe('URL of the remote MCP server.'),
+    url: z.url().describe('URL of the remote MCP server.'),
     auth: McpServerAuthSettingsSchema.optional(),
   })
   .strict();
@@ -54,7 +54,6 @@ export const McpAuthStatusSchema = z
   .object({
     status: z.enum(['authenticated', 'auth_required', 'not_required']),
     authorization_url: z
-      .string()
       .url()
       .optional()
       .describe('When auth is required, this contains the URL to redirect the user to for authorization.'),
@@ -77,7 +76,7 @@ export const ListConfiguredMcpServersResponseSchema = z
 export const McpServerReadEntrySchema = z
   .object({
     name: NameSchema,
-    url: z.string().url(),
+    url: z.url(),
   })
   .strict()
   .openapi('McpServerReadEntry');

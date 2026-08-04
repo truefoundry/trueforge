@@ -204,6 +204,69 @@ describe('mapStreamToChunks', () => {
     });
   });
 
+  // Anthropic's real wire shape: signature_delta surfaces as a text-less reasoning-delta, not on
+  // reasoning-end. Missing it leaves the block unsigned, and Anthropic drops unsigned thinking
+  // blocks when they are replayed, silently losing the reasoning chain.
+  it('attaches signature from a text-less reasoning-delta (Anthropic signature_delta)', async () => {
+    const providerMetadata: ProviderMetadata = { anthropic: { signature: 'ant-delta-sig' } };
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: 'r1' },
+          { type: 'reasoning-delta', id: 'r1', text: 'thought' },
+          { type: 'reasoning-delta', id: 'r1', text: '', providerMetadata },
+          { type: 'reasoning-end', id: 'r1' },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.thinking_blocks?.[0]).toMatchObject({
+      type: 'thinking',
+      thinking: 'thought',
+      signature: 'ant-delta-sig',
+    });
+  });
+
+  it('keeps a reasoning-delta that arrives without a reasoning-start, along with its signature', async () => {
+    const providerMetadata: ProviderMetadata = { anthropic: { signature: 'orphan-sig' } };
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-delta', id: 'r1', text: 'unopened thought', providerMetadata },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.thinking_blocks).toEqual([
+      { type: 'thinking', thinking: 'unopened thought', signature: 'orphan-sig' },
+    ]);
+  });
+
+  it('drops a tool-input-delta whose id never opened, rather than crediting tool call 0', async () => {
+    const { chunks } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'tool-input-start', id: 'call-a', toolName: 'tool_a' },
+          { type: 'tool-input-delta', id: 'call-a', delta: '{"city":' },
+          { type: 'tool-input-delta', id: 'ghost', delta: '"CORRUPT"' },
+          { type: 'tool-input-delta', id: 'call-a', delta: '"Paris"}' },
+          makeFinishStep('tool-calls'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    const streamedArgs = chunks
+      .map(c => c.choices[0]?.delta.tool_calls?.[0]?.function?.arguments)
+      .filter(Boolean)
+      .join('');
+    expect(streamedArgs).toBe('{"city":"Paris"}');
+  });
+
   it('assigns unique ascending indices to interleaved tool-input-* parts', async () => {
     const { chunks } = await drainStream(
       mapStreamToChunks({
@@ -303,6 +366,45 @@ describe('mapStreamToChunks', () => {
         }),
       ),
     ).rejects.toMatchObject({ message: 'LLM stream error', cause });
+  });
+
+  it('rejects on an abort part rather than returning the partial message as a clean stop', async () => {
+    await expect(
+      drainStream(
+        mapStreamToChunks({
+          stream: makeStream([{ type: 'text-delta', id: 't1', text: 'partial' }, { type: 'abort' }]),
+          chunkMeta: CHUNK_META,
+        }),
+      ),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('keeps the provider message when the error part carries a plain object', async () => {
+    await expect(
+      drainStream(
+        mapStreamToChunks({
+          stream: makeStream([{ type: 'error', error: { message: 'The requested model does not exist.' } }]),
+          chunkMeta: CHUNK_META,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      message: 'LLM stream error',
+      cause: { message: 'The requested model does not exist.' },
+    });
+  });
+
+  it('serialises a message-less error object rather than stringifying it to [object Object]', async () => {
+    await expect(
+      drainStream(
+        mapStreamToChunks({
+          stream: makeStream([{ type: 'error', error: { code: 'model_not_found', status: 404 } }]),
+          chunkMeta: CHUNK_META,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      message: 'LLM stream error',
+      cause: { message: '{"code":"model_not_found","status":404}' },
+    });
   });
 
   it('wraps non-Error error values in an Error with cause', async () => {

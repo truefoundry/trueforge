@@ -9,7 +9,6 @@ export type { AgentSpec, SkillNameRef } from './schemas/agentSpec';
 export {
   CancellationReason,
   CreateTurnRequestSchema,
-  PreviousTurnIdInputSchema,
   TurnInputItemSchema,
   TurnMetricsSchema,
   TurnSchema,

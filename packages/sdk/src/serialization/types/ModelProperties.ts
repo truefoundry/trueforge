@@ -8,8 +8,8 @@ export const ModelProperties: core.serialization.ObjectSchema<
     serializers.ModelProperties.Raw,
     TrueHarness.ModelProperties
 > = core.serialization.object({
-    contextLength: core.serialization.property("context_length", core.serialization.number()),
-    maxOutputTokens: core.serialization.property("max_output_tokens", core.serialization.number()),
+    contextLength: core.serialization.property("context_length", core.serialization.number().optional()),
+    maxOutputTokens: core.serialization.property("max_output_tokens", core.serialization.number().optional()),
     reasoningEfforts: core.serialization.property(
         "reasoning_efforts",
         core.serialization.list(core.serialization.string()).optional(),
@@ -18,8 +18,8 @@ export const ModelProperties: core.serialization.ObjectSchema<
 
 export declare namespace ModelProperties {
     export interface Raw {
-        context_length: number;
-        max_output_tokens: number;
+        context_length?: number | null;
+        max_output_tokens?: number | null;
         reasoning_efforts?: string[] | null;
     }
 }

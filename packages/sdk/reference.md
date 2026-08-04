@@ -261,12 +261,7 @@ Create a session holding an inline agent spec. Turns are executed against this s
 await client.sessions.create({
     agentSpec: {
         model: {
-            modelId: "model_id",
-            name: "name",
-            properties: {
-                contextLength: 1,
-                maxOutputTokens: 1
-            }
+            name: "name"
         }
     }
 });
@@ -1479,13 +1474,10 @@ await client.settings.modelProviders.upsert({
     models: [{
             modelId: "model_id",
             name: "name",
-            properties: {
-                contextLength: 1,
-                maxOutputTokens: 1
-            }
+            properties: {}
         }],
     name: "name",
-    type: "anthropic"
+    type: "openai"
 });
 
 ```

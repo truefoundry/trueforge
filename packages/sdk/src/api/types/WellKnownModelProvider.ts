@@ -2,11 +2,11 @@
 
 import type * as TrueHarness from "../index.js";
 
-export interface AnthropicModelProvider {
+export interface WellKnownModelProvider {
     auth: TrueHarness.ModelProviderAuth;
     /** Optional override of the provider's default API base URL. */
     baseUrl?: string;
     models: TrueHarness.ModelEntry[];
     name: TrueHarness.ResourceName;
-    type: "anthropic";
+    type: TrueHarness.WellKnownModelProviderType;
 }
