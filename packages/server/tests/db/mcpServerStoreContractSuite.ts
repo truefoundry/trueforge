@@ -2,6 +2,7 @@
  * Backend-agnostic behavioural contract for IMcpServerStore.
  * Runs under jest against a fresh store per test (see backend test files).
  */
+import type { OAuthClientRecord } from '@truefoundry/utils/core';
 import type { IMcpServerStore } from '../../src/db/mcpServerStore';
 import type { McpServerManifest } from '../../src/schemas/mcpServer';
 
@@ -16,6 +17,18 @@ function manifest(overrides: Partial<McpServerManifest> = {}): McpServerManifest
     ...overrides,
   };
 }
+
+const sampleOAuthClient: OAuthClientRecord = {
+  server: {
+    authorizationEndpoint: 'https://auth.example.com/authorize',
+    tokenEndpoint: 'https://auth.example.com/token',
+    codeChallengeMethodsSupported: ['S256'],
+  },
+  client: {
+    clientId: 'client-1',
+    clientSecret: 'secret-1',
+  },
+};
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
@@ -84,5 +97,45 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
     const servers = await store.listServers(TENANT);
     expect(servers.map(server => server.name)).toEqual(['deepwiki', 'linear']);
     expect(servers.every(server => server.tenant_id === TENANT)).toBe(true);
+  });
+
+  it('upsert leaves oauth columns null and does not clear a saved OAuth client', async () => {
+    const store = getStore();
+    const created = await store.upsertServer({
+      tenant_id: TENANT,
+      name: 'linear',
+      manifest: manifest(),
+    });
+    expect(await store.getClient({ id: created.id })).toBeUndefined();
+
+    await store.saveClient({ id: created.id, record: sampleOAuthClient });
+    expect(await store.getClient({ id: created.id })).toEqual(sampleOAuthClient);
+
+    await store.upsertServer({
+      tenant_id: TENANT,
+      name: 'linear',
+      manifest: manifest({ url: 'https://mcp.linear.app/mcp/v2' }),
+    });
+    expect(await store.getClient({ id: created.id })).toEqual(sampleOAuthClient);
+  });
+
+  it('save/get/delete OAuth client round-trips and clears registration', async () => {
+    const store = getStore();
+    const created = await store.upsertServer({
+      tenant_id: TENANT,
+      name: 'linear',
+      manifest: manifest(),
+    });
+
+    await store.saveClient({ id: created.id, record: sampleOAuthClient });
+    expect(await store.getClient({ id: created.id })).toEqual(sampleOAuthClient);
+
+    await store.deleteClient({ id: created.id });
+    expect(await store.getClient({ id: created.id })).toBeUndefined();
+  });
+
+  it('getClient returns undefined for unknown server ids', async () => {
+    const store = getStore();
+    expect(await store.getClient({ id: 'missing-id' })).toBeUndefined();
   });
 }

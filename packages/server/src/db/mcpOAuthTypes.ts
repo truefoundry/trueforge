@@ -2,10 +2,13 @@
  * Canonical JSON shapes for MCP OAuth columns (`mcp_server`, `oauth_token`,
  * `oauth_pending_authorization`). Owned by the server DB layer — not the harness.
  *
- * `OAuthToken` happens to match the `IOAuthTokenStore` contract field for field today, so the
+ * Contract types from `@truefoundry/utils/core` happen to match field for field today, so the
  * converters at the bottom are the seam that lets either side change without the other noticing.
  */
-import type { OAuthToken as ContractOAuthToken } from '@truefoundry/utils/core';
+import type {
+  OAuthClientRecord as ContractOAuthClientRecord,
+  OAuthToken as ContractOAuthToken,
+} from '@truefoundry/utils/core';
 
 // Absence is an explicit `| null`, not an optional `?:`
 
@@ -31,6 +34,8 @@ export interface OAuthClient {
 
 /** `oauth_pending_authorization.auth_data` JSONB. */
 export interface OAuthPendingAuthorizationData {
+  /** MCP server URL from authorize time — needed by the shared callback for RFC 8707 `resource`. */
+  mcpServerUrl: string;
   codeVerifier: string | null;
   redirectUrl: string | null;
 }
@@ -59,5 +64,39 @@ export function fromStoredOAuthToken(stored: OAuthToken): ContractOAuthToken {
     refreshToken: stored.refreshToken,
     expiresAt: stored.expiresAt,
     scope: stored.scope,
+  };
+}
+
+export function toStoredOAuthClientRecord(record: ContractOAuthClientRecord): {
+  server: OAuthServer;
+  client: OAuthClient;
+} {
+  return {
+    server: {
+      authorizationEndpoint: record.server.authorizationEndpoint,
+      tokenEndpoint: record.server.tokenEndpoint,
+      codeChallengeMethodsSupported: record.server.codeChallengeMethodsSupported,
+    },
+    client: {
+      clientId: record.client.clientId,
+      clientSecret: record.client.clientSecret,
+    },
+  };
+}
+
+export function fromStoredOAuthClientRecord(params: {
+  server: OAuthServer;
+  client: OAuthClient;
+}): ContractOAuthClientRecord {
+  return {
+    server: {
+      authorizationEndpoint: params.server.authorizationEndpoint,
+      tokenEndpoint: params.server.tokenEndpoint,
+      codeChallengeMethodsSupported: params.server.codeChallengeMethodsSupported,
+    },
+    client: {
+      clientId: params.client.clientId,
+      clientSecret: params.client.clientSecret,
+    },
   };
 }

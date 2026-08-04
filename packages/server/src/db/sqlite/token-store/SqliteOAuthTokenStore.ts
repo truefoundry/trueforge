@@ -2,11 +2,7 @@ import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from '@t
 import type { Kysely } from 'kysely';
 import { fromStoredOAuthToken, toStoredOAuthToken } from '../../mcpOAuthTypes';
 import type { Database } from '../types';
-import {
-  deletePendingAuthorization,
-  getPendingAuthorization,
-  savePendingAuthorization,
-} from './queries/pendingAuthorization';
+import { consumePendingAuthorization, savePendingAuthorization } from './queries/pendingAuthorization';
 import { deleteToken, getToken, saveToken } from './queries/token';
 
 export class SqliteOAuthTokenStore implements IOAuthTokenStore {
@@ -16,12 +12,8 @@ export class SqliteOAuthTokenStore implements IOAuthTokenStore {
     return savePendingAuthorization(this.db, pending);
   }
 
-  getPendingAuthorization(params: { state: string }): Promise<OAuthPendingAuthorization | undefined> {
-    return getPendingAuthorization(this.db, params);
-  }
-
-  deletePendingAuthorization(params: { state: string }): Promise<void> {
-    return deletePendingAuthorization(this.db, params);
+  consumePendingAuthorization(params: { state: string }): Promise<OAuthPendingAuthorization | undefined> {
+    return consumePendingAuthorization(this.db, params);
   }
 
   saveToken(params: { id: string; token: OAuthToken }): Promise<void> {
