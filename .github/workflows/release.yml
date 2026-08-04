@@ -21,14 +21,16 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       # OIDC trusted publishing requires npm >= 11.5.1; node 22 bundles npm 10.x.
+      # npm 11 also refuses prerelease publishes without an explicit --tag.
       - run: npm install -g npm@latest
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test
 
-      # Guard: tag must match @truefoundry/utils-core version.
-      # npm publishes what's in package.json, not the tag name.
+      # Guard: git tag must match @truefoundry/utils-core (library is the version authority).
+      # npm publishes what's in package.json, not the tag name. @truefoundry/utils may
+      # use an independent version; bump it in the same release PR when the app changes.
       - name: Verify tag matches utils-core version
         working-directory: packages/harness
         run: |
@@ -38,15 +40,42 @@ jobs:
             exit 1
           fi
 
-      # Library: publish from staged dist/ (openai-node style, deep imports).
+      # Root build copies FE into packages/server/dist/frontend; refuse an API-only tarball.
+      - name: Verify packaged UI is present
+        run: |
+          test -f packages/server/dist/cli.js
+          test -f packages/server/dist/frontend/index.html
+
+      # Library first: utils pins workspace:* → this concrete version on publish.
+      # Prereleases (e.g. 0.1.9-rc.1) must pass --tag (npm 11); first preid → dist-tag (rc).
       - name: Publish @truefoundry/utils-core
         working-directory: packages/harness/dist
-        run: npm publish --access public
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$VERSION" == *-* ]]; then
+            TAG="${VERSION#*-}"
+            TAG="${TAG%%.*}"
+            echo "Publishing $VERSION with --tag $TAG"
+            npm publish --access public --tag "$TAG"
+          else
+            echo "Publishing $VERSION (latest)"
+            npm publish --access public
+          fi
         # TODO(oss): add --provenance once the repo is public. Do NOT add it now:
         # provenance publicly attests the source repo and commit.
 
-      # App + CLI: package root includes dist/ (with dist/frontend/) and registry-default/.
-      # pnpm publish rewrites workspace:* deps to concrete versions.
+      # App + CLI from package root (dist/ includes dist/frontend/).
+      # pnpm publish rewrites workspace:* deps to the utils-core version just published.
       - name: Publish @truefoundry/utils
         working-directory: packages/server
-        run: pnpm publish --access public --no-git-checks
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$VERSION" == *-* ]]; then
+            TAG="${VERSION#*-}"
+            TAG="${TAG%%.*}"
+            echo "Publishing $VERSION with --tag $TAG"
+            pnpm publish --access public --tag "$TAG" --no-git-checks
+          else
+            echo "Publishing $VERSION (latest)"
+            pnpm publish --access public --no-git-checks
+          fi

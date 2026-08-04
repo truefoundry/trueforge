@@ -2,12 +2,15 @@
 
 Two public packages ship from this repo:
 
-| Package                   | Source             | How it publishes                                                        |
-| ------------------------- | ------------------ | ----------------------------------------------------------------------- |
-| `@truefoundry/utils-core` | `packages/harness` | From staged `packages/harness/dist` (library)                           |
-| `@truefoundry/utils`      | `packages/server`  | From package root (`dist/` incl. `dist/frontend/`, `registry-default/`) |
+| Package                   | Source             | How it publishes                                               |
+| ------------------------- | ------------------ | -------------------------------------------------------------- |
+| `@truefoundry/utils-core` | `packages/harness` | From staged `packages/harness/dist` (library)                  |
+| `@truefoundry/utils`      | `packages/server`  | From package root (`dist/`, including `dist/frontend/` for UI) |
 
-The tag `v*` must match **`packages/harness` (`@truefoundry/utils-core`) version**. Bump `@truefoundry/utils` in the same release PR when the app changes.
+The git tag `v*` must match **`packages/harness` (`@truefoundry/utils-core`) version**.
+`@truefoundry/utils` may use an independent version — bump it in the same release PR
+whenever the app/CLI changes. CI publishes **core first**, then utils (so
+`workspace:*` rewrites to the core version that just landed on npm).
 
 ---
 
@@ -45,14 +48,18 @@ root is the compiled file tree. Consequences:
 
 ## Per-release flow
 
-1. **Bump the version via PR** (direct pushes to `main` are blocked by org
+1. **Bump versions via PR** (direct pushes to `main` are blocked by org
    ruleset):
 
    ```bash
    git checkout -b release/v0.x.y
    cd packages/harness
-   npm version 0.x.y --no-git-tag-version   # edits packages/harness/package.json only
-   git commit -am "chore: release v0.x.y"
+   npm version 0.x.y --no-git-tag-version   # or 0.x.y-rc.N for a prerelease
+   cd ../server
+   npm version 0.x.y --no-git-tag-version   # bump when the app/CLI changes; may differ from core
+   cd ../..
+   git add packages/harness/package.json packages/server/package.json
+   git commit -m "chore: release v0.x.y"
    git push -u origin release/v0.x.y
    ```
 
@@ -62,15 +69,24 @@ root is the compiled file tree. Consequences:
 
    ```bash
    git checkout main && git pull
-   git tag v0.x.y
+   git tag v0.x.y          # must equal packages/harness version (e.g. v0.1.9-rc.1)
    git push origin v0.x.y
    ```
 
 3. **CI publishes automatically.** `.github/workflows/release.yml` installs,
-   builds (which stages `dist/` with its own package.json and smoke-tests
-   it), tests, verifies the tag matches `packages/harness/package.json`, and
-   runs `npm publish` **from `packages/harness/dist`** via trusted publishing
-   (OIDC — no NPM_TOKEN anywhere). Watch it under the repo's Actions tab.
+   builds (utils-core → frontend → utils, staging `dist/frontend` into the
+   server package), tests, verifies the tag matches
+   `packages/harness/package.json`, refuses a missing UI bundle, then:
+
+   1. `npm publish` **from `packages/harness/dist`**
+   2. `pnpm publish` from `packages/server` (rewrites `workspace:*` → the new core)
+
+   Auth is trusted publishing (OIDC — no `NPM_TOKEN`). Watch the repo Actions tab.
+
+   **Dist-tags:** npm 11 requires an explicit `--tag` for prereleases. CI derives
+   it from the semver prerelease id (`0.2.0-rc.1` → `--tag rc`). Stable releases
+   publish to `latest`. Install with `npx @truefoundry/utils@rc` or
+   `@0.2.0-rc.1`; bare `npx @truefoundry/utils` stays on `latest`.
 
 4. **Bump the pinned version in the gateway.** Pin exact versions (no `^`)
    during the fast 0.x churn:
@@ -79,25 +95,41 @@ root is the compiled file tree. Consequences:
    "@truefoundry/utils-core": "0.x.y"
    ```
 
+## Why core must publish before utils
+
+`@truefoundry/utils` depends on `@truefoundry/utils-core: workspace:*`. On
+publish, pnpm rewrites that to the **version in `packages/harness/package.json`**.
+If that core version is missing from npm (or is an older build without exports
+the server imports), `npx @truefoundry/utils` fails at runtime. Always ship
+matching core+utils together when the app uses new core APIs.
+
 ## Local iteration without publishing
 
 For tight loops, skip the publish round-trip:
 
 ```bash
+pnpm clean && pnpm build && pnpm server:bin
+# or pack only:
 cd packages/harness && pnpm build && cd dist && pnpm pack
+cd packages/server && pnpm pack
 ```
 
-Point the gateway at the tarball via a `file:` dependency (or use `yalc`).
+Point consumers at a tarball via a `file:` dependency (or use `yalc`).
 Publish a real version when CI or teammates need it.
 
 ## Troubleshooting
 
+- **Publish fails requiring a tag**: prerelease versions need `--tag` (npm 11).
+  CI handles this; for local publishes use e.g. `pnpm publish --tag rc`.
 - **Publish fails with 403/E403**: version already published (npm versions
   are immutable — bump and re-tag), or the trusted publisher config doesn't
   match the workflow filename/repo exactly.
 - **Tag/version mismatch failure**: the guard step caught a tag that doesn't
   match `packages/harness/package.json`. Delete the tag
   (`git push origin :refs/tags/vX.Y.Z`), fix the version via PR, re-tag.
+- **Missing `dist/frontend/index.html`**: root `pnpm build` must build
+  `frontend` before `@truefoundry/utils`; the release job fails closed if the
+  copy is absent.
 - **OIDC/auth error in the publish step**: trusted publishing requires
   npm >= 11.5.1; the workflow upgrades npm globally before publishing —
   check that step ran.

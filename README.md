@@ -19,13 +19,7 @@ pnpm install
 cp packages/server/.env.example packages/server/.env
 ```
 
-<<<<<<< HEAD
-Fill in optional `MODEL_API_KEY` in `packages/server/.env` if you still use the YAML model registry. With `SINGLE_BINARY=true` (default), the server uses SQLite under the OS data dir and does not need Postgres or Redis. The copied defaults still include Postgres/Redis settings for multi-replica (`SINGLE_BINARY=false`).
-=======
-
-Fill in any required secrets in `packages/server/.env`. The copied defaults already connect the host server to the Compose services.
-
-> > > > > > > 2b3669cdde6474fd8a7defbb670126df4d0be147
+For this host-dev flow, set `SINGLE_BINARY=false` in `packages/server/.env` so the server uses the Compose Postgres/Redis defaults. Configure model providers (API keys and endpoints) in the UI under Settings, or via `PUT /api/v1/settings/model-providers` — discovery presets come from `GET /api/v1/settings/model-providers/catalog`. MCP servers, skills, and sandbox providers use the same settings pattern when you need them.
 
 ### Day-to-day
 
@@ -45,24 +39,24 @@ Open `http://localhost:3000`. Frontend changes update through Vite HMR; server c
 
 The workspace utils-core package is ESM so the host server and source schemas share one ESM dependency graph. `NODE_OPTIONS=--conditions=development` selects `src/` at runtime, and TypeScript uses the same condition for source-based static analysis. Development, lint, typecheck, tests, OpenAPI generation, and migrations do not read or recreate `packages/harness/dist`; release builds, package checks, and Docker smoke tests create it intentionally.
 
-Server dev scripts regenerate the embedded sandbox Python helpers before startup. Root `pnpm dev` also watches those Python files, regenerates the TypeScript source module after edits, and lets the server watcher restart normally. Neither path builds `dist`.
+Root `pnpm dev` watches utils-core sandbox Python helpers and server catalog YAML, regenerates the matching TypeScript modules, and lets the server watcher restart normally. Neither path builds `dist`.
 
-| Script              | Runs                                                                               |
-| ------------------- | ---------------------------------------------------------------------------------- |
-| `pnpm dev:infra`    | Postgres + Redis in the foreground                                                 |
-| `pnpm dev`          | Sandbox helper generator + server (`tsx watch`) + Vite                             |
-| `pnpm dev:no-watch` | Same, but API without hot reload (`NODE_ENV=production`) so Ctrl+C exercises drain |
-| `pnpm clean`        | Workspace build outputs and the ESLint cache                                       |
-| `pnpm clean:all`    | The same outputs plus all workspace `node_modules` directories                     |
-| `pnpm server:bin`   | Built CLI (`node dist/cli.js`) — same entry as `npx @truefoundry/utils`            |
+| Script              | Runs                                                                    |
+| ------------------- | ----------------------------------------------------------------------- |
+| `pnpm dev:infra`    | Postgres + Redis in the foreground                                      |
+| `pnpm dev`          | Sandbox/catalog generators + server (`tsx watch`) + Vite                |
+| `pnpm dev:no-watch` | Same stack without server file watching (still `NODE_ENV=development`)  |
+| `pnpm clean`        | Workspace build outputs and the ESLint cache                            |
+| `pnpm clean:all`    | The same outputs plus all workspace `node_modules`                      |
+| `pnpm server:bin`   | Built CLI (`node dist/cli.js`) — same entry as `npx @truefoundry/utils` |
 
-Migrations run automatically on server startup. To migrate without starting HTTP:
+Migrations run automatically on server startup. To migrate Postgres without starting HTTP:
 
 ```bash
 pnpm --filter @truefoundry/utils migrate
 ```
 
-Zero-env single-binary (SQLite + UI), same path as published `npx`:
+Zero-env single-binary (SQLite + UI), same path as published `npx` — leave `SINGLE_BINARY=true` (the `.env.example` default) and skip `pnpm dev:infra`:
 
 ```bash
 pnpm clean
@@ -92,7 +86,8 @@ server behind Vite needs.
 
 ## Docker Compose smoke test
 
-Full stack in containers — built server image serves API + UI (no Vite HMR):
+Full stack in containers — built server image serves API + UI (no Vite HMR). Smoke forces
+`SINGLE_BINARY=false` (Postgres + Redis):
 
 ```bash
 pnpm smoke       # build, wait for healthy services, then check /healthz and the UI app shell
@@ -130,4 +125,4 @@ import { core, agentSession } from '@truefoundry/utils-core';
 
 Workspace-only `development` exports are removed from the published package. Its staged `dist/package.json` remains CommonJS so `require()` uses `.js`, while ESM consumers use `.mjs`. After switching from `@truefoundry/utils` to `@truefoundry/utils-core`, consumers such as `tfy-llm-gateway` keep the same deep-import and CJS/ESM layout. Consumer compatibility is checked against a packed artifact, including root, barrel, deep skill imports, and both CJS and ESM loading.
 
-Server-only deps (`hono`, `@hono/node-server`, `@hono/swagger-ui`, `yaml`) live in `packages/server` and never reach library consumers.
+Server-only deps (`hono`, `@hono/node-server`, `@hono/swagger-ui`, `yaml`, `better-sqlite3`, `pg`, `redis`) live in `packages/server` and never reach library consumers.

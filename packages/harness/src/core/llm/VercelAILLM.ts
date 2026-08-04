@@ -109,7 +109,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
     }
     case 'custom': {
       if (base_url === undefined) {
-        throw new Error('Provider "custom" requires a base_url in models.yaml');
+        throw new Error('Provider "custom" requires a base_url');
       }
       const client = createOpenAICompatible({
         name: 'custom',

@@ -6,8 +6,9 @@
  * import time, so a misconfigured server fails fast at boot instead of
  * mid-run.
  *
- * `SINGLE_BINARY=true` (default) is zero-env: SQLite under env-paths, empty
- * packaged registry, in-process event streams, no Redis/Postgres required.
+ * `SINGLE_BINARY=true` (default) is zero-env: SQLite under env-paths,
+ * in-process event streams, no Redis/Postgres required. Model providers and
+ * other settings are configured via the settings API after boot.
  * `SINGLE_BINARY=false` requires `POSTGRES_*` and `REDIS_URL`.
  */
 import { existsSync } from 'node:fs';
