@@ -13,6 +13,12 @@ const McpOAuthCallbackQuerySchema = z.object({
   error_description: z.string().optional(),
 });
 
+const McpOAuthCallbackSuccessSchema = z
+  .object({
+    success: z.literal(true),
+  })
+  .openapi('McpOAuthCallbackSuccess');
+
 export const mcpOAuthCallbackRoute = createRoute({
   method: 'get',
   path: '/callback',
@@ -24,12 +30,13 @@ export const mcpOAuthCallbackRoute = createRoute({
     query: McpOAuthCallbackQuerySchema,
   },
   responses: {
-    302: {
-      description: 'Redirects to the original `redirect_url` on success, or a failure page if `error` was present.',
+    200: {
+      content: { 'application/json': { schema: McpOAuthCallbackSuccessSchema } },
+      description: 'Token exchanged successfully; no browser redirect.',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Unknown or expired `state` (no matching pending authorization), or `code`/`error` both missing.',
+      description: 'IdP `error`, unknown/expired `state`, token exchange failure, or `code`/`error` both missing.',
     },
     500: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

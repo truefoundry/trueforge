@@ -3,7 +3,6 @@ import {
   completeMcpAuthorization,
   extractErrorLogFields,
   McpConnectionError,
-  validateRedirectUris,
   type IOAuthClientStore,
   type IOAuthTokenStore,
 } from '@truefoundry/utils/core';
@@ -16,10 +15,6 @@ export interface McpOAuthRouterDeps {
   logger: Logger;
 }
 
-/** Fallback when pending auth had no FE `redirect_url` (should not happen for settings authorize). */
-const DEFAULT_CONNECTED_REDIRECT = '/mcp/oauth/connected';
-const DEFAULT_FAILED_REDIRECT = '/mcp/oauth/failed';
-
 /** Shared OAuth callback (mounted at /api/v1/mcp-servers/oauth). */
 export function createMcpOAuthRouter(deps: McpOAuthRouterDeps) {
   const callbackHandler: RouteHandler<typeof mcpOAuthCallbackRoute> = async c => {
@@ -27,18 +22,8 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps) {
 
     if (error) {
       deps.logger.warn('MCP OAuth callback returned an error', { state, error, errorDescription });
-      const pending = await deps.tokenStore.consumePendingAuthorization({ state });
-      if (pending?.redirectUrl) {
-        // TODO(mcp-oauth): pass allowList once we have a configured FE redirect allowlist (open-redirect guard).
-        validateRedirectUris({ redirectUris: [pending.redirectUrl] });
-        const url = new URL(pending.redirectUrl);
-        url.searchParams.set('error', error);
-        if (errorDescription) {
-          url.searchParams.set('error_description', errorDescription);
-        }
-        return c.redirect(url.toString(), 302);
-      }
-      return c.redirect(DEFAULT_FAILED_REDIRECT, 302);
+      await deps.tokenStore.consumePendingAuthorization({ state });
+      return c.json({ error: { message: errorDescription ? `${error}: ${errorDescription}` : error } }, 400);
     }
 
     if (!code) {
@@ -46,18 +31,13 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps) {
     }
 
     try {
-      const result = await completeMcpAuthorization({
+      await completeMcpAuthorization({
         tokenStore: deps.tokenStore,
         mcpServerStore: deps.mcpServerStore,
         state,
         code,
       });
-      if (result.redirectUrl) {
-        // TODO(mcp-oauth): pass allowList once we have a configured FE redirect allowlist (open-redirect guard).
-        validateRedirectUris({ redirectUris: [result.redirectUrl] });
-        return c.redirect(result.redirectUrl, 302);
-      }
-      return c.redirect(DEFAULT_CONNECTED_REDIRECT, 302);
+      return c.json({ success: true }, 200);
     } catch (err) {
       if (err instanceof McpConnectionError) {
         deps.logger.warn('MCP OAuth callback token exchange failed', extractErrorLogFields(err));

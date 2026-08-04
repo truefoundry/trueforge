@@ -116,8 +116,9 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
       return c.json({ status: 'authenticated' as const }, 200);
     }
     try {
-      // TODO(mcp-oauth): pass allowList once we have a configured FE redirect allowlist (open-redirect guard).
-      validateRedirectUris({ redirectUris: [redirectUrl] });
+      if (redirectUrl) {
+        validateRedirectUris({ redirectUris: [redirectUrl] });
+      }
       // Reuses a usable/refreshable token when present; only builds an auth URL when needed.
       const result = await resolveMcpAuth({
         tokenStore: deps.tokenStore,
@@ -126,7 +127,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
         mcpServerUrl: record.manifest.url,
         mcpServerName: record.name,
         clientName: configuration.OAUTH_CLIENT_NAME,
-        redirectUrl,
+        ...(redirectUrl !== undefined ? { redirectUrl } : {}),
       });
       if (isMcpAuthRequired(result)) {
         return c.json({ status: 'auth_required' as const, authorization_url: result.authUrl.href }, 200);

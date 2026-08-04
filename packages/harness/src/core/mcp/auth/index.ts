@@ -20,4 +20,4 @@ export {
   mcpClientInformation,
   mcpOAuthCallbackUrl,
 } from './mcpOAuthHelpers';
-export { MCP_LOOPBACK_REDIRECT_HOSTS, redirectUriMatches, validateRedirectUris } from './redirectUri';
+export { validateRedirectUris } from './redirectUri';

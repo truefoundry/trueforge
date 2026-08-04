@@ -149,7 +149,6 @@ export { extractErrorLogFields } from './util/errorLogFields';
 // MCP OAuth
 export {
   DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
-  MCP_LOOPBACK_REDIRECT_HOSTS,
   MCP_OAUTH_CALLBACK_PATH,
   buildMcpAuthorizationUrl,
   completeMcpAuthorization,
@@ -160,7 +159,6 @@ export {
   mcpAuthorizationServerOrigin,
   mcpClientInformation,
   mcpOAuthCallbackUrl,
-  redirectUriMatches,
   resolveMcpAuth,
   validateRedirectUris,
 } from './mcp/auth';

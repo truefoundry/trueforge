@@ -139,7 +139,11 @@ export const listMcpServerToolsRoute = createRoute({
 });
 
 const McpAuthorizeQuerySchema = z.object({
-  redirect_url: z.string().url().describe('Where to send the browser after OAuth completes.'),
+  redirect_url: z
+    .string()
+    .url()
+    .optional()
+    .describe('Optional FE landing URL after OAuth (stored on pending auth; callback does not redirect yet).'),
 });
 
 const ConfiguredMcpAuthorizeResponseSchema = z
@@ -160,7 +164,7 @@ export const authorizeConfiguredMcpServerRoute = createRoute({
     'For servers without auth or with header credentials, returns authenticated (no browser flow). ' +
     'For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise ' +
     'runs DCR if needed and returns auth_required with an authorization URL. ' +
-    'Pass redirect_url as the FE landing page after the OAuth callback.',
+    'Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).',
   request: {
     params: McpServerNameParamsSchema,
     query: McpAuthorizeQuerySchema,
