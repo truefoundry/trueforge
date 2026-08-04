@@ -244,13 +244,15 @@ export class McpServersClient {
     }
 
     /**
-     * Stub: returns authenticated when the server has no auth or header credentials on the row; auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.
+     * For servers without auth or with header credentials, returns authenticated (no browser flow). For auth.type dcr, runs DCR if needed and returns auth_required with an authorization URL. Pass redirect_url as the FE landing page after the OAuth callback.
      *
      * @param {string} name - Configured MCP server name.
      * @param {TrueHarness.settings.AuthorizeMcpServersRequest} request
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
+     * @throws {@link TrueHarness.BadRequestError}
      * @throws {@link TrueHarness.NotFoundError}
+     * @throws {@link TrueHarness.InternalServerError}
      * @throws {@link errors.TrueHarnessError}
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
@@ -311,8 +313,30 @@ export class McpServersClient {
 
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
+                case 400:
+                    throw new TrueHarness.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 case 404:
                     throw new TrueHarness.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 500:
+                    throw new TrueHarness.InternalServerError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,

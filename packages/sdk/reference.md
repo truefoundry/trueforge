@@ -1554,7 +1554,7 @@ await client.settings.mcpServers.catalog();
 <dl>
 <dd>
 
-Stub: returns authenticated when the server has no auth or header credentials on the row; auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.
+For servers without auth or with header credentials, returns authenticated (no browser flow). For auth.type dcr, runs DCR if needed and returns auth_required with an authorization URL. Pass redirect_url as the FE landing page after the OAuth callback.
 </dd>
 </dl>
 </dd>

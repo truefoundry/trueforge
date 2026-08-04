@@ -4888,7 +4888,7 @@
     },
     "/api/v1/settings/mcp-servers/{name}/authorize": {
       "get": {
-        "description": "Stub: returns authenticated when the server has no auth or header credentials on the row; auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.",
+        "description": "For servers without auth or with header credentials, returns authenticated (no browser flow). For auth.type dcr, runs DCR if needed and returns auth_required with an authorization URL. Pass redirect_url as the FE landing page after the OAuth callback.",
         "parameters": [
           {
             "description": "Configured MCP server name.",
@@ -4924,6 +4924,16 @@
             },
             "description": "Either already authenticated, or an authorization URL to redirect to."
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "DCR or authorize URL construction failed (e.g. server lacks registration_endpoint)."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -4933,6 +4943,16 @@
               }
             },
             "description": "MCP server not found."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Server misconfiguration (e.g. PUBLIC_BASE_URL unset)."
           }
         },
         "summary": "Start (or short-circuit) the auth flow for a configured MCP server",
