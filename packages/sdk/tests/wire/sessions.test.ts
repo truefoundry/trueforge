@@ -1015,7 +1015,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
-    test("subscribe_turn (1)", async () => {
+    test("subscribe_to_turn (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
         const rawRequestBody = {};
@@ -1031,7 +1031,7 @@ describe("SessionsClient", () => {
             .sseBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.subscribeTurn("sessionId", "turnId");
+        const response = await client.sessions.subscribeToTurn("sessionId", "turnId");
         const events: unknown[] = [];
         for await (const event of response) {
             events.push(event);
@@ -1053,7 +1053,7 @@ describe("SessionsClient", () => {
         ]);
     });
 
-    test("subscribe_turn (2)", async () => {
+    test("subscribe_to_turn (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
         const rawRequestBody = {};
@@ -1069,11 +1069,11 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.subscribeTurn("sessionId", "turnId");
+            return await client.sessions.subscribeToTurn("sessionId", "turnId");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
-    test("subscribe_turn (3)", async () => {
+    test("subscribe_to_turn (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
         const rawRequestBody = {};
@@ -1089,11 +1089,11 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.subscribeTurn("sessionId", "turnId");
+            return await client.sessions.subscribeToTurn("sessionId", "turnId");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
-    test("subscribe_turn (4)", async () => {
+    test("subscribe_to_turn (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
         const rawRequestBody = {};
@@ -1109,7 +1109,7 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.subscribeTurn("sessionId", "turnId");
+            return await client.sessions.subscribeToTurn("sessionId", "turnId");
         }).rejects.toThrow(TrueHarnessTypes.PreconditionFailedError);
     });
 });

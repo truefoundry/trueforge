@@ -2,7 +2,9 @@
 
 import type { BaseClientOptions } from "../../../../BaseClient.js";
 import { type NormalizedClientOptions, normalizeClientOptions } from "../../../../BaseClient.js";
+import { McpServersClient } from "../resources/mcpServers/client/Client.js";
 import { ModelProvidersClient } from "../resources/modelProviders/client/Client.js";
+import { SkillsClient } from "../resources/skills/client/Client.js";
 
 export declare namespace SettingsClient {
     export type Options = BaseClientOptions;
@@ -10,13 +12,23 @@ export declare namespace SettingsClient {
 
 export class SettingsClient {
     protected readonly _options: NormalizedClientOptions<SettingsClient.Options>;
+    protected _mcpServers: McpServersClient | undefined;
     protected _modelProviders: ModelProvidersClient | undefined;
+    protected _skills: SkillsClient | undefined;
 
     constructor(options: SettingsClient.Options) {
         this._options = normalizeClientOptions(options);
     }
 
+    public get mcpServers(): McpServersClient {
+        return (this._mcpServers ??= new McpServersClient(this._options));
+    }
+
     public get modelProviders(): ModelProvidersClient {
         return (this._modelProviders ??= new ModelProvidersClient(this._options));
+    }
+
+    public get skills(): SkillsClient {
+        return (this._skills ??= new SkillsClient(this._options));
     }
 }
