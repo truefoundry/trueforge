@@ -57,6 +57,7 @@ export type {
   OAuthServerMetadata,
 } from './auth/IOAuthClientStore';
 export type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from './auth/IOAuthTokenStore';
+export { isOAuthAccessTokenUsable } from './auth/oauthToken';
 
 // MCP contracts
 export type { ApprovalDecision } from './events/schema';
@@ -145,6 +146,7 @@ export type {
 // Errors / utils
 export { AgentHarnessError, McpConnectionError } from './errors';
 export { extractErrorLogFields } from './util/errorLogFields';
+export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
 
 // MCP OAuth
 export {

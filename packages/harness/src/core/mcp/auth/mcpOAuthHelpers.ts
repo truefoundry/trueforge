@@ -5,12 +5,20 @@
 import type {
   AuthorizationServerMetadata,
   OAuthClientInformationMixed,
+  OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import type { OAuthClientCredentials, OAuthServerMetadata } from '../../auth/IOAuthClientStore';
+import type { OAuthToken } from '../../auth/IOAuthTokenStore';
 import { McpConnectionError } from '../../errors';
 
 /** Fixed OAuth callback path for every MCP server (matches server mount). */
 export const MCP_OAUTH_CALLBACK_PATH = '/api/v1/mcp-servers/oauth/callback';
+
+/**
+ * When the token response omits `expires_in` (allowed by RFC 6749), use a 1h TTL so
+ * the saved token is not treated as already expired on the next `resolveMcpAuth`.
+ */
+export const DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS = 3600;
 
 /**
  * OAuth callback redirect_uri = `PUBLIC_BASE_URL` + fixed path. No trimming of the base.
@@ -56,4 +64,19 @@ export function mcpAuthorizationServerMetadata(server: OAuthServerMetadata): Aut
 
 export function mcpAuthorizationServerOrigin(server: OAuthServerMetadata): string {
   return new URL(server.authorizationEndpoint).origin;
+}
+
+export function oauthTokensToOAuthToken(
+  tokens: OAuthTokens,
+  nowMs: number,
+  fallbackRefreshToken: string | null,
+): OAuthToken {
+  const expiresInSeconds = tokens.expires_in ?? DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS;
+  const expiresAtMs = nowMs + expiresInSeconds * 1000;
+  return {
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token ?? fallbackRefreshToken,
+    expiresAt: new Date(expiresAtMs).toISOString(),
+    scope: tokens.scope ?? null,
+  };
 }

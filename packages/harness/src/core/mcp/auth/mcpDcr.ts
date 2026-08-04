@@ -14,13 +14,15 @@ import type {
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { randomBytes } from 'node:crypto';
 import type { IOAuthClientStore, OAuthClientRecord } from '../../auth/IOAuthClientStore';
-import type { IOAuthTokenStore, OAuthToken } from '../../auth/IOAuthTokenStore';
+import type { IOAuthTokenStore } from '../../auth/IOAuthTokenStore';
+import { isOAuthAccessTokenUsable } from '../../auth/oauthToken';
 import { McpConnectionError } from '../../errors';
 import {
   mcpAuthorizationServerMetadata,
   mcpAuthorizationServerOrigin,
   mcpClientInformation,
   mcpOAuthCallbackUrl,
+  oauthTokensToOAuthToken,
 } from './mcpOAuthHelpers';
 
 export interface McpAuthResolvedResult {
@@ -43,12 +45,6 @@ export interface CompleteMcpAuthorizationResult {
   /** FE post-OAuth landing URL from the original authorize call. */
   redirectUrl: string | null;
 }
-
-/**
- * When the token response omits `expires_in` (allowed by RFC 6749), use a 1h TTL so
- * the saved token is not treated as already expired on the next `resolveMcpAuth`.
- */
-export const DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS = 3600;
 
 /**
  * Prefer `client_secret_post` (confidential). Authorization servers that only issue public
@@ -218,22 +214,6 @@ export async function buildMcpAuthorizationUrl(params: {
   return started.authorizationUrl;
 }
 
-function isMcpAccessTokenUsable(expiresAtIso: string, nowMs: number): boolean {
-  const expiresAtMs = Date.parse(expiresAtIso);
-  return !Number.isNaN(expiresAtMs) && expiresAtMs > nowMs;
-}
-
-function oauthTokensToOAuthToken(tokens: OAuthTokens, nowMs: number, fallbackRefreshToken: string | null): OAuthToken {
-  const expiresInSeconds = tokens.expires_in ?? DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS;
-  const expiresAtMs = nowMs + expiresInSeconds * 1000;
-  return {
-    accessToken: tokens.access_token,
-    refreshToken: tokens.refresh_token ?? fallbackRefreshToken,
-    expiresAt: new Date(expiresAtMs).toISOString(),
-    scope: tokens.scope ?? null,
-  };
-}
-
 export async function resolveMcpAuth(params: {
   tokenStore: IOAuthTokenStore;
   mcpServerStore: IOAuthClientStore;
@@ -247,7 +227,7 @@ export async function resolveMcpAuth(params: {
   const nowMs = Date.now();
   const token = await params.tokenStore.getToken({ id: params.serverId });
 
-  if (token && isMcpAccessTokenUsable(token.expiresAt, nowMs)) {
+  if (token && isOAuthAccessTokenUsable(token.expiresAt, nowMs)) {
     return { headers: { Authorization: `Bearer ${token.accessToken}` } };
   }
 
