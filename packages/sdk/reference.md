@@ -1002,7 +1002,7 @@ for await (const item of response) {
 <dl>
 <dd>
 
-**request:** `TrueHarness.SubscribeTurnRequest` 
+**request:** `TrueHarness.SubscribeToTurnSessionsRequest` 
     
 </dd>
 </dl>

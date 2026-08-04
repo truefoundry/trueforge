@@ -1186,7 +1186,7 @@ export class SessionsClient {
     public subscribeToTurn(
         sessionId: string,
         turnId: string,
-        request: TrueHarness.SubscribeTurnRequest = {},
+        request: TrueHarness.SubscribeToTurnSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<core.Stream<TrueHarness.TurnStreamingEvent>> {
         return core.HttpResponsePromise.fromPromise(this.__subscribeToTurn(sessionId, turnId, request, requestOptions));
@@ -1195,9 +1195,13 @@ export class SessionsClient {
     private async __subscribeToTurn(
         sessionId: string,
         turnId: string,
-        request: TrueHarness.SubscribeTurnRequest = {},
+        request: TrueHarness.SubscribeToTurnSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<core.Stream<TrueHarness.TurnStreamingEvent>>> {
+        const { afterSequenceNumber } = request;
+        const _queryParams: Record<string, unknown> = {
+            after_sequence_number: afterSequenceNumber,
+        };
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)<ReadableStream>({
             url: core.url.join(
@@ -1205,20 +1209,13 @@ export class SessionsClient {
                     (await core.Supplier.get(this._options.environment)),
                 `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}/subscribe`,
             ),
-            method: "POST",
+            method: "GET",
             headers: _headers,
-            contentType: "application/json",
-            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
-            requestType: "json",
-            body: mergeAdditionalBodyParameters(
-                serializers.SubscribeTurnRequest.jsonOrThrow(request, {
-                    unrecognizedObjectKeys: "passthrough",
-                    allowUnrecognizedUnionMembers: true,
-                    allowUnrecognizedEnumValues: true,
-                    omitUndefined: true,
-                }),
-                requestOptions?.additionalBodyParameters,
-            ),
+            queryString: core.url
+                .queryBuilder()
+                .addMany(_queryParams)
+                .mergeAdditional(requestOptions?.queryParams)
+                .build(),
             responseType: "sse",
             timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
             maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
@@ -1233,20 +1230,13 @@ export class SessionsClient {
                         (await core.Supplier.get(this._options.environment)),
                     `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}/subscribe`,
                 ),
-                method: "POST",
+                method: "GET",
                 headers: { ..._headers, "Last-Event-ID": lastEventId },
-                contentType: "application/json",
-                queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
-                requestType: "json",
-                body: mergeAdditionalBodyParameters(
-                    serializers.SubscribeTurnRequest.jsonOrThrow(request, {
-                        unrecognizedObjectKeys: "passthrough",
-                        allowUnrecognizedUnionMembers: true,
-                        allowUnrecognizedEnumValues: true,
-                        omitUndefined: true,
-                    }),
-                    requestOptions?.additionalBodyParameters,
-                ),
+                queryString: core.url
+                    .queryBuilder()
+                    .addMany(_queryParams)
+                    .mergeAdditional(requestOptions?.queryParams)
+                    .build(),
                 responseType: "sse",
                 timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
                 maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
@@ -1338,7 +1328,7 @@ export class SessionsClient {
         return handleNonStatusCodeError(
             _response.error,
             _response.rawResponse,
-            "POST",
+            "GET",
             "/api/v1/sessions/{sessionId}/turns/{turnId}/subscribe",
         );
     }

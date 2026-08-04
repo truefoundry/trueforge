@@ -4,6 +4,6 @@
  * @example
  *     {}
  */
-export interface SubscribeTurnRequest {
+export interface SubscribeToTurnSessionsRequest {
     afterSequenceNumber?: number;
 }

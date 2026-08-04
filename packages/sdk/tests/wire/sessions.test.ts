@@ -1018,14 +1018,13 @@ describe("SessionsClient", () => {
     test("subscribe_to_turn (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = {};
+
         const rawResponseBody =
             'event: \ndata: {"created_at":"created_at","id":"id","thread_id":"thread_id","mcp_servers":[{"auth_url":"auth_url","id":"id","name":"name"}],"type":"mcp.auth_required"}\n\n';
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/turns/turnId/subscribe")
-            .jsonBody(rawRequestBody)
+            .get("/api/v1/sessions/sessionId/turns/turnId/subscribe")
             .respondWith()
             .statusCode(200)
             .sseBody(rawResponseBody)
@@ -1056,13 +1055,12 @@ describe("SessionsClient", () => {
     test("subscribe_to_turn (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = {};
+
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/turns/turnId/subscribe")
-            .jsonBody(rawRequestBody)
+            .get("/api/v1/sessions/sessionId/turns/turnId/subscribe")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)
@@ -1076,13 +1074,12 @@ describe("SessionsClient", () => {
     test("subscribe_to_turn (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = {};
+
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/turns/turnId/subscribe")
-            .jsonBody(rawRequestBody)
+            .get("/api/v1/sessions/sessionId/turns/turnId/subscribe")
             .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
@@ -1096,13 +1093,12 @@ describe("SessionsClient", () => {
     test("subscribe_to_turn (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = {};
+
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .post("/api/v1/sessions/sessionId/turns/turnId/subscribe")
-            .jsonBody(rawRequestBody)
+            .get("/api/v1/sessions/sessionId/turns/turnId/subscribe")
             .respondWith()
             .statusCode(412)
             .jsonBody(rawResponseBody)

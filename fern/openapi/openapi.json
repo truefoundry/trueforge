@@ -2569,15 +2569,6 @@
         ],
         "type": "string"
       },
-      "SubscribeTurnRequest": {
-        "properties": {
-          "after_sequence_number": {
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "type": "object"
-      },
       "TextContent": {
         "properties": {
           "text": {
@@ -4579,7 +4570,7 @@
       }
     },
     "/api/v1/sessions/{sessionId}/turns/{turnId}/subscribe": {
-      "post": {
+      "get": {
         "description": "Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
         "parameters": [
           {
@@ -4604,18 +4595,17 @@
               "minLength": 1,
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "after_sequence_number",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SubscribeTurnRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {
