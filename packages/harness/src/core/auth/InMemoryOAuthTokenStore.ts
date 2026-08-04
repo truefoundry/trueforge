@@ -16,16 +16,13 @@ export class InMemoryOAuthTokenStore implements IOAuthTokenStore {
     this.pending.set(pending.state, { row: pending, createdAtMs: Date.now() });
   }
 
-  async getPendingAuthorization(params: { state: string }): Promise<OAuthPendingAuthorization | undefined> {
+  async consumePendingAuthorization(params: { state: string }): Promise<OAuthPendingAuthorization | undefined> {
     const entry = this.pending.get(params.state);
     if (entry === undefined || entry.createdAtMs <= Date.now() - PENDING_AUTHORIZATION_TTL_MS) {
       return undefined;
     }
-    return entry.row;
-  }
-
-  async deletePendingAuthorization(params: { state: string }): Promise<void> {
     this.pending.delete(params.state);
+    return entry.row;
   }
 
   async saveToken(params: { id: string; token: OAuthToken }): Promise<void> {

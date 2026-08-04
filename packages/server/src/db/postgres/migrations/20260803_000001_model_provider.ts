@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 
 /**
  * Configured model providers (canonical DDL owner).
@@ -9,6 +9,7 @@ import type { Kysely } from 'kysely';
  * so future manifest fields are schema changes, not migrations.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await db.schema
     .createTable('model_provider')
     // key
@@ -24,5 +25,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await db.schema.dropTable('model_provider').ifExists().cascade().execute();
 }

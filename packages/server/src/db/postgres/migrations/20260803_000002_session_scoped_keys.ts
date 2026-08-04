@@ -1,7 +1,8 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 
 /** Drop tenant_id from turn-scoped tables; session_id is globally unique with cascade FKs. */
 export async function up(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   // Index includes tenant_id; drop before reshaping turn.
   await db.schema.dropIndex('turn_list_idx').execute();
 

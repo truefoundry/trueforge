@@ -2,7 +2,11 @@
  * DB-backed configured MCP servers: one row per server per tenant,
  * identity as columns plus a Zod-validated `McpServerManifest` jsonb document.
  * Implementations: PostgresMcpServerStore and SqliteMcpServerStore.
+ *
+ * Also owns the DCR registration columns (`oauth_server` / `oauth_client`) via
+ * `IOAuthClientStore` — those are not a separate persistence root.
  */
+import type { IOAuthClientStore } from '@truefoundry/utils/core';
 import type { ResourceName } from '../schemas/common';
 import type { McpServerManifest } from '../schemas/mcpServer';
 
@@ -28,7 +32,7 @@ export interface UpsertMcpServerInput {
   manifest: McpServerManifest;
 }
 
-export interface IMcpServerStore {
+export interface IMcpServerStore extends IOAuthClientStore {
   listServers(tenantId: string): Promise<McpServerRecord[]>;
   getServer(input: GetMcpServerInput): Promise<McpServerRecord | undefined>;
   /**

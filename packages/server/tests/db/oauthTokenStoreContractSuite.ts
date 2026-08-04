@@ -31,6 +31,7 @@ function pending(overrides: Partial<OAuthPendingAuthorization> = {}): OAuthPendi
   return {
     state: 'state-1',
     id: RESOURCE_ID,
+    mcpServerUrl: 'https://mcp.example.com/sse',
     codeVerifier: 'verifier-1',
     redirectUrl: 'https://app.example.com/done',
     ...overrides,
@@ -83,29 +84,28 @@ export function runOAuthTokenStoreContractSuite(getHarness: () => OAuthTokenStor
     expect(await h.store.getToken({ id: OTHER_RESOURCE_ID })).toEqual(other);
   });
 
-  it('savePendingAuthorization round-trips, including null fields', async () => {
+  it('savePendingAuthorization + consumePendingAuthorization round-trips, including null fields', async () => {
     const h = getHarness();
     await h.seedResource(RESOURCE_ID);
     const saved = pending({ codeVerifier: null, redirectUrl: null });
 
     await h.store.savePendingAuthorization(saved);
 
-    expect(await h.store.getPendingAuthorization({ state: 'state-1' })).toEqual(saved);
+    expect(await h.store.consumePendingAuthorization({ state: 'state-1' })).toEqual(saved);
   });
 
-  it('getPendingAuthorization is undefined for an unknown state', async () => {
+  it('consumePendingAuthorization is undefined for an unknown state', async () => {
     const h = getHarness();
-    expect(await h.store.getPendingAuthorization({ state: 'unknown' })).toBeUndefined();
+    expect(await h.store.consumePendingAuthorization({ state: 'unknown' })).toBeUndefined();
   });
 
-  it('deletePendingAuthorization makes the state single-use', async () => {
+  it('consumePendingAuthorization makes the state single-use', async () => {
     const h = getHarness();
     await h.seedResource(RESOURCE_ID);
     await h.store.savePendingAuthorization(pending());
 
-    await h.store.deletePendingAuthorization({ state: 'state-1' });
-
-    expect(await h.store.getPendingAuthorization({ state: 'state-1' })).toBeUndefined();
+    expect(await h.store.consumePendingAuthorization({ state: 'state-1' })).toEqual(pending());
+    expect(await h.store.consumePendingAuthorization({ state: 'state-1' })).toBeUndefined();
   });
 
   it('pending authorizations are keyed by state, not by resource', async () => {
@@ -116,19 +116,17 @@ export function runOAuthTokenStoreContractSuite(getHarness: () => OAuthTokenStor
     await h.store.savePendingAuthorization(pending());
     await h.store.savePendingAuthorization(other);
 
-    await h.store.deletePendingAuthorization({ state: 'state-1' });
-
-    expect(await h.store.getPendingAuthorization({ state: 'state-1' })).toBeUndefined();
-    expect(await h.store.getPendingAuthorization({ state: 'state-2' })).toEqual(other);
+    expect(await h.store.consumePendingAuthorization({ state: 'state-1' })).toEqual(pending());
+    expect(await h.store.consumePendingAuthorization({ state: 'state-2' })).toEqual(other);
   });
 
-  it('getPendingAuthorization drops a row past its TTL', async () => {
+  it('consumePendingAuthorization drops a row past its TTL', async () => {
     const h = getHarness();
     await h.seedResource(RESOURCE_ID);
     await h.store.savePendingAuthorization(pending());
 
     await h.expirePending('state-1');
 
-    expect(await h.store.getPendingAuthorization({ state: 'state-1' })).toBeUndefined();
+    expect(await h.store.consumePendingAuthorization({ state: 'state-1' })).toBeUndefined();
   });
 }
