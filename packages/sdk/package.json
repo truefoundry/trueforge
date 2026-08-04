@@ -95,6 +95,17 @@
             },
             "default": "./dist/cjs/api/resources/legacy/exports.js"
         },
+        "./legacy/server": {
+            "import": {
+                "types": "./dist/esm/api/resources/legacy/resources/server/exports.d.mts",
+                "default": "./dist/esm/api/resources/legacy/resources/server/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/legacy/resources/server/exports.d.ts",
+                "default": "./dist/cjs/api/resources/legacy/resources/server/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/legacy/resources/server/exports.js"
+        },
         "./legacy/mcpServers": {
             "import": {
                 "types": "./dist/esm/api/resources/legacy/resources/mcpServers/exports.d.mts",
@@ -160,6 +171,17 @@
                 "default": "./dist/cjs/api/resources/settings/resources/modelProviders/exports.js"
             },
             "default": "./dist/cjs/api/resources/settings/resources/modelProviders/exports.js"
+        },
+        "./settings/sandboxProviders": {
+            "import": {
+                "types": "./dist/esm/api/resources/settings/resources/sandboxProviders/exports.d.mts",
+                "default": "./dist/esm/api/resources/settings/resources/sandboxProviders/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/settings/resources/sandboxProviders/exports.d.ts",
+                "default": "./dist/cjs/api/resources/settings/resources/sandboxProviders/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/settings/resources/sandboxProviders/exports.js"
         },
         "./settings/skills": {
             "import": {

@@ -8,6 +8,7 @@ import { createTurnsRouter } from '../../../src/apis/turns';
 import { McpStore } from '../../../src/legacy-registry-store/McpStore';
 import { ModelStore } from '../../../src/legacy-registry-store/ModelStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { ListSessionsResponseSchema } from '../../../src/schemas/session';
 
 describe('public CRUD after session deletion', () => {
@@ -36,9 +37,11 @@ describe('public CRUD after session deletion', () => {
       '/',
       createTurnsRouter({
         sessions,
+        sessionStore,
         activeTurns,
         modelStore,
         mcpStore,
+        eventSubscriptions: new EventSubscriptionRegistry(undefined),
         logger: createLogger({ silent: true }),
       }),
     );

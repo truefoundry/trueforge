@@ -4,15 +4,15 @@ import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const ResponseFormatOne: core.serialization.ObjectSchema<
-    serializers.ResponseFormatOne.Raw,
-    TrueHarness.ResponseFormatOne
+export const ResponseFormatText: core.serialization.ObjectSchema<
+    serializers.ResponseFormatText.Raw,
+    TrueHarness.ResponseFormatText
 > = core.serialization.object({
-    type: core.serialization.stringLiteral("json_object"),
+    type: core.serialization.stringLiteral("text"),
 });
 
-export declare namespace ResponseFormatOne {
+export declare namespace ResponseFormatText {
     export interface Raw {
-        type: "json_object";
+        type: "text";
     }
 }

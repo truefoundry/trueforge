@@ -5,6 +5,7 @@
  * spec cannot drift from what the server serves. Nothing listens or dials out:
  * `.env.test` supplies dummy connection strings and the registry fixtures.
  */
+import type { TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import { InMemorySessionStore, Sessions } from '@truefoundry/utils/agent-session';
 import { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -13,15 +14,18 @@ import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
 import { McpCatalog } from '../src/catalog/McpCatalog';
 import { ModelCatalog } from '../src/catalog/ModelCatalog';
+import { SandboxCatalog } from '../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../src/catalog/SkillCatalog';
 import { createSqliteDb } from '../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxProviderStore } from '../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
 import { McpStore } from '../src/legacy-registry-store/McpStore';
 import { ModelStore } from '../src/legacy-registry-store/ModelStore';
 import { SkillStore } from '../src/legacy-registry-store/SkillStore';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
+import { EventSubscriptionRegistry } from '../src/runtime/event-subscription';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -54,11 +58,14 @@ const app = createServerApp({
   mcpStore: McpStore.load(),
   skillCatalog: SkillCatalog.load(),
   skillStore: new SqliteSkillStore(db),
+  sandboxCatalog: SandboxCatalog.load(),
+  sandboxProviderStore: new SqliteSandboxProviderStore(db),
   legacySkillStore: SkillStore.load(),
   sessionStore,
   sessions: new Sessions({ sessionStore }),
   activeTurns: new ActiveTurnRegistry(),
   requestReplyRouter: new RequestReplyRouter(),
+  eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
   logger: winston.createLogger({ silent: true }),
 });
 

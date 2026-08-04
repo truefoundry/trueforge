@@ -8,7 +8,7 @@ describe("ServerClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
-        const rawResponseBody = { data: { sandbox: { enabled: true } } };
+        const rawResponseBody = { data: { sandbox: { enabled: true }, skill: { enabled: true } } };
 
         server
             .mockEndpoint()
@@ -22,6 +22,9 @@ describe("ServerClient", () => {
         expect(response).toEqual({
             data: {
                 sandbox: {
+                    enabled: true,
+                },
+                skill: {
                     enabled: true,
                 },
             },

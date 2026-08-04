@@ -338,7 +338,7 @@ export const ActionRequiredEventSchema = z
   .openapi('ActionRequiredEvent');
 
 /** Neutral harness output-event membership (not an HTTP/OpenAPI AgentResponse aggregate). */
-export const AgentOutputEventSchema = z.union([
+export const AgentOutputEventSchema = z.discriminatedUnion('type', [
   ModelMessageEventSchema,
   ToolResponseEventSchema,
   ThreadCreatedEventSchema,

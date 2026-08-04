@@ -4,4 +4,5 @@ import type * as TrueHarness from "../index.js";
 
 export interface GetCapabilitiesResponseData {
     sandbox: TrueHarness.GetCapabilitiesResponseDataSandbox;
+    skill: TrueHarness.GetCapabilitiesResponseDataSkill;
 }
