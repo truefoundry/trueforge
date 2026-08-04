@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/utils",
-  "version": "0.2.0-rc.1",
+  "version": "0.2.0-rc.2",
   "description": "TrueFoundry agent server + UI (npx @truefoundry/utils)",
   "author": "Truefoundry",
   "license": "UNLICENSED",

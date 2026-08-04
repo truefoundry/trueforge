@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/utils-core",
-  "version": "0.1.8",
+  "version": "0.1.9-rc.1",
   "description": "TrueFoundry agent core and session library",
   "author": "Truefoundry",
   "license": "UNLICENSED",
