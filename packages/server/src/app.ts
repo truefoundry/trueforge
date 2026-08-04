@@ -8,6 +8,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { createCapabilitiesRouter } from './apis/capabilities';
+import { createLegacyCapabilitiesRouter } from './apis/legacyCapabilities';
 import { createLegacyMcpRouter } from './apis/legacyMcp';
 import { createLegacyMcpOAuthRouter } from './apis/legacyMcpOAuth';
 import { createLegacyModelsRouter } from './apis/legacyModels';
@@ -20,9 +21,11 @@ import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
+import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
 import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
+import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { ISkillStore } from './db/skillStore';
 import type { McpStore } from './legacy-registry-store/McpStore';
 import type { ModelStore } from './legacy-registry-store/ModelStore';
@@ -57,6 +60,8 @@ export interface ServerDeps {
   mcpStore: McpStore;
   skillCatalog: SkillCatalog;
   skillStore: ISkillStore;
+  sandboxCatalog: SandboxCatalog;
+  sandboxProviderStore: ISandboxProviderStore;
   legacySkillStore: SkillStore;
   sessionStore: ISessionStore;
   sessions: Sessions;
@@ -77,7 +82,7 @@ export function createServerApp(deps: ServerDeps) {
 
   app.get('/healthz', c => c.text('OK!'));
 
-  app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
+  app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
   app.route('/api/v1/mcp-servers', createAvailableMcpServersRouter(deps.mcpServerStore));
   app.route('/api/v1/skills', createAvailableSkillsRouter(deps.skillStore));
@@ -90,6 +95,8 @@ export function createServerApp(deps: ServerDeps) {
       mcpServerStore: deps.mcpServerStore,
       skillCatalog: deps.skillCatalog,
       skillStore: deps.skillStore,
+      sandboxCatalog: deps.sandboxCatalog,
+      sandboxProviderStore: deps.sandboxProviderStore,
       logger: deps.logger,
     }),
   );
@@ -98,6 +105,10 @@ export function createServerApp(deps: ServerDeps) {
   app.route('/api/v1/legacy/mcp-servers', createLegacyMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
   app.route('/api/v1/legacy/mcp-servers/oauth', createLegacyMcpOAuthRouter({ logger: deps.logger }));
   app.route('/api/v1/legacy/skills', createLegacySkillsRouter(deps.legacySkillStore));
+  app.route(
+    '/api/v1/legacy/capabilities',
+    createLegacyCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }),
+  );
   app.route(
     '/api/v1/sessions',
     createSessionsRouter({

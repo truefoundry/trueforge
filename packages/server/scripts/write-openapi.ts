@@ -14,10 +14,12 @@ import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
 import { McpCatalog } from '../src/catalog/McpCatalog';
 import { ModelCatalog } from '../src/catalog/ModelCatalog';
+import { SandboxCatalog } from '../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../src/catalog/SkillCatalog';
 import { createSqliteDb } from '../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxProviderStore } from '../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
 import { McpStore } from '../src/legacy-registry-store/McpStore';
 import { ModelStore } from '../src/legacy-registry-store/ModelStore';
@@ -56,6 +58,8 @@ const app = createServerApp({
   mcpStore: McpStore.load(),
   skillCatalog: SkillCatalog.load(),
   skillStore: new SqliteSkillStore(db),
+  sandboxCatalog: SandboxCatalog.load(),
+  sandboxProviderStore: new SqliteSandboxProviderStore(db),
   legacySkillStore: SkillStore.load(),
   sessionStore,
   sessions: new Sessions({ sessionStore }),

@@ -12,7 +12,7 @@
 <dl>
 <dd>
 
-Report optional runtime capabilities available in this server deployment.
+Report optional runtime capabilities available for this tenant.
 </dd>
 </dl>
 </dd>
@@ -1078,6 +1078,62 @@ await client.skills.list();
 </dl>
 </details>
 
+## Legacy Server
+<details><summary><code>client.legacy.server.<a href="/src/api/resources/legacy/resources/server/client/Client.ts">getCapabilities</a>() -> TrueHarness.GetLegacyCapabilitiesResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Report optional runtime capabilities from boot-time SANDBOX_SETTINGS. Prefer GET /api/v1/capabilities for new clients.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.legacy.server.getCapabilities();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `ServerClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Legacy McpServers
 <details><summary><code>client.legacy.mcpServers.<a href="/src/api/resources/legacy/resources/mcpServers/client/Client.ts">list</a>() -> TrueHarness.ListMcpServersResponse</code></summary>
 <dl>
@@ -1873,6 +1929,190 @@ await client.settings.modelProviders.catalog();
 <dd>
 
 **requestOptions:** `ModelProvidersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Settings SandboxProviders
+<details><summary><code>client.settings.sandboxProviders.<a href="/src/api/resources/settings/resources/sandboxProviders/client/Client.ts">get</a>() -> TrueHarness.GetSandboxProviderResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+The single configured sandbox provider for this tenant.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.settings.sandboxProviders.get();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `SandboxProvidersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.settings.sandboxProviders.<a href="/src/api/resources/settings/resources/sandboxProviders/client/Client.ts">upsert</a>({ ...params }) -> TrueHarness.PutSandboxProviderResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.settings.sandboxProviders.upsert({
+    auth: {
+        apiKey: "api_key"
+    },
+    autoArchiveIntervalInMinutes: 1,
+    autoDeleteIntervalInMinutes: 1,
+    autoStopIntervalInMinutes: 1,
+    execTimeoutMs: 1,
+    snapshotName: "snapshot_name",
+    type: "daytona"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueHarness.DaytonaSandboxProvider` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SandboxProvidersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.settings.sandboxProviders.<a href="/src/api/resources/settings/resources/sandboxProviders/client/Client.ts">catalog</a>() -> TrueHarness.GetSandboxProviderCatalogResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Sandbox provider presets shipped with the server (sandbox-catalog.yaml). Discovery-only: copy an entry into PUT /settings/sandbox-providers to configure it.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.settings.sandboxProviders.catalog();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `SandboxProvidersClient.RequestOptions` 
     
 </dd>
 </dl>

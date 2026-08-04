@@ -304,6 +304,48 @@
         "properties": {},
         "type": "object"
       },
+      "CatalogDaytonaSandboxProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_archive_interval_in_minutes": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "auto_delete_interval_in_minutes": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "auto_stop_interval_in_minutes": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "exec_timeout_ms": {
+            "description": "Default sandbox command exec timeout in milliseconds.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "snapshot_name": {
+            "description": "Daytona snapshot used when creating sandboxes.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "daytona"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "snapshot_name",
+          "exec_timeout_ms",
+          "auto_stop_interval_in_minutes",
+          "auto_archive_interval_in_minutes",
+          "auto_delete_interval_in_minutes"
+        ],
+        "type": "object"
+      },
       "CatalogMcpServer": {
         "additionalProperties": false,
         "properties": {
@@ -624,6 +666,65 @@
         },
         "type": "object"
       },
+      "DaytonaSandboxProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/DaytonaSandboxProviderAuth"
+          },
+          "auto_archive_interval_in_minutes": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "auto_delete_interval_in_minutes": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "auto_stop_interval_in_minutes": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "exec_timeout_ms": {
+            "description": "Default sandbox command exec timeout in milliseconds.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "snapshot_name": {
+            "description": "Daytona snapshot used when creating sandboxes.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "daytona"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "snapshot_name",
+          "auth",
+          "exec_timeout_ms",
+          "auto_stop_interval_in_minutes",
+          "auto_archive_interval_in_minutes",
+          "auto_delete_interval_in_minutes"
+        ],
+        "type": "object"
+      },
+      "DaytonaSandboxProviderAuth": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_key"
+        ],
+        "type": "object"
+      },
       "DynamicSubAgentsConfig": {
         "properties": {
           "enabled": {
@@ -763,7 +864,48 @@
               "sandbox": {
                 "properties": {
                   "enabled": {
-                    "description": "Whether this server has a sandbox provider configured.",
+                    "description": "Whether a sandbox provider is configured for this tenant.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "type": "object"
+              },
+              "skill": {
+                "properties": {
+                  "enabled": {
+                    "description": "Whether skills are available. False when sandbox is not enabled (skills require a sandbox).",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "sandbox",
+              "skill"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetLegacyCapabilitiesResponse": {
+        "properties": {
+          "data": {
+            "properties": {
+              "sandbox": {
+                "properties": {
+                  "enabled": {
+                    "description": "Whether this server has a sandbox provider configured via SANDBOX_SETTINGS.",
                     "type": "boolean"
                   }
                 },
@@ -805,6 +947,31 @@
               "$ref": "#/components/schemas/CatalogProvider"
             },
             "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetSandboxProviderCatalogResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogDaytonaSandboxProvider"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetSandboxProviderResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DaytonaSandboxProvider"
           }
         },
         "required": [
@@ -1604,7 +1771,7 @@
             "type": "string"
           },
           "name": {
-            "description": "Fully qualified name `name/model_name`, e.g. \"openai/gpt-5-6-sol\".",
+            "description": "Fully qualified name `provider_name/model_name`, e.g. \"openai/gpt-5-6-sol\". Unique within a tenant.",
             "type": "string"
           },
           "properties": {
@@ -2029,6 +2196,17 @@
         ],
         "type": "object"
       },
+      "PutSandboxProviderResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DaytonaSandboxProvider"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "PutSkillResponse": {
         "properties": {
           "data": {
@@ -2091,6 +2269,7 @@
         "type": "object"
       },
       "ResourceName": {
+        "description": "Fully qualified name. Unique within a tenant.",
         "maxLength": 64,
         "minLength": 2,
         "pattern": "^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$",
@@ -3417,7 +3596,7 @@
   "paths": {
     "/api/v1/capabilities": {
       "get": {
-        "description": "Report optional runtime capabilities available in this server deployment.",
+        "description": "Report optional runtime capabilities available for this tenant.",
         "responses": {
           "200": {
             "content": {
@@ -3435,6 +3614,32 @@
           "Capabilities"
         ],
         "x-fern-sdk-group-name": [
+          "server"
+        ],
+        "x-fern-sdk-method-name": "get_capabilities"
+      }
+    },
+    "/api/v1/legacy/capabilities": {
+      "get": {
+        "description": "Report optional runtime capabilities from boot-time SANDBOX_SETTINGS. Prefer GET /api/v1/capabilities for new clients.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetLegacyCapabilitiesResponse"
+                }
+              }
+            },
+            "description": "Server capabilities (legacy)."
+          }
+        },
+        "summary": "Get server capabilities (legacy)",
+        "tags": [
+          "Legacy Capabilities"
+        ],
+        "x-fern-sdk-group-name": [
+          "legacy",
           "server"
         ],
         "x-fern-sdk-method-name": "get_capabilities"
@@ -4979,6 +5184,112 @@
         "x-fern-sdk-group-name": [
           "settings",
           "modelProviders"
+        ],
+        "x-fern-sdk-method-name": "catalog"
+      }
+    },
+    "/api/v1/settings/sandbox-providers": {
+      "get": {
+        "description": "The single configured sandbox provider for this tenant.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxProviderResponse"
+                }
+              }
+            },
+            "description": "The configured sandbox provider."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "No sandbox provider configured."
+          }
+        },
+        "summary": "Get the configured sandbox provider",
+        "tags": [
+          "Sandbox Providers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "sandboxProviders"
+        ],
+        "x-fern-sdk-method-name": "get"
+      },
+      "put": {
+        "description": "Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DaytonaSandboxProvider"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutSandboxProviderResponse"
+                }
+              }
+            },
+            "description": "The saved sandbox provider."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          }
+        },
+        "summary": "Create or replace the sandbox provider",
+        "tags": [
+          "Sandbox Providers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "sandboxProviders"
+        ],
+        "x-fern-sdk-method-name": "upsert"
+      }
+    },
+    "/api/v1/settings/sandbox-providers/catalog": {
+      "get": {
+        "description": "Sandbox provider presets shipped with the server (sandbox-catalog.yaml). Discovery-only: copy an entry into PUT /settings/sandbox-providers to configure it.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxProviderCatalogResponse"
+                }
+              }
+            },
+            "description": "The shipped catalog, verbatim."
+          }
+        },
+        "summary": "Get the sandbox provider catalog",
+        "tags": [
+          "Sandbox Providers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "sandboxProviders"
         ],
         "x-fern-sdk-method-name": "catalog"
       }

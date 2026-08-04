@@ -5,7 +5,7 @@ import type * as TrueHarness from "../index.js";
 export interface Model {
     /** Upstream, provider-specific identifier sent to the provider API. */
     modelId: string;
-    /** Fully qualified name `name/model_name`, e.g. "openai/gpt-5-6-sol". */
+    /** Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant. */
     name: string;
     properties: TrueHarness.ModelProperties;
 }
