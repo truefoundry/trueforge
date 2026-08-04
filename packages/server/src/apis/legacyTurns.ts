@@ -2,15 +2,21 @@
  * YAML-backed turns API (mounted at /api/v1/legacy/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { Sessions } from '@truefoundry/utils/agent-session';
+import type { Sessions, SkillMount } from '@truefoundry/utils/agent-session';
 import {
   CancellationReason,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
   TurnResourceResolver,
-  type TurnSandboxFactory,
 } from '@truefoundry/utils/agent-session';
-import { AgentHarnessError, extractErrorLogFields, McpConnectionError, VercelAILLM } from '@truefoundry/utils/core';
+import {
+  AgentHarnessError,
+  extractErrorLogFields,
+  McpConnectionError,
+  VercelAILLM,
+  type GitSkill,
+  type SandboxProvider,
+} from '@truefoundry/utils/core';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import configuration from '../config';
@@ -24,6 +30,7 @@ import {
 } from '../routes/legacyTurnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
+import { buildTurnSandbox } from '../runtime/sandboxFactory';
 import { TENANT_ID } from './sessions';
 import { deriveSessionTitle, toWireTurn, turnEventSsePayload } from './turns';
 
@@ -32,23 +39,45 @@ export interface LegacyTurnsRouterDeps {
   activeTurns: ActiveTurnRegistry;
   modelStore: ModelStore;
   mcpStore: McpStore;
-  /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
-  sandboxFactory?: TurnSandboxFactory;
+  /** Shared provider from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
+  sandboxProvider?: SandboxProvider;
   logger: Logger;
+}
+
+function isGitSkillMount(skill: { name: string }): skill is SkillMount {
+  return 'type' in skill && skill.type === 'git' && 'url' in skill && 'description' in skill && 'ref' in skill;
+}
+
+function legacyGitSkillsFromSpec(skills: readonly { name: string }[] | undefined): GitSkill[] {
+  return (skills ?? []).map(skill => {
+    if (!isGitSkillMount(skill)) {
+      throw new Error(
+        `Skill "${skill.name}" must be a full git mount on the legacy sessions path (type, url, description, ref)`,
+      );
+    }
+    return {
+      name: skill.name,
+      description: skill.description,
+      url: skill.url,
+      path: skill.path ?? '',
+      ref: skill.ref,
+    };
+  });
 }
 
 /**
  * Per-run resource wiring: maps the YAML catalogs onto the agentSession
- * TurnResourceResolver.
+ * TurnResourceResolver. Skills expand from inline SkillMounts on agent_spec.
  */
 function createLegacyTurnResolver(deps: {
   modelStore: ModelStore;
   mcpStore: McpStore;
-  sandboxFactory?: TurnSandboxFactory | undefined;
+  sandboxProvider?: SandboxProvider | undefined;
   logger: Logger;
   signal: AbortSignal;
 }): TurnResourceResolver {
   const { modelStore, mcpStore, logger, signal } = deps;
+  const sandboxProvider = deps.sandboxProvider;
   return new TurnResourceResolver({
     llm: name =>
       new VercelAILLM({
@@ -63,7 +92,21 @@ function createLegacyTurnResolver(deps: {
       }
       return Promise.resolve({ url: entry.url, headers: mcpStore.getHeaders(name) });
     },
-    ...(deps.sandboxFactory ? { sandboxProvider: deps.sandboxFactory } : {}),
+    ...(sandboxProvider
+      ? {
+          sandboxProvider: ({ spec, existingSandboxId, tracing }) =>
+            Promise.resolve(
+              buildTurnSandbox({
+                provider: sandboxProvider,
+                logger,
+                gitSkills: legacyGitSkillsFromSpec(spec.skills),
+                fileDownloadEnabled: spec.config?.sandbox?.file_downloads ?? false,
+                existingSandboxId,
+                tracing,
+              }),
+            ),
+        }
+      : {}),
     logger,
   });
 }
@@ -143,7 +186,7 @@ export function createLegacyTurnsRouter(deps: LegacyTurnsRouterDeps) {
     const resolver = createLegacyTurnResolver({
       modelStore: deps.modelStore,
       mcpStore: deps.mcpStore,
-      sandboxFactory: deps.sandboxFactory,
+      sandboxProvider: deps.sandboxProvider,
       logger: deps.logger,
       signal: abortController.signal,
     });

@@ -1,7 +1,8 @@
 /** The API: resource routers, the OpenAPI document and Swagger UI, all under /api/v1. */
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { ISessionStore, Sessions, TurnSandboxFactory } from '@truefoundry/utils/agent-session';
+import type { ISessionStore, Sessions } from '@truefoundry/utils/agent-session';
+import type { SandboxProvider } from '@truefoundry/utils/core';
 import type { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -62,10 +63,8 @@ export interface ServerDeps {
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
-  /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. Legacy YAML mounts. */
-  sandboxFactory?: TurnSandboxFactory;
-  /** Same provider as sandboxFactory, but expands skills from ISkillStore by name. */
-  dbSandboxFactory?: TurnSandboxFactory;
+  /** Shared SandboxProvider from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
+  sandboxProvider?: SandboxProvider;
   /** Primary Redis client (server-owned); undefined in single-binary mode. */
   redis?: RedisClientType | undefined;
   /** Request-reply dispatch table served by this replica's executor. */
@@ -78,7 +77,7 @@ export function createServerApp(deps: ServerDeps) {
 
   app.get('/healthz', c => c.text('OK!'));
 
-  app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
+  app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxProvider !== undefined }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
   app.route('/api/v1/mcp-servers', createAvailableMcpServersRouter(deps.mcpServerStore));
   app.route('/api/v1/skills', createAvailableSkillsRouter(deps.skillStore));
@@ -104,7 +103,7 @@ export function createServerApp(deps: ServerDeps) {
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
       skillStore: deps.skillStore,
-      sandboxSupported: deps.sandboxFactory !== undefined,
+      sandboxSupported: deps.sandboxProvider !== undefined,
       redis: deps.redis,
     }),
   );
@@ -115,7 +114,8 @@ export function createServerApp(deps: ServerDeps) {
       activeTurns: deps.activeTurns,
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
-      ...(deps.dbSandboxFactory ? { sandboxFactory: deps.dbSandboxFactory } : {}),
+      skillStore: deps.skillStore,
+      ...(deps.sandboxProvider ? { sandboxProvider: deps.sandboxProvider } : {}),
       logger: deps.logger,
     }),
   );
@@ -132,7 +132,7 @@ export function createServerApp(deps: ServerDeps) {
       activeTurns: deps.activeTurns,
       modelStore: deps.modelStore,
       mcpStore: deps.mcpStore,
-      sandboxSupported: deps.sandboxFactory !== undefined,
+      sandboxSupported: deps.sandboxProvider !== undefined,
       redis: deps.redis,
       requestReplyRouter: deps.requestReplyRouter,
     }),
@@ -144,7 +144,7 @@ export function createServerApp(deps: ServerDeps) {
       activeTurns: deps.activeTurns,
       modelStore: deps.modelStore,
       mcpStore: deps.mcpStore,
-      ...(deps.sandboxFactory ? { sandboxFactory: deps.sandboxFactory } : {}),
+      ...(deps.sandboxProvider ? { sandboxProvider: deps.sandboxProvider } : {}),
       logger: deps.logger,
     }),
   );

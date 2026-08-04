@@ -11,7 +11,6 @@ import {
   TurnResourceResolver,
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
-  type TurnSandboxFactory,
 } from '@truefoundry/utils/agent-session';
 import {
   AgentHarnessError,
@@ -20,6 +19,7 @@ import {
   isFileContentPart,
   McpConnectionError,
   VercelAILLM,
+  type SandboxProvider,
   type VercelAIProviderConfig,
 } from '@truefoundry/utils/core';
 import { streamSSE } from 'hono/streaming';
@@ -27,10 +27,12 @@ import type { Logger } from 'winston';
 import configuration from '../config';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISkillStore } from '../db/skillStore';
 import { createAndExecuteTurnRoute, getTurnRoute, listTurnEventsRoute, listTurnsRoute } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { getDbMcpConnection, getDbProviderConfig } from '../runtime/dbSessionResources';
+import { getDbMcpConnection, getDbProviderConfig, resolveDbGitSkills } from '../runtime/dbSessionResources';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
+import { buildTurnSandbox } from '../runtime/sandboxFactory';
 import { TENANT_ID } from './sessions';
 
 export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
@@ -49,8 +51,9 @@ export interface TurnsRouterDeps {
   activeTurns: ActiveTurnRegistry;
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerStore;
-  /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
-  sandboxFactory?: TurnSandboxFactory;
+  skillStore: ISkillStore;
+  /** Shared provider from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
+  sandboxProvider?: SandboxProvider;
   logger: Logger;
 }
 
@@ -60,13 +63,15 @@ export interface TurnsRouterDeps {
  */
 function createTurnResolver(deps: {
   mcpServerStore: IMcpServerStore;
-  sandboxFactory?: TurnSandboxFactory | undefined;
+  skillStore: ISkillStore;
+  sandboxProvider?: SandboxProvider | undefined;
   logger: Logger;
   signal: AbortSignal;
   modelName: string;
   providerConfig: VercelAIProviderConfig;
 }): TurnResourceResolver {
-  const { mcpServerStore, logger, signal, modelName, providerConfig } = deps;
+  const { mcpServerStore, skillStore, logger, signal, modelName, providerConfig } = deps;
+  const sandboxProvider = deps.sandboxProvider;
   return new TurnResourceResolver({
     llm: name => {
       if (name !== modelName) {
@@ -84,7 +89,25 @@ function createTurnResolver(deps: {
         name,
         store: mcpServerStore,
       }),
-    ...(deps.sandboxFactory ? { sandboxProvider: deps.sandboxFactory } : {}),
+    ...(sandboxProvider
+      ? {
+          sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
+            const gitSkills = await resolveDbGitSkills({
+              tenant_id: TENANT_ID,
+              skills: spec.skills ?? [],
+              store: skillStore,
+            });
+            return buildTurnSandbox({
+              provider: sandboxProvider,
+              logger,
+              gitSkills,
+              fileDownloadEnabled: spec.config?.sandbox?.file_downloads ?? false,
+              existingSandboxId,
+              tracing,
+            });
+          },
+        }
+      : {}),
     logger,
   });
 }
@@ -209,7 +232,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     });
     const resolver = createTurnResolver({
       mcpServerStore: deps.mcpServerStore,
-      sandboxFactory: deps.sandboxFactory,
+      skillStore: deps.skillStore,
+      sandboxProvider: deps.sandboxProvider,
       logger: deps.logger,
       signal: abortController.signal,
       modelName,

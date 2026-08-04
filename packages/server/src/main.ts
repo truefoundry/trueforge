@@ -20,7 +20,7 @@ try {
     { SkillStore },
     { Sessions, CancellationReason },
     { ActiveTurnRegistry },
-    { createServerSandboxFactories },
+    { createServerSandboxProvider },
     { connectRedis },
     { RequestReplyExecutor, RequestReplyRouter },
     { PostgresSessionStore },
@@ -72,7 +72,7 @@ try {
   // Throws on malformed SANDBOX_SETTINGS; undefined when sandbox is not configured.
   const legacySkillStore = SkillStore.load();
   const skillStore = new PostgresSkillStore(db);
-  const sandboxFactories = createServerSandboxFactories({ logger, skillStore });
+  const sandboxProvider = createServerSandboxProvider({ logger });
   const activeTurns = new ActiveTurnRegistry();
 
   let redis: RedisClientType | undefined;
@@ -97,9 +97,7 @@ try {
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,
-    ...(sandboxFactories
-      ? { sandboxFactory: sandboxFactories.sandboxFactory, dbSandboxFactory: sandboxFactories.dbSandboxFactory }
-      : {}),
+    ...(sandboxProvider ? { sandboxProvider } : {}),
     redis,
     requestReplyRouter,
     logger,
