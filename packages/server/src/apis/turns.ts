@@ -36,7 +36,7 @@ import {
   listTurnsRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { getDbMcpConnection, getDbProviderConfig } from '../runtime/dbSessionResources';
+import { DbResourceNotConfiguredError, getDbMcpConnection, getDbProviderConfig } from '../runtime/dbSessionResources';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
 import { TENANT_ID } from './sessions';
 
@@ -262,8 +262,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         store: deps.modelProviderStore,
       });
     } catch (error) {
-      // Model deregistered or FQN invalid after admit — same 400 as admit/spec failures.
-      if (error instanceof Error) {
+      // Missing/invalid model after admit — not store/connectivity failures (those stay 500).
+      if (error instanceof DbResourceNotConfiguredError) {
         return c.json({ error: { message: error.message } }, 400);
       }
       throw error;
