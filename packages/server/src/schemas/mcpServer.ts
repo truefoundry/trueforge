@@ -9,7 +9,7 @@
  * MCP_{NAME}_HEADERS env vars — not this schema.
  */
 import { z } from '@hono/zod-openapi';
-import { isOAuthAccessTokenUsable, type OAuthToken } from '@truefoundry/utils/core';
+import { isOAuthAccessTokenUsable, type OAuthToken } from '@truefoundry/utils-core/core';
 import { NameSchema } from './common';
 
 /** Transport/kind of MCP server. Extend when non-remote kinds ship. */
