@@ -5,7 +5,7 @@
  * JSON payload columns are BLOB JSONB on disk. Reads must project `json(column)`;
  * `ParseJSONResultsPlugin` (configured in createSqliteDb) parses those top-level columns only.
  */
-import type { AgentSpec, PersistedTurnEvent, TurnInputItem, TurnState } from '@truefoundry/utils/agent-session';
+import type { AgentSpec, PersistedTurnEvent, TurnInputItem, TurnState } from '@truefoundry/utils-core/agent-session';
 import type {
   AgentInfo,
   AgentParent,
@@ -14,8 +14,8 @@ import type {
   MCPServerInitInfo,
   SandboxInfo,
   SubAgentCompletionMarker,
-} from '@truefoundry/utils/core';
-import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
+} from '@truefoundry/utils-core/core';
+import type { CurrentContextUsage } from '@truefoundry/utils-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';

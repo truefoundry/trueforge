@@ -1,4 +1,4 @@
-import type { OAuthClientRecord } from '@truefoundry/utils/core';
+import type { OAuthClientRecord } from '@truefoundry/utils-core/core';
 import type { Kysely, Selectable } from 'kysely';
 import { ulid } from 'ulid';
 import { fromStoredOAuthClientRecord, toStoredOAuthClientRecord } from '../../mcpOAuthTypes';

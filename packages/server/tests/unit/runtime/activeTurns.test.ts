@@ -1,4 +1,4 @@
-import { CancellationReason } from '@truefoundry/utils/agent-session';
+import { CancellationReason } from '@truefoundry/utils-core/agent-session';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 
 async function* values<T>(items: T[]): AsyncGenerator<T> {

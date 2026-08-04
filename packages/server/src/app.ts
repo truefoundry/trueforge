@@ -1,9 +1,14 @@
 /** The API: resource routers, the OpenAPI document and Swagger UI, all under /api/v1. */
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { ISessionStore, Sessions, TurnSandboxFactory, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
-import type { IOAuthTokenStore } from '@truefoundry/utils/core';
-import type { RequestReplyRouter } from '@truefoundry/utils/request-reply';
+import type {
+  ISessionStore,
+  Sessions,
+  TurnSandboxFactory,
+  TurnStreamingEvent,
+} from '@truefoundry/utils-core/agent-session';
+import type { IOAuthTokenStore } from '@truefoundry/utils-core/core';
+import type { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';

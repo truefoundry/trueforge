@@ -1,4 +1,4 @@
-import type { ISessionStore } from '@truefoundry/utils/agent-session/store/ISessionStore';
+import type { ISessionStore } from '@truefoundry/utils-core/agent-session/store/ISessionStore';
 
 import { runStoreContractSuite } from '../../../../../harness/tests/agent-session/store/storeContractSuite';
 import { SqliteSessionStore } from '../../../../src/db/sqlite/session-store/SqliteSessionStore';

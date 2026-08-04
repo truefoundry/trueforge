@@ -2,7 +2,7 @@
  * Live app schema for the runtime Kysely client / Postgres-backed session store.
  * Migrations must not use this type — use `Kysely<unknown>` instead.
  */
-import type { AgentSpec, PersistedTurnEvent, TurnInputItem, TurnState } from '@truefoundry/utils/agent-session';
+import type { AgentSpec, PersistedTurnEvent, TurnInputItem, TurnState } from '@truefoundry/utils-core/agent-session';
 import type {
   AgentInfo,
   AgentParent,
@@ -11,8 +11,8 @@ import type {
   MCPServerInitInfo,
   SandboxInfo,
   SubAgentCompletionMarker,
-} from '@truefoundry/utils/core';
-import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
+} from '@truefoundry/utils-core/core';
+import type { CurrentContextUsage } from '@truefoundry/utils-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';

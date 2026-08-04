@@ -1,5 +1,5 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
+import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefoundry/utils-core/agent-session';
 import {
   CancellationReason,
   EventType,
@@ -10,7 +10,7 @@ import {
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
   type TurnSandboxFactory,
-} from '@truefoundry/utils/agent-session';
+} from '@truefoundry/utils-core/agent-session';
 import {
   AgentHarnessError,
   extractErrorLogFields,
@@ -18,7 +18,7 @@ import {
   isFileContentPart,
   McpConnectionError,
   VercelAILLM,
-} from '@truefoundry/utils/core';
+} from '@truefoundry/utils-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
