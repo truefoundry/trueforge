@@ -60,12 +60,11 @@ export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema
 export type SandboxProvider = z.infer<typeof SandboxProviderSchema>;
 export type PutSandboxProviderRequest = SandboxProvider;
 
-/** Wire/persisted snake_case → DaytonaSandboxProvider ctor fields from the manifest. */
-export function toDaytonaSandboxProviderInput(
-  manifest: SandboxProviderManifest,
-): Pick<
+/** Wire/persisted snake_case → Daytona client credentials + provider settings. */
+export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest): {
+  apiKey: string;
+} & Pick<
   DaytonaSandboxProviderOptions,
-  | 'apiKey'
   | 'snapshotName'
   | 'timeoutMs'
   | 'autoStopIntervalInMinutes'

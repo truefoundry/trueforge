@@ -197,6 +197,9 @@ importers:
 
   packages/server:
     dependencies:
+      '@daytona/sdk':
+        specifier: ^0.190.0
+        version: 0.190.1(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)(ws@8.21.1)
       '@hono/node-server':
         specifier: ^2.0.11
         version: 2.0.11(hono@4.12.31)

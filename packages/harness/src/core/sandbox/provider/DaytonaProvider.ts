@@ -26,7 +26,8 @@ function httpUrlToWsUrl(url: string): string {
 }
 
 export interface DaytonaSandboxProviderOptions {
-  apiKey: string;
+  /** Caller-owned Daytona SDK client (credentials / lifetime). */
+  client: Daytona;
   tenantName: string;
   snapshotName: string;
   timeoutMs: number;
@@ -41,14 +42,7 @@ export interface DaytonaSandboxProviderOptions {
   logger: Logger;
 }
 
-let daytonaClient: Daytona | undefined;
-function getDaytonaClient(apiKey: string): Daytona {
-  daytonaClient ??= new Daytona({ apiKey });
-  return daytonaClient;
-}
-
 export class DaytonaSandboxProvider implements SandboxProvider {
-  private readonly apiKey: string;
   private readonly tenantName: string;
   private readonly snapshotName: string;
   private readonly timeoutMs: number;
@@ -65,7 +59,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private static readonly inFlightRecoveries = new Map<string, Promise<boolean>>();
 
   constructor(options: DaytonaSandboxProviderOptions) {
-    this.apiKey = options.apiKey;
+    this.daytona = options.client;
     this.tenantName = options.tenantName;
     this.snapshotName = options.snapshotName;
     this.timeoutMs = options.timeoutMs;
@@ -76,7 +70,6 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.natsBridgePort = options.natsBridgePort ?? DEFAULT_SANDBOX_NATS_WS_PORT;
     this.previewUrlExpirySeconds = options.previewUrlExpirySeconds ?? DEFAULT_PREVIEW_URL_EXPIRY_SECONDS;
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
-    this.daytona = getDaytonaClient(this.apiKey);
   }
 
   private async getOrCreateSandbox(sandboxId?: string): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {
