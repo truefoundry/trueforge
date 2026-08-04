@@ -1255,7 +1255,7 @@ await client.settings.mcpServers.catalog();
 </dl>
 </details>
 
-<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">authorize</a>(name, { ...params }) -> TrueHarness.ConfiguredMcpAuthorizeResponse</code></summary>
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">authorize</a>(name, { ...params }) -> TrueHarness.McpAuthStatus</code></summary>
 <dl>
 <dd>
 
@@ -1267,7 +1267,7 @@ await client.settings.mcpServers.catalog();
 <dl>
 <dd>
 
-For servers without auth or with header credentials, returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).
+For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).
 </dd>
 </dl>
 </dd>
