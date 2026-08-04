@@ -1,11 +1,5 @@
-import { createRoute, z } from '@hono/zod-openapi';
-import { ModelEntrySchema } from '../store/schemas';
-
-const ListModelsResponseSchema = z
-  .object({
-    data: z.array(ModelEntrySchema),
-  })
-  .openapi('ListModelsResponse');
+import { createRoute } from '@hono/zod-openapi';
+import { ListModelsResponseSchema } from '../schemas/modelProvider';
 
 export const listModelsRoute = createRoute({
   method: 'get',
@@ -14,11 +8,11 @@ export const listModelsRoute = createRoute({
   summary: 'List models',
   'x-fern-sdk-group-name': ['models'],
   'x-fern-sdk-method-name': 'list',
-  description: "Models declared in models.yaml, reachable through the OpenAI-compatible API at the file's base_url.",
+  description: 'Models across all configured model providers, addressed by fully qualified name `name/model_name`.',
   responses: {
     200: {
       content: { 'application/json': { schema: ListModelsResponseSchema } },
-      description: 'All configured models.',
+      description: 'All models of all configured providers.',
     },
   },
 });

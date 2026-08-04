@@ -1,11 +1,17 @@
+# Full-stack smoke test. Reads packages/server/.env for secrets (e.g.
+# MODEL_API_KEY) and credentials; host ports and in-network DB/Redis targets
+# are opinionated here so they do not collide with or inherit host-dev values.
+name: harness
+
 services:
   postgres:
     image: postgres:17
     env_file:
       - path: packages/server/.env
         required: true
+    # Host 5433 avoids conflict with docker-compose.dev.yml on 5432.
     ports:
-      - '5432:5432'
+      - '5433:5432'
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
@@ -19,8 +25,9 @@ services:
   # turn cancel via request-reply).
   redis:
     image: redis:7-alpine
+    # Host 6380 avoids conflict with docker-compose.dev.yml on 6379.
     ports:
-      - '${REDIS_PORT:-6379}:6379'
+      - '6380:6379'
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -28,26 +35,33 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Serves both the API and the UI on one port.
   server:
     build:
       context: .
-      dockerfile: packages/server/Dockerfile
     image: truefoundry-server:latest
     ports:
-      - '${PORT:-8790}:8790'
+      # Host 8791 avoids conflict with host `pnpm dev` on 8790.
+      - '8791:8790'
     environment:
-      # PORT the server listens on inside the container (defaults to 8790).
+      # Wins over env_file / image defaults so a host .env cannot flip this.
+      NODE_ENV: production
+      # Inside the container; host mapping above is 8791.
       PORT: 8790
-      # Compose network hostname; credentials still come from env_file.
+      # Compose network hosts — do not use packages/server/.env localhost values.
       POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      # Compose runs one replica but keeps peering on so the peered cancel path
+      # stays exercised in development. A single-process deployment can set this
+      # to true and drop the redis service entirely.
+      SINGLE_BINARY: 'false'
       REDIS_URL: redis://redis:6379
-    # Environment variables (MODEL_API_KEY, POSTGRES_*, etc.) are read from this file.
-    # Copy packages/server/.env.example to packages/server/.env and fill it in.
+    # Secrets and Postgres credentials (MODEL_API_KEY, POSTGRES_USER, …).
+    # `environment` above overrides any colliding keys from this file.
     env_file:
       - path: packages/server/.env
         required: true
-    # The YAML registry (models.yaml, mcp.yaml, skills.yaml) is not baked into
-    # the image. Copy registry-example to registry before starting the service.
+    # Copy registry-example to registry before starting the service.
     volumes:
       - ./packages/server/registry:/app/packages/server/registry:ro
     depends_on:
@@ -55,14 +69,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # Probes existing GET / (plain text OK!); node is already in the image.
+    # Probes GET /healthz (plain text OK!); node is already in the image.
     healthcheck:
       test:
         [
           'CMD',
           'node',
           '-e',
-          "fetch('http://127.0.0.1:8790/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:8790/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 5s
       timeout: 5s
@@ -71,16 +85,4 @@ services:
     # Above the app's default GRACEFUL_TIMEOUT_SECONDS (30) so SIGKILL does not
     # cut off turn drain.
     stop_grace_period: 35s
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: .
-      dockerfile: packages/frontend/Dockerfile
-    image: truefoundry-frontend:latest
-    ports:
-      - '${FRONTEND_PORT:-3000}:80'
-    depends_on:
-      server:
-        condition: service_healthy
     restart: unless-stopped

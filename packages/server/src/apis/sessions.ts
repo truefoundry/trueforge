@@ -12,9 +12,12 @@ import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import configuration from '../config';
+import type { McpStore } from '../legacy-registry-store/McpStore';
+import type { ModelStore } from '../legacy-registry-store/ModelStore';
 import {
   cancelSessionRoute,
   createSessionRoute,
+  deleteSessionRoute,
   getSessionRoute,
   listSessionEventsRoute,
   listSessionsRoute,
@@ -23,8 +26,6 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { executorFromTurnId } from '../runtime/peeringIds';
 import type { Session } from '../schemas/session';
-import type { McpStore } from '../store/McpStore';
-import type { ModelStore } from '../store/ModelStore';
 
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
 export const TENANT_ID = 'default';
@@ -45,8 +46,8 @@ export function toWireSession(record: SessionRecord): Session {
     id: record.session_id,
     agent_spec: record.agent_spec,
     title: record.title,
-    created_at: record.created_at,
-    updated_at: record.updated_at,
+    created_at: record.created_at.toISOString(),
+    updated_at: record.updated_at.toISOString(),
   };
 }
 
@@ -102,8 +103,8 @@ export interface SessionsRouterDeps {
   mcpStore: McpStore;
   /** Whether a sandbox provider is configured (SANDBOX_SETTINGS); gates spec admission. */
   sandboxSupported: boolean;
-  /** Primary Redis client (server-owned); used to reach peer executors. */
-  redis: RedisClientType;
+  /** Reaches peer executors; undefined in single-binary mode. */
+  redis?: RedisClientType | undefined;
   /** Request-reply dispatch table this replica serves; cancel registers here. */
   requestReplyRouter: RequestReplyRouter;
 }
@@ -143,19 +144,25 @@ export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): R
   };
 }
 
+/** A registry to abort in, durable state to read, and a way to reach peers. */
+export interface CancelTurnDeps {
+  activeTurns: ActiveTurnRegistry;
+  sessionStore: Pick<ISessionStore, 'getTurn'>;
+  redis?: RedisClientType | undefined;
+}
+
 /**
  * Cancels the turn wherever it runs: locally or on the owning peer over Redis
  * request-reply. Callers state the motive; default is a plain client cancel.
  * Owner failures throw HTTPException (412 unreachable, 424 timed out).
  */
 export async function cancelSessionTurn(
-  deps: Pick<SessionsRouterDeps, 'redis' | 'activeTurns' | 'sessionStore'>,
+  deps: CancelTurnDeps,
   input: { sessionId: string; turnId: string; reason?: CancellationReason },
 ): Promise<void> {
   const { sessionId, turnId, reason = CancellationReason.ClientCancelled } = input;
 
   const turn = await deps.sessionStore.getTurn({
-    tenant_id: TENANT_ID,
     session_id: sessionId,
     turn_id: turnId,
   });
@@ -165,7 +172,9 @@ export async function cancelSessionTurn(
   }
 
   const owner = executorFromTurnId(turnId);
-  if (owner !== configuration.EXECUTOR_ID) {
+  // Without a Redis client there is no peer to ask, so an id naming another
+  // replica falls through to the local lookup and finds nothing.
+  if (owner !== configuration.EXECUTOR_ID && deps.redis) {
     try {
       const reply = await redisRequest<CancelPeerBody>({
         redis: deps.redis,
@@ -234,6 +243,12 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     return c.json({ data: toWireSession(record) }, 200);
+  };
+
+  const deleteSessionHandler: RouteHandler<typeof deleteSessionRoute> = async c => {
+    const { sessionId } = c.req.valid('param');
+    await deps.sessionStore.deleteSession({ tenant_id: TENANT_ID, session_id: sessionId });
+    return c.body(null, 204);
   };
 
   const updateSessionHandler: RouteHandler<typeof updateSessionRoute> = async c => {
@@ -333,6 +348,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   const router = new OpenAPIHono();
   router.openapi(createSessionRoute, createSessionHandler);
   router.openapi(getSessionRoute, getSessionHandler);
+  router.openapi(deleteSessionRoute, deleteSessionHandler);
   router.openapi(updateSessionRoute, updateSessionHandler);
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);

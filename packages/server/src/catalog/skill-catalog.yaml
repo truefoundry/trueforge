@@ -1,0 +1,10 @@
+# Shipped skill catalog: skill presets offered by
+# GET /api/v1/settings/skills/catalog for the settings UI to copy into
+# PUT /api/v1/settings/skills bodies. Discovery-only — never executed against.
+skills:
+  - type: git
+    name: algorithmic-art
+    url: https://github.com/anthropics/skills
+    path: skills/algorithmic-art
+    ref: main
+    description: Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration.

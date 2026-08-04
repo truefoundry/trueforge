@@ -1,0 +1,33 @@
+# Host-backed development infra. Project name keeps containers separate from
+# docker-compose.yml. Host ports match packages/server/.env defaults.
+name: harness-dev
+
+services:
+  postgres:
+    image: postgres:17
+    env_file:
+      - path: packages/server/.env
+        required: true
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./data/dev/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # Shared by all server replicas: carries executor peering (cross-replica
+  # turn cancel via request-reply).
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped

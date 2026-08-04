@@ -5,17 +5,27 @@
  * spec cannot drift from what the server serves. Nothing listens or dials out:
  * `.env.test` supplies dummy connection strings and the registry fixtures.
  */
+import type { TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import { InMemorySessionStore, Sessions } from '@truefoundry/utils/agent-session';
 import { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { createClient, type RedisClientType } from 'redis';
 import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
+import { McpCatalog } from '../src/catalog/McpCatalog';
+import { ModelCatalog } from '../src/catalog/ModelCatalog';
+import { SandboxCatalog } from '../src/catalog/SandboxCatalog';
+import { SkillCatalog } from '../src/catalog/SkillCatalog';
+import { createSqliteDb } from '../src/db/sqlite/client';
+import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxProviderStore } from '../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
+import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
+import { McpStore } from '../src/legacy-registry-store/McpStore';
+import { ModelStore } from '../src/legacy-registry-store/ModelStore';
+import { SkillStore } from '../src/legacy-registry-store/SkillStore';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
-import { McpStore } from '../src/store/McpStore';
-import { ModelStore } from '../src/store/ModelStore';
-import { SkillStore } from '../src/store/SkillStore';
+import { EventSubscriptionRegistry } from '../src/runtime/event-subscription';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -38,16 +48,24 @@ function canonicalise(value: unknown): unknown {
 
 // Unconnected stand-ins suffice: route registration never reads a dependency.
 const sessionStore = new InMemorySessionStore();
-const redis: RedisClientType = createClient();
+const db = createSqliteDb(':memory:');
 const app = createServerApp({
   modelStore: ModelStore.load(),
+  modelCatalog: ModelCatalog.load(),
+  modelProviderStore: new SqliteModelProviderStore(db),
+  mcpCatalog: McpCatalog.load(),
+  mcpServerStore: new SqliteMcpServerStore(db),
   mcpStore: McpStore.load(),
-  skillStore: SkillStore.load(),
+  skillCatalog: SkillCatalog.load(),
+  skillStore: new SqliteSkillStore(db),
+  sandboxCatalog: SandboxCatalog.load(),
+  sandboxProviderStore: new SqliteSandboxProviderStore(db),
+  legacySkillStore: SkillStore.load(),
   sessionStore,
   sessions: new Sessions({ sessionStore }),
   activeTurns: new ActiveTurnRegistry(),
-  redis,
   requestReplyRouter: new RequestReplyRouter(),
+  eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
   logger: winston.createLogger({ silent: true }),
 });
 

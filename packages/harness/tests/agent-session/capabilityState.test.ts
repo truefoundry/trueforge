@@ -90,7 +90,6 @@ describe('capability_state (tfy.plan fixture)', () => {
       // drain
     }
     const stored1 = await store.getTurn({
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn1.id,
     });
@@ -121,7 +120,6 @@ describe('capability_state (tfy.plan fixture)', () => {
       // drain
     }
     const stored2 = await store.getTurn({
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn2.id,
     });
@@ -187,14 +185,12 @@ describe('capability_state (tfy.plan fixture)', () => {
       // drain
     }
     const prior = await store.getTurn({
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn1.id,
     });
     expect(prior?.snapshot.threads[MAIN_THREAD_ID]?.capability_state?.['tfy.plan']).toEqual(planV1);
 
     const latest = await store.getTurn({
-      tenant_id: tenant,
       session_id: 's1',
       turn_id: turn3.id,
     });

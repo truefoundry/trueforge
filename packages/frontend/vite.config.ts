@@ -1,16 +1,14 @@
 import react from '@vitejs/plugin-react';
 import type { ProxyOptions } from 'vite';
 import { defineConfig } from 'vite';
+import { compression } from 'vite-plugin-compression2';
 // Maintained ESM fork of vite-plugin-monaco-editor (works with Vite 6 ESM config).
 import monacoEditorPlugin from 'vite-plugin-monaco-editor-esm';
 
 const SERVER = process.env.VITE_SERVER_URL ?? 'http://localhost:8790';
-
-/** Rewrite SDK draft/session paths onto harness /v1/sessions. */
-function rewriteAgentsToSessions(path: string): string {
-  return path
-    .replace(/^\/v1\/agents\/draft-sessions/, '/v1/sessions')
-    .replace(/^\/v1\/agents\/sessions/, '/v1/sessions');
+const PORT = Number(process.env.FRONTEND_PORT ?? 3000);
+if (!Number.isInteger(PORT)) {
+  throw new Error(`FRONTEND_PORT must be an integer, got "${process.env.FRONTEND_PORT}"`);
 }
 
 const apiProxy: ProxyOptions = {
@@ -33,6 +31,12 @@ export default defineConfig({
     monacoEditorPlugin({
       languageWorkers: ['editorWorkerService', 'css', 'html', 'json', 'typescript'],
     }),
+    // The server serves these siblings instead of compressing per request.
+    compression({
+      algorithms: ['br', 'gz'],
+      threshold: 1024,
+      skipIfLargerOrEqual: true,
+    }),
   ],
   // Single React / assistant-ui Context instance (avoids "requires an AuiProvider").
   resolve: {
@@ -46,17 +50,10 @@ export default defineConfig({
     ],
   },
   server: {
-    port: 3000,
+    port: PORT,
+    // Plain passthrough: harnessFetch already maps SDK paths onto harness routes.
     proxy: {
-      '/v1/agents': {
-        ...apiProxy,
-        rewrite: rewriteAgentsToSessions,
-      },
-      '/v1/capabilities': apiProxy,
-      '/v1/models': apiProxy,
-      '/v1/mcp-servers': apiProxy,
-      '/v1/skills': apiProxy,
-      '/v1/sessions': apiProxy,
+      '/api': apiProxy,
     },
   },
 });

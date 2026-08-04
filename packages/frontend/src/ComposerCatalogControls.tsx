@@ -22,6 +22,7 @@ interface Props {
   isRunning?: boolean;
   initialTab?: CatalogTab;
   onAttach?: () => void;
+  onClosePanel?: () => void;
   onOpenPanel?: (tab: CatalogTab) => void;
 }
 
@@ -43,6 +44,7 @@ export function ComposerCatalogControls({
   disabled = false,
   initialTab = 'connectors',
   onAttach,
+  onClosePanel,
   onOpenPanel,
 }: Props) {
   const capabilities = useServerCapabilities();
@@ -198,8 +200,12 @@ export function ComposerCatalogControls({
                 {models.map(entry => {
                   const nextReasoningEffort = entry.reasoning_efforts?.[0];
                   const nextParams = { ...agentSpec?.model.params };
-                  if (nextReasoningEffort) nextParams.reasoningEffort = nextReasoningEffort;
-                  else delete nextParams.reasoningEffort;
+                  // Assign undefined (not delete) so the spread in mergeAgentSpec
+                  // overrides the base value; a deleted key leaves the base intact.
+                  // TODO (chiragjn): look into SDK generation, if we can have a more robust way to do this.
+                  // @ts-expect-error -- ModelParams.reasoningEffort is `string?` (exactOptionalPropertyTypes),
+                  // but we intentionally write undefined here so the JS spread overwrites any prior value.
+                  nextParams.reasoningEffort = nextReasoningEffort;
                   return (
                     <button
                       key={entry.name}
@@ -327,6 +333,7 @@ export function ComposerCatalogControls({
           disabled={!onAttach}
           onClick={() => {
             setTab('attachment');
+            onClosePanel?.();
             onAttach?.();
           }}
         >

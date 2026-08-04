@@ -5,12 +5,14 @@ import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import { CancellationReason, type TerminalTurnState } from '../schemas/turn';
+import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
 import type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
   CreateSessionInput,
   CreateTurnInput,
+  DeleteSessionInput,
   FreezeAndGetTurnInput,
   GetSessionInput,
   GetTurnInput,
@@ -59,12 +61,12 @@ function deepCopy<T>(value: T): T {
   return structuredClone(value);
 }
 
-function sessionKey(tenant: string, sessionId: string): string {
-  return `${tenant}:${sessionId}`;
+function sessionKey(sessionId: string): string {
+  return sessionId;
 }
 
-function turnKey(tenant: string, sessionId: string, turnId: string): string {
-  return `${tenant}:${sessionId}:${turnId}`;
+function turnKey({ session_id, turn_id }: { session_id: string; turn_id: string }): string {
+  return `${session_id}:${turn_id}`;
 }
 
 function newThreadSnapshot(thread: NewThreadInit): AgentThreadSnapshot {
@@ -102,39 +104,24 @@ function buildSnapshotFromDelta(input: {
     ? deepCopy(input.previousSnapshot.threads)
     : {};
 
+  assertCreateTurnThreadDelta({
+    previousThreadIds: new Set(Object.keys(threads)),
+    new_threads: input.new_threads,
+    new_context_appends: input.new_context_appends,
+    capability_states: input.capability_states,
+  });
+
   for (const nt of input.new_threads) {
-    if (threads[nt.thread_id] !== undefined) {
-      throw new SessionStoreInvariantError(
-        `new_threads must only contain threads absent on the previous turn; thread '${nt.thread_id}' already exists`,
-      );
-    }
     threads[nt.thread_id] = newThreadSnapshot(nt);
   }
 
-  const knownThreadIds = new Set(Object.keys(threads));
-  for (const append of input.new_context_appends) {
-    if (!knownThreadIds.has(append.thread_id)) {
-      throw new SessionStoreInvariantError(`new_context_appends references unknown thread ${append.thread_id}`);
-    }
-  }
-
   applyContextAppends(threads, input.new_context_appends);
-  const seenCapabilityThreads = new Set<string>();
   for (const capability of input.capability_states) {
     const thread = threads[capability.thread_id];
     if (thread === undefined) {
       throw new SessionStoreInvariantError(`capability_states references unknown thread ${capability.thread_id}`);
     }
-    if (seenCapabilityThreads.has(capability.thread_id)) {
-      throw new SessionStoreInvariantError(`capability_states contains duplicate thread ${capability.thread_id}`);
-    }
-    seenCapabilityThreads.add(capability.thread_id);
     thread.capability_state = deepCopy(capability.capability_state);
-  }
-  for (const threadId of Object.keys(threads)) {
-    if (!seenCapabilityThreads.has(threadId)) {
-      throw new SessionStoreInvariantError(`capability_states is missing thread ${threadId}`);
-    }
   }
 
   return {
@@ -170,11 +157,11 @@ export class InMemorySessionStore<
   private readonly events = new Map<string, StoredEvent[]>();
 
   async createSession(input: CreateSessionInput<TSessionCustom>): Promise<void> {
-    const key = sessionKey(input.tenant_id, input.session_id);
+    const key = sessionKey(input.session_id);
     if (this.sessions.has(key)) {
       throw new SessionAlreadyExistsError(input.session_id);
     }
-    const now = new Date().toISOString();
+    const now = new Date();
     const record: SessionRecord<TSessionCustom> = {
       tenant_id: input.tenant_id,
       session_id: input.session_id,
@@ -190,15 +177,29 @@ export class InMemorySessionStore<
     return;
   }
 
+  async deleteSession(input: DeleteSessionInput): Promise<void> {
+    const sKey = sessionKey(input.session_id);
+    const stored = this.sessions.get(sKey);
+    if (stored?.record.tenant_id !== input.tenant_id) {
+      return;
+    }
+    for (const turnId of stored.turnIds) {
+      const tKey = turnKey({ session_id: input.session_id, turn_id: turnId });
+      this.turns.delete(tKey);
+      this.events.delete(tKey);
+    }
+    this.sessions.delete(sKey);
+  }
+
   async getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined> {
-    const stored = this.sessions.get(sessionKey(input.tenant_id, input.session_id));
-    return stored ? deepCopy(stored.record) : undefined;
+    const stored = this.sessions.get(sessionKey(input.session_id));
+    return stored?.record.tenant_id === input.tenant_id ? deepCopy(stored.record) : undefined;
   }
 
   async updateSession(input: UpdateSessionInput<TSessionCustom>): Promise<void> {
-    const key = sessionKey(input.tenant_id, input.session_id);
+    const key = sessionKey(input.session_id);
     const stored = this.sessions.get(key);
-    if (!stored) {
+    if (stored?.record.tenant_id !== input.tenant_id) {
       throw new SessionNotFoundError(input.session_id);
     }
     if (input.agent_spec !== undefined) {
@@ -208,7 +209,7 @@ export class InMemorySessionStore<
       stored.record.title = input.title;
     }
     const now = Date.now();
-    stored.record.updated_at = new Date(now).toISOString();
+    stored.record.updated_at = new Date(now);
     stored.record.last_activity_timestamp_ms = now;
     return;
   }
@@ -216,17 +217,18 @@ export class InMemorySessionStore<
   async listSessions(
     input: ListSessionsInput,
   ): Promise<{ data: SessionRecord<TSessionCustom>[]; pagination: TokenPagination }> {
-    const prefix = `${input.tenant_id}:`;
     const records: SessionRecord<TSessionCustom>[] = [];
-    for (const [key, stored] of this.sessions) {
-      if (!key.startsWith(prefix)) continue;
-      const createdAt = stored.record.created_at;
-      if (input.start_timestamp !== undefined && createdAt < input.start_timestamp) continue;
-      if (input.end_timestamp !== undefined && createdAt > input.end_timestamp) continue;
+    for (const stored of this.sessions.values()) {
+      if (stored.record.tenant_id !== input.tenant_id) continue;
+      const createdAt = stored.record.created_at.getTime();
+      if (input.start_timestamp !== undefined && createdAt < input.start_timestamp.getTime()) continue;
+      if (input.end_timestamp !== undefined && createdAt > input.end_timestamp.getTime()) continue;
       records.push(stored.record);
     }
     records.sort((a, b) =>
-      input.order === 'asc' ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at),
+      input.order === 'asc'
+        ? a.created_at.getTime() - b.created_at.getTime()
+        : b.created_at.getTime() - a.created_at.getTime(),
     );
     const page = paginate(records, input.limit, input.page_token);
     return { data: deepCopy(page.data), pagination: page.pagination };
@@ -236,7 +238,7 @@ export class InMemorySessionStore<
     // Atomicity is free here: this body is fully synchronous, so Node's
     // run-to-completion guarantees it. Real backends must still use their own
     // locking/transactions to satisfy the ISessionStore createTurn contract.
-    const sKey = sessionKey(input.tenant_id, input.turn.session_id);
+    const sKey = sessionKey(input.turn.session_id);
     const stored = this.sessions.get(sKey);
     if (!stored) {
       throw new SessionNotFoundError(input.turn.session_id);
@@ -245,7 +247,7 @@ export class InMemorySessionStore<
     const previousTurnId = input.turn.previous_turn_id;
     let previousSnapshot: TurnSnapshot | undefined;
     if (previousTurnId !== null) {
-      const prevKey = turnKey(input.tenant_id, input.turn.session_id, previousTurnId);
+      const prevKey = turnKey({ session_id: input.turn.session_id, turn_id: previousTurnId });
       const prev = this.turns.get(prevKey);
       // Unknown previous_turn_id is allowed (relaxed): treat as no inheritance.
       // A still-running previous must be frozen first.
@@ -257,7 +259,7 @@ export class InMemorySessionStore<
       }
     }
 
-    const tKey = turnKey(input.tenant_id, input.turn.session_id, input.turn.turn_id);
+    const tKey = turnKey(input.turn);
     if (this.turns.has(tKey)) {
       throw new TurnAlreadyExistsError(input.turn.turn_id);
     }
@@ -279,18 +281,15 @@ export class InMemorySessionStore<
     stored.turnIds.push(input.turn.turn_id);
     stored.record.last_turn_id = input.turn.turn_id;
     stored.record.last_activity_timestamp_ms = Date.now();
-    stored.record.updated_at = new Date().toISOString();
+    stored.record.updated_at = new Date();
     if (input.update_session_title_if_not_exist !== null && stored.record.title === null) {
       stored.record.title = input.update_session_title_if_not_exist;
     }
   }
 
   async freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>> {
-    const tKey = turnKey(input.tenant_id, input.session_id, input.turn_id);
-    const turn = this.turns.get(tKey);
-    if (!turn) {
-      throw new TurnNotFoundError(input.turn_id);
-    }
+    const tKey = turnKey(input);
+    const turn = this.requireTurn(input.session_id, input.turn_id);
 
     if (turn.state.status === 'running') {
       const cancelledState: TerminalTurnState = {
@@ -299,7 +298,7 @@ export class InMemorySessionStore<
         completed_at: new Date().toISOString(),
       };
       turn.state = cancelledState;
-      turn.updated_at = new Date().toISOString();
+      turn.updated_at = new Date();
       const list = this.events.get(tKey);
       if (list) {
         list.push(deepCopy(input.turn_done_event));
@@ -310,19 +309,19 @@ export class InMemorySessionStore<
   }
 
   async getTurn(input: GetTurnInput): Promise<TurnRecord<TTurnCustom> | undefined> {
-    const turn = this.turns.get(turnKey(input.tenant_id, input.session_id, input.turn_id));
+    const turn = this.turns.get(turnKey(input));
     return turn ? deepCopy(turn) : undefined;
   }
 
   async listTurns(
     input: ListTurnsInput,
   ): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }> {
-    const stored = this.sessions.get(sessionKey(input.tenant_id, input.session_id));
+    const stored = this.sessions.get(sessionKey(input.session_id));
     if (!stored) {
       throw new SessionNotFoundError(input.session_id);
     }
     const records = stored.turnIds.map(id => {
-      const turn = this.turns.get(turnKey(input.tenant_id, input.session_id, id));
+      const turn = this.turns.get(turnKey({ session_id: input.session_id, turn_id: id }));
       if (!turn) {
         throw new TurnNotFoundError(id);
       }
@@ -335,16 +334,13 @@ export class InMemorySessionStore<
 
   async updateTurnState(input: UpdateTurnStateInput): Promise<void> {
     // Same as createTurn: synchronous body ⇒ atomic under run-to-completion.
-    const tKey = turnKey(input.tenant_id, input.session_id, input.turn_id);
-    const turn = this.turns.get(tKey);
-    if (!turn) {
-      throw new TurnNotFoundError(input.turn_id);
-    }
+    const tKey = turnKey(input);
+    const turn = this.requireTurn(input.session_id, input.turn_id);
     if (turn.state.status !== 'running') {
       throw new TurnNotRunningError(input.turn_id, turn.state);
     }
     turn.state = deepCopy(input.state);
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     const list = this.events.get(tKey);
     if (list) {
       list.push(deepCopy(input.turn_done_event));
@@ -352,8 +348,8 @@ export class InMemorySessionStore<
   }
 
   async appendToEvents(input: AppendToEventsInput): Promise<void> {
-    this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
-    const tKey = turnKey(input.tenant_id, input.session_id, input.turn_id);
+    this.requireRunningTurn(input.session_id, input.turn_id);
+    const tKey = turnKey(input);
     const list = this.events.get(tKey);
     if (!list) {
       throw new TurnNotFoundError(input.turn_id);
@@ -362,16 +358,16 @@ export class InMemorySessionStore<
     return;
   }
 
-  private requireTurn(tenant: string, sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
-    const turn = this.turns.get(turnKey(tenant, sessionId, turnId));
+  private requireTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
+    const turn = this.turns.get(turnKey({ session_id: sessionId, turn_id: turnId }));
     if (!turn) {
       throw new TurnNotFoundError(turnId);
     }
     return turn;
   }
 
-  private requireRunningTurn(tenant: string, sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
-    const turn = this.requireTurn(tenant, sessionId, turnId);
+  private requireRunningTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
+    const turn = this.requireTurn(sessionId, turnId);
     if (turn.state.status !== 'running') {
       throw new TurnNotRunningError(turnId, turn.state);
     }
@@ -379,25 +375,28 @@ export class InMemorySessionStore<
   }
 
   async addThreads(input: AddThreadsInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
+    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
     for (const thread of input.threads) {
       turn.snapshot.threads[thread.thread_id] = deepCopy(thread);
     }
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 
   async removeThreads(input: RemoveThreadsInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
+    if (input.thread_ids.length === 0) {
+      return;
+    }
+    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
     for (const id of input.thread_ids) {
       Reflect.deleteProperty(turn.snapshot.threads, id);
     }
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 
   async appendToThreadContext(input: AppendToThreadContextInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
+    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
     const thread = turn.snapshot.threads[input.thread_id];
     if (!thread) {
       throw new SessionStoreInvariantError(`Thread not found: ${input.thread_id}`);
@@ -409,12 +408,12 @@ export class InMemorySessionStore<
     if (input.completion !== null) {
       thread.completion = deepCopy(input.completion);
     }
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 
   async overwriteThreadContext(input: OverwriteThreadContextInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
+    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
     const threadId = input.event.thread_id;
     const thread = turn.snapshot.threads[threadId];
     if (!thread) {
@@ -422,29 +421,29 @@ export class InMemorySessionStore<
     }
     thread.context = deepCopy(input.event.context);
     thread.current_context_usage = deepCopy(input.event.current_context_usage);
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 
   async patchMCPServers(input: PatchMCPServersInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
+    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
     turn.snapshot.mcp_servers ??= {};
     for (const server of input.mcp_servers) {
       turn.snapshot.mcp_servers[server.id] = deepCopy(server);
     }
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 
   async patchSandboxInfo(input: PatchSandboxInfoInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
+    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
     turn.snapshot.sandbox_info = deepCopy(input.sandbox_info);
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 
   async patchThreadCapabilityState(input: PatchThreadCapabilityStateInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.tenant_id, input.session_id, input.turn_id);
+    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
     const thread = turn.snapshot.threads[input.thread_id];
     if (!thread) {
       throw new SessionStoreInvariantError(`Thread not found: ${input.thread_id}`);
@@ -458,7 +457,7 @@ export class InMemorySessionStore<
     } else {
       thread.capability_state[input.key] = deepCopy(input.state);
     }
-    turn.updated_at = new Date().toISOString();
+    turn.updated_at = new Date();
     return;
   }
 
@@ -466,7 +465,8 @@ export class InMemorySessionStore<
     data: PersistedTurnEvent[];
     pagination: TokenPagination;
   }> {
-    const list = this.events.get(turnKey(input.tenant_id, input.session_id, input.turn_id));
+    this.requireTurn(input.session_id, input.turn_id);
+    const list = this.events.get(turnKey(input));
     if (!list) {
       throw new TurnNotFoundError(input.turn_id);
     }
@@ -481,7 +481,7 @@ export class InMemorySessionStore<
     data: SessionEventItem[];
     pagination: TokenPagination;
   }> {
-    const stored = this.sessions.get(sessionKey(input.tenant_id, input.session_id));
+    const stored = this.sessions.get(sessionKey(input.session_id));
     if (!stored) {
       throw new SessionNotFoundError(input.session_id);
     }
@@ -496,14 +496,14 @@ export class InMemorySessionStore<
       offset: decodedCursor?.offset ?? 0,
     };
 
-    const anchor = this.turns.get(turnKey(input.tenant_id, input.session_id, cursor.last_turn_id));
+    const anchor = this.turns.get(turnKey({ session_id: input.session_id, turn_id: cursor.last_turn_id }));
     if (!anchor) {
       throw new TurnNotFoundError(cursor.last_turn_id);
     }
-    const turnIds = this.resolveAncestorChain(input.tenant_id, input.session_id, anchor);
+    const turnIds = this.resolveAncestorChain(input.session_id, anchor);
     const flattened: SessionEventItem[] = [];
     for (const turnId of [...turnIds].reverse()) {
-      const evts = this.events.get(turnKey(input.tenant_id, input.session_id, turnId)) ?? [];
+      const evts = this.events.get(turnKey({ session_id: input.session_id, turn_id: turnId })) ?? [];
       for (const event of [...evts].sort((a, b) => b.id.localeCompare(a.id))) {
         flattened.push({ turn_id: turnId, event });
       }
@@ -521,12 +521,12 @@ export class InMemorySessionStore<
    * previous N ancestors, so spill through the oldest ancestor's own window
    * until a root or gap. A missing turn or repeated id ends the walk.
    */
-  private resolveAncestorChain(tenant: string, sessionId: string, anchor: TurnRecord<TTurnCustom>): string[] {
+  private resolveAncestorChain(sessionId: string, anchor: TurnRecord<TTurnCustom>): string[] {
     const chain = [...anchor.ancestor_ids, anchor.turn_id];
     const seen = new Set(chain);
     let oldestId = chain[0];
     while (oldestId && oldestId !== anchor.turn_id) {
-      const oldest = this.turns.get(turnKey(tenant, sessionId, oldestId));
+      const oldest = this.turns.get(turnKey({ session_id: sessionId, turn_id: oldestId }));
       if (!oldest) break;
       const older = oldest.ancestor_ids.filter(id => !seen.has(id));
       if (older.length === 0) break;

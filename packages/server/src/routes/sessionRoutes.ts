@@ -1,5 +1,5 @@
 /**
- * Session route definitions (mounted at /v1/sessions). A session holds an
+ * Session route definitions (mounted at /api/v1/sessions). A session holds an
  * inline agent spec. Handlers are registered in apis/sessions.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
@@ -71,6 +71,24 @@ export const getSessionRoute = createRoute({
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Session not found.',
+    },
+  },
+});
+
+export const deleteSessionRoute = createRoute({
+  method: 'delete',
+  path: '/{sessionId}',
+  tags: [SESSIONS_TAG],
+  summary: 'Delete a session',
+  description: 'Delete a session and all related turns, events, and internal state. Idempotent if already gone.',
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'delete',
+  request: {
+    params: SessionIdParamsSchema,
+  },
+  responses: {
+    204: {
+      description: 'Session and all related data deleted.',
     },
   },
 });

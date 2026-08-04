@@ -87,7 +87,6 @@ function turnMetricsFromAgentThreadMetrics(metrics: AgentThreadMetrics): TurnMet
 
 export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   private readonly store: ISessionStore<object, TTurnCustom>;
-  private readonly tenantId: string;
   private turn: TurnRecord<TTurnCustom>;
   private readonly orchestrator: AgentThreadOrchestrator | undefined;
   private readonly resolver: ITurnResourceResolver<TTurnCustom> | undefined;
@@ -96,14 +95,12 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
   constructor(options: {
     store: ISessionStore<object, TTurnCustom>;
-    tenantId: string;
     turn: TurnRecord<TTurnCustom>;
     orchestrator?: AgentThreadOrchestrator | undefined;
     resolver?: ITurnResourceResolver<TTurnCustom> | undefined;
     signal?: AbortSignal | undefined;
   }) {
     this.store = options.store;
-    this.tenantId = options.tenantId;
     this.turn = options.turn;
     this.orchestrator = options.orchestrator;
     this.resolver = options.resolver;
@@ -113,10 +110,27 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   /** Store-only handle (e.g. from {@link SessionHandle.getTurn}) — stream() is not available. */
   static fromRecord<TCustom extends object = Record<string, never>>(options: {
     store: ISessionStore<object, TCustom>;
-    tenantId: string;
     turn: TurnRecord<TCustom>;
   }): TurnHandle<TCustom> {
     return new TurnHandle(options);
+  }
+
+  static async get<TCustom extends object = Record<string, never>>(options: {
+    store: ISessionStore<object, TCustom>;
+    session_id: string;
+    turn_id: string;
+  }): Promise<TurnHandle<TCustom> | undefined> {
+    const turn = await options.store.getTurn({
+      session_id: options.session_id,
+      turn_id: options.turn_id,
+    });
+    if (!turn) {
+      return undefined;
+    }
+    return TurnHandle.fromRecord({
+      store: options.store,
+      turn,
+    });
   }
 
   get id(): string {
@@ -139,7 +153,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return this.turn.state;
   }
 
-  get created_at(): string {
+  get created_at(): Date {
     return this.turn.created_at;
   }
 
@@ -206,11 +220,10 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         previous_turn_id: this.turn.previous_turn_id,
         ...(this.turn.input.length > 0 ? { input: this.turn.input } : {}),
         state: { status: 'running' },
-        created_at: this.turn.created_at,
+        created_at: this.turn.created_at.toISOString(),
         thread_id: null,
       };
       await this.store.appendToEvents({
-        tenant_id: this.tenantId,
         session_id: this.turn.session_id,
         turn_id: this.turn.turn_id,
         events: [turnCreated],
@@ -236,16 +249,17 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             await generator.return(emptyResult);
             // Cleared so the finally block does not close the generator a second time.
             generator = undefined;
-            const createdAt = new Date().toISOString();
+            const updatedAt = new Date();
+            const createdAtIso = updatedAt.toISOString();
             const state: TerminalTurnState = {
               ...error.state,
               metrics: turnMetricsFromAgentThreadMetrics(orchestrator.getMetrics()),
             };
-            this.turn = { ...this.turn, state, updated_at: createdAt };
+            this.turn = { ...this.turn, state, updated_at: updatedAt };
             yield {
               type: EventType.TURN_DONE,
               id: newEventId(),
-              created_at: createdAt,
+              created_at: createdAtIso,
               state,
               thread_id: null,
             };
@@ -267,28 +281,29 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         await generator.return(emptyResult);
       }
 
-      const createdAt = new Date().toISOString();
+      const updatedAt = new Date();
+      const createdAtIso = updatedAt.toISOString();
       const metrics = turnMetricsFromAgentThreadMetrics(orchestrator.getMetrics());
       let terminalState: TerminalTurnState;
       if (signal.aborted) {
         terminalState = {
           status: 'cancelled',
           reason: cancellationReasonFromAbortReason(signal.reason),
-          completed_at: createdAt,
+          completed_at: createdAtIso,
           metrics,
         };
       } else if (caughtError) {
         terminalState = {
           status: 'error',
           message: caughtError.message,
-          completed_at: createdAt,
+          completed_at: createdAtIso,
           metrics,
         };
       } else if (executeResult?.root_agent_error) {
         terminalState = {
           status: 'error',
           message: executeResult.root_agent_error.error,
-          completed_at: createdAt,
+          completed_at: createdAtIso,
           metrics,
         };
       } else if (executeResult === undefined) {
@@ -297,7 +312,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         terminalState = {
           status: 'cancelled',
           reason: CancellationReason.ClientCancelled,
-          completed_at: createdAt,
+          completed_at: createdAtIso,
           metrics,
         };
       } else {
@@ -305,7 +320,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           status: 'done',
           output: executeResult.output,
           required_actions: executeResult.required_actions,
-          completed_at: createdAt,
+          completed_at: createdAtIso,
           metrics,
         };
       }
@@ -313,7 +328,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       const turnDone: TurnDoneEvent = {
         type: EventType.TURN_DONE,
         id: newEventId(),
-        created_at: createdAt,
+        created_at: createdAtIso,
         state: terminalState,
         thread_id: null,
       };
@@ -321,24 +336,23 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       if (!frozenByStore) {
         try {
           await this.store.updateTurnState({
-            tenant_id: this.tenantId,
             session_id: this.turn.session_id,
             turn_id: this.turn.turn_id,
             state: terminalState,
             turn_done_event: turnDone,
           });
-          this.turn = { ...this.turn, state: terminalState, updated_at: createdAt };
+          this.turn = { ...this.turn, state: terminalState, updated_at: updatedAt };
         } catch (persistError) {
           if (persistError instanceof TurnNotRunningError) {
             const state: TerminalTurnState = { ...persistError.state, metrics };
-            this.turn = { ...this.turn, state, updated_at: createdAt };
+            this.turn = { ...this.turn, state, updated_at: updatedAt };
             await resolver.close().catch(() => {
               /* no-op */
             });
             yield {
               type: EventType.TURN_DONE,
               id: newEventId(),
-              created_at: createdAt,
+              created_at: createdAtIso,
               state,
               thread_id: null,
             };
@@ -374,7 +388,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     pagination: TokenPagination;
   }> {
     return this.store.listTurnEvents({
-      tenant_id: this.tenantId,
       session_id: this.turn.session_id,
       turn_id: this.turn.turn_id,
       limit: input.limit,
@@ -389,7 +402,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
    */
   private async persistExecutionEvent(event: AgentThreadExecutionEvent): Promise<TurnStreamingEvent | null> {
     const scope = {
-      tenant_id: this.tenantId,
       session_id: this.turn.session_id,
       turn_id: this.turn.turn_id,
     };

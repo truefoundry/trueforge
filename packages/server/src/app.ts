@@ -1,24 +1,37 @@
-/**
- * HTTP application: composes the resource routers and serves the OpenAPI
- * document (/openapi.json) and Swagger UI (/docs).
- */
+/** The API: resource routers, the OpenAPI document and Swagger UI, all under /api/v1. */
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { ISessionStore, Sessions, TurnSandboxFactory } from '@truefoundry/utils/agent-session';
+import type { ISessionStore, Sessions, TurnSandboxFactory, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import type { RequestReplyRouter } from '@truefoundry/utils/request-reply';
+import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { createCapabilitiesRouter } from './apis/capabilities';
-import { createMcpRouter } from './apis/mcp';
+import { createLegacyCapabilitiesRouter } from './apis/legacyCapabilities';
+import { createLegacyMcpRouter } from './apis/legacyMcp';
+import { createLegacyMcpOAuthRouter } from './apis/legacyMcpOAuth';
+import { createLegacyModelsRouter } from './apis/legacyModels';
+import { createLegacySkillsRouter } from './apis/legacySkills';
+import { createAvailableMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
-import { createSkillsRouter } from './apis/skills';
+import { createSettingsRouter } from './apis/settings';
+import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
+import type { McpCatalog } from './catalog/McpCatalog';
+import type { ModelCatalog } from './catalog/ModelCatalog';
+import type { SandboxCatalog } from './catalog/SandboxCatalog';
+import type { SkillCatalog } from './catalog/SkillCatalog';
+import type { IMcpServerStore } from './db/mcpServerStore';
+import type { IModelProviderStore } from './db/modelProviderStore';
+import type { ISandboxProviderStore } from './db/sandboxProviderStore';
+import type { ISkillStore } from './db/skillStore';
+import type { McpStore } from './legacy-registry-store/McpStore';
+import type { ModelStore } from './legacy-registry-store/ModelStore';
+import type { SkillStore } from './legacy-registry-store/SkillStore';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
-import type { McpStore } from './store/McpStore';
-import type { ModelStore } from './store/ModelStore';
-import type { SkillStore } from './store/SkillStore';
+import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 
 const openApiDocConfig = {
   openapi: '3.1.0',
@@ -34,33 +47,70 @@ export function buildOpenApiDocument(app: OpenAPIHono) {
   return app.getOpenAPI31Document(openApiDocConfig);
 }
 
+function routeNotFound(c: Context) {
+  return c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404);
+}
+
 export interface ServerDeps {
   modelStore: ModelStore;
+  modelCatalog: ModelCatalog;
+  modelProviderStore: IModelProviderStore;
+  mcpCatalog: McpCatalog;
+  mcpServerStore: IMcpServerStore;
   mcpStore: McpStore;
-  skillStore: SkillStore;
+  skillCatalog: SkillCatalog;
+  skillStore: ISkillStore;
+  sandboxCatalog: SandboxCatalog;
+  sandboxProviderStore: ISandboxProviderStore;
+  legacySkillStore: SkillStore;
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
   /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
   sandboxFactory?: TurnSandboxFactory;
-  /** Primary Redis client (server-owned); carries executor peering. */
-  redis: RedisClientType;
+  /** Primary Redis client (server-owned); undefined in single-binary mode. */
+  redis?: RedisClientType | undefined;
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;
+  /** Hands out each turn's resumable event stream to the create and subscribe handlers. */
+  eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
 }
 
 export function createServerApp(deps: ServerDeps) {
   const app = new OpenAPIHono();
 
-  app.get('/', c => c.text('OK!'));
+  app.get('/healthz', c => c.text('OK!'));
 
-  app.route('/v1/capabilities', createCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }));
-  app.route('/v1/models', createModelsRouter(deps.modelStore));
-  app.route('/v1/mcp-servers', createMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
-  app.route('/v1/skills', createSkillsRouter(deps.skillStore));
+  app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore }));
+  app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
+  app.route('/api/v1/mcp-servers', createAvailableMcpServersRouter(deps.mcpServerStore));
+  app.route('/api/v1/skills', createAvailableSkillsRouter(deps.skillStore));
   app.route(
-    '/v1/sessions',
+    '/api/v1/settings',
+    createSettingsRouter({
+      modelCatalog: deps.modelCatalog,
+      modelProviderStore: deps.modelProviderStore,
+      mcpCatalog: deps.mcpCatalog,
+      mcpServerStore: deps.mcpServerStore,
+      skillCatalog: deps.skillCatalog,
+      skillStore: deps.skillStore,
+      sandboxCatalog: deps.sandboxCatalog,
+      sandboxProviderStore: deps.sandboxProviderStore,
+      logger: deps.logger,
+    }),
+  );
+  // YAML registry surfaces — still used by sessions/turns and the legacy UI paths.
+  app.route('/api/v1/legacy/models', createLegacyModelsRouter(deps.modelStore));
+  app.route('/api/v1/legacy/mcp-servers', createLegacyMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
+  app.route('/api/v1/legacy/mcp-servers/oauth', createLegacyMcpOAuthRouter({ logger: deps.logger }));
+  app.route('/api/v1/legacy/skills', createLegacySkillsRouter(deps.legacySkillStore));
+  app.route(
+    '/api/v1/legacy/capabilities',
+    createLegacyCapabilitiesRouter({ sandboxEnabled: deps.sandboxFactory !== undefined }),
+  );
+  app.route(
+    '/api/v1/sessions',
     createSessionsRouter({
       sessions: deps.sessions,
       sessionStore: deps.sessionStore,
@@ -73,21 +123,23 @@ export function createServerApp(deps: ServerDeps) {
     }),
   );
   app.route(
-    '/v1/sessions',
+    '/api/v1/sessions',
     createTurnsRouter({
       sessions: deps.sessions,
+      sessionStore: deps.sessionStore,
       activeTurns: deps.activeTurns,
       modelStore: deps.modelStore,
       mcpStore: deps.mcpStore,
+      eventSubscriptions: deps.eventSubscriptions,
       ...(deps.sandboxFactory ? { sandboxFactory: deps.sandboxFactory } : {}),
       logger: deps.logger,
     }),
   );
 
-  app.get('/docs', swaggerUI({ url: '/openapi.json' }));
-  app.get('/openapi.json', c => c.json(buildOpenApiDocument(app)));
+  app.get('/api/v1/docs', swaggerUI({ url: '/api/v1/openapi.json' }));
+  app.get('/api/v1/openapi.json', c => c.json(buildOpenApiDocument(app)));
 
-  app.notFound(c => c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404));
+  app.notFound(routeNotFound);
 
   app.onError((error, c) => {
     if (error instanceof HTTPException) {

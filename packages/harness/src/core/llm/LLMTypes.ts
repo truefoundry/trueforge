@@ -182,7 +182,7 @@ interface ExtendedChoice extends Omit<ChatCompletionChunk.Choice, 'delta'> {
 
 /**
  * Extended chat completion chunk that includes thought_signature in tool calls.
- * `usage` is harness-normalized; OpenAILLM maps the gateway wire `usage` payload at the adapter boundary.
+ * `usage` is harness-normalized; the LLM adapter maps the wire `usage` payload at the adapter boundary.
  */
 export interface ExtendedChatCompletionChunk extends Omit<ChatCompletionChunk, 'choices' | 'usage'> {
   /**

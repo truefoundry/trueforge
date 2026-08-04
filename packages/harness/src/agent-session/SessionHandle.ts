@@ -181,7 +181,6 @@ export class SessionHandle<
     const previousTurnId = resolvePreviousTurnId(input.previous_turn_id, this.session.last_turn_id);
     const previous = previousTurnId
       ? await this.store.freezeAndGetTurn({
-          tenant_id: this.tenant_id,
           session_id: this.session.session_id,
           turn_id: previousTurnId,
           turn_done_event: cancelledTurnDoneEvent(),
@@ -234,7 +233,7 @@ export class SessionHandle<
       const new_context_appends = await collectContextAppends(orchestrator.send(sendBatch));
 
       const turnId = input.turn_id;
-      const now = new Date().toISOString();
+      const now = new Date();
 
       const new_threads: NewThreadInit[] = [];
       if (!previous) {
@@ -273,7 +272,6 @@ export class SessionHandle<
       };
 
       await this.store.createTurn({
-        tenant_id: this.tenant_id,
         turn: turnInit,
         new_threads,
         new_context_appends,
@@ -294,7 +292,6 @@ export class SessionHandle<
 
       return new TurnHandle({
         store: this.store,
-        tenantId: this.tenant_id,
         turn: turnRecord,
         orchestrator,
         resolver: input.resolver,
@@ -312,18 +309,10 @@ export class SessionHandle<
 
   /** Returns the turn handle (store-backed; not executable), or undefined if not found. */
   async getTurn(turn_id: string): Promise<TurnHandle<TTurnCustom> | undefined> {
-    const turn = await this.store.getTurn({
-      tenant_id: this.tenant_id,
+    return TurnHandle.get({
+      store: this.store,
       session_id: this.session.session_id,
       turn_id,
-    });
-    if (!turn) {
-      return undefined;
-    }
-    return TurnHandle.fromRecord({
-      store: this.store,
-      tenantId: this.tenant_id,
-      turn,
     });
   }
 
@@ -333,7 +322,6 @@ export class SessionHandle<
     page_token?: string | undefined;
   }): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }> {
     return this.store.listTurns({
-      tenant_id: this.tenant_id,
       session_id: this.session.session_id,
       limit: input.limit,
       page_token: input.page_token,
@@ -354,7 +342,6 @@ export class SessionHandle<
     pagination: TokenPagination;
   }> {
     return this.store.listSessionEvents({
-      tenant_id: this.tenant_id,
       session_id: this.session.session_id,
       limit: input.limit,
       page_token: input.page_token,

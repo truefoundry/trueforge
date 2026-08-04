@@ -46,13 +46,47 @@ jobs:
       - name: Test
         run: pnpm test
 
+  # Gate store suites so they do not start unless store-related paths changed.
+  store-changes:
+    name: Detect Store Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      store: ${{ steps.filter.outputs.store }}
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Detect store path changes
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            store:
+              - 'packages/server/src/db/**'
+              - 'packages/server/src/catalog/**'
+              - 'packages/server/tsup.config.ts'
+              - 'packages/server/tests/db/**'
+              - 'packages/server/jest.store.postgres.config.cjs'
+              - 'packages/server/jest.store.sqlite.config.cjs'
+              - 'packages/server/package.json'
+              - 'packages/harness/src/agent-session/**'
+              - 'packages/harness/tests/agent-session/**'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/ci.yml'
+
   postgres-store-tests:
-    name: Postgres Session Store Tests
+    name: Postgres Store Tests
+    needs: store-changes
+    if: needs.store-changes.outputs.store == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
-      pull-requests: read
 
     services:
       postgres:
@@ -73,43 +107,53 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v4
 
-      - name: Detect session-store path changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            store:
-              - 'packages/server/src/db/**'
-              - 'packages/server/tsup.config.ts'
-              - 'packages/server/tests/**'
-              - 'packages/harness/src/agent-session/**'
-              - 'packages/harness/tests/agent-session/**'
-
-      - name: Skip — no session-store changes
-        if: steps.filter.outputs.store != 'true'
-        run: echo "No session-store paths changed; skipping Postgres store tests."
-
       - name: Setup pnpm
-        if: steps.filter.outputs.store == 'true'
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
-        if: steps.filter.outputs.store == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: 'pnpm'
 
       - name: Install dependencies
-        if: steps.filter.outputs.store == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        if: steps.filter.outputs.store == 'true'
         run: pnpm build
 
-      - name: Postgres session store contract tests
-        if: steps.filter.outputs.store == 'true'
+      - name: Postgres store contract tests
         env:
           SESSION_STORE_TEST_PG_URL: postgres://proto:proto@localhost:55432/proto
-        run: pnpm --dir packages/server test:store
+        run: pnpm --dir packages/server test:store:postgres
+
+  sqlite-store-tests:
+    name: SQLite Store Tests
+    needs: store-changes
+    if: needs.store-changes.outputs.store == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: SQLite store contract tests
+        run: pnpm --dir packages/server test:store:sqlite

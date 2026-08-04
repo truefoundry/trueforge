@@ -109,6 +109,9 @@ export function AppComposerShell({
                 initialTab={panelTab}
                 disabled={disabled}
                 isRunning={isRunning}
+                onClosePanel={() => {
+                  setPanelOpen(false);
+                }}
                 {...(onAttach ? { onAttach } : {})}
               />
             </div>

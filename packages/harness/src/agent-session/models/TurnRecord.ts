@@ -31,9 +31,9 @@ export interface TurnRecord<TCustom extends object = Record<string, never>> {
   state: TurnState;
   input: TurnInputItem[];
   snapshot: TurnSnapshot;
-  /** ISO-8601 UTC datetime string (for example, `2026-07-24T02:45:00.000Z`). */
-  created_at: string;
-  /** ISO-8601 UTC datetime string (for example, `2026-07-24T02:45:00.000Z`). */
-  updated_at: string;
+  /** Instant the turn was created (store domain). Wire/API serialize as ISO-8601. */
+  created_at: Date;
+  /** Instant the turn was last updated (store domain). Wire/API serialize as ISO-8601. */
+  updated_at: Date;
   custom: TCustom | null;
 }

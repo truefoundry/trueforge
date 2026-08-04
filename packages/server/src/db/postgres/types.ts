@@ -14,6 +14,11 @@ import type {
 } from '@truefoundry/utils/core';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { McpServerManifest } from '../../schemas/mcpServer';
+import type { ProviderManifest } from '../../schemas/modelProvider';
+import type { SandboxProviderManifest } from '../../schemas/sandboxProvider';
+import type { SkillManifest } from '../../schemas/skill';
+import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpOAuthTypes';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -31,7 +36,7 @@ export interface TurnCheckpoint {
 }
 
 /**
- * PRIMARY KEY (tenant_id, session_id)
+ * PRIMARY KEY (session_id)
  * WITH (fillfactor = 85); headroom so the per-turn bump stays HOT (no index churn)
  * CREATE INDEX session_list_idx ON session (tenant_id, created_at, session_id)
  */
@@ -67,13 +72,11 @@ export interface SessionTable {
 }
 
 /**
- * PRIMARY KEY (tenant_id, session_id, turn_id)
+ * PRIMARY KEY (session_id, turn_id)
  * WITH (fillfactor = 85); headroom for the state flip + rare checkpoint patches
- * CREATE INDEX turn_list_idx ON turn (tenant_id, session_id, created_at, turn_id)
+ * CREATE INDEX turn_list_idx ON turn (session_id, created_at, turn_id)
  */
 export interface TurnTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /** key (ulid) */
@@ -114,13 +117,11 @@ export interface TurnTable {
 
 /**
  * the complete STATE of one thread at one turn
- * PRIMARY KEY (tenant_id, session_id, turn_id, thread_id)
+ * PRIMARY KEY (session_id, turn_id, thread_id)
  * WITH (fillfactor = 70); the ONE deliberately-hot table: rewritten 5–10x while its
  * turn runs; immutable once the turn is terminal (fence)
  */
 export interface TurnThreadTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /** key */
@@ -174,12 +175,10 @@ export interface TurnThreadTable {
 
 /**
  * pure immutable client-facing event log
- * PRIMARY KEY (tenant_id, session_id, turn_id, event_id)
+ * PRIMARY KEY (session_id, turn_id, event_id)
  * pure INSERT → fillfactor 100
  */
 export interface SessionEventTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /** top: every read is turn-scoped or turn-attributed (envelope) */
@@ -212,13 +211,11 @@ export interface SessionEventTable {
 
 /**
  * pure immutable CONTENT; no state → no checkpoint field
- * PRIMARY KEY (tenant_id, session_id, thread_id, append_id)
+ * PRIMARY KEY (session_id, thread_id, append_id)
  * pure INSERT → default fillfactor 100, zero dead tuples;
  * cleanup is whole-session delete only
  */
 export interface ThreadContextLogTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /** key */
@@ -255,7 +252,7 @@ export interface ThreadContextLogTable {
 
 /**
  * PER-TURN KV snapshot, latest-wins per (turn, thread, key)
- * PRIMARY KEY (tenant_id, session_id, turn_id, thread_id, key)
+ * PRIMARY KEY (session_id, turn_id, thread_id, key)
  * WITH (fillfactor = 85); single-statement fenced upsert per CAPABILITY_STATE event
  *
  * Capability history is per-turn on purpose: createTurn carries the previous
@@ -264,8 +261,6 @@ export interface ThreadContextLogTable {
  * A cross-turn latest-wins PK was tried and REVERTED for the fork reason.
  */
 export interface ThreadCapabilityStateTable {
-  /** key */
-  tenant_id: string;
   /** key */
   session_id: string;
   /**
@@ -291,14 +286,117 @@ export interface ThreadCapabilityStateTable {
 }
 
 /**
+ * Configured model providers — manifest pattern: identity as columns,
+ * everything else in one Zod-validated jsonb document.
+ * PRIMARY KEY (tenant_id, name)
+ */
+export interface ModelProviderTable {
+  /** key */
+  tenant_id: string;
+  /** key: natural key within tenant; first segment of fully qualified model names */
+  name: string;
+  /** ProviderManifest document; replaced whole on every upsert */
+  manifest: JSONColumnType<ProviderManifest, ProviderManifest, ProviderManifest>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Configured skills — mirrors the Postgres `skill` table.
+ * PRIMARY KEY (tenant_id, name)
+ */
+export interface SkillTable {
+  /** key */
+  tenant_id: string;
+  /** key: natural key within tenant; also duplicated inside `manifest` */
+  name: string;
+  /** SkillManifest document; replaced whole on every upsert */
+  manifest: JSONColumnType<SkillManifest, SkillManifest, SkillManifest>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Configured sandbox provider — mirrors the Postgres `sandbox_provider` table.
+ * PRIMARY KEY (tenant_id) — at most one row per tenant.
+ */
+export interface SandboxProviderTable {
+  /** key */
+  tenant_id: string;
+  /** SandboxProviderManifest document; replaced whole on every upsert */
+  manifest: JSONColumnType<SandboxProviderManifest, SandboxProviderManifest, SandboxProviderManifest>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * PRIMARY KEY (id)
+ * UNIQUE (tenant_id, name) — the natural lookup key.
+ */
+export interface McpServerTable {
+  id: string;
+  tenant_id: string;
+  /** the uniqueness target; also duplicated inside `manifest` */
+  name: string;
+  manifest: JSONColumnType<McpServerManifest, McpServerManifest, McpServerManifest>;
+  /** OAuthServer — { authorizationEndpoint, tokenEndpoint, codeChallengeMethodsSupported? }.
+   * RFC 8414 authorization-server metadata, discovered once at registration time.
+   */
+  oauth_server: JSONColumnType<OAuthServer, OAuthServer, OAuthServer> | null;
+  /** OAuthClient — { clientId, clientSecret? }. RFC 7591 DCR response.
+   * Token auth is form-body (client_secret_post) when clientSecret is set; presence of secret
+   * alone decides the method (same as servicefoundry outbound DCR). Both oauth_server and
+   * oauth_client are null until first successful DCR.
+   */
+  oauth_client: JSONColumnType<OAuthClient, OAuthClient, OAuthClient> | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * PRIMARY KEY (oauth_server_id)
+ * No `tenant_id` — already 1:1 with tenant via the FK. Any tenant-scoped read resolves
+ * `oauth_server_id` through mcp_server (by tenant_id + name) first; this table is never
+ * queried by tenant_id directly.
+ */
+export interface OAuthTokenTable {
+  /** FK -> mcp_server.id, ON DELETE CASCADE */
+  oauth_server_id: string;
+  /** access_token, refresh_token, expires_at, scope. */
+  token: JSONColumnType<OAuthToken, OAuthToken, OAuthToken>;
+  updated_at: Date;
+}
+
+/**
+ * PRIMARY KEY (id)
+ *
+ * `id` is this table's own identity column, used as the OAuth wire `state` query
+ * parameter.
+ */
+export interface OAuthPendingAuthorizationTable {
+  id: string;
+  /** FK -> mcp_server.id, ON DELETE CASCADE */
+  oauth_server_id: string;
+  auth_data: JSONColumnType<
+    OAuthPendingAuthorizationData,
+    OAuthPendingAuthorizationData,
+    OAuthPendingAuthorizationData
+  >;
+  /** filtered against `PENDING_AUTHORIZATION_TTL_MS` on read, no sweep job */
+  created_at: Date;
+}
+
+/**
  * Write-heat summary: `turn_thread` is the one deliberately-hot table with its hot
  * columns (`context_ids`, `current_context_usage`) isolated from the pointer-carried
  * big ones (`agent_info`, `checkpoint`); `session`, `turn`, and
  * `thread_capability_state` take small bounded HOT-friendly updates; the two logs
  * are pure insert. Nothing ever rewrites a large value except the array concat
- * itself — the documented, bounded cost of the raw-array model.
+ * itself — the documented, bounded cost of the raw-array model. `model_provider`,
+ * `skill`, `sandbox_provider`, `mcp_server`, and the two `oauth_*` tables are
+ * low-write, low-volume (one row per tenant/resource, or short-lived).
  *
- * Canonical Kysely database — six session-store tables.
+ * Canonical Kysely database.
  */
 export interface Database {
   session: SessionTable;
@@ -307,4 +405,10 @@ export interface Database {
   session_event: SessionEventTable;
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
+  model_provider: ModelProviderTable;
+  skill: SkillTable;
+  sandbox_provider: SandboxProviderTable;
+  mcp_server: McpServerTable;
+  oauth_token: OAuthTokenTable;
+  oauth_pending_authorization: OAuthPendingAuthorizationTable;
 }

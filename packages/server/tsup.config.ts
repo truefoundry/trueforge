@@ -4,20 +4,28 @@ import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'tsup';
 
-const migrationsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'src/db/postgres/migrations');
-const migrationEntries = Object.fromEntries(
-  readdirSync(migrationsDir)
-    .filter(name => name.endsWith('.ts'))
-    .map(name => {
-      const base = name.replace(/\.ts$/, '');
-      return [`postgres/migrations/${base}`, path.join(migrationsDir, name)] as const;
-    }),
-);
+const packageDir = path.dirname(fileURLToPath(import.meta.url));
+const srcDbDir = path.join(packageDir, 'src/db');
+
+function migrationEntries(engine: 'postgres' | 'sqlite'): Record<string, string> {
+  const migrationsDir = path.join(srcDbDir, engine, 'migrations');
+  return Object.fromEntries(
+    readdirSync(migrationsDir)
+      .filter(name => name.endsWith('.ts'))
+      .map(name => {
+        const base = name.replace(/\.ts$/, '');
+        return [`${engine}/migrations/${base}`, path.join(migrationsDir, name)] as const;
+      }),
+  );
+}
 
 export default defineConfig({
   entry: {
     main: 'src/main.ts',
-    ...migrationEntries,
+    // Emit both engines under dist/{postgres,sqlite}/migrations/.
+    // Only Postgres is applied at runtime (main) and via `pnpm migrate`.
+    ...migrationEntries('postgres'),
+    ...migrationEntries('sqlite'),
   },
   format: ['esm'],
   dts: false,

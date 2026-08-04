@@ -1,6 +1,7 @@
 import type { SessionRecord } from '@truefoundry/utils/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
+  DeleteSessionInput,
   GetSessionInput,
   ListSessionsInput,
   UpdateSessionInput,
@@ -12,8 +13,8 @@ import {
   SessionStoreInvariantError,
 } from '@truefoundry/utils/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
+import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
-import { json } from '../sqlExpressions';
 
 function isPgUniqueViolation(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) {
@@ -60,8 +61,8 @@ function mapRowToSessionRecord(row: {
     title: row.title,
     last_turn_id: row.last_turn_id,
     custom: parseSessionCustom(row.custom),
-    created_at: row.created_at.toISOString(),
-    updated_at: row.updated_at.toISOString(),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
     last_activity_timestamp_ms: row.last_activity_timestamp_ms,
   };
 }
@@ -89,6 +90,14 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
     }
     throw error;
   }
+}
+
+export async function deleteSession(db: Kysely<Database>, input: DeleteSessionInput): Promise<void> {
+  await db
+    .deleteFrom('session')
+    .where('tenant_id', '=', input.tenant_id)
+    .where('session_id', '=', input.session_id)
+    .execute();
 }
 
 export async function getSession(
@@ -156,10 +165,10 @@ export async function listSessions(
   let query = db.selectFrom('session').selectAll().where('tenant_id', '=', input.tenant_id);
 
   if (input.start_timestamp !== undefined) {
-    query = query.where('created_at', '>=', new Date(input.start_timestamp));
+    query = query.where('created_at', '>=', input.start_timestamp);
   }
   if (input.end_timestamp !== undefined) {
-    query = query.where('created_at', '<=', new Date(input.end_timestamp));
+    query = query.where('created_at', '<=', input.end_timestamp);
   }
 
   if (order === 'asc') {

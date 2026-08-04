@@ -4,7 +4,7 @@ import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/chat'
 /**
  * Wire/runtime response format (Zod). Kept in core so AgentDefinition and AgentSpec
  * share one type without agentSession → core inversion.
- * `passthrough()` lets unknown fields within a known `type` flow through to the LLM.
+ * `.loose()` lets unknown fields within a known `type` flow through to the LLM.
  */
 
 const ResponseFormatTextSchema = z
@@ -45,14 +45,14 @@ type OpenAIResponseFormat = NonNullable<ChatCompletionCreateParamsStreaming['res
 /**
  * Maps our wire ResponseFormat into the OpenAI SDK shape for the chat.completions body.
  * Identity-preserving: spreads the validated format (and nested json_schema) so
- * Zod `.passthrough()` provider extensions reach the LLM unchanged.
+ * Zod `.loose()` provider extensions reach the LLM unchanged.
  */
 export function toOpenAIResponseFormat(format: ResponseFormat): OpenAIResponseFormat {
   if (format.type === 'text' || format.type === 'json_object') {
-    // Spread preserves Zod .passthrough() provider extensions beyond the SDK type.
+    // Spread preserves Zod .loose() provider extensions beyond the SDK type.
     return { ...format };
   }
-  // Assert: OpenAI SDK json_schema type is a closed shape; Zod ResponseFormatSchema.passthrough()
+  // Assert: OpenAI SDK json_schema type is a closed shape; Zod ResponseFormatSchema.loose()
   // intentionally forwards provider extensions (top-level and nested) for the LLM call.
   return {
     ...format,
