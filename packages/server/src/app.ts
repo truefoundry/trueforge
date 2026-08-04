@@ -124,6 +124,7 @@ export function createServerApp(deps: ServerDeps) {
       activeTurns: deps.activeTurns,
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
+      tokenStore: deps.tokenStore,
       skillStore: deps.skillStore,
       eventSubscriptions: deps.eventSubscriptions,
       ...(deps.sandboxProvider ? { sandboxProvider: deps.sandboxProvider } : {}),
