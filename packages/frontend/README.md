@@ -57,22 +57,22 @@ those on the fly.
 docker compose up --build   # UI + API on http://localhost:8791
 ```
 
-## Catalogs (model + MCP)
+## Catalogs (model + MCP + skills)
 
-The SDK has no catalog client, so `App.tsx` passes callbacks to `createTrueFoundryServer`:
+[`src/catalog.ts`](src/catalog.ts) calls the DB-backed list endpoints via `trueharness`.
+`App.tsx` passes the results into `createTrueFoundryServer`:
 
 | Callback       | Source                                                            |
 | -------------- | ----------------------------------------------------------------- |
-| `getModels`    | `GET /api/v1/legacy/models` (also seeds `defaultAgentSpec.model`) |
-| `getMcp`       | `GET /api/v1/legacy/mcp-servers`                                  |
-| `getSkills`    | `GET /api/v1/legacy/skills` — see below                           |
+| `getModels`    | `GET /api/v1/models` (also seeds `defaultAgentSpec.model`)        |
+| `getMcp`       | `GET /api/v1/mcp-servers`                                         |
+| `getSkills`    | `GET /api/v1/skills` when `GET /api/v1/capabilities` has skill on |
 | `searchAgents` | Empty — Harness has no agent registry                             |
 | `saveAgent`    | Rejects — sessions are draft-only                                 |
 
-The SDK's picker round-trips a mount as `{ id, name }`, but Harness admission requires git mounts
-(`type`, `url`, `ref`), so `harnessServer` rebuilds every selected skill from the catalog by name
-before `createSession` / `updateSession`. Skills are listed only when the server reports a sandbox
-provider, since Harness rejects them outright without one.
+The SDK's picker round-trips a skill as `{ id, name }`. Harness persists name refs only
+(`{ name }`), so `harnessServer` derives `id` from `name` on read and strips `id` on write.
+Skills stay empty in the picker when the skill capability is off (no sandbox provider configured).
 
 The Agents Library button still renders (the SDK shows it whenever `agentName` is omitted) and
 opens an empty list; `AgentsLibraryButton` is not part of the publicly typed `AtomSlots`, so it

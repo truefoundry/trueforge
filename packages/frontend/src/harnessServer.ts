@@ -6,6 +6,9 @@
  * runtime it delegates to reads `nextPageToken` and tolerates `null`. Harness
  * matches neither exactly: it keys mounts by name and returns `null`. The maps
  * below produce values valid under both contracts at once.
+ *
+ * Skills are name refs on the wire (`SkillNameRef`); the UI SkillMount only
+ * needs `{ id, name }`, so id is derived as the skill name.
  */
 import type {
   AgentChatServer,
@@ -24,7 +27,7 @@ import type {
 import type { TrueHarness as Harness } from 'trueharness';
 import { TrueHarnessClient } from 'trueharness';
 
-export type HarnessSkillMount = SkillMount & Harness.SkillMount;
+export type HarnessSkillMount = SkillMount;
 export type HarnessMcpServerMount = McpServerMount & Harness.McpServer;
 
 export interface HarnessAgentSpec extends AgentSpec<Harness.AgentSpecModel, HarnessSkillMount, HarnessMcpServerMount> {
@@ -41,34 +44,36 @@ export interface HarnessSession extends Session<HarnessAgentSpec> {
 }
 
 export interface CreateHarnessServerOptions {
-  /** Catalog rows used to rebuild the git fields the SDK's skill picker drops. */
-  listSkills: () => Promise<Harness.SkillEntry[]>;
   baseUrl?: string;
   fetch?: typeof fetch;
 }
 
-/** Default ref for catalog rows that omit one; the sandbox resolves it with `git ls-remote`. */
-const DEFAULT_SKILL_REF = 'HEAD';
-
-/** Mount ids are derived, not stored: Harness drops them and returns mounts keyed by name. */
+/** Mount ids are derived, not stored: Harness returns MCP servers keyed by name. */
 function toUiMcpServer(server: Harness.McpServer): HarnessMcpServerMount {
   return { ...server, id: server.name };
 }
 
-function toUiSkill(skill: Harness.SkillMount): HarnessSkillMount {
-  return { ...skill, id: `${skill.url}#${skill.path ?? ''}@${skill.ref}` };
+/** Skill ids are derived from the name ref Harness persists. */
+function toUiSkill(skill: Harness.SkillNameRef): HarnessSkillMount {
+  return { id: skill.name, name: skill.name };
 }
 
-/** Catalog row → git mount, so the picker lists and Harness admits the same value. */
-export function toSkillMount(entry: Harness.SkillEntry): HarnessSkillMount {
-  return toUiSkill({
-    type: 'git',
-    name: entry.name,
-    description: entry.description,
-    url: entry.url,
-    ref: entry.ref ?? DEFAULT_SKILL_REF,
-    ...(entry.path === undefined ? {} : { path: entry.path }),
-  });
+/** Strip UI-only `id` before admission; Harness skills are name refs only. */
+function toHarnessAgentSpec(spec: HarnessAgentSpec): Harness.AgentSpec {
+  const { skills, mcpServers, ...rest } = spec;
+  return {
+    ...rest,
+    ...(mcpServers === undefined
+      ? {}
+      : {
+          mcpServers: mcpServers.map(server => {
+            const { id, ...mount } = server;
+            void id;
+            return mount;
+          }),
+        }),
+    ...(skills === undefined ? {} : { skills: skills.map(({ name }) => ({ name })) }),
+  };
 }
 
 function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
@@ -172,29 +177,18 @@ function toHarnessPreviousTurnId(previousTurnId: string): Harness.PreviousTurnId
   return previousTurnId === 'none' ? null : previousTurnId;
 }
 
-export function createHarnessChatServer(options: CreateHarnessServerOptions): AgentChatServer<HarnessAgentSpec> {
+export function createHarnessChatServer(options: CreateHarnessServerOptions = {}): AgentChatServer<HarnessAgentSpec> {
   const client = new TrueHarnessClient({
     environment: options.baseUrl ?? '/',
     ...(options.fetch ? { fetch: options.fetch } : {}),
   });
-
-  /**
-   * The SDK's picker round-trips a mount as `{ id, name }`, so a freshly selected
-   * skill would reach admission without its git fields. Restore them from the catalog.
-   */
-  async function withCatalogSkills(spec: HarnessAgentSpec): Promise<HarnessAgentSpec> {
-    const { skills } = spec;
-    if (skills === undefined || skills.length === 0) return spec;
-    const catalog = new Map((await options.listSkills()).map(entry => [entry.name, toSkillMount(entry)]));
-    return { ...spec, skills: skills.map(skill => catalog.get(skill.name) ?? skill) };
-  }
 
   return {
     async createSession(request) {
       if (!request.agentSpec) {
         throw new Error('Harness sessions require an agentSpec');
       }
-      const created = await client.sessions.create({ agentSpec: await withCatalogSkills(request.agentSpec) });
+      const created = await client.sessions.create({ agentSpec: toHarnessAgentSpec(request.agentSpec) });
       return toUiSession(created.data);
     },
 
@@ -214,7 +208,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions): Ag
 
     async updateSession({ sessionId, agentSpec }) {
       const response = await client.sessions.update(sessionId, {
-        ...(agentSpec === undefined ? {} : { agentSpec: await withCatalogSkills(agentSpec) }),
+        ...(agentSpec === undefined ? {} : { agentSpec: toHarnessAgentSpec(agentSpec) }),
       });
       return toUiSession(response.data);
     },

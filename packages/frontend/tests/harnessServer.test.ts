@@ -7,15 +7,7 @@ const session = {
   agent_spec: {
     model: { name: 'test/model' },
     mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
-    skills: [
-      {
-        type: 'git',
-        name: 'review',
-        description: 'Review code',
-        url: 'https://example.com/skills.git',
-        ref: 'main',
-      },
-    ],
+    skills: [{ name: 'review' }],
   },
   title: null,
   created_at: '2026-08-03T00:00:00.000Z',
@@ -24,9 +16,6 @@ const session = {
 
 const turnRequests: unknown[] = [];
 const sessionRequests: unknown[] = [];
-
-const listSkills = () =>
-  Promise.resolve([{ name: 'review', description: 'Review code', url: 'https://example.com/skills.git', ref: 'main' }]);
 
 const fetchMock: typeof fetch = async (input, init) => {
   const url = input instanceof Request ? input.url : String(input);
@@ -55,7 +44,7 @@ const fetchMock: typeof fetch = async (input, init) => {
 
 describe('createHarnessChatServer', () => {
   it('derives mount ids Harness does not store', async () => {
-    const server = createHarnessChatServer({ fetch: fetchMock, listSkills });
+    const server = createHarnessChatServer({ fetch: fetchMock });
     const spec: HarnessAgentSpec = { model: { name: 'test/model' } };
 
     const created = await server.createSession({ agentSpec: spec });
@@ -63,26 +52,18 @@ describe('createHarnessChatServer', () => {
     assert.equal(created.isMutable, true);
     assert.equal(created.title, undefined);
     assert.deepEqual(created.agentSpec?.mcpServers?.[0]?.id, 'github');
-    assert.deepEqual(created.agentSpec?.skills?.[0]?.id, 'https://example.com/skills.git#@main');
+    assert.deepEqual(created.agentSpec?.skills?.[0], { id: 'review', name: 'review' });
   });
 
-  it('rebuilds git fields the skill picker drops before admission', async () => {
-    const server = createHarnessChatServer({ fetch: fetchMock, listSkills });
+  it('sends skill name refs and strips UI-only mount ids before admission', async () => {
+    const server = createHarnessChatServer({ fetch: fetchMock });
 
     await server.createSession({
       agentSpec: {
         model: { name: 'test/model' },
-        // The picker round-trips a mount as `{ id, name }`; every other field arrives empty.
-        skills: [
-          {
-            id: 'https://example.com/skills.git#@main',
-            name: 'review',
-            type: 'git',
-            description: '',
-            url: '',
-            ref: '',
-          },
-        ],
+        // The picker round-trips a mount as `{ id, name }`.
+        skills: [{ id: 'review', name: 'review' }],
+        mcpServers: [{ id: 'github', name: 'github', enableTools: ['@all'] }],
       },
     });
 
@@ -90,22 +71,13 @@ describe('createHarnessChatServer', () => {
     assert.ok(sent !== null && typeof sent === 'object' && 'agent_spec' in sent);
     assert.deepEqual(sent.agent_spec, {
       model: { name: 'test/model' },
-      skills: [
-        {
-          type: 'git',
-          name: 'review',
-          description: 'Review code',
-          url: 'https://example.com/skills.git',
-          ref: 'main',
-          // Derived ids ride along on mounts; Harness ignores them like it does for MCP servers.
-          id: 'https://example.com/skills.git#@main',
-        },
-      ],
+      mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
+      skills: [{ name: 'review' }],
     });
   });
 
   it('reports pages under both the SDK and runtime pagination contracts', async () => {
-    const server = createHarnessChatServer({ fetch: fetchMock, listSkills });
+    const server = createHarnessChatServer({ fetch: fetchMock });
 
     const page = await server.listSessions({ limit: 20 });
 
@@ -115,7 +87,7 @@ describe('createHarnessChatServer', () => {
   });
 
   it('preserves SSE sequence numbers and roots chains Harness-style', async () => {
-    const server = createHarnessChatServer({ fetch: fetchMock, listSkills });
+    const server = createHarnessChatServer({ fetch: fetchMock });
 
     const events = [];
     for await (const event of server.prepareAndExecuteTurn({
