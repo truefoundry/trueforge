@@ -62,7 +62,7 @@ jobs:
         run: pnpm --filter @truefoundry/utils-core build
 
       - name: Write OpenAPI document
-        run: pnpm --filter @truefoundry/server openapi:write
+        run: pnpm --filter @truefoundry/utils openapi:write
 
       # Generation and its Docker pull are the slow part, so skip everything below
       # when neither the document nor the generator config moved.

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Multi-stage build for @truefoundry/server, which also serves the UI: the only image the stack needs.
+# Multi-stage build for @truefoundry/utils, which also serves the UI: the only image the stack needs.
 #
 # Lives at the repository root because the build needs the whole pnpm workspace
 # as its context: the server depends on the workspace package @truefoundry/utils-core.
@@ -46,10 +46,10 @@ COPY packages/harness/src/core/sandbox/scripts packages/harness/src/core/sandbox
 # ---------------------------------------------------------------------------
 FROM workspace AS builder
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-  pnpm install --frozen-lockfile --offline --filter @truefoundry/server...
+  pnpm install --frozen-lockfile --offline --filter @truefoundry/utils...
 COPY packages/harness packages/harness
 COPY packages/server packages/server
-RUN pnpm --filter @truefoundry/utils-core build && pnpm --filter @truefoundry/server build
+RUN pnpm --filter @truefoundry/utils-core build && pnpm --filter @truefoundry/utils build
 
 # ---------------------------------------------------------------------------
 # frontend-builder: build the UI the server serves (parallel to builder above).
@@ -65,7 +65,7 @@ RUN pnpm --filter frontend build
 # ---------------------------------------------------------------------------
 FROM workspace AS prod-deps
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-  pnpm install --frozen-lockfile --offline --prod --filter @truefoundry/server...
+  pnpm install --frozen-lockfile --offline --prod --filter @truefoundry/utils...
 
 # ---------------------------------------------------------------------------
 # runner: minimal image with prod node_modules + built artifacts.
@@ -86,9 +86,9 @@ COPY --from=builder /app/packages/harness/dist ./packages/harness/dist
 COPY --from=builder /app/packages/server/package.json ./packages/server/package.json
 COPY --from=builder /app/packages/server/dist ./packages/server/dist
 
-# The UI, at an absolute path so it resolves from any working directory.
+# Sibling of packages/server — config falls back to ../frontend/dist when
+# packages/server/frontend is absent (same layout as host-dev).
 COPY --from=frontend-builder /app/packages/frontend/dist ./packages/frontend/dist
-ENV FRONTEND_DIR=/app/packages/frontend/dist
 
 WORKDIR /app/packages/server
 

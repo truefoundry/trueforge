@@ -6,11 +6,13 @@
  * import time, so a misconfigured server fails fast at boot instead of
  * mid-run.
  *
- * `SINGLE_BINARY=true` (default) uses SQLite + in-process event streams and
- * ignores Redis / Postgres. `SINGLE_BINARY=false` requires `POSTGRES_*` and
- * `REDIS_URL` for multi-replica Postgres + Redis peering.
+ * `SINGLE_BINARY=true` (default) is zero-env: SQLite under env-paths, empty
+ * packaged registry, in-process event streams, no Redis/Postgres required.
+ * `SINGLE_BINARY=false` requires `POSTGRES_*` and `REDIS_URL`.
  */
+import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import envPaths from 'env-paths';
 
@@ -111,8 +113,31 @@ export const buildPostgresConnectionString = (parts: {
 
 export const DEFAULT_PORT = 8790;
 
-/** Relative to the working directory; the image sets an absolute FRONTEND_DIR. */
-const DEFAULT_FRONTEND_DIR = '../frontend/dist';
+/**
+ * Package root whether this module runs as `src/config.ts` (tsx) or is bundled
+ * into `dist/main.js` / `dist/cli.js` (`import.meta` → `dist/` → parent).
+ */
+const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * Prefer the in-package `frontend/` copy shipped in the npm tarball (npx).
+ * Fall back to the monorepo sibling `../frontend/dist` (host-dev and Docker).
+ */
+function resolveDefaultFrontendDir(): string {
+  const packaged = path.join(PACKAGE_ROOT, 'frontend');
+  if (existsSync(path.join(packaged, 'index.html'))) {
+    return packaged;
+  }
+  return path.join(PACKAGE_ROOT, '..', 'frontend', 'dist');
+}
+
+function resolveFrontendDir(): string {
+  const override = getEnv('FRONTEND_DIR');
+  if (override !== undefined && override.trim() !== '') {
+    return path.resolve(override);
+  }
+  return resolveDefaultFrontendDir();
+}
 
 /** Turn ids minted by a single-binary process; no peer can ever own them. */
 const LOCAL_EXECUTOR_ID = 'local';
@@ -122,7 +147,7 @@ const LOCAL_EXECUTOR_ID = 'local';
  * Example macOS: `~/Library/Application Support/truefoundry-utils/harness.sqlite`
  */
 const ENV_PATHS_APP_NAME = 'truefoundry-utils';
-const DEFAULT_SQLITE_FILENAME = 'harness.sqlite';
+const DEFAULT_SQLITE_FILENAME = 'db.sqlite';
 
 /** Dropped in single-binary mode so nothing downstream can connect to a Redis it must not use. */
 const resolveRedisUrl = (singleBinary: boolean): string | undefined => {
@@ -221,7 +246,8 @@ export interface ServerConfiguration {
   SANDBOX_CATALOG_PATH: string | undefined;
   /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
-   * Env: `FRONTEND_DIR`, defaults to `../frontend/dist` relative to the working directory.
+   * Env: `FRONTEND_DIR`. Default: packaged `frontend/` (npx tarball) or monorepo
+   * `packages/frontend/dist` — always absolute, independent of CWD.
    */
   FRONTEND_DIR: string;
   /**
@@ -366,7 +392,7 @@ const configuration: ServerConfiguration = {
     const override = getEnv('SANDBOX_CATALOG_PATH');
     return override === undefined || override === '' ? undefined : path.resolve(override);
   })(),
-  FRONTEND_DIR: path.resolve(getEnv('FRONTEND_DIR', { defaultValue: DEFAULT_FRONTEND_DIR }) ?? DEFAULT_FRONTEND_DIR),
+  FRONTEND_DIR: resolveFrontendDir(),
   PUBLIC_BASE_URL: resolvePublicBaseUrl(port),
   OAUTH_CLIENT_NAME: getEnv('OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
   SANDBOX_SETTINGS: getEnv('SANDBOX_SETTINGS'),

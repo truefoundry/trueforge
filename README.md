@@ -2,11 +2,11 @@
 
 pnpm workspace with:
 
-| Package                   | Path                                     | Role                                                   |
-| ------------------------- | ---------------------------------------- | ------------------------------------------------------ |
-| `@truefoundry/utils-core` | [`packages/harness`](packages/harness)   | Published library (`core` + `agent-session`)           |
-| `@truefoundry/server`     | [`packages/server`](packages/server)     | HTTP server + UI host (private; depends on utils-core) |
-| `frontend`                | [`packages/frontend`](packages/frontend) | Private draft-only agent chat UI (not published)       |
+| Package                   | Path                                     | Role                                                  |
+| ------------------------- | ---------------------------------------- | ----------------------------------------------------- |
+| `@truefoundry/utils-core` | [`packages/harness`](packages/harness)   | Published library (`core` + `agent-session`)          |
+| `@truefoundry/utils`      | [`packages/server`](packages/server)     | Published app + CLI (`npx @truefoundry/utils`)        |
+| `frontend`                | [`packages/frontend`](packages/frontend) | Private draft-only agent chat UI (bundled into utils) |
 
 ## Development
 
@@ -58,7 +58,15 @@ Server dev scripts regenerate the embedded sandbox Python helpers before startup
 Migrations run automatically on server startup. To migrate without starting HTTP:
 
 ```bash
-pnpm --filter @truefoundry/server migrate
+pnpm --filter @truefoundry/utils migrate
+```
+
+Zero-env single-binary (SQLite + UI):
+
+```bash
+pnpm --filter frontend build && pnpm --filter @truefoundry/utils build
+pnpm --filter @truefoundry/utils exec node dist/cli.js
+# or after publish: npx @truefoundry/utils
 ```
 
 Workspace checks:
@@ -74,9 +82,10 @@ Root `build` / `typecheck` (and CI) include utils-core, server, and frontend. `F
 ## Serving the UI from the server
 
 Deployments are one process on one origin: `/api/*` (including `/api/v1/docs` and `/api/v1/openapi.json`) and
-`/healthz` are the API, everything else resolves to the UI. `FRONTEND_DIR` points at the build (default
-`../frontend/dist`; the image sets an absolute path). It is not required: with no build there the server
-logs a warning and serves the API only, which is what running the server behind Vite needs.
+`/healthz` are the API, everything else resolves to the UI. Frontend resolution prefers the in-package
+`frontend/` copy (npm tarball), then the monorepo sibling `../frontend/dist` (host-dev and Docker).
+Override with `FRONTEND_DIR` if needed. With no build at that path the server logs a warning and serves
+the API only, which is what running the server behind Vite needs.
 
 ## Docker Compose smoke test
 
