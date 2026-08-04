@@ -9,6 +9,7 @@
  * MCP_{NAME}_HEADERS env vars — not this schema.
  */
 import { z } from '@hono/zod-openapi';
+import { isOAuthAccessTokenUsable, type OAuthToken } from '@truefoundry/utils/core';
 import { NameSchema } from './common';
 
 /** Transport/kind of MCP server. Extend when non-remote kinds ship. */
@@ -107,13 +108,21 @@ export function resolveConfiguredMcpRequestHeaders(manifest: McpServerManifest):
 }
 
 /**
- * Stub auth_status until OAuth/token store backs a real check.
- * Header credentials are already on the row → authenticated.
- * DCR still needs a user authorize flow → auth_required.
+ * Passive auth_status for the settings list/put views — reflects stored state only, never a live
+ * refresh (that happens on `authorize`/`resolveMcpAuth`). Header credentials live on the row, so
+ * header (and no-auth) servers are always authenticated. DCR is authenticated only while a stored,
+ * unexpired token exists; a missing or expired token reads as auth_required (an expired-but-
+ * refreshable token still shows auth_required here — refreshing it is `authorize`'s job). Shares
+ * the same expiry check as the live `resolveMcpAuth` path via `isOAuthAccessTokenUsable`.
  */
-export function toStubAuthStatus(manifest: McpServerManifest): McpAuthStatus {
+export function resolveMcpAuthStatus(
+  manifest: McpServerManifest,
+  token: OAuthToken | undefined,
+  nowMs: number,
+): McpAuthStatus {
   if (manifest.auth?.type === 'dcr') {
-    return { status: 'auth_required' };
+    const authenticated = token !== undefined && isOAuthAccessTokenUsable(token.expiresAt, nowMs);
+    return authenticated ? { status: 'authenticated' } : { status: 'auth_required' };
   }
   return { status: 'authenticated' };
 }

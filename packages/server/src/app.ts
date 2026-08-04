@@ -2,6 +2,7 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnSandboxFactory, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
+import type { IOAuthTokenStore } from '@truefoundry/utils/core';
 import type { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -57,6 +58,7 @@ export interface ServerDeps {
   modelProviderStore: IModelProviderStore;
   mcpCatalog: McpCatalog;
   mcpServerStore: IMcpServerStore;
+  mcpTokenStore: IOAuthTokenStore;
   mcpStore: McpStore;
   skillCatalog: SkillCatalog;
   skillStore: ISkillStore;
@@ -93,6 +95,7 @@ export function createServerApp(deps: ServerDeps) {
       modelProviderStore: deps.modelProviderStore,
       mcpCatalog: deps.mcpCatalog,
       mcpServerStore: deps.mcpServerStore,
+      mcpTokenStore: deps.mcpTokenStore,
       skillCatalog: deps.skillCatalog,
       skillStore: deps.skillStore,
       sandboxCatalog: deps.sandboxCatalog,

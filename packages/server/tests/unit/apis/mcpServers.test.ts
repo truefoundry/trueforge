@@ -1,9 +1,11 @@
 import winston from 'winston';
 import { createAvailableMcpServersRouter, createMcpServersRouter } from '../../../src/apis/mcpServers';
+import { TENANT_ID } from '../../../src/apis/sessions';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 
 const putBody = {
   type: 'remote' as const,
@@ -39,17 +41,31 @@ function putInit(body: unknown): RequestInit {
 describe('mcp-servers routers', () => {
   let settingsRouter: ReturnType<typeof createMcpServersRouter>;
   let availableRouter: ReturnType<typeof createAvailableMcpServersRouter>;
+  let mcpServerStore: SqliteMcpServerStore;
+  let mcpTokenStore: SqliteOAuthTokenStore;
+  const originalFetch = globalThis.fetch;
 
   beforeAll(async () => {
+    // Eager DCR registration dials the MCP server's authorization server. Fail that outbound call
+    // fast so DCR upserts stay hermetic; the handler treats it as transient and still returns 200.
+    globalThis.fetch = (async () => {
+      throw new Error('network disabled in tests');
+    }) as typeof fetch;
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
-    const mcpServerStore = new SqliteMcpServerStore(db);
+    mcpServerStore = new SqliteMcpServerStore(db);
+    mcpTokenStore = new SqliteOAuthTokenStore(db);
     settingsRouter = createMcpServersRouter({
       mcpCatalog: McpCatalog.load(),
       mcpServerStore,
+      mcpTokenStore,
       logger: winston.createLogger({ silent: true }),
     });
     availableRouter = createAvailableMcpServersRouter(mcpServerStore);
+  });
+
+  afterAll(() => {
+    globalThis.fetch = originalFetch;
   });
 
   it('GET /catalog returns the shipped catalog verbatim', async () => {
@@ -63,7 +79,7 @@ describe('mcp-servers routers', () => {
     );
   });
 
-  it('PUT upserts a server and returns stub auth_status', async () => {
+  it('PUT upserts a server and returns authenticated auth_status for no-auth servers', async () => {
     const response = await settingsRouter.request('/', putInit(putBody));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
@@ -77,12 +93,52 @@ describe('mcp-servers routers', () => {
     });
   });
 
-  it('PUT with DCR auth stubs auth_required without authorization_url', async () => {
+  it('PUT with DCR auth reports auth_required while no token is stored', async () => {
     const response = await settingsRouter.request('/', putInit(putBodyWithDcr));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: { ...putBodyWithDcr, auth_status: { status: 'auth_required' } },
     });
+  });
+
+  it('DCR server reads authenticated once an unexpired token is stored, auth_required once expired', async () => {
+    await settingsRouter.request('/', putInit(putBodyWithDcr));
+    const record = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithDcr.name });
+    if (record === undefined) throw new Error('expected DCR server to exist');
+
+    await mcpTokenStore.saveToken({
+      id: record.id,
+      token: {
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        scope: null,
+      },
+    });
+
+    const authed = await settingsRouter.request('/');
+    const authedBody = (await authed.json()) as { data: { name: string; auth_status: { status: string } }[] };
+    expect(authedBody.data.find(server => server.name === putBodyWithDcr.name)?.auth_status).toEqual({
+      status: 'authenticated',
+    });
+
+    await mcpTokenStore.saveToken({
+      id: record.id,
+      token: {
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+        expiresAt: '2000-01-01T00:00:00.000Z',
+        scope: null,
+      },
+    });
+
+    const expired = await settingsRouter.request('/');
+    const expiredBody = (await expired.json()) as { data: { name: string; auth_status: { status: string } }[] };
+    expect(expiredBody.data.find(server => server.name === putBodyWithDcr.name)?.auth_status).toEqual({
+      status: 'auth_required',
+    });
+
+    await mcpTokenStore.deleteToken({ id: record.id });
   });
 
   it('PUT with header auth stores headers and reports authenticated', async () => {
