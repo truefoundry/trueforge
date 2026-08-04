@@ -3,9 +3,8 @@
  * document, admin/chat list projections, and auth_status. Catalog file schemas
  * live in mcpCatalog.ts.
  *
- * Auth mirrors gateway MCP header/DCR shapes in reduced form: `header` stores
- * shared request headers on the row; `dcr` is the OAuth/DCR stub until real
- * token exchange lands.
+ * Auth: `header` stores shared request headers on the row (settings listTools);
+ * turn execution resolves DCR tokens via resolveMcpAuth.
  */
 import { z } from '@hono/zod-openapi';
 import { isOAuthAccessTokenUsable, type OAuthToken } from '@truefoundry/utils-core/core';
@@ -96,7 +95,8 @@ export type McpServerReadEntry = z.infer<typeof McpServerReadEntrySchema>;
 
 /**
  * Headers for live MCP calls against a configured server.
- * Only `auth.type === 'header'` contributes; DCR uses tokens later.
+ * Only `auth.type === 'header'` contributes. Turn execution uses DCR via
+ * resolveMcpAuth instead of this helper.
  */
 export function resolveConfiguredMcpRequestHeaders(manifest: McpServerManifest): Record<string, string> {
   if (manifest.auth?.type === 'header') {

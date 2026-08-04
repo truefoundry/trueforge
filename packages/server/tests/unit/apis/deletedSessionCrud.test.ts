@@ -11,6 +11,7 @@ import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/Sq
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { ListSessionsResponseSchema } from '../../../src/schemas/session';
@@ -24,6 +25,7 @@ describe('public CRUD after session deletion', () => {
     const activeTurns = new ActiveTurnRegistry();
     const modelProviderStore = new SqliteModelProviderStore(db);
     const mcpServerStore = new SqliteMcpServerStore(db);
+    const tokenStore = new SqliteOAuthTokenStore(db);
     const skillStore = new SqliteSkillStore(db);
     const app = new OpenAPIHono();
 
@@ -49,6 +51,7 @@ describe('public CRUD after session deletion', () => {
         activeTurns,
         modelProviderStore,
         mcpServerStore,
+        tokenStore,
         skillStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         logger: createLogger({ silent: true }),
