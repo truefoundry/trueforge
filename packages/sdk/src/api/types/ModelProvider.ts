@@ -2,11 +2,7 @@
 
 import type * as TrueHarness from "../index.js";
 
-export interface ModelProvider {
-    auth: TrueHarness.ModelProviderAuth;
-    /** Base URL of the provider's API. */
-    baseUrl: string;
-    models: TrueHarness.ModelEntry[];
-    name: TrueHarness.ResourceName;
-    type: TrueHarness.ProviderType;
-}
+export type ModelProvider =
+    | TrueHarness.AnthropicModelProvider
+    | TrueHarness.CustomModelProvider
+    | TrueHarness.OpenAiModelProvider;
