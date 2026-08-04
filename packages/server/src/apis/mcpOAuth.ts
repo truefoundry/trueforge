@@ -37,7 +37,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps) {
         state,
         code,
       });
-      return c.json({ success: true }, 200);
+      return c.json({ success: true as const }, 200);
     } catch (err) {
       if (err instanceof McpConnectionError) {
         deps.logger.warn('MCP OAuth callback token exchange failed', extractErrorLogFields(err));
