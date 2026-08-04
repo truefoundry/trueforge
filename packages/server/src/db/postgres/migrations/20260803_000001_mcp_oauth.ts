@@ -1,6 +1,7 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 
 export async function up(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await db.schema
     .createTable('mcp_server')
     .addColumn('id', 'text', c => c.notNull())
@@ -40,6 +41,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await db.schema.dropTable('oauth_pending_authorization').ifExists().cascade().execute();
   await db.schema.dropTable('oauth_token').ifExists().cascade().execute();
   await db.schema.dropTable('mcp_server').ifExists().cascade().execute();
