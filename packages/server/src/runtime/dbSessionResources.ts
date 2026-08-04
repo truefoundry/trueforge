@@ -1,0 +1,161 @@
+/**
+ * DB-backed model/MCP resolution for /api/v1/sessions admit and turns.
+ * #2 agents can reuse these helpers after expanding agent_id → agent_spec.
+ */
+import type { AgentSpec } from '@truefoundry/utils/agent-session';
+import type { VercelAIProviderConfig } from '@truefoundry/utils/core';
+import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISkillStore } from '../db/skillStore';
+import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
+
+/** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
+export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
+  const slash = name.indexOf('/');
+  if (slash <= 0 || slash === name.length - 1) {
+    return undefined;
+  }
+  if (name.indexOf('/', slash + 1) !== -1) {
+    return undefined;
+  }
+  return { providerName: name.slice(0, slash), modelName: name.slice(slash + 1) };
+}
+
+/**
+ * Load turn-ready LLM config for a DB-configured FQN (`provider/model`).
+ * Throws if the model is not registered.
+ */
+export async function getDbProviderConfig({
+  tenant_id,
+  name,
+  store,
+}: {
+  tenant_id: string;
+  name: string;
+  store: IModelProviderStore;
+}): Promise<VercelAIProviderConfig> {
+  const parsed = parseModelFqn(name);
+  if (parsed === undefined) {
+    throw new Error(`Model name must be a fully qualified "provider/model": ${name}`);
+  }
+  const provider = await store.getProvider({ tenant_id, name: parsed.providerName });
+  if (provider === undefined) {
+    throw new Error(`Model provider not registered: ${parsed.providerName}`);
+  }
+  const model = provider.manifest.models.find(entry => entry.name === parsed.modelName);
+  if (model === undefined) {
+    throw new Error(`Model not registered: ${name}`);
+  }
+  return {
+    provider: provider.manifest.type === 'custom' ? 'generic' : provider.manifest.type,
+    name,
+    model_id: model.model_id,
+    base_url: provider.manifest.base_url,
+    apiKey: provider.manifest.auth.api_key,
+    headers: {},
+  };
+}
+
+/**
+ * Load MCP url + request headers for a DB-configured server name.
+ * Throws if the server is not registered.
+ */
+export async function getDbMcpConnection({
+  tenant_id,
+  name,
+  store,
+}: {
+  tenant_id: string;
+  name: string;
+  store: IMcpServerStore;
+}): Promise<{ url: string; headers: Record<string, string> }> {
+  const record = await store.getServer({ tenant_id, name });
+  if (record === undefined) {
+    throw new Error(`MCP server not registered: ${name}`);
+  }
+  return {
+    url: record.manifest.url,
+    headers: resolveConfiguredMcpRequestHeaders(record.manifest),
+  };
+}
+
+/**
+ * Cross-checks an AgentSpec against DB-configured models / MCP / skills and
+ * sandbox capability. Same statuses as the YAML validator: 400 unknown refs,
+ * 422 missing sandbox.
+ */
+export async function validateAgentSpecDb({
+  spec,
+  tenant_id,
+  modelProviderStore,
+  mcpServerStore,
+  skillStore,
+  sandboxSupported,
+}: {
+  spec: AgentSpec;
+  tenant_id: string;
+  modelProviderStore: IModelProviderStore;
+  mcpServerStore: IMcpServerStore;
+  skillStore: ISkillStore;
+  sandboxSupported: boolean;
+}): Promise<{ status: 400 | 422; message: string } | undefined> {
+  const parsed = parseModelFqn(spec.model.name);
+  if (parsed === undefined) {
+    return {
+      status: 400,
+      message: `Unknown model "${spec.model.name}" — expected fully qualified "provider/model"`,
+    };
+  }
+  const provider = await modelProviderStore.getProvider({ tenant_id, name: parsed.providerName });
+  if (provider === undefined) {
+    return { status: 400, message: `Unknown model "${spec.model.name}" — provider not configured` };
+  }
+  const model = provider.manifest.models.find(entry => entry.name === parsed.modelName);
+  if (model === undefined) {
+    return { status: 400, message: `Unknown model "${spec.model.name}" — not configured on provider` };
+  }
+  const reasoningEffort = spec.model.params?.reasoning_effort;
+  if (reasoningEffort !== undefined) {
+    const efforts = model.properties.reasoning_efforts;
+    if (efforts === undefined || !efforts.includes(reasoningEffort)) {
+      return {
+        status: 400,
+        message: efforts
+          ? `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`
+          : `Model "${spec.model.name}" does not support configurable reasoning effort`,
+      };
+    }
+  }
+
+  for (const server of spec.mcp_servers ?? []) {
+    const record = await mcpServerStore.getServer({ tenant_id, name: server.name });
+    if (record === undefined) {
+      return { status: 400, message: `Unknown MCP server "${server.name}" — not configured` };
+    }
+  }
+
+  for (const skill of spec.skills ?? []) {
+    const record = await skillStore.getSkill({ tenant_id, name: skill.name });
+    if (record === undefined) {
+      return { status: 400, message: `Unknown skill "${skill.name}" — not configured` };
+    }
+    if (record.manifest.url !== skill.url) {
+      return {
+        status: 400,
+        message: `Skill "${skill.name}" url does not match the configured skill`,
+      };
+    }
+  }
+
+  const wantsSandbox = spec.config?.sandbox?.enabled === true;
+  const hasSkills = (spec.skills?.length ?? 0) > 0;
+  if ((wantsSandbox || hasSkills) && !sandboxSupported) {
+    return {
+      status: 422,
+      message: hasSkills
+        ? 'skills require a sandbox provider — set SANDBOX_SETTINGS (and SANDBOX_API_KEY)'
+        : 'sandbox is enabled in the agent spec but this server has no sandbox provider configured — set SANDBOX_SETTINGS (and SANDBOX_API_KEY)',
+    };
+  }
+  return undefined;
+}

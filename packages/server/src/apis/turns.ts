@@ -16,14 +16,27 @@ import {
   isFileContentPart,
   McpConnectionError,
   VercelAILLM,
+  type VercelAIProviderConfig,
 } from '@truefoundry/utils/core';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import configuration from '../config';
+import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { McpStore } from '../legacy-registry-store/McpStore';
 import type { ModelStore } from '../legacy-registry-store/ModelStore';
-import { createAndExecuteTurnRoute, getTurnRoute, listTurnEventsRoute, listTurnsRoute } from '../routes/turnRoutes';
+import {
+  createAndExecuteTurnRoute,
+  getTurnRoute,
+  legacyCreateAndExecuteTurnRoute,
+  legacyGetTurnRoute,
+  legacyListTurnEventsRoute,
+  legacyListTurnsRoute,
+  listTurnEventsRoute,
+  listTurnsRoute,
+} from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
+import { getDbMcpConnection, getDbProviderConfig } from '../runtime/dbSessionResources';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
 import { TENANT_ID } from './sessions';
 
@@ -41,6 +54,16 @@ function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
 export interface TurnsRouterDeps {
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
+  modelProviderStore: IModelProviderStore;
+  mcpServerStore: IMcpServerStore;
+  /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
+  sandboxFactory?: TurnSandboxFactory;
+  logger: Logger;
+}
+
+export interface LegacyTurnsRouterDeps {
+  sessions: Sessions;
+  activeTurns: ActiveTurnRegistry;
   modelStore: ModelStore;
   mcpStore: McpStore;
   /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
@@ -49,12 +72,47 @@ export interface TurnsRouterDeps {
 }
 
 /**
+ * TurnResourceResolver requires a sync llm factory; preload the session model
+ * config so the factory stays sync while the store read stays async.
+ */
+function createTurnResolver(deps: {
+  mcpServerStore: IMcpServerStore;
+  sandboxFactory?: TurnSandboxFactory | undefined;
+  logger: Logger;
+  signal: AbortSignal;
+  modelName: string;
+  providerConfig: VercelAIProviderConfig;
+}): TurnResourceResolver {
+  const { mcpServerStore, logger, signal, modelName, providerConfig } = deps;
+  return new TurnResourceResolver({
+    llm: name => {
+      if (name !== modelName) {
+        throw new Error(`Model not registered: ${name}`);
+      }
+      return new VercelAILLM({
+        providerConfig,
+        logger,
+        signal,
+      });
+    },
+    mcp: async name =>
+      getDbMcpConnection({
+        tenant_id: TENANT_ID,
+        name,
+        store: mcpServerStore,
+      }),
+    ...(deps.sandboxFactory ? { sandboxProvider: deps.sandboxFactory } : {}),
+    logger,
+  });
+}
+
+/**
  * Per-run resource wiring: maps the YAML catalogs onto the agentSession
  * TurnResourceResolver. Each model carries its own provider config from
  * models.yaml; MCP servers resolve to url + env-configured headers;
  * the sandbox factory (when configured) creates/reattaches the run's Sandbox.
  */
-function createTurnResolver(deps: {
+function createLegacyTurnResolver(deps: {
   modelStore: ModelStore;
   mcpStore: McpStore;
   sandboxFactory?: TurnSandboxFactory | undefined;
@@ -121,6 +179,7 @@ function turnEventSsePayload(event: TurnStreamingEvent, sequenceNumber: number):
   };
 }
 
+/** DB-backed turns (mounted at /api/v1/sessions). Only model/MCP resolution differs from legacy. */
 export function createTurnsRouter(deps: TurnsRouterDeps) {
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
     const { sessionId } = c.req.valid('param');
@@ -192,12 +251,19 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }
 
     const abortController = new AbortController();
+    const modelName = session.agent_spec.model.name;
+    const providerConfig = await getDbProviderConfig({
+      tenant_id: TENANT_ID,
+      name: modelName,
+      store: deps.modelProviderStore,
+    });
     const resolver = createTurnResolver({
-      modelStore: deps.modelStore,
-      mcpStore: deps.mcpStore,
+      mcpServerStore: deps.mcpServerStore,
       sandboxFactory: deps.sandboxFactory,
       logger: deps.logger,
       signal: abortController.signal,
+      modelName,
+      providerConfig,
     });
 
     // First turn only: derive the title from the first user message. The store
@@ -296,5 +362,184 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   // subscribeTurnRoute (routes/turnRoutes.ts) is defined but not registered:
   // re-subscribing to a running turn needs a live-stream registry that this
   // single-process server does not have yet.
+  return router;
+}
+
+/** YAML-backed turns (mounted at /api/v1/legacy/sessions). */
+export function createLegacyTurnsRouter(deps: LegacyTurnsRouterDeps) {
+  const listTurnsHandler: RouteHandler<typeof legacyListTurnsRoute> = async c => {
+    const { sessionId } = c.req.valid('param');
+    const query = c.req.valid('query');
+    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    try {
+      const { data, pagination } = await session.listTurns({
+        limit: query.limit,
+        page_token: query.page_token,
+      });
+      return c.json({ data: data.map(toWireTurn), pagination }, 200);
+    } catch (error) {
+      if (error instanceof SessionStoreConflictError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      throw error;
+    }
+  };
+
+  const getTurnHandler: RouteHandler<typeof legacyGetTurnRoute> = async c => {
+    const { sessionId, turnId } = c.req.valid('param');
+    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    const turn = await session.getTurn(turnId);
+    if (!turn) {
+      return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
+    }
+    return c.json({ data: toWireTurn(turn.record) }, 200);
+  };
+
+  const listTurnEventsHandler: RouteHandler<typeof legacyListTurnEventsRoute> = async c => {
+    const { sessionId, turnId } = c.req.valid('param');
+    const query = c.req.valid('query');
+    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    const turn = await session.getTurn(turnId);
+    if (!turn) {
+      return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
+    }
+    try {
+      const { data, pagination } = await turn.listEvents({
+        limit: query.limit,
+        page_token: query.page_token,
+        order: query.order,
+      });
+      return c.json({ data, pagination }, 200);
+    } catch (error) {
+      if (error instanceof SessionStoreConflictError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      throw error;
+    }
+  };
+
+  const createAndExecuteTurnHandler: RouteHandler<typeof legacyCreateAndExecuteTurnRoute> = async c => {
+    const { sessionId } = c.req.valid('param');
+    const body = c.req.valid('json');
+
+    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+
+    const abortController = new AbortController();
+    const resolver = createLegacyTurnResolver({
+      modelStore: deps.modelStore,
+      mcpStore: deps.mcpStore,
+      sandboxFactory: deps.sandboxFactory,
+      logger: deps.logger,
+      signal: abortController.signal,
+    });
+
+    // First turn only: derive the title from the first user message. The store
+    // never overwrites an existing title.
+    const title = session.record.last_turn_id ? undefined : deriveSessionTitle(body.input);
+
+    let turn;
+    try {
+      turn = await session.createTurn({
+        turn_id: mintPeeredTurnId(configuration.EXECUTOR_ID),
+        input: body.input,
+        previous_turn_id: body.previous_turn_id,
+        signal: abortController.signal,
+        resolver,
+        update_session_title_if_not_exist: title,
+      });
+    } catch (error) {
+      // Unknown previous_turn_id (nothing was persisted).
+      if (error instanceof SessionStoreNotFoundError) {
+        return c.json({ error: { message: error.message } }, 404);
+      }
+      // Input/spec validation failures from the harness. MCP failures carry
+      // their own status but the wire contract only declares 400 here.
+      if (error instanceof AgentHarnessError && !(error instanceof McpConnectionError)) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      throw error;
+    }
+
+    // Long timer not tied to any await; without unref() it would keep the process alive.
+    // Armed only after createTurn succeeds so a 4xx path never leaks a pending timer.
+    const maxExecutionTimer = setTimeout(() => {
+      if (!abortController.signal.aborted) {
+        abortController.abort(CancellationReason.ServerExecutionTimeout);
+      }
+    }, configuration.SERVER_EXECUTION_TIMEOUT_SECONDS * 1000);
+    maxExecutionTimer.unref();
+
+    const trackedStream = deps.activeTurns.track({
+      sessionId,
+      turnId: turn.id,
+      abortController,
+      stream: turn.stream(),
+    });
+
+    let shouldWriteToSSEStream = true;
+    let sequenceNumber = -1;
+    return streamSSE(c, async stream => {
+      // On client disconnect stop writing but keep draining, so the turn
+      // completes and its events persist.
+      stream.onAbort(() => {
+        shouldWriteToSSEStream = false;
+      });
+      try {
+        // Slow SSE writes backpressure turn.stream() (and thus agent execution /
+        // persistence). Acceptable for now; reintroduce an eager buffer if clients
+        // stall turns in practice.
+        for await (const event of trackedStream) {
+          sequenceNumber += 1;
+          if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
+            try {
+              await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
+            } catch (error) {
+              deps.logger.error('SSE stream write error', extractErrorLogFields(error));
+              shouldWriteToSSEStream = false;
+            }
+          }
+        }
+      } catch (error) {
+        // Session delete can cascade mid-stream; store misses leave the DB clean but end SSE here.
+        if (error instanceof SessionStoreNotFoundError) {
+          deps.logger.warn('Turn stream ended after session/turn was removed', {
+            sessionId,
+            turnId: turn.id,
+            ...extractErrorLogFields(error),
+          });
+        } else {
+          deps.logger.error('Unexpected error in turn SSE stream loop', {
+            sessionId,
+            turnId: turn.id,
+            ...extractErrorLogFields(error),
+          });
+        }
+      } finally {
+        clearTimeout(maxExecutionTimer);
+        await stream.close();
+      }
+    });
+  };
+
+  const router = new OpenAPIHono();
+  router.openapi(legacyListTurnsRoute, listTurnsHandler);
+  router.openapi(legacyGetTurnRoute, getTurnHandler);
+  router.openapi(legacyListTurnEventsRoute, listTurnEventsHandler);
+  router.openapi(legacyCreateAndExecuteTurnRoute, createAndExecuteTurnHandler);
+  // legacySubscribeTurnRoute is defined but not registered: re-subscribing to a
+  // running turn needs a live-stream registry that this single-process server
+  // does not have yet.
   return router;
 }

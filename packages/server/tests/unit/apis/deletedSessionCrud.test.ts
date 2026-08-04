@@ -3,8 +3,8 @@ import { InMemorySessionStore, Sessions } from '@truefoundry/utils/agent-session
 import { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
-import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
-import { createTurnsRouter } from '../../../src/apis/turns';
+import { createLegacySessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
+import { createLegacyTurnsRouter } from '../../../src/apis/turns';
 import { McpStore } from '../../../src/legacy-registry-store/McpStore';
 import { ModelStore } from '../../../src/legacy-registry-store/ModelStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
@@ -21,7 +21,7 @@ describe('public CRUD after session deletion', () => {
 
     app.route(
       '/',
-      createSessionsRouter({
+      createLegacySessionsRouter({
         sessions,
         sessionStore,
         activeTurns,
@@ -34,7 +34,7 @@ describe('public CRUD after session deletion', () => {
     );
     app.route(
       '/',
-      createTurnsRouter({
+      createLegacyTurnsRouter({
         sessions,
         activeTurns,
         modelStore,

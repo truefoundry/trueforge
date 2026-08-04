@@ -14,10 +14,10 @@ import { createLegacyModelsRouter } from './apis/legacyModels';
 import { createLegacySkillsRouter } from './apis/legacySkills';
 import { createAvailableMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
-import { createSessionsRouter } from './apis/sessions';
+import { createLegacySessionsRouter, createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
-import { createTurnsRouter } from './apis/turns';
+import { createLegacyTurnsRouter, createTurnsRouter } from './apis/turns';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
@@ -90,6 +90,31 @@ export function createServerApp(deps: ServerDeps) {
       logger: deps.logger,
     }),
   );
+  // DB-backed sessions (admit + turn resolve against registered providers/MCP/skills).
+  app.route(
+    '/api/v1/sessions',
+    createSessionsRouter({
+      sessions: deps.sessions,
+      sessionStore: deps.sessionStore,
+      activeTurns: deps.activeTurns,
+      modelProviderStore: deps.modelProviderStore,
+      mcpServerStore: deps.mcpServerStore,
+      skillStore: deps.skillStore,
+      sandboxSupported: deps.sandboxFactory !== undefined,
+      redis: deps.redis,
+    }),
+  );
+  app.route(
+    '/api/v1/sessions',
+    createTurnsRouter({
+      sessions: deps.sessions,
+      activeTurns: deps.activeTurns,
+      modelProviderStore: deps.modelProviderStore,
+      mcpServerStore: deps.mcpServerStore,
+      ...(deps.sandboxFactory ? { sandboxFactory: deps.sandboxFactory } : {}),
+      logger: deps.logger,
+    }),
+  );
   // YAML registry + YAML-backed session/turn surface (FE uses these until DB sessions land).
   app.route('/api/v1/legacy/models', createLegacyModelsRouter(deps.modelStore));
   app.route('/api/v1/legacy/mcp-servers', createLegacyMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));
@@ -97,7 +122,7 @@ export function createServerApp(deps: ServerDeps) {
   app.route('/api/v1/legacy/skills', createLegacySkillsRouter(deps.legacySkillStore));
   app.route(
     '/api/v1/legacy/sessions',
-    createSessionsRouter({
+    createLegacySessionsRouter({
       sessions: deps.sessions,
       sessionStore: deps.sessionStore,
       activeTurns: deps.activeTurns,
@@ -110,7 +135,7 @@ export function createServerApp(deps: ServerDeps) {
   );
   app.route(
     '/api/v1/legacy/sessions',
-    createTurnsRouter({
+    createLegacyTurnsRouter({
       sessions: deps.sessions,
       activeTurns: deps.activeTurns,
       modelStore: deps.modelStore,

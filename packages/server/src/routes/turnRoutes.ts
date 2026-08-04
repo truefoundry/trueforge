@@ -1,7 +1,7 @@
 /**
- * YAML-backed turn route definitions (mounted at /api/v1/legacy/sessions).
- * Creating a turn responds with a Server-Sent Events stream; a running turn can
- * be re-subscribed to with resume support. Handlers are registered in apis/turns.ts.
+ * Turn route definitions.
+ * DB-backed routes mount at /api/v1/sessions; YAML legacy at /api/v1/legacy/sessions.
+ * Handlers are registered in apis/turns.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -18,11 +18,14 @@ import {
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { SessionIdParamsSchema } from './sessionRoutes';
 
-const SESSIONS_TAG = 'Legacy Sessions';
+const SESSIONS_TAG = 'Sessions';
+const LEGACY_SESSIONS_TAG = 'Legacy Sessions';
 
 export const TurnIdParamsSchema = SessionIdParamsSchema.extend({
   turnId: z.string().min(1).describe('Turn identifier.'),
 });
+
+// --- DB-backed (/api/v1/sessions) ---
 
 export const listTurnsRoute = createRoute({
   method: 'get',
@@ -30,7 +33,7 @@ export const listTurnsRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'List turns in a session',
   description: 'List turns for a session (newest first by default), token-paginated.',
-  'x-fern-sdk-group-name': ['legacy', 'sessions'],
+  'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_turns',
   'x-fern-pagination': TOKEN_PAGINATION,
   request: {
@@ -59,7 +62,7 @@ export const getTurnRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Get a turn',
   description: 'Fetch a single turn by ID.',
-  'x-fern-sdk-group-name': ['legacy', 'sessions'],
+  'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'get_turn',
   request: {
     params: TurnIdParamsSchema,
@@ -82,7 +85,7 @@ export const listTurnEventsRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'List turn events',
   description: 'Paginated persisted events for a turn (insertion order by default).',
-  'x-fern-sdk-group-name': ['legacy', 'sessions'],
+  'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_turn_events',
   'x-fern-pagination': TOKEN_PAGINATION,
   request: {
@@ -112,7 +115,7 @@ export const createAndExecuteTurnRoute = createRoute({
   summary: 'Create and execute a turn in a session',
   description: `Create a turn within a session and stream its execution as Server-Sent Events.
 Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`).`,
-  'x-fern-sdk-group-name': ['legacy', 'sessions'],
+  'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create_turn',
   // Not resumable: subscribeTurnRoute, which would reattach, is not registered.
   'x-fern-streaming': { format: 'sse', resumable: false },
@@ -151,6 +154,169 @@ export const subscribeTurnRoute = createRoute({
   method: 'post',
   path: '/{sessionId}/turns/{turnId}/subscribe',
   tags: [SESSIONS_TAG],
+  summary: 'Subscribe to a running turn',
+  description:
+    'Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).',
+  request: {
+    params: TurnIdParamsSchema,
+    body: {
+      content: { 'application/json': { schema: SubscribeTurnRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'text/event-stream': {
+          schema: TurnStreamingEventSchema,
+        },
+      },
+      description: 'Server-Sent Events stream of turn events (deltas and lifecycle).',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Turn not found.',
+    },
+    412: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Cannot subscribe — the live stream no longer exists.',
+    },
+  },
+});
+
+// --- YAML legacy (/api/v1/legacy/sessions) ---
+
+export const legacyListTurnsRoute = createRoute({
+  method: 'get',
+  path: '/{sessionId}/turns',
+  tags: [LEGACY_SESSIONS_TAG],
+  summary: 'List turns in a session',
+  description: 'List turns for a session (newest first by default), token-paginated.',
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
+  'x-fern-sdk-method-name': 'list_turns',
+  'x-fern-pagination': TOKEN_PAGINATION,
+  request: {
+    params: SessionIdParamsSchema,
+    query: ListTurnsRequestQuerySchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListTurnsResponseSchema } },
+      description: 'Paginated turns.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid page token.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session not found.',
+    },
+  },
+});
+
+export const legacyGetTurnRoute = createRoute({
+  method: 'get',
+  path: '/{sessionId}/turns/{turnId}',
+  tags: [LEGACY_SESSIONS_TAG],
+  summary: 'Get a turn',
+  description: 'Fetch a single turn by ID.',
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
+  'x-fern-sdk-method-name': 'get_turn',
+  request: {
+    params: TurnIdParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetTurnResponseSchema } },
+      description: 'Turn data.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session or turn not found.',
+    },
+  },
+});
+
+export const legacyListTurnEventsRoute = createRoute({
+  method: 'get',
+  path: '/{sessionId}/turns/{turnId}/events',
+  tags: [LEGACY_SESSIONS_TAG],
+  summary: 'List turn events',
+  description: 'Paginated persisted events for a turn (insertion order by default).',
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
+  'x-fern-sdk-method-name': 'list_turn_events',
+  'x-fern-pagination': TOKEN_PAGINATION,
+  request: {
+    params: TurnIdParamsSchema,
+    query: ListTurnEventsRequestQuerySchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListTurnEventsResponseSchema } },
+      description: 'Paginated turn events.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid page token.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session or turn not found.',
+    },
+  },
+});
+
+export const legacyCreateAndExecuteTurnRoute = createRoute({
+  method: 'post',
+  path: '/{sessionId}/turns',
+  tags: [LEGACY_SESSIONS_TAG],
+  summary: 'Create and execute a turn in a session',
+  description: `Create a turn within a session and stream its execution as Server-Sent Events.
+Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`).`,
+  'x-fern-sdk-group-name': ['legacy', 'sessions'],
+  'x-fern-sdk-method-name': 'create_turn',
+  // Not resumable: subscribeTurnRoute, which would reattach, is not registered.
+  'x-fern-streaming': { format: 'sse', resumable: false },
+  request: {
+    params: SessionIdParamsSchema,
+    body: {
+      content: { 'application/json': { schema: CreateTurnRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'text/event-stream': {
+          schema: TurnStreamingEventSchema,
+        },
+      },
+      description: 'Server-Sent Events stream of turn events.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session or prior turn not found.',
+    },
+    412: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Requested action cannot be performed on the session because it is no longer usable.',
+    },
+  },
+});
+
+export const legacySubscribeTurnRoute = createRoute({
+  method: 'post',
+  path: '/{sessionId}/turns/{turnId}/subscribe',
+  tags: [LEGACY_SESSIONS_TAG],
   summary: 'Subscribe to a running turn',
   description:
     'Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).',

@@ -2,7 +2,7 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Sessions } from '@truefoundry/utils/agent-session';
 import { TurnNotFoundError } from '@truefoundry/utils/agent-session';
 import { createLogger } from 'winston';
-import { createTurnsRouter } from '../../../src/apis/turns';
+import { createLegacyTurnsRouter } from '../../../src/apis/turns';
 import { McpStore } from '../../../src/legacy-registry-store/McpStore';
 import { ModelStore } from '../../../src/legacy-registry-store/ModelStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
@@ -33,7 +33,7 @@ describe('turn SSE after session deletion', () => {
     const app = new OpenAPIHono();
     app.route(
       '/',
-      createTurnsRouter({
+      createLegacyTurnsRouter({
         sessions,
         activeTurns: new ActiveTurnRegistry(),
         modelStore: new ModelStore([]),
