@@ -27,8 +27,6 @@ RUN apt-get update \
 FROM build-base AS store
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches patches
-# Local file: deps (SDK + runtime tarballs) must exist before fetch.
-COPY packages/frontend/truefoundry-agent-ui-sdk-v0.1.3.tgz packages/frontend/truefoundry-assistant-ui-runtime-0.1.8.tgz packages/frontend/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 
 # ---------------------------------------------------------------------------
