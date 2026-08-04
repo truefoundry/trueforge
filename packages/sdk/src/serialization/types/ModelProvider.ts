@@ -3,13 +3,26 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { AnthropicModelProvider } from "./AnthropicModelProvider.js";
-import { CustomModelProvider } from "./CustomModelProvider.js";
-import { OpenAiModelProvider } from "./OpenAiModelProvider.js";
+import { ModelEntry } from "./ModelEntry.js";
+import { ModelProviderAuth } from "./ModelProviderAuth.js";
+import { ProviderType } from "./ProviderType.js";
+import { ResourceName } from "./ResourceName.js";
 
-export const ModelProvider: core.serialization.Schema<serializers.ModelProvider.Raw, TrueHarness.ModelProvider> =
-    core.serialization.undiscriminatedUnion([AnthropicModelProvider, CustomModelProvider, OpenAiModelProvider]);
+export const ModelProvider: core.serialization.ObjectSchema<serializers.ModelProvider.Raw, TrueHarness.ModelProvider> =
+    core.serialization.object({
+        auth: ModelProviderAuth,
+        baseUrl: core.serialization.property("base_url", core.serialization.string()),
+        models: core.serialization.list(ModelEntry),
+        name: ResourceName,
+        type: ProviderType,
+    });
 
 export declare namespace ModelProvider {
-    export type Raw = AnthropicModelProvider.Raw | CustomModelProvider.Raw | OpenAiModelProvider.Raw;
+    export interface Raw {
+        auth: ModelProviderAuth.Raw;
+        base_url: string;
+        models: ModelEntry.Raw[];
+        name: ResourceName.Raw;
+        type: ProviderType.Raw;
+    }
 }

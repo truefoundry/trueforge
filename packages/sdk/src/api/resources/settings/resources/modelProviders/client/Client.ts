@@ -103,6 +103,7 @@ export class ModelProvidersClient {
      *         auth: {
      *             apiKey: "api_key"
      *         },
+     *         baseUrl: "base_url",
      *         models: [{
      *                 modelId: "model_id",
      *                 name: "name",
@@ -112,7 +113,7 @@ export class ModelProvidersClient {
      *                 }
      *             }],
      *         name: "name",
-     *         type: "anthropic"
+     *         type: "openai"
      *     })
      */
     public upsert(

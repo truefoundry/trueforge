@@ -146,42 +146,6 @@
         ],
         "type": "object"
       },
-      "AnthropicModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "description": "Optional override of the provider's default API base URL.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "enum": [
-              "anthropic"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type",
-          "name"
-        ],
-        "type": "object"
-      },
       "AnthropicProviderModelEntry": {
         "additionalProperties": false,
         "properties": {
@@ -702,102 +666,6 @@
         },
         "type": "object"
       },
-      "CustomModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "description": "Base URL of the provider's API.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "enum": [
-              "custom"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type",
-          "base_url",
-          "name"
-        ],
-        "type": "object"
-      },
-      "CustomProviderModelEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "api_format": {
-            "enum": [
-              "openai-chat-completions"
-            ],
-            "type": "string"
-          },
-          "api_key": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "base_url": {
-            "format": "uri",
-            "type": "string"
-          },
-          "headers": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object"
-          },
-          "max_output_tokens": {
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "model_id": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "name": {
-            "minLength": 1,
-            "pattern": "^[a-z0-9][a-z0-9.-]*$",
-            "type": "string"
-          },
-          "provider": {
-            "enum": [
-              "custom"
-            ],
-            "type": "string"
-          },
-          "reasoning_efforts": {
-            "items": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "minItems": 1,
-            "type": "array"
-          }
-        },
-        "required": [
-          "name",
-          "max_output_tokens",
-          "provider",
-          "base_url"
-        ],
-        "type": "object"
-      },
       "DaytonaSandboxProvider": {
         "additionalProperties": false,
         "properties": {
@@ -928,6 +796,65 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "GenericProviderModelEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "api_format": {
+            "enum": [
+              "openai-chat-completions"
+            ],
+            "type": "string"
+          },
+          "api_key": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "max_output_tokens": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "model_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "generic"
+            ],
+            "type": "string"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "max_output_tokens",
+          "provider",
+          "base_url"
+        ],
         "type": "object"
       },
       "GetCapabilitiesResponse": {
@@ -1220,7 +1147,7 @@
                   "discriminator": {
                     "mapping": {
                       "anthropic": "#/components/schemas/AnthropicProviderModelEntry",
-                      "custom": "#/components/schemas/CustomProviderModelEntry",
+                      "generic": "#/components/schemas/GenericProviderModelEntry",
                       "google-gemini": "#/components/schemas/GoogleGeminiProviderModelEntry",
                       "openai": "#/components/schemas/OpenAIProviderModelEntry"
                     },
@@ -1237,7 +1164,7 @@
                       "$ref": "#/components/schemas/GoogleGeminiProviderModelEntry"
                     },
                     {
-                      "$ref": "#/components/schemas/CustomProviderModelEntry"
+                      "$ref": "#/components/schemas/GenericProviderModelEntry"
                     }
                   ]
                 }
@@ -2122,47 +2049,13 @@
         "type": "object"
       },
       "ModelProvider": {
-        "discriminator": {
-          "mapping": {
-            "anthropic": "#/components/schemas/AnthropicModelProvider",
-            "custom": "#/components/schemas/CustomModelProvider",
-            "openai": "#/components/schemas/OpenAIModelProvider"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/OpenAIModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/AnthropicModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/CustomModelProvider"
-          }
-        ]
-      },
-      "ModelProviderAuth": {
-        "additionalProperties": false,
-        "properties": {
-          "api_key": {
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "api_key"
-        ],
-        "type": "object"
-      },
-      "OpenAIModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
             "$ref": "#/components/schemas/ModelProviderAuth"
           },
           "base_url": {
-            "description": "Optional override of the provider's default API base URL.",
+            "description": "Base URL of the provider's API.",
             "format": "uri",
             "type": "string"
           },
@@ -2177,17 +2070,28 @@
             "$ref": "#/components/schemas/ResourceName"
           },
           "type": {
-            "enum": [
-              "openai"
-            ],
+            "$ref": "#/components/schemas/ProviderType"
+          }
+        },
+        "required": [
+          "type",
+          "base_url",
+          "auth",
+          "models",
+          "name"
+        ],
+        "type": "object"
+      },
+      "ModelProviderAuth": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "minLength": 1,
             "type": "string"
           }
         },
         "required": [
-          "auth",
-          "models",
-          "type",
-          "name"
+          "api_key"
         ],
         "type": "object"
       },
@@ -2261,6 +2165,14 @@
         ],
         "default": "auto",
         "description": "Defaults to 'auto' (chain to session last turn). Use 'null' for the session's first turn."
+      },
+      "ProviderType": {
+        "enum": [
+          "openai",
+          "anthropic",
+          "custom"
+        ],
+        "type": "string"
       },
       "PutMcpServerResponse": {
         "properties": {
