@@ -69,6 +69,9 @@ export function makeStubPublicSandbox(tenantName = 'test-tenant'): Sandbox {
   return new Sandbox({
     provider,
     blockDestructiveToolsInCodeMode: true,
+    mcpRequestTimeoutMs: 60_000,
+    mcpConnectTimeoutMs: 5_000,
+    execTimeoutSeconds: 90,
     execExtraEnv: { TFY_TENANT_NAME: tenantName },
     logger: makeSilentLogger(),
     tracing: NOOP_AGENT_TRACING,

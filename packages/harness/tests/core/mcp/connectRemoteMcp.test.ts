@@ -61,6 +61,8 @@ jest.mock('@modelcontextprotocol/sdk/client/sse.js', () => ({
 const baseParams = () => ({
   url: 'https://mcp.example.com/mcp',
   headers: {},
+  requestTimeoutMs: 60_000,
+  connectTimeoutMs: 5_000,
   signal: new AbortController().signal,
 });
 

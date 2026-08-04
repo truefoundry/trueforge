@@ -31,11 +31,6 @@ export interface SandboxInfo {
 // Downloader/setup scripts can run longer than a normal exec.
 export const SKILL_DOWNLOAD_TIMEOUT_SECONDS = 180;
 
-// Default MCP request (4m) + connect (30s); kept as a fixed default, not derived at runtime.
-export const DEFAULT_SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS = 4 * 60 + 30;
-// Default NATS (4m30s) + 30s slack for non-MCP work in the same exec.
-export const DEFAULT_SANDBOX_EXEC_TIMEOUT_SECONDS = 5 * 60;
-
 // Write a script (base64-encoded, never interpolated raw) to a path and run it. Skill mounters reuse it.
 export function buildWriteAndRunScriptCommand(params: { scriptPath: string; scriptContent: string }): string {
   const b64 = Buffer.from(params.scriptContent, 'utf-8').toString('base64');
@@ -91,8 +86,10 @@ export interface SandboxOptions {
    * instead. Must be `true` — approvals are always enabled (the kill switch is gone).
    */
   blockDestructiveToolsInCodeMode: true;
-  natsRequestTimeoutSeconds?: number | undefined;
-  execTimeoutSeconds?: number | undefined;
+  /** Used to derive the Code Mode NATS wait as request + connect. */
+  mcpRequestTimeoutMs: number;
+  mcpConnectTimeoutMs: number;
+  execTimeoutSeconds: number;
   execExtraEnv?: Readonly<Record<string, string>> | undefined;
   tracing: AgentTracing;
   logger: Logger;
@@ -233,8 +230,9 @@ export class Sandbox extends LocalToolMCP {
     this.tenantName = options.execExtraEnv?.['TFY_TENANT_NAME'] ?? '';
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
-    this.natsRequestTimeoutSeconds = options.natsRequestTimeoutSeconds ?? DEFAULT_SANDBOX_NATS_REQUEST_TIMEOUT_SECONDS;
-    this.execTimeoutSeconds = options.execTimeoutSeconds ?? DEFAULT_SANDBOX_EXEC_TIMEOUT_SECONDS;
+    const mcpBoundTimeoutMs = options.mcpRequestTimeoutMs + options.mcpConnectTimeoutMs;
+    this.natsRequestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000);
+    this.execTimeoutSeconds = options.execTimeoutSeconds;
     this.execExtraEnv = options.execExtraEnv;
     // Scripts are internal to Sandbox: the upload paths, env contract, and prompt
     // text are all hardcoded here, so injecting different content was never a

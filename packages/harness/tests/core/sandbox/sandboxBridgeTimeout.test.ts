@@ -15,7 +15,11 @@ import { makeMockIMCPServer, makeSilentLogger } from '../harnessMocks';
 const mockBridgeConnect = SandboxNatsBridge.connect as jest.Mock;
 const AGENT_COMMAND = 'echo hello';
 
-function makeSandbox(options?: { natsRequestTimeoutSeconds?: number; execTimeoutSeconds?: number }): {
+function makeSandbox(options: {
+  mcpRequestTimeoutMs: number;
+  mcpConnectTimeoutMs: number;
+  execTimeoutSeconds: number;
+}): {
   sandbox: Sandbox;
   execCalls: SandboxExecParams[];
 } {
@@ -66,9 +70,10 @@ describe('Code Mode timeouts', () => {
     });
   });
 
-  it('uses independently configured NATS and exec timeouts when MCP is available', async () => {
+  it('derives the NATS wait from MCP request + connect and applies the exec timeout', async () => {
     const { sandbox, execCalls } = makeSandbox({
-      natsRequestTimeoutSeconds: 120,
+      mcpRequestTimeoutMs: 90_000,
+      mcpConnectTimeoutMs: 30_000,
       execTimeoutSeconds: 900,
     });
     sandbox.configureCodeMode([makeMockIMCPServer({ name: 'github', preload: true })]);
@@ -79,11 +84,16 @@ describe('Code Mode timeouts', () => {
     expect(call.timeoutSeconds).toBe(900);
   });
 
-  it('uses the configured exec timeout when MCP is unavailable', async () => {
-    const { sandbox, execCalls } = makeSandbox({ execTimeoutSeconds: 900 });
+  it('applies the exec timeout when MCP is unavailable', async () => {
+    const { sandbox, execCalls } = makeSandbox({
+      mcpRequestTimeoutMs: 90_000,
+      mcpConnectTimeoutMs: 30_000,
+      execTimeoutSeconds: 900,
+    });
 
     const call = await execAgentCommand(sandbox, execCalls);
 
+    expect(call.env?.['TFY_NATS_REQUEST_TIMEOUT_SECONDS']).toBeUndefined();
     expect(call.timeoutSeconds).toBe(900);
   });
 });
