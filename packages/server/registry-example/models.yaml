@@ -38,7 +38,7 @@ models:
   # --- Direct Anthropic ---
   - name: claude-sonnet-4-6
     provider: anthropic
-    api_key: "${ANTHROPIC_API_KEY}"
+    api_key: '${ANTHROPIC_API_KEY}'
     max_output_tokens: 32768
     reasoning_efforts:
       - low
@@ -48,12 +48,12 @@ models:
   # --- Direct OpenAI (Responses API) ---
   - name: gpt-4o
     provider: openai
-    api_key: "${OPENAI_API_KEY}"
+    api_key: '${OPENAI_API_KEY}'
     max_output_tokens: 16384
 
   - name: o4-mini
     provider: openai
-    api_key: "${OPENAI_API_KEY}"
+    api_key: '${OPENAI_API_KEY}'
     max_output_tokens: 32768
     reasoning_efforts:
       - low
@@ -62,7 +62,7 @@ models:
 
   - name: o3
     provider: openai
-    api_key: "${OPENAI_API_KEY}"
+    api_key: '${OPENAI_API_KEY}'
     max_output_tokens: 32768
     reasoning_efforts:
       - low
@@ -72,14 +72,14 @@ models:
   # --- Direct Google ---
   - name: gemini-2.5-flash
     provider: google-gemini
-    api_key: "${GOOGLE_GEMINI_API_KEY}"
+    api_key: '${GOOGLE_GEMINI_API_KEY}'
     max_output_tokens: 8192
 
   # --- Generic gateway (e.g. LiteLLM / TrueFoundry / any OpenAI-compat proxy) ---
   - name: claude-sonnet-4-6-gateway
     model_id: anthropic/claude-sonnet-4-6
     provider: generic
-    api_key: "${LLM_GATEWAY_API_KEY}"
+    api_key: '${LLM_GATEWAY_API_KEY}'
     base_url: https://your-gateway.example.com/api/llm
     max_output_tokens: 32768
     reasoning_efforts:

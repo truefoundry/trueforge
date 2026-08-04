@@ -5,6 +5,7 @@
  * spec cannot drift from what the server serves. Nothing listens or dials out:
  * `.env.test` supplies dummy connection strings and the registry fixtures.
  */
+import type { TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import { InMemorySessionStore, Sessions } from '@truefoundry/utils/agent-session';
 import { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -22,6 +23,7 @@ import { McpStore } from '../src/legacy-registry-store/McpStore';
 import { ModelStore } from '../src/legacy-registry-store/ModelStore';
 import { SkillStore } from '../src/legacy-registry-store/SkillStore';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
+import { EventSubscriptionRegistry } from '../src/runtime/event-subscription';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -59,6 +61,7 @@ const app = createServerApp({
   sessions: new Sessions({ sessionStore }),
   activeTurns: new ActiveTurnRegistry(),
   requestReplyRouter: new RequestReplyRouter(),
+  eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
   logger: winston.createLogger({ silent: true }),
 });
 

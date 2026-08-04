@@ -11,7 +11,7 @@ export const TurnStateDone: core.serialization.ObjectSchema<serializers.TurnStat
     core.serialization.object({
         completedAt: core.serialization.property("completed_at", core.serialization.string()),
         metrics: TurnMetrics.optional(),
-        output: ModelMessageEvent.optional(),
+        output: ModelMessageEvent.nullable(),
         requiredActions: core.serialization.property("required_actions", core.serialization.list(ActionRequiredEvent)),
         status: core.serialization.stringLiteral("done"),
     });

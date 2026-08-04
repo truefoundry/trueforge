@@ -6,6 +6,7 @@ import { createTurnsRouter } from '../../../src/apis/turns';
 import { McpStore } from '../../../src/legacy-registry-store/McpStore';
 import { ModelStore } from '../../../src/legacy-registry-store/ModelStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 
 describe('turn SSE after session deletion', () => {
   it('warns when the stream ends because the session/turn was removed', async () => {
@@ -38,6 +39,7 @@ describe('turn SSE after session deletion', () => {
         activeTurns: new ActiveTurnRegistry(),
         modelStore: new ModelStore([]),
         mcpStore: new McpStore([]),
+        eventSubscriptions: new EventSubscriptionRegistry(undefined),
         logger,
       }),
     );

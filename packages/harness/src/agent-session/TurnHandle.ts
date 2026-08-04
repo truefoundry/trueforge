@@ -300,8 +300,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       } else {
         terminalState = {
           status: 'done',
-          // TODO: revert alongside TurnStateDone.output.
-          ...(executeResult.output && { output: executeResult.output }),
+          output: executeResult.output,
           required_actions: executeResult.required_actions,
           completed_at: createdAtIso,
           metrics,

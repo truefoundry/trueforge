@@ -6,23 +6,37 @@ import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/chat'
  * share one type without agentSession → core inversion.
  * `passthrough()` lets unknown fields within a known `type` flow through to the LLM.
  */
-export const ResponseFormatSchema = z
-  .discriminatedUnion('type', [
-    z.object({ type: z.literal('text') }).passthrough(),
-    z.object({ type: z.literal('json_object') }).passthrough(),
-    z
+
+const ResponseFormatTextSchema = z
+  .object({ type: z.literal('text') })
+  .passthrough()
+  .openapi('ResponseFormatText');
+
+const ResponseFormatJsonObjectSchema = z
+  .object({ type: z.literal('json_object') })
+  .passthrough()
+  .openapi('ResponseFormatJsonObject');
+
+const ResponseFormatJsonSchemaSchema = z
+  .object({
+    type: z.literal('json_schema'),
+    json_schema: z
       .object({
-        type: z.literal('json_schema'),
-        json_schema: z
-          .object({
-            name: z.string(),
-            description: z.string().optional(),
-            schema: z.record(z.string(), z.unknown()).optional(),
-            strict: z.boolean().nullable().optional(),
-          })
-          .passthrough(),
+        name: z.string(),
+        description: z.string().optional(),
+        schema: z.record(z.string(), z.unknown()).optional(),
+        strict: z.boolean().nullable().optional(),
       })
       .passthrough(),
+  })
+  .passthrough()
+  .openapi('ResponseFormatJsonSchema');
+
+export const ResponseFormatSchema = z
+  .discriminatedUnion('type', [
+    ResponseFormatTextSchema,
+    ResponseFormatJsonObjectSchema,
+    ResponseFormatJsonSchemaSchema,
   ])
   .openapi('ResponseFormat');
 

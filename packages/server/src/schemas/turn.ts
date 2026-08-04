@@ -5,11 +5,11 @@ import { SessionEventSchema, TokenPaginationSchema, TurnSchema } from '@truefoun
 export { CreateTurnRequestSchema, TurnSchema } from '@truefoundry/utils/agent-session';
 export type { Turn } from '@truefoundry/utils/agent-session';
 
-export const SubscribeTurnRequestSchema = z
+export const SubscribeTurnQuerySchema = z
   .object({
     after_sequence_number: z.number().int().nonnegative().optional(),
   })
-  .openapi('SubscribeTurnRequest');
+  .openapi('SubscribeTurnQuery');
 
 export const CancelSessionRequestSchema = z.object({}).openapi('CancelSessionRequest');
 export const CancelSessionResponseSchema = z.object({}).openapi('CancelSessionResponse');

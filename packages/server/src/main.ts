@@ -5,6 +5,7 @@
  * SQLite migrations are packaged under dist/ but are not run at startup.
  */
 import { serve } from '@hono/node-server';
+import type { TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import type { RedisClientType } from 'redis';
 import winston from 'winston';
 
@@ -24,6 +25,7 @@ try {
     { connectRedis },
     { RequestReplyExecutor, RequestReplyRouter },
     { PostgresSessionStore },
+    { EventSubscriptionRegistry },
     { ModelCatalog },
     { PostgresModelProviderStore },
     { McpCatalog },
@@ -45,6 +47,7 @@ try {
     import('./runtime/redis'),
     import('@truefoundry/utils/request-reply'),
     import('./db/postgres/session-store/PostgresSessionStore'),
+    import('./runtime/event-subscription'),
     import('./catalog/ModelCatalog'),
     import('./db/postgres/model-provider-store/PostgresModelProviderStore'),
     import('./catalog/McpCatalog'),
@@ -82,6 +85,7 @@ try {
     redis = await connectRedis({ url: configuration.REDIS_URL, logger });
   }
   const requestReplyRouter = new RequestReplyRouter();
+  const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
 
   const app = createServerApp({
     modelStore: ModelStore.load(),
@@ -99,6 +103,7 @@ try {
     ...(sandboxFactory ? { sandboxFactory } : {}),
     redis,
     requestReplyRouter,
+    eventSubscriptions,
     logger,
   });
 

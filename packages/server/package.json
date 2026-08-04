@@ -21,7 +21,8 @@
     "openapi:write": "pnpm run build:gen && NODE_OPTIONS='--conditions=development' tsx --env-file=.env.test scripts/write-openapi.ts",
     "test": "pnpm run build:gen && NODE_OPTIONS='--conditions=development' node --env-file=.env.test ./node_modules/jest/bin/jest.js --config jest.unit.config.cjs",
     "test:store:postgres": "jest --config jest.store.postgres.config.cjs",
-    "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs"
+    "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs",
+    "test:eventsub": "jest --config jest.eventsub.config.cjs"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.11",

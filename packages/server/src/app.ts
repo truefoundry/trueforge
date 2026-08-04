@@ -1,7 +1,7 @@
 /** The API: resource routers, the OpenAPI document and Swagger UI, all under /api/v1. */
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { ISessionStore, Sessions, TurnSandboxFactory } from '@truefoundry/utils/agent-session';
+import type { ISessionStore, Sessions, TurnSandboxFactory, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
 import type { RequestReplyRouter } from '@truefoundry/utils/request-reply';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -28,6 +28,7 @@ import type { McpStore } from './legacy-registry-store/McpStore';
 import type { ModelStore } from './legacy-registry-store/ModelStore';
 import type { SkillStore } from './legacy-registry-store/SkillStore';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
+import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 
 const openApiDocConfig = {
   openapi: '3.1.0',
@@ -66,6 +67,8 @@ export interface ServerDeps {
   redis?: RedisClientType | undefined;
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;
+  /** Hands out each turn's resumable event stream to the create and subscribe handlers. */
+  eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
 }
 
@@ -115,6 +118,7 @@ export function createServerApp(deps: ServerDeps) {
       activeTurns: deps.activeTurns,
       modelStore: deps.modelStore,
       mcpStore: deps.mcpStore,
+      eventSubscriptions: deps.eventSubscriptions,
       ...(deps.sandboxFactory ? { sandboxFactory: deps.sandboxFactory } : {}),
       logger: deps.logger,
     }),

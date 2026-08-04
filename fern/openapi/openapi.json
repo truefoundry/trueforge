@@ -2097,75 +2097,92 @@
         "type": "string"
       },
       "ResponseFormat": {
+        "discriminator": {
+          "mapping": {
+            "json_object": "#/components/schemas/ResponseFormatJsonObject",
+            "json_schema": "#/components/schemas/ResponseFormatJsonSchema",
+            "text": "#/components/schemas/ResponseFormatText"
+          },
+          "propertyName": "type"
+        },
         "oneOf": [
           {
-            "properties": {
-              "type": {
-                "enum": [
-                  "text"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/ResponseFormatText"
           },
           {
-            "properties": {
-              "type": {
-                "enum": [
-                  "json_object"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/ResponseFormatJsonObject"
           },
           {
-            "properties": {
-              "json_schema": {
-                "properties": {
-                  "description": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "schema": {
-                    "additionalProperties": {},
-                    "type": "object"
-                  },
-                  "strict": {
-                    "type": [
-                      "boolean",
-                      "null"
-                    ]
-                  }
-                },
-                "required": [
-                  "name"
-                ],
-                "type": "object"
-              },
-              "type": {
-                "enum": [
-                  "json_schema"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "json_schema"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/ResponseFormatJsonSchema"
           }
         ]
+      },
+      "ResponseFormatJsonObject": {
+        "properties": {
+          "type": {
+            "enum": [
+              "json_object"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "ResponseFormatJsonSchema": {
+        "properties": {
+          "json_schema": {
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "schema": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "strict": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "enum": [
+              "json_schema"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "json_schema"
+        ],
+        "type": "object"
+      },
+      "ResponseFormatText": {
+        "properties": {
+          "type": {
+            "enum": [
+              "text"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
       },
       "RuntimeConfig": {
         "properties": {
@@ -3150,7 +3167,17 @@
             "$ref": "#/components/schemas/TurnMetrics"
           },
           "output": {
-            "$ref": "#/components/schemas/ModelMessageEvent"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelMessageEvent"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "required_actions": {
             "items": {
@@ -3167,6 +3194,7 @@
         },
         "required": [
           "status",
+          "output",
           "required_actions",
           "completed_at"
         ],
@@ -4539,6 +4567,99 @@
           "sessions"
         ],
         "x-fern-sdk-method-name": "list_turn_events"
+      }
+    },
+    "/api/v1/sessions/{sessionId}/turns/{turnId}/subscribe": {
+      "get": {
+        "description": "Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Turn identifier.",
+            "in": "path",
+            "name": "turnId",
+            "required": true,
+            "schema": {
+              "description": "Turn identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_sequence_number",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnStreamingEvent"
+                }
+              }
+            },
+            "description": "Server-Sent Events stream of turn events (deltas and lifecycle)."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Turn not found."
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Cannot subscribe — the live stream no longer exists."
+          }
+        },
+        "summary": "Subscribe to a running turn",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "subscribe_to_turn",
+        "x-fern-streaming": {
+          "format": "sse",
+          "resumable": true
+        }
       }
     },
     "/api/v1/settings/mcp-servers": {
