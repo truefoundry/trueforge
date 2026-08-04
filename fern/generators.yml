@@ -10,6 +10,7 @@ readme:
     The harness server has no built-in authentication, so point the client at
     your own deployment's base URL.
   # Fern keys this lookup on the stream flag, so the string form misses and fails.
+  # TODO(AGE-1547): point defaultEndpoint at /api/v1/sessions/{sessionId}/turns after legacy cutover.
   defaultEndpoint:
     method: POST
     path: /api/v1/legacy/sessions/{sessionId}/turns

@@ -3,6 +3,8 @@
  * direct vendors (openai, anthropic, google, mistral, …) and gateways
  * (truefoundry, litellm, openrouter, …) can be mixed freely.
  *
+ * TODO(AGE-1547): remove legacy-registry-store (models/mcp/skills YAML) with /api/v1/legacy/*.
+ *
  * Credentials are injected at runtime from env vars and are never exposed in
  * list output.
  */

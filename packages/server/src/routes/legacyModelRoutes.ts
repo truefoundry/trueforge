@@ -1,6 +1,7 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { ModelEntrySchema } from '../legacy-registry-store/schemas';
 
+// TODO(AGE-1547): remove with /api/v1/legacy/models.
 const ListLegacyModelsResponseSchema = z
   .object({
     data: z.array(ModelEntrySchema),

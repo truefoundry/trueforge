@@ -4,6 +4,7 @@
  * Validation is strict: unknown keys, duplicate names, or missing fields make
  * the server fail at startup.
  *
+ * TODO(AGE-1547): remove with legacy-registry-store and /api/v1/legacy/*.
  * TODO: settle the `.openapi()` names below; they become the SDK's exported types.
  */
 import { z } from '@hono/zod-openapi';

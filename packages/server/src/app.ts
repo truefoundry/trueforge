@@ -48,6 +48,7 @@ function routeNotFound(c: Context) {
 }
 
 export interface ServerDeps {
+  // TODO(AGE-1547): drop YAML registry deps once /api/v1/legacy/* is removed.
   modelStore: ModelStore;
   modelCatalog: ModelCatalog;
   modelProviderStore: IModelProviderStore;
@@ -115,6 +116,7 @@ export function createServerApp(deps: ServerDeps) {
       logger: deps.logger,
     }),
   );
+  // TODO(AGE-1547): remove /api/v1/legacy/* mounts, createLegacy* routers, and YAML registry wiring.
   // YAML registry + YAML-backed session/turn surface (FE uses these until DB sessions land).
   app.route('/api/v1/legacy/models', createLegacyModelsRouter(deps.modelStore));
   app.route('/api/v1/legacy/mcp-servers', createLegacyMcpRouter({ mcpStore: deps.mcpStore, logger: deps.logger }));

@@ -62,6 +62,7 @@ export interface TurnsRouterDeps {
 }
 
 export interface LegacyTurnsRouterDeps {
+  // TODO(AGE-1547): remove with createLegacyTurnsRouter.
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
   modelStore: ModelStore;
@@ -112,6 +113,7 @@ function createTurnResolver(deps: {
  * models.yaml; MCP servers resolve to url + env-configured headers;
  * the sandbox factory (when configured) creates/reattaches the run's Sandbox.
  */
+// TODO(AGE-1547): remove with YAML legacy turns.
 function createLegacyTurnResolver(deps: {
   modelStore: ModelStore;
   mcpStore: McpStore;
@@ -366,6 +368,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 }
 
 /** YAML-backed turns (mounted at /api/v1/legacy/sessions). */
+// TODO(AGE-1547): remove createLegacyTurnsRouter.
 export function createLegacyTurnsRouter(deps: LegacyTurnsRouterDeps) {
   const listTurnsHandler: RouteHandler<typeof legacyListTurnsRoute> = async c => {
     const { sessionId } = c.req.valid('param');

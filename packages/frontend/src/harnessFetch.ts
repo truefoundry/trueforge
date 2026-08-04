@@ -2,6 +2,8 @@
  * The gateway SDK targets /v1/agents with draft sessions as a separate resource; the harness
  * YAML-backed surface is /api/v1/legacy/sessions. Handed to the SDK clients as their `fetch`,
  * this is the only place that knows.
+ *
+ * TODO(AGE-1547): point this at /api/v1/sessions once FE cutover lands, then drop the legacy rewrite.
  */
 
 const SESSION_PATH = /^(https?:\/\/[^/]+)?\/v1\/agents\/(?:draft-)?sessions(?=$|[/?])/;

@@ -49,16 +49,19 @@ async function fetchJson<T>(path: string): Promise<T> {
 }
 
 export async function listModels(): Promise<ModelEntry[]> {
+  // TODO(AGE-1547): switch catalogs to /api/v1/models (and mcp-servers/skills) when FE leaves legacy.
   const body = await fetchJson<ListEnvelope<ModelEntry>>('/api/v1/legacy/models');
   return body.data;
 }
 
 export async function listMcpServers(): Promise<McpServerEntry[]> {
+  // TODO(AGE-1547): switch to /api/v1/mcp-servers when FE leaves legacy.
   const body = await fetchJson<ListEnvelope<McpServerEntry>>('/api/v1/legacy/mcp-servers');
   return body.data;
 }
 
 export async function listSkills(): Promise<SkillEntry[]> {
+  // TODO(AGE-1547): switch to /api/v1/skills when FE leaves legacy.
   const body = await fetchJson<ListEnvelope<SkillEntry>>('/api/v1/legacy/skills');
   return body.data;
 }

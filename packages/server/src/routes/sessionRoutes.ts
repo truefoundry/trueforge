@@ -221,6 +221,7 @@ export const listSessionEventsRoute = createRoute({
 });
 
 // --- YAML legacy (/api/v1/legacy/sessions) ---
+// TODO(AGE-1547): remove all legacy* session routes below.
 
 export const legacyCreateSessionRoute = createRoute({
   method: 'post',

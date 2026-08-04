@@ -71,6 +71,7 @@ export function toWireSession(record: SessionRecord): Session {
  * when the spec is valid but this deployment cannot satisfy it (missing
  * sandbox provider).
  */
+// TODO(AGE-1547): remove with YAML legacy sessions.
 function validateAgentSpecLegacy(
   spec: AgentSpec,
   deps: { modelStore: ModelStore; mcpStore: McpStore; sandboxSupported: boolean },
@@ -107,6 +108,7 @@ function validateAgentSpecLegacy(
 }
 
 export interface LegacySessionsRouterDeps {
+  // TODO(AGE-1547): remove with createLegacySessionsRouter.
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
@@ -390,6 +392,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 }
 
 /** YAML-backed sessions (mounted at /api/v1/legacy/sessions). */
+// TODO(AGE-1547): remove createLegacySessionsRouter and move peer-cancel route registration onto createSessionsRouter.
 export function createLegacySessionsRouter(deps: LegacySessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof legacyCreateSessionRoute> = async c => {
     const body = c.req.valid('json');

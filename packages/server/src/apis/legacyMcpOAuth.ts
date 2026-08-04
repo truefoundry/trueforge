@@ -2,6 +2,7 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Logger } from 'winston';
 import { mcpOAuthCallbackRoute } from '../routes/legacyMcpOAuthRoutes';
 
+// TODO(AGE-1547): remove this router with /api/v1/legacy/mcp-servers/oauth.
 export interface LegacyMcpOAuthRouterDeps {
   logger: Logger;
 }
