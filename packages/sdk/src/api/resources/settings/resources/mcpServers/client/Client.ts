@@ -244,7 +244,7 @@ export class McpServersClient {
     }
 
     /**
-     * For servers without auth or with header credentials, returns authenticated (no browser flow). For auth.type dcr, runs DCR if needed and returns auth_required with an authorization URL. Pass redirect_url as the FE landing page after the OAuth callback.
+     * For servers without auth or with header credentials, returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).
      *
      * @param {string} name - Configured MCP server name.
      * @param {TrueHarness.settings.AuthorizeMcpServersRequest} request
@@ -257,13 +257,11 @@ export class McpServersClient {
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
      * @example
-     *     await client.settings.mcpServers.authorize("name", {
-     *         redirectUrl: "redirect_url"
-     *     })
+     *     await client.settings.mcpServers.authorize("name")
      */
     public authorize(
         name: string,
-        request: TrueHarness.settings.AuthorizeMcpServersRequest,
+        request: TrueHarness.settings.AuthorizeMcpServersRequest = {},
         requestOptions?: McpServersClient.RequestOptions,
     ): core.HttpResponsePromise<TrueHarness.ConfiguredMcpAuthorizeResponse> {
         return core.HttpResponsePromise.fromPromise(this.__authorize(name, request, requestOptions));
@@ -271,7 +269,7 @@ export class McpServersClient {
 
     private async __authorize(
         name: string,
-        request: TrueHarness.settings.AuthorizeMcpServersRequest,
+        request: TrueHarness.settings.AuthorizeMcpServersRequest = {},
         requestOptions?: McpServersClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueHarness.ConfiguredMcpAuthorizeResponse>> {
         const { redirectUrl } = request;

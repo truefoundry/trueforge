@@ -1607,6 +1607,20 @@
         ],
         "type": "object"
       },
+      "McpOAuthCallbackSuccess": {
+        "properties": {
+          "success": {
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
       "McpServerAuthSettings": {
         "oneOf": [
           {
@@ -3842,8 +3856,15 @@
           }
         ],
         "responses": {
-          "302": {
-            "description": "Redirects to the original `redirect_url` on success, or a failure page if `error` was present."
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpOAuthCallbackSuccess"
+                }
+              }
+            },
+            "description": "Token exchanged successfully; no browser redirect."
           },
           "400": {
             "content": {
@@ -3853,7 +3874,17 @@
                 }
               }
             },
-            "description": "Unknown or expired `state` (no matching pending authorization), or `code`/`error` both missing."
+            "description": "IdP `error`, unknown/expired `state`, token exchange failure, or `code`/`error` both missing."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected failure during token exchange."
           }
         },
         "summary": "OAuth callback for MCP authorization",
@@ -4888,7 +4919,7 @@
     },
     "/api/v1/settings/mcp-servers/{name}/authorize": {
       "get": {
-        "description": "For servers without auth or with header credentials, returns authenticated (no browser flow). For auth.type dcr, runs DCR if needed and returns auth_required with an authorization URL. Pass redirect_url as the FE landing page after the OAuth callback.",
+        "description": "For servers without auth or with header credentials, returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).",
         "parameters": [
           {
             "description": "Configured MCP server name.",
@@ -4902,12 +4933,12 @@
             }
           },
           {
-            "description": "Where to send the browser after OAuth completes.",
+            "description": "Optional FE landing URL after OAuth (stored on pending auth; callback does not redirect yet).",
             "in": "query",
             "name": "redirect_url",
-            "required": true,
+            "required": false,
             "schema": {
-              "description": "Where to send the browser after OAuth completes.",
+              "description": "Optional FE landing URL after OAuth (stored on pending auth; callback does not redirect yet).",
               "format": "uri",
               "type": "string"
             }

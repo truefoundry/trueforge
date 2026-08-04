@@ -156,9 +156,7 @@ describe("McpServersClient", () => {
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.settings.mcpServers.authorize("name", {
-            redirectUrl: "redirect_url",
-        });
+        const response = await client.settings.mcpServers.authorize("name");
         expect(response).toEqual({
             authorizationUrl: "authorization_url",
             status: "authenticated",
@@ -180,9 +178,7 @@ describe("McpServersClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.mcpServers.authorize("name", {
-                redirectUrl: "redirect_url",
-            });
+            return await client.settings.mcpServers.authorize("name");
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
@@ -201,9 +197,7 @@ describe("McpServersClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.mcpServers.authorize("name", {
-                redirectUrl: "redirect_url",
-            });
+            return await client.settings.mcpServers.authorize("name");
         }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
     });
 
@@ -222,9 +216,7 @@ describe("McpServersClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.mcpServers.authorize("name", {
-                redirectUrl: "redirect_url",
-            });
+            return await client.settings.mcpServers.authorize("name");
         }).rejects.toThrow(TrueHarnessTypes.InternalServerError);
     });
 
