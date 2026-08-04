@@ -1,137 +1,76 @@
 /**
- * DB-backed turns API (mounted at /api/v1/sessions).
- * Shared wire/SSE helpers are also used by the legacy turns router.
+ * YAML-backed turns API (mounted at /api/v1/legacy/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { Sessions, Turn, TurnStreamingEvent } from '@truefoundry/utils/agent-session';
+import type { Sessions } from '@truefoundry/utils/agent-session';
 import {
   CancellationReason,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
   TurnResourceResolver,
-  type TurnInputItem,
-  type TurnRecordWithoutSnapshot,
   type TurnSandboxFactory,
 } from '@truefoundry/utils/agent-session';
-import {
-  AgentHarnessError,
-  extractErrorLogFields,
-  isAgentInputUserMessage,
-  isFileContentPart,
-  McpConnectionError,
-  VercelAILLM,
-  type VercelAIProviderConfig,
-} from '@truefoundry/utils/core';
+import { AgentHarnessError, extractErrorLogFields, McpConnectionError, VercelAILLM } from '@truefoundry/utils/core';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import configuration from '../config';
-import type { IMcpServerStore } from '../db/mcpServerStore';
-import type { IModelProviderStore } from '../db/modelProviderStore';
-import { createAndExecuteTurnRoute, getTurnRoute, listTurnEventsRoute, listTurnsRoute } from '../routes/turnRoutes';
+import type { McpStore } from '../legacy-registry-store/McpStore';
+import type { ModelStore } from '../legacy-registry-store/ModelStore';
+import {
+  legacyCreateAndExecuteTurnRoute,
+  legacyGetTurnRoute,
+  legacyListTurnEventsRoute,
+  legacyListTurnsRoute,
+} from '../routes/legacyTurnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { getDbMcpConnection, getDbProviderConfig } from '../runtime/dbSessionResources';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
 import { TENANT_ID } from './sessions';
+import { deriveSessionTitle, toWireTurn, turnEventSsePayload } from './turns';
 
-export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
-  return {
-    id: record.turn_id,
-    session_id: record.session_id,
-    previous_turn_id: record.previous_turn_id,
-    input: record.input,
-    state: record.state,
-    created_at: record.created_at.toISOString(),
-  };
-}
-
-export interface TurnsRouterDeps {
+export interface LegacyTurnsRouterDeps {
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
-  modelProviderStore: IModelProviderStore;
-  mcpServerStore: IMcpServerStore;
+  modelStore: ModelStore;
+  mcpStore: McpStore;
   /** Built at boot from SANDBOX_SETTINGS; undefined = sandbox unsupported. */
   sandboxFactory?: TurnSandboxFactory;
   logger: Logger;
 }
 
 /**
- * TurnResourceResolver requires a sync llm factory; preload the session model
- * config so the factory stays sync while the store read stays async.
+ * Per-run resource wiring: maps the YAML catalogs onto the agentSession
+ * TurnResourceResolver.
  */
-function createTurnResolver(deps: {
-  mcpServerStore: IMcpServerStore;
+function createLegacyTurnResolver(deps: {
+  modelStore: ModelStore;
+  mcpStore: McpStore;
   sandboxFactory?: TurnSandboxFactory | undefined;
   logger: Logger;
   signal: AbortSignal;
-  modelName: string;
-  providerConfig: VercelAIProviderConfig;
 }): TurnResourceResolver {
-  const { mcpServerStore, logger, signal, modelName, providerConfig } = deps;
+  const { modelStore, mcpStore, logger, signal } = deps;
   return new TurnResourceResolver({
-    llm: name => {
-      if (name !== modelName) {
-        throw new Error(`Model not registered: ${name}`);
-      }
-      return new VercelAILLM({
-        providerConfig,
+    llm: name =>
+      new VercelAILLM({
+        providerConfig: modelStore.getProviderConfig(name),
         logger,
         signal,
-      });
-    },
-    mcp: async name =>
-      getDbMcpConnection({
-        tenant_id: TENANT_ID,
-        name,
-        store: mcpServerStore,
       }),
+    mcp: name => {
+      const entry = mcpStore.get(name);
+      if (!entry) {
+        throw new Error(`MCP server not declared in mcp.yaml: ${name}`);
+      }
+      return Promise.resolve({ url: entry.url, headers: mcpStore.getHeaders(name) });
+    },
     ...(deps.sandboxFactory ? { sandboxProvider: deps.sandboxFactory } : {}),
     logger,
   });
 }
 
-const MAX_SESSION_TITLE_LENGTH = 50;
-
-/**
- * Derives a session title from the first user message of the first turn. Returns the
- * trimmed text (capped at {@link MAX_SESSION_TITLE_LENGTH}) or `undefined` when no usable
- * text is present (e.g. file-only or tool-approval input).
- */
-export function deriveSessionTitle(input: TurnInputItem[] | undefined): string | undefined {
-  const firstUserMessage = input?.find(isAgentInputUserMessage);
-  if (!firstUserMessage) {
-    return undefined;
-  }
-
-  const text =
-    typeof firstUserMessage.content === 'string'
-      ? firstUserMessage.content
-      : firstUserMessage.content
-          .filter(part => !isFileContentPart(part))
-          .map(part => part.text)
-          .join(' ');
-
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  return trimmed.slice(0, MAX_SESSION_TITLE_LENGTH);
-}
-
-/**
- * SSE payload for one turn event. The `id` field carries the per-stream
- * sequence number; the event body itself is not numbered (yield order is
- * persist order, so the transport boundary stamps).
- */
-export function turnEventSsePayload(event: TurnStreamingEvent, sequenceNumber: number): { id: string; data: string } {
-  return {
-    id: String(sequenceNumber),
-    data: JSON.stringify(event),
-  };
-}
-
-/** DB-backed turns (mounted at /api/v1/sessions). */
-export function createTurnsRouter(deps: TurnsRouterDeps) {
-  const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
+/** YAML-backed turns (mounted at /api/v1/legacy/sessions). */
+export function createLegacyTurnsRouter(deps: LegacyTurnsRouterDeps) {
+  const listTurnsHandler: RouteHandler<typeof legacyListTurnsRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
@@ -152,7 +91,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }
   };
 
-  const getTurnHandler: RouteHandler<typeof getTurnRoute> = async c => {
+  const getTurnHandler: RouteHandler<typeof legacyGetTurnRoute> = async c => {
     const { sessionId, turnId } = c.req.valid('param');
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!session) {
@@ -165,7 +104,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     return c.json({ data: toWireTurn(turn.record) }, 200);
   };
 
-  const listTurnEventsHandler: RouteHandler<typeof listTurnEventsRoute> = async c => {
+  const listTurnEventsHandler: RouteHandler<typeof legacyListTurnEventsRoute> = async c => {
     const { sessionId, turnId } = c.req.valid('param');
     const query = c.req.valid('query');
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
@@ -191,7 +130,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }
   };
 
-  const createAndExecuteTurnHandler: RouteHandler<typeof createAndExecuteTurnRoute> = async c => {
+  const createAndExecuteTurnHandler: RouteHandler<typeof legacyCreateAndExecuteTurnRoute> = async c => {
     const { sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
 
@@ -201,19 +140,12 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }
 
     const abortController = new AbortController();
-    const modelName = session.agent_spec.model.name;
-    const providerConfig = await getDbProviderConfig({
-      tenant_id: TENANT_ID,
-      name: modelName,
-      store: deps.modelProviderStore,
-    });
-    const resolver = createTurnResolver({
-      mcpServerStore: deps.mcpServerStore,
+    const resolver = createLegacyTurnResolver({
+      modelStore: deps.modelStore,
+      mcpStore: deps.mcpStore,
       sandboxFactory: deps.sandboxFactory,
       logger: deps.logger,
       signal: abortController.signal,
-      modelName,
-      providerConfig,
     });
 
     // First turn only: derive the title from the first user message. The store
@@ -294,12 +226,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   };
 
   const router = new OpenAPIHono();
-  router.openapi(listTurnsRoute, listTurnsHandler);
-  router.openapi(getTurnRoute, getTurnHandler);
-  router.openapi(listTurnEventsRoute, listTurnEventsHandler);
-  router.openapi(createAndExecuteTurnRoute, createAndExecuteTurnHandler);
-  // subscribeTurnRoute (routes/turnRoutes.ts) is defined but not registered:
-  // re-subscribing to a running turn needs a live-stream registry that this
-  // single-process server does not have yet.
+  router.openapi(legacyListTurnsRoute, listTurnsHandler);
+  router.openapi(legacyGetTurnRoute, getTurnHandler);
+  router.openapi(legacyListTurnEventsRoute, listTurnEventsHandler);
+  router.openapi(legacyCreateAndExecuteTurnRoute, createAndExecuteTurnHandler);
   return router;
 }

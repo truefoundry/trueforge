@@ -2,7 +2,7 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Sessions } from '@truefoundry/utils/agent-session';
 import { TurnNotFoundError } from '@truefoundry/utils/agent-session';
 import { createLogger } from 'winston';
-import { createLegacyTurnsRouter } from '../../../src/apis/turns';
+import { createLegacyTurnsRouter } from '../../../src/apis/legacyTurns';
 import { McpStore } from '../../../src/legacy-registry-store/McpStore';
 import { ModelStore } from '../../../src/legacy-registry-store/ModelStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
