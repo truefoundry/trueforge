@@ -29,6 +29,13 @@ export { CreateSessionRequestSchema, SessionSchema, UpdateSessionRequestSchema }
 export type { Session } from './schemas/session';
 
 export {
+  LegacyCreateSessionRequestSchema,
+  LegacySessionSchema,
+  LegacyUpdateSessionRequestSchema,
+} from './schemas/legacySession';
+export type { LegacySession } from './schemas/legacySession';
+
+export {
   EventType,
   SessionEventItemSchema,
   SessionEventSchema,

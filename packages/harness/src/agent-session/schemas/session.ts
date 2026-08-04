@@ -1,4 +1,4 @@
-/** Session product schemas. A session owns an inline AgentSpec. */
+/** DB session product schemas. A session owns an inline AgentSpec (FQN + name-only skills). */
 import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema } from './agentSpec';
 
