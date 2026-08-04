@@ -1,4 +1,4 @@
-import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from '@truefoundry/utils/core';
+import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from '@truefoundry/utils-core/core';
 import type { Kysely } from 'kysely';
 import { fromStoredOAuthToken, toStoredOAuthToken } from '../../mcpOAuthTypes';
 import type { Database } from '../types';

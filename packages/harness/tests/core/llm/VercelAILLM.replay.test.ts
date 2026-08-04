@@ -156,11 +156,11 @@ const REASONING_CASES: ReasoningRoundTripCase[] = [
     expectedProviderOptions: { anthropic: { signature: 'ant-sig-value' } },
   },
   {
-    provider: 'generic',
-    metadataKey: 'generic',
+    provider: 'custom',
+    metadataKey: 'custom',
     signatureField: 'reasoningEncryptedContent',
-    signatureValue: 'enc-content-generic',
-    expectedProviderOptions: { generic: { encryptedContent: 'enc-content-generic' } },
+    signatureValue: 'enc-content-custom',
+    expectedProviderOptions: { custom: { encryptedContent: 'enc-content-custom' } },
   },
 ];
 

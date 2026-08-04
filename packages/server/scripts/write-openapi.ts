@@ -5,9 +5,9 @@
  * spec cannot drift from what the server serves. Nothing listens or dials out:
  * `.env.test` supplies dummy connection strings and the registry fixtures.
  */
-import type { TurnStreamingEvent } from '@truefoundry/utils/agent-session';
-import { InMemorySessionStore, Sessions } from '@truefoundry/utils/agent-session';
-import { RequestReplyRouter } from '@truefoundry/utils/request-reply';
+import type { TurnStreamingEvent } from '@truefoundry/utils-core/agent-session';
+import { InMemorySessionStore, Sessions } from '@truefoundry/utils-core/agent-session';
+import { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import winston from 'winston';

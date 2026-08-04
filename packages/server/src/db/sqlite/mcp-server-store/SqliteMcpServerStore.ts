@@ -1,4 +1,4 @@
-import type { OAuthClientRecord } from '@truefoundry/utils/core';
+import type { OAuthClientRecord } from '@truefoundry/utils-core/core';
 import type { ExpressionBuilder, Kysely } from 'kysely';
 import { ulid } from 'ulid';
 import type { McpServerManifest } from '../../../schemas/mcpServer';

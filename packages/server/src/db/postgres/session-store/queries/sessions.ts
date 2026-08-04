@@ -1,17 +1,17 @@
-import type { SessionRecord } from '@truefoundry/utils/agent-session/models/SessionRecord';
+import type { SessionRecord } from '@truefoundry/utils-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
   DeleteSessionInput,
   GetSessionInput,
   ListSessionsInput,
   UpdateSessionInput,
-} from '@truefoundry/utils/agent-session/store/ISessionStore';
-import { decodeOffsetPageToken, paginateOffsetRows } from '@truefoundry/utils/agent-session/store/OffsetPageToken';
+} from '@truefoundry/utils-core/agent-session/store/ISessionStore';
+import { decodeOffsetPageToken, paginateOffsetRows } from '@truefoundry/utils-core/agent-session/store/OffsetPageToken';
 import {
   SessionAlreadyExistsError,
   SessionNotFoundError,
   SessionStoreInvariantError,
-} from '@truefoundry/utils/agent-session/store/SessionStoreErrors';
+} from '@truefoundry/utils-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
 import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';

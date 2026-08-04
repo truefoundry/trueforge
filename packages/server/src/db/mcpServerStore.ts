@@ -6,7 +6,7 @@
  * Also owns the DCR registration columns (`oauth_server` / `oauth_client`) via
  * `IOAuthClientStore` — those are not a separate persistence root.
  */
-import type { IOAuthClientStore } from '@truefoundry/utils/core';
+import type { IOAuthClientStore } from '@truefoundry/utils-core/core';
 import type { ResourceName } from '../schemas/common';
 import type { McpServerManifest } from '../schemas/mcpServer';
 
