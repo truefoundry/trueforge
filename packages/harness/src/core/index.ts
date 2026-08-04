@@ -47,6 +47,17 @@ export {
 } from './capabilities/builtins/LargeToolResponse';
 export { openUI } from './capabilities/builtins/OpenUI';
 
+// Auth contracts
+export { InMemoryOAuthClientStore } from './auth/InMemoryOAuthClientStore';
+export { InMemoryOAuthTokenStore } from './auth/InMemoryOAuthTokenStore';
+export type {
+  IOAuthClientStore,
+  OAuthClientCredentials,
+  OAuthClientRecord,
+  OAuthServerMetadata,
+} from './auth/IOAuthClientStore';
+export type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from './auth/IOAuthTokenStore';
+
 // MCP contracts
 export type { ApprovalDecision } from './events/schema';
 export { ClientSideTool } from './mcp/ClientSideTool';
@@ -82,9 +93,10 @@ export { ToolSet } from './mcp/ToolSet';
 
 // LLM contracts
 export type { AgentMetadata, ILLM } from './llm/ILLM';
-export { OpenAILLM } from './llm/OpenAILLM';
 export { ResponseFormatSchema, toOpenAIResponseFormat } from './llm/responseFormat';
 export type { ResponseFormat } from './llm/responseFormat';
+export { VercelAILLM } from './llm/VercelAILLM';
+export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } from './llm/VercelAILLM';
 
 // Event contracts
 export {
@@ -133,6 +145,29 @@ export type {
 // Errors / utils
 export { AgentHarnessError, McpConnectionError } from './errors';
 export { extractErrorLogFields } from './util/errorLogFields';
+
+// MCP OAuth
+export {
+  DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
+  MCP_OAUTH_CALLBACK_PATH,
+  buildMcpAuthorizationUrl,
+  completeMcpAuthorization,
+  createMcpOAuthClient,
+  ensureMcpClientRegistered,
+  isMcpAuthRequired,
+  mcpAuthorizationServerMetadata,
+  mcpAuthorizationServerOrigin,
+  mcpClientInformation,
+  mcpOAuthCallbackUrl,
+  resolveMcpAuth,
+  validateRedirectUris,
+} from './mcp/auth';
+export type {
+  CompleteMcpAuthorizationResult,
+  McpAuthRequiredResult,
+  McpAuthResolvedResult,
+  ResolveMcpAuthResult,
+} from './mcp/auth';
 
 // Sandbox (concrete implementation; provider details exported for composition)
 export {

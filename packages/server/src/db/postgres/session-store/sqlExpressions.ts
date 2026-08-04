@@ -1,25 +1,8 @@
 /**
- * Shared Kysely SQL expression helpers for the Postgres session store.
+ * Session-store-only helpers for Postgres (VALUES / unnest join shapes).
+ * Shared JSON/time helpers live in `../sqlExpressions`.
  */
-import { sql, type AliasedRawBuilder, type Expression, type RawBuilder } from 'kysely';
-
-/** Bind a JS value as jsonb (stringified + cast). Required for arrays and for `||` / jsonb_set operands. */
-export function json<T>(value: T): RawBuilder<T> {
-  return sql`${JSON.stringify(value)}::jsonb`;
-}
-
-/**
- * `jsonb_set(target, path, new_value)`.
- * `path` may be a text[] expression (`sql\`ARRAY['threads', ${id}]\``) or a literal path
- * expression (`sql\`'{sandbox_info}'\`` / `sql\`'{completion}'\``).
- */
-export function jsonbSet<T = unknown>(
-  target: Expression<unknown>,
-  path: Expression<unknown>,
-  newValue: Expression<unknown>,
-): RawBuilder<T> {
-  return sql<T>`jsonb_set(${target}, ${path}, ${newValue})`;
-}
+import { sql, type AliasedRawBuilder, type Expression } from 'kysely';
 
 /**
  * Typed `(VALUES ...) AS alias(col1, col2, ...)` for use in `.selectFrom(...)`.
@@ -67,9 +50,4 @@ export function lateralUnnestBigintArrayWithOrdinality<A extends string>(
   const wrappedAlias = sql.ref(alias);
   const aliasSql = sql`${wrappedAlias}(append_id, pos)`;
   return sql<{ append_id: number; pos: number }>`LATERAL unnest(${arrayExpr}) WITH ORDINALITY`.as<A>(aliasSql);
-}
-
-/** `now()` timestamptz expression. */
-export function now(): RawBuilder<Date> {
-  return sql<Date>`now()`;
 }

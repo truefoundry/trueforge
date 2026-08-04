@@ -7,7 +7,7 @@ import * as core from "../../../../core/index.js";
 import { handleNonStatusCodeError } from "../../../../errors/handleNonStatusCodeError.js";
 import * as errors from "../../../../errors/index.js";
 import * as serializers from "../../../../serialization/index.js";
-import * as TrueHarness from "../../../index.js";
+import type * as TrueHarness from "../../../index.js";
 
 export declare namespace McpServersClient {
     export type Options = BaseClientOptions;
@@ -23,7 +23,7 @@ export class McpServersClient {
     }
 
     /**
-     * MCP servers declared in mcp.yaml. Auth headers are configured via env vars and never returned.
+     * Configured MCP servers as a slim name/url list for the composer. No auth or auth_status.
      *
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -35,13 +35,13 @@ export class McpServersClient {
      */
     public list(
         requestOptions?: McpServersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.ListMcpServersResponse> {
+    ): core.HttpResponsePromise<TrueHarness.ListAvailableMcpServersResponse> {
         return core.HttpResponsePromise.fromPromise(this.__list(requestOptions));
     }
 
     private async __list(
         requestOptions?: McpServersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.ListMcpServersResponse>> {
+    ): Promise<core.WithRawResponse<TrueHarness.ListAvailableMcpServersResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -60,7 +60,7 @@ export class McpServersClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.ListMcpServersResponse.parseOrThrow(_response.body, {
+                data: serializers.ListAvailableMcpServersResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -80,112 +80,5 @@ export class McpServersClient {
         }
 
         return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/mcp-servers");
-    }
-
-    /**
-     * All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call. No agent-spec tool selectors are applied — this is the raw server catalog.
-     *
-     * @param {string} name - MCP server name from mcp.yaml.
-     * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
-     *
-     * @throws {@link TrueHarness.UnauthorizedError}
-     * @throws {@link TrueHarness.NotFoundError}
-     * @throws {@link TrueHarness.BadGatewayError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
-     *
-     * @example
-     *     await client.mcpServers.listTools("name")
-     */
-    public listTools(
-        name: string,
-        requestOptions?: McpServersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.ListMcpToolsResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__listTools(name, requestOptions));
-    }
-
-    private async __listTools(
-        name: string,
-        requestOptions?: McpServersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.ListMcpToolsResponse>> {
-        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
-        const _response = await (this._options.fetcher ?? core.fetcher)({
-            url: core.url.join(
-                (await core.Supplier.get(this._options.baseUrl)) ??
-                    (await core.Supplier.get(this._options.environment)),
-                `api/v1/mcp-servers/${core.url.encodePathParam(name)}/tools`,
-            ),
-            method: "GET",
-            headers: _headers,
-            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
-            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
-            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
-            abortSignal: requestOptions?.abortSignal,
-            fetchFn: this._options?.fetch,
-            logging: this._options.logging,
-        });
-        if (_response.ok) {
-            return {
-                data: serializers.ListMcpToolsResponse.parseOrThrow(_response.body, {
-                    unrecognizedObjectKeys: "passthrough",
-                    allowUnrecognizedUnionMembers: true,
-                    allowUnrecognizedEnumValues: true,
-                    skipValidation: true,
-                    breadcrumbsPrefix: ["response"],
-                }),
-                rawResponse: _response.rawResponse,
-            };
-        }
-
-        if (_response.error.reason === "status-code") {
-            switch (_response.error.statusCode) {
-                case 401:
-                    throw new TrueHarness.UnauthorizedError(
-                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
-                            unrecognizedObjectKeys: "passthrough",
-                            allowUnrecognizedUnionMembers: true,
-                            allowUnrecognizedEnumValues: true,
-                            skipValidation: true,
-                            breadcrumbsPrefix: ["response"],
-                        }),
-                        _response.rawResponse,
-                    );
-                case 404:
-                    throw new TrueHarness.NotFoundError(
-                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
-                            unrecognizedObjectKeys: "passthrough",
-                            allowUnrecognizedUnionMembers: true,
-                            allowUnrecognizedEnumValues: true,
-                            skipValidation: true,
-                            breadcrumbsPrefix: ["response"],
-                        }),
-                        _response.rawResponse,
-                    );
-                case 502:
-                    throw new TrueHarness.BadGatewayError(
-                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
-                            unrecognizedObjectKeys: "passthrough",
-                            allowUnrecognizedUnionMembers: true,
-                            allowUnrecognizedEnumValues: true,
-                            skipValidation: true,
-                            breadcrumbsPrefix: ["response"],
-                        }),
-                        _response.rawResponse,
-                    );
-                default:
-                    throw new errors.TrueHarnessError({
-                        statusCode: _response.error.statusCode,
-                        body: _response.error.body,
-                        rawResponse: _response.rawResponse,
-                    });
-            }
-        }
-
-        return handleNonStatusCodeError(
-            _response.error,
-            _response.rawResponse,
-            "GET",
-            "/api/v1/mcp-servers/{name}/tools",
-        );
     }
 }

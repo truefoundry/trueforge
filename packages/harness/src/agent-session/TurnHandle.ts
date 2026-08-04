@@ -87,7 +87,6 @@ function turnMetricsFromAgentThreadMetrics(metrics: AgentThreadMetrics): TurnMet
 
 export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   private readonly store: ISessionStore<object, TTurnCustom>;
-  private readonly tenantId: string;
   private turn: TurnRecord<TTurnCustom>;
   private readonly orchestrator: AgentThreadOrchestrator | undefined;
   private readonly resolver: ITurnResourceResolver<TTurnCustom> | undefined;
@@ -96,14 +95,12 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
   constructor(options: {
     store: ISessionStore<object, TTurnCustom>;
-    tenantId: string;
     turn: TurnRecord<TTurnCustom>;
     orchestrator?: AgentThreadOrchestrator | undefined;
     resolver?: ITurnResourceResolver<TTurnCustom> | undefined;
     signal?: AbortSignal | undefined;
   }) {
     this.store = options.store;
-    this.tenantId = options.tenantId;
     this.turn = options.turn;
     this.orchestrator = options.orchestrator;
     this.resolver = options.resolver;
@@ -113,10 +110,27 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   /** Store-only handle (e.g. from {@link SessionHandle.getTurn}) — stream() is not available. */
   static fromRecord<TCustom extends object = Record<string, never>>(options: {
     store: ISessionStore<object, TCustom>;
-    tenantId: string;
     turn: TurnRecord<TCustom>;
   }): TurnHandle<TCustom> {
     return new TurnHandle(options);
+  }
+
+  static async get<TCustom extends object = Record<string, never>>(options: {
+    store: ISessionStore<object, TCustom>;
+    session_id: string;
+    turn_id: string;
+  }): Promise<TurnHandle<TCustom> | undefined> {
+    const turn = await options.store.getTurn({
+      session_id: options.session_id,
+      turn_id: options.turn_id,
+    });
+    if (!turn) {
+      return undefined;
+    }
+    return TurnHandle.fromRecord({
+      store: options.store,
+      turn,
+    });
   }
 
   get id(): string {
@@ -210,7 +224,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         thread_id: null,
       };
       await this.store.appendToEvents({
-        tenant_id: this.tenantId,
         session_id: this.turn.session_id,
         turn_id: this.turn.turn_id,
         events: [turnCreated],
@@ -305,8 +318,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       } else {
         terminalState = {
           status: 'done',
-          // TODO: revert alongside TurnStateDone.output.
-          ...(executeResult.output && { output: executeResult.output }),
+          output: executeResult.output,
           required_actions: executeResult.required_actions,
           completed_at: createdAtIso,
           metrics,
@@ -324,7 +336,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       if (!frozenByStore) {
         try {
           await this.store.updateTurnState({
-            tenant_id: this.tenantId,
             session_id: this.turn.session_id,
             turn_id: this.turn.turn_id,
             state: terminalState,
@@ -377,7 +388,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     pagination: TokenPagination;
   }> {
     return this.store.listTurnEvents({
-      tenant_id: this.tenantId,
       session_id: this.turn.session_id,
       turn_id: this.turn.turn_id,
       limit: input.limit,
@@ -392,7 +402,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
    */
   private async persistExecutionEvent(event: AgentThreadExecutionEvent): Promise<TurnStreamingEvent | null> {
     const scope = {
-      tenant_id: this.tenantId,
       session_id: this.turn.session_id,
       turn_id: this.turn.turn_id,
     };

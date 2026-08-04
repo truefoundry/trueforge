@@ -17,6 +17,11 @@ import type {
 } from '@truefoundry/utils/core';
 import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { McpServerManifest } from '../../schemas/mcpServer';
+import type { ProviderManifest } from '../../schemas/modelProvider';
+import type { SandboxProviderManifest } from '../../schemas/sandboxProvider';
+import type { SkillManifest } from '../../schemas/skill';
+import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpOAuthTypes';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -37,7 +42,7 @@ export interface TurnCheckpoint {
 type JsonbColumn<T extends object | null> = JSONColumnType<T, T | string, T | string>;
 
 /**
- * PRIMARY KEY (tenant_id, session_id)
+ * PRIMARY KEY (session_id)
  * CREATE INDEX session_list_idx ON session (tenant_id, created_at, session_id)
  */
 export interface SessionTable {
@@ -53,11 +58,10 @@ export interface SessionTable {
 }
 
 /**
- * PRIMARY KEY (tenant_id, session_id, turn_id)
- * CREATE INDEX turn_list_idx ON turn (tenant_id, session_id, created_at, turn_id)
+ * PRIMARY KEY (session_id, turn_id)
+ * CREATE INDEX turn_list_idx ON turn (session_id, created_at, turn_id)
  */
 export interface TurnTable {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   first_turn_id: string;
@@ -75,10 +79,9 @@ export interface TurnTable {
 /**
  * Complete state of one thread at one turn.
  * Context order lives in `turn_thread_context` (no context_ids column).
- * PRIMARY KEY (tenant_id, session_id, turn_id, thread_id)
+ * PRIMARY KEY (session_id, turn_id, thread_id)
  */
 export interface TurnThreadTable {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   thread_id: string;
@@ -90,10 +93,9 @@ export interface TurnThreadTable {
 
 /**
  * Ordered mapping from a turn_thread to append-only log rows.
- * PRIMARY KEY (tenant_id, session_id, turn_id, thread_id, pos)
+ * PRIMARY KEY (session_id, turn_id, thread_id, pos)
  */
 export interface TurnThreadContextTable {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   thread_id: string;
@@ -103,10 +105,9 @@ export interface TurnThreadContextTable {
 
 /**
  * Pure immutable client-facing event log.
- * PRIMARY KEY (tenant_id, session_id, turn_id, event_id)
+ * PRIMARY KEY (session_id, turn_id, event_id)
  */
 export interface SessionEventTable {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   event_id: string;
@@ -120,7 +121,6 @@ export interface SessionEventTable {
  */
 export interface ThreadContextLogTable {
   append_id: Generated<number>;
-  tenant_id: string;
   session_id: string;
   thread_id: string;
   turn_id: string;
@@ -130,10 +130,9 @@ export interface ThreadContextLogTable {
 
 /**
  * Per-turn KV snapshot, latest-wins per (turn, thread, key).
- * PRIMARY KEY (tenant_id, session_id, turn_id, thread_id, key)
+ * PRIMARY KEY (session_id, turn_id, thread_id, key)
  */
 export interface ThreadCapabilityStateTable {
-  tenant_id: string;
   session_id: string;
   turn_id: string;
   thread_id: string;
@@ -141,6 +140,93 @@ export interface ThreadCapabilityStateTable {
   /** JSONB JsonValue, or SQL NULL if cleared. */
   state: ColumnType<JsonValue | null, JsonValue | null | string, JsonValue | null | string>;
   updated_at: string;
+}
+
+/**
+ * Configured model providers — mirrors the Postgres `model_provider` table.
+ * PRIMARY KEY (tenant_id, name)
+ */
+export interface ModelProviderTable {
+  tenant_id: string;
+  name: string;
+  /** ProviderManifest document; replaced whole on every upsert */
+  manifest: JsonbColumn<ProviderManifest>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Configured skills — mirrors the Postgres `skill` table.
+ * PRIMARY KEY (tenant_id, name)
+ */
+export interface SkillTable {
+  tenant_id: string;
+  /** key: natural key within tenant; also duplicated inside `manifest` */
+  name: string;
+  /** SkillManifest document; replaced whole on every upsert */
+  manifest: JsonbColumn<SkillManifest>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Configured sandbox provider — mirrors the Postgres `sandbox_provider` table.
+ * PRIMARY KEY (tenant_id) — at most one row per tenant.
+ */
+export interface SandboxProviderTable {
+  tenant_id: string;
+  /** SandboxProviderManifest document; replaced whole on every upsert */
+  manifest: JsonbColumn<SandboxProviderManifest>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * PRIMARY KEY (id)
+ * UNIQUE (tenant_id, name) — the natural lookup key;
+ */
+export interface McpServerTable {
+  /** application-generated (ulid); FK target, never re-derived from tenant_id/name */
+  id: string;
+  tenant_id: string;
+  /** the uniqueness target; also duplicated inside `manifest` */
+  name: string;
+  manifest: JsonbColumn<McpServerManifest>;
+  /**
+   * Both null until the first successful DCR registration, written together in that one call;
+   * always null when `manifest.auth` is absent. Two columns rather than one blob: different
+   * source HTTP response (metadata discovery vs. registration), and only `oauth_client` carries
+   * a secret.
+   */
+  oauth_server: JsonbColumn<OAuthServer> | null;
+  oauth_client: JsonbColumn<OAuthClient> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * PRIMARY KEY (oauth_server_id)
+ * No `tenant_id` — already 1:1 with tenant via the FK. Any tenant-scoped read resolves
+ * `oauth_server_id` through mcp_server (by tenant_id + name) first; this table is never
+ * queried by tenant_id directly.
+ */
+export interface OAuthTokenTable {
+  /** FK -> mcp_server.id, ON DELETE CASCADE */
+  oauth_server_id: string;
+  token: JsonbColumn<OAuthToken>;
+  updated_at: string;
+}
+
+/**
+ * PRIMARY KEY (id) ( used for callback state.)
+ */
+export interface OAuthPendingAuthorizationTable {
+  id: string;
+  /** FK -> mcp_server.id, ON DELETE CASCADE */
+  oauth_server_id: string;
+  /** { mcpServerUrl, codeVerifier, redirectUrl } — same writer/lifecycle, so merged into one column */
+  auth_data: JsonbColumn<OAuthPendingAuthorizationData>;
+  created_at: string;
 }
 
 export interface Database {
@@ -151,4 +237,10 @@ export interface Database {
   session_event: SessionEventTable;
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
+  model_provider: ModelProviderTable;
+  skill: SkillTable;
+  sandbox_provider: SandboxProviderTable;
+  mcp_server: McpServerTable;
+  oauth_token: OAuthTokenTable;
+  oauth_pending_authorization: OAuthPendingAuthorizationTable;
 }

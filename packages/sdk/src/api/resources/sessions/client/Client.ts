@@ -148,7 +148,12 @@ export class SessionsClient {
      *     await client.sessions.create({
      *         agentSpec: {
      *             model: {
-     *                 name: "name"
+     *                 modelId: "model_id",
+     *                 name: "name",
+     *                 properties: {
+     *                     contextLength: 1,
+     *                     maxOutputTokens: 1
+     *                 }
      *             }
      *         }
      *     })
@@ -316,6 +321,62 @@ export class SessionsClient {
         }
 
         return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/sessions/{sessionId}");
+    }
+
+    /**
+     * Delete a session and all related turns, events, and internal state. Idempotent if already gone.
+     *
+     * @param {string} sessionId - Session identifier.
+     * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link errors.TrueHarnessError}
+     * @throws {@link errors.TrueHarnessTimeoutError}
+     *
+     * @example
+     *     await client.sessions.delete("sessionId")
+     */
+    public delete(sessionId: string, requestOptions?: SessionsClient.RequestOptions): core.HttpResponsePromise<void> {
+        return core.HttpResponsePromise.fromPromise(this.__delete(sessionId, requestOptions));
+    }
+
+    private async __delete(
+        sessionId: string,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<void>> {
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/sessions/${core.url.encodePathParam(sessionId)}`,
+            ),
+            method: "DELETE",
+            headers: _headers,
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return { data: undefined, rawResponse: _response.rawResponse };
+        }
+
+        if (_response.error.reason === "status-code") {
+            throw new errors.TrueHarnessError({
+                statusCode: _response.error.statusCode,
+                body: _response.error.body,
+                rawResponse: _response.rawResponse,
+            });
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "DELETE",
+            "/api/v1/sessions/{sessionId}",
+        );
     }
 
     /**
@@ -1117,5 +1178,158 @@ export class SessionsClient {
                 return list(core.setObjectProperty(request, "pageToken", response?.pagination.nextPageToken));
             },
         });
+    }
+
+    /**
+     * Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
+     */
+    public subscribeToTurn(
+        sessionId: string,
+        turnId: string,
+        request: TrueHarness.SubscribeToTurnSessionsRequest = {},
+        requestOptions?: SessionsClient.RequestOptions,
+    ): core.HttpResponsePromise<core.Stream<TrueHarness.TurnStreamingEvent>> {
+        return core.HttpResponsePromise.fromPromise(this.__subscribeToTurn(sessionId, turnId, request, requestOptions));
+    }
+
+    private async __subscribeToTurn(
+        sessionId: string,
+        turnId: string,
+        request: TrueHarness.SubscribeToTurnSessionsRequest = {},
+        requestOptions?: SessionsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<core.Stream<TrueHarness.TurnStreamingEvent>>> {
+        const { afterSequenceNumber } = request;
+        const _queryParams: Record<string, unknown> = {
+            after_sequence_number: afterSequenceNumber,
+        };
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
+        const _response = await (this._options.fetcher ?? core.fetcher)<ReadableStream>({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}/subscribe`,
+            ),
+            method: "GET",
+            headers: _headers,
+            queryString: core.url
+                .queryBuilder()
+                .addMany(_queryParams)
+                .mergeAdditional(requestOptions?.queryParams)
+                .build(),
+            responseType: "sse",
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        const _reconnect = async (lastEventId: string) => {
+            const _reconnectResponse = await (this._options.fetcher ?? core.fetcher)<ReadableStream>({
+                url: core.url.join(
+                    (await core.Supplier.get(this._options.baseUrl)) ??
+                        (await core.Supplier.get(this._options.environment)),
+                    `api/v1/sessions/${core.url.encodePathParam(sessionId)}/turns/${core.url.encodePathParam(turnId)}/subscribe`,
+                ),
+                method: "GET",
+                headers: { ..._headers, "Last-Event-ID": lastEventId },
+                queryString: core.url
+                    .queryBuilder()
+                    .addMany(_queryParams)
+                    .mergeAdditional(requestOptions?.queryParams)
+                    .build(),
+                responseType: "sse",
+                timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+                maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+                abortSignal: requestOptions?.abortSignal,
+                fetchFn: this._options?.fetch,
+                logging: this._options.logging,
+            });
+            if (!_reconnectResponse.ok) {
+                throw new Error("SSE stream reconnection failed");
+            }
+            if (_reconnectResponse.body == null) {
+                throw new Error("SSE stream reconnection failed: empty response body");
+            }
+            return _reconnectResponse.body;
+        };
+        if (_response.ok) {
+            return {
+                data: new core.Stream({
+                    stream: _response.body,
+                    parse: async (data) => {
+                        return serializers.TurnStreamingEvent.parseOrThrow(data, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        });
+                    },
+                    signal: requestOptions?.abortSignal,
+                    eventShape: {
+                        type: "sse",
+                        resumable: true,
+                    },
+                    reconnectionEnabled:
+                        requestOptions?.stream?.reconnectionEnabled ?? this._options?.stream?.reconnectionEnabled,
+                    maxReconnectionAttempts:
+                        requestOptions?.stream?.maxReconnectionAttempts ??
+                        this._options?.stream?.maxReconnectionAttempts,
+                    reconnect: _reconnect,
+                }),
+                rawResponse: _response.rawResponse,
+            };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 400:
+                    throw new TrueHarness.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueHarness.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 412:
+                    throw new TrueHarness.PreconditionFailedError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueHarnessError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "GET",
+            "/api/v1/sessions/{sessionId}/turns/{turnId}/subscribe",
+        );
     }
 }

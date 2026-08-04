@@ -8,9 +8,7 @@ describe("SkillsClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
 
-        const rawResponseBody = {
-            data: [{ description: "description", name: "name", path: "path", ref: "ref", url: "url" }],
-        };
+        const rawResponseBody = { data: [{ description: "description", name: "name" }] };
 
         server.mockEndpoint().get("/api/v1/skills").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
 
@@ -20,9 +18,6 @@ describe("SkillsClient", () => {
                 {
                     description: "description",
                     name: "name",
-                    path: "path",
-                    ref: "ref",
-                    url: "url",
                 },
             ],
         });

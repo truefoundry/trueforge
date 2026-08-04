@@ -61,13 +61,13 @@ docker compose up --build   # UI + API on http://localhost:8791
 
 The SDK has no catalog client, so `App.tsx` passes callbacks to `createTrueFoundryServer`:
 
-| Callback       | Source                                                     |
-| -------------- | ---------------------------------------------------------- |
-| `getModels`    | `GET /api/v1/models` (also seeds `defaultAgentSpec.model`) |
-| `getMcp`       | `GET /api/v1/mcp-servers`                                  |
-| `getSkills`    | `GET /api/v1/skills` — see below                           |
-| `searchAgents` | Empty — Harness has no agent registry                      |
-| `saveAgent`    | Rejects — sessions are draft-only                          |
+| Callback       | Source                                                            |
+| -------------- | ----------------------------------------------------------------- |
+| `getModels`    | `GET /api/v1/legacy/models` (also seeds `defaultAgentSpec.model`) |
+| `getMcp`       | `GET /api/v1/legacy/mcp-servers`                                  |
+| `getSkills`    | `GET /api/v1/legacy/skills` — see below                           |
+| `searchAgents` | Empty — Harness has no agent registry                             |
+| `saveAgent`    | Rejects — sessions are draft-only                                 |
 
 The SDK's picker round-trips a mount as `{ id, name }`, but Harness admission requires git mounts
 (`type`, `url`, `ref`), so `harnessServer` rebuilds every selected skill from the catalog by name

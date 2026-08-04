@@ -7,9 +7,16 @@ export interface ModelEntry {
   reasoning_efforts?: string[];
 }
 
+/** Mirrors `McpServerAuthSettingsSchema` in packages/server/src/legacy-registry-store/schemas.ts. */
+export interface McpServerAuthSettings {
+  type: 'dcr';
+}
+
 export interface McpServerEntry {
   name: string;
   url: string;
+  /** Absent = today's static-header behavior (no OAuth). */
+  auth?: McpServerAuthSettings;
 }
 
 export interface ServerCapabilities {
@@ -35,21 +42,21 @@ async function fetchJson<T>(path: string): Promise<T> {
 }
 
 export async function listModels(): Promise<ModelEntry[]> {
-  const body = await fetchJson<ListEnvelope<ModelEntry>>('/api/v1/models');
+  const body = await fetchJson<ListEnvelope<ModelEntry>>('/api/v1/legacy/models');
   return body.data;
 }
 
 export async function listMcpServers(): Promise<McpServerEntry[]> {
-  const body = await fetchJson<ListEnvelope<McpServerEntry>>('/api/v1/mcp-servers');
+  const body = await fetchJson<ListEnvelope<McpServerEntry>>('/api/v1/legacy/mcp-servers');
   return body.data;
 }
 
 export async function listSkills(): Promise<Harness.SkillEntry[]> {
-  const body = await fetchJson<ListEnvelope<Harness.SkillEntry>>('/api/v1/skills');
+  const body = await fetchJson<ListEnvelope<Harness.SkillEntry>>('/api/v1/legacy/skills');
   return body.data;
 }
 
 export async function getCapabilities(): Promise<ServerCapabilities> {
-  const body = await fetchJson<DataEnvelope<ServerCapabilities>>('/api/v1/capabilities');
+  const body = await fetchJson<DataEnvelope<ServerCapabilities>>('/api/v1/legacy/capabilities');
   return body.data;
 }

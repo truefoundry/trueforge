@@ -1,0 +1,350 @@
+/**
+ * Stream processing: usage/finish-reason normalisation and the
+ * TextStreamPart → ExtendedChatCompletionChunk mapper.
+ */
+import type {
+  FinishReason,
+  LanguageModelUsage,
+  ProviderMetadata,
+  StepResultPerformance,
+  TextStreamPart,
+  ToolSet,
+} from 'ai';
+import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
+import { mapFinishReason, mapStreamToChunks, normalizeUsage } from '../../../src/core/llm/VercelAILLM';
+
+// ─────────── Helpers ───────────
+
+function makeUsage(inputTokens = 10, outputTokens = 5): LanguageModelUsage {
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens: inputTokens + outputTokens,
+    inputTokenDetails: { cacheReadTokens: undefined, cacheWriteTokens: undefined, noCacheTokens: undefined },
+    outputTokenDetails: { reasoningTokens: undefined, textTokens: undefined },
+  };
+}
+
+function makeFinishStep(
+  finishReason: 'stop' | 'length' | 'tool-calls' | 'content-filter' | 'error' | 'other',
+  usage: LanguageModelUsage = makeUsage(),
+): TextStreamPart<ToolSet> {
+  const performance: StepResultPerformance = {
+    effectiveOutputTokensPerSecond: 0,
+    outputTokensPerSecond: undefined,
+    inputTokensPerSecond: undefined,
+    effectiveTotalTokensPerSecond: 0,
+    stepTimeMs: 0,
+    responseTimeMs: 0,
+    toolExecutionMs: {},
+    timeToFirstOutputMs: undefined,
+  };
+  return {
+    type: 'finish-step',
+    response: { id: 'resp', timestamp: new Date(0), modelId: 'test-model' },
+    usage,
+    performance,
+    finishReason,
+    rawFinishReason: undefined,
+    providerMetadata: undefined,
+  };
+}
+
+async function* makeStream(parts: TextStreamPart<ToolSet>[]): AsyncGenerator<TextStreamPart<ToolSet>> {
+  for (const part of parts) yield part;
+}
+
+async function drainStream(
+  gen: AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown>,
+): Promise<{ chunks: ExtendedChatCompletionChunk[]; final: RawAssistantMessageWithUsage }> {
+  const chunks: ExtendedChatCompletionChunk[] = [];
+  let result = await gen.next();
+  while (!result.done) {
+    chunks.push(result.value);
+    result = await gen.next();
+  }
+  return { chunks, final: result.value };
+}
+
+const CHUNK_META = { id: 'test-id', created: 0, model: 'test-model' };
+
+// ─────────── normalizeUsage ───────────
+
+describe('normalizeUsage', () => {
+  it('sums input and output tokens', () => {
+    const result = normalizeUsage(makeUsage(10, 5));
+    expect(result).toMatchObject({ input_tokens: 10, output_tokens: 5, total_tokens: 15 });
+  });
+
+  it('treats undefined token counts as 0', () => {
+    const usage = makeUsage(0, 0);
+    // Overwrite at runtime to simulate the SDK returning undefined for token counts.
+    Reflect.set(usage, 'inputTokens', undefined);
+    Reflect.set(usage, 'outputTokens', undefined);
+    const result = normalizeUsage(usage);
+    expect(result).toMatchObject({ input_tokens: 0, output_tokens: 0, total_tokens: 0 });
+  });
+
+  it('maps cache and reasoning detail fields', () => {
+    const usage = makeUsage(20, 10);
+    usage.inputTokenDetails.cacheReadTokens = 5;
+    usage.inputTokenDetails.cacheWriteTokens = 3;
+    usage.outputTokenDetails.reasoningTokens = 4;
+    const result = normalizeUsage(usage);
+    expect(result.cache_read_tokens).toBe(5);
+    expect(result.cache_write_tokens).toBe(3);
+    expect(result.reasoning_tokens).toBe(4);
+  });
+
+  it('leaves optional fields as undefined when source values are absent', () => {
+    const result = normalizeUsage(makeUsage());
+    expect(result.cache_read_tokens).toBeUndefined();
+    expect(result.cache_write_tokens).toBeUndefined();
+    expect(result.reasoning_tokens).toBeUndefined();
+  });
+});
+
+// ─────────── mapFinishReason ───────────
+
+describe('mapFinishReason', () => {
+  const cases: Array<[FinishReason, string]> = [
+    ['stop', 'stop'],
+    ['length', 'length'],
+    ['tool-calls', 'tool_calls'],
+    ['content-filter', 'content_filter'],
+    ['error', 'stop'],
+    ['other', 'stop'],
+  ];
+
+  it.each(cases)('maps %s → %s', (sdkReason, harnessReason) => {
+    expect(mapFinishReason(sdkReason)).toBe(harnessReason);
+  });
+});
+
+// ─────────── mapStreamToChunks ───────────
+
+describe('mapStreamToChunks', () => {
+  it('emits text-delta chunks and accumulates content in the final message', async () => {
+    const { chunks, final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'text-delta', id: 't1', text: 'hel' },
+          { type: 'text-delta', id: 't1', text: 'lo' },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    const textChunks = chunks.filter(c => c.choices[0]?.delta.content !== undefined);
+    expect(textChunks).toHaveLength(2);
+    expect(textChunks[0]?.choices[0]?.delta.content).toBe('hel');
+    expect(textChunks[1]?.choices[0]?.delta.content).toBe('lo');
+    expect(final.output.content).toBe('hello');
+  });
+
+  it('emits reasoning-delta chunks and accumulates thinking_blocks', async () => {
+    const { chunks, final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: 'r1' },
+          { type: 'reasoning-delta', id: 'r1', text: 'step one' },
+          { type: 'reasoning-end', id: 'r1' },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    const reasoningChunks = chunks.filter(c => c.choices[0]?.delta.reasoning_content !== undefined);
+    expect(reasoningChunks).toHaveLength(1);
+    expect(reasoningChunks[0]?.choices[0]?.delta.reasoning_content).toBe('step one');
+    expect(final.output.thinking_blocks).toEqual([{ type: 'thinking', thinking: 'step one' }]);
+  });
+
+  it('attaches signature from providerMetadata.*.reasoningEncryptedContent on reasoning-end (OpenAI)', async () => {
+    const providerMetadata: ProviderMetadata = { openai: { reasoningEncryptedContent: 'enc-sig' } };
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: 'r1' },
+          { type: 'reasoning-delta', id: 'r1', text: 'thought' },
+          { type: 'reasoning-end', id: 'r1', providerMetadata },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.thinking_blocks?.[0]).toMatchObject({
+      type: 'thinking',
+      thinking: 'thought',
+      signature: 'enc-sig',
+    });
+  });
+
+  it('attaches signature from providerMetadata.*.signature on reasoning-end (Anthropic)', async () => {
+    const providerMetadata: ProviderMetadata = { anthropic: { signature: 'ant-sig' } };
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: 'r1' },
+          { type: 'reasoning-delta', id: 'r1', text: 'thought' },
+          { type: 'reasoning-end', id: 'r1', providerMetadata },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.thinking_blocks?.[0]).toMatchObject({
+      type: 'thinking',
+      thinking: 'thought',
+      signature: 'ant-sig',
+    });
+  });
+
+  it('assigns unique ascending indices to interleaved tool-input-* parts', async () => {
+    const { chunks } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'tool-input-start', id: 'call-a', toolName: 'tool_a' },
+          { type: 'tool-input-start', id: 'call-b', toolName: 'tool_b' },
+          { type: 'tool-input-delta', id: 'call-a', delta: '{"k"' },
+          { type: 'tool-input-delta', id: 'call-b', delta: '{}' },
+          { type: 'tool-input-delta', id: 'call-a', delta: ':1}' },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    const startChunks = chunks.filter(c => c.choices[0]?.delta.tool_calls?.[0]?.id !== undefined);
+    expect(startChunks).toHaveLength(2);
+    const indices = startChunks.map(c => c.choices[0]?.delta.tool_calls?.[0]?.index);
+    expect(indices[0]).toBe(0);
+    expect(indices[1]).toBe(1);
+  });
+
+  it('accumulates tool_calls arguments in the final message', async () => {
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'tool-input-start', id: 'call-1', toolName: 'search' },
+          { type: 'tool-input-delta', id: 'call-1', delta: '{"q"' },
+          { type: 'tool-input-delta', id: 'call-1', delta: ':"hi"}' },
+          makeFinishStep('tool-calls'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.tool_calls).toEqual([
+      { id: 'call-1', type: 'function', function: { name: 'search', arguments: '{"q":"hi"}' } },
+    ]);
+    expect(final.finish_reason).toBe('tool_calls');
+  });
+
+  it('captures google thoughtSignature from tool-input-start providerMetadata into provider_specific_fields', async () => {
+    const providerMetadata: ProviderMetadata = { google: { thoughtSignature: 'google-sig-abc' } };
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'tool-input-start', id: 'call-g', toolName: 'search_tool', providerMetadata },
+          { type: 'tool-input-delta', id: 'call-g', delta: '{"q":"test"}' },
+          makeFinishStep('tool-calls'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.tool_calls?.[0]).toMatchObject({
+      id: 'call-g',
+      type: 'function',
+      function: { name: 'search_tool', arguments: '{"q":"test"}' },
+      provider_specific_fields: { thought_signature: 'google-sig-abc' },
+    });
+  });
+
+  it('omits provider_specific_fields when no thoughtSignature is present on tool-input-start', async () => {
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'tool-input-start', id: 'call-x', toolName: 'noop' },
+          { type: 'tool-input-delta', id: 'call-x', delta: '{}' },
+          makeFinishStep('tool-calls'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.tool_calls?.[0]).not.toHaveProperty('provider_specific_fields');
+  });
+
+  it('emits a finish chunk with usage and sets the final message finish_reason', async () => {
+    const usage = makeUsage(20, 10);
+    const { chunks, final } = await drainStream(
+      mapStreamToChunks({ stream: makeStream([makeFinishStep('length', usage)]), chunkMeta: CHUNK_META }),
+    );
+
+    const finishChunk = chunks.find(c => c.choices[0]?.finish_reason !== null);
+    expect(finishChunk?.choices[0]?.finish_reason).toBe('length');
+    expect(finishChunk?.usage).toMatchObject({ input_tokens: 20, output_tokens: 10, total_tokens: 30 });
+    expect(final.finish_reason).toBe('length');
+  });
+
+  it('rejects (with cause) on an error part', async () => {
+    const cause = new Error('upstream error');
+    await expect(
+      drainStream(
+        mapStreamToChunks({
+          stream: makeStream([{ type: 'error', error: cause }]),
+          chunkMeta: CHUNK_META,
+        }),
+      ),
+    ).rejects.toMatchObject({ message: 'LLM stream error', cause });
+  });
+
+  it('wraps non-Error error values in an Error with cause', async () => {
+    await expect(
+      drainStream(
+        mapStreamToChunks({
+          stream: makeStream([{ type: 'error', error: 'string error' }]),
+          chunkMeta: CHUNK_META,
+        }),
+      ),
+    ).rejects.toMatchObject({ message: 'LLM stream error' });
+  });
+
+  it('sets chunk metadata (id, model, object) on emitted chunks', async () => {
+    const meta = { id: 'vc-test-001', created: 1000, model: 'my-model' };
+    const { chunks } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([{ type: 'text-delta', id: 't1', text: 'x' }, makeFinishStep('stop')]),
+        chunkMeta: meta,
+      }),
+    );
+    const chunk = chunks[0];
+    expect(chunk?.id).toBe('vc-test-001');
+    expect(chunk?.model).toBe('my-model');
+    expect(chunk?.object).toBe('chat.completion.chunk');
+  });
+
+  it('ignores structural/bookkeeping stream parts without emitting chunks', async () => {
+    const { chunks } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'start' },
+          { type: 'text-start', id: 't1' },
+          { type: 'text-end', id: 't1' },
+          { type: 'tool-input-end', id: 'c1' },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+    // Only the finish-step chunk is emitted (no text-delta chunks for structural parts).
+    const nonFinishChunks = chunks.filter(c => c.choices[0]?.finish_reason === null);
+    expect(nonFinishChunks).toHaveLength(0);
+  });
+});
