@@ -161,4 +161,28 @@ describe('getDbMcpConnection', () => {
     expect(connection.url).toBe('https://mcp.open.example/mcp');
     expect(connection.headers).toEqual({});
   });
+
+  it('returns configured static headers for header-auth servers', async () => {
+    await mcpServerStore.upsertServer({
+      tenant_id: TENANT_ID,
+      name: 'header-mcp',
+      manifest: {
+        type: 'remote',
+        name: 'header-mcp',
+        url: 'https://mcp.header.example/mcp',
+        auth: { type: 'header', headers: { Authorization: 'Bearer static-token' } },
+      },
+    });
+
+    const connection = await getDbMcpConnection({
+      tenant_id: TENANT_ID,
+      name: 'header-mcp',
+      store: mcpServerStore,
+      tokenStore,
+      clientName: 'test-client',
+    });
+
+    expect(connection.url).toBe('https://mcp.header.example/mcp');
+    expect(connection.headers).toEqual({ Authorization: 'Bearer static-token' });
+  });
 });
