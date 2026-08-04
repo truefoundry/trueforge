@@ -18,7 +18,7 @@ export function parseModelFqn(name: string): { providerName: string; modelName: 
   if (slash <= 0 || slash === name.length - 1) {
     return undefined;
   }
-  if (name.indexOf('/', slash + 1) !== -1) {
+  if (name.includes('/', slash + 1)) {
     return undefined;
   }
   return { providerName: name.slice(0, slash), modelName: name.slice(slash + 1) };
@@ -151,7 +151,7 @@ export async function validateAgentSpecDb({
   const reasoningEffort = spec.model.params?.reasoning_effort;
   if (reasoningEffort !== undefined) {
     const efforts = model.properties.reasoning_efforts;
-    if (efforts === undefined || !efforts.includes(reasoningEffort)) {
+    if (!efforts?.includes(reasoningEffort)) {
       return {
         status: 400,
         message: efforts
