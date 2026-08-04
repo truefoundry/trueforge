@@ -26,7 +26,8 @@ export function parseModelFqn(name: string): { providerName: string; modelName: 
 
 /**
  * Load turn-ready LLM config for a DB-configured FQN (`provider/model`).
- * Throws if the model is not registered.
+ * Missing provider/model → HTTPException(400) (e.g. deleted after admit).
+ * Malformed FQN after admit is an invariant → plain Error (500).
  */
 export async function getDbProviderConfig({
   tenant_id,
@@ -37,17 +38,22 @@ export async function getDbProviderConfig({
   name: string;
   store: IModelProviderStore;
 }): Promise<VercelAIProviderConfig> {
+  // AgentSpecSchema already required provider/model; failure here is corrupt stored spec.
   const parsed = parseModelFqn(name);
   if (parsed === undefined) {
     throw new Error(`Model name must be a fully qualified "provider/model": ${name}`);
   }
   const provider = await store.getProvider({ tenant_id, name: parsed.providerName });
   if (provider === undefined) {
-    throw new Error(`Model provider not registered: ${parsed.providerName}`);
+    throw new HTTPException(400, {
+      message: `Unknown model "${name}" — provider not configured`,
+    });
   }
   const model = provider.manifest.models.find(entry => entry.name === parsed.modelName);
   if (model === undefined) {
-    throw new Error(`Model not registered: ${name}`);
+    throw new HTTPException(400, {
+      message: `Unknown model "${name}" — not configured on provider`,
+    });
   }
   return {
     provider: provider.manifest.type === 'custom' ? 'generic' : provider.manifest.type,
@@ -61,7 +67,7 @@ export async function getDbProviderConfig({
 
 /**
  * Load MCP url + request headers for a DB-configured server name.
- * Throws if the server is not registered.
+ * Throws HTTPException(400) if the server is not registered.
  */
 export async function getDbMcpConnection({
   tenant_id,
@@ -74,7 +80,9 @@ export async function getDbMcpConnection({
 }): Promise<{ url: string; headers: Record<string, string> }> {
   const record = await store.getServer({ tenant_id, name });
   if (record === undefined) {
-    throw new Error(`MCP server not registered: ${name}`);
+    throw new HTTPException(400, {
+      message: `Unknown MCP server "${name}" — not configured`,
+    });
   }
   return {
     url: record.manifest.url,
@@ -85,7 +93,7 @@ export async function getDbMcpConnection({
 /**
  * Expand agent_spec skill names into git mounts from the skill store.
  * Wire url/path/ref/description on the request are ignored — the DB row wins.
- * Throws if any name is not registered.
+ * Throws HTTPException(400) if any name is not registered.
  */
 export async function resolveDbGitSkills({
   tenant_id,
@@ -100,7 +108,9 @@ export async function resolveDbGitSkills({
   for (const skill of skills) {
     const record = await store.getSkill({ tenant_id, name: skill.name });
     if (record === undefined) {
-      throw new Error(`Skill not registered: ${skill.name}`);
+      throw new HTTPException(400, {
+        message: `Unknown skill "${skill.name}" — not configured`,
+      });
     }
     resolved.push({
       name: record.manifest.name,
