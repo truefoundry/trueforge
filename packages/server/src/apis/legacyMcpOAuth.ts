@@ -1,6 +1,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Logger } from 'winston';
 import { mcpOAuthCallbackRoute } from '../routes/legacyMcpOAuthRoutes';
+
 export interface LegacyMcpOAuthRouterDeps {
   logger: Logger;
 }

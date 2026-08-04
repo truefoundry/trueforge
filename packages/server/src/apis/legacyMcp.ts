@@ -3,6 +3,7 @@ import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } 
 import type { Logger } from 'winston';
 import type { McpStore } from '../legacy-registry-store/McpStore';
 import { authorizeMcpServerRoute, listMcpServersRoute, listMcpToolsRoute } from '../routes/legacyMcpRoutes';
+
 export interface LegacyMcpRouterDeps {
   mcpStore: McpStore;
   logger: Logger;
