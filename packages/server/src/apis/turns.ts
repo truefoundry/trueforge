@@ -20,6 +20,7 @@ import {
   isFileContentPart,
   McpConnectionError,
   VercelAILLM,
+  type IOAuthTokenStore,
   type SandboxProvider,
   type VercelAIProviderConfig,
 } from '@truefoundry/utils-core/core';
@@ -62,6 +63,7 @@ export interface TurnsRouterDeps {
   activeTurns: ActiveTurnRegistry;
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerStore;
+  tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
@@ -76,6 +78,7 @@ export interface TurnsRouterDeps {
  */
 function createTurnResolver(deps: {
   mcpServerStore: IMcpServerStore;
+  tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   sandboxProvider?: SandboxProvider | undefined;
   logger: Logger;
@@ -83,7 +86,7 @@ function createTurnResolver(deps: {
   modelName: string;
   providerConfig: VercelAIProviderConfig;
 }): TurnResourceResolver {
-  const { mcpServerStore, skillStore, logger, signal, modelName, providerConfig } = deps;
+  const { mcpServerStore, tokenStore, skillStore, logger, signal, modelName, providerConfig } = deps;
   const sandboxProvider = deps.sandboxProvider;
   return new TurnResourceResolver({
     llm: name => {
@@ -101,6 +104,8 @@ function createTurnResolver(deps: {
         tenant_id: TENANT_ID,
         name,
         store: mcpServerStore,
+        tokenStore,
+        clientName: configuration.OAUTH_CLIENT_NAME,
       }),
     ...(sandboxProvider
       ? {
@@ -282,6 +287,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     });
     const resolver = createTurnResolver({
       mcpServerStore: deps.mcpServerStore,
+      tokenStore: deps.tokenStore,
       skillStore: deps.skillStore,
       sandboxProvider: deps.sandboxProvider,
       logger: deps.logger,

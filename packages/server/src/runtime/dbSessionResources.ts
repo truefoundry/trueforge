@@ -2,12 +2,23 @@
  * DB-backed model/MCP/skill resolution for /api/v1/sessions admit and turns.
  */
 import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
-import type { GitSkill, VercelAIProviderConfig } from '@truefoundry/utils-core/core';
+import {
+  isMcpAuthRequired,
+  resolveMcpAuth,
+  type GitSkill,
+  type IOAuthTokenStore,
+  type RemoteMcpHeaders,
+  type VercelAIProviderConfig,
+} from '@truefoundry/utils-core/core';
 import { HTTPException } from 'hono/http-exception';
-import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISkillStore } from '../db/skillStore';
-import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
+
+export interface DbMcpConnection {
+  url: string;
+  headers: RemoteMcpHeaders;
+}
 
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
 export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
@@ -62,28 +73,73 @@ export async function getDbProviderConfig({
   };
 }
 
+function dcrHeadersResolver(params: {
+  record: McpServerRecord;
+  tokenStore: IOAuthTokenStore;
+  mcpServerStore: IMcpServerStore;
+  clientName: string;
+}): RemoteMcpHeaders {
+  const { record, tokenStore, mcpServerStore, clientName } = params;
+  return async () => {
+    const result = await resolveMcpAuth({
+      tokenStore,
+      mcpServerStore,
+      serverId: record.id,
+      mcpServerUrl: record.manifest.url,
+      mcpServerName: record.name,
+      clientName,
+    });
+    if (isMcpAuthRequired(result)) {
+      // Wire `id` must match RemoteMCP.id (AgentSpec name), not the DB row ULID —
+      // init events, tool-call metadata, and snapshots all key by name.
+      return {
+        authRequired: {
+          servers: [{ id: record.name, name: record.name, auth_url: result.authUrl.href }],
+        },
+      };
+    }
+    return { headers: result.headers };
+  };
+}
+
 /**
- * Load MCP url + request headers for a DB-configured server name.
+ * Load MCP url + headers for a DB-configured server.
+ * DCR uses resolveMcpAuth; no-auth servers get empty static headers.
  * Throws HTTPException(400) if the server is not registered.
  */
 export async function getDbMcpConnection({
   tenant_id,
   name,
   store,
+  tokenStore,
+  clientName,
 }: {
   tenant_id: string;
   name: string;
   store: IMcpServerStore;
-}): Promise<{ url: string; headers: Record<string, string> }> {
+  tokenStore: IOAuthTokenStore;
+  clientName: string;
+}): Promise<DbMcpConnection> {
   const record = await store.getServer({ tenant_id, name });
   if (record === undefined) {
     throw new HTTPException(400, {
       message: `Unknown MCP server "${name}" — not configured`,
     });
   }
+  if (record.manifest.auth?.type === 'dcr') {
+    return {
+      url: record.manifest.url,
+      headers: dcrHeadersResolver({
+        record,
+        tokenStore,
+        mcpServerStore: store,
+        clientName,
+      }),
+    };
+  }
   return {
     url: record.manifest.url,
-    headers: resolveConfiguredMcpRequestHeaders(record.manifest),
+    headers: {},
   };
 }
 
