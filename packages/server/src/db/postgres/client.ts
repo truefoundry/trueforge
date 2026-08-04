@@ -33,13 +33,23 @@ function configurePgTypeParsers(): void {
   setTypeParserByOid(1016, parseInt8Array);
 }
 
-export function createDb(connectionString: string, poolMax: number): Kysely<Database> {
+export function createDb(options: {
+  connectionString: string;
+  poolMax: number;
+  /** Postgres `statement_timeout` in ms. Applied to every pooled connection. */
+  statementTimeoutMs: number;
+  /** Postgres `idle_in_transaction_session_timeout` in ms. Applied to every pooled connection. */
+  idleInTransactionSessionTimeoutMs: number;
+}): Kysely<Database> {
+  const { connectionString, poolMax, statementTimeoutMs, idleInTransactionSessionTimeoutMs } = options;
   configurePgTypeParsers();
   return new Kysely<Database>({
     dialect: new PostgresDialect({
       pool: new Pool({
         connectionString,
         max: poolMax,
+        statement_timeout: statementTimeoutMs,
+        idle_in_transaction_session_timeout: idleInTransactionSessionTimeoutMs,
       }),
     }),
   });
