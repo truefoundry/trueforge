@@ -19,6 +19,7 @@ import type { CurrentContextUsage } from '@truefoundry/utils/core/runtime/contex
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ProviderManifest } from '../../schemas/modelProvider';
+import type { SandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpOAuthTypes';
 
@@ -169,6 +170,18 @@ export interface SkillTable {
 }
 
 /**
+ * Configured sandbox provider — mirrors the Postgres `sandbox_provider` table.
+ * PRIMARY KEY (tenant_id) — at most one row per tenant.
+ */
+export interface SandboxProviderTable {
+  tenant_id: string;
+  /** SandboxProviderManifest document; replaced whole on every upsert */
+  manifest: JsonbColumn<SandboxProviderManifest>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * PRIMARY KEY (id)
  * UNIQUE (tenant_id, name) — the natural lookup key;
  */
@@ -226,6 +239,7 @@ export interface Database {
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
   skill: SkillTable;
+  sandbox_provider: SandboxProviderTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;

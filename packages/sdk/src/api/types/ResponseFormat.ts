@@ -3,6 +3,6 @@
 import type * as TrueHarness from "../index.js";
 
 export type ResponseFormat =
-    | TrueHarness.ResponseFormatZero
-    | TrueHarness.ResponseFormatOne
-    | TrueHarness.ResponseFormatJsonSchema;
+    | TrueHarness.ResponseFormatJsonObject
+    | TrueHarness.ResponseFormatJsonSchema
+    | TrueHarness.ResponseFormatText;

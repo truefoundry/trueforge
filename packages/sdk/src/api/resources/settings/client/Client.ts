@@ -4,6 +4,7 @@ import type { BaseClientOptions } from "../../../../BaseClient.js";
 import { type NormalizedClientOptions, normalizeClientOptions } from "../../../../BaseClient.js";
 import { McpServersClient } from "../resources/mcpServers/client/Client.js";
 import { ModelProvidersClient } from "../resources/modelProviders/client/Client.js";
+import { SandboxProvidersClient } from "../resources/sandboxProviders/client/Client.js";
 import { SkillsClient } from "../resources/skills/client/Client.js";
 
 export declare namespace SettingsClient {
@@ -14,6 +15,7 @@ export class SettingsClient {
     protected readonly _options: NormalizedClientOptions<SettingsClient.Options>;
     protected _mcpServers: McpServersClient | undefined;
     protected _modelProviders: ModelProvidersClient | undefined;
+    protected _sandboxProviders: SandboxProvidersClient | undefined;
     protected _skills: SkillsClient | undefined;
 
     constructor(options: SettingsClient.Options) {
@@ -26,6 +28,10 @@ export class SettingsClient {
 
     public get modelProviders(): ModelProvidersClient {
         return (this._modelProviders ??= new ModelProvidersClient(this._options));
+    }
+
+    public get sandboxProviders(): SandboxProvidersClient {
+        return (this._sandboxProviders ??= new SandboxProvidersClient(this._options));
     }
 
     public get skills(): SkillsClient {

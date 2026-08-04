@@ -35,7 +35,7 @@ groups:
   ts-sdk:
     generators:
       - name: fernapi/fern-typescript-node-sdk
-        version: 3.85.0
+        version: 3.86.0
         output:
           location: local-file-system
           path: ../packages/sdk

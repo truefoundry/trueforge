@@ -70,7 +70,7 @@ describe('skills routers', () => {
     const missingUrl = await settingsRouter.request('/', putInit(withoutUrl));
     expect(missingUrl.status).toBe(400);
 
-    const badName = await settingsRouter.request('/', putInit({ ...putBody, name: 'Not A Slug' }));
+    const badName = await settingsRouter.request('/', putInit({ ...putBody, name: 'Not A Name' }));
     expect(badName.status).toBe(400);
 
     const badUrl = await settingsRouter.request(
