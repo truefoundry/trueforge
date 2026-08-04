@@ -4,7 +4,7 @@ import type * as TrueHarness from "../index.js";
 
 export interface McpServerEntry {
     auth?: TrueHarness.McpServerAuthSettings;
-    /** Passive check only: whether a stored, unexpired token exists. Never attempts a live refresh, so an expired-but-refreshable token still reads as `authentication_required` here — call `/authorize` to actually resolve it. `not_required` for servers without `auth` configured. */
+    /** Passive check only: whether a stored, unexpired token exists. Never attempts a live refresh, so an expired-but-refreshable token still reads as `authentication_required` here. `not_required` for servers without `auth` configured. */
     authStatus: TrueHarness.McpServerEntryAuthStatus;
     name: string;
     url: string;

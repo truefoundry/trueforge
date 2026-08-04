@@ -2,7 +2,7 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/utils/core';
 import type { Logger } from 'winston';
 import type { McpStore } from '../legacy-registry-store/McpStore';
-import { authorizeMcpServerRoute, listMcpServersRoute, listMcpToolsRoute } from '../routes/legacyMcpRoutes';
+import { listMcpServersRoute, listMcpToolsRoute } from '../routes/legacyMcpRoutes';
 
 export interface LegacyMcpRouterDeps {
   mcpStore: McpStore;
@@ -67,21 +67,8 @@ export function createLegacyMcpRouter(deps: LegacyMcpRouterDeps) {
     }
   };
 
-  const authorizeMcpServerHandler: RouteHandler<typeof authorizeMcpServerRoute> = c => {
-    const { name } = c.req.valid('param');
-    const { redirect_url: redirectUrl } = c.req.valid('query');
-    const entry = deps.mcpStore.get(name);
-    if (!entry) {
-      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
-    }
-    // TODO: actual implementation.
-    const stubAuthUrl = `https://example-authorization-server.invalid/authorize?client_id=stub&redirect_uri=${encodeURIComponent(redirectUrl)}`;
-    return c.json({ status: 'authentication_required' as const, auth_url: stubAuthUrl }, 200);
-  };
-
   const router = new OpenAPIHono();
   router.openapi(listMcpServersRoute, listMcpServersHandler);
   router.openapi(listMcpToolsRoute, listMcpToolsHandler);
-  router.openapi(authorizeMcpServerRoute, authorizeMcpServerHandler);
   return router;
 }

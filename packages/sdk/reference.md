@@ -1190,79 +1190,6 @@ await client.legacy.mcpServers.list();
 </dl>
 </details>
 
-<details><summary><code>client.legacy.mcpServers.<a href="/src/api/resources/legacy/resources/mcpServers/client/Client.ts">authorize</a>(name, { ...params }) -> TrueHarness.McpAuthorizeResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Registers a DCR client for this server if none exists yet, then returns an authorization URL to redirect the user to so they can complete the OAuth consent flow. Short-circuits to `{status: authenticated}` with no URL if the server is already connected.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.legacy.mcpServers.authorize("name", {
-    redirectUrl: "redirect_url"
-});
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**name:** `string` — MCP server name from mcp.yaml.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request:** `TrueHarness.legacy.AuthorizeMcpServersRequest` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**requestOptions:** `McpServersClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
 <details><summary><code>client.legacy.mcpServers.<a href="/src/api/resources/legacy/resources/mcpServers/client/Client.ts">listTools</a>(name) -> TrueHarness.ListMcpToolsResponse</code></summary>
 <dl>
 <dd>
@@ -1627,7 +1554,7 @@ await client.settings.mcpServers.catalog();
 <dl>
 <dd>
 
-Stub: returns authenticated when the server has no auth or header credentials on the row; auth_required with a placeholder authorization URL when auth.type is dcr. Real DCR lands in a follow-up.
+For servers without auth or with header credentials, returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).
 </dd>
 </dl>
 </dd>
@@ -1642,9 +1569,7 @@ Stub: returns authenticated when the server has no auth or header credentials on
 <dd>
 
 ```typescript
-await client.settings.mcpServers.authorize("name", {
-    redirectUrl: "redirect_url"
-});
+await client.settings.mcpServers.authorize("name");
 
 ```
 </dd>
