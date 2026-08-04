@@ -3543,14 +3543,14 @@
         "x-fern-sdk-method-name": "create"
       }
     },
-    "/api/v1/sessions/{sessionId}": {
+    "/api/v1/sessions/{session_id}": {
       "delete": {
         "description": "Delete a session and all related turns, events, and internal state. Idempotent if already gone.",
         "parameters": [
           {
             "description": "Session identifier.",
             "in": "path",
-            "name": "sessionId",
+            "name": "session_id",
             "required": true,
             "schema": {
               "description": "Session identifier.",
@@ -3580,7 +3580,7 @@
           {
             "description": "Session identifier.",
             "in": "path",
-            "name": "sessionId",
+            "name": "session_id",
             "required": true,
             "schema": {
               "description": "Session identifier.",
@@ -3627,7 +3627,7 @@
           {
             "description": "Session identifier.",
             "in": "path",
-            "name": "sessionId",
+            "name": "session_id",
             "required": true,
             "schema": {
               "description": "Session identifier.",
@@ -3699,14 +3699,14 @@
         "x-fern-sdk-method-name": "update"
       }
     },
-    "/api/v1/sessions/{sessionId}/cancel": {
+    "/api/v1/sessions/{session_id}/cancel": {
       "post": {
         "description": "Cancel the running last turn for a session.",
         "parameters": [
           {
             "description": "Session identifier.",
             "in": "path",
-            "name": "sessionId",
+            "name": "session_id",
             "required": true,
             "schema": {
               "description": "Session identifier.",
@@ -3768,14 +3768,14 @@
         "x-fern-sdk-method-name": "cancel"
       }
     },
-    "/api/v1/sessions/{sessionId}/events": {
+    "/api/v1/sessions/{session_id}/events": {
       "get": {
         "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor.",
         "parameters": [
           {
             "description": "Session identifier.",
             "in": "path",
-            "name": "sessionId",
+            "name": "session_id",
             "required": true,
             "schema": {
               "description": "Session identifier.",
@@ -3865,14 +3865,14 @@
         "x-fern-sdk-method-name": "list_events"
       }
     },
-    "/api/v1/sessions/{sessionId}/turns": {
+    "/api/v1/sessions/{session_id}/turns": {
       "get": {
         "description": "List turns for a session (newest first by default), token-paginated.",
         "parameters": [
           {
             "description": "Session identifier.",
             "in": "path",
-            "name": "sessionId",
+            "name": "session_id",
             "required": true,
             "schema": {
               "description": "Session identifier.",
@@ -3957,7 +3957,7 @@
           {
             "description": "Session identifier.",
             "in": "path",
-            "name": "sessionId",
+            "name": "session_id",
             "required": true,
             "schema": {
               "description": "Session identifier.",
@@ -4033,14 +4033,14 @@
         }
       }
     },
-    "/api/v1/sessions/{sessionId}/turns/{turnId}": {
+    "/api/v1/sessions/{session_id}/turns/{turn_id}": {
       "get": {
         "description": "Fetch a single turn by ID.",
         "parameters": [
           {
             "description": "Session identifier.",
             "in": "path",
-            "name": "sessionId",
+            "name": "session_id",
             "required": true,
             "schema": {
               "description": "Session identifier.",
@@ -4052,7 +4052,7 @@
           {
             "description": "Turn identifier.",
             "in": "path",
-            "name": "turnId",
+            "name": "turn_id",
             "required": true,
             "schema": {
               "description": "Turn identifier.",
@@ -4093,14 +4093,14 @@
         "x-fern-sdk-method-name": "get_turn"
       }
     },
-    "/api/v1/sessions/{sessionId}/turns/{turnId}/events": {
+    "/api/v1/sessions/{session_id}/turns/{turn_id}/events": {
       "get": {
         "description": "Paginated persisted events for a turn (insertion order by default).",
         "parameters": [
           {
             "description": "Session identifier.",
             "in": "path",
-            "name": "sessionId",
+            "name": "session_id",
             "required": true,
             "schema": {
               "description": "Session identifier.",
@@ -4112,7 +4112,7 @@
           {
             "description": "Turn identifier.",
             "in": "path",
-            "name": "turnId",
+            "name": "turn_id",
             "required": true,
             "schema": {
               "description": "Turn identifier.",
@@ -4200,14 +4200,14 @@
         "x-fern-sdk-method-name": "list_turn_events"
       }
     },
-    "/api/v1/sessions/{sessionId}/turns/{turnId}/subscribe": {
+    "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {
       "get": {
         "description": "Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
         "parameters": [
           {
             "description": "Session identifier.",
             "in": "path",
-            "name": "sessionId",
+            "name": "session_id",
             "required": true,
             "schema": {
               "description": "Session identifier.",
@@ -4219,7 +4219,7 @@
           {
             "description": "Turn identifier.",
             "in": "path",
-            "name": "turnId",
+            "name": "turn_id",
             "required": true,
             "schema": {
               "description": "Turn identifier.",

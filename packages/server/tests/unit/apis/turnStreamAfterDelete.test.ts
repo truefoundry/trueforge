@@ -7,6 +7,7 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
@@ -68,6 +69,7 @@ describe('turn SSE after session deletion', () => {
         tokenStore: new SqliteOAuthTokenStore(db),
         skillStore: new SqliteSkillStore(db),
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
+        sandboxProviderStore: new SqliteSandboxProviderStore(db),
         logger,
       }),
     );

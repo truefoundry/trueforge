@@ -305,7 +305,7 @@ await client.sessions.create({
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">get</a>(sessionId) -> TrueHarness.GetSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">get</a>(session_id) -> TrueHarness.GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -332,7 +332,7 @@ Fetch a session by ID.
 <dd>
 
 ```typescript
-await client.sessions.get("sessionId");
+await client.sessions.get("session_id");
 
 ```
 </dd>
@@ -348,7 +348,7 @@ await client.sessions.get("sessionId");
 <dl>
 <dd>
 
-**sessionId:** `string` — Session identifier.
+**session_id:** `string` — Session identifier.
     
 </dd>
 </dl>
@@ -368,7 +368,7 @@ await client.sessions.get("sessionId");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">delete</a>(sessionId) -> void</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">delete</a>(session_id) -> void</code></summary>
 <dl>
 <dd>
 
@@ -395,7 +395,7 @@ Delete a session and all related turns, events, and internal state. Idempotent i
 <dd>
 
 ```typescript
-await client.sessions.delete("sessionId");
+await client.sessions.delete("session_id");
 
 ```
 </dd>
@@ -411,7 +411,7 @@ await client.sessions.delete("sessionId");
 <dl>
 <dd>
 
-**sessionId:** `string` — Session identifier.
+**session_id:** `string` — Session identifier.
     
 </dd>
 </dl>
@@ -431,7 +431,7 @@ await client.sessions.delete("sessionId");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">update</a>(sessionId, { ...params }) -> TrueHarness.GetSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">update</a>(session_id, { ...params }) -> TrueHarness.GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -458,7 +458,7 @@ Update a session's inline agent spec. An empty body is a valid no-op that refres
 <dd>
 
 ```typescript
-await client.sessions.update("sessionId");
+await client.sessions.update("session_id");
 
 ```
 </dd>
@@ -474,7 +474,7 @@ await client.sessions.update("sessionId");
 <dl>
 <dd>
 
-**sessionId:** `string` — Session identifier.
+**session_id:** `string` — Session identifier.
     
 </dd>
 </dl>
@@ -502,7 +502,7 @@ await client.sessions.update("sessionId");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">cancel</a>(sessionId, { ...params }) -> TrueHarness.CancelSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">cancel</a>(session_id, { ...params }) -> TrueHarness.CancelSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -529,7 +529,7 @@ Cancel the running last turn for a session.
 <dd>
 
 ```typescript
-await client.sessions.cancel("sessionId");
+await client.sessions.cancel("session_id");
 
 ```
 </dd>
@@ -545,7 +545,7 @@ await client.sessions.cancel("sessionId");
 <dl>
 <dd>
 
-**sessionId:** `string` — Session identifier.
+**session_id:** `string` — Session identifier.
     
 </dd>
 </dl>
@@ -573,7 +573,7 @@ await client.sessions.cancel("sessionId");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listEvents</a>(sessionId, { ...params }) -> core.Page&lt;TrueHarness.SessionEventItem, TrueHarness.ListSessionEventsResponse&gt;</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listEvents</a>(session_id, { ...params }) -> core.Page&lt;TrueHarness.SessionEventItem, TrueHarness.ListSessionEventsResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -600,7 +600,7 @@ List session events as `{ turn_id, event }` across the active turn branch (newes
 <dd>
 
 ```typescript
-await client.sessions.listEvents("sessionId");
+await client.sessions.listEvents("session_id");
 
 ```
 </dd>
@@ -616,7 +616,7 @@ await client.sessions.listEvents("sessionId");
 <dl>
 <dd>
 
-**sessionId:** `string` — Session identifier.
+**session_id:** `string` — Session identifier.
     
 </dd>
 </dl>
@@ -644,7 +644,7 @@ await client.sessions.listEvents("sessionId");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listTurns</a>(sessionId, { ...params }) -> core.Page&lt;TrueHarness.Turn, TrueHarness.ListTurnsResponse&gt;</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listTurns</a>(session_id, { ...params }) -> core.Page&lt;TrueHarness.Turn, TrueHarness.ListTurnsResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -671,7 +671,7 @@ List turns for a session (newest first by default), token-paginated.
 <dd>
 
 ```typescript
-await client.sessions.listTurns("sessionId");
+await client.sessions.listTurns("session_id");
 
 ```
 </dd>
@@ -687,7 +687,7 @@ await client.sessions.listTurns("sessionId");
 <dl>
 <dd>
 
-**sessionId:** `string` — Session identifier.
+**session_id:** `string` — Session identifier.
     
 </dd>
 </dl>
@@ -715,7 +715,7 @@ await client.sessions.listTurns("sessionId");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurn</a>(sessionId, { ...params }) -> core.Stream&lt;TrueHarness.TurnStreamingEvent&gt;</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurn</a>(session_id, { ...params }) -> core.Stream&lt;TrueHarness.TurnStreamingEvent&gt;</code></summary>
 <dl>
 <dd>
 
@@ -743,7 +743,7 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`).
 <dd>
 
 ```typescript
-const response = await client.sessions.createTurn("sessionId");
+const response = await client.sessions.createTurn("session_id");
 for await (const item of response) {
     console.log(item);
 }
@@ -762,7 +762,7 @@ for await (const item of response) {
 <dl>
 <dd>
 
-**sessionId:** `string` — Session identifier.
+**session_id:** `string` — Session identifier.
     
 </dd>
 </dl>
@@ -790,7 +790,7 @@ for await (const item of response) {
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">getTurn</a>(sessionId, turnId) -> TrueHarness.GetTurnResponse</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">getTurn</a>(session_id, turn_id) -> TrueHarness.GetTurnResponse</code></summary>
 <dl>
 <dd>
 
@@ -817,7 +817,7 @@ Fetch a single turn by ID.
 <dd>
 
 ```typescript
-await client.sessions.getTurn("sessionId", "turnId");
+await client.sessions.getTurn("session_id", "turn_id");
 
 ```
 </dd>
@@ -833,7 +833,7 @@ await client.sessions.getTurn("sessionId", "turnId");
 <dl>
 <dd>
 
-**sessionId:** `string` — Session identifier.
+**session_id:** `string` — Session identifier.
     
 </dd>
 </dl>
@@ -841,7 +841,7 @@ await client.sessions.getTurn("sessionId", "turnId");
 <dl>
 <dd>
 
-**turnId:** `string` — Turn identifier.
+**turn_id:** `string` — Turn identifier.
     
 </dd>
 </dl>
@@ -861,7 +861,7 @@ await client.sessions.getTurn("sessionId", "turnId");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listTurnEvents</a>(sessionId, turnId, { ...params }) -> core.Page&lt;TrueHarness.SessionEvent, TrueHarness.ListTurnEventsResponse&gt;</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listTurnEvents</a>(session_id, turn_id, { ...params }) -> core.Page&lt;TrueHarness.SessionEvent, TrueHarness.ListTurnEventsResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -888,7 +888,7 @@ Paginated persisted events for a turn (insertion order by default).
 <dd>
 
 ```typescript
-await client.sessions.listTurnEvents("sessionId", "turnId");
+await client.sessions.listTurnEvents("session_id", "turn_id");
 
 ```
 </dd>
@@ -904,7 +904,7 @@ await client.sessions.listTurnEvents("sessionId", "turnId");
 <dl>
 <dd>
 
-**sessionId:** `string` — Session identifier.
+**session_id:** `string` — Session identifier.
     
 </dd>
 </dl>
@@ -912,7 +912,7 @@ await client.sessions.listTurnEvents("sessionId", "turnId");
 <dl>
 <dd>
 
-**turnId:** `string` — Turn identifier.
+**turn_id:** `string` — Turn identifier.
     
 </dd>
 </dl>
@@ -940,7 +940,7 @@ await client.sessions.listTurnEvents("sessionId", "turnId");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">subscribeToTurn</a>(sessionId, turnId, { ...params }) -> core.Stream&lt;TrueHarness.TurnStreamingEvent&gt;</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">subscribeToTurn</a>(session_id, turn_id, { ...params }) -> core.Stream&lt;TrueHarness.TurnStreamingEvent&gt;</code></summary>
 <dl>
 <dd>
 
@@ -967,7 +967,7 @@ Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to res
 <dd>
 
 ```typescript
-const response = await client.sessions.subscribeToTurn("sessionId", "turnId");
+const response = await client.sessions.subscribeToTurn("session_id", "turn_id");
 for await (const item of response) {
     console.log(item);
 }
@@ -986,7 +986,7 @@ for await (const item of response) {
 <dl>
 <dd>
 
-**sessionId:** `string` — Session identifier.
+**session_id:** `string` — Session identifier.
     
 </dd>
 </dl>
@@ -994,7 +994,7 @@ for await (const item of response) {
 <dl>
 <dd>
 
-**turnId:** `string` — Turn identifier.
+**turn_id:** `string` — Turn identifier.
     
 </dd>
 </dl>

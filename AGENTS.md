@@ -15,3 +15,4 @@
 - Tests MUST live under a top-level `test` directory that mirrors the `src` layout; they MUST NOT be inlined under `src`.
 - Functions with more than one parameter of the same type MUST take a single options object (e.g. `f({ a, b }: { a: string; b: string })`); they MUST NOT use multiple positional parameters of that repeated type (e.g. `f(a: string, b: string)`).
 - Zod unions MUST use `z.discriminatedUnion` whenever every member carries a shared literal discriminator field; `z.union` is only permitted when no such common discriminator exists.
+- HTTP/OpenAPI wire shapes (path params, query params, request/response JSON fields) and database identifiers (table/column names, persisted jsonb document keys) MUST use `snake_case`.
