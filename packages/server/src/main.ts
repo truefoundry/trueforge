@@ -4,7 +4,7 @@
  * SQLite migrations are packaged under dist/ but are not run at startup.
  */
 import { serve } from '@hono/node-server';
-import type { TurnStreamingEvent } from '@truefoundry/utils/agent-session';
+import type { TurnStreamingEvent } from '@truefoundry/utils-core/agent-session';
 import type { RedisClientType } from 'redis';
 import winston from 'winston';
 
@@ -37,11 +37,11 @@ try {
     import('./config'),
     import('./db/postgres/client'),
     import('./db/migratePostgres'),
-    import('@truefoundry/utils/agent-session'),
+    import('@truefoundry/utils-core/agent-session'),
     import('./runtime/activeTurns'),
     import('./runtime/sandboxFactory'),
     import('./runtime/redis'),
-    import('@truefoundry/utils/request-reply'),
+    import('@truefoundry/utils-core/request-reply'),
     import('./db/postgres/session-store/PostgresSessionStore'),
     import('./runtime/event-subscription'),
     import('./catalog/ModelCatalog'),

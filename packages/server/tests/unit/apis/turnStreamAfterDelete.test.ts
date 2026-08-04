@@ -1,6 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { Sessions } from '@truefoundry/utils/agent-session';
-import { TurnNotFoundError } from '@truefoundry/utils/agent-session';
+import type { Sessions } from '@truefoundry/utils-core/agent-session';
+import { TurnNotFoundError } from '@truefoundry/utils-core/agent-session';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';

@@ -4,7 +4,7 @@
  * a single policy can wrap the whole tree later without touching each resource.
  */
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { IOAuthTokenStore } from '@truefoundry/utils/core';
+import type { IOAuthTokenStore } from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import type { McpCatalog } from '../catalog/McpCatalog';
 import type { ModelCatalog } from '../catalog/ModelCatalog';

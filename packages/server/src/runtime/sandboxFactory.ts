@@ -13,7 +13,7 @@ import {
   type AgentTracing,
   type GitSkill,
   type SandboxProvider,
-} from '@truefoundry/utils/core';
+} from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import { ZodError } from 'zod';
 import { TENANT_ID } from '../apis/sessions';

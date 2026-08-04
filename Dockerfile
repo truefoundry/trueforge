@@ -3,7 +3,7 @@
 # Multi-stage build for @truefoundry/server, which also serves the UI: the only image the stack needs.
 #
 # Lives at the repository root because the build needs the whole pnpm workspace
-# as its context: the server depends on the workspace package @truefoundry/utils.
+# as its context: the server depends on the workspace package @truefoundry/utils-core.
 #
 # Dependency install uses pnpm fetch (lockfile-only) then install --offline so
 # the download layer stays cached when only package.json / scripts change.
@@ -42,14 +42,14 @@ COPY packages/harness/scripts packages/harness/scripts
 COPY packages/harness/src/core/sandbox/scripts packages/harness/src/core/sandbox/scripts
 
 # ---------------------------------------------------------------------------
-# builder: install all deps (incl. dev) and build utils + server.
+# builder: install all deps (incl. dev) and build utils-core + server.
 # ---------------------------------------------------------------------------
 FROM workspace AS builder
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
   pnpm install --frozen-lockfile --offline --filter @truefoundry/server...
 COPY packages/harness packages/harness
 COPY packages/server packages/server
-RUN pnpm --filter @truefoundry/utils build && pnpm --filter @truefoundry/server build
+RUN pnpm --filter @truefoundry/utils-core build && pnpm --filter @truefoundry/server build
 
 # ---------------------------------------------------------------------------
 # frontend-builder: build the UI the server serves (parallel to builder above).
@@ -78,7 +78,7 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/packages/harness/node_modules ./packages/harness/node_modules
 COPY --from=prod-deps /app/packages/server/node_modules ./packages/server/node_modules
 
-# Built workspace dependency (@truefoundry/utils).
+# Built workspace dependency (@truefoundry/utils-core).
 COPY --from=builder /app/packages/harness/package.json ./packages/harness/package.json
 COPY --from=builder /app/packages/harness/dist ./packages/harness/dist
 

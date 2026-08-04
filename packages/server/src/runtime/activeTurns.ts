@@ -4,7 +4,7 @@
  * TurnHandle.stream() writes the terminal state when the signal fires.
  * `track()` owns registration and cleanup around the stream lifecycle.
  */
-import { CancellationReason } from '@truefoundry/utils/agent-session';
+import { CancellationReason } from '@truefoundry/utils-core/agent-session';
 
 interface ActiveTurnRun {
   abortController: AbortController;

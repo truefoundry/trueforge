@@ -1,8 +1,8 @@
 /**
  * DB-backed model/MCP/skill resolution for /api/v1/sessions admit and turns.
  */
-import type { AgentSpec } from '@truefoundry/utils/agent-session';
-import type { GitSkill, VercelAIProviderConfig } from '@truefoundry/utils/core';
+import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
+import type { GitSkill, VercelAIProviderConfig } from '@truefoundry/utils-core/core';
 import { HTTPException } from 'hono/http-exception';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
