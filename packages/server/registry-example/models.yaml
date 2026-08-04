@@ -23,12 +23,12 @@
 #
 # Supported providers:
 #   First-party (Vercel AI SDK):  openai | anthropic | google-gemini
-#   Generic (requires base_url): generic
+#   Custom (requires base_url): custom
 #
 # base_url is optional for first-party providers (overrides the default endpoint)
-# and required for the generic provider.
+# and required for the custom provider.
 #
-# api_format selects the API surface for the generic provider:
+# api_format selects the API surface for the custom provider:
 #   openai-chat-completions  - OpenAI Chat Completions API (default).
 #
 # openai always uses the Responses API (supports o-series reasoning models,
@@ -75,10 +75,10 @@ models:
     api_key: '${GOOGLE_GEMINI_API_KEY}'
     max_output_tokens: 8192
 
-  # --- Generic gateway (e.g. LiteLLM / TrueFoundry / any OpenAI-compat proxy) ---
+  # --- Custom gateway (e.g. LiteLLM / TrueFoundry / any OpenAI-compat proxy) ---
   - name: claude-sonnet-4-6-gateway
     model_id: anthropic/claude-sonnet-4-6
-    provider: generic
+    provider: custom
     api_key: '${LLM_GATEWAY_API_KEY}'
     base_url: https://your-gateway.example.com/api/llm
     max_output_tokens: 32768
