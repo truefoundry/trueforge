@@ -126,6 +126,7 @@ export function createServerApp(deps: ServerDeps) {
     '/api/v1/sessions',
     createTurnsRouter({
       sessions: deps.sessions,
+      sessionStore: deps.sessionStore,
       activeTurns: deps.activeTurns,
       modelStore: deps.modelStore,
       mcpStore: deps.mcpStore,

@@ -1,6 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Sessions } from '@truefoundry/utils/agent-session';
-import { TurnNotFoundError } from '@truefoundry/utils/agent-session';
+import { InMemorySessionStore, TurnNotFoundError } from '@truefoundry/utils/agent-session';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { McpStore } from '../../../src/legacy-registry-store/McpStore';
@@ -36,6 +36,7 @@ describe('turn SSE after session deletion', () => {
       '/',
       createTurnsRouter({
         sessions,
+        sessionStore: new InMemorySessionStore(),
         activeTurns: new ActiveTurnRegistry(),
         modelStore: new ModelStore([]),
         mcpStore: new McpStore([]),
