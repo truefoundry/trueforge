@@ -24,11 +24,11 @@ function sequenceNumberFromEntryId(streamId: string, entryId: string): number {
 }
 
 /**
- * One Redis Stream with locally minted sequence numbers. Assumes a single
- * producer per stream; the counter dies with the instance, the data via key TTL.
+ * One Redis Stream with locally minted 1-indexed sequence numbers. Assumes a
+ * single producer per stream; the counter dies with the instance, the data via key TTL.
  */
 export class RedisEventSubscription<T extends object> implements EventSubscription<T> {
-  private nextSequenceNumber = 0;
+  private nextSequenceNumber = 1;
 
   constructor(
     private readonly redis: RedisClientType,
@@ -67,7 +67,11 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
     options?: EventSubscriptionPollOptions,
   ): AsyncGenerator<SequencedEvent<T>, void, unknown> {
     const signal = options?.signal;
-    let cursor = afterSequenceNumber === undefined ? '0-0' : `${String(afterSequenceNumber + 1)}-0`;
+    // 0 and omitted both mean "from the start" (sequences are 1-indexed).
+    // Entries are `${seq}-1`. XREAD returns IDs greater than `id`, so
+    // `${N+1}-0` is an exclusive lower bound just below the next entry.
+    let cursor =
+      afterSequenceNumber === undefined || afterSequenceNumber === 0 ? '1-0' : `${String(afterSequenceNumber + 1)}-0`;
     for (;;) {
       if (signal?.aborted) {
         return;

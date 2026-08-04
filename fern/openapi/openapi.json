@@ -4807,7 +4807,10 @@
             "required": false,
             "schema": {
               "minimum": 0,
-              "type": "integer"
+              "type": [
+                "integer",
+                "null"
+              ]
             }
           }
         ],

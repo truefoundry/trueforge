@@ -29,7 +29,10 @@ export interface EventSubscription<T extends object> {
    */
   assertSubscribable(): Promise<void>;
 
-  /** Yields events strictly after the supplied sequence, or from the start when omitted. */
+  /**
+   * Yields events strictly after the supplied sequence number.
+   * Sequences are 1-indexed; omit or pass 0 to start from the first event.
+   */
   poll(
     afterSequenceNumber?: number,
     options?: EventSubscriptionPollOptions,
