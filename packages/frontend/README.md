@@ -31,13 +31,13 @@ moves Vite off `:3000`. That proxy is the only dev-specific wiring and lives ent
 ### Session paths
 
 The gateway SDK's session routes sit under `/v1/agents`, with draft sessions as a separate resource. The
-harness serves one `/api/v1/sessions` surface, so [`src/harnessFetch.ts`](src/harnessFetch.ts) rewrites
-requests on their way out and is handed to both clients as their `fetch`:
+harness YAML-backed surface is `/api/v1/legacy/sessions`, so [`src/harnessFetch.ts`](src/harnessFetch.ts)
+rewrites requests on their way out and is handed to both clients as their `fetch`:
 
-| SDK request                  | Harness route       |
-| ---------------------------- | ------------------- |
-| `/v1/agents/draft-sessions*` | `/api/v1/sessions*` |
-| `/v1/agents/sessions*`       | `/api/v1/sessions*` |
+| SDK request                  | Harness route              |
+| ---------------------------- | -------------------------- |
+| `/v1/agents/draft-sessions*` | `/api/v1/legacy/sessions*` |
+| `/v1/agents/sessions*`       | `/api/v1/legacy/sessions*` |
 
 It runs in the browser, so the mapping is identical in dev and production; the dev proxy just forwards.
 
