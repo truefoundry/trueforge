@@ -135,4 +135,75 @@ describe('mcp-servers routers', () => {
     const missing = await settingsRouter.request('/missing/authorize?redirect_url=https://example.com/callback');
     expect(missing.status).toBe(404);
   });
+
+  it('GET /{name}/authorize for DCR returns auth_required with an authorization_url', async () => {
+    const asOrigin = 'https://auth.example.com';
+    const mcpUrl = 'https://mcp.example.com/sse';
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+      if (url.includes('oauth-protected-resource')) {
+        return new Response(JSON.stringify({ resource: mcpUrl, authorization_servers: [asOrigin] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.includes('oauth-authorization-server') || url.includes('openid-configuration')) {
+        return new Response(
+          JSON.stringify({
+            issuer: asOrigin,
+            authorization_endpoint: `${asOrigin}/authorize`,
+            token_endpoint: `${asOrigin}/token`,
+            registration_endpoint: `${asOrigin}/register`,
+            response_types_supported: ['code'],
+            code_challenge_methods_supported: ['S256'],
+            grant_types_supported: ['authorization_code', 'refresh_token'],
+            token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.includes('/register') && init?.method === 'POST') {
+        return new Response(
+          JSON.stringify({
+            client_id: 'dyn-client-1',
+            client_secret: 'dyn-secret-1',
+            token_endpoint_auth_method: 'client_secret_post',
+            redirect_uris: [`${process.env['PUBLIC_BASE_URL'] ?? ''}/api/v1/mcp-servers/oauth/callback`],
+            grant_types: ['authorization_code', 'refresh_token'],
+            response_types: ['code'],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      return new Response(`unexpected url: ${url}`, { status: 404 });
+    }) as typeof fetch;
+
+    try {
+      const put = await settingsRouter.request(
+        '/',
+        putInit({
+          type: 'remote',
+          name: 'oauth-mcp',
+          url: mcpUrl,
+          auth: { type: 'dcr' },
+        }),
+      );
+      expect(put.status).toBe(200);
+
+      const authorize = await settingsRouter.request(
+        '/oauth-mcp/authorize?redirect_url=https://example.com/after-oauth',
+      );
+      expect(authorize.status).toBe(200);
+      const body = (await authorize.json()) as { status: string; authorization_url?: string };
+      expect(body.status).toBe('auth_required');
+      expect(body.authorization_url).toBeDefined();
+      const authUrl = new URL(body.authorization_url ?? '');
+      expect(authUrl.origin).toBe(asOrigin);
+      expect(authUrl.searchParams.get('client_id')).toBe('dyn-client-1');
+      expect(authUrl.searchParams.get('state')).toBeTruthy();
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
 });

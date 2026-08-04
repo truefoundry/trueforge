@@ -31,5 +31,9 @@ export const mcpOAuthCallbackRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unknown or expired `state` (no matching pending authorization), or `code`/`error` both missing.',
     },
+    500: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unexpected failure during token exchange.',
+    },
   },
 });

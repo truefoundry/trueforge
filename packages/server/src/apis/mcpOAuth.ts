@@ -3,6 +3,7 @@ import {
   completeMcpAuthorization,
   extractErrorLogFields,
   McpConnectionError,
+  validateRedirectUris,
   type IOAuthClientStore,
   type IOAuthTokenStore,
 } from '@truefoundry/utils/core';
@@ -26,6 +27,17 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps) {
 
     if (error) {
       deps.logger.warn('MCP OAuth callback returned an error', { state, error, errorDescription });
+      const pending = await deps.tokenStore.consumePendingAuthorization({ state });
+      if (pending?.redirectUrl) {
+        // TODO(mcp-oauth): pass allowList once we have a configured FE redirect allowlist (open-redirect guard).
+        validateRedirectUris({ redirectUris: [pending.redirectUrl] });
+        const url = new URL(pending.redirectUrl);
+        url.searchParams.set('error', error);
+        if (errorDescription) {
+          url.searchParams.set('error_description', errorDescription);
+        }
+        return c.redirect(url.toString(), 302);
+      }
       return c.redirect(DEFAULT_FAILED_REDIRECT, 302);
     }
 
@@ -40,13 +52,19 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps) {
         state,
         code,
       });
-      return c.redirect(result.redirectUrl ?? DEFAULT_CONNECTED_REDIRECT, 302);
+      if (result.redirectUrl) {
+        // TODO(mcp-oauth): pass allowList once we have a configured FE redirect allowlist (open-redirect guard).
+        validateRedirectUris({ redirectUris: [result.redirectUrl] });
+        return c.redirect(result.redirectUrl, 302);
+      }
+      return c.redirect(DEFAULT_CONNECTED_REDIRECT, 302);
     } catch (err) {
       if (err instanceof McpConnectionError) {
         deps.logger.warn('MCP OAuth callback token exchange failed', extractErrorLogFields(err));
         return c.json({ error: { message: err.message } }, 400);
       }
-      throw err;
+      deps.logger.error('MCP OAuth callback unexpected failure', extractErrorLogFields(err));
+      return c.json({ error: { message: 'Internal server error' } }, 500);
     }
   };
 

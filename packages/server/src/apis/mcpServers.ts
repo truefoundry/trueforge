@@ -1,10 +1,12 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import {
-  buildMcpAuthorizationUrl,
   extractErrorLogFields,
   isAuthRequired,
+  isMcpAuthRequired,
   McpConnectionError,
   RemoteMCP,
+  resolveMcpAuth,
+  validateRedirectUris,
   type IOAuthTokenStore,
 } from '@truefoundry/utils/core';
 import type { Logger } from 'winston';
@@ -114,7 +116,10 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
       return c.json({ status: 'authenticated' as const }, 200);
     }
     try {
-      const authorizationUrl = await buildMcpAuthorizationUrl({
+      // TODO(mcp-oauth): pass allowList once we have a configured FE redirect allowlist (open-redirect guard).
+      validateRedirectUris({ redirectUris: [redirectUrl] });
+      // Reuses a usable/refreshable token when present; only builds an auth URL when needed.
+      const result = await resolveMcpAuth({
         tokenStore: deps.tokenStore,
         mcpServerStore: deps.mcpServerStore,
         serverId: record.id,
@@ -123,18 +128,20 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
         clientName: configuration.OAUTH_CLIENT_NAME,
         redirectUrl,
       });
-      return c.json({ status: 'auth_required' as const, authorization_url: authorizationUrl.href }, 200);
+      if (isMcpAuthRequired(result)) {
+        return c.json({ status: 'auth_required' as const, authorization_url: result.authUrl.href }, 200);
+      }
+      return c.json({ status: 'authenticated' as const }, 200);
     } catch (error) {
       if (error instanceof McpConnectionError) {
         deps.logger.warn(`MCP authorize failed for "${name}"`, extractErrorLogFields(error));
         if (error.statusCode === 400) {
           return c.json({ error: { message: error.message } }, 400);
         }
-        if (error.statusCode === 500) {
-          return c.json({ error: { message: error.message } }, 500);
-        }
+        return c.json({ error: { message: error.message } }, 500);
       }
-      throw error;
+      deps.logger.error(`MCP authorize unexpected failure for "${name}"`, extractErrorLogFields(error));
+      return c.json({ error: { message: 'Internal server error' } }, 500);
     }
   };
 

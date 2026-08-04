@@ -136,6 +136,12 @@ describe('MCP OAuth authorize + callback', () => {
     const token = await tokenStore.getToken({ id: record?.id ?? '' });
     expect(token?.accessToken).toBe('access-1');
     expect(token?.refreshToken).toBe('refresh-1');
+
+    const reauthorize = await settingsRouter.request(
+      `/oauth-mcp/authorize?redirect_url=${encodeURIComponent(FE_REDIRECT)}`,
+    );
+    expect(reauthorize.status).toBe(200);
+    expect(await reauthorize.json()).toEqual({ status: 'authenticated' });
   });
 
   it('callback returns 400 for unknown state and redirects on IdP error', async () => {
@@ -145,5 +151,34 @@ describe('MCP OAuth authorize + callback', () => {
     const denied = await oauthRouter.request('/callback?state=any&error=access_denied');
     expect(denied.status).toBe(302);
     expect(denied.headers.get('location')).toBe('/mcp/oauth/failed');
+  });
+
+  it('callback IdP error redirects to pending FE redirect_url with error params', async () => {
+    await settingsRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'remote',
+        name: 'oauth-deny-mcp',
+        url: MCP_URL,
+        auth: { type: 'dcr' },
+      }),
+    });
+
+    const authorize = await settingsRouter.request(
+      `/oauth-deny-mcp/authorize?redirect_url=${encodeURIComponent(FE_REDIRECT)}`,
+    );
+    const authorizeBody = (await authorize.json()) as { authorization_url?: string };
+    const state = new URL(authorizeBody.authorization_url ?? '').searchParams.get('state');
+    expect(state).toBeTruthy();
+
+    const denied = await oauthRouter.request(
+      `/callback?state=${encodeURIComponent(state ?? '')}&error=access_denied&error_description=${encodeURIComponent('user denied')}`,
+    );
+    expect(denied.status).toBe(302);
+    const location = new URL(denied.headers.get('location') ?? '');
+    expect(location.origin + location.pathname).toBe(FE_REDIRECT);
+    expect(location.searchParams.get('error')).toBe('access_denied');
+    expect(location.searchParams.get('error_description')).toBe('user denied');
   });
 });
