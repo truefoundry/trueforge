@@ -4,6 +4,11 @@ export interface OAuthPendingAuthorization {
   state: string;
   /** The resource this pending authorization is for — same `id` used everywhere else here. */
   id: string;
+  /**
+   * MCP server URL used at authorize time. The shared OAuth callback only receives `state`/`code`,
+   * so this is stashed so token exchange can rebuild the same RFC 8707 `resource`.
+   */
+  mcpServerUrl: string;
   /** `null` when the authorization server does not advertise PKCE support. */
   codeVerifier: string | null;
   /** FE landing URL after OAuth completes; not the OAuth redirect_uri. `null` when unset. */

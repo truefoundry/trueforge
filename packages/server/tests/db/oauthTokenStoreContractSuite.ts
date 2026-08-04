@@ -31,6 +31,7 @@ function pending(overrides: Partial<OAuthPendingAuthorization> = {}): OAuthPendi
   return {
     state: 'state-1',
     id: RESOURCE_ID,
+    mcpServerUrl: 'https://mcp.example.com/sse',
     codeVerifier: 'verifier-1',
     redirectUrl: 'https://app.example.com/done',
     ...overrides,

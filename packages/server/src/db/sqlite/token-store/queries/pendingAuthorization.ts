@@ -10,6 +10,7 @@ export async function savePendingAuthorization(
 ): Promise<void> {
   // `state` and `id` are their own columns; only the remainder goes in the blob.
   const authData: OAuthPendingAuthorizationData = {
+    mcpServerUrl: pending.mcpServerUrl,
     codeVerifier: pending.codeVerifier,
     redirectUrl: pending.redirectUrl,
   };
@@ -47,6 +48,7 @@ export async function consumePendingAuthorization(
   return {
     state: row.id,
     id: row.oauth_server_id,
+    mcpServerUrl: row.auth_data.mcpServerUrl,
     codeVerifier: row.auth_data.codeVerifier,
     redirectUrl: row.auth_data.redirectUrl,
   };

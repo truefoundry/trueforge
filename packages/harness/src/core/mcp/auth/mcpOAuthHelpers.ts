@@ -12,8 +12,12 @@ import { McpConnectionError } from '../../errors';
 /** Fixed OAuth callback path for every MCP server (matches server mount). */
 export const MCP_OAUTH_CALLBACK_PATH = '/api/v1/mcp-servers/oauth/callback';
 
-/** OAuth callback redirect_uri = publicBaseUrl + fixed path. No trimming of the base. */
-export function mcpOAuthCallbackUrl(publicBaseUrl: string): string {
+/**
+ * OAuth callback redirect_uri = `PUBLIC_BASE_URL` + fixed path. No trimming of the base.
+ * Reads from process env (same source as server config).
+ */
+export function mcpOAuthCallbackUrl(): string {
+  const publicBaseUrl = process.env['PUBLIC_BASE_URL'] ?? '';
   if (publicBaseUrl === '') {
     throw new McpConnectionError('PUBLIC_BASE_URL is required for MCP OAuth registration but was empty', 500);
   }

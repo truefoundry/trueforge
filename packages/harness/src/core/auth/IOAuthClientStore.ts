@@ -21,6 +21,10 @@ export interface OAuthClientRecord {
   client: OAuthClientCredentials;
 }
 
+/**
+ * OAuth client registration columns on an MCP server row (`oauth_server` + `oauth_client`).
+ * Implemented by the MCP server store — not a separate persistence root.
+ */
 export interface IOAuthClientStore {
   saveClient(params: { id: string; record: OAuthClientRecord }): Promise<void>;
 

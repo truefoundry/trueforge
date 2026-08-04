@@ -1,18 +1,16 @@
 import {
   discoverOAuthServerInfo,
   exchangeAuthorization,
-  parseErrorResponse,
   refreshAuthorization,
   registerClient,
   startAuthorization,
 } from '@modelcontextprotocol/sdk/client/auth.js';
 import { InvalidClientError } from '@modelcontextprotocol/sdk/server/auth/errors.js';
 import { resourceUrlFromServerUrl } from '@modelcontextprotocol/sdk/shared/auth-utils.js';
-import {
-  OAuthTokensSchema,
-  type AuthorizationServerMetadata,
-  type OAuthClientMetadata,
-  type OAuthTokens,
+import type {
+  AuthorizationServerMetadata,
+  OAuthClientMetadata,
+  OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { randomBytes } from 'node:crypto';
 import type { IOAuthClientStore, OAuthClientRecord } from '../../auth/IOAuthClientStore';
@@ -150,14 +148,13 @@ export async function createMcpOAuthClient(params: {
 }
 
 export async function ensureMcpClientRegistered(params: {
-  clientStore: IOAuthClientStore;
+  mcpServerStore: IOAuthClientStore;
   serverId: string;
   mcpServerUrl: string;
   mcpServerName: string;
-  publicBaseUrl: string;
   clientName: string;
 }): Promise<OAuthClientRecord> {
-  const existing = await params.clientStore.getClient({ id: params.serverId });
+  const existing = await params.mcpServerStore.getClient({ id: params.serverId });
   if (existing) {
     return existing;
   }
@@ -165,116 +162,60 @@ export async function ensureMcpClientRegistered(params: {
   const client = await createMcpOAuthClient({
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
-    redirectUri: mcpOAuthCallbackUrl(params.publicBaseUrl),
+    redirectUri: mcpOAuthCallbackUrl(),
     clientName: params.clientName,
   });
 
-  await params.clientStore.saveClient({ id: params.serverId, record: client });
+  await params.mcpServerStore.saveClient({ id: params.serverId, record: client });
   return client;
-}
-
-/**
- * PKCE only when the AS explicitly lists S256.
- * Without it, `exchangeAuthorization` cannot be used (it always requires a verifier).
- */
-async function exchangeAuthorizationCode(params: {
-  client: OAuthClientRecord;
-  authorizationCode: string;
-  codeVerifier: string | null;
-  redirectUri: string;
-  resource: URL;
-}): Promise<OAuthTokens> {
-  const { client, authorizationCode, codeVerifier, redirectUri, resource } = params;
-
-  if (codeVerifier) {
-    return exchangeAuthorization(mcpAuthorizationServerOrigin(client.server), {
-      metadata: mcpAuthorizationServerMetadata(client.server),
-      clientInformation: mcpClientInformation(client.client),
-      authorizationCode,
-      codeVerifier,
-      redirectUri,
-      resource,
-    });
-  }
-
-  const body = new URLSearchParams({
-    grant_type: 'authorization_code',
-    code: authorizationCode,
-    redirect_uri: redirectUri,
-    client_id: client.client.clientId,
-    resource: resource.href,
-  });
-  if (client.client.clientSecret) {
-    body.set('client_secret', client.client.clientSecret);
-  }
-
-  const response = await fetch(client.server.tokenEndpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-    body,
-  });
-  if (!response.ok) {
-    throw await parseErrorResponse(response);
-  }
-  return OAuthTokensSchema.parse(await response.json());
 }
 
 export async function buildMcpAuthorizationUrl(params: {
   tokenStore: IOAuthTokenStore;
-  clientStore: IOAuthClientStore;
+  mcpServerStore: IOAuthClientStore;
   serverId: string;
   mcpServerUrl: string;
   mcpServerName: string;
-  publicBaseUrl: string;
   clientName: string;
   /** FE post-OAuth landing URL (not the OAuth redirect_uri). */
   redirectUrl?: string;
 }): Promise<URL> {
   const client = await ensureMcpClientRegistered({
-    clientStore: params.clientStore,
+    mcpServerStore: params.mcpServerStore,
     serverId: params.serverId,
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
-    publicBaseUrl: params.publicBaseUrl,
     clientName: params.clientName,
   });
 
-  const state = randomBytes(32).toString('base64url');
-  const redirectUri = mcpOAuthCallbackUrl(params.publicBaseUrl);
-  const resource = resourceUrlFromServerUrl(params.mcpServerUrl);
-  const usePkce = client.server.codeChallengeMethodsSupported?.includes('S256') === true;
-
-  let authorizationUrl: URL;
-  let codeVerifier: string | null = null;
-
-  if (usePkce) {
-    const started = await startAuthorization(mcpAuthorizationServerOrigin(client.server), {
-      metadata: mcpAuthorizationServerMetadata(client.server),
-      clientInformation: mcpClientInformation(client.client),
-      redirectUrl: redirectUri,
-      resource,
-      state,
-    });
-    authorizationUrl = started.authorizationUrl;
-    codeVerifier = started.codeVerifier;
-  } else {
-    // No S256 advertised — skip challenge/verifier (SF outbound).
-    authorizationUrl = new URL(client.server.authorizationEndpoint);
-    authorizationUrl.searchParams.set('response_type', 'code');
-    authorizationUrl.searchParams.set('client_id', client.client.clientId);
-    authorizationUrl.searchParams.set('redirect_uri', redirectUri);
-    authorizationUrl.searchParams.set('state', state);
-    authorizationUrl.searchParams.set('resource', resource.href);
+  if (client.server.codeChallengeMethodsSupported?.includes('S256') !== true) {
+    throw new McpConnectionError(
+      `Authorization server for MCP server '${params.mcpServerName}' does not advertise PKCE S256; S256 is required`,
+      400,
+    );
   }
+
+  const state = randomBytes(32).toString('base64url');
+  const redirectUri = mcpOAuthCallbackUrl();
+  const resource = resourceUrlFromServerUrl(params.mcpServerUrl);
+
+  const started = await startAuthorization(mcpAuthorizationServerOrigin(client.server), {
+    metadata: mcpAuthorizationServerMetadata(client.server),
+    clientInformation: mcpClientInformation(client.client),
+    redirectUrl: redirectUri,
+    resource,
+    state,
+  });
 
   await params.tokenStore.savePendingAuthorization({
     state,
     id: params.serverId,
-    codeVerifier,
+    mcpServerUrl: params.mcpServerUrl,
+    codeVerifier: started.codeVerifier,
     redirectUrl: params.redirectUrl ?? null,
   });
 
-  return authorizationUrl;
+  return started.authorizationUrl;
 }
 
 function isMcpAccessTokenUsable(expiresAtIso: string, nowMs: number): boolean {
@@ -295,17 +236,15 @@ function oauthTokensToOAuthToken(tokens: OAuthTokens, nowMs: number, fallbackRef
 
 export async function resolveMcpAuth(params: {
   tokenStore: IOAuthTokenStore;
-  clientStore: IOAuthClientStore;
+  mcpServerStore: IOAuthClientStore;
   serverId: string;
   mcpServerUrl: string;
   mcpServerName: string;
-  publicBaseUrl: string;
   clientName: string;
   /** FE post-OAuth landing URL (not the OAuth redirect_uri). */
   redirectUrl?: string;
-  nowMs?: number;
 }): Promise<ResolveMcpAuthResult> {
-  const nowMs = params.nowMs ?? Date.now();
+  const nowMs = Date.now();
   const token = await params.tokenStore.getToken({ id: params.serverId });
 
   if (token && isMcpAccessTokenUsable(token.expiresAt, nowMs)) {
@@ -313,7 +252,7 @@ export async function resolveMcpAuth(params: {
   }
 
   if (token?.refreshToken) {
-    const client = await params.clientStore.getClient({ id: params.serverId });
+    const client = await params.mcpServerStore.getClient({ id: params.serverId });
     if (client) {
       try {
         const refreshed = await refreshAuthorization(mcpAuthorizationServerOrigin(client.server), {
@@ -337,11 +276,10 @@ export async function resolveMcpAuth(params: {
 
   const authUrl = await buildMcpAuthorizationUrl({
     tokenStore: params.tokenStore,
-    clientStore: params.clientStore,
+    mcpServerStore: params.mcpServerStore,
     serverId: params.serverId,
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
-    publicBaseUrl: params.publicBaseUrl,
     clientName: params.clientName,
     ...(params.redirectUrl !== undefined ? { redirectUrl: params.redirectUrl } : {}),
   });
@@ -351,18 +289,16 @@ export async function resolveMcpAuth(params: {
 /**
  * OAuth callback: exchange `code` for tokens. Route must already reject IdP `error` params.
  * Claims pending state atomically (`consumePendingAuthorization`) so duplicate callbacks lose
- * the race. On `invalid_client`, clears stored client + token so the next authorize re-registers.
+ * the race; `mcpServerUrl` for the RFC 8707 `resource` comes from that pending row.
+ * On `invalid_client`, clears stored client + token so the next authorize re-registers.
  */
 export async function completeMcpAuthorization(params: {
   tokenStore: IOAuthTokenStore;
-  clientStore: IOAuthClientStore;
+  mcpServerStore: IOAuthClientStore;
   state: string;
   code: string;
-  mcpServerUrl: string;
-  publicBaseUrl: string;
-  nowMs?: number;
 }): Promise<CompleteMcpAuthorizationResult> {
-  const nowMs = params.nowMs ?? Date.now();
+  const nowMs = Date.now();
 
   // Consume first so a concurrent/duplicate callback cannot redeem the same state.
   const pending = await params.tokenStore.consumePendingAuthorization({ state: params.state });
@@ -370,7 +306,7 @@ export async function completeMcpAuthorization(params: {
     throw new McpConnectionError('Unknown or expired OAuth state', 400);
   }
 
-  const client = await params.clientStore.getClient({ id: pending.id });
+  const client = await params.mcpServerStore.getClient({ id: pending.id });
   if (!client) {
     throw new McpConnectionError(
       `No OAuth client registered for MCP server id '${pending.id}'; re-run authorize first`,
@@ -378,19 +314,25 @@ export async function completeMcpAuthorization(params: {
     );
   }
 
+  const { codeVerifier } = pending;
+  if (codeVerifier === null) {
+    throw new McpConnectionError('Pending authorization is missing PKCE code_verifier; re-run authorize', 400);
+  }
+
   let tokens: OAuthTokens;
   try {
-    tokens = await exchangeAuthorizationCode({
-      client,
+    tokens = await exchangeAuthorization(mcpAuthorizationServerOrigin(client.server), {
+      metadata: mcpAuthorizationServerMetadata(client.server),
+      clientInformation: mcpClientInformation(client.client),
       authorizationCode: params.code,
-      codeVerifier: pending.codeVerifier,
-      redirectUri: mcpOAuthCallbackUrl(params.publicBaseUrl),
-      resource: resourceUrlFromServerUrl(params.mcpServerUrl),
+      codeVerifier,
+      redirectUri: mcpOAuthCallbackUrl(),
+      resource: resourceUrlFromServerUrl(pending.mcpServerUrl),
     });
   } catch (error: unknown) {
     if (error instanceof InvalidClientError) {
       await params.tokenStore.deleteToken({ id: pending.id });
-      await params.clientStore.deleteClient({ id: pending.id });
+      await params.mcpServerStore.deleteClient({ id: pending.id });
       throw new McpConnectionError('OAuth client registration is invalid; please retry connecting', 400, {
         cause: error,
       });
