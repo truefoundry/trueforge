@@ -2,6 +2,7 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/utils/core';
 import type { Logger } from 'winston';
 import type { McpCatalog } from '../catalog/McpCatalog';
+import configuration from '../config';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
 import {
   authorizeConfiguredMcpServerRoute,
@@ -71,6 +72,8 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
       name,
       url: record.manifest.url,
       headers: resolveConfiguredMcpRequestHeaders(record.manifest),
+      requestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
+      connectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
       logger: deps.logger,
       signal: c.req.raw.signal,
     });
