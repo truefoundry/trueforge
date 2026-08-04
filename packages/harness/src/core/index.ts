@@ -160,6 +160,7 @@ export {
   mcpClientInformation,
   mcpOAuthCallbackUrl,
   resolveMcpAuth,
+  validateRedirectUris,
 } from './mcp/auth';
 export type {
   CompleteMcpAuthorizationResult,

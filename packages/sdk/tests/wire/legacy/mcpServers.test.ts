@@ -36,50 +36,6 @@ describe("McpServersClient", () => {
         });
     });
 
-    test("authorize (1)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-
-        const rawResponseBody = { auth_url: "auth_url", status: "authenticated" };
-
-        server
-            .mockEndpoint()
-            .get("/api/v1/legacy/mcp-servers/name/authorize")
-            .respondWith()
-            .statusCode(200)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        const response = await client.legacy.mcpServers.authorize("name", {
-            redirectUrl: "redirect_url",
-        });
-        expect(response).toEqual({
-            authUrl: "auth_url",
-            status: "authenticated",
-        });
-    });
-
-    test("authorize (2)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .get("/api/v1/legacy/mcp-servers/name/authorize")
-            .respondWith()
-            .statusCode(404)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.legacy.mcpServers.authorize("name", {
-                redirectUrl: "redirect_url",
-            });
-        }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
-    });
-
     test("list_tools (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });

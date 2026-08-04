@@ -14,7 +14,7 @@ import {
 } from '.';
 
 interface InMemoryStream<T extends object> {
-  /** Dense log: the event at index i has sequence_number i. */
+  /** Dense log: the event at index i has sequence_number i + 1 (1-indexed). */
   events: SequencedEvent<T>[];
   /** Undefined = no TTL set yet (mirrors a Redis key without EXPIRE). */
   expiresAtMs?: number | undefined;
@@ -39,7 +39,7 @@ export class InMemoryEventStreamStore<T extends object> {
     const stream = this.getLiveStream(streamId) ?? { events: [] };
     this.streams.set(streamId, stream);
 
-    const sequenceNumber = stream.events.length;
+    const sequenceNumber = stream.events.length + 1;
     // Deep-copy so the log is isolated from caller mutations (mirrors JSON round-trip in Redis).
     stream.events.push({ ...structuredClone(event), sequence_number: sequenceNumber });
 
@@ -134,7 +134,9 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
     options?: EventSubscriptionPollOptions,
   ): AsyncGenerator<SequencedEvent<T>, void, unknown> {
     const signal = options?.signal;
-    let cursor = afterSequenceNumber === undefined ? 0 : afterSequenceNumber + 1;
+    // 0 and omitted both mean "from the start". With 1-indexed sequences stored at
+    // index seq-1, "strictly after N" starts at array index N.
+    let cursor = afterSequenceNumber === undefined || afterSequenceNumber === 0 ? 0 : afterSequenceNumber;
     for (;;) {
       if (signal?.aborted) {
         return;
@@ -143,8 +145,8 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
       if (!live) {
         throw new StreamGoneError(this.streamId);
       }
-      const batch = live.events.slice(cursor);
-      if (batch.length === 0) {
+      const end = live.events.length;
+      if (cursor >= end) {
         try {
           await this.store.waitForChange(this.streamId, signal);
         } catch (error) {
@@ -155,10 +157,15 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
         }
         continue;
       }
-      cursor += batch.length;
       // Deep-copy each yielded event so consumers cannot mutate the stored log.
-      for (const stored of batch) {
-        yield structuredClone(stored);
+      // Snapshot `end` so appends during yield are left for the next pass.
+      while (cursor < end) {
+        const event = live.events[cursor];
+        if (event === undefined) {
+          throw new Error(`Corrupt stream ${this.streamId}: missing event at index ${String(cursor)}`);
+        }
+        cursor += 1;
+        yield structuredClone(event);
       }
     }
   }

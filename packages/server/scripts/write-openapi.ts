@@ -21,6 +21,7 @@ import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMc
 import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxProviderStore } from '../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteOAuthTokenStore } from '../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { McpStore } from '../src/legacy-registry-store/McpStore';
 import { ModelStore } from '../src/legacy-registry-store/ModelStore';
 import { SkillStore } from '../src/legacy-registry-store/SkillStore';
@@ -55,6 +56,7 @@ const app = createServerApp({
   modelProviderStore: new SqliteModelProviderStore(db),
   mcpCatalog: McpCatalog.load(),
   mcpServerStore: new SqliteMcpServerStore(db),
+  tokenStore: new SqliteOAuthTokenStore(db),
   mcpStore: McpStore.load(),
   skillCatalog: SkillCatalog.load(),
   skillStore: new SqliteSkillStore(db),
