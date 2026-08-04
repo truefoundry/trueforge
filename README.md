@@ -20,7 +20,7 @@ cp packages/server/.env.example packages/server/.env
 cp -R packages/server/registry-example packages/server/registry
 ```
 
-Fill in `MODEL_API_KEY` in `packages/server/.env`. The copied defaults already connect the host server to the Compose services.
+Fill in optional `MODEL_API_KEY` in `packages/server/.env` if you still use the YAML model registry. With `SINGLE_BINARY=true` (default), the server uses SQLite under the OS data dir and does not need Postgres or Redis. The copied defaults still include Postgres/Redis settings for multi-replica (`SINGLE_BINARY=false`).
 
 ### Day-to-day
 

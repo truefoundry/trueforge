@@ -1,11 +1,16 @@
 /**
  * Run pending Postgres migrations and exit.
  * Usage: `pnpm migrate` from packages/server.
- * SQLite migrations are built into dist for packaging but are not run here.
+ * Requires `SINGLE_BINARY=false` (or any mode that resolves `DATABASE_URL`
+ * from `POSTGRES_*`). SQLite migrations run automatically on single-binary boot.
  */
 import configuration from '../../config';
 import { migrateToLatest } from '../migratePostgres';
 import { createDb } from './client';
+
+if (configuration.DATABASE_URL === undefined) {
+  throw new Error('pnpm migrate targets Postgres only. Set SINGLE_BINARY=false and POSTGRES_* (see .env.example).');
+}
 
 const db = createDb({
   connectionString: configuration.DATABASE_URL,

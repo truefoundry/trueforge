@@ -23,7 +23,7 @@ export default defineConfig({
   entry: {
     main: 'src/main.ts',
     // Emit both engines under dist/{postgres,sqlite}/migrations/.
-    // Only Postgres is applied at runtime (main) and via `pnpm migrate`.
+    // Runtime applies Postgres when SINGLE_BINARY=false, SQLite when true.
     ...migrationEntries('postgres'),
     ...migrationEntries('sqlite'),
   },

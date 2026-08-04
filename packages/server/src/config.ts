@@ -5,8 +5,14 @@
  * `configuration` object exported as default. Any invalid value throws at
  * import time, so a misconfigured server fails fast at boot instead of
  * mid-run.
+ *
+ * `SINGLE_BINARY=true` (default) uses SQLite + in-process event streams and
+ * ignores Redis / Postgres. `SINGLE_BINARY=false` requires `POSTGRES_*` and
+ * `REDIS_URL` for multi-replica Postgres + Redis peering.
  */
 import path from 'node:path';
+
+import envPaths from 'env-paths';
 
 // ============================================================================
 // CONFIG FILES
@@ -200,6 +206,13 @@ const DEFAULT_FRONTEND_DIR = '../frontend/dist';
 /** Turn ids minted by a single-binary process; no peer can ever own them. */
 const LOCAL_EXECUTOR_ID = 'local';
 
+/**
+ * OS-standard data dir for single-binary SQLite (no `nodejs` suffix).
+ * Example macOS: `~/Library/Application Support/truefoundry-utils/harness.sqlite`
+ */
+const ENV_PATHS_APP_NAME = 'truefoundry-utils';
+const DEFAULT_SQLITE_FILENAME = 'harness.sqlite';
+
 /** Dropped in single-binary mode so nothing downstream can connect to a Redis it must not use. */
 const resolveRedisUrl = (singleBinary: boolean): string | undefined => {
   if (singleBinary) {
@@ -216,9 +229,59 @@ const resolveExecutorId = (singleBinary: boolean): string => {
   return randomAlphanumeric(6);
 };
 
+/**
+ * Absolute SQLite file path for single-binary mode.
+ * Env: `SQLITE_PATH` (optional). Default: `{env-paths data}/harness.sqlite`.
+ */
+const resolveSqlitePath = (): string => {
+  const override = getEnv('SQLITE_PATH');
+  if (override !== undefined && override.trim() !== '') {
+    return path.resolve(override);
+  }
+  const paths = envPaths(ENV_PATHS_APP_NAME, { suffix: '' });
+  return path.join(paths.data, DEFAULT_SQLITE_FILENAME);
+};
+
+/** Postgres URL only when multi-replica; single-binary never contacts Postgres. */
+const resolvePostgresDatabaseUrl = (singleBinary: boolean): string | undefined => {
+  if (singleBinary) {
+    return undefined;
+  }
+  const postgresUser = requireNonEmptyEnv('POSTGRES_USER');
+  const postgresPassword = requireNonEmptyEnv('POSTGRES_PASSWORD');
+  const postgresDb = requireNonEmptyEnv('POSTGRES_DB');
+  const postgresHost = requireNonEmptyEnv('POSTGRES_HOST');
+  const postgresPort = parsePositiveInt({
+    envKey: 'POSTGRES_PORT',
+    raw: requireNonEmptyEnv('POSTGRES_PORT'),
+    defaultValue: 5432,
+  });
+  return buildPostgresConnectionString({
+    user: postgresUser,
+    password: postgresPassword,
+    host: postgresHost,
+    port: postgresPort,
+    database: postgresDb,
+  });
+};
+
+/** Defaults to `http://localhost:${PORT}` so local single-binary boots without an env file. */
+const resolvePublicBaseUrl = (port: number): string => {
+  const override = getEnv('PUBLIC_BASE_URL');
+  if (override !== undefined && override.trim() !== '') {
+    return override;
+  }
+  return `http://localhost:${String(port)}`;
+};
+
 export interface ServerConfiguration {
   /** HTTP port the server listens on. Env: `PORT`. */
   PORT: number;
+  /**
+   * Exactly one process: SQLite + in-memory event streams; Redis/Postgres unused.
+   * Env: `SINGLE_BINARY`. Default: true.
+   */
+  SINGLE_BINARY: boolean;
   /** Peering identity embedded in the turn ids this process mints; `local` in single-binary mode. */
   EXECUTOR_ID: string;
   /**
@@ -260,9 +323,9 @@ export interface ServerConfiguration {
   /**
    * Default API key for the OpenAI-compatible API at models.yaml's base_url,
    * sent as `Authorization: Bearer <key>` on every model request.
-   * Env: `MODEL_API_KEY` (required).
+   * Env: `MODEL_API_KEY` (optional; model-provider CRUD is the long-term path).
    */
-  MODEL_API_KEY: string;
+  MODEL_API_KEY: string | undefined;
   /**
    * Per-model API key overrides keyed by normalized model name.
    * Env: `MODEL_{NAME}_API_KEY` (see `normalizeEnvName`).
@@ -285,7 +348,7 @@ export interface ServerConfiguration {
   /**
    * Public base URL of this server used as the origin of the MCP OAuth callback
    * (`{PUBLIC_BASE_URL}/api/v1/mcp-servers/oauth/callback`). Not trimmed.
-   * Env: `PUBLIC_BASE_URL` (required).
+   * Env: `PUBLIC_BASE_URL`. Default: `http://localhost:${PORT}`.
    */
   PUBLIC_BASE_URL: string;
   /**
@@ -325,10 +388,16 @@ export interface ServerConfiguration {
    */
   SERVER_EXECUTION_TIMEOUT_SECONDS: number;
   /**
+   * Absolute SQLite database file path. Set in single-binary mode only.
+   * Env: `SQLITE_PATH` (optional). Default: env-paths data dir + `harness.sqlite`.
+   */
+  SQLITE_PATH: string | undefined;
+  /**
    * Postgres connection string derived from `POSTGRES_*` (not read from env directly).
    * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` with user/password URL-encoded.
+   * Required when `SINGLE_BINARY=false`; undefined in single-binary mode.
    */
-  DATABASE_URL: string;
+  DATABASE_URL: string | undefined;
   /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
   DATABASE_POOL_MAX: number;
   /**
@@ -384,15 +453,6 @@ export interface ServerConfiguration {
 // CONFIGURATION VALUES
 // ============================================================================
 
-const postgresUser = requireNonEmptyEnv('POSTGRES_USER');
-const postgresPassword = requireNonEmptyEnv('POSTGRES_PASSWORD');
-const postgresDb = requireNonEmptyEnv('POSTGRES_DB');
-const postgresHost = requireNonEmptyEnv('POSTGRES_HOST');
-const postgresPort = parsePositiveInt({
-  envKey: 'POSTGRES_PORT',
-  raw: requireNonEmptyEnv('POSTGRES_PORT'),
-  defaultValue: 5432,
-});
 const serverExecutionTimeoutSeconds = parsePositiveInt({
   envKey: 'SERVER_EXECUTION_TIMEOUT_SECONDS',
   raw: getEnv('SERVER_EXECUTION_TIMEOUT_SECONDS'),
@@ -405,8 +465,11 @@ const singleBinary = parseBoolean({
   defaultValue: true,
 });
 
+const port = parsePort(getEnv('PORT'));
+
 const configuration: ServerConfiguration = {
-  PORT: parsePort(getEnv('PORT')),
+  PORT: port,
+  SINGLE_BINARY: singleBinary,
   EXECUTOR_ID: resolveExecutorId(singleBinary),
   REGISTRY_DIR: path.resolve(getEnv('REGISTRY_DIR', { defaultValue: 'registry' }) ?? 'registry'),
   MODEL_CATALOG_PATH: (() => {
@@ -426,13 +489,16 @@ const configuration: ServerConfiguration = {
     return override === undefined || override === '' ? undefined : path.resolve(override);
   })(),
   FRONTEND_DIR: path.resolve(getEnv('FRONTEND_DIR', { defaultValue: DEFAULT_FRONTEND_DIR }) ?? DEFAULT_FRONTEND_DIR),
-  MODEL_API_KEY: getEnv('MODEL_API_KEY', { required: true }) ?? '',
+  MODEL_API_KEY: (() => {
+    const value = getEnv('MODEL_API_KEY');
+    return value === undefined || value.trim() === '' ? undefined : value;
+  })(),
   MODEL_API_KEY_BY_NAME: parseApiKeysByName(),
   MODEL_HEADERS: parseHeaders('MODEL_HEADERS', getEnv('MODEL_HEADERS')),
   MODEL_HEADERS_BY_NAME: parseHeadersByName('MODEL'),
   MCP_HEADERS: parseHeaders('MCP_HEADERS', getEnv('MCP_HEADERS')),
   MCP_HEADERS_BY_NAME: parseHeadersByName('MCP'),
-  PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { required: true }) ?? '',
+  PUBLIC_BASE_URL: resolvePublicBaseUrl(port),
   OAUTH_CLIENT_NAME: getEnv('OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
   SANDBOX_SETTINGS: getEnv('SANDBOX_SETTINGS'),
   SANDBOX_API_KEY: getEnv('SANDBOX_API_KEY'),
@@ -452,13 +518,8 @@ const configuration: ServerConfiguration = {
     defaultValue: 30,
   }),
   SERVER_EXECUTION_TIMEOUT_SECONDS: serverExecutionTimeoutSeconds,
-  DATABASE_URL: buildPostgresConnectionString({
-    user: postgresUser,
-    password: postgresPassword,
-    host: postgresHost,
-    port: postgresPort,
-    database: postgresDb,
-  }),
+  SQLITE_PATH: singleBinary ? resolveSqlitePath() : undefined,
+  DATABASE_URL: resolvePostgresDatabaseUrl(singleBinary),
   DATABASE_POOL_MAX: parsePositiveInt({
     envKey: 'DATABASE_POOL_MAX',
     raw: getEnv('DATABASE_POOL_MAX'),

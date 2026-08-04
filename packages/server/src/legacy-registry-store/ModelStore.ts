@@ -65,7 +65,7 @@ export class ModelStore {
     if (entry?.api_key !== undefined) {
       return substituteEnvVars(entry.api_key);
     }
-    return configuration.MODEL_API_KEY_BY_NAME[normalizeEnvName(name)] ?? configuration.MODEL_API_KEY;
+    return configuration.MODEL_API_KEY_BY_NAME[normalizeEnvName(name)] ?? configuration.MODEL_API_KEY ?? '';
   }
 
   /**

@@ -30,6 +30,7 @@
     "@hono/zod-openapi": "^0.19.10",
     "@truefoundry/utils-core": "workspace:*",
     "better-sqlite3": "^13.0.2",
+    "env-paths": "^4.0.0",
     "hono": "^4.12.31",
     "kysely": "^0.29.4",
     "pg": "^8.22.0",
