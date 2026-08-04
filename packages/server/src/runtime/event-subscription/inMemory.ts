@@ -40,7 +40,8 @@ export class InMemoryEventStreamStore<T extends object> {
     this.streams.set(streamId, stream);
 
     const sequenceNumber = stream.events.length;
-    stream.events.push({ ...event, sequence_number: sequenceNumber });
+    // Deep-copy so the log is isolated from caller mutations (mirrors JSON round-trip in Redis).
+    stream.events.push({ ...structuredClone(event), sequence_number: sequenceNumber });
 
     if (streamTTLSeconds && streamTTLSeconds > 0) {
       stream.expiresAtMs = Date.now() + streamTTLSeconds * 1_000;
@@ -57,7 +58,7 @@ export class InMemoryEventStreamStore<T extends object> {
       return undefined;
     }
     if (stream.expiresAtMs !== undefined && stream.expiresAtMs <= Date.now()) {
-      this.streams.delete(streamId);
+      this.dropStream(streamId, stream);
       return undefined;
     }
     return stream;
@@ -71,6 +72,23 @@ export class InMemoryEventStreamStore<T extends object> {
     await once(this.changes, streamId, { signal });
   }
 
+  /**
+   * Evicts a stream: clears its timer, removes it from the map, and wakes any
+   * parked pollers so they observe StreamGoneError promptly. Shared by the
+   * lazy-expiry path in getLiveStream and the scheduled expiry timer.
+   */
+  private dropStream(streamId: string, stream: InMemoryStream<T>): void {
+    if (stream.expiryTimer) {
+      clearTimeout(stream.expiryTimer);
+      stream.expiryTimer = undefined;
+    }
+    if (this.streams.get(streamId) !== stream) {
+      return;
+    }
+    this.streams.delete(streamId);
+    this.changes.emit(streamId);
+  }
+
   private scheduleExpiry(streamId: string, stream: InMemoryStream<T>): void {
     if (stream.expiryTimer) {
       clearTimeout(stream.expiryTimer);
@@ -78,13 +96,12 @@ export class InMemoryEventStreamStore<T extends object> {
     if (stream.expiresAtMs === undefined) {
       return;
     }
-    stream.expiryTimer = setTimeout(() => {
-      if (this.streams.get(streamId) === stream) {
-        this.streams.delete(streamId);
-        // Wake parked pollers so they observe StreamGoneError promptly.
-        this.changes.emit(streamId);
-      }
-    }, stream.expiresAtMs - Date.now());
+    stream.expiryTimer = setTimeout(
+      () => {
+        this.dropStream(streamId, stream);
+      },
+      Math.max(0, stream.expiresAtMs - Date.now()),
+    );
     stream.expiryTimer.unref();
   }
 }
@@ -139,7 +156,10 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
         continue;
       }
       cursor += batch.length;
-      yield* batch;
+      // Deep-copy each yielded event so consumers cannot mutate the stored log.
+      for (const stored of batch) {
+        yield structuredClone(stored);
+      }
     }
   }
 }
