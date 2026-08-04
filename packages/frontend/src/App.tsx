@@ -21,6 +21,30 @@ const server = createTrueFoundryServer<HarnessAgentSpec>({
     (await listMcpServers()).map(server => ({ id: server.name, name: server.name, description: server.url })),
   searchAgents: () => Promise.resolve([]),
   saveAgent: () => Promise.reject(new Error('Harness has no agent registry — sessions are draft-only')),
+  // Settings catalog — stubs until Harness grows provider/connector/skill settings APIs.
+  catalog: {
+    modelCatalog: {
+      getModelProviderCatalog: async () => [],
+      listModelProviders: async () => [],
+      createModelProvider: () => Promise.reject(new Error('not implemented')),
+      updateModelProvider: () => Promise.reject(new Error('not implemented')),
+      deleteModelProvider: async () => {},
+    },
+    connectorCatalog: {
+      getConnectorCatalog: async () => [],
+      listConnectors: async () => [],
+      createConnector: () => Promise.reject(new Error('not implemented')),
+      updateConnector: () => Promise.reject(new Error('not implemented')),
+      authenticateConnector: () => Promise.reject(new Error('not implemented')),
+      disconnectConnector: () => Promise.reject(new Error('not implemented')),
+      deleteConnector: async () => {},
+    },
+    skillCatalog: {
+      listSkills: async () => [],
+      createSkill: () => Promise.reject(new Error('not implemented')),
+      deleteSkill: async () => {},
+    },
+  },
 });
 
 export function App() {
