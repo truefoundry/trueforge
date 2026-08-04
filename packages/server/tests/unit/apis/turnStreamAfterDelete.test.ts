@@ -1,6 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { Sessions } from '@truefoundry/utils/agent-session';
-import { InMemorySessionStore, TurnNotFoundError } from '@truefoundry/utils/agent-session';
+import type { Sessions } from '@truefoundry/utils-core/agent-session';
+import { InMemorySessionStore, TurnNotFoundError } from '@truefoundry/utils-core/agent-session';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { McpStore } from '../../../src/legacy-registry-store/McpStore';

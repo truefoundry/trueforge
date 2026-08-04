@@ -1,7 +1,7 @@
-import type { SessionRecord } from '@truefoundry/utils/agent-session/models/SessionRecord';
-import type { TurnRecord } from '@truefoundry/utils/agent-session/models/TurnRecord';
-import type { PersistedTurnEvent, SessionEventItem } from '@truefoundry/utils/agent-session/schemas/events';
-import type { TokenPagination } from '@truefoundry/utils/agent-session/schemas/pagination';
+import type { SessionRecord } from '@truefoundry/utils-core/agent-session/models/SessionRecord';
+import type { TurnRecord } from '@truefoundry/utils-core/agent-session/models/TurnRecord';
+import type { PersistedTurnEvent, SessionEventItem } from '@truefoundry/utils-core/agent-session/schemas/events';
+import type { TokenPagination } from '@truefoundry/utils-core/agent-session/schemas/pagination';
 import type {
   AddThreadsInput,
   AppendToEventsInput,
@@ -25,8 +25,11 @@ import type {
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
   UpdateTurnStateInput,
-} from '@truefoundry/utils/agent-session/store/ISessionStore';
-import { decodeOffsetPageToken, encodeOffsetPageToken } from '@truefoundry/utils/agent-session/store/OffsetPageToken';
+} from '@truefoundry/utils-core/agent-session/store/ISessionStore';
+import {
+  decodeOffsetPageToken,
+  encodeOffsetPageToken,
+} from '@truefoundry/utils-core/agent-session/store/OffsetPageToken';
 import type { Kysely } from 'kysely';
 import type { Database } from '../types';
 import { patchThreadCapabilityState as patchThreadCapabilityStateQuery } from './queries/capabilities';

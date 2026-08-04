@@ -1,4 +1,4 @@
-import type { OAuthPendingAuthorization } from '@truefoundry/utils/core';
+import type { OAuthPendingAuthorization } from '@truefoundry/utils-core/core';
 import type { Kysely } from 'kysely';
 import { PENDING_AUTHORIZATION_TTL_MS, type OAuthPendingAuthorizationData } from '../../../mcpOAuthTypes';
 import { json, now, nowMinusMs } from '../../sqlExpressions';

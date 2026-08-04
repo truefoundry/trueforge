@@ -1,5 +1,5 @@
 {
-  "name": "@truefoundry/utils",
+  "name": "@truefoundry/utils-core",
   "version": "0.1.7",
   "description": "TrueFoundry agent core and session library",
   "author": "Truefoundry",

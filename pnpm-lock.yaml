@@ -206,7 +206,7 @@ importers:
       '@hono/zod-openapi':
         specifier: ^0.19.10
         version: 0.19.10(hono@4.12.31)(zod@3.25.76)
-      '@truefoundry/utils':
+      '@truefoundry/utils-core':
         specifier: workspace:*
         version: link:../harness
       better-sqlite3:

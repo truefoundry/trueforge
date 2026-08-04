@@ -1,5 +1,5 @@
 // Generates dist/package.json so the package can be published from dist/,
-// making dist the package root: src/core/foo.ts is importable as @truefoundry/utils/core/foo
+// making dist the package root: src/core/foo.ts is importable as @truefoundry/utils-core/core/foo
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

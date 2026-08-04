@@ -1,17 +1,20 @@
-import type { PersistedTurnEvent, SessionEventItem } from '@truefoundry/utils/agent-session/schemas/events';
-import type { TokenPagination } from '@truefoundry/utils/agent-session/schemas/pagination';
+import type { PersistedTurnEvent, SessionEventItem } from '@truefoundry/utils-core/agent-session/schemas/events';
+import type { TokenPagination } from '@truefoundry/utils-core/agent-session/schemas/pagination';
 import type {
   AppendToEventsInput,
   ListSessionEventsInput,
   ListTurnEventsInput,
-} from '@truefoundry/utils/agent-session/store/ISessionStore';
-import { decodeOffsetPageToken, paginateOffsetRows } from '@truefoundry/utils/agent-session/store/OffsetPageToken';
+} from '@truefoundry/utils-core/agent-session/store/ISessionStore';
+import { decodeOffsetPageToken, paginateOffsetRows } from '@truefoundry/utils-core/agent-session/store/OffsetPageToken';
 import {
   decodeSessionEventPageToken,
   paginateSessionEventRows,
   type SessionEventPageCursor,
-} from '@truefoundry/utils/agent-session/store/SessionEventPageToken';
-import { SessionNotFoundError, TurnNotFoundError } from '@truefoundry/utils/agent-session/store/SessionStoreErrors';
+} from '@truefoundry/utils-core/agent-session/store/SessionEventPageToken';
+import {
+  SessionNotFoundError,
+  TurnNotFoundError,
+} from '@truefoundry/utils-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
 import { jsonbBind, jsonText } from '../../sqlExpressions';
 import type { Database } from '../../types';

@@ -1,5 +1,5 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/utils/core';
+import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import type { McpStore } from '../legacy-registry-store/McpStore';
 import { listMcpServersRoute, listMcpToolsRoute } from '../routes/legacyMcpRoutes';
