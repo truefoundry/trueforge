@@ -3,20 +3,19 @@
 import type * as TrueHarness from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { Model } from "./Model.js";
 import { ModelParams } from "./ModelParams.js";
 
 export const AgentSpecModel: core.serialization.ObjectSchema<
     serializers.AgentSpecModel.Raw,
     TrueHarness.AgentSpecModel
-> = core.serialization
-    .object({
-        params: ModelParams.optional(),
-    })
-    .extend(Model);
+> = core.serialization.object({
+    name: core.serialization.string(),
+    params: ModelParams.optional(),
+});
 
 export declare namespace AgentSpecModel {
-    export interface Raw extends Model.Raw {
+    export interface Raw {
+        name: string;
         params?: ModelParams.Raw | null;
     }
 }

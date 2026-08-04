@@ -1,69 +1,25 @@
-/** Harness catalog list responses (unauthenticated). */
+/** DB-backed catalog list helpers for the composer pickers and boot. */
+import type { TrueHarness as Harness } from 'trueharness';
+import { TrueHarnessClient } from 'trueharness';
 
-export interface ModelEntry {
-  name: string;
-  max_output_tokens?: number;
-  reasoning_efforts?: string[];
-}
+const client = new TrueHarnessClient({ environment: '/' });
 
-/** Mirrors `McpServerAuthSettingsSchema` in packages/server/src/store/schemas.ts. */
-export interface McpServerAuthSettings {
-  type: 'dcr';
-}
-
-export interface McpServerEntry {
-  name: string;
-  url: string;
-  /** Absent = today's static-header behavior (no OAuth). */
-  auth?: McpServerAuthSettings;
-}
-
-export interface SkillEntry {
-  name: string;
-  url: string;
-  path?: string;
-  ref?: string;
-  description: string;
-}
-
-export interface ServerCapabilities {
-  sandbox: {
-    enabled: boolean;
-  };
-}
-
-interface ListEnvelope<T> {
-  data: T[];
-}
-
-interface DataEnvelope<T> {
-  data: T;
-}
-
-async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(path);
-  if (!response.ok) {
-    throw new Error(`${path} failed: ${String(response.status)} ${response.statusText}`);
-  }
-  return (await response.json()) as T;
-}
-
-export async function listModels(): Promise<ModelEntry[]> {
-  const body = await fetchJson<ListEnvelope<ModelEntry>>('/api/v1/legacy/models');
+export async function listModels(): Promise<Harness.Model[]> {
+  const body = await client.models.list();
   return body.data;
 }
 
-export async function listMcpServers(): Promise<McpServerEntry[]> {
-  const body = await fetchJson<ListEnvelope<McpServerEntry>>('/api/v1/legacy/mcp-servers');
+export async function listMcpServers(): Promise<Harness.McpServerReadEntry[]> {
+  const body = await client.mcpServers.list();
   return body.data;
 }
 
-export async function listSkills(): Promise<SkillEntry[]> {
-  const body = await fetchJson<ListEnvelope<SkillEntry>>('/api/v1/legacy/skills');
+export async function listSkills(): Promise<Harness.SkillReadEntry[]> {
+  const body = await client.skills.list();
   return body.data;
 }
 
-export async function getCapabilities(): Promise<ServerCapabilities> {
-  const body = await fetchJson<DataEnvelope<ServerCapabilities>>('/api/v1/legacy/capabilities');
+export async function getCapabilities(): Promise<Harness.GetCapabilitiesResponseData> {
+  const body = await client.server.getCapabilities();
   return body.data;
 }

@@ -1,7 +1,7 @@
 /**
  * Global fetch interceptor + subscribable store for API errors.
  *
- * Both catalog.ts and the truefoundry-gateway-sdk clients resolve the global
+ * Both catalog.ts and the Harness SDK client resolve the global
  * `fetch` at request time, so patching it once at startup captures every API
  * failure (HTTP >= 400 and network errors) along with the response body.
  */
