@@ -105,11 +105,15 @@ export function resolveConfiguredMcpRequestHeaders(manifest: McpServerManifest):
   return {};
 }
 
-export function resolveMcpAuthStatus(
-  manifest: McpServerManifest,
-  token: OAuthToken | undefined,
-  nowMs: number,
-): McpAuthStatus {
+export function resolveMcpAuthStatus({
+  manifest,
+  token,
+  nowMs = Date.now(),
+}: {
+  manifest: McpServerManifest;
+  token?: OAuthToken;
+  nowMs?: number;
+}): McpAuthStatus {
   if (manifest.auth?.type === 'dcr') {
     const authenticated = token && isOAuthAccessTokenUsable(token.expiresAt, nowMs);
     return authenticated ? { status: 'authenticated' } : { status: 'auth_required' };

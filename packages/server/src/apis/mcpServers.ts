@@ -54,14 +54,22 @@ function omitUndefinedEntries(obj: Record<string, unknown>): Record<string, unkn
  * `token` is the DCR access token stored for this server (keyed by `record.id`), or undefined for
  * header/no-auth servers and DCR servers that have never authorized. Only DCR reads it.
  */
-function toConfiguredMcpServer(
-  record: McpServerRecord,
-  token: OAuthToken | undefined,
-  nowMs: number,
-): ConfiguredMcpServer {
+function toConfiguredMcpServer({
+  record,
+  token,
+  nowMs = Date.now(),
+}: {
+  record: McpServerRecord;
+  token: OAuthToken | undefined;
+  nowMs?: number;
+}): ConfiguredMcpServer {
   return {
     ...record.manifest,
-    auth_status: resolveMcpAuthStatus(record.manifest, token, nowMs),
+    auth_status: resolveMcpAuthStatus({
+      manifest: record.manifest,
+      ...(token !== undefined ? { token } : {}),
+      nowMs,
+    }),
   };
 }
 
@@ -97,7 +105,10 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     // Only DCR servers have tokens; batch the lookup.
     const dcrIds = records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
     const tokens = await deps.tokenStore.getTokens({ ids: dcrIds });
-    return c.json({ data: records.map(record => toConfiguredMcpServer(record, tokens.get(record.id), nowMs)) }, 200);
+    return c.json(
+      { data: records.map(record => toConfiguredMcpServer({ record, token: tokens.get(record.id), nowMs })) },
+      200,
+    );
   };
 
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
@@ -134,7 +145,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     }
     // A re-upsert preserves `id`, so a DCR server may already carry a token from a prior authorize.
     const token = record.manifest.auth?.type === 'dcr' ? await deps.tokenStore.getToken({ id: record.id }) : undefined;
-    return c.json({ data: toConfiguredMcpServer(record, token, Date.now()) }, 200);
+    return c.json({ data: toConfiguredMcpServer({ record, token }) }, 200);
   };
 
   const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {
@@ -178,10 +189,8 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }
 
-    // No browser flow: header auth already carries credentials; no-auth servers need nothing.
-    // resolveMcpAuthStatus already maps header -> authenticated and no-auth -> not_required.
     if (record.manifest.auth?.type !== 'dcr') {
-      return c.json(resolveMcpAuthStatus(record.manifest, undefined, Date.now()), 200);
+      return c.json(resolveMcpAuthStatus({ manifest: record.manifest }), 200);
     }
 
     try {
