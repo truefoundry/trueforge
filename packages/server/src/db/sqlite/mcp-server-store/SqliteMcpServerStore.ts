@@ -1,6 +1,9 @@
+import type { OAuthClientRecord } from '@truefoundry/utils/core';
 import type { ExpressionBuilder, Kysely } from 'kysely';
 import { ulid } from 'ulid';
 import type { McpServerManifest } from '../../../schemas/mcpServer';
+import type { OAuthClient, OAuthServer } from '../../mcpOAuthTypes';
+import { fromStoredOAuthClientRecord, toStoredOAuthClientRecord } from '../../mcpOAuthTypes';
 import type { GetMcpServerInput, IMcpServerStore, McpServerRecord, UpsertMcpServerInput } from '../../mcpServerStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
@@ -64,5 +67,43 @@ export class SqliteMcpServerStore implements IMcpServerStore {
       )
       .returning(recordColumns)
       .executeTakeFirstOrThrow();
+  }
+
+  async getClient(params: { id: string }): Promise<OAuthClientRecord | undefined> {
+    const row = await this.#db
+      .selectFrom('mcp_server')
+      .select(eb => [
+        jsonText<OAuthServer | null>(eb.ref('oauth_server')).as('oauth_server'),
+        jsonText<OAuthClient | null>(eb.ref('oauth_client')).as('oauth_client'),
+      ])
+      .where('id', '=', params.id)
+      .executeTakeFirst();
+    if (row?.oauth_server == null || row.oauth_client == null) {
+      return undefined;
+    }
+    return fromStoredOAuthClientRecord({ server: row.oauth_server, client: row.oauth_client });
+  }
+
+  async saveClient(params: { id: string; record: OAuthClientRecord }): Promise<void> {
+    const stored = toStoredOAuthClientRecord(params.record);
+    await this.#db
+      .updateTable('mcp_server')
+      .set({
+        oauth_server: jsonbBind(stored.server),
+        oauth_client: jsonbBind(stored.client),
+      })
+      .where('id', '=', params.id)
+      .execute();
+  }
+
+  async deleteClient(params: { id: string }): Promise<void> {
+    await this.#db
+      .updateTable('mcp_server')
+      .set({
+        oauth_server: null,
+        oauth_client: null,
+      })
+      .where('id', '=', params.id)
+      .execute();
   }
 }

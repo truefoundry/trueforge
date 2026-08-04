@@ -10,6 +10,7 @@ export async function savePendingAuthorization(
 ): Promise<void> {
   // `state` and `id` are their own columns; only the remainder goes in the blob.
   const authData: OAuthPendingAuthorizationData = {
+    mcpServerUrl: pending.mcpServerUrl,
     codeVerifier: pending.codeVerifier,
     redirectUrl: pending.redirectUrl,
   };
@@ -25,15 +26,19 @@ export async function savePendingAuthorization(
     .execute();
 }
 
-export async function getPendingAuthorization(
+/**
+ * Single-use claim: DELETE … RETURNING under the TTL filter so only one concurrent
+ * callback wins the row.
+ */
+export async function consumePendingAuthorization(
   db: Kysely<Database>,
   params: { state: string },
 ): Promise<OAuthPendingAuthorization | undefined> {
   const row = await db
-    .selectFrom('oauth_pending_authorization')
-    .select(['id', 'oauth_server_id', 'auth_data'])
+    .deleteFrom('oauth_pending_authorization')
     .where('id', '=', params.state)
     .where('created_at', '>', nowMinusMs(PENDING_AUTHORIZATION_TTL_MS))
+    .returning(['id', 'oauth_server_id', 'auth_data'])
     .executeTakeFirst();
 
   if (row === undefined) {
@@ -43,11 +48,8 @@ export async function getPendingAuthorization(
   return {
     state: row.id,
     id: row.oauth_server_id,
+    mcpServerUrl: row.auth_data.mcpServerUrl,
     codeVerifier: row.auth_data.codeVerifier,
     redirectUrl: row.auth_data.redirectUrl,
   };
-}
-
-export async function deletePendingAuthorization(db: Kysely<Database>, params: { state: string }): Promise<void> {
-  await db.deleteFrom('oauth_pending_authorization').where('id', '=', params.state).execute();
 }

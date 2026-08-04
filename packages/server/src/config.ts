@@ -324,6 +324,16 @@ export interface ServerConfiguration {
   /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
   DATABASE_POOL_MAX: number;
   /**
+   * Postgres `statement_timeout` for app and migrations (same pool).
+   * Env: `POSTGRES_STATEMENT_TIMEOUT_MS`. Default 60000.
+   */
+  POSTGRES_STATEMENT_TIMEOUT_MS: number;
+  /**
+   * Postgres `idle_in_transaction_session_timeout` for app and migrations (same pool).
+   * Env: `POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS`. Default 60000.
+   */
+  POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: number;
+  /**
    * Max ms to wait for a peer executor's reply before failing with 424.
    * Env: `REDIS_REQUEST_REPLY_TIMEOUT_MS`. Default 60000.
    */
@@ -426,6 +436,16 @@ const configuration: ServerConfiguration = {
     envKey: 'DATABASE_POOL_MAX',
     raw: getEnv('DATABASE_POOL_MAX'),
     defaultValue: 10,
+  }),
+  POSTGRES_STATEMENT_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'POSTGRES_STATEMENT_TIMEOUT_MS',
+    raw: getEnv('POSTGRES_STATEMENT_TIMEOUT_MS'),
+    defaultValue: 60_000,
+  }),
+  POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS',
+    raw: getEnv('POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS'),
+    defaultValue: 60_000,
   }),
   REDIS_REQUEST_REPLY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'REDIS_REQUEST_REPLY_TIMEOUT_MS',

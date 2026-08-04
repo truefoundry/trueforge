@@ -1,9 +1,11 @@
 import {
   discoverOAuthServerInfo,
+  exchangeAuthorization,
   refreshAuthorization,
   registerClient,
   startAuthorization,
 } from '@modelcontextprotocol/sdk/client/auth.js';
+import { InvalidClientError } from '@modelcontextprotocol/sdk/server/auth/errors.js';
 import { resourceUrlFromServerUrl } from '@modelcontextprotocol/sdk/shared/auth-utils.js';
 import type {
   AuthorizationServerMetadata,
@@ -33,6 +35,13 @@ export type ResolveMcpAuthResult = McpAuthResolvedResult | McpAuthRequiredResult
 
 export function isMcpAuthRequired(result: ResolveMcpAuthResult): result is McpAuthRequiredResult {
   return 'authUrl' in result;
+}
+
+/** Result of a successful `completeMcpAuthorization` (token saved, pending cleared). */
+export interface CompleteMcpAuthorizationResult {
+  serverId: string;
+  /** FE post-OAuth landing URL from the original authorize call. */
+  redirectUrl: string | null;
 }
 
 /**
@@ -139,14 +148,13 @@ export async function createMcpOAuthClient(params: {
 }
 
 export async function ensureMcpClientRegistered(params: {
-  clientStore: IOAuthClientStore;
+  mcpServerStore: IOAuthClientStore;
   serverId: string;
   mcpServerUrl: string;
   mcpServerName: string;
-  publicBaseUrl: string;
   clientName: string;
 }): Promise<OAuthClientRecord> {
-  const existing = await params.clientStore.getClient({ id: params.serverId });
+  const existing = await params.mcpServerStore.getClient({ id: params.serverId });
   if (existing) {
     return existing;
   }
@@ -154,51 +162,60 @@ export async function ensureMcpClientRegistered(params: {
   const client = await createMcpOAuthClient({
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
-    redirectUri: mcpOAuthCallbackUrl(params.publicBaseUrl),
+    redirectUri: mcpOAuthCallbackUrl(),
     clientName: params.clientName,
   });
 
-  await params.clientStore.saveClient({ id: params.serverId, record: client });
+  await params.mcpServerStore.saveClient({ id: params.serverId, record: client });
   return client;
 }
 
 export async function buildMcpAuthorizationUrl(params: {
   tokenStore: IOAuthTokenStore;
-  clientStore: IOAuthClientStore;
+  mcpServerStore: IOAuthClientStore;
   serverId: string;
   mcpServerUrl: string;
   mcpServerName: string;
-  publicBaseUrl: string;
   clientName: string;
   /** FE post-OAuth landing URL (not the OAuth redirect_uri). */
   redirectUrl?: string;
 }): Promise<URL> {
   const client = await ensureMcpClientRegistered({
-    clientStore: params.clientStore,
+    mcpServerStore: params.mcpServerStore,
     serverId: params.serverId,
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
-    publicBaseUrl: params.publicBaseUrl,
     clientName: params.clientName,
   });
 
+  if (client.server.codeChallengeMethodsSupported?.includes('S256') !== true) {
+    throw new McpConnectionError(
+      `Authorization server for MCP server '${params.mcpServerName}' does not advertise PKCE S256; S256 is required`,
+      400,
+    );
+  }
+
   const state = randomBytes(32).toString('base64url');
-  const { authorizationUrl, codeVerifier } = await startAuthorization(mcpAuthorizationServerOrigin(client.server), {
+  const redirectUri = mcpOAuthCallbackUrl();
+  const resource = resourceUrlFromServerUrl(params.mcpServerUrl);
+
+  const started = await startAuthorization(mcpAuthorizationServerOrigin(client.server), {
     metadata: mcpAuthorizationServerMetadata(client.server),
     clientInformation: mcpClientInformation(client.client),
-    redirectUrl: mcpOAuthCallbackUrl(params.publicBaseUrl),
-    resource: resourceUrlFromServerUrl(params.mcpServerUrl),
+    redirectUrl: redirectUri,
+    resource,
     state,
   });
 
   await params.tokenStore.savePendingAuthorization({
     state,
     id: params.serverId,
-    codeVerifier,
+    mcpServerUrl: params.mcpServerUrl,
+    codeVerifier: started.codeVerifier,
     redirectUrl: params.redirectUrl ?? null,
   });
 
-  return authorizationUrl;
+  return started.authorizationUrl;
 }
 
 function isMcpAccessTokenUsable(expiresAtIso: string, nowMs: number): boolean {
@@ -219,17 +236,15 @@ function oauthTokensToOAuthToken(tokens: OAuthTokens, nowMs: number, fallbackRef
 
 export async function resolveMcpAuth(params: {
   tokenStore: IOAuthTokenStore;
-  clientStore: IOAuthClientStore;
+  mcpServerStore: IOAuthClientStore;
   serverId: string;
   mcpServerUrl: string;
   mcpServerName: string;
-  publicBaseUrl: string;
   clientName: string;
   /** FE post-OAuth landing URL (not the OAuth redirect_uri). */
   redirectUrl?: string;
-  nowMs?: number;
 }): Promise<ResolveMcpAuthResult> {
-  const nowMs = params.nowMs ?? Date.now();
+  const nowMs = Date.now();
   const token = await params.tokenStore.getToken({ id: params.serverId });
 
   if (token && isMcpAccessTokenUsable(token.expiresAt, nowMs)) {
@@ -237,7 +252,7 @@ export async function resolveMcpAuth(params: {
   }
 
   if (token?.refreshToken) {
-    const client = await params.clientStore.getClient({ id: params.serverId });
+    const client = await params.mcpServerStore.getClient({ id: params.serverId });
     if (client) {
       try {
         const refreshed = await refreshAuthorization(mcpAuthorizationServerOrigin(client.server), {
@@ -261,13 +276,76 @@ export async function resolveMcpAuth(params: {
 
   const authUrl = await buildMcpAuthorizationUrl({
     tokenStore: params.tokenStore,
-    clientStore: params.clientStore,
+    mcpServerStore: params.mcpServerStore,
     serverId: params.serverId,
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
-    publicBaseUrl: params.publicBaseUrl,
     clientName: params.clientName,
     ...(params.redirectUrl !== undefined ? { redirectUrl: params.redirectUrl } : {}),
   });
   return { authUrl };
+}
+
+/**
+ * OAuth callback: exchange `code` for tokens. Route must already reject IdP `error` params.
+ * Claims pending state atomically (`consumePendingAuthorization`) so duplicate callbacks lose
+ * the race; `mcpServerUrl` for the RFC 8707 `resource` comes from that pending row.
+ * On `invalid_client`, clears stored client + token so the next authorize re-registers.
+ */
+export async function completeMcpAuthorization(params: {
+  tokenStore: IOAuthTokenStore;
+  mcpServerStore: IOAuthClientStore;
+  state: string;
+  code: string;
+}): Promise<CompleteMcpAuthorizationResult> {
+  const nowMs = Date.now();
+
+  // Consume first so a concurrent/duplicate callback cannot redeem the same state.
+  const pending = await params.tokenStore.consumePendingAuthorization({ state: params.state });
+  if (!pending) {
+    throw new McpConnectionError('Unknown or expired OAuth state', 400);
+  }
+
+  const client = await params.mcpServerStore.getClient({ id: pending.id });
+  if (!client) {
+    throw new McpConnectionError(
+      `No OAuth client registered for MCP server id '${pending.id}'; re-run authorize first`,
+      400,
+    );
+  }
+
+  const { codeVerifier } = pending;
+  if (codeVerifier === null) {
+    throw new McpConnectionError('Pending authorization is missing PKCE code_verifier; re-run authorize', 400);
+  }
+
+  let tokens: OAuthTokens;
+  try {
+    tokens = await exchangeAuthorization(mcpAuthorizationServerOrigin(client.server), {
+      metadata: mcpAuthorizationServerMetadata(client.server),
+      clientInformation: mcpClientInformation(client.client),
+      authorizationCode: params.code,
+      codeVerifier,
+      redirectUri: mcpOAuthCallbackUrl(),
+      resource: resourceUrlFromServerUrl(pending.mcpServerUrl),
+    });
+  } catch (error: unknown) {
+    if (error instanceof InvalidClientError) {
+      await params.tokenStore.deleteToken({ id: pending.id });
+      await params.mcpServerStore.deleteClient({ id: pending.id });
+      throw new McpConnectionError('OAuth client registration is invalid; please retry connecting', 400, {
+        cause: error,
+      });
+    }
+    throw new McpConnectionError('OAuth token exchange failed', 400, {
+      cause: error instanceof Error ? error : undefined,
+    });
+  }
+
+  await params.tokenStore.saveToken({
+    id: pending.id,
+    token: oauthTokensToOAuthToken(tokens, nowMs, null),
+  });
+
+  return { serverId: pending.id, redirectUrl: pending.redirectUrl };
 }

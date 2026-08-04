@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 
 /**
  * Configured skills (canonical DDL owner).
@@ -9,6 +9,7 @@ import type { Kysely } from 'kysely';
  * the Zod layer — so future manifest fields are schema changes, not migrations.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await db.schema
     .createTable('skill')
     .addColumn('tenant_id', 'text', col => col.notNull())
@@ -21,5 +22,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await db.schema.dropTable('skill').ifExists().cascade().execute();
 }
