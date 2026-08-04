@@ -7,12 +7,15 @@ import type * as serializers from "../index.js";
 export const ResponseFormatJsonObject: core.serialization.ObjectSchema<
     serializers.ResponseFormatJsonObject.Raw,
     TrueHarness.ResponseFormatJsonObject
-> = core.serialization.object({
-    type: core.serialization.stringLiteral("json_object"),
-});
+> = core.serialization
+    .object({
+        type: core.serialization.stringLiteral("json_object"),
+    })
+    .passthrough();
 
 export declare namespace ResponseFormatJsonObject {
     export interface Raw {
         type: "json_object";
+        [key: string]: any;
     }
 }

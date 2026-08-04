@@ -80,7 +80,7 @@ export function refineUniqueModels(models: { model_id: string; name: string }[],
   for (const model of models) {
     if (seenModelIds.has(model.model_id)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: `Duplicate model_id "${model.model_id}" — model_ids must be unique within a provider`,
         path: ['models'],
       });
@@ -106,13 +106,13 @@ const ModelProviderManifestBaseSchema = z
 /** The endpoint is already known, so `base_url` only overrides it. */
 const WellKnownModelProviderManifestSchema = ModelProviderManifestBaseSchema.extend({
   type: z.enum(WELL_KNOWN_BASE_URL_TYPES),
-  base_url: z.string().url().optional().describe("Optional override of the provider's default API base URL."),
+  base_url: z.url().optional().describe("Optional override of the provider's default API base URL."),
 }).strict();
 
 /** Nothing to fall back on, so `base_url` is required. */
 const CallerSuppliedModelProviderManifestSchema = ModelProviderManifestBaseSchema.extend({
   type: z.enum(CALLER_SUPPLIED_BASE_URL_TYPES),
-  base_url: z.string().url().describe("Base URL of the provider's API."),
+  base_url: z.url().describe("Base URL of the provider's API."),
 }).strict();
 
 /**

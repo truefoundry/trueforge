@@ -7,7 +7,7 @@ import { mockServerPool } from "../../mock-server/MockServerPool";
 describe("SkillsClient", () => {
     test("list", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [{ description: "description", name: "name", path: "path", ref: "ref", type: "git", url: "url" }],
@@ -38,7 +38,7 @@ describe("SkillsClient", () => {
 
     test("upsert (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = { description: "description", name: "name", ref: "ref", type: "git", url: "url" };
         const rawResponseBody = {
             data: { description: "description", name: "name", path: "path", ref: "ref", type: "git", url: "url" },
@@ -74,7 +74,7 @@ describe("SkillsClient", () => {
 
     test("upsert (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = { description: "x", name: "xy", ref: "x", type: "git", url: "x" };
         const rawResponseBody = { error: { message: "message" } };
 
@@ -100,7 +100,7 @@ describe("SkillsClient", () => {
 
     test("catalog", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [{ description: "description", name: "name", path: "path", ref: "ref", type: "git", url: "url" }],

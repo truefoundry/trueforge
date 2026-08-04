@@ -140,5 +140,4 @@ export const ChatCompletionUserMessageParamSchema = z
 
 export const ChatCompletionChunkFinishReasonSchema = z
   .enum(['stop', 'length', 'tool_calls', 'content_filter', 'function_call'])
-  .nullable()
   .openapi('ChatCompletionChunkFinishReason');

@@ -2,4 +2,6 @@
 
 export interface ResponseFormatJsonObject {
     type: "json_object";
+    /** Accepts any additional properties */
+    [key: string]: any;
 }

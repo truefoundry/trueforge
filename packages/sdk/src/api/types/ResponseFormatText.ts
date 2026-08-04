@@ -2,4 +2,6 @@
 
 export interface ResponseFormatText {
     type: "text";
+    /** Accepts any additional properties */
+    [key: string]: any;
 }

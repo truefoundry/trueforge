@@ -459,10 +459,10 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   };
 
   const router = new OpenAPIHono();
+  router.openapi(createAndExecuteTurnRoute, createAndExecuteTurnHandler);
   router.openapi(listTurnsRoute, listTurnsHandler);
   router.openapi(getTurnRoute, getTurnHandler);
   router.openapi(listTurnEventsRoute, listTurnEventsHandler);
-  router.openapi(createAndExecuteTurnRoute, createAndExecuteTurnHandler);
   router.openapi(subscribeTurnRoute, subscribeTurnHandler);
   return router;
 }

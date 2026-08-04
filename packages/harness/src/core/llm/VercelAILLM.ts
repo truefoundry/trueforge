@@ -49,6 +49,16 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
+/** OpenAI SDK v7 unions function + custom tools; harness only emits function tools. */
+function isFunctionTool(tool: ChatCompletionTool): tool is Extract<ChatCompletionTool, { type: 'function' }> {
+  return tool.type === 'function';
+}
+
+/** OpenAI SDK v7 unions function + custom tool calls; harness only consumes function calls. */
+function isFunctionToolCall<T extends { type: string }>(toolCall: T): toolCall is Extract<T, { type: 'function' }> {
+  return toolCall.type === 'function';
+}
+
 /**
  * Providers with a case in {@link buildLanguageModel}. Canonical: the server derives the provider
  * types it will configure from this, so anything it accepts has an adapter behind it.
@@ -602,6 +612,9 @@ export function toAssistantModelMessage({
 
   if (msg.tool_calls?.length) {
     for (const tc of msg.tool_calls) {
+      if (!isFunctionToolCall(tc)) {
+        continue;
+      }
       let input: Record<string, unknown> = {};
       try {
         const parsed: unknown = JSON.parse(tc.function.arguments);
@@ -656,6 +669,9 @@ export function convertMessages({
   for (const msg of messages) {
     if (msg.role === 'assistant' && msg.tool_calls) {
       for (const tc of msg.tool_calls) {
+        if (!isFunctionToolCall(tc)) {
+          continue;
+        }
         toolNameById.set(tc.id, tc.function.name);
       }
     }
@@ -705,6 +721,9 @@ export function convertTools(tools: ChatCompletionTool[] | undefined): ToolSet |
   }
   const toolSet: ToolSet = {};
   for (const t of tools) {
+    if (!isFunctionTool(t)) {
+      continue;
+    }
     toolSet[t.function.name] = {
       inputSchema: jsonSchema(t.function.parameters ?? { type: 'object', properties: {} }),
       ...(t.function.description !== undefined ? { description: t.function.description } : {}),
@@ -1168,6 +1187,8 @@ export class VercelAILLM implements ILLM {
 
     // top_k is injected by AgentThread via Object.assign; not in the SDK type.
     const rawTopK: unknown = Reflect.get(body, 'top_k');
+    // seed is still accepted by providers but marked @deprecated on the OpenAI request type.
+    const rawSeed: unknown = Reflect.get(body, 'seed');
     const streamTextArgs = buildStreamTextArgs({
       model,
       instructions,
@@ -1182,7 +1203,7 @@ export class VercelAILLM implements ILLM {
       presencePenalty: body.presence_penalty,
       frequencyPenalty: body.frequency_penalty,
       stopSequences: typeof body.stop === 'string' ? [body.stop] : (body.stop ?? null),
-      seed: body.seed,
+      seed: typeof rawSeed === 'number' ? rawSeed : null,
       abortSignal: this.signal,
     });
 

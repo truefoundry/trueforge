@@ -165,7 +165,7 @@ const sandboxExecSchema = z.object({
     ),
   command: z.string().describe('The shell command to execute in the sandbox.'),
   cwd: z.string().optional().describe('Working directory for command execution.'),
-  env: z.record(z.string()).optional().describe('Additional environment variables to set.'),
+  env: z.record(z.string(), z.string()).optional().describe('Additional environment variables to set.'),
 });
 
 const SANDBOX_EXEC_DESCRIPTION = `Execute shell commands in a persistent sandbox environment.

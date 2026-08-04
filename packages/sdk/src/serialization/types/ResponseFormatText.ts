@@ -7,12 +7,15 @@ import type * as serializers from "../index.js";
 export const ResponseFormatText: core.serialization.ObjectSchema<
     serializers.ResponseFormatText.Raw,
     TrueHarness.ResponseFormatText
-> = core.serialization.object({
-    type: core.serialization.stringLiteral("text"),
-});
+> = core.serialization
+    .object({
+        type: core.serialization.stringLiteral("text"),
+    })
+    .passthrough();
 
 export declare namespace ResponseFormatText {
     export interface Raw {
         type: "text";
+        [key: string]: any;
     }
 }

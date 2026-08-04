@@ -98,7 +98,7 @@ export const putMcpServerRoute = createRoute({
 const ListMcpServerToolsResponseSchema = z
   .object({
     data: z
-      .array(z.record(z.unknown()))
+      .array(z.record(z.string(), z.unknown()))
       .describe('MCP `tools/list` entries, passed through verbatim from the MCP server.'),
   })
   .openapi('ListMcpServerToolsResponse');
@@ -141,7 +141,6 @@ export const listMcpServerToolsRoute = createRoute({
 
 const McpAuthorizeQuerySchema = z.object({
   redirect_url: z
-    .string()
     .url()
     .optional()
     .describe('Optional FE landing URL after OAuth (stored on pending auth; callback does not redirect yet).'),

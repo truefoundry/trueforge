@@ -1,1 +1,3 @@
 packages: ['.']
+confirmModulesPurge: false
+minimumReleaseAge: 0

@@ -1,6 +1,5 @@
 import type { CallToolRequest, ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
-import { type AnyZodObject, z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import { z } from 'zod';
 import type { ApprovalDecision } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
 import type { AgentTracing } from '../tracing/AgentTracing';
@@ -12,7 +11,7 @@ import {
   toolResultResponse,
 } from './IMCPServer';
 
-function withValidatedInput<T extends z.ZodTypeAny>(
+function withValidatedInput<T extends z.ZodType>(
   schema: T,
   fn: (input: z.infer<T>, approvalDecision?: ApprovalDecision) => Promise<CallToolResponse>,
 ) {
@@ -20,11 +19,11 @@ function withValidatedInput<T extends z.ZodTypeAny>(
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
       return toolResultResponse({
-        text: JSON.stringify({ error: 'Validation failed', details: parsed.error.flatten() }),
+        text: JSON.stringify({ error: 'Validation failed', details: z.treeifyError(parsed.error) }),
         isError: true,
       });
     }
-    return fn(parsed.data as z.infer<T>, approvalDecision);
+    return fn(parsed.data, approvalDecision);
   };
 }
 
@@ -34,14 +33,7 @@ export type ToolDefinition = ListToolsResult['tools'][number] & {
 
 type ToolInputSchema = ListToolsResult['tools'][number]['inputSchema'];
 
-function toJsonSchema(schema: AnyZodObject): ToolInputSchema {
-  // Once we update zod see if we can remove `schema as any`
-  // https://github.com/colinhacks/zod/issues/577
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- zod-to-json-schema typing lag
-  return zodToJsonSchema(schema as any, { strictUnions: true }) as ToolInputSchema;
-}
-
-export function defineTool<T extends AnyZodObject>(config: {
+export function defineTool<T extends z.ZodType>(config: {
   name: string;
   description: string;
   schema: T;
@@ -49,7 +41,9 @@ export function defineTool<T extends AnyZodObject>(config: {
   // user approves an approval-gated tool). Handlers that don't declare it ignore it.
   handler: (input: z.infer<T>, approvalDecision?: ApprovalDecision) => Promise<CallToolResponse>;
 }): ToolDefinition {
-  const jsonSchema = toJsonSchema(config.schema);
+  // Advertise the *input* shape: fields with `.default()` are optional to callers
+  // (Zod 4's default `io: "output"` would mark them required after defaults apply).
+  const jsonSchema = config.schema.toJSONSchema({ io: 'input' }) as ToolInputSchema;
   return {
     name: config.name,
     description: config.description,

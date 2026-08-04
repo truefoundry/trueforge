@@ -593,7 +593,6 @@
             },
             "properties": {
               "compaction_threshold_tokens": {
-                "default": 50000,
                 "exclusiveMinimum": 0,
                 "type": "integer"
               },
@@ -753,10 +752,7 @@
           "content_filter",
           "function_call"
         ],
-        "type": [
-          "string",
-          "null"
-        ]
+        "type": "string"
       },
       "GenerativeUIConfig": {
         "properties": {
@@ -1515,7 +1511,14 @@
             "type": "string"
           },
           "finish_reason": {
-            "$ref": "#/components/schemas/FinishReason"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FinishReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "description": "Unique identifier for the event",
@@ -1585,7 +1588,14 @@
             "type": "string"
           },
           "finish_reason": {
-            "$ref": "#/components/schemas/FinishReason"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FinishReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "description": "Unique identifier for the event",
@@ -1689,6 +1699,7 @@
         "type": "object"
       },
       "ModelParams": {
+        "additionalProperties": {},
         "properties": {
           "max_tokens": {
             "type": "number"
@@ -1898,6 +1909,7 @@
         ]
       },
       "ResponseFormatJsonObject": {
+        "additionalProperties": {},
         "properties": {
           "type": {
             "enum": [
@@ -1912,8 +1924,10 @@
         "type": "object"
       },
       "ResponseFormatJsonSchema": {
+        "additionalProperties": {},
         "properties": {
           "json_schema": {
+            "additionalProperties": {},
             "properties": {
               "description": {
                 "type": "string"
@@ -1951,6 +1965,7 @@
         "type": "object"
       },
       "ResponseFormatText": {
+        "additionalProperties": {},
         "properties": {
           "type": {
             "enum": [
@@ -2888,9 +2903,6 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/ModelMessageEvent"
-              },
-              {
-                "type": "null"
               },
               {
                 "type": "null"

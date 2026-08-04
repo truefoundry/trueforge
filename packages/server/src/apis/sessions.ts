@@ -46,7 +46,7 @@ export const SESSIONS_CANCEL_PATH = 'sessions/cancel';
 const CancelPeerBodySchema = z.object({
   session_id: z.string(),
   turn_id: z.string(),
-  reason: z.nativeEnum(CancellationReason),
+  reason: z.enum(CancellationReason),
 });
 type CancelPeerBody = z.infer<typeof CancelPeerBodySchema>;
 

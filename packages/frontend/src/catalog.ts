@@ -1,8 +1,8 @@
 /** DB-backed catalog list helpers for the composer pickers and boot. */
-import type { TrueHarness as Harness } from 'trueharness';
-import { TrueHarnessClient } from 'trueharness';
+import type { TrueHarnessApi as Harness } from 'trueharness';
+import { TrueHarness } from 'trueharness';
 
-const client = new TrueHarnessClient({ environment: '/' });
+const client = new TrueHarness({ baseUrl: '/' });
 
 export async function listModels(): Promise<Harness.Model[]> {
   const body = await client.models.list();
