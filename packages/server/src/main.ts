@@ -1,6 +1,7 @@
 /**
- * Server entry point: validates config, migrates the selected database,
- * loads the YAML stores, wires session / settings stores and starts HTTP.
+ * Server entry point: validates config, migrates Postgres, wires DB stores
+ * and starts the HTTP server. Any config, migration, or store error aborts startup.
+ * SQLite migrations are packaged under dist/ but are not run at startup.
  * Single-binary mode uses SQLite + in-memory event streams; multi-replica
  * uses Postgres + Redis. Any config, migration, or store error aborts startup.
  */
@@ -23,12 +24,9 @@ try {
     { createServerApp },
     { mountFrontend },
     { default: configuration },
-    { ModelStore },
-    { McpStore },
-    { SkillStore },
     { Sessions, CancellationReason },
     { ActiveTurnRegistry },
-    { createServerSandboxFactory },
+    { createServerSandboxProvider },
     { connectRedis },
     { RequestReplyExecutor, RequestReplyRouter },
     { EventSubscriptionRegistry },
@@ -40,9 +38,6 @@ try {
     import('./app'),
     import('./frontend'),
     import('./config'),
-    import('./legacy-registry-store/ModelStore'),
-    import('./legacy-registry-store/McpStore'),
-    import('./legacy-registry-store/SkillStore'),
     import('@truefoundry/utils-core/agent-session'),
     import('./runtime/activeTurns'),
     import('./runtime/sandboxFactory'),
@@ -152,8 +147,7 @@ try {
   }
 
   // Throws on malformed SANDBOX_SETTINGS; undefined when sandbox is not configured.
-  const legacySkillStore = SkillStore.load();
-  const sandboxFactory = createServerSandboxFactory({ logger });
+  const sandboxProvider = createServerSandboxProvider({ logger });
   const activeTurns = new ActiveTurnRegistry();
 
   let redis: RedisClientType | undefined;
@@ -167,22 +161,19 @@ try {
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
 
   const app = createServerApp({
-    modelStore: ModelStore.load(),
     modelCatalog: ModelCatalog.load(),
-    modelProviderStore,
     mcpCatalog: McpCatalog.load(),
+    skillCatalog: SkillCatalog.load(),
+    sandboxCatalog: SandboxCatalog.load(),
+    modelProviderStore,
     mcpServerStore,
     tokenStore,
-    mcpStore: McpStore.load(),
-    skillCatalog: SkillCatalog.load(),
     skillStore,
-    sandboxCatalog: SandboxCatalog.load(),
     sandboxProviderStore,
-    legacySkillStore,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,
-    ...(sandboxFactory ? { sandboxFactory } : {}),
+    ...(sandboxProvider ? { sandboxProvider } : {}),
     redis,
     requestReplyRouter,
     eventSubscriptions,

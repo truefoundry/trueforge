@@ -111,7 +111,7 @@
           },
           "skills": {
             "items": {
-              "$ref": "#/components/schemas/SkillMount"
+              "$ref": "#/components/schemas/SkillNameRef"
             },
             "type": "array"
           },
@@ -179,58 +179,6 @@
           "models",
           "type",
           "name"
-        ],
-        "type": "object"
-      },
-      "AnthropicProviderModelEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "api_key": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "base_url": {
-            "format": "uri",
-            "type": "string"
-          },
-          "headers": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object"
-          },
-          "max_output_tokens": {
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "model_id": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "name": {
-            "minLength": 1,
-            "pattern": "^[a-z0-9][a-z0-9.-]*$",
-            "type": "string"
-          },
-          "provider": {
-            "enum": [
-              "anthropic"
-            ],
-            "type": "string"
-          },
-          "reasoning_efforts": {
-            "items": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "minItems": 1,
-            "type": "array"
-          }
-        },
-        "required": [
-          "name",
-          "max_output_tokens",
-          "provider"
         ],
         "type": "object"
       },
@@ -472,6 +420,7 @@
           "type",
           "name",
           "url",
+          "ref",
           "description"
         ],
         "type": "object"
@@ -739,65 +688,6 @@
         ],
         "type": "object"
       },
-      "CustomProviderModelEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "api_format": {
-            "enum": [
-              "openai-chat-completions"
-            ],
-            "type": "string"
-          },
-          "api_key": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "base_url": {
-            "format": "uri",
-            "type": "string"
-          },
-          "headers": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object"
-          },
-          "max_output_tokens": {
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "model_id": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "name": {
-            "minLength": 1,
-            "pattern": "^[a-z0-9][a-z0-9.-]*$",
-            "type": "string"
-          },
-          "provider": {
-            "enum": [
-              "custom"
-            ],
-            "type": "string"
-          },
-          "reasoning_efforts": {
-            "items": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "minItems": 1,
-            "type": "array"
-          }
-        },
-        "required": [
-          "name",
-          "max_output_tokens",
-          "provider",
-          "base_url"
-        ],
-        "type": "object"
-      },
       "DaytonaSandboxProvider": {
         "additionalProperties": false,
         "properties": {
@@ -971,34 +861,6 @@
         ],
         "type": "object"
       },
-      "GetLegacyCapabilitiesResponse": {
-        "properties": {
-          "data": {
-            "properties": {
-              "sandbox": {
-                "properties": {
-                  "enabled": {
-                    "description": "Whether this server has a sandbox provider configured via SANDBOX_SETTINGS.",
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "enabled"
-                ],
-                "type": "object"
-              }
-            },
-            "required": [
-              "sandbox"
-            ],
-            "type": "object"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "type": "object"
-      },
       "GetMcpServerCatalogResponse": {
         "properties": {
           "data": {
@@ -1088,58 +950,6 @@
         ],
         "type": "object"
       },
-      "GoogleGeminiProviderModelEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "api_key": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "base_url": {
-            "format": "uri",
-            "type": "string"
-          },
-          "headers": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object"
-          },
-          "max_output_tokens": {
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "model_id": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "name": {
-            "minLength": 1,
-            "pattern": "^[a-z0-9][a-z0-9.-]*$",
-            "type": "string"
-          },
-          "provider": {
-            "enum": [
-              "google-gemini"
-            ],
-            "type": "string"
-          },
-          "reasoning_efforts": {
-            "items": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "minItems": 1,
-            "type": "array"
-          }
-        },
-        "required": [
-          "name",
-          "max_output_tokens",
-          "provider"
-        ],
-        "type": "object"
-      },
       "LargeToolResponseConfig": {
         "default": {
           "enabled": true
@@ -1208,80 +1018,7 @@
         ],
         "type": "object"
       },
-      "ListLegacyModelsResponse": {
-        "properties": {
-          "data": {
-            "items": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/ModelEntry"
-                },
-                {
-                  "discriminator": {
-                    "mapping": {
-                      "anthropic": "#/components/schemas/AnthropicProviderModelEntry",
-                      "custom": "#/components/schemas/CustomProviderModelEntry",
-                      "google-gemini": "#/components/schemas/GoogleGeminiProviderModelEntry",
-                      "openai": "#/components/schemas/OpenAIProviderModelEntry"
-                    },
-                    "propertyName": "provider"
-                  },
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/OpenAIProviderModelEntry"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AnthropicProviderModelEntry"
-                    },
-                    {
-                      "$ref": "#/components/schemas/GoogleGeminiProviderModelEntry"
-                    },
-                    {
-                      "$ref": "#/components/schemas/CustomProviderModelEntry"
-                    }
-                  ]
-                }
-              ]
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "type": "object"
-      },
       "ListMcpServerToolsResponse": {
-        "properties": {
-          "data": {
-            "description": "MCP `tools/list` entries, passed through verbatim from the MCP server.",
-            "items": {
-              "additionalProperties": {},
-              "type": "object"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "type": "object"
-      },
-      "ListMcpServersResponse": {
-        "properties": {
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/McpServerEntry"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "type": "object"
-      },
-      "ListMcpToolsResponse": {
         "properties": {
           "data": {
             "description": "MCP `tools/list` entries, passed through verbatim from the MCP server.",
@@ -1367,20 +1104,6 @@
         "required": [
           "data",
           "pagination"
-        ],
-        "type": "object"
-      },
-      "ListSkillsResponse": {
-        "properties": {
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/SkillEntry"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "data"
         ],
         "type": "object"
       },
@@ -1694,24 +1417,6 @@
         ],
         "type": "object"
       },
-      "McpServerAuthSettings": {
-        "oneOf": [
-          {
-            "properties": {
-              "type": {
-                "enum": [
-                  "dcr"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type"
-            ],
-            "type": "object"
-          }
-        ]
-      },
       "McpServerDcrAuth": {
         "additionalProperties": false,
         "properties": {
@@ -1724,37 +1429,6 @@
         },
         "required": [
           "type"
-        ],
-        "type": "object"
-      },
-      "McpServerEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/McpServerAuthSettings"
-          },
-          "auth_status": {
-            "description": "Passive check only: whether a stored, unexpired token exists. Never attempts a live refresh, so an expired-but-refreshable token still reads as `authentication_required` here. `not_required` for servers without `auth` configured.",
-            "enum": [
-              "authenticated",
-              "authentication_required",
-              "not_required"
-            ],
-            "type": "string"
-          },
-          "name": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "url": {
-            "format": "uri",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "url",
-          "auth_status"
         ],
         "type": "object"
       },
@@ -2182,58 +1856,6 @@
           "models",
           "type",
           "name"
-        ],
-        "type": "object"
-      },
-      "OpenAIProviderModelEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "api_key": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "base_url": {
-            "format": "uri",
-            "type": "string"
-          },
-          "headers": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object"
-          },
-          "max_output_tokens": {
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "model_id": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "name": {
-            "minLength": 1,
-            "pattern": "^[a-z0-9][a-z0-9.-]*$",
-            "type": "string"
-          },
-          "provider": {
-            "enum": [
-              "openai"
-            ],
-            "type": "string"
-          },
-          "reasoning_efforts": {
-            "items": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "minItems": 1,
-            "type": "array"
-          }
-        },
-        "required": [
-          "name",
-          "max_output_tokens",
-          "provider"
         ],
         "type": "object"
       },
@@ -2686,37 +2308,6 @@
         ],
         "type": "object"
       },
-      "SkillEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "name": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "path": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "ref": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "url": {
-            "format": "uri",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "url",
-          "description"
-        ],
-        "type": "object"
-      },
       "SkillManifest": {
         "additionalProperties": false,
         "properties": {
@@ -2754,55 +2345,24 @@
           "type",
           "name",
           "url",
+          "ref",
           "description"
         ],
         "type": "object"
       },
-      "SkillMount": {
+      "SkillNameRef": {
+        "additionalProperties": false,
         "properties": {
-          "description": {
-            "description": "Concise guidance for when the agent should use the skill.",
-            "minLength": 1,
-            "type": "string"
-          },
           "name": {
             "description": "Name for the skill, used as directory name in sandbox.",
             "maxLength": 64,
             "minLength": 1,
             "pattern": "^[A-Za-z0-9._-]+$",
             "type": "string"
-          },
-          "path": {
-            "description": "Path to the skill directory within the repository. Omit to use the repository root.",
-            "minLength": 1,
-            "pattern": "^[A-Za-z0-9._\\-/]+$",
-            "type": "string"
-          },
-          "ref": {
-            "description": "Git ref — branch name, tag, or commit SHA.",
-            "minLength": 1,
-            "pattern": "^[A-Za-z0-9._\\-/]+$",
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "git"
-            ],
-            "type": "string"
-          },
-          "url": {
-            "description": "Full HTTPS URL of a GitHub or GitLab repository.",
-            "minLength": 1,
-            "pattern": "^https:\\/\\/(github\\.com\\/[A-Za-z0-9._-]+\\/[A-Za-z0-9._-]+|gitlab\\.com\\/[A-Za-z0-9._-]+(?:\\/[A-Za-z0-9._-]+)+)(\\/|\\.git)?$",
-            "type": "string"
           }
         },
         "required": [
-          "type",
-          "url",
-          "name",
-          "description",
-          "ref"
+          "name"
         ],
         "type": "object"
       },
@@ -3670,7 +3230,7 @@
     }
   },
   "info": {
-    "description": "Agent server exposing models, MCP servers and skills from local YAML config.",
+    "description": "Agent server with DB-backed sessions, settings catalogs, and model/MCP/skill providers.",
     "title": "Agent Server",
     "version": "0.1.0"
   },
@@ -3699,179 +3259,6 @@
           "server"
         ],
         "x-fern-sdk-method-name": "get_capabilities"
-      }
-    },
-    "/api/v1/legacy/capabilities": {
-      "get": {
-        "description": "Report optional runtime capabilities from boot-time SANDBOX_SETTINGS. Prefer GET /api/v1/capabilities for new clients.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetLegacyCapabilitiesResponse"
-                }
-              }
-            },
-            "description": "Server capabilities (legacy)."
-          }
-        },
-        "summary": "Get server capabilities (legacy)",
-        "tags": [
-          "Legacy Capabilities"
-        ],
-        "x-fern-sdk-group-name": [
-          "legacy",
-          "server"
-        ],
-        "x-fern-sdk-method-name": "get_capabilities"
-      }
-    },
-    "/api/v1/legacy/mcp-servers": {
-      "get": {
-        "description": "MCP servers declared in mcp.yaml, each with a passive auth_status snapshot. Auth headers are configured via env vars and never returned.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListMcpServersResponse"
-                }
-              }
-            },
-            "description": "All configured MCP servers."
-          }
-        },
-        "summary": "List MCP servers",
-        "tags": [
-          "Legacy MCP Servers"
-        ],
-        "x-fern-sdk-group-name": [
-          "legacy",
-          "mcp_servers"
-        ],
-        "x-fern-sdk-method-name": "list"
-      }
-    },
-    "/api/v1/legacy/mcp-servers/{name}/tools": {
-      "get": {
-        "description": "All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call. No agent-spec tool selectors are applied — this is the raw server catalog.",
-        "parameters": [
-          {
-            "description": "MCP server name from mcp.yaml.",
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "description": "MCP server name from mcp.yaml.",
-              "minLength": 1,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListMcpToolsResponse"
-                }
-              }
-            },
-            "description": "All tools of the MCP server."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "The MCP server requires authentication (configure MCP_HEADERS / MCP_{NAME}_HEADERS)."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "MCP server not declared in mcp.yaml."
-          },
-          "502": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "The MCP server could not be reached or returned an error."
-          }
-        },
-        "summary": "List tools of an MCP server",
-        "tags": [
-          "Legacy MCP Servers"
-        ],
-        "x-fern-sdk-group-name": [
-          "legacy",
-          "mcp_servers"
-        ],
-        "x-fern-sdk-method-name": "list_tools"
-      }
-    },
-    "/api/v1/legacy/models": {
-      "get": {
-        "description": "Models declared in models.yaml — the registry the runtime still uses for turns.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListLegacyModelsResponse"
-                }
-              }
-            },
-            "description": "All configured models."
-          }
-        },
-        "summary": "List models (models.yaml)",
-        "tags": [
-          "Legacy Models"
-        ],
-        "x-fern-sdk-group-name": [
-          "legacy",
-          "models"
-        ],
-        "x-fern-sdk-method-name": "list"
-      }
-    },
-    "/api/v1/legacy/skills": {
-      "get": {
-        "description": "Agent skills declared in skills.yaml.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListSkillsResponse"
-                }
-              }
-            },
-            "description": "All configured skills."
-          }
-        },
-        "summary": "List skills",
-        "tags": [
-          "Legacy Skills"
-        ],
-        "x-fern-sdk-group-name": [
-          "legacy",
-          "skills"
-        ],
-        "x-fern-sdk-method-name": "list"
       }
     },
     "/api/v1/mcp-servers": {

@@ -1,19 +1,18 @@
 /**
- * Boot-time sandbox composition: parses `SANDBOX_SETTINGS` into the harness's
- * provider-settings union, builds the provider once, and returns the per-run
- * {@link TurnSandboxFactory} handed to TurnResourceResolver. Returns undefined
- * when the server has no sandbox configuration — admission then rejects specs
- * with `config.sandbox.enabled`.
+ * Boot-time sandbox provider from `SANDBOX_SETTINGS`, plus a shared Sandbox
+ * builder that takes already-resolved git skill mounts (no skill store).
  *
  * Called from main.ts so a malformed SANDBOX_SETTINGS aborts startup instead
- * of failing mid-turn.
+ * of failing mid-turn. Skill expansion stays in the DB turn resolvers.
  */
-import type { TurnSandboxFactory } from '@truefoundry/utils-core/agent-session';
 import {
   createSandboxProvider,
   Sandbox,
   SandboxProviderSettingsSchema,
   SkillMounter,
+  type AgentTracing,
+  type GitSkill,
+  type SandboxProvider,
 } from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import { ZodError } from 'zod';
@@ -47,10 +46,38 @@ function parseSandboxSettings(rawJson: string) {
 }
 
 /**
- * Builds the per-run sandbox factory from the environment, or undefined when
- * sandbox is not configured. Throws on any misconfiguration.
+ * Builds a Sandbox for one turn from resolved git mounts. Callers expand
+ * skills from ISkillStore before invoking this.
  */
-export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandboxFactory | undefined {
+export function buildTurnSandbox(input: {
+  provider: SandboxProvider;
+  logger: Logger;
+  gitSkills: readonly GitSkill[];
+  fileDownloadEnabled: boolean;
+  existingSandboxId?: string | undefined;
+  tracing: AgentTracing;
+}): Sandbox {
+  const skillMounter = input.gitSkills.length > 0 ? new SkillMounter([...input.gitSkills]) : undefined;
+  return new Sandbox({
+    provider: input.provider,
+    existingSandboxId: input.existingSandboxId,
+    fileDownloadEnabled: input.fileDownloadEnabled,
+    blockDestructiveToolsInCodeMode: true,
+    // Sandbox reads its tenant from TFY_TENANT_NAME (see Sandbox constructor)
+    // for the ownership check against provider-created sandbox ids
+    // (`<tenant>.<uuid>`). Must match the tenantName given to the provider.
+    execExtraEnv: { TFY_TENANT_NAME: TENANT_ID },
+    ...(skillMounter ? { skillMounter } : {}),
+    tracing: input.tracing,
+    logger: input.logger,
+  });
+}
+
+/**
+ * Builds the shared SandboxProvider, or undefined when sandbox is not configured.
+ * Throws on any misconfiguration.
+ */
+export function createServerSandboxProvider(deps: { logger: Logger }): SandboxProvider | undefined {
   if (configuration.SANDBOX_SETTINGS === undefined) {
     if (configuration.SANDBOX_API_KEY !== undefined) {
       throw new Error(
@@ -63,42 +90,11 @@ export function createServerSandboxFactory(deps: { logger: Logger }): TurnSandbo
 
   const settings = parseSandboxSettings(configuration.SANDBOX_SETTINGS);
   const logger = deps.logger.child({ module: 'sandboxFactory' });
-  const provider = createSandboxProvider({
+  return createSandboxProvider({
     settings,
     tenantName: TENANT_ID,
     fileMaxBytes: configuration.SANDBOX_FILE_MAX_BYTES,
     previewUrlExpirySeconds: configuration.SANDBOX_PREVIEW_URL_EXPIRY_SECONDS,
     logger,
   });
-
-  return ({ spec, existingSandboxId, tracing }) => {
-    const skills = spec.skills ?? [];
-    const skillMounter =
-      skills.length > 0
-        ? new SkillMounter(
-            skills.map(skill => ({
-              name: skill.name,
-              description: skill.description,
-              url: skill.url,
-              path: skill.path ?? '',
-              ref: skill.ref,
-            })),
-          )
-        : undefined;
-    return Promise.resolve(
-      new Sandbox({
-        provider,
-        existingSandboxId,
-        fileDownloadEnabled: spec.config?.sandbox?.file_downloads ?? false,
-        blockDestructiveToolsInCodeMode: true,
-        // Sandbox reads its tenant from TFY_TENANT_NAME (see Sandbox constructor)
-        // for the ownership check against provider-created sandbox ids
-        // (`<tenant>.<uuid>`). Must match the tenantName given to the provider.
-        execExtraEnv: { TFY_TENANT_NAME: TENANT_ID },
-        ...(skillMounter ? { skillMounter } : {}),
-        tracing,
-        logger,
-      }),
-    );
-  };
 }

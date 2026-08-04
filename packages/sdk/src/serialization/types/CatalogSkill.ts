@@ -11,7 +11,7 @@ export const CatalogSkill: core.serialization.ObjectSchema<serializers.CatalogSk
         description: core.serialization.string(),
         name: ResourceName,
         path: core.serialization.string().optional(),
-        ref: core.serialization.string().optional(),
+        ref: core.serialization.string(),
         type: SkillType,
         url: core.serialization.string(),
     });
@@ -21,7 +21,7 @@ export declare namespace CatalogSkill {
         description: string;
         name: ResourceName.Raw;
         path?: string | null;
-        ref?: string | null;
+        ref: string;
         type: SkillType.Raw;
         url: string;
     }

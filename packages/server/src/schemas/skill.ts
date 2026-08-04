@@ -2,10 +2,9 @@
  * Configured skill domain + wire schemas: the `skill.manifest` JSONB document
  * and admin/chat list projections. Catalog file schemas live in skillCatalog.ts.
  *
- * Git field rules mirror harness SkillMount (GitHub/GitLab HTTPS url, path/ref
- * constraints) so settings documents stay mount-compatible. Identity uses
- * NameSchema like model providers / MCP servers. Legacy YAML SkillEntry stays
- * on legacy-registry-store — not this schema.
+ * Git field rules mirror harness git skill mounts (GitHub/GitLab HTTPS url,
+ * path/ref constraints) so settings documents stay mount-compatible. Identity
+ * uses NameSchema like model providers / MCP servers.
  */
 import { z } from '@hono/zod-openapi';
 import { NameSchema } from './common';
@@ -41,8 +40,7 @@ export const SkillGitPathSchema = z
   .describe('Path to the skill directory within the repository. Omit to use the repository root.');
 
 /**
- * Shared with catalog presets. Optional on configured/catalog rows; composer
- * defaults omitted refs to HEAD when building a SkillMount.
+ * Shared with catalog presets. Required on configured skills (no silent HEAD default).
  */
 export const SkillGitRefSchema = z
   .string()
@@ -66,7 +64,7 @@ export const SkillManifestObjectSchema = z
     name: NameSchema,
     url: SkillGitUrlSchema,
     path: SkillGitPathSchema.optional(),
-    ref: SkillGitRefSchema.optional(),
+    ref: SkillGitRefSchema,
     description: SkillDescriptionSchema,
   })
   .strict();

@@ -1,7 +1,7 @@
 /**
- * Turn route definitions (mounted at /api/v1/sessions). Creating a turn responds
- * with a Server-Sent Events stream; a running turn can be re-subscribed to
- * with resume support. Handlers are registered in apis/turns.ts.
+ * Turn route definitions.
+ * DB-backed routes mount at /api/v1/sessions.
+ * Handlers are registered in apis/turns.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';

@@ -5,8 +5,7 @@
  *
  * Auth mirrors gateway MCP header/DCR shapes in reduced form: `header` stores
  * shared request headers on the row; `dcr` is the OAuth/DCR stub until real
- * token exchange lands. Legacy YAML still uses MCP_HEADERS /
- * MCP_{NAME}_HEADERS env vars — not this schema.
+ * token exchange lands.
  */
 import { z } from '@hono/zod-openapi';
 import { NameSchema } from './common';
@@ -96,8 +95,7 @@ export type McpServerReadEntry = z.infer<typeof McpServerReadEntrySchema>;
 
 /**
  * Headers for live MCP calls against a configured server.
- * Only `auth.type === 'header'` contributes; DCR uses tokens later, not env
- * MCP_HEADERS (those remain on the legacy YAML path).
+ * Only `auth.type === 'header'` contributes; DCR uses tokens later.
  */
 export function resolveConfiguredMcpRequestHeaders(manifest: McpServerManifest): Record<string, string> {
   if (manifest.auth?.type === 'header') {
