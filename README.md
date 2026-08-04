@@ -17,10 +17,9 @@ The API and frontend run on the host with hot reload. Postgres and Redis run in 
 ```bash
 pnpm install
 cp packages/server/.env.example packages/server/.env
-cp -R packages/server/registry-example packages/server/registry
 ```
 
-Fill in `MODEL_API_KEY` in `packages/server/.env`. The copied defaults already connect the host server to the Compose services.
+Fill in any required secrets in `packages/server/.env`. The copied defaults already connect the host server to the Compose services.
 
 ### Day-to-day
 
@@ -82,9 +81,9 @@ pnpm smoke       # build, wait for healthy services, then check /healthz and the
 pnpm smoke:down  # stop the stack
 ```
 
-Open `http://localhost:8791`. Secrets and Postgres credentials come from `packages/server/.env` (`MODEL_API_KEY`, etc.). Host ports and in-network DB/Redis targets are fixed in Compose so they do not collide with development: Postgres `:5433`, Redis `:6380`, app `:8791` (vs `pnpm dev:infra` on `:5432`/`:6379` and `pnpm dev` on `:8790`/`:3000`).
+Open `http://localhost:8791`. Secrets and Postgres credentials come from `packages/server/.env`. Host ports and in-network DB/Redis targets are fixed in Compose so they do not collide with development: Postgres `:5433`, Redis `:6380`, app `:8791` (vs `pnpm dev:infra` on `:5432`/`:6379` and `pnpm dev` on `:8790`/`:3000`).
 
-Requires `packages/server/.env` and a `packages/server/registry/` directory (mounted read-only). `.env`, `registry/`, and `data/` are gitignored. Development infra stores Postgres under `./data/dev/postgres`.
+Requires `packages/server/.env`. `.env` and `data/` are gitignored. Development infra stores Postgres under `./data/dev/postgres`.
 
 ## SDK generation
 

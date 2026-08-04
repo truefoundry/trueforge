@@ -11,7 +11,7 @@ export const SkillManifest: core.serialization.ObjectSchema<serializers.SkillMan
         description: core.serialization.string(),
         name: ResourceName,
         path: core.serialization.string().optional(),
-        ref: core.serialization.string().optional(),
+        ref: core.serialization.string(),
         type: SkillType,
         url: core.serialization.string(),
     });
@@ -21,7 +21,7 @@ export declare namespace SkillManifest {
         description: string;
         name: ResourceName.Raw;
         path?: string | null;
-        ref?: string | null;
+        ref: string;
         type: SkillType.Raw;
         url: string;
     }

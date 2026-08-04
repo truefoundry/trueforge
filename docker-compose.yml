@@ -1,6 +1,6 @@
-# Full-stack smoke test. Reads packages/server/.env for secrets (e.g.
-# MODEL_API_KEY) and credentials; host ports and in-network DB/Redis targets
-# are opinionated here so they do not collide with or inherit host-dev values.
+# Full-stack smoke test. Reads packages/server/.env for secrets and
+# credentials; host ports and in-network DB/Redis targets are opinionated here
+# so they do not collide with or inherit host-dev values.
 name: harness
 
 services:
@@ -56,14 +56,11 @@ services:
       # to true and drop the redis service entirely.
       SINGLE_BINARY: 'false'
       REDIS_URL: redis://redis:6379
-    # Secrets and Postgres credentials (MODEL_API_KEY, POSTGRES_USER, …).
+    # Secrets and Postgres credentials (POSTGRES_USER, …).
     # `environment` above overrides any colliding keys from this file.
     env_file:
       - path: packages/server/.env
         required: true
-    # Copy registry-example to registry before starting the service.
-    volumes:
-      - ./packages/server/registry:/app/packages/server/registry:ro
     depends_on:
       postgres:
         condition: service_healthy

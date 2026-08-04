@@ -1,10 +1,14 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Sessions } from '@truefoundry/utils-core/agent-session';
-import { InMemorySessionStore, TurnNotFoundError } from '@truefoundry/utils-core/agent-session';
+import { TurnNotFoundError } from '@truefoundry/utils-core/agent-session';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
-import { McpStore } from '../../../src/legacy-registry-store/McpStore';
-import { ModelStore } from '../../../src/legacy-registry-store/ModelStore';
+import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { createSqliteDb } from '../../../src/db/sqlite/client';
+import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
+import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
+import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 
@@ -17,9 +21,29 @@ describe('turn SSE after session deletion', () => {
       return logger;
     }) as typeof logger.warn;
 
+    const db = createSqliteDb(':memory:');
+    await migrateSqliteToLatest(db);
+    const modelProviderStore = new SqliteModelProviderStore(db);
+    await modelProviderStore.upsertProvider({
+      tenant_id: 'default',
+      name: 'test-provider',
+      manifest: {
+        type: 'openai',
+        auth: { api_key: 'sk-test' },
+        models: [
+          {
+            model_id: 'test-model',
+            name: 'test-model',
+            properties: { context_length: 128000, max_output_tokens: 4096 },
+          },
+        ],
+      },
+    });
+
     const sessions = {
       get: () =>
         Promise.resolve({
+          agent_spec: { model: { name: 'test-provider/test-model' } },
           record: { last_turn_id: null },
           createTurn: () =>
             Promise.resolve({
@@ -36,10 +60,11 @@ describe('turn SSE after session deletion', () => {
       '/',
       createTurnsRouter({
         sessions,
-        sessionStore: new InMemorySessionStore(),
+        sessionStore: new SqliteSessionStore(db),
         activeTurns: new ActiveTurnRegistry(),
-        modelStore: new ModelStore([]),
-        mcpStore: new McpStore([]),
+        modelProviderStore,
+        mcpServerStore: new SqliteMcpServerStore(db),
+        skillStore: new SqliteSkillStore(db),
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         logger,
       }),
