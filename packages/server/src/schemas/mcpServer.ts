@@ -107,21 +107,13 @@ export function resolveConfiguredMcpRequestHeaders(manifest: McpServerManifest):
   return {};
 }
 
-/**
- * Passive auth_status for the settings list/put views — reflects stored state only, never a live
- * refresh (that happens on `authorize`/`resolveMcpAuth`). Header credentials live on the row, so
- * header (and no-auth) servers are always authenticated. DCR is authenticated only while a stored,
- * unexpired token exists; a missing or expired token reads as auth_required (an expired-but-
- * refreshable token still shows auth_required here — refreshing it is `authorize`'s job). Shares
- * the same expiry check as the live `resolveMcpAuth` path via `isOAuthAccessTokenUsable`.
- */
 export function resolveMcpAuthStatus(
   manifest: McpServerManifest,
   token: OAuthToken | undefined,
   nowMs: number,
 ): McpAuthStatus {
   if (manifest.auth?.type === 'dcr') {
-    const authenticated = token !== undefined && isOAuthAccessTokenUsable(token.expiresAt, nowMs);
+    const authenticated = token && isOAuthAccessTokenUsable(token.expiresAt, nowMs);
     return authenticated ? { status: 'authenticated' } : { status: 'auth_required' };
   }
   return { status: 'authenticated' };

@@ -65,7 +65,9 @@ function toConfiguredMcpServer(
   };
 }
 
-/** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers). */
+/** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers).
+ *  TODO: Remove the server via txn if DCR fails to register
+ */
 export function createMcpServersRouter(deps: McpServersRouterDeps) {
   const registerDcrClient = async (params: {
     serverId: string;

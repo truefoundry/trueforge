@@ -139,9 +139,8 @@ export async function createMcpOAuthClient(params: {
   // Missing/omitted advertisement → still try S256 (many servers support it but do not publish).
   const pkceMethods = metadata.code_challenge_methods_supported;
   if (pkceMethods && !pkceMethods.includes('S256')) {
-    throw new McpConnectionError(
+    throw new McpDcrConfigurationError(
       `Authorization server for MCP server '${mcpServerName}' advertises PKCE methods without S256`,
-      400,
     );
   }
 
