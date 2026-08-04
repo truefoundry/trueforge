@@ -31,7 +31,7 @@
     "@hono/zod-openapi": "^1.5.1",
     "@truefoundry/utils-core": "workspace:*",
     "better-sqlite3": "^13.0.2",
-    "hono": "^4.12.31",
+    "hono": "^4.12.34",
     "kysely": "^0.29.4",
     "pg": "^8.22.0",
     "redis": "^5.10.0",
