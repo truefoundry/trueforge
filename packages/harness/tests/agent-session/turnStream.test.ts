@@ -389,6 +389,8 @@ describe('TurnHandle.stream()', () => {
     const resolver = new TurnResourceResolver({
       llm: () => makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
+      mcpRequestTimeoutMs: 60_000,
+      mcpConnectTimeoutMs: 5_000,
       sandboxProvider: () => Promise.resolve(sandbox),
       logger,
     });
@@ -427,6 +429,8 @@ describe('TurnResourceResolver caches', () => {
             headers: {},
             logger,
             tracing: this.createTracing(),
+            requestTimeoutMs: 60_000,
+            connectTimeoutMs: 5_000,
             signal: new AbortController().signal,
           });
         };
@@ -439,6 +443,8 @@ describe('TurnResourceResolver caches', () => {
     })({
       llm: () => makeMockILLM(),
       mcp: () => Promise.resolve({ url: 'http://example.invalid' }),
+      mcpRequestTimeoutMs: 60_000,
+      mcpConnectTimeoutMs: 5_000,
       logger,
     });
     await resolver.resolveTwice();
@@ -453,6 +459,8 @@ describe('TurnResourceResolver caches', () => {
     const resolver = new TurnResourceResolver({
       llm: () => makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
+      mcpRequestTimeoutMs: 60_000,
+      mcpConnectTimeoutMs: 5_000,
       sandboxProvider: () => {
         sandboxCreates += 1;
         return Promise.resolve(sandbox);

@@ -54,7 +54,8 @@ export class RemoteMCP implements ToolSource {
   private readonly signal: AbortSignal;
   private readonly logger: Logger;
   private readonly tracing: AgentTracing;
-  private readonly connectTimeoutMs?: number | undefined;
+  private readonly requestTimeoutMs: number;
+  private readonly connectTimeoutMs: number;
   // Redacted display url for trace spans (derived from url; unused when tracing is a no-op).
   private readonly traceUrl: string;
 
@@ -76,7 +77,8 @@ export class RemoteMCP implements ToolSource {
     tracing?: AgentTracing | undefined;
     sessionId?: string | undefined;
     transportType?: RemoteMcpTransportType | undefined;
-    connectTimeoutMs?: number | undefined;
+    requestTimeoutMs: number;
+    connectTimeoutMs: number;
     signal: AbortSignal;
   }) {
     this.name = params.name;
@@ -87,6 +89,7 @@ export class RemoteMCP implements ToolSource {
     this.signal = params.signal;
     this.sessionId = params.sessionId;
     this.resolvedTransportType = params.transportType;
+    this.requestTimeoutMs = params.requestTimeoutMs;
     this.connectTimeoutMs = params.connectTimeoutMs;
     this.logger = params.logger;
     this.tracing = params.tracing ?? NOOP_AGENT_TRACING;
@@ -236,6 +239,7 @@ export class RemoteMCP implements ToolSource {
               sessionId: this.sessionId ?? undefined,
               // Hint from a prior connect
               knownTransportType: this.resolvedTransportType,
+              requestTimeoutMs: this.requestTimeoutMs,
               connectTimeoutMs: this.connectTimeoutMs,
               signal: this.signal,
               onClose: () => {

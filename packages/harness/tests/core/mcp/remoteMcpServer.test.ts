@@ -108,6 +108,8 @@ function makeServer(params: {
     tracing: NOOP_AGENT_TRACING,
     sessionId: params.sessionId,
     transportType: params.transportType,
+    requestTimeoutMs: 60_000,
+    connectTimeoutMs: 5_000,
     signal: new AbortController().signal,
   });
   return new ToolSet({

@@ -67,6 +67,8 @@ export class TurnResourceResolver<
        * turn. Throw for unknown names. `headers` supports the async resolver form.
        */
       mcp: (name: string) => Promise<{ url: string; headers?: RemoteMcpHeaders }>;
+      mcpRequestTimeoutMs: number;
+      mcpConnectTimeoutMs: number;
       /** One sandbox type per runtime. Omit = no sandbox support. */
       sandboxProvider?: TurnSandboxFactory | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
@@ -159,6 +161,8 @@ export class TurnResourceResolver<
               url,
               headers: headers ?? {},
               sessionId: previousTurn?.snapshot.mcp_servers?.[entry.name]?.session_id,
+              requestTimeoutMs: this.deps.mcpRequestTimeoutMs,
+              connectTimeoutMs: this.deps.mcpConnectTimeoutMs,
               logger: this.deps.logger,
               tracing,
               signal,

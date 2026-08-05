@@ -111,6 +111,8 @@ function createTurnResolver(deps: {
         tokenStore,
         clientName: configuration.OAUTH_CLIENT_NAME,
       }),
+    mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
+    mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
     sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
       const provider = await resolveSandboxProvider({
         tenant_id: TENANT_ID,
