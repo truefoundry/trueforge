@@ -4,8 +4,8 @@ description: TrueForge server (API + UI) served from a single container image.
 type: application
 # version (chart) and appVersion are stamped from the release tag by
 # .github/workflows/release.yml; the committed values are the last release.
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.0.1
+appVersion: "0.0.1"
 kubeVersion: ">=1.25.0-0"
 home: https://github.com/truefoundry/trueforge
 sources:
