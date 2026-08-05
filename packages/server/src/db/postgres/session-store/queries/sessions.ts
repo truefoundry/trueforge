@@ -43,9 +43,18 @@ function parseSessionCustom(value: Record<string, unknown> | null): SessionCusto
   return value;
 }
 
+function assertAgentXor(input: { session_id: string; agent_id: string | null; agent_spec: unknown }): void {
+  const hasAgentId = input.agent_id !== null;
+  const hasAgentSpec = input.agent_spec !== null;
+  if (hasAgentId === hasAgentSpec) {
+    throw new SessionStoreInvariantError(`Session ${input.session_id} requires exactly one of agent_id or agent_spec`);
+  }
+}
+
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
+  agent_id: string | null;
   agent_spec: ProtoSessionRecord['agent_spec'];
   title: string | null;
   last_turn_id: string | null;
@@ -57,6 +66,7 @@ function mapRowToSessionRecord(row: {
   return {
     tenant_id: row.tenant_id,
     session_id: row.session_id,
+    agent_id: row.agent_id,
     agent_spec: row.agent_spec,
     title: row.title,
     last_turn_id: row.last_turn_id,
@@ -68,6 +78,7 @@ function mapRowToSessionRecord(row: {
 }
 
 export async function createSession(db: Kysely<Database>, input: CreateSessionInput<SessionCustom>): Promise<void> {
+  assertAgentXor(input);
   const nowMs = Date.now();
 
   try {
@@ -76,7 +87,8 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .values({
         tenant_id: input.tenant_id,
         session_id: input.session_id,
-        agent_spec: json(input.agent_spec),
+        agent_id: input.agent_id,
+        agent_spec: input.agent_spec !== null ? json(input.agent_spec) : null,
         title: null,
         custom: input.custom !== null ? json(input.custom) : null,
         created_at: new Date(nowMs),
@@ -122,6 +134,16 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
   const agentSpec = input.agent_spec;
   const title = input.title;
 
+  if (agentSpec !== undefined) {
+    const existing = await getSession(db, { tenant_id: input.tenant_id, session_id: input.session_id });
+    if (existing === undefined) {
+      throw new SessionNotFoundError(input.session_id);
+    }
+    if (existing.agent_id !== null) {
+      throw new SessionStoreInvariantError(`Session ${input.session_id} is named; agent_spec cannot be updated`);
+    }
+  }
+
   const result = await db
     .updateTable('session')
     .set({
@@ -164,6 +186,9 @@ export async function listSessions(
 
   let query = db.selectFrom('session').selectAll().where('tenant_id', '=', input.tenant_id);
 
+  if (input.agent_id !== undefined) {
+    query = query.where('agent_id', '=', input.agent_id);
+  }
   if (input.start_timestamp !== undefined) {
     query = query.where('created_at', '>=', input.start_timestamp);
   }

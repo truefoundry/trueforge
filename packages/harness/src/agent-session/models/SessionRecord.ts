@@ -1,17 +1,18 @@
 import type { AgentSpec } from '../schemas/agentSpec';
+import type { SessionAgentSource } from '../schemas/session';
 
 /**
- * Every Session / SessionRecord exposes a hydrated `agent_spec`. Persistence
- * may store the full blob or only a uri/id — an ISessionStore impl detail.
- * `getSession` MUST hydrate so callers (and Session.run) never see a bare
- * pointer; agent resolution stays inside the store. Callers rewrite the
- * binding via the updateSession patch.
+ * Session persistence record. Agent binding is **agent_id XOR agent_spec**
+ * (exactly one non-null). Named agents are resolved live at turn time — the
+ * store does not hydrate agent_spec from agent_id on read.
  */
 export interface SessionRecord<TCustom extends object = Record<string, never>> {
   tenant_id: string;
   session_id: string;
-  /** Always hydrated on read. Source of `spec` in SessionHandle.createTurn(). */
-  agent_spec: AgentSpec;
+  /** Named registry binding; */
+  agent_id: string | null;
+  /** Inline draft binding; */
+  agent_spec: AgentSpec | null;
   /**
    * Wire SessionSchema.title (nullable). Written via updateSession patch or
    * createTurn's update_session_title_if_not_exist (first write wins; caller derives).
@@ -32,4 +33,17 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    */
   last_activity_timestamp_ms: number;
   custom: TCustom | null;
+}
+
+/** Derive the turn-time agent source from a persisted session row. */
+export function sessionAgentSource(record: SessionRecord): SessionAgentSource {
+  if (record.agent_id !== null && record.agent_spec === null) {
+    return { type: 'named', agent_id: record.agent_id };
+  }
+  if (record.agent_id === null && record.agent_spec !== null) {
+    return { type: 'inline', agent_spec: record.agent_spec };
+  }
+  throw new Error(
+    `Session ${record.session_id} has invalid agent binding (only one of agent_id or agent_spec required)`,
+  );
 }

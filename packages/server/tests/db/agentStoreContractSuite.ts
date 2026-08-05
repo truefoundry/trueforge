@@ -46,7 +46,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     expect(await store.getAgentByName({ tenant_id: TENANT, name: 'missing' })).toBeUndefined();
   });
 
-  it('updateAgent can patch name and/or manifest, preserves id and created_at', async () => {
+  it('updateAgent replaces name and manifest, preserves id and created_at', async () => {
     const store = getStore();
     const created = await store.createAgent({
       tenant_id: TENANT,
@@ -54,24 +54,11 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       manifest: manifest(),
     });
 
-    const renamed = await store.updateAgent({
-      tenant_id: TENANT,
-      id: created.id,
-      name: 'research-v2',
-    });
-    expect(renamed).toEqual(
-      expect.objectContaining({
-        id: created.id,
-        name: 'research-v2',
-        manifest: created.manifest,
-        created_at: created.created_at,
-      }),
-    );
-
     const replacement = manifest({ instructions: 'Updated instructions.' });
     const updated = await store.updateAgent({
       tenant_id: TENANT,
       id: created.id,
+      name: 'research-v2',
       manifest: replacement,
     });
 

@@ -13,14 +13,15 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const created = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      agent_id: null,
       agent_spec: makeAgentSpec({ instructions: 'hydrate-me' }),
       custom: { tag: 'a' },
     });
-    expect(created.agent_spec.instructions).toBe('hydrate-me');
+    expect(created.agent_spec).toEqual(expect.objectContaining({ instructions: 'hydrate-me' }));
     expect(created.custom).toEqual({ tag: 'a' });
 
     const loaded = await sessions.get({ tenant_id: tenant, session_id: 's1' });
-    expect(loaded?.agent_spec.instructions).toBe('hydrate-me');
+    expect(loaded?.agent_spec).toEqual(expect.objectContaining({ instructions: 'hydrate-me' }));
     expect(loaded?.session_id).toBe('s1');
   });
 
@@ -30,6 +31,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      agent_id: null,
       agent_spec: makeAgentSpec(),
     });
     const turn = await session.createTurn({
@@ -59,6 +61,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      agent_id: null,
       agent_spec: makeAgentSpec(),
     });
     const created = await session.createTurn({
@@ -95,6 +98,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      agent_id: null,
       agent_spec: makeAgentSpec(),
     });
     const t1 = await session.createTurn({
@@ -124,6 +128,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      agent_id: null,
       agent_spec: makeAgentSpec(),
     });
     const first = await session.createTurn({
@@ -155,6 +160,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      agent_id: null,
       agent_spec: makeAgentSpec(),
     });
     await expect(
@@ -191,6 +197,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      agent_id: null,
       agent_spec: makeAgentSpec(),
     });
 

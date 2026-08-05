@@ -292,7 +292,14 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }
 
     const abortController = new AbortController();
-    const modelName = session.agent_spec.model.name;
+    const agentSpec = session.agent_spec;
+    if (agentSpec === null) {
+      return c.json(
+        { error: { message: 'Named agent sessions cannot start turns until resolveAgentSpec is wired' } },
+        400,
+      );
+    }
+    const modelName = agentSpec.model.name;
     const providerConfig = await getProviderConfig({
       tenant_id: TENANT_ID,
       name: modelName,

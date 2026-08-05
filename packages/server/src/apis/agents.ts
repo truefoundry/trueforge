@@ -2,6 +2,7 @@
  * DB-backed agent registry API (mounted at /api/v1/agents).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
+import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
 import { AgentNameConflictError, type AgentRecord, type IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -35,7 +36,7 @@ async function validateWriteBody({
 }: {
   body: AgentWriteRequest;
   deps: AgentsRouterDeps;
-}): Promise<ReturnType<typeof toAgentManifest>> {
+}): Promise<AgentSpec> {
   const manifest = toAgentManifest(body);
   await validateAgentSpec({
     spec: manifest,

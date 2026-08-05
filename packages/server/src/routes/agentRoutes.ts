@@ -96,9 +96,9 @@ export const putAgentRoute = createRoute({
   method: 'put',
   path: '/{agent_id}',
   tags: [AGENTS_TAG],
-  summary: 'Replace an agent',
+  summary: 'Update an agent',
   description:
-    'Full replace of `name` and AgentSpec for an existing agent. Renames are allowed; the id is never changed.',
+    'Replaces `name` and AgentSpec for an existing agent by id. The id is never changed; renames are allowed via a new `name`.',
   'x-fern-sdk-group-name': ['agents'],
   'x-fern-sdk-method-name': 'update',
   request: {

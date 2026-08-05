@@ -53,6 +53,7 @@ type CancelPeerBody = z.infer<typeof CancelPeerBodySchema>;
 export function toWireSession(record: SessionRecord): Session {
   return {
     id: record.session_id,
+    agent_id: record.agent_id,
     agent_spec: record.agent_spec,
     title: record.title,
     created_at: record.created_at.toISOString(),
@@ -195,6 +196,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const session = await deps.sessions.create({
       tenant_id: TENANT_ID,
       session_id: ulid().toLowerCase(),
+      agent_id: null,
       agent_spec: body.agent_spec,
     });
     return c.json({ data: toWireSession(session.record) }, 201);
@@ -252,6 +254,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const query = c.req.valid('query');
     try {
       const { data, pagination } = await deps.sessionStore.listSessions({
+        agent_id: undefined,
         tenant_id: TENANT_ID,
         limit: query.limit,
         order: query.order,

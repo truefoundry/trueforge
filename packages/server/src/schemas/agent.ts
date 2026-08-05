@@ -7,7 +7,7 @@ import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema, type AgentSpec } from '@truefoundry/utils-core/agent-session';
 import { NameSchema } from './common';
 
-/** Shared create/update body: unique `name` plus AgentSpec fields. `id` is never client-supplied. */
+/** Create/update body: unique `name` plus full AgentSpec. `id` is never client-supplied. */
 export const AgentWriteRequestSchema = AgentSpecSchema.extend({
   name: NameSchema,
 }).openapi('AgentWriteRequest');

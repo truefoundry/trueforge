@@ -22,7 +22,7 @@ export {
 export type { TerminalTurnState, Turn, TurnInputItem, TurnMetrics, TurnState } from './schemas/turn';
 
 export { CreateSessionRequestSchema, SessionSchema, UpdateSessionRequestSchema } from './schemas/session';
-export type { Session } from './schemas/session';
+export type { Session, SessionAgentSource } from './schemas/session';
 
 export {
   EventType,
@@ -42,6 +42,7 @@ export type {
 export { TokenPaginationSchema } from './schemas/pagination';
 export type { TokenPagination } from './schemas/pagination';
 
+export { sessionAgentSource } from './models/SessionRecord';
 export type { SessionRecord } from './models/SessionRecord';
 export { MAIN_THREAD_ID } from './models/TurnRecord';
 export type { TurnRecord, TurnSnapshot } from './models/TurnRecord';

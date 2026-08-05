@@ -89,8 +89,8 @@ export class PostgresAgentStore implements IAgentStore {
       const row = await this.#db
         .updateTable('agent')
         .set({
-          ...(input.name !== undefined ? { name: input.name } : {}),
-          ...(input.manifest !== undefined ? { manifest: json(input.manifest) } : {}),
+          name: input.name,
+          manifest: json(input.manifest),
           updated_at: now(),
         })
         .where('tenant_id', '=', input.tenant_id)
@@ -99,7 +99,7 @@ export class PostgresAgentStore implements IAgentStore {
         .executeTakeFirst();
       return row === undefined ? undefined : toRecord(row);
     } catch (error) {
-      if (isUniqueViolation(error) && input.name !== undefined) {
+      if (isUniqueViolation(error)) {
         throw new AgentNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
       }
       throw error;

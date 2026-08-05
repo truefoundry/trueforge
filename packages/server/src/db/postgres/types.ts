@@ -46,10 +46,15 @@ export interface SessionTable {
   /** key */
   session_id: string;
   /**
-   * top: big + immutable-in-practice (updateSession patch only);
-   *      TOAST pointer rides through per-turn tip bumps untouched
+   * Named registry binding; XOR with `agent_spec`
+   * (CHECK session_agent_xor_check).
    */
-  agent_spec: JSONColumnType<AgentSpec, AgentSpec, AgentSpec>;
+  agent_id: string | null;
+  /**
+   * Inline draft binding; XOR with `agent_id`.
+   * TOAST pointer rides through per-turn tip bumps when present.
+   */
+  agent_spec: JSONColumnType<AgentSpec, AgentSpec | null, AgentSpec | null> | null;
   /**
    * top: list-displayed, independently patched; first-write-wins
    *      (COALESCE) targets it directly

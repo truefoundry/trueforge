@@ -161,11 +161,19 @@ export class InMemorySessionStore<
     if (this.sessions.has(key)) {
       throw new SessionAlreadyExistsError(input.session_id);
     }
+    const hasAgentId = input.agent_id !== null;
+    const hasAgentSpec = input.agent_spec !== null;
+    if (hasAgentId === hasAgentSpec) {
+      throw new SessionStoreInvariantError(
+        `Session ${input.session_id} requires exactly one of agent_id or agent_spec`,
+      );
+    }
     const now = new Date();
     const record: SessionRecord<TSessionCustom> = {
       tenant_id: input.tenant_id,
       session_id: input.session_id,
-      agent_spec: deepCopy(input.agent_spec),
+      agent_id: input.agent_id,
+      agent_spec: input.agent_spec !== null ? deepCopy(input.agent_spec) : null,
       title: null,
       last_turn_id: null,
       created_at: now,
@@ -203,6 +211,9 @@ export class InMemorySessionStore<
       throw new SessionNotFoundError(input.session_id);
     }
     if (input.agent_spec !== undefined) {
+      if (stored.record.agent_id !== null) {
+        throw new SessionStoreInvariantError(`Session ${input.session_id} is named; agent_spec cannot be updated`);
+      }
       stored.record.agent_spec = deepCopy(input.agent_spec);
     }
     if (input.title !== undefined) {
@@ -220,6 +231,7 @@ export class InMemorySessionStore<
     const records: SessionRecord<TSessionCustom>[] = [];
     for (const stored of this.sessions.values()) {
       if (stored.record.tenant_id !== input.tenant_id) continue;
+      if (input.agent_id !== undefined && stored.record.agent_id !== input.agent_id) continue;
       const createdAt = stored.record.created_at.getTime();
       if (input.start_timestamp !== undefined && createdAt < input.start_timestamp.getTime()) continue;
       if (input.end_timestamp !== undefined && createdAt > input.end_timestamp.getTime()) continue;

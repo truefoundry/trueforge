@@ -64,6 +64,7 @@ describe('public CRUD after session deletion', () => {
     await sessionStore.createSession({
       tenant_id: TENANT_ID,
       session_id: 's1',
+      agent_id: null,
       agent_spec: {
         model: { name: 'test-provider/test-model' },
         instructions: 'test',

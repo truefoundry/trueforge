@@ -61,7 +61,7 @@ describe('agents router', () => {
     });
   });
 
-  it('POST creates an agent; PUT updates by id including rename; list/get round-trip', async () => {
+  it('POST creates an agent; PUT replaces name+spec by id; list/get round-trip', async () => {
     const created = await router.request('/', jsonInit('POST', writeBody));
     expect(created.status).toBe(200);
     const createdJson = (await created.json()) as {

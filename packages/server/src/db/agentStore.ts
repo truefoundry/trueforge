@@ -37,10 +37,8 @@ export interface CreateAgentInput {
 export interface UpdateAgentInput {
   tenant_id: string;
   id: string;
-  /** When set, renames the agent (unique per tenant). */
-  name?: ResourceName;
-  /** When set, replaces the AgentSpec document. */
-  manifest?: AgentSpec;
+  name: ResourceName;
+  manifest: AgentSpec;
 }
 
 /** Unique `(tenant_id, name)` violation on create or rename. */
@@ -63,8 +61,8 @@ export interface IAgentStore {
   /** Inserts a new agent with a generated ULID. Throws AgentNameConflictError on name clash. */
   createAgent(input: CreateAgentInput): Promise<AgentRecord>;
   /**
-   * Patches `name` and/or `manifest` for an existing id. Returns undefined if missing.
-   * Throws AgentNameConflictError if a new name is taken by another agent.
+   * Replaces `name` + `manifest` for an existing id. Returns undefined if missing.
+   * Throws AgentNameConflictError if the new name is taken by another agent.
    */
   updateAgent(input: UpdateAgentInput): Promise<AgentRecord | undefined>;
 }

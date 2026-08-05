@@ -88,8 +88,8 @@ export class SqliteAgentStore implements IAgentStore {
       return await this.#db
         .updateTable('agent')
         .set({
-          ...(input.name !== undefined ? { name: input.name } : {}),
-          ...(input.manifest !== undefined ? { manifest: jsonbBind(input.manifest) } : {}),
+          name: input.name,
+          manifest: jsonbBind(input.manifest),
           updated_at: nowIso(),
         })
         .where('tenant_id', '=', input.tenant_id)
@@ -97,7 +97,7 @@ export class SqliteAgentStore implements IAgentStore {
         .returning(recordColumns)
         .executeTakeFirst();
     } catch (error) {
-      if (isUniqueViolation(error) && input.name !== undefined) {
+      if (isUniqueViolation(error)) {
         throw new AgentNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
       }
       throw error;
