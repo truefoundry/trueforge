@@ -92,6 +92,8 @@ Migrations run on server startup. Postgres-only without HTTP:
 pnpm --filter @truefoundry/utils migrate
 ```
 
+This script forces `DATABASE_BACKEND=postgres` and connects using the `POSTGRES_*` values from `packages/server/.env`, so it works even when that file leaves the backend on the standalone SQLite default.
+
 Workspace checks:
 
 ```bash

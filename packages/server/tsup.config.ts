@@ -28,6 +28,9 @@ const shared: Options = {
   outDir: 'dist',
 };
 
+// tsup builds every config here concurrently, so neither may use `clean`: it wipes the
+// shared dist/ mid-flight and can delete the sibling config's output. The build script
+// clears dist/ before invoking tsup instead.
 export default defineConfig([
   {
     ...shared,
@@ -38,7 +41,6 @@ export default defineConfig([
       ...migrationEntries('postgres'),
       ...migrationEntries('sqlite'),
     },
-    clean: true,
   },
   {
     ...shared,
@@ -46,7 +48,6 @@ export default defineConfig([
       cli: 'src/cli.ts',
     },
     // Keep cli as a thin launcher that dynamically imports ./main.js.
-    clean: false,
     external: ['./main.js'],
     banner: {
       js: '#!/usr/bin/env node',
