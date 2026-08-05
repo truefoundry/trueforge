@@ -102,3 +102,72 @@ Publish a real version when CI or teammates need it.
 | Sourcemaps/declarationMap decision                                              | packages/harness/tsup.config.ts, tsconfig.build.json    |
 | CONTRIBUTING / SECURITY / CODE_OF_CONDUCT / CODEOWNERS / CI for external PRs    | .github/                                                |
 | Secret-scan history, enable secret scanning + push protection, flip repo public | GitHub settings                                         |
+
+---
+
+# Releasing the server image + Helm chart
+
+A separate pipeline ships the deployable artifacts: the server container image
+(API + UI, built from the root `Dockerfile`) and the `charts/trueforge` Helm
+chart. It is driven by `.github/workflows/release-image-and-chart.yml` and
+triggers when a **GitHub Release** is published (tag `vX.Y.Z`).
+
+## What the release tag drives
+
+The tag is the single source of truth. On `vX.Y.Z` the workflow:
+
+1. **Builds and pushes the image** via the shared reusable workflow
+   `truefoundry/github-workflows-public/.github/workflows/build.yml@main` to
+   JFrog public Artifactory and public ECR (`public.ecr.aws/truefoundrycloud`),
+   tagged `X.Y.Z`.
+2. **Stamps the chart** — sets `version`, `appVersion`, and `image.tag` in
+   `charts/trueforge` to `X.Y.Z` and commits the bump back to `main`.
+3. **Publishes the chart** — packages `charts/trueforge` and pushes it to the
+   JFrog public OCI Helm repo, then attaches the `.tgz` to the GitHub release.
+
+## Per-release flow
+
+1. Cut the release from `main` (tag `vX.Y.Z`) via the GitHub Releases UI or:
+
+   ```bash
+   gh release create vX.Y.Z --target main --generate-notes
+   ```
+
+2. Watch the run under the repo's Actions tab. The image lands in JFrog + public
+   ECR, the chart lands in the OCI Helm repo, and the `.tgz` is attached to the
+   release.
+
+> Publishing a `vX.Y.Z` tag also triggers `release.yml` (the npm publish of
+> `@truefoundry/utils-core`), which requires the tag to match
+> `packages/harness/package.json`. Keep that version in lockstep when tagging.
+
+## Required repository configuration
+
+Org/repo **variables**: `TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL`,
+`TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY`,
+`TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY`.
+
+Org/repo **secrets**: `TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME`,
+`TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD`, `PUBLIC_ECR_IAM_ROLE_ARN` (OIDC role
+for public ECR push).
+
+## Bundled dependencies
+
+The chart bundles Postgres and Redis as optional Bitnami subcharts pulled from
+the JFrog OCI mirror (`oci://tfy.jfrog.io/tfy-mirror/bitnamicharts`), mirroring
+CruiseKube. The release job runs `helm dependency update` after the Helm
+registry login (same JFrog host), so the subcharts resolve with the existing
+credentials. Disable them with `postgresql.enabled=false` / `redis.enabled=false`
+to target external services.
+
+## Validating the chart locally
+
+Fetching subcharts needs access to the JFrog OCI mirror, so run `chart:deps`
+first (it authenticates via your local Helm registry login):
+
+```bash
+pnpm chart:deps       # helm dependency update (pulls postgresql + redis subcharts)
+pnpm chart:lint       # helm lint with charts/trueforge/ci/lint-values.yaml
+pnpm chart:template   # render the manifests
+pnpm chart:package    # package to dist/ (gitignored)
+```
