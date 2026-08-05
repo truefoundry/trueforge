@@ -74,7 +74,7 @@ export function toUiTool(tool: Record<string, unknown>): ToolBase {
   return { id: name, name };
 }
 
-export function toUiConnector(server: Harness.ConfiguredMcpServer, tools?: ToolBase[]): UiConnector {
+export function toUiConnector(server: Harness.ConfiguredMcpServer): UiConnector {
   return {
     id: server.name,
     name: server.name,
@@ -82,7 +82,6 @@ export function toUiConnector(server: Harness.ConfiguredMcpServer, tools?: ToolB
     url: server.url,
     auth: toUiAuthPublic(server.auth),
     authenticated: server.authStatus.status === 'authenticated',
-    ...(tools ? { tools } : {}),
   };
 }
 
@@ -117,11 +116,6 @@ async function getConfigured(name: string): Promise<Harness.ConfiguredMcpServer>
     throw new Error(`MCP server "${name}" not found`);
   }
   return existing;
-}
-
-async function toUiConnectorWithTools(server: Harness.ConfiguredMcpServer): Promise<UiConnector> {
-  const tools = await listToolsSafe(server.name);
-  return toUiConnector(server, tools);
 }
 
 async function resolveWriteAuth(req: { id?: string; auth: ConnectorAuth }): Promise<ConnectorAuth> {
@@ -175,7 +169,7 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
     },
     listConnectors: async req => {
       const body = await client.settings.mcpServers.list();
-      const connectors = body.data.map(server => toUiConnector(server));
+      const connectors = body.data.map(toUiConnector);
       const query = req?.query?.trim().toLowerCase();
       if (query === undefined || query === '') {
         return connectors;
@@ -187,19 +181,16 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
           connector.url.toLowerCase().includes(query),
       );
     },
-    getToolsByConnectorId: async req => {
-      const body = await client.settings.mcpServers.listTools(req.id);
-      return body.data.map(toUiTool);
-    },
+    getToolsByConnectorId: async req => listToolsSafe(req.id),
     createConnector: async req => {
       const auth = await resolveWriteAuth({ auth: req.auth });
       const body = await client.settings.mcpServers.upsert(toHarnessManifest({ name: req.name, url: req.url, auth }));
-      return toUiConnectorWithTools(body.data);
+      return toUiConnector(body.data);
     },
     updateConnector: async req => {
       const auth = await resolveWriteAuth({ id: req.id, auth: req.auth });
       const body = await client.settings.mcpServers.upsert(toHarnessManifest({ name: req.id, url: req.url, auth }));
-      return toUiConnectorWithTools(body.data);
+      return toUiConnector(body.data);
     },
     authenticateConnector: async req => {
       const redirectUrl = `${globalThis.location.origin}${globalThis.location.pathname}`;
@@ -211,7 +202,7 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
         openAuthorizationUrl(result.authorizationUrl);
       }
       const server = await getConfigured(req.id);
-      return toUiConnectorWithTools(server);
+      return toUiConnector(server);
     },
     disconnectConnector: () => Promise.reject(new Error('Disconnect is not supported by Harness yet')),
   };

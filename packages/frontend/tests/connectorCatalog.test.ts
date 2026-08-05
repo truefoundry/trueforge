@@ -53,17 +53,14 @@ describe('connectorCatalog mappers', () => {
     );
   });
 
-  it('maps configured servers and tools for the settings list card', () => {
+  it('maps configured servers without eagerly loading tools', () => {
     assert.deepEqual(
-      toUiConnector(
-        {
-          type: 'remote',
-          name: 'deepwiki',
-          url: 'https://mcp.deepwiki.com/mcp',
-          authStatus: { status: 'authenticated' },
-        },
-        [toUiTool({ name: 'search' }), toUiTool({})],
-      ),
+      toUiConnector({
+        type: 'remote',
+        name: 'deepwiki',
+        url: 'https://mcp.deepwiki.com/mcp',
+        authStatus: { status: 'authenticated' },
+      }),
       {
         id: 'deepwiki',
         name: 'deepwiki',
@@ -71,12 +68,10 @@ describe('connectorCatalog mappers', () => {
         url: 'https://mcp.deepwiki.com/mcp',
         auth: { type: 'none' },
         authenticated: true,
-        tools: [
-          { id: 'search', name: 'search' },
-          { id: 'tool', name: 'tool' },
-        ],
       },
     );
+    assert.deepEqual(toUiTool({ name: 'search' }), { id: 'search', name: 'search' });
+    assert.deepEqual(toUiTool({}), { id: 'tool', name: 'tool' });
   });
 
   it('builds upsert manifests from UI create/update requests', () => {
