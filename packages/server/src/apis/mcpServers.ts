@@ -248,12 +248,12 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }
-    if (record.manifest.auth?.type !== 'dcr') {
-      return c.json({ error: { message: `Disconnect is only supported for auth.type dcr MCP servers: ${name}` } }, 400);
+    // DCR: drop the user token only — keep oauth_server / oauth_client so re-authorize can skip DCR.
+    // Header / no-auth: no-op.
+    if (record.manifest.auth?.type === 'dcr') {
+      await deps.tokenStore.deleteToken({ id: record.id });
     }
-    // Drop the user token only — keep oauth_server / oauth_client so re-authorize can skip DCR.
-    await deps.tokenStore.deleteToken({ id: record.id });
-    return c.json({ data: toConfiguredMcpServer({ record, token: undefined }) }, 200);
+    return c.json({ data: toConfiguredMcpServer({ record }) }, 200);
   };
 
   const router = new OpenAPIHono();
