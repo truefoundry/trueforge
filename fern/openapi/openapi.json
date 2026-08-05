@@ -3495,7 +3495,7 @@
                 }
               }
             },
-            "description": "The agent spec is valid but requires a capability this server does not provide (e.g. sandbox or skills)."
+            "description": "The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
           }
         },
         "summary": "Create a session",
@@ -3651,7 +3651,7 @@
                 }
               }
             },
-            "description": "The agent spec is valid but requires a capability this server does not provide (e.g. sandbox or skills)."
+            "description": "The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
           }
         },
         "summary": "Update a session",
@@ -3982,6 +3982,16 @@
               }
             },
             "description": "Requested action cannot be performed on the session because it is no longer usable."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The session is valid but a required resource is no longer available (e.g. model, MCP server, skill, or sandbox provider)."
           }
         },
         "summary": "Create and execute a turn in a session",

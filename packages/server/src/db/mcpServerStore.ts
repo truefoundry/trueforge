@@ -34,6 +34,12 @@ export interface GetMcpServerInput {
   name: string;
 }
 
+export interface ListMcpServersInput {
+  tenant_id: string;
+  /** `undefined` lists all; empty returns `[]` without querying; otherwise `WHERE name IN (...)`. */
+  names: readonly string[] | undefined;
+}
+
 export interface UpsertMcpServerInput {
   tenant_id: string;
   name: ResourceName;
@@ -41,7 +47,7 @@ export interface UpsertMcpServerInput {
 }
 
 export interface IMcpServerStore extends IOAuthClientStore {
-  listServers(tenantId: string): Promise<McpServerRecord[]>;
+  listServers(input: ListMcpServersInput): Promise<McpServerRecord[]>;
   getServer(input: GetMcpServerInput): Promise<McpServerRecord | undefined>;
   /**
    * Creates the server or replaces `manifest` (+ `updated_at`) only.

@@ -7,7 +7,6 @@ import {
   RemoteMCP,
   withTimeout,
 } from '@truefoundry/utils-core/core';
-import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { McpCatalog } from '../catalog/McpCatalog';
 import configuration from '../config';
@@ -100,7 +99,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
   };
 
   const listConfiguredHandler: RouteHandler<typeof listConfiguredMcpServersRoute> = async c => {
-    const records = await deps.mcpServerStore.listServers(TENANT_ID);
+    const records = await deps.mcpServerStore.listServers({ tenant_id: TENANT_ID, names: undefined });
     const nowMs = Date.now();
     // Only DCR servers have tokens; batch the lookup.
     const dcrIds = records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
@@ -151,21 +150,15 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
   const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {
     const { name } = c.req.valid('param');
     // Same url + header resolution as turn execution (DCR via resolveMcpAuth, header/no-auth static).
-    let connection;
-    try {
-      connection = await getMcpConnection({
-        tenant_id: TENANT_ID,
-        name,
-        store: deps.mcpServerStore,
-        tokenStore: deps.tokenStore,
-        clientName: configuration.OAUTH_CLIENT_NAME,
-      });
-    } catch (error) {
-      // getMcpConnection throws HTTPException(400) for unknown names; settings wire uses 404.
-      if (error instanceof HTTPException && error.status === 400) {
-        return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
-      }
-      throw error;
+    const connection = await getMcpConnection({
+      tenant_id: TENANT_ID,
+      name,
+      store: deps.mcpServerStore,
+      tokenStore: deps.tokenStore,
+      clientName: configuration.OAUTH_CLIENT_NAME,
+    });
+    if (connection === undefined) {
+      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }
     const remote = new RemoteMCP({
       id: name,
@@ -268,7 +261,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
 export function createAvailableMcpServersRouter(store: IMcpServerStore) {
   const router = new OpenAPIHono();
   router.openapi(listAvailableMcpServersRoute, async c => {
-    const records = await store.listServers(TENANT_ID);
+    const records = await store.listServers({ tenant_id: TENANT_ID, names: undefined });
     return c.json(
       {
         data: records.map(record => ({ name: record.name, url: record.manifest.url })),

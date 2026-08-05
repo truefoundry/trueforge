@@ -781,6 +781,26 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueHarnessTypes.PreconditionFailedError);
     });
 
+    test("create_turn (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
+        const rawRequestBody = {};
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/turns")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(422)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createTurn("session_id");
+        }).rejects.toThrow(TrueHarnessTypes.UnprocessableEntityError);
+    });
+
     test("get_turn (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });

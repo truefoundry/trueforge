@@ -45,10 +45,9 @@ export function parseModelFqn(name: string): { providerName: string; modelName: 
 
 /**
  * Load turn-ready LLM config for a configured FQN (`provider/model`).
- * Missing provider/model → HTTPException(400) (e.g. deleted after admit).
- * Malformed FQN after admit is an invariant → plain Error (500).
+ * Malformed FQN or missing provider/model → HTTPException(422).
  */
-export async function getProviderConfig({
+export async function getModelProviderConfig({
   tenant_id,
   name,
   store,
@@ -57,20 +56,21 @@ export async function getProviderConfig({
   name: string;
   store: IModelProviderStore;
 }): Promise<VercelAIProviderConfig> {
-  // AgentSpecSchema already required provider/model; failure here is corrupt stored spec.
   const parsed = parseModelFqn(name);
   if (parsed === undefined) {
-    throw new Error(`Model name must be a fully qualified "provider/model": ${name}`);
+    throw new HTTPException(422, {
+      message: `Model name must be a fully qualified "provider/model": ${name}`,
+    });
   }
   const provider = await store.getProvider({ tenant_id, name: parsed.providerName });
   if (provider === undefined) {
-    throw new HTTPException(400, {
+    throw new HTTPException(422, {
       message: `Unknown model "${name}" — provider not configured`,
     });
   }
   const model = provider.manifest.models.find(entry => entry.name === parsed.modelName);
   if (model === undefined) {
-    throw new HTTPException(400, {
+    throw new HTTPException(422, {
       message: `Unknown model "${name}" — not configured on provider`,
     });
   }
@@ -119,7 +119,7 @@ function dcrHeadersResolver(params: {
 /**
  * Load MCP url + headers for a configured server.
  * DCR uses resolveMcpAuth; header / no-auth use resolveConfiguredMcpRequestHeaders.
- * Throws HTTPException(400) if the server is not registered.
+ * Returns undefined when the server is not registered — callers choose the response.
  */
 export async function getMcpConnection({
   tenant_id,
@@ -133,12 +133,10 @@ export async function getMcpConnection({
   store: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   clientName: string;
-}): Promise<McpConnection> {
+}): Promise<McpConnection | undefined> {
   const record = await store.getServer({ tenant_id, name });
   if (record === undefined) {
-    throw new HTTPException(400, {
-      message: `Unknown MCP server "${name}" — not configured`,
-    });
+    return undefined;
   }
   if (record.manifest.auth?.type === 'dcr') {
     return {
@@ -160,7 +158,7 @@ export async function getMcpConnection({
 /**
  * Expand agent_spec skill names into git mounts from the skill store.
  * Wire url/path/ref/description on the request are ignored — the store row wins.
- * Throws HTTPException(400) if any name is not registered.
+ * Throws HTTPException(422) if any name is not registered.
  */
 export async function resolveGitSkills({
   tenant_id,
@@ -171,11 +169,17 @@ export async function resolveGitSkills({
   skills: readonly { name: string }[];
   store: ISkillStore;
 }): Promise<GitSkill[]> {
+  if (skills.length === 0) {
+    return [];
+  }
+  const names = skills.map(skill => skill.name);
+  const records = await store.listSkills({ tenant_id, names });
+  const byName = new Map(records.map(record => [record.name, record]));
   const resolved: GitSkill[] = [];
   for (const skill of skills) {
-    const record = await store.getSkill({ tenant_id, name: skill.name });
+    const record = byName.get(skill.name);
     if (record === undefined) {
-      throw new HTTPException(400, {
+      throw new HTTPException(422, {
         message: `Unknown skill "${skill.name}" — not configured`,
       });
     }
@@ -249,7 +253,7 @@ export function buildTurnSandbox(input: {
 
 /**
  * Cross-checks an AgentSpec against configured models / MCP / skills and
- * sandbox capability. Throws HTTPException: 400 unknown refs, 422 missing sandbox.
+ * sandbox capability. Throws HTTPException(422) for semantic failures.
  * Skills are admitted by name only; mounts expand at turn time.
  */
 export async function validateAgentSpec({
@@ -267,20 +271,21 @@ export async function validateAgentSpec({
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
 }): Promise<void> {
-  // FQN shape is enforced by AgentSpecSchema; parse failure here is an invariant.
   const parsed = parseModelFqn(spec.model.name);
   if (parsed === undefined) {
-    throw new Error(`Model name must be a fully qualified "provider/model": ${spec.model.name}`);
+    throw new HTTPException(422, {
+      message: `Model name must be a fully qualified "provider/model": ${spec.model.name}`,
+    });
   }
   const provider = await modelProviderStore.getProvider({ tenant_id, name: parsed.providerName });
   if (provider === undefined) {
-    throw new HTTPException(400, {
+    throw new HTTPException(422, {
       message: `Unknown model "${spec.model.name}" — provider not configured`,
     });
   }
   const model = provider.manifest.models.find(entry => entry.name === parsed.modelName);
   if (model === undefined) {
-    throw new HTTPException(400, {
+    throw new HTTPException(422, {
       message: `Unknown model "${spec.model.name}" — not configured on provider`,
     });
   }
@@ -288,7 +293,7 @@ export async function validateAgentSpec({
   if (reasoningEffort !== undefined) {
     const efforts = model.properties.reasoning_efforts;
     if (!efforts?.includes(reasoningEffort)) {
-      throw new HTTPException(400, {
+      throw new HTTPException(422, {
         message: efforts
           ? `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`
           : `Model "${spec.model.name}" does not support configurable reasoning effort`,
@@ -296,26 +301,34 @@ export async function validateAgentSpec({
     }
   }
 
-  for (const server of spec.mcp_servers ?? []) {
-    const record = await mcpServerStore.getServer({ tenant_id, name: server.name });
-    if (record === undefined) {
-      throw new HTTPException(400, {
-        message: `Unknown MCP server "${server.name}" — not configured`,
+  const requestedMcpServers = spec.mcp_servers ?? [];
+  if (requestedMcpServers.length > 0) {
+    const names = requestedMcpServers.map(server => server.name);
+    const configuredNames = new Set(
+      (await mcpServerStore.listServers({ tenant_id, names })).map(record => record.name),
+    );
+    const unknown = requestedMcpServers.find(server => !configuredNames.has(server.name));
+    if (unknown !== undefined) {
+      throw new HTTPException(422, {
+        message: `Unknown MCP server "${unknown.name}" — not configured`,
       });
     }
   }
 
-  for (const skill of spec.skills ?? []) {
-    const record = await skillStore.getSkill({ tenant_id, name: skill.name });
-    if (record === undefined) {
-      throw new HTTPException(400, {
-        message: `Unknown skill "${skill.name}" — not configured`,
+  const requestedSkills = spec.skills ?? [];
+  if (requestedSkills.length > 0) {
+    const names = requestedSkills.map(skill => skill.name);
+    const configuredNames = new Set((await skillStore.listSkills({ tenant_id, names })).map(record => record.name));
+    const unknown = requestedSkills.find(skill => !configuredNames.has(skill.name));
+    if (unknown !== undefined) {
+      throw new HTTPException(422, {
+        message: `Unknown skill "${unknown.name}" — not configured`,
       });
     }
   }
 
   const wantsSandbox = spec.config?.sandbox?.enabled === true;
-  const hasSkills = (spec.skills?.length ?? 0) > 0;
+  const hasSkills = requestedSkills.length > 0;
   if (wantsSandbox || hasSkills) {
     const record = await sandboxProviderStore.getSandboxProvider(tenant_id);
     if (record === undefined) {

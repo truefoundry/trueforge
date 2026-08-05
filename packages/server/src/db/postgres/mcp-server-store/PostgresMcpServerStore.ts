@@ -6,6 +6,7 @@ import {
   toStoredOAuthClientRecord,
   type GetMcpServerInput,
   type IMcpServerStore,
+  type ListMcpServersInput,
   type McpServerRecord,
   type UpsertMcpServerInput,
 } from '../../mcpServerStore';
@@ -30,13 +31,15 @@ export class PostgresMcpServerStore implements IMcpServerStore {
     this.#db = db;
   }
 
-  async listServers(tenantId: string): Promise<McpServerRecord[]> {
-    const rows = await this.#db
-      .selectFrom('mcp_server')
-      .selectAll()
-      .where('tenant_id', '=', tenantId)
-      .orderBy('name')
-      .execute();
+  async listServers(input: ListMcpServersInput): Promise<McpServerRecord[]> {
+    if (input.names?.length === 0) {
+      return [];
+    }
+    let query = this.#db.selectFrom('mcp_server').selectAll().where('tenant_id', '=', input.tenant_id);
+    if (input.names !== undefined) {
+      query = query.where('name', 'in', [...input.names]);
+    }
+    const rows = await query.orderBy('name').execute();
     return rows.map(toRecord);
   }
 

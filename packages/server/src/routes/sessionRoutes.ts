@@ -48,7 +48,7 @@ export const createSessionRoute = createRoute({
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description:
-        'The agent spec is valid but requires a capability this server does not provide (e.g. sandbox or skills).',
+        'The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox).',
     },
   },
 });
@@ -125,7 +125,7 @@ export const updateSessionRoute = createRoute({
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description:
-        'The agent spec is valid but requires a capability this server does not provide (e.g. sandbox or skills).',
+        'The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox).',
     },
   },
 });

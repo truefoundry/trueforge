@@ -80,7 +80,7 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
     expect(updated.created_at).toBe(created.created_at);
     expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
 
-    const servers = await store.listServers(TENANT);
+    const servers = await store.listServers({ tenant_id: TENANT, names: undefined });
     expect(servers).toEqual([updated]);
   });
 
@@ -94,9 +94,32 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
     });
     await store.upsertServer({ tenant_id: 'other-tenant', name: 'linear', manifest: manifest() });
 
-    const servers = await store.listServers(TENANT);
+    const servers = await store.listServers({ tenant_id: TENANT, names: undefined });
     expect(servers.map(server => server.name)).toEqual(['deepwiki', 'linear']);
     expect(servers.every(server => server.tenant_id === TENANT)).toBe(true);
+  });
+
+  it('listServers filters by names and returns empty for an empty name list', async () => {
+    const store = getStore();
+    await store.upsertServer({ tenant_id: TENANT, name: 'linear', manifest: manifest() });
+    await store.upsertServer({
+      tenant_id: TENANT,
+      name: 'deepwiki',
+      manifest: manifest({ name: 'deepwiki', url: 'https://mcp.deepwiki.com/mcp' }),
+    });
+    await store.upsertServer({
+      tenant_id: TENANT,
+      name: 'notion',
+      manifest: manifest({ name: 'notion', url: 'https://mcp.notion.com/mcp' }),
+    });
+
+    const filtered = await store.listServers({
+      tenant_id: TENANT,
+      names: ['notion', 'missing', 'deepwiki'],
+    });
+    expect(filtered.map(server => server.name)).toEqual(['deepwiki', 'notion']);
+
+    await expect(store.listServers({ tenant_id: TENANT, names: [] })).resolves.toEqual([]);
   });
 
   it('upsert leaves oauth columns null and does not clear a saved OAuth client', async () => {

@@ -9,8 +9,8 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { validateAgentSpec } from '../../../src/runtime/sessionResources';
 
-describe('validateAgentSpec sandbox gate', () => {
-  async function setup() {
+describe('validateAgentSpec', () => {
+  async function setup(options?: { reasoningEfforts?: string[] | undefined }) {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
@@ -24,7 +24,11 @@ describe('validateAgentSpec sandbox gate', () => {
           {
             model_id: 'test-model',
             name: 'test-model',
-            properties: { context_length: 128000, max_output_tokens: 4096 },
+            properties: {
+              context_length: 128000,
+              max_output_tokens: 4096,
+              ...(options?.reasoningEfforts !== undefined ? { reasoning_efforts: options.reasoningEfforts } : {}),
+            },
           },
         ],
       },
@@ -36,6 +40,110 @@ describe('validateAgentSpec sandbox gate', () => {
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
     };
   }
+
+  it('rejects malformed model FQN with 422', async () => {
+    const stores = await setup();
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'not-a-fqn' },
+          instructions: 'test',
+        }),
+        tenant_id: TENANT_ID,
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('fully qualified "provider/model"'),
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('rejects unknown model provider with 422', async () => {
+    const stores = await setup();
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'missing-provider/test-model' },
+          instructions: 'test',
+        }),
+        tenant_id: TENANT_ID,
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('provider not configured'),
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('rejects unknown model on provider with 422', async () => {
+    const stores = await setup();
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/missing-model' },
+          instructions: 'test',
+        }),
+        tenant_id: TENANT_ID,
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('not configured on provider'),
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('rejects unsupported reasoning effort with 422', async () => {
+    const stores = await setup({ reasoningEfforts: ['low', 'high'] });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model', params: { reasoning_effort: 'medium' } },
+          instructions: 'test',
+        }),
+        tenant_id: TENANT_ID,
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('Reasoning effort "medium"'),
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('rejects unknown MCP server with 422', async () => {
+    const stores = await setup();
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          mcp_servers: [{ name: 'missing-mcp' }],
+        }),
+        tenant_id: TENANT_ID,
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('Unknown MCP server "missing-mcp"'),
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('rejects unknown skill with 422', async () => {
+    const stores = await setup();
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          skills: [{ name: 'missing-skill' }],
+        }),
+        tenant_id: TENANT_ID,
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('Unknown skill "missing-skill"'),
+    } satisfies Partial<HTTPException>);
+  });
 
   it('rejects sandbox.enabled when no sandbox provider is configured', async () => {
     const stores = await setup();

@@ -78,6 +78,10 @@ describe('getMcpConnection', () => {
         tokenStore,
         clientName: 'test-client',
       });
+      expect(connection).toBeDefined();
+      if (connection === undefined) {
+        throw new Error('expected connection');
+      }
 
       expect(connection.url).toBe(mcpUrl);
       expect(typeof connection.headers).toBe('function');
@@ -131,7 +135,8 @@ describe('getMcpConnection', () => {
       tokenStore,
       clientName: 'test-client',
     });
-    if (typeof connection.headers !== 'function') {
+    expect(connection).toBeDefined();
+    if (connection === undefined || typeof connection.headers !== 'function') {
       throw new Error('expected async headers resolver');
     }
     await expect(connection.headers()).resolves.toEqual({
@@ -157,6 +162,10 @@ describe('getMcpConnection', () => {
       tokenStore,
       clientName: 'test-client',
     });
+    expect(connection).toBeDefined();
+    if (connection === undefined) {
+      throw new Error('expected connection');
+    }
 
     expect(connection.url).toBe('https://mcp.open.example/mcp');
     expect(connection.headers).toEqual({});
@@ -181,8 +190,24 @@ describe('getMcpConnection', () => {
       tokenStore,
       clientName: 'test-client',
     });
+    expect(connection).toBeDefined();
+    if (connection === undefined) {
+      throw new Error('expected connection');
+    }
 
     expect(connection.url).toBe('https://mcp.header.example/mcp');
     expect(connection.headers).toEqual({ Authorization: 'Bearer static-token' });
+  });
+
+  it('returns undefined when the server is not registered', async () => {
+    await expect(
+      getMcpConnection({
+        tenant_id: TENANT_ID,
+        name: 'missing-mcp',
+        store: mcpServerStore,
+        tokenStore,
+        clientName: 'test-client',
+      }),
+    ).resolves.toBeUndefined();
   });
 });

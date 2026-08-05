@@ -7,6 +7,7 @@ import {
   toStoredOAuthClientRecord,
   type GetMcpServerInput,
   type IMcpServerStore,
+  type ListMcpServersInput,
   type McpServerRecord,
   type OAuthClient,
   type OAuthServer,
@@ -34,13 +35,15 @@ export class SqliteMcpServerStore implements IMcpServerStore {
     this.#db = db;
   }
 
-  async listServers(tenantId: string): Promise<McpServerRecord[]> {
-    return await this.#db
-      .selectFrom('mcp_server')
-      .select(recordColumns)
-      .where('tenant_id', '=', tenantId)
-      .orderBy('name')
-      .execute();
+  async listServers(input: ListMcpServersInput): Promise<McpServerRecord[]> {
+    if (input.names?.length === 0) {
+      return [];
+    }
+    let query = this.#db.selectFrom('mcp_server').select(recordColumns).where('tenant_id', '=', input.tenant_id);
+    if (input.names !== undefined) {
+      query = query.where('name', 'in', [...input.names]);
+    }
+    return await query.orderBy('name').execute();
   }
 
   async getServer(input: GetMcpServerInput): Promise<McpServerRecord | undefined> {

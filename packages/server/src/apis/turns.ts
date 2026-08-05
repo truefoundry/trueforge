@@ -45,7 +45,7 @@ import { mintPeeredTurnId } from '../runtime/peeringIds';
 import {
   buildTurnSandbox,
   getMcpConnection,
-  getProviderConfig,
+  getModelProviderConfig,
   resolveGitSkills,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
@@ -103,14 +103,21 @@ function createTurnResolver(deps: {
         signal,
       });
     },
-    mcp: async name =>
-      getMcpConnection({
+    mcp: async name => {
+      const connection = await getMcpConnection({
         tenant_id: TENANT_ID,
         name,
         store: mcpServerStore,
         tokenStore,
         clientName: configuration.OAUTH_CLIENT_NAME,
-      }),
+      });
+      if (connection === undefined) {
+        throw new HTTPException(422, {
+          message: `Unknown MCP server "${name}" — not configured`,
+        });
+      }
+      return connection;
+    },
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
     sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
@@ -293,7 +300,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
     const abortController = new AbortController();
     const modelName = session.agent_spec.model.name;
-    const providerConfig = await getProviderConfig({
+    const providerConfig = await getModelProviderConfig({
       tenant_id: TENANT_ID,
       name: modelName,
       store: deps.modelProviderStore,
