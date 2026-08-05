@@ -1,10 +1,17 @@
-import type { OAuthClientRecord } from '@truefoundry/utils-core/core';
 import type { ExpressionBuilder, Kysely } from 'kysely';
 import { ulid } from 'ulid';
+import type { OAuthClientRecord } from '../../../mcp/auth/types';
 import type { McpServerManifest } from '../../../schemas/mcpServer';
-import type { OAuthClient, OAuthServer } from '../../mcpOAuthTypes';
-import { fromStoredOAuthClientRecord, toStoredOAuthClientRecord } from '../../mcpOAuthTypes';
-import type { GetMcpServerInput, IMcpServerStore, McpServerRecord, UpsertMcpServerInput } from '../../mcpServerStore';
+import {
+  fromStoredOAuthClientRecord,
+  toStoredOAuthClientRecord,
+  type GetMcpServerInput,
+  type IMcpServerStore,
+  type McpServerRecord,
+  type OAuthClient,
+  type OAuthServer,
+  type UpsertMcpServerInput,
+} from '../../mcpServerStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 

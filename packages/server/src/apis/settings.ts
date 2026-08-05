@@ -4,7 +4,6 @@
  * a single policy can wrap the whole tree later without touching each resource.
  */
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { IOAuthTokenStore } from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import type { McpCatalog } from '../catalog/McpCatalog';
 import type { ModelCatalog } from '../catalog/ModelCatalog';
@@ -14,6 +13,7 @@ import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { createMcpServersRouter } from './mcpServers';
 import { createModelProvidersRouter } from './modelProviders';
 import { createSandboxProvidersRouter } from './sandboxProviders';

@@ -1,8 +1,14 @@
-import type { OAuthClientRecord } from '@truefoundry/utils-core/core';
 import type { Kysely, Selectable } from 'kysely';
 import { ulid } from 'ulid';
-import { fromStoredOAuthClientRecord, toStoredOAuthClientRecord } from '../../mcpOAuthTypes';
-import type { GetMcpServerInput, IMcpServerStore, McpServerRecord, UpsertMcpServerInput } from '../../mcpServerStore';
+import type { OAuthClientRecord } from '../../../mcp/auth/types';
+import {
+  fromStoredOAuthClientRecord,
+  toStoredOAuthClientRecord,
+  type GetMcpServerInput,
+  type IMcpServerStore,
+  type McpServerRecord,
+  type UpsertMcpServerInput,
+} from '../../mcpServerStore';
 import { json, now } from '../sqlExpressions';
 import type { Database, McpServerTable } from '../types';
 

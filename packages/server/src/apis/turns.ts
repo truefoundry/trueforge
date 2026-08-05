@@ -20,7 +20,6 @@ import {
   isFileContentPart,
   McpConnectionError,
   VercelAILLM,
-  type IOAuthTokenStore,
   type VercelAIProviderConfig,
 } from '@truefoundry/utils-core/core';
 import type { Context } from 'hono';
@@ -32,6 +31,7 @@ import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { IOAuthTokenStore } from '../mcp/auth/types';
 import {
   createAndExecuteTurnRoute,
   getTurnRoute,
