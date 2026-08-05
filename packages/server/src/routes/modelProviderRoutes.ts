@@ -53,7 +53,9 @@ export const putModelProviderRoute = createRoute({
   tags: [MODEL_PROVIDERS_TAG],
   summary: 'Create or replace a model provider',
   description:
-    'Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).',
+    'Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). ' +
+    'Well-known types are limited to one configured provider each; caller-supplied types (`alibaba`, `custom`) ' +
+    'are unrestricted because each names its own endpoint.',
   'x-fern-sdk-group-name': ['settings', 'modelProviders'],
   'x-fern-sdk-method-name': 'upsert',
   request: {
@@ -70,6 +72,10 @@ export const putModelProviderRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Another provider of the same well-known type is already configured under a different name.',
     },
   },
 });

@@ -131,6 +131,49 @@ describe('settings model-providers and models routers', () => {
   });
 });
 
+describe('well-known types are limited to one provider', () => {
+  it('PUT rejects a second provider of an already-configured well-known type', async () => {
+    const { settingsRouter, modelsRouter } = await createRouters();
+    expect((await settingsRouter.request('/model-providers', putInit(anthropicBody))).status).toBe(200);
+
+    const second = await settingsRouter.request(
+      '/model-providers',
+      putInit({ ...anthropicBody, name: 'anthropic-eu', auth: { api_key: 'sk-ant-other' } }),
+    );
+    expect(second.status).toBe(409);
+    // Routers are exercised without the app's onError, which is what wraps the message as JSON.
+    expect(await second.text()).toContain('already configured as "anthropic"');
+
+    // The rejected write must not have partially landed.
+    const list = await settingsRouter.request('/model-providers');
+    expect(await list.json()).toEqual({ data: [anthropicBody] });
+    const models = await modelsRouter.request('/');
+    expect(((await models.json()) as { data: { name: string }[] }).data.map(entry => entry.name)).toEqual([
+      'anthropic/claude-sonnet-4-6',
+    ]);
+  });
+
+  it('PUT still replaces the configured provider when the name matches', async () => {
+    const { settingsRouter } = await createRouters();
+    expect((await settingsRouter.request('/model-providers', putInit(anthropicBody))).status).toBe(200);
+
+    const rotated = { ...anthropicBody, auth: { api_key: 'sk-ant-rotated' } };
+    const update = await settingsRouter.request('/model-providers', putInit(rotated));
+    expect(update.status).toBe(200);
+    expect(await update.json()).toEqual({ data: rotated });
+  });
+
+  it('PUT allows several caller-supplied providers, which each name their own endpoint', async () => {
+    const { settingsRouter } = await createRouters();
+    const second = { ...customBody, name: 'internal-eu', base_url: 'https://llm.eu.example.com/v1' };
+    expect((await settingsRouter.request('/model-providers', putInit(customBody))).status).toBe(200);
+    expect((await settingsRouter.request('/model-providers', putInit(second))).status).toBe(200);
+
+    const list = await settingsRouter.request('/model-providers');
+    expect(await list.json()).toEqual({ data: [customBody, second] });
+  });
+});
+
 describe('catalog presets are configurable', () => {
   // A preset is meant to be copied into a PUT body with an api_key added. Every type the catalog
   // ships must therefore be in the configuration union; five of them once were not.

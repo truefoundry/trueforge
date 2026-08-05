@@ -37,6 +37,18 @@ export const ProviderTypeSchema = z
 export type ProviderType = z.infer<typeof ProviderTypeSchema>;
 
 /**
+ * A well-known type is limited to one configured provider per tenant: its endpoint is fixed, so a
+ * second row of the same type is only ever a duplicate credential, and the settings UI keys its
+ * provider cards by type rather than by name. Caller-supplied types stay unrestricted — each row
+ * names a distinct endpoint, so several are meaningful.
+ */
+const WELL_KNOWN_TYPES: ReadonlySet<ProviderType> = new Set(WELL_KNOWN_BASE_URL_TYPES);
+
+export function isWellKnownProviderType(type: ProviderType): boolean {
+  return WELL_KNOWN_TYPES.has(type);
+}
+
+/**
  * Endpoint to use when a manifest omits `base_url`. Absent means the provider's adapter supplies its
  * own, or that the schema required a `base_url` in the first place.
  */

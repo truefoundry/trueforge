@@ -1,4 +1,5 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
+import { HTTPException } from 'hono/http-exception';
 import type { ModelCatalog } from '../catalog/ModelCatalog';
 import type { IModelProviderStore, ModelProviderRecord } from '../db/modelProviderStore';
 import {
@@ -6,7 +7,7 @@ import {
   listModelProvidersRoute,
   putModelProviderRoute,
 } from '../routes/modelProviderRoutes';
-import { toModelProviderManifest, type ModelProvider } from '../schemas/modelProvider';
+import { isWellKnownProviderType, toModelProviderManifest, type ModelProvider } from '../schemas/modelProvider';
 import { TENANT_ID } from './sessions';
 
 export interface ModelProvidersRouterDeps {
@@ -34,6 +35,18 @@ export function createModelProvidersRouter(deps: ModelProvidersRouterDeps) {
 
   const putHandler: RouteHandler<typeof putModelProviderRoute> = async c => {
     const body = c.req.valid('json');
+    // The upsert is keyed by `name`, so a same-name write is an update and stays allowed.
+    if (isWellKnownProviderType(body.type)) {
+      const records = await deps.modelProviderStore.listProviders(TENANT_ID);
+      const configured = records.find(record => record.manifest.type === body.type && record.name !== body.name);
+      if (configured !== undefined) {
+        throw new HTTPException(409, {
+          message:
+            `A "${body.type}" provider is already configured as "${configured.name}". Only one provider ` +
+            `per well-known type is supported — update "${configured.name}" instead of adding another.`,
+        });
+      }
+    }
     const record = await deps.modelProviderStore.upsertProvider({
       tenant_id: TENANT_ID,
       name: body.name,
