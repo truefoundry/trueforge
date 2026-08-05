@@ -74,7 +74,7 @@ export function toUiTool(tool: Record<string, unknown>): ToolBase {
   return { id: name, name };
 }
 
-export function toUiConnector(server: Harness.ConfiguredMcpServer, tools: ToolBase[]): UiConnector {
+export function toUiConnector(server: Harness.ConfiguredMcpServer, tools?: ToolBase[]): UiConnector {
   return {
     id: server.name,
     name: server.name,
@@ -82,7 +82,7 @@ export function toUiConnector(server: Harness.ConfiguredMcpServer, tools: ToolBa
     url: server.url,
     auth: toUiAuthPublic(server.auth),
     authenticated: server.authStatus.status === 'authenticated',
-    tools,
+    ...(tools ? { tools } : {}),
   };
 }
 
@@ -175,7 +175,7 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
     },
     listConnectors: async req => {
       const body = await client.settings.mcpServers.list();
-      const connectors = await Promise.all(body.data.map(server => toUiConnectorWithTools(server)));
+      const connectors = body.data.map(server => toUiConnector(server));
       const query = req?.query?.trim().toLowerCase();
       if (query === undefined || query === '') {
         return connectors;
@@ -186,6 +186,10 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
           connector.description.toLowerCase().includes(query) ||
           connector.url.toLowerCase().includes(query),
       );
+    },
+    getToolsByConnectorId: async req => {
+      const body = await client.settings.mcpServers.listTools(req.id);
+      return body.data.map(toUiTool);
     },
     createConnector: async req => {
       const auth = await resolveWriteAuth({ auth: req.auth });
