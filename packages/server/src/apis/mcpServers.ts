@@ -38,6 +38,12 @@ export interface McpServersRouterDeps {
   logger: Logger;
 }
 
+export interface AvailableMcpServersRouterDeps {
+  mcpServerStore: IMcpServerStore;
+  tokenStore: IOAuthTokenStore;
+  logger: Logger;
+}
+
 /** Omits keys whose value is `undefined` so wire objects satisfy JSONValue index signatures. */
 function omitUndefinedEntries(obj: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -189,6 +195,17 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     }
   };
 
+  const router = new OpenAPIHono();
+  // Static `/catalog` before `/{name}/…` so "catalog" is not captured as a name.
+  router.openapi(getMcpServerCatalogRoute, catalogHandler);
+  router.openapi(listConfiguredMcpServersRoute, listConfiguredHandler);
+  router.openapi(putMcpServerRoute, putHandler);
+  router.openapi(listMcpServerToolsRoute, listToolsHandler);
+  return router;
+}
+
+/** Chat list + authorize (mounted at /api/v1/mcp-servers). */
+export function createAvailableMcpServersRouter(deps: AvailableMcpServersRouterDeps) {
   const authorizeHandler: RouteHandler<typeof authorizeConfiguredMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const { redirect_url: redirectUrl } = c.req.valid('query');
@@ -247,21 +264,8 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
   };
 
   const router = new OpenAPIHono();
-  // Static `/catalog` before `/{name}/…` so "catalog" is not captured as a name.
-  router.openapi(getMcpServerCatalogRoute, catalogHandler);
-  router.openapi(listConfiguredMcpServersRoute, listConfiguredHandler);
-  router.openapi(putMcpServerRoute, putHandler);
-  router.openapi(listMcpServerToolsRoute, listToolsHandler);
-  router.openapi(authorizeConfiguredMcpServerRoute, authorizeHandler);
-  router.openapi(deleteConfiguredMcpServerAuthRoute, deleteAuthHandler);
-  return router;
-}
-
-/** Chat slim list (mounted at /api/v1/mcp-servers) — mirrors GET /api/v1/models. */
-export function createAvailableMcpServersRouter(store: IMcpServerStore) {
-  const router = new OpenAPIHono();
   router.openapi(listAvailableMcpServersRoute, async c => {
-    const records = await store.listServers({ tenant_id: TENANT_ID, names: undefined });
+    const records = await deps.mcpServerStore.listServers({ tenant_id: TENANT_ID, names: undefined });
     return c.json(
       {
         data: records.map(record => ({ name: record.name, url: record.manifest.url })),
@@ -269,5 +273,7 @@ export function createAvailableMcpServersRouter(store: IMcpServerStore) {
       200,
     );
   });
+  router.openapi(authorizeConfiguredMcpServerRoute, authorizeHandler);
+  router.openapi(deleteConfiguredMcpServerAuthRoute, deleteAuthHandler);
   return router;
 }

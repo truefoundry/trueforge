@@ -55,13 +55,18 @@ describe('mcp-servers routers', () => {
     await migrateSqliteToLatest(db);
     mcpServerStore = new SqliteMcpServerStore(db);
     tokenStore = new SqliteOAuthTokenStore(db);
+    const logger = winston.createLogger({ silent: true });
     settingsRouter = createMcpServersRouter({
       mcpCatalog: McpCatalog.load(),
       mcpServerStore,
       tokenStore,
-      logger: winston.createLogger({ silent: true }),
+      logger,
     });
-    availableRouter = createAvailableMcpServersRouter(mcpServerStore);
+    availableRouter = createAvailableMcpServersRouter({
+      mcpServerStore,
+      tokenStore,
+      logger,
+    });
   });
 
   afterAll(() => {
@@ -203,15 +208,17 @@ describe('mcp-servers routers', () => {
   });
 
   it('GET /{name}/authorize short-circuits non-DCR servers and 404s unknowns', async () => {
-    const noAuth = await settingsRouter.request('/deepwiki/authorize?redirect_url=https://example.com/callback');
+    const noAuth = await availableRouter.request('/deepwiki/authorize?redirect_url=https://example.com/callback');
     expect(noAuth.status).toBe(200);
     expect(await noAuth.json()).toEqual({ status: 'not_required' });
 
-    const headerAuth = await settingsRouter.request('/private-mcp/authorize?redirect_url=https://example.com/callback');
+    const headerAuth = await availableRouter.request(
+      '/private-mcp/authorize?redirect_url=https://example.com/callback',
+    );
     expect(headerAuth.status).toBe(200);
     expect(await headerAuth.json()).toEqual({ status: 'authenticated' });
 
-    const missing = await settingsRouter.request('/missing/authorize?redirect_url=https://example.com/callback');
+    const missing = await availableRouter.request('/missing/authorize?redirect_url=https://example.com/callback');
     expect(missing.status).toBe(404);
   });
 
@@ -270,7 +277,7 @@ describe('mcp-servers routers', () => {
       );
       expect(put.status).toBe(200);
 
-      const authorize = await settingsRouter.request(
+      const authorize = await availableRouter.request(
         '/oauth-mcp/authorize?redirect_url=https://example.com/after-oauth',
       );
       expect(authorize.status).toBe(200);
@@ -317,7 +324,7 @@ describe('mcp-servers routers', () => {
       },
     });
 
-    const response = await settingsRouter.request(`/${putBodyWithDcr.name}/authorize`, { method: 'DELETE' });
+    const response = await availableRouter.request(`/${putBodyWithDcr.name}/authorize`, { method: 'DELETE' });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: { ...putBodyWithDcr, auth_status: { status: 'auth_required' } },
@@ -337,19 +344,19 @@ describe('mcp-servers routers', () => {
   });
 
   it('DELETE /{name}/authorize is a no-op for non-DCR servers and 404s unknowns', async () => {
-    const noAuth = await settingsRouter.request('/deepwiki/authorize', { method: 'DELETE' });
+    const noAuth = await availableRouter.request('/deepwiki/authorize', { method: 'DELETE' });
     expect(noAuth.status).toBe(200);
     expect(await noAuth.json()).toEqual({
       data: { ...putBody, auth_status: { status: 'not_required' } },
     });
 
-    const headerAuth = await settingsRouter.request('/private-mcp/authorize', { method: 'DELETE' });
+    const headerAuth = await availableRouter.request('/private-mcp/authorize', { method: 'DELETE' });
     expect(headerAuth.status).toBe(200);
     expect(await headerAuth.json()).toEqual({
       data: { ...putBodyWithHeaderAuth, auth_status: { status: 'authenticated' } },
     });
 
-    const missing = await settingsRouter.request('/missing/authorize', { method: 'DELETE' });
+    const missing = await availableRouter.request('/missing/authorize', { method: 'DELETE' });
     expect(missing.status).toBe(404);
   });
 });

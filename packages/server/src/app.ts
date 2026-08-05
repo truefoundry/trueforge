@@ -74,7 +74,14 @@ export function createServerApp(deps: ServerDeps) {
 
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
-  app.route('/api/v1/mcp-servers', createAvailableMcpServersRouter(deps.mcpServerStore));
+  app.route(
+    '/api/v1/mcp-servers',
+    createAvailableMcpServersRouter({
+      mcpServerStore: deps.mcpServerStore,
+      tokenStore: deps.tokenStore,
+      logger: deps.logger,
+    }),
+  );
   // Shared OAuth callback — path must match the server-owned MCP_OAUTH_CALLBACK_PATH.
   app.route(
     '/api/v1/mcp-servers/oauth',

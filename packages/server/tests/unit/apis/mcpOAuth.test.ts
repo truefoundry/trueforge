@@ -4,7 +4,7 @@
  */
 import winston from 'winston';
 import { createMcpOAuthRouter } from '../../../src/apis/mcpOAuth';
-import { createMcpServersRouter } from '../../../src/apis/mcpServers';
+import { createAvailableMcpServersRouter, createMcpServersRouter } from '../../../src/apis/mcpServers';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -73,6 +73,7 @@ function stubOauthFetch(): void {
 describe('MCP OAuth authorize + callback', () => {
   const realFetch = globalThis.fetch;
   let settingsRouter: ReturnType<typeof createMcpServersRouter>;
+  let availableRouter: ReturnType<typeof createAvailableMcpServersRouter>;
   let oauthRouter: ReturnType<typeof createMcpOAuthRouter>;
   let mcpServerStore: SqliteMcpServerStore;
   let tokenStore: SqliteOAuthTokenStore;
@@ -85,6 +86,11 @@ describe('MCP OAuth authorize + callback', () => {
     const logger = winston.createLogger({ silent: true });
     settingsRouter = createMcpServersRouter({
       mcpCatalog: McpCatalog.load(),
+      mcpServerStore,
+      tokenStore,
+      logger,
+    });
+    availableRouter = createAvailableMcpServersRouter({
       mcpServerStore,
       tokenStore,
       logger,
@@ -113,7 +119,7 @@ describe('MCP OAuth authorize + callback', () => {
     if (redirectUrl) {
       query = `?redirect_url=${encodeURIComponent(redirectUrl)}`;
     }
-    const authorize = await settingsRouter.request(`/${name}/authorize${query}`);
+    const authorize = await availableRouter.request(`/${name}/authorize${query}`);
     expect(authorize.status).toBe(200);
     const body = (await authorize.json()) as { authorization_url?: string };
     return new URL(body.authorization_url ?? '').searchParams.get('state') ?? '';
@@ -132,7 +138,7 @@ describe('MCP OAuth authorize + callback', () => {
     });
     expect(put.status).toBe(200);
 
-    const authorize = await settingsRouter.request(
+    const authorize = await availableRouter.request(
       `/oauth-mcp/authorize?redirect_url=${encodeURIComponent(FE_REDIRECT)}`,
     );
     expect(authorize.status).toBe(200);
@@ -156,7 +162,7 @@ describe('MCP OAuth authorize + callback', () => {
     expect(token?.accessToken).toBe('access-1');
     expect(token?.refreshToken).toBe('refresh-1');
 
-    const reauthorize = await settingsRouter.request(
+    const reauthorize = await availableRouter.request(
       `/oauth-mcp/authorize?redirect_url=${encodeURIComponent(FE_REDIRECT)}`,
     );
     expect(reauthorize.status).toBe(200);
