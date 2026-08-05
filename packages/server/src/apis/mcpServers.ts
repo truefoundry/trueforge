@@ -31,14 +31,14 @@ import { TENANT_ID } from './sessions';
 /** Registering a DCR OAuth client hits the MCP server's authorization server, so bound that call. */
 export const MCP_DCR_REGISTRATION_TIMEOUT_MS = 10_000;
 
-export interface McpServersRouterDeps {
+export interface SettingsMcpServersRouterDeps {
   mcpCatalog: McpCatalog;
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   logger: Logger;
 }
 
-export interface AvailableMcpServersRouterDeps {
+export interface McpServersRouterDeps {
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   logger: Logger;
@@ -81,7 +81,7 @@ function toConfiguredMcpServer({
 /** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers).
  *  TODO: Remove the server via txn if DCR fails to register
  */
-export function createMcpServersRouter(deps: McpServersRouterDeps) {
+export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDeps) {
   const registerDcrClient = async (params: {
     serverId: string;
     mcpServerUrl: string;
@@ -204,8 +204,8 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
   return router;
 }
 
-/** Chat list + authorize (mounted at /api/v1/mcp-servers). */
-export function createAvailableMcpServersRouter(deps: AvailableMcpServersRouterDeps) {
+/** List + authorize (mounted at /api/v1/mcp-servers). */
+export function createMcpServersRouter(deps: McpServersRouterDeps) {
   const authorizeHandler: RouteHandler<typeof authorizeConfiguredMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const { redirect_url: redirectUrl } = c.req.valid('query');
