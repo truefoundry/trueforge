@@ -152,12 +152,6 @@ async function resolveWriteAuth(req: { id?: string; auth: ConnectorAuth }): Prom
   return { type: 'header', apiKey: stored, headerName };
 }
 
-function openAuthorizationUrl(url: string): void {
-  if (typeof globalThis.open === 'function') {
-    globalThis.open(url, '_blank', 'noopener,noreferrer');
-  }
-}
-
 /** Settings connector port for `createTrueFoundryServer`. Delete omitted; disconnect unsupported. */
 export function createConnectorCatalog(): ConnectorCatalogServer<
   ToolBase,
