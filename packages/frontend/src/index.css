@@ -1,8 +1,8 @@
 /* The SDK ships utilities and theme tokens but no reset. Preflight goes in its
    own layer: unlayered it would outrank `tfy-agent-ui-utilities` and strip the
    SDK's own margin, padding and border. */
-@import 'tailwindcss/preflight.css' layer(preflight);
-@import '@truefoundry/agent-ui-sdk/styles.css';
+@import "tailwindcss";
+@import "@truefoundry/trueforge-ui/styles.css";
 
 html,
 body,

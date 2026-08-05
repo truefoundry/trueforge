@@ -102,3 +102,21 @@ Publish a real version when CI or teammates need it.
 | Sourcemaps/declarationMap decision                                              | packages/harness/tsup.config.ts, tsconfig.build.json    |
 | CONTRIBUTING / SECURITY / CODE_OF_CONDUCT / CODEOWNERS / CI for external PRs    | .github/                                                |
 | Secret-scan history, enable secret scanning + push protection, flip repo public | GitHub settings                                         |
+
+---
+
+# Releasing `@truefoundry/trueforge-ui`
+
+Published from [`packages/trueforge-ui-sdk`](packages/trueforge-ui-sdk) via GitHub
+Release (not the `v*` utils-core tag flow).
+
+1. **Bump the version via PR** — edit `packages/trueforge-ui-sdk/package.json`
+   `version` and note the change in `CHANGELOG.md`.
+2. **After merge, create a GitHub Release** whose tag is exactly
+   `trueforge-ui-vX.Y.Z` matching that version (e.g. `trueforge-ui-v0.1.4`).
+3. **CI publishes** — [`.github/workflows/publish-trueforge-ui.yml`](.github/workflows/publish-trueforge-ui.yml)
+   typechecks, tests, builds, and runs `npm publish` with OIDC trusted publishing.
+   Prerelease versions (`*-rc.*`) publish under the `rc` dist-tag.
+
+**Prerequisite:** configure npm trusted publishing for `@truefoundry/trueforge-ui`
+on this repository / workflow. Without it the publish step returns 403.

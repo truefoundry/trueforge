@@ -2,11 +2,12 @@
 
 pnpm workspace with:
 
-| Package                   | Path                                     | Role                                                   |
-| ------------------------- | ---------------------------------------- | ------------------------------------------------------ |
-| `@truefoundry/utils-core` | [`packages/harness`](packages/harness)   | Published library (`core` + `agent-session`)           |
-| `@truefoundry/server`     | [`packages/server`](packages/server)     | HTTP server + UI host (private; depends on utils-core) |
-| `frontend`                | [`packages/frontend`](packages/frontend) | Private draft-only agent chat UI (not published)       |
+| Package                     | Path                                                     | Role                                                                |
+| --------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------- |
+| `@truefoundry/utils-core`   | [`packages/harness`](packages/harness)                   | Published library (`core` + `agent-session`)                        |
+| `@truefoundry/trueforge-ui` | [`packages/trueforge-ui-sdk`](packages/trueforge-ui-sdk) | Published agent chat UI SDK                                         |
+| `@truefoundry/server`       | [`packages/server`](packages/server)                     | HTTP server + UI host (private; depends on utils-core)              |
+| `frontend`                  | [`packages/frontend`](packages/frontend)                 | Private draft-only agent chat UI (not published; uses trueforge-ui) |
 
 ## Development
 
@@ -35,7 +36,7 @@ Terminal 2:
 pnpm dev         # API on :8790 and Vite on :3000
 ```
 
-Open `http://localhost:3000`. Frontend changes update through Vite HMR; server changes automatically restart the API on `:8790`. Vite proxies `/api/*` to the API. Local server scripts resolve `@truefoundry/utils-core` from source (`exports.development`), so a utils-core `dist/` build is not required for `pnpm dev`. For drain testing without server hot reload, use `pnpm dev:no-watch` instead of `pnpm dev`.
+Open `http://localhost:3000`. Frontend changes update through Vite HMR; server changes automatically restart the API on `:8790`. Vite proxies `/api/*` to the API. Local server scripts resolve `@truefoundry/utils-core` from source (`exports.development`), so a utils-core `dist/` build is not required for `pnpm dev`. Frontend scripts build `@truefoundry/trueforge-ui` `dist/` before Vite starts (workspace package exports point at `dist/`). For drain testing without server hot reload, use `pnpm dev:no-watch` instead of `pnpm dev`.
 
 The workspace utils-core package is ESM so the host server and source schemas share one ESM dependency graph. `NODE_OPTIONS=--conditions=development` selects `src/` at runtime, and TypeScript uses the same condition for source-based static analysis. Development, lint, typecheck, tests, OpenAPI generation, and migrations do not read or recreate `packages/harness/dist`; release builds, package checks, and Docker smoke tests create it intentionally.
 

@@ -1,0 +1,65 @@
+name: Publish @truefoundry/trueforge-ui
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Guard: only publish from trueforge-ui-v* tags that match package.json.
+      - name: Verify release tag matches package version
+        working-directory: packages/trueforge-ui-sdk
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          EXPECTED="trueforge-ui-v${PKG_VERSION}"
+          if [ "$EXPECTED" != "$GITHUB_REF_NAME" ]; then
+            echo "Release tag $GITHUB_REF_NAME does not match expected $EXPECTED"
+            exit 1
+          fi
+
+      - name: Typecheck
+        run: pnpm --filter @truefoundry/trueforge-ui typecheck
+
+      - name: Test
+        run: pnpm --filter @truefoundry/trueforge-ui test
+
+      - name: Build
+        run: pnpm --filter @truefoundry/trueforge-ui build
+
+      # --ignore-scripts: avoid any prepublish hook re-running the build.
+      - name: Determine npm dist-tag
+        id: dist-tag
+        working-directory: packages/trueforge-ui-sdk
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if echo "$VERSION" | grep -qE '[-]'; then
+            echo "tag=rc" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to npm
+        working-directory: packages/trueforge-ui-sdk
+        run: npm publish --access public --ignore-scripts --tag ${{ steps.dist-tag.outputs.tag }}

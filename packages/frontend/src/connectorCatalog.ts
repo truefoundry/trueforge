@@ -1,5 +1,5 @@
 /**
- * Maps agent-ui-sdk connector-settings calls onto Harness
+ * Maps trueforge-ui connector-settings calls onto Harness
  * `/api/v1/settings/mcp-servers` (upsert/list/tools) and `/api/v1/mcp-servers` (authorize).
  *
  * UI: `oauth` / `apiKey` / `none`, connector `id`.
@@ -14,13 +14,13 @@ import type {
   CreateConnectorRequest,
   ToolBase,
   UpdateConnectorRequest,
-} from '@truefoundry/agent-ui-sdk';
+} from '@truefoundry/trueforge-ui';
 import type { TrueHarnessApi as Harness } from 'trueharness';
 import { TrueHarness } from 'trueharness';
 
-export type UiConnectorAuth = ConnectorAuth<'none' | 'oauth' | 'apiKey'>;
-export type UiConnectorAuthPublic = ConnectorAuthPublic<'none' | 'oauth' | 'apiKey'>;
-export type UiConnector = ConnectorBase<ToolBase, UiConnectorAuthPublic>;
+export type UiConnectorAuth = ConnectorAuth;
+export type UiConnectorAuthPublic = ConnectorAuthPublic;
+export type UiConnector = ConnectorBase<UiConnectorAuthPublic>;
 export type UiConnectorCatalogEntry = ConnectorCatalogEntry<UiConnectorAuthPublic>;
 
 const DEFAULT_API_KEY_HEADER = 'Authorization';
@@ -32,7 +32,8 @@ export function toUiAuthPublic(auth: Harness.ConfiguredMcpServerAuth | undefined
     return { type: 'none' };
   }
   if (auth.type === 'dcr') {
-    return { type: 'oauth' };
+    // Public oauth rows require authUrl; Harness only has a URL after authorize.
+    return { type: 'oauth', authUrl: '' };
   }
   const headerName = Object.keys(auth.headers)[0];
   return {
@@ -57,7 +58,9 @@ export function toHarnessAuth(auth: ConnectorAuth): Harness.ConfiguredMcpServerA
     const headerName = trimmedHeader !== undefined && trimmedHeader !== '' ? trimmedHeader : DEFAULT_API_KEY_HEADER;
     return { type: 'header', headers: { [headerName]: apiKey } };
   }
-  throw new Error(`Unsupported connector auth type: ${auth.type}`);
+  const _exhaustive: never = auth;
+  void _exhaustive;
+  throw new Error('Unsupported connector auth type');
 }
 
 export function toUiCatalogEntry(server: Harness.CatalogMcpServer): UiConnectorCatalogEntry {
@@ -71,18 +74,20 @@ export function toUiCatalogEntry(server: Harness.CatalogMcpServer): UiConnectorC
 
 export function toUiTool(tool: Record<string, unknown>): ToolBase {
   const name = typeof tool.name === 'string' && tool.name !== '' ? tool.name : 'tool';
-  return { id: name, name };
+  const description = typeof tool.description === 'string' ? tool.description : '';
+  return { id: name, name, description };
 }
 
-export function toUiConnector(server: Harness.ConfiguredMcpServer, tools: ToolBase[]): UiConnector {
+export function toUiConnector(server: Harness.ConfiguredMcpServer): UiConnector {
+  const auth = toUiAuthPublic(server.auth);
   return {
     id: server.name,
     name: server.name,
     description: server.url,
     url: server.url,
-    auth: toUiAuthPublic(server.auth),
+    auth,
+    requiresAuth: auth.type === 'oauth',
     authenticated: server.authStatus.status === 'authenticated',
-    tools,
   };
 }
 
@@ -119,11 +124,6 @@ async function getConfigured(name: string): Promise<Harness.ConfiguredMcpServer>
   return existing;
 }
 
-async function toUiConnectorWithTools(server: Harness.ConfiguredMcpServer): Promise<UiConnector> {
-  const tools = await listToolsSafe(server.name);
-  return toUiConnector(server, tools);
-}
-
 async function resolveWriteAuth(req: { id?: string; auth: ConnectorAuth }): Promise<ConnectorAuth> {
   if (req.auth.type !== 'apiKey') {
     return req.auth;
@@ -152,12 +152,6 @@ async function resolveWriteAuth(req: { id?: string; auth: ConnectorAuth }): Prom
   return { type: 'apiKey', apiKey: stored, headerName };
 }
 
-function openAuthorizationUrl(url: string): void {
-  if (typeof globalThis.open === 'function') {
-    globalThis.open(url, '_blank', 'noopener,noreferrer');
-  }
-}
-
 /** Settings connector port for `createTrueFoundryServer`. Delete omitted; disconnect unsupported. */
 export function createConnectorCatalog(): ConnectorCatalogServer<
   ToolBase,
@@ -175,7 +169,7 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
     },
     listConnectors: async req => {
       const body = await client.settings.mcpServers.list();
-      const connectors = await Promise.all(body.data.map(server => toUiConnectorWithTools(server)));
+      const connectors = body.data.map(toUiConnector);
       const query = req?.query?.trim().toLowerCase();
       if (query === undefined || query === '') {
         return connectors;
@@ -187,27 +181,28 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
           connector.url.toLowerCase().includes(query),
       );
     },
+    getToolsByConnectorId: async ({ id }) => listToolsSafe(id),
     createConnector: async req => {
       const auth = await resolveWriteAuth({ auth: req.auth });
       const body = await client.settings.mcpServers.upsert(toHarnessManifest({ name: req.name, url: req.url, auth }));
-      return toUiConnectorWithTools(body.data);
+      return toUiConnector(body.data);
     },
     updateConnector: async req => {
       const auth = await resolveWriteAuth({ id: req.id, auth: req.auth });
       const body = await client.settings.mcpServers.upsert(toHarnessManifest({ name: req.id, url: req.url, auth }));
-      return toUiConnectorWithTools(body.data);
+      return toUiConnector(body.data);
     },
     authenticateConnector: async req => {
-      const redirectUrl = `${globalThis.location.origin}${globalThis.location.pathname}`;
+      const redirectUrl = req.redirectURL ?? `${globalThis.location.origin}${globalThis.location.pathname}`;
       const result = await client.mcpServers.authorize(req.id, { redirectUrl });
       if (result.status === 'auth_required') {
         if (result.authorizationUrl === undefined) {
           throw new Error(`Authorization URL missing for MCP server "${req.id}"`);
         }
-        openAuthorizationUrl(result.authorizationUrl);
+        return { authorization_endpoint: result.authorizationUrl };
       }
       const server = await getConfigured(req.id);
-      return toUiConnectorWithTools(server);
+      return toUiConnector(server);
     },
     disconnectConnector: () => Promise.reject(new Error('Disconnect is not supported by Harness yet')),
   };

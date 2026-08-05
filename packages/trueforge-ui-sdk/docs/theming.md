@@ -1,0 +1,515 @@
+# Plan: Remove `tfy-web-components`, own shadcn primitives + themes
+
+Hard-cut `tfy-web-components`. Own primitives (shadcn-style, in-repo),
+Markdown/OpenUI/syntax-highlighter/Monaco, Lucide icons (swappable map +
+SVG transform), and a **theme object** with presets
+(`truefoundry` | `claude` | `chatgpt` | `gemini`) plus full token / className /
+icon / **brand** / **content classNames** customization. Shell also accepts a
+**custom layout** React component built from `Thread`, thread list, etc.
+
+## Principle: everything customizable
+
+Hosts must be able to restyle, rebrand, and rearrange chrome without forking
+the SDK. Layers (each independently overridable):
+
+| Layer              | What it customizes                           | How                                           |
+| ------------------ | -------------------------------------------- | --------------------------------------------- |
+| Preset             | Baseline look                                | `theme.preset`                                |
+| Tokens             | Colors, radius, fonts, bubble colors         | `theme.tokens` + CSS vars                     |
+| Brand              | Logo + brand mark / icon                     | `theme.brand`                                 |
+| Icons              | Action / UI icon set                         | `theme.icons` (Lucide + SVG transforms)       |
+| Content classNames | Markdown, syntax-highlighter, OpenUI, Monaco | `theme.classNames`                            |
+| Root class         | Arbitrary host utilities                     | `theme.className`                             |
+| Host CSS           | Any token / layout tweak                     | documented `:root` / `.aui-root` overrides    |
+| Slots              | Replace any React piece                      | `overrides` / `SlotsProvider`                 |
+| Layout             | Entire chrome arrangement                    | `layout` string **or** custom React component |
+
+No visual or chrome element should be hard-wired to TrueFoundry branding.
+Defaults may ship TFY look; every surface must accept a host override.
+
+## Constraint
+
+All work in **`@truefoundry/trueforge-ui`**. No runtime package changes for this
+track (orthogonal to [`docs/server.md`](./server.md)).
+
+## Locked decisions
+
+| Decision        | Choice                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| Cutover         | Hard cut — remove dep + peer                                                             |
+| Primitives      | shadcn components **copied into** this repo                                              |
+| Coverage        | Everything currently pulled from tfy                                                     |
+| Slot API        | **Breaking** — drop `Button.Primary` / icon-string contracts; new shadcn-aligned props   |
+| Icons           | Lucide defaults; host can replace map + supply SVG transforms                            |
+| Brand           | Replacable via `theme.brand` (logo URL/node + brand icon URL/node/SVG)                   |
+| Theme API       | Object (not string-only); every look aspect customizable                                 |
+| Presets         | Inspired-by packs: `truefoundry` (default), `claude`, `chatgpt`, `gemini`                |
+| Custom styles   | CSS tokens + `className`; host may also import CSS (documented). No “load CSS file” prop |
+| Light / dark    | Controlled `mode` on the theme object **or** omit → uncontrolled `useTheme().setTheme`   |
+| React overrides | Structural pieces via **`overrides` / slots**; full chrome via **`layout` component**    |
+| Markdown        | In-repo; OpenUI kept; code fences via syntax-highlighter                                 |
+| Monaco          | In-repo (code artifacts / rich code surfaces); classNames overridable                    |
+| Content styling | `theme.classNames` for markdown, highlighter, OpenUI, Monaco                             |
+| Layout          | Built-in presets **or** host `React` layout using exported building blocks               |
+| Release         | Breaking **0.x** (slot API + styles + drop tfy)                                          |
+
+## Inventory → replacements
+
+### Primitives (slot defaults today)
+
+| Current (tfy)      | Target (in-repo shadcn-style)                                              |
+| ------------------ | -------------------------------------------------------------------------- |
+| `Button`           | `Button` (variants: default, secondary, ghost, destructive, outline, size) |
+| `IconButton`       | `Button` size=`icon` **or** thin `IconButton` wrapper                      |
+| `Modal` / `Dialog` | `Dialog` (+ sheet if drawer needs it)                                      |
+| `Accordion*`       | `Accordion`                                                                |
+| `LightTooltip`     | `Tooltip`                                                                  |
+| `Skeleton`         | `Skeleton`                                                                 |
+| `Avatar*`          | `Avatar`                                                                   |
+| `Spinner`          | small `Spinner` / loader (FA or inline SVG)                                |
+| `DropdownMenu`     | `DropdownMenu`                                                             |
+
+### Feature atoms that wrap tfy molecules
+
+Rebuild in-repo (keep existing atom **names** / slots where possible, change
+props):
+
+- Bubbles: `AssistantMessageBubble`, `UserMessageBubble`, `UserMessageEdit`
+- Tools: `ToolCallCard`, `ToolCallContentBlock`, `ToolApprovalBar`,
+  `ToolGroupCard`, `SubAgentCard`, `SandboxToolCallCard`, `AgentStepsCard`,
+  `ReasoningCard`
+- Prompts: `AskUserPrompt`, `McpAuthPrompt`
+- `Markdown` (OpenUI + highlighter)
+- Layout helpers using `IconProvider` → local icon resolver
+
+### Theme / icons / brand infra
+
+| Remove                           | Replace with                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------- |
+| `tfy-web-components/theme.css`   | Own palette + semantic tokens in `styles.css`                                               |
+| tfy `ThemeProvider` / `useTheme` | SDK `ThemeProvider` owned here                                                              |
+| `IconProvider` + `registerIcons` | `IconRegistry` + `theme.icons` / `setIcons`                                                 |
+| Hard-coded TFY marks             | `theme.brand` (logo + brand icon) consumed by header, welcome, widget FAB, avatar fallbacks |
+
+### Code surfaces (Monaco + syntax highlighter)
+
+Not currently imported anywhere in `src/` — dormant tfy surface, but real:
+tfy's own `Markdown` fenced-code rendering depends on it, so dropping tfy
+loses it silently unless ported explicitly.
+
+| Current (tfy)                                                                                                           | Target (in-repo)                                                                                                                             |
+| ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `molecules/monacoEditorCore/MonacoEditorCore` (thin `monaco-editor` wrapper: `onMount`/`beforeMount`/`theme`/`options`) | Local `MonacoEditorCore` atom, same prop surface, direct `monaco-editor` dependency                                                          |
+| `molecules/SimpleCodeEditor` (copy/download/expand/fullscreen/line-numbers atop `MonacoEditorCore`)                     | Local `CodeEditor` atom (rebuilt on local `MonacoEditorCore`, same feature set)                                                              |
+| `molecules/CopyField` / `CopyFieldHighlighted` (copy affordance used by `SimpleCodeEditor`)                             | Fold into local `CodeEditor` copy button; no separate primitive needed                                                                       |
+| `react-syntax-highlighter` used internally by tfy `Markdown`/`MarkdownWithOpenUI` for non-OpenUI fenced code            | Local `SyntaxHighlighter` atom, called from the in-repo `Markdown` atom for non-openui fences (same line-numbers / light-dark theme mapping) |
+
+New direct dependencies this implies: `monaco-editor`, `react-syntax-highlighter`
+(+ `@types/react-syntax-highlighter`).
+
+## Theme API (target)
+
+```ts
+type ThemeMode = "light" | "dark" | "system";
+
+type ThemePreset = "truefoundry" | "claude" | "chatgpt" | "gemini";
+
+type SemanticTokens = {
+  background: string;
+  foreground: string;
+  card: string;
+  cardForeground: string;
+  popover: string;
+  popoverForeground: string;
+  primary: string;
+  primaryForeground: string;
+  secondary: string;
+  secondaryForeground: string;
+  muted: string;
+  mutedForeground: string;
+  accent: string;
+  accentForeground: string;
+  destructive: string;
+  destructiveForeground: string;
+  border: string;
+  input: string;
+  ring: string;
+  radius: string;
+  fontSans: string; // maps to --font-agent-ui
+  // optional chat-specific:
+  userBubble?: string;
+  userBubbleForeground?: string;
+  assistantBubble?: string;
+  assistantBubbleForeground?: string;
+};
+
+/** UI action icons (send, attach, copy, …) — Lucide, React nodes, or SVG wrappers */
+type IconMap = Record<
+  string,
+  | LucideIcon
+  | React.ReactNode
+  | ((props: IconProps) => React.ReactNode)
+  | React.FC<React.SVGProps<SVGSVGElement>>
+>;
+
+type BrandImage =
+  | { src: string; alt?: string }
+  | React.ReactNode
+  | ((props: { className?: string }) => React.ReactNode);
+
+/**
+ * Product branding — distinct from `icons` (UI chrome).
+ * Used anywhere a product mark appears today (header, welcome, widget FAB,
+ * empty states, assistant avatar fallback).
+ */
+type BrandConfig = {
+  /** Wordmark / wide logo (sidebar header, welcome). */
+  logo?: BrandImage;
+  /** Square brand mark / app icon (FAB, avatar fallback, compact chrome). */
+  icon?: BrandImage;
+  /** Optional display name next to logo. */
+  name?: string;
+};
+
+type ThemeConfig = {
+  preset?: ThemePreset; // default: "truefoundry"
+  mode?: ThemeMode; // omit = uncontrolled (useTheme().setTheme)
+  tokens?: Partial<SemanticTokens>;
+  brand?: BrandConfig; // logo + brand icon replacement
+  className?: string; // applied on .aui-root (or theme root)
+  icons?: IconMap; // full/partial UI icon replace + SVG transforms
+  /** Per-surface className hooks for content renderers */
+  classNames?: ContentClassNames;
+};
+
+/**
+ * Override CSS classes (and optional style props) on content engines.
+ * All fields optional; merge with defaults via `cn()`.
+ */
+type ContentClassNames = {
+  /** Wrapper / prose root for rendered markdown */
+  markdown?: string;
+  /** Non-openui fenced code blocks (syntax-highlighter root / pre / code) */
+  syntaxHighlighter?: {
+    root?: string;
+    pre?: string;
+    code?: string;
+    lineNumber?: string;
+  };
+  /** OpenUI fenced-block host + common child hooks */
+  openui?: {
+    root?: string;
+    /** Extra classes forwarded into OpenUI theme/host if supported */
+    [key: string]: string | undefined;
+  };
+  /** Monaco editor / diff surfaces */
+  monaco?: {
+    root?: string;
+    editor?: string;
+    /** Optional Monaco `theme` id or defineTheme hook name — styling adjacent */
+    monacoTheme?: string;
+  };
+};
+
+type BuiltInLayout = "sidebar" | "drawer" | "dock" | "widget";
+
+/**
+ * Shell layout: built-in string **or** a host component that composes
+ * exported building blocks (`Thread`, `ThreadListContainer`, …).
+ */
+type LayoutProp = BuiltInLayout | React.ComponentType<{ className?: string }>;
+
+// Usage — theme + custom layout
+function MyLayout({ className }: { className?: string }) {
+  return (
+    <div className={cn("flex h-full", className)}>
+      <aside className="w-64 border-r">
+        <ThreadListContainer />
+      </aside>
+      <main className="flex min-w-0 flex-1 flex-col">
+        <Thread />
+      </main>
+    </div>
+  );
+}
+
+<TrueforgeUI
+  layout={MyLayout} // or "sidebar" | "drawer" | "dock" | "widget"
+  theme={{
+    preset: "claude",
+    mode: "dark",
+    tokens: { primary: "#…", fontSans: '"My Font", system-ui' },
+    brand: {
+      name: "Acme Agent",
+      logo: { src: "/acme-wordmark.svg", alt: "Acme" },
+      icon: MyAcmeMark,
+    },
+    className: "my-chat",
+    icons: { send: MySendSvg, paperclip: MyAttachSvg },
+    classNames: {
+      markdown: "prose prose-neutral dark:prose-invert max-w-none",
+      syntaxHighlighter: {
+        root: "my-code-block rounded-lg",
+        pre: "bg-zinc-950 p-4",
+        code: "text-sm font-mono",
+      },
+      openui: { root: "my-openui-host" },
+      monaco: { root: "my-monaco h-64", monacoTheme: "vs-dark" },
+    },
+  }}
+  overrides={{ WelcomeScreen: MyWelcome }}
+/>
+```
+
+**Resolution order:** preset defaults → `tokens` → `brand` / `icons` →
+`classNames` → host CSS variables (documented) → `className` utilities.
+
+**Custom styles without the object:** host CSS still works:
+
+```css
+.aui-root {
+  --primary: #e11d48;
+  --font-agent-ui: 'My Font', system-ui, sans-serif;
+}
+
+/* Or target documented content hooks */
+.aui-root .aui-markdown {
+  /* … */
+}
+.aui-root .aui-syntax-highlighter {
+  /* … */
+}
+.aui-root .aui-openui {
+  /* … */
+}
+.aui-root .aui-monaco {
+  /* … */
+}
+```
+
+## Brand system
+
+1. All product marks render through `useBrand()` / `<BrandLogo />` /
+   `<BrandIcon />` — never hard-coded TFY assets in layouts or atoms.
+2. `theme.brand.logo` → headers, welcome, wide chrome.
+3. `theme.brand.icon` → widget FAB, compact headers, assistant avatar fallback
+   when no user avatar is set.
+4. `theme.brand.name` → accessible labels / text next to logo when provided.
+5. Omitting `brand` keeps the default TrueFoundry (or preset) mark; hosts
+   replace either or both logo and icon independently.
+
+## Icon system
+
+1. Ship default Lucide map (stable FA-style keys via `IconRegistry`).
+2. `theme.icons` merges over defaults (partial or full replace).
+3. Allow React SVG / SVGR transform wrappers as values.
+4. Custom agent SVGs stay on the SVGR pipeline (`registerAgentIcons`).
+5. `useIcon(name)` / `<Icon name="paperclip" />` for all call sites (breaking
+   vs string props on tfy `IconButton`).
+6. Brand marks are **not** mixed into `icons` — use `theme.brand` so product
+   identity stays separate from action icons.
+
+## Layout override
+
+`TrueforgeUI` / chat shell `layout` prop:
+
+| Value                                               | Behavior                     |
+| --------------------------------------------------- | ---------------------------- |
+| `"sidebar"` \| `"drawer"` \| `"dock"` \| `"widget"` | Built-in layouts (unchanged) |
+| `React.ComponentType<{ className?: string }>`       | Host-owned chrome            |
+
+Custom layouts compose **exported** building blocks (same as today’s advanced
+compose path), for example:
+
+- `Thread` / `ThreadContainer`
+- `ThreadListContainer`
+- `Composer` pieces / slot-backed atoms as needed
+- Brand helpers (`BrandLogo`, `BrandIcon`) and `useTheme`
+
+The shell still wraps the custom layout with theme + slots + chat provider;
+only the chrome tree is replaced. Equivalent to skipping built-in layouts
+without dropping providers.
+
+```tsx
+import { TrueforgeUI, Thread, ThreadListContainer } from '@truefoundry/trueforge-ui';
+
+function CenteredLayout() {
+  return (
+    <div className="mx-auto flex h-full max-w-3xl flex-col">
+      <ThreadListContainer />
+      <Thread />
+    </div>
+  );
+}
+
+<TrueforgeUI
+  server={server}
+  agentConfig={{ mode: 'SingleAgent', name: 'my-agent' }}
+  layout={CenteredLayout}
+  theme={{ preset: 'gemini' }}
+/>;
+```
+
+## Presets (inspired-by)
+
+Ship as CSS variable maps under e.g. `src/theme/presets/`:
+
+| Preset        | Intent (not a clone)                                    |
+| ------------- | ------------------------------------------------------- |
+| `truefoundry` | Current indigo semantic look                            |
+| `claude`      | Warm paper bg, soft borders, restrained accent          |
+| `chatgpt`     | Cool gray chrome, green/teal send accent, flat bubbles  |
+| `gemini`      | Light airy surface, blue accent, slightly larger radius |
+
+Each preset defines **light + dark** token sets. Document that these are
+stylistic homages, not product replicas.
+
+## Markdown / OpenUI / syntax-highlighter / Monaco
+
+1. Replace `MarkdownWithOpenUI` with in-repo `Markdown` atom.
+2. Keep `@openuidev/*` (already via `openui.css`) as first-party styling
+   surface; theme tokens should flow into OpenUI where possible.
+3. Fenced code (non-openui): syntax-highlighter themed from semantic tokens
+   **and** `theme.classNames.syntaxHighlighter`.
+4. Monaco in-repo for rich code / artifact surfaces; style via
+   `theme.classNames.monaco` (+ optional `monacoTheme` id).
+5. Stable DOM hooks (`aui-markdown`, `aui-syntax-highlighter`, `aui-openui`,
+   `aui-monaco`) so host CSS works without the theme object.
+6. Preload path: replace `preloadMarkdownOpenUI` with local equivalent.
+7. Pass `theme.classNames.markdown` / `openui` into the Markdown/OpenUI hosts.
+
+## Call flow
+
+```
+TrueforgeUI({ layout, theme, overrides, … })
+  └─ SlotsProvider / ThemeProvider
+        ├─ apply preset → CSS variables on .aui-root
+        ├─ merge theme.tokens / brand / icons / classNames / className
+        ├─ layout = built-in | <HostLayout />
+        └─ defaultSlots → local shadcn primitives + feature atoms
+              ├─ BrandLogo / BrandIcon wherever product mark appears
+              └─ Markdown / OpenUI / syntax-highlighter / Monaco
+                    (classNames from theme)
+```
+
+## Phases
+
+### Phase 0 — Spec freeze
+
+1. Keep this doc as the source of truth.
+2. List every tfy import → owner file → replacement (use inventory above).
+3. Final `ThemeConfig` + new primitive prop types.
+
+**Done when:** interfaces agreed; inventory complete.
+
+### Phase 1 — Token foundation (no full visual rewrite yet)
+
+1. Stop importing `tfy-web-components/theme.css`.
+2. Inline a minimal palette + keep existing semantic `@layer` tokens.
+3. Own `ThemeProvider` / `useTheme` (mode light/dark/system); wire
+   `SlotsProvider` to it.
+4. Apply `theme.className` + CSS vars from `theme.tokens` / `preset` on root.
+5. Introduce `BrandConfig` plumbing (`useBrand`, `<BrandLogo />`,
+   `<BrandIcon />`) even if defaults still point at TFY assets.
+
+**Done when:** app runs with owned tokens (tfy components may still be present);
+host can override `--primary` and swap `theme.brand.icon` / `logo`.
+
+### Phase 2 — shadcn primitives + icon + brand registry
+
+1. Add in-repo primitives under `src/atoms/primitives/` (or `src/ui/`).
+2. New slot defaults; **break** compound Button / icon-string APIs.
+3. Lucide `IconRegistry`; migrate call sites; support `theme.icons`.
+4. Wire layouts / welcome / widget FAB / avatar fallbacks to `theme.brand`.
+5. Update [`docs/customization.md`](./customization.md) for new override
+   contracts (tokens, brand, icons, slots).
+
+**Done when:** no primitive imports from tfy; slots resolve to local components;
+brand logo/icon replaceable via theme.
+
+### Phase 3 — Rebuild feature atoms / molecules
+
+1. Replace each tfy agent-chat wrapper with local Tailwind + primitives.
+2. Keep slot **names** stable where possible (`AssistantMessageBubble`, …) so
+   overrides still work after prop migration.
+3. Layouts: remove `IconProvider`; support `layout={MyComponent}` on the shell
+   (built-ins unchanged).
+
+**Done when:** `rg tfy-web-components src` is empty; custom layout component
+renders inside providers.
+
+### Phase 4 — Markdown + OpenUI + highlighter + Monaco
+
+1. In-repo Markdown + OpenUI fences.
+2. Port `react-syntax-highlighter`-based fenced-code rendering out of tfy's
+   `Markdown` into a local `SyntaxHighlighter` atom (add direct deps:
+   `react-syntax-highlighter`, `@types/react-syntax-highlighter`).
+3. Port `MonacoEditorCore` + `SimpleCodeEditor` (copy/download/expand/
+   fullscreen/line-numbers) into local `MonacoEditorCore` + `CodeEditor`
+   atoms for rich code / artifact surfaces (lazy-load where possible; add
+   direct dep `monaco-editor`).
+4. Wire `theme.classNames` (`markdown`, `syntaxHighlighter`, `openui`,
+   `monaco`) + stable `aui-*` hooks for host CSS.
+5. Fix tests that mock `tfy-markdown-openui`.
+
+**Done when:** OpenUI / code fences / Monaco render without tfy; classNames
+overrides apply in the example app.
+
+### Phase 5 — Presets + polish
+
+1. Ship `claude` / `chatgpt` / `gemini` / `truefoundry` packs.
+2. Example app: theme switcher + custom layout demo + content classNames demo.
+3. Drop `tfy-web-components` from `dependencies` / `peerDependencies`.
+4. CHANGELOG + migration guide (slot props, styles, brand, layout, classNames).
+
+**Done when:** presets + custom layout + content classNames demos work; package
+no longer depends on tfy.
+
+## Migration notes (for consumers)
+
+- Remove `@import "tfy-web-components/theme.css"`.
+- Only `@import "@truefoundry/trueforge-ui/styles.css"` (+ host Tailwind
+  preflight as today).
+- Revisit `overrides` for `Button` / `IconButton` / bubbles (new props).
+- Prefer
+  `theme={{ preset, tokens, brand, icons, className, classNames }}`
+  over hacking a third-party theme.
+- Replace product marks with `theme.brand.logo` / `theme.brand.icon` (URL,
+  React node, or SVG component).
+- Pass `layout={MyLayout}` to own chrome; compose `Thread` /
+  `ThreadListContainer` / etc.
+- Style content engines via `theme.classNames` or `.aui-markdown` /
+  `.aui-syntax-highlighter` / `.aui-openui` / `.aui-monaco`.
+
+## Non-goals (v1)
+
+- Pixel-perfect Claude / ChatGPT / Gemini clones
+- Dual-running tfy + shadcn
+- Moving structural atom overrides into `theme` (those stay in `overrides`;
+  full chrome uses `layout` instead)
+- Runtime / Server abstraction work (see [`docs/server.md`](./server.md))
+
+## PR sequence
+
+1. Tokens + owned ThemeProvider (still on tfy components if needed mid-migration)
+2. Primitives + IconRegistry + slot API break
+3. Feature atoms migration (can split by domain: chrome → tools → messages)
+4. Custom `layout` component support
+5. Markdown / OpenUI / syntax-highlighter / Monaco + `theme.classNames`
+6. Presets + remove tfy dep + example + docs
+
+## Success criteria
+
+- `rg tfy-web-components src` → empty
+- Four presets + custom `tokens` / `brand` / `icons` / `className` /
+  `classNames` demo in example
+- Host can pass `layout={MyLayout}` built from `Thread` + thread list exports
+- Host can override classes on Markdown, syntax-highlighter, OpenUI, and Monaco
+  via `theme.classNames` and/or stable `aui-*` CSS hooks
+- Host can fully rebrand (colors, fonts, logo, brand icon, action icons)
+  without slot overrides
+- Host can still replace any component via `overrides` when needed
+- Light/dark controlled + uncontrolled both work
+- Slot override of `Button` works with new API
+- OpenUI fenced blocks still render
+- No hard-coded TrueFoundry logo/mark outside default `theme.brand` assets
