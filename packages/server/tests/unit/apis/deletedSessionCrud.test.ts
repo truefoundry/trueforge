@@ -42,6 +42,7 @@ describe('public CRUD after session deletion', () => {
         modelProviderStore,
         mcpServerStore,
         skillStore,
+        agentStore,
         sandboxProviderStore,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),

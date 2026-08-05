@@ -6,6 +6,7 @@ import type { ISessionStore, SessionRecord, Sessions } from '@truefoundry/utils-
 import {
   CancellationReason,
   SessionStoreConflictError,
+  SessionStoreInvariantError,
   SessionStoreNotFoundError,
 } from '@truefoundry/utils-core/agent-session';
 import type {
@@ -18,6 +19,7 @@ import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import configuration from '../config';
+import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -68,6 +70,7 @@ export interface SessionsRouterDeps {
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerStore;
   skillStore: ISkillStore;
+  agentStore: IAgentStore;
   sandboxProviderStore: ISandboxProviderStore;
   redis?: RedisClientType | undefined;
   requestReplyRouter: RequestReplyRouter;
@@ -185,6 +188,22 @@ export async function cancelSessionTurn(
 export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
+    const sessionId = ulid().toLowerCase();
+
+    if ('agent_id' in body) {
+      const agent = await deps.agentStore.getAgentById({ tenant_id: TENANT_ID, id: body.agent_id });
+      if (agent === undefined) {
+        return c.json({ error: { message: `Agent not found: ${body.agent_id}` } }, 404);
+      }
+      const session = await deps.sessions.create({
+        tenant_id: TENANT_ID,
+        session_id: sessionId,
+        agent_id: body.agent_id,
+        agent_spec: null,
+      });
+      return c.json({ data: toWireSession(session.record) }, 201);
+    }
+
     await validateAgentSpec({
       spec: body.agent_spec,
       tenant_id: TENANT_ID,
@@ -195,7 +214,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     });
     const session = await deps.sessions.create({
       tenant_id: TENANT_ID,
-      session_id: ulid().toLowerCase(),
+      session_id: sessionId,
       agent_id: null,
       agent_spec: body.agent_spec,
     });
@@ -241,6 +260,9 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       if (error instanceof SessionStoreNotFoundError) {
         return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
       }
+      if (error instanceof SessionStoreInvariantError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
       throw error;
     }
     const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
@@ -254,7 +276,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const query = c.req.valid('query');
     try {
       const { data, pagination } = await deps.sessionStore.listSessions({
-        agent_id: undefined,
+        agent_id: query.agent_id,
         tenant_id: TENANT_ID,
         limit: query.limit,
         order: query.order,

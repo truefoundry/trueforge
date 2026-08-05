@@ -16,13 +16,26 @@ export const SessionSchema = z
   })
   .openapi('Session');
 
-/** Create still accepts inline specs only; named create lands in session-http. */
+/**
+ * Create binds exactly one of inline draft (`agent_spec`) or named registry
+ * (`agent_id`). No shared discriminator — `z.union` of strict objects.
+ */
 export const CreateSessionRequestSchema = z
-  .object({
-    agent_spec: AgentSpecSchema,
-  })
+  .union([
+    z
+      .object({
+        agent_spec: AgentSpecSchema,
+      })
+      .strict(),
+    z
+      .object({
+        agent_id: z.string().min(1),
+      })
+      .strict(),
+  ])
   .openapi('CreateSessionRequest');
 
+/** Draft sessions only may patch `agent_spec`; named sessions reject it at the store. */
 export const UpdateSessionRequestSchema = z
   .object({
     agent_spec: AgentSpecSchema.optional(),
@@ -51,4 +64,5 @@ export const SessionAgentSourceSchema = z
   .openapi('SessionAgentSource');
 
 export type Session = z.infer<typeof SessionSchema>;
+export type CreateSessionRequest = z.infer<typeof CreateSessionRequestSchema>;
 export type SessionAgentSource = z.infer<typeof SessionAgentSourceSchema>;

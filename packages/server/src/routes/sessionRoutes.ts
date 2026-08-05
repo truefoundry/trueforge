@@ -27,7 +27,8 @@ export const createSessionRoute = createRoute({
   path: '/',
   tags: [SESSIONS_TAG],
   summary: 'Create a session',
-  description: 'Create a session holding an inline agent spec. Turns are executed against this spec.',
+  description:
+    'Create a session bound to an inline draft `agent_spec` or a named registry `agent_id` (exactly one). Named sessions resolve the live agent on each turn.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create',
   request: {
@@ -44,6 +45,10 @@ export const createSessionRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Named `agent_id` not found.',
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -99,7 +104,8 @@ export const updateSessionRoute = createRoute({
   path: '/{session_id}',
   tags: [SESSIONS_TAG],
   summary: 'Update a session',
-  description: "Update a session's inline agent spec. An empty body is a valid no-op that refreshes `updated_at`.",
+  description:
+    "Update a draft session's inline `agent_spec`. Named sessions (bound by `agent_id`) reject `agent_spec` updates. An empty body is a valid no-op that refreshes `updated_at`.",
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'update',
   request: {
@@ -116,7 +122,7 @@ export const updateSessionRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body.',
+      description: 'Invalid request body, or named session rejected an `agent_spec` update.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -136,7 +142,7 @@ export const listSessionsRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'List sessions',
   description:
-    'List sessions (newest first by default), token-paginated. Pass `page_token` to fetch the next page, keeping the other query params constant.',
+    'List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,

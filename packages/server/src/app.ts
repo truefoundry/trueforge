@@ -123,6 +123,7 @@ export function createServerApp(deps: ServerDeps) {
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
       skillStore: deps.skillStore,
+      agentStore: deps.agentStore,
       sandboxProviderStore: deps.sandboxProviderStore,
       redis: deps.redis,
       requestReplyRouter: deps.requestReplyRouter,

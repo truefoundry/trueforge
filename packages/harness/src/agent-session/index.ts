@@ -22,7 +22,7 @@ export {
 export type { TerminalTurnState, Turn, TurnInputItem, TurnMetrics, TurnState } from './schemas/turn';
 
 export { CreateSessionRequestSchema, SessionSchema, UpdateSessionRequestSchema } from './schemas/session';
-export type { Session, SessionAgentSource } from './schemas/session';
+export type { CreateSessionRequest, Session, SessionAgentSource } from './schemas/session';
 
 export {
   EventType,
