@@ -613,13 +613,16 @@ describe('completeMcpAuthorization', () => {
     });
 
     const pending = await stores.tokenStore.consumePendingAuthorization({ state });
-    expect(pending?.redirectUrl).toBe('https://app.example.com/connected');
+    if (!pending) {
+      throw new Error('expected buildMcpAuthorizationUrl to save a pending authorization');
+    }
+    expect(pending.redirectUrl).toBe('https://app.example.com/connected');
 
     const beforeMs = Date.now();
     await completeMcpAuthorization({
       tokenStore: stores.tokenStore,
       mcpServerStore: stores.mcpServerStore,
-      pending: pending!,
+      pending,
       code: 'auth-code-1',
     });
     const afterMs = Date.now();
@@ -679,11 +682,15 @@ describe('completeMcpAuthorization', () => {
     }) as typeof fetch;
 
     const pending = await stores.tokenStore.consumePendingAuthorization({ state });
+    if (!pending) {
+      throw new Error('expected buildMcpAuthorizationUrl to save a pending authorization');
+    }
+
     await expect(
       completeMcpAuthorization({
         tokenStore: stores.tokenStore,
         mcpServerStore: stores.mcpServerStore,
-        pending: pending!,
+        pending,
         code: 'auth-code-1',
       }),
     ).rejects.toMatchObject({
