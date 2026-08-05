@@ -2,7 +2,4 @@
 
 import type * as TrueHarness from "../index.js";
 
-export type ModelProvider =
-    | TrueHarness.AnthropicModelProvider
-    | TrueHarness.CustomModelProvider
-    | TrueHarness.OpenAiModelProvider;
+export type ModelProvider = TrueHarness.WellKnownModelProvider | TrueHarness.CallerSuppliedModelProvider;

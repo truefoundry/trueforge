@@ -24,6 +24,7 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
+import { PROVIDER_DEFAULT_BASE_URLS } from '../schemas/modelProvider';
 import { toDaytonaSandboxProviderInput } from '../schemas/sandboxProvider';
 
 export interface McpConnection {
@@ -74,11 +75,14 @@ export async function getProviderConfig({
       message: `Unknown model "${name}" — not configured on provider`,
     });
   }
+  // Provider types are adapter names, so this assignment is what keeps them so: a type with no
+  // `buildLanguageModel` case fails to compile here. An explicit base_url always wins.
+  const { type, base_url } = provider.manifest;
   return {
-    provider: provider.manifest.type,
+    provider: type,
     name,
-    model_id: model.model_id,
-    base_url: provider.manifest.base_url,
+    modelId: model.model_id,
+    baseUrl: base_url ?? PROVIDER_DEFAULT_BASE_URLS[type],
     apiKey: provider.manifest.auth.api_key,
     headers: {},
   };

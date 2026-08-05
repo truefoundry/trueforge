@@ -26,7 +26,7 @@ export function uniqueNames(entries: { name: string }[], ctx: z.RefinementCtx): 
   for (const entry of entries) {
     if (seen.has(entry.name)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: `Duplicate name "${entry.name}" — names must be unique`,
       });
     }

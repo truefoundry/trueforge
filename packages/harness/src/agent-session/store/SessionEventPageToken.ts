@@ -5,7 +5,7 @@ import { decodePageToken, encodePageToken } from './PageToken';
 export const SessionEventPageCursorSchema = z
   .object({
     last_turn_id: z.string().min(1),
-    offset: z.number().int().nonnegative().safe(),
+    offset: z.number().int().nonnegative(),
   })
   .strict();
 

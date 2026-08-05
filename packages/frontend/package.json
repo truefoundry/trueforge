@@ -7,7 +7,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "sdk:build": "pnpm --pm-on-fail=ignore --dir ../sdk install --ignore-workspace --config.confirmModulesPurge=false --ignore-scripts && pnpm --pm-on-fail=ignore --dir ../sdk build",
+    "sdk:build": "pnpm --pm-on-fail=ignore --dir ../sdk install --ignore-scripts && pnpm --pm-on-fail=ignore --dir ../sdk build",
     "predev": "pnpm run sdk:build",
     "dev": "trap 'exit 0' INT TERM; vite",
     "dev:no-watch": "pnpm run dev",

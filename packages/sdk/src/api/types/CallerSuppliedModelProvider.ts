@@ -2,11 +2,11 @@
 
 import type * as TrueHarness from "../index.js";
 
-export interface OpenAiModelProvider {
+export interface CallerSuppliedModelProvider {
     auth: TrueHarness.ModelProviderAuth;
-    /** Optional override of the provider's default API base URL. */
-    baseUrl?: string;
+    /** Base URL of the provider's API. */
+    baseUrl: string;
     models: TrueHarness.ModelEntry[];
     name: TrueHarness.ResourceName;
-    type: "openai";
+    type: TrueHarness.CallerSuppliedModelProviderType;
 }

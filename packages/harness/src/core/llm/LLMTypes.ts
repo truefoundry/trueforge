@@ -195,7 +195,8 @@ export interface ExtendedChatCompletionChunk extends Omit<ChatCompletionChunk, '
 export interface RawAssistantMessageWithUsage {
   output: RawAssistantMessage;
   usage: CompletionUsage;
-  finish_reason: FinishReason;
+  /** null when the stream ended without a finish_reason chunk (e.g. provider omitted it). */
+  finish_reason: FinishReason | null;
 }
 
 export const UNKNOWN_TOOL_NAME = 'unknown';

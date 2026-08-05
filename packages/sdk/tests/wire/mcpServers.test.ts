@@ -6,7 +6,7 @@ import { mockServerPool } from "../mock-server/MockServerPool";
 describe("McpServersClient", () => {
     test("list", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { data: [{ name: "name", url: "url" }] };
 

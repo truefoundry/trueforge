@@ -7,18 +7,12 @@ import { mockServerPool } from "../mock-server/MockServerPool";
 describe("SessionsClient", () => {
     test("list (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [
                 {
-                    agent_spec: {
-                        model: {
-                            model_id: "model_id",
-                            name: "name",
-                            properties: { context_length: 1, max_output_tokens: 1 },
-                        },
-                    },
+                    agent_spec: { model: { name: "name" } },
                     created_at: "created_at",
                     id: "id",
                     title: "title",
@@ -41,12 +35,7 @@ describe("SessionsClient", () => {
                 {
                     agentSpec: {
                         model: {
-                            modelId: "model_id",
                             name: "name",
-                            properties: {
-                                contextLength: 1,
-                                maxOutputTokens: 1,
-                            },
                         },
                     },
                     createdAt: "created_at",
@@ -71,7 +60,7 @@ describe("SessionsClient", () => {
 
     test("list (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -84,23 +73,15 @@ describe("SessionsClient", () => {
 
     test("create (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = {
-            agent_spec: {
-                model: { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
-            },
-        };
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
+        const rawRequestBody = { agent_spec: { model: { name: "name" } } };
         const rawResponseBody = {
             data: {
                 agent_spec: {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: {
-                        model_id: "model_id",
-                        name: "name",
-                        properties: { context_length: 1, max_output_tokens: 1 },
-                    },
+                    model: { name: "name" },
                     response_format: { type: "json_object" },
                     skills: [{ name: "name" }],
                     variables: { key: "value" },
@@ -124,12 +105,7 @@ describe("SessionsClient", () => {
         const response = await client.sessions.create({
             agentSpec: {
                 model: {
-                    modelId: "model_id",
                     name: "name",
-                    properties: {
-                        contextLength: 1,
-                        maxOutputTokens: 1,
-                    },
                 },
             },
         });
@@ -149,12 +125,7 @@ describe("SessionsClient", () => {
                         },
                     ],
                     model: {
-                        modelId: "model_id",
                         name: "name",
-                        properties: {
-                            contextLength: 1,
-                            maxOutputTokens: 1,
-                        },
                     },
                     responseFormat: {
                         type: "json_object",
@@ -178,12 +149,8 @@ describe("SessionsClient", () => {
 
     test("create (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = {
-            agent_spec: {
-                model: { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
-            },
-        };
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
+        const rawRequestBody = { agent_spec: { model: { name: "x" } } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -199,12 +166,7 @@ describe("SessionsClient", () => {
             return await client.sessions.create({
                 agentSpec: {
                     model: {
-                        modelId: "model_id",
-                        name: "name",
-                        properties: {
-                            contextLength: 1,
-                            maxOutputTokens: 1,
-                        },
+                        name: "x",
                     },
                 },
             });
@@ -213,12 +175,8 @@ describe("SessionsClient", () => {
 
     test("create (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
-        const rawRequestBody = {
-            agent_spec: {
-                model: { model_id: "model_id", name: "name", properties: { context_length: 1, max_output_tokens: 1 } },
-            },
-        };
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
+        const rawRequestBody = { agent_spec: { model: { name: "x" } } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -234,12 +192,7 @@ describe("SessionsClient", () => {
             return await client.sessions.create({
                 agentSpec: {
                     model: {
-                        modelId: "model_id",
-                        name: "name",
-                        properties: {
-                            contextLength: 1,
-                            maxOutputTokens: 1,
-                        },
+                        name: "x",
                     },
                 },
             });
@@ -248,7 +201,7 @@ describe("SessionsClient", () => {
 
     test("get (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: {
@@ -256,11 +209,7 @@ describe("SessionsClient", () => {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: {
-                        model_id: "model_id",
-                        name: "name",
-                        properties: { context_length: 1, max_output_tokens: 1 },
-                    },
+                    model: { name: "name" },
                     response_format: { type: "json_object" },
                     skills: [{ name: "name" }],
                     variables: { key: "value" },
@@ -297,12 +246,7 @@ describe("SessionsClient", () => {
                         },
                     ],
                     model: {
-                        modelId: "model_id",
                         name: "name",
-                        properties: {
-                            contextLength: 1,
-                            maxOutputTokens: 1,
-                        },
                     },
                     responseFormat: {
                         type: "json_object",
@@ -326,7 +270,7 @@ describe("SessionsClient", () => {
 
     test("get (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -345,7 +289,7 @@ describe("SessionsClient", () => {
 
     test("delete", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         server.mockEndpoint().delete("/api/v1/sessions/session_id").respondWith().statusCode(200).build();
 
@@ -355,7 +299,7 @@ describe("SessionsClient", () => {
 
     test("update (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = {
             data: {
@@ -363,11 +307,7 @@ describe("SessionsClient", () => {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
                     messages: [{ content: "content", type: "user.message" }],
-                    model: {
-                        model_id: "model_id",
-                        name: "name",
-                        properties: { context_length: 1, max_output_tokens: 1 },
-                    },
+                    model: { name: "name" },
                     response_format: { type: "json_object" },
                     skills: [{ name: "name" }],
                     variables: { key: "value" },
@@ -405,12 +345,7 @@ describe("SessionsClient", () => {
                         },
                     ],
                     model: {
-                        modelId: "model_id",
                         name: "name",
-                        properties: {
-                            contextLength: 1,
-                            maxOutputTokens: 1,
-                        },
                     },
                     responseFormat: {
                         type: "json_object",
@@ -434,7 +369,7 @@ describe("SessionsClient", () => {
 
     test("update (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
@@ -454,7 +389,7 @@ describe("SessionsClient", () => {
 
     test("update (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
@@ -474,7 +409,7 @@ describe("SessionsClient", () => {
 
     test("update (4)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
@@ -494,7 +429,7 @@ describe("SessionsClient", () => {
 
     test("cancel (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = {};
 
@@ -513,7 +448,7 @@ describe("SessionsClient", () => {
 
     test("cancel (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
@@ -533,7 +468,7 @@ describe("SessionsClient", () => {
 
     test("cancel (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
@@ -553,7 +488,7 @@ describe("SessionsClient", () => {
 
     test("list_events (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [
@@ -614,7 +549,7 @@ describe("SessionsClient", () => {
 
     test("list_events (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -633,7 +568,7 @@ describe("SessionsClient", () => {
 
     test("list_events (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -652,7 +587,7 @@ describe("SessionsClient", () => {
 
     test("list_turns (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [
@@ -712,7 +647,7 @@ describe("SessionsClient", () => {
 
     test("list_turns (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -731,7 +666,7 @@ describe("SessionsClient", () => {
 
     test("list_turns (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -750,7 +685,7 @@ describe("SessionsClient", () => {
 
     test("create_turn (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody =
             'event: \ndata: {"created_at":"created_at","id":"id","thread_id":"thread_id","mcp_servers":[{"auth_url":"auth_url","id":"id","name":"name"}],"type":"mcp.auth_required"}\n\n';
@@ -788,7 +723,7 @@ describe("SessionsClient", () => {
 
     test("create_turn (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
@@ -808,7 +743,7 @@ describe("SessionsClient", () => {
 
     test("create_turn (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
@@ -828,7 +763,7 @@ describe("SessionsClient", () => {
 
     test("create_turn (4)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = {};
         const rawResponseBody = { error: { message: "message" } };
 
@@ -848,7 +783,7 @@ describe("SessionsClient", () => {
 
     test("get_turn (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: {
@@ -893,7 +828,7 @@ describe("SessionsClient", () => {
 
     test("get_turn (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -912,7 +847,7 @@ describe("SessionsClient", () => {
 
     test("list_turn_events (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [
@@ -967,7 +902,7 @@ describe("SessionsClient", () => {
 
     test("list_turn_events (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -986,7 +921,7 @@ describe("SessionsClient", () => {
 
     test("list_turn_events (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -1005,7 +940,7 @@ describe("SessionsClient", () => {
 
     test("subscribe_to_turn (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody =
             'event: \ndata: {"created_at":"created_at","id":"id","thread_id":"thread_id","mcp_servers":[{"auth_url":"auth_url","id":"id","name":"name"}],"type":"mcp.auth_required"}\n\n';
@@ -1042,7 +977,7 @@ describe("SessionsClient", () => {
 
     test("subscribe_to_turn (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -1061,7 +996,7 @@ describe("SessionsClient", () => {
 
     test("subscribe_to_turn (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -1080,7 +1015,7 @@ describe("SessionsClient", () => {
 
     test("subscribe_to_turn (4)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, environment: server.baseUrl });
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 

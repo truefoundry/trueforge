@@ -26,7 +26,7 @@ export const TurnStateRunningSchema = z
   .openapi('TurnStateRunning');
 
 export const TurnStateCancelledReasonSchema = z
-  .nativeEnum(CancellationReason)
+  .enum(CancellationReason)
   .describe('Reason for the cancellation.')
   .openapi('TurnStateCancelledReason');
 
@@ -99,17 +99,19 @@ export const TurnSchema = z
   })
   .openapi('Turn');
 
-export const PreviousTurnIdInputSchema = z
-  .union([z.literal('auto'), z.string().min(1)])
-  .nullable()
-  .openapi('PreviousTurnIdInput');
-
+/**
+ * Wire type for the previous_turn_id field. Includes the default so the schema
+ * can be referenced directly without re-wrapping (re-wrapping strips the $ref).
+ */
 export const CreateTurnRequestSchema = z
   .object({
     input: z.array(TurnInputItemSchema).optional(),
-    previous_turn_id: PreviousTurnIdInputSchema.optional()
+    previous_turn_id: z
+      .union([z.literal('auto'), z.string().min(1), z.null()])
+      .optional()
       .default('auto')
-      .describe(`Defaults to 'auto' (chain to session last turn). Use 'null' for the session's first turn.`),
+      .describe(`Defaults to 'auto' (chain to session last turn). Use 'null' for the session's first turn.`)
+      .openapi('PreviousTurnIdInput'),
   })
   .superRefine((data, ctx) => {
     if (!data.input) return;
@@ -119,7 +121,7 @@ export const CreateTurnRequestSchema = z
     );
     if (hasUser && hasApprovalOrToolResponse) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'input must not mix user messages with approval decisions or client-side tool responses',
       });
     }

@@ -311,7 +311,7 @@ const configuration: ServerConfiguration = {
   FRONTEND_DIR: path.resolve(getEnv('FRONTEND_DIR', { defaultValue: DEFAULT_FRONTEND_DIR }) ?? DEFAULT_FRONTEND_DIR),
   MCP_REQUEST_TIMEOUT_MS: mcpRequestTimeoutMs,
   MCP_CONNECT_TIMEOUT_MS: mcpConnectTimeoutMs,
-  PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { required: true }) ?? '',
+  PUBLIC_BASE_URL: requireNonEmptyEnv('PUBLIC_BASE_URL'),
   OAUTH_CLIENT_NAME: getEnv('OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: parsePositiveInt({
     envKey: 'SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD',

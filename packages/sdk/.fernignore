@@ -1,3 +1,2 @@
-# Fern replaces everything it generated on each run. The lockfile is written by
-# `pnpm install`, not by Fern, and is committed so the SDK build is reproducible.
-pnpm-lock.yaml
+pnpm-workspace.yaml
+src/index.ts

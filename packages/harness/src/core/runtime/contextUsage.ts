@@ -5,8 +5,6 @@ import type { CompletionUsage } from '../llm/LLMTypes';
  * Live context budget for the next LLM call (not billable). The legacy
  * `prompt_tokens`/`completion_tokens` names are load-bearing: this shape is persisted per
  * thread, so renaming them would make already-stored rows load as missing fields.
- *
- * We Need Zod mainly for ThreadOverwriteContextEventSchema
  */
 export const CurrentContextUsageSchema = z
   .object({
