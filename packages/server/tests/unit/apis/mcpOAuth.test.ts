@@ -109,7 +109,10 @@ describe('MCP OAuth authorize + callback', () => {
     });
     expect(put.status).toBe(200);
 
-    const query = redirectUrl === undefined ? '' : `?redirect_url=${encodeURIComponent(redirectUrl)}`;
+    let query = '';
+    if (redirectUrl) {
+      query = `?redirect_url=${encodeURIComponent(redirectUrl)}`;
+    }
     const authorize = await settingsRouter.request(`/${name}/authorize${query}`);
     expect(authorize.status).toBe(200);
     const body = (await authorize.json()) as { authorization_url?: string };
