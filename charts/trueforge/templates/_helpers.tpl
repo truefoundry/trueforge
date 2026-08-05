@@ -102,6 +102,7 @@ Name of the Secret holding the Postgres password, and its key.
 {{- else if .Values.externalPostgres.existingSecret -}}
 {{- .Values.externalPostgres.existingSecret -}}
 {{- else -}}
+{{- $_ := required "externalPostgres.password or externalPostgres.existingSecret is required when postgresql.enabled is false" .Values.externalPostgres.password -}}
 {{- printf "%s-postgres" (include "trueforge.fullname" .) -}}
 {{- end -}}
 {{- end }}
