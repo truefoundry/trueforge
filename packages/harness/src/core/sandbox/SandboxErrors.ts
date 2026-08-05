@@ -1,5 +1,10 @@
 export abstract class SandboxError extends Error {
-  /** Narrow rather than `number` so hosts can return it from a typed route without asserting. */
+  /**
+   * Every sandbox failure is caused by the request itself — a bad path, another tenant's sandbox,
+   * a missing or oversized file — so each subclass carries the status a host should reply with.
+   * Listing the codes in use rather than `number` lets a typed route return this directly; adding
+   * a subclass with a new code means widening this union and declaring it on the route.
+   */
   abstract readonly statusCode: 400 | 403 | 404 | 410 | 413;
 }
 

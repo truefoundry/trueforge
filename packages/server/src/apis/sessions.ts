@@ -105,6 +105,26 @@ function toArrayBuffer(content: Buffer): ArrayBuffer {
   return buffer;
 }
 
+/**
+ * Builds the Content-Disposition telling the browser to save the file under its sandbox name.
+ *
+ * A sandbox file can be named in any script, but an HTTP header can only carry bytes, so a name
+ * like `中文.csv` cannot be written into the header as-is — doing so throws when the response is
+ * constructed. RFC 6266's `filename*` exists for this: percent-encode the UTF-8 name so the value
+ * stays plain ASCII, and the client decodes it back. Encoding also defuses quotes and newlines,
+ * which could otherwise close the value or inject another header.
+ */
+export function toContentDisposition(path: string): string {
+  // Trailing separators are dropped so a path ending in `/` still yields its last real segment.
+  const fileName = path.split('/').filter(Boolean).pop() ?? 'download';
+  // encodeURIComponent covers everything except these four, which RFC 5987 also disallows here.
+  const encoded = encodeURIComponent(fileName).replace(
+    /['()*]/g,
+    char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `attachment; filename*=UTF-8''${encoded}`;
+}
+
 function cancelTurnOnThisExecutor(
   activeTurns: ActiveTurnRegistry,
   input: { sessionId: string; turnId: string; reason: CancellationReason },
@@ -374,18 +394,10 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
       validateSandboxOwnedByTenant(sandboxId, TENANT_ID);
       const content = await provider.downloadFile({ sandboxId, path });
-      const fileName = path.split('/').filter(Boolean).pop() ?? 'download';
-      // Header values are ByteStrings, so the name is percent-encoded rather than quoted; the four
-      // characters encodeURIComponent leaves behind are not RFC 5987 attr-char.
-      const encodedFileName = encodeURIComponent(fileName).replace(
-        /['()*]/g,
-        char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
-      );
-
       return c.body(toArrayBuffer(content), 200, {
         'Content-Type': 'application/octet-stream',
         'Content-Length': String(content.byteLength),
-        'Content-Disposition': `attachment; filename*=UTF-8''${encodedFileName}`,
+        'Content-Disposition': toContentDisposition(path),
         'Cache-Control': 'private, no-store',
       });
     } catch (error) {

@@ -3,7 +3,7 @@ import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
 import { AgentSpecSchema, Sessions } from '@truefoundry/utils-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import { createLogger } from 'winston';
-import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
+import { createSessionsRouter, TENANT_ID, toContentDisposition } from '../../../src/apis/sessions';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -93,5 +93,33 @@ describe('GET /{session_id}/sandbox/file', () => {
     const response = await app.request(downloadUrl(session.session_id, '/workspace/report.pdf'));
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe('toContentDisposition', () => {
+  it('names the file after the last path segment', () => {
+    expect(toContentDisposition('/workspace/out/report.pdf')).toBe(`attachment; filename*=UTF-8''report.pdf`);
+  });
+
+  it('falls back when the path has no usable segment', () => {
+    expect(toContentDisposition('/')).toBe(`attachment; filename*=UTF-8''download`);
+  });
+
+  it('percent-encodes a name that cannot be written into a header directly', () => {
+    expect(toContentDisposition('/w/中文.csv')).toBe(`attachment; filename*=UTF-8''%E4%B8%AD%E6%96%87.csv`);
+  });
+
+  it('encodes the characters RFC 5987 disallows but encodeURIComponent keeps', () => {
+    expect(toContentDisposition(`/w/quote'(1)*.txt`)).toBe(`attachment; filename*=UTF-8''quote%27%281%29%2A.txt`);
+  });
+
+  it('produces a header the Response constructor accepts for any name', () => {
+    for (const path of ['/w/中文报告.csv', '/w/emoji-🎉.txt', '/w/a\r\nX-Injected: 1.txt', '/w/a"b\\c.txt']) {
+      const header = toContentDisposition(path);
+
+      expect(new Response('x', { headers: { 'Content-Disposition': header } }).headers.get('content-disposition')).toBe(
+        header,
+      );
+    }
   });
 });
