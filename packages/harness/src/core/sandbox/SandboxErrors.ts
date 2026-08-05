@@ -90,8 +90,11 @@ export function validateNoPathTraversal(path: string): void {
   }
 }
 
-/** Linux PATH_MAX / NAME_MAX: past these the kernel rejects the path before any file is opened. */
-const MAX_PATH_BYTES = 4096;
+/**
+ * Past these the kernel rejects the path before any file is opened. PATH_MAX (4096) counts the
+ * terminating NUL, so the longest usable path is one byte shorter; NAME_MAX (255) does not.
+ */
+const MAX_PATH_BYTES = 4095;
 const MAX_SEGMENT_BYTES = 255;
 
 /**

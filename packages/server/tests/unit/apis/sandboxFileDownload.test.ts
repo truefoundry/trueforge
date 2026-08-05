@@ -67,6 +67,22 @@ describe('GET /{session_id}/sandbox/file', () => {
     }
   });
 
+  // PATH_MAX counts the terminating NUL, so 4096 is already too long for the kernel and must be
+  // rejected here rather than reaching the provider as an opaque backend failure.
+  it('rejects a path at PATH_MAX but allows one byte shorter', async () => {
+    const { app } = await buildApp();
+    // Short segments so the length that trips is the whole path, not NAME_MAX.
+    const pathOfLength = (length: number) => {
+      let path = '/tmp';
+      while (path.length < length) path += `/${'a'.repeat(Math.min(50, length - path.length - 1))}`;
+      return path.slice(0, length);
+    };
+
+    expect((await app.request(downloadUrl('missing', pathOfLength(4096)))).status).toBe(400);
+    // Not 400: the shape is fine, so it fails later on the session lookup instead.
+    expect((await app.request(downloadUrl('missing', pathOfLength(4095)))).status).toBe(404);
+  });
+
   it('returns 404 for an unknown session', async () => {
     const { app } = await buildApp();
 
