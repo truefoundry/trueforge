@@ -17,6 +17,20 @@ import { fileURLToPath } from 'node:url';
 
 import envPaths from 'env-paths';
 
+const DEFAULT_PORT = 8790;
+/**
+ * Package root whether this module runs as `src/config.ts` (tsx) or is bundled
+ * into `dist/main.js` / `dist/cli.js` (`import.meta` → `dist/` → parent).
+ */
+const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+/** Turn ids minted by a single-binary process; no peer can ever own them. */
+const LOCAL_EXECUTOR_ID = 'local';
+/**
+ * OS-standard data dir for single-binary SQLite.
+ */
+const ENV_PATHS_APP_NAME = 'truefoundry-utils';
+const DEFAULT_SQLITE_FILENAME = 'db.sqlite';
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -26,7 +40,7 @@ export interface GetEnvOptions {
   required?: boolean;
 }
 
-export const getEnv = (key: string, options?: GetEnvOptions): string | undefined => {
+function getEnv(key: string, options?: GetEnvOptions): string | undefined {
   const value = process.env[key];
   if (value !== undefined) {
     return value;
@@ -42,13 +56,13 @@ export const getEnv = (key: string, options?: GetEnvOptions): string | undefined
   }
 
   return undefined;
-};
+}
 
 function randomAlphanumeric(length: number): string {
   return Array.from({ length }, () => Math.floor(Math.random() * 36).toString(36)).join('');
 }
 
-export const parsePort = (raw: string | undefined): number => {
+function parsePort(raw: string | undefined): number {
   if (raw === undefined || raw.trim() === '') {
     return DEFAULT_PORT;
   }
@@ -57,14 +71,10 @@ export const parsePort = (raw: string | undefined): number => {
     throw new Error(`Environment variable PORT must be an integer between 1 and 65535, got "${raw}"`);
   }
   return port;
-};
+}
 
 /** Parses a positive-integer env var, falling back to `defaultValue` when unset/blank. */
-export const parsePositiveInt = (options: {
-  envKey: string;
-  raw: string | undefined;
-  defaultValue: number;
-}): number => {
+function parsePositiveInt(options: { envKey: string; raw: string | undefined; defaultValue: number }): number {
   const { envKey, raw, defaultValue } = options;
   if (raw === undefined || raw.trim() === '') {
     return defaultValue;
@@ -74,10 +84,10 @@ export const parsePositiveInt = (options: {
     throw new Error(`Environment variable ${envKey} must be a positive integer, got "${raw}"`);
   }
   return value;
-};
+}
 
 /** Parses a boolean env var; anything but `true`/`false` throws instead of reading as `false`. */
-const parseBoolean = (options: { envKey: string; raw: string | undefined; defaultValue: boolean }): boolean => {
+function parseBoolean(options: { envKey: string; raw: string | undefined; defaultValue: boolean }): boolean {
   const { envKey, raw, defaultValue } = options;
   if (raw === undefined || raw.trim() === '') {
     return defaultValue;
@@ -86,39 +96,27 @@ const parseBoolean = (options: { envKey: string; raw: string | undefined; defaul
   if (value === 'true') return true;
   if (value === 'false') return false;
   throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
-};
+}
 
 /** Required env var that also rejects blank strings. */
-export const requireNonEmptyEnv = (key: string): string => {
+function requireNonEmptyEnv(key: string): string {
   const value = getEnv(key, { required: true });
   if (value === undefined || value.trim() === '') {
     throw new Error(`Environment variable ${key} is required but was not specified.`);
   }
   return value;
-};
+}
 
 /** Builds a Postgres connection URL from discrete `POSTGRES_*` parts. */
-export const buildPostgresConnectionString = (parts: {
+function buildPostgresConnectionString(parts: {
   user: string;
   password: string;
   host: string;
   port: number;
   database: string;
-}): string => {
+}): string {
   return `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
-};
-
-// ============================================================================
-// CONFIGURATION INTERFACE
-// ============================================================================
-
-export const DEFAULT_PORT = 8790;
-
-/**
- * Package root whether this module runs as `src/config.ts` (tsx) or is bundled
- * into `dist/main.js` / `dist/cli.js` (`import.meta` → `dist/` → parent).
- */
-const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+}
 
 /**
  * Prefer `dist/frontend` shipped in the npm tarball (npx / `pnpm server:bin`).
@@ -140,47 +138,46 @@ function resolveFrontendDir(): string {
   return resolveDefaultFrontendDir();
 }
 
-/** Turn ids minted by a single-binary process; no peer can ever own them. */
-const LOCAL_EXECUTOR_ID = 'local';
-
-/**
- * OS-standard data dir for single-binary SQLite (no `nodejs` suffix).
- * Example macOS: `~/Library/Application Support/truefoundry-utils/harness.sqlite`
- */
-const ENV_PATHS_APP_NAME = 'truefoundry-utils';
-const DEFAULT_SQLITE_FILENAME = 'db.sqlite';
+/** Absolute path from an optional env override; unset/blank → `undefined`. */
+function resolveOptionalPathEnv(envKey: string): string | undefined {
+  const override = getEnv(envKey);
+  if (override === undefined || override.trim() === '') {
+    return undefined;
+  }
+  return path.resolve(override);
+}
 
 /** Dropped in single-binary mode so nothing downstream can connect to a Redis it must not use. */
-const resolveRedisUrl = (singleBinary: boolean): string | undefined => {
+function resolveRedisUrl(singleBinary: boolean): string | undefined {
   if (singleBinary) {
     return undefined;
   }
   return requireNonEmptyEnv('REDIS_URL');
-};
+}
 
 /** Always longer than `LOCAL_EXECUTOR_ID`, so a peer can never be mistaken for a local owner. */
-const resolveExecutorId = (singleBinary: boolean): string => {
+function resolveExecutorId(singleBinary: boolean): string {
   if (singleBinary) {
     return LOCAL_EXECUTOR_ID;
   }
   return randomAlphanumeric(6);
-};
+}
 
 /**
  * Absolute SQLite file path for single-binary mode.
  * Env: `SQLITE_PATH` (optional). Default: `{env-paths data}/harness.sqlite`.
  */
-const resolveSqlitePath = (): string => {
+function resolveSqlitePath(): string {
   const override = getEnv('SQLITE_PATH');
   if (override !== undefined && override.trim() !== '') {
     return path.resolve(override);
   }
   const paths = envPaths(ENV_PATHS_APP_NAME, { suffix: '' });
   return path.join(paths.data, DEFAULT_SQLITE_FILENAME);
-};
+}
 
 /** Postgres URL only when multi-replica; single-binary never contacts Postgres. */
-const resolvePostgresDatabaseUrl = (singleBinary: boolean): string | undefined => {
+function resolvePostgresDatabaseUrl(singleBinary: boolean): string | undefined {
   if (singleBinary) {
     return undefined;
   }
@@ -200,16 +197,20 @@ const resolvePostgresDatabaseUrl = (singleBinary: boolean): string | undefined =
     port: postgresPort,
     database: postgresDb,
   });
-};
+}
 
 /** Defaults to `http://localhost:${PORT}` so local single-binary boots without an env file. */
-const resolvePublicBaseUrl = (port: number): string => {
+function resolvePublicBaseUrl(port: number): string {
   const override = getEnv('PUBLIC_BASE_URL');
   if (override !== undefined && override.trim() !== '') {
     return override;
   }
   return `http://localhost:${String(port)}`;
-};
+}
+
+// ============================================================================
+// CONFIGURATION INTERFACE
+// ============================================================================
 
 export interface ServerConfiguration {
   /** HTTP port the server listens on. Env: `PORT`. */
@@ -251,6 +252,10 @@ export interface ServerConfiguration {
    * monorepo `packages/frontend/dist` — always absolute, independent of CWD.
    */
   FRONTEND_DIR: string;
+  /** Max milliseconds for one MCP request. Env: `MCP_REQUEST_TIMEOUT_MS`. Default 4 minutes. */
+  MCP_REQUEST_TIMEOUT_MS: number;
+  /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
+  MCP_CONNECT_TIMEOUT_MS: number;
   /**
    * Public base URL of this server used as the origin of the MCP OAuth callback
    * (`{PUBLIC_BASE_URL}/api/v1/mcp-servers/oauth/callback`). Not trimmed.
@@ -361,24 +366,23 @@ const configuration: ServerConfiguration = {
   PORT: port,
   SINGLE_BINARY: singleBinary,
   EXECUTOR_ID: resolveExecutorId(singleBinary),
-  MODEL_CATALOG_PATH: (() => {
-    const override = getEnv('MODEL_CATALOG_PATH');
-    return override === undefined || override === '' ? undefined : path.resolve(override);
-  })(),
-  MCP_CATALOG_PATH: (() => {
-    const override = getEnv('MCP_CATALOG_PATH');
-    return override === undefined || override === '' ? undefined : path.resolve(override);
-  })(),
-  SKILL_CATALOG_PATH: (() => {
-    const override = getEnv('SKILL_CATALOG_PATH');
-    return override === undefined || override === '' ? undefined : path.resolve(override);
-  })(),
-  SANDBOX_CATALOG_PATH: (() => {
-    const override = getEnv('SANDBOX_CATALOG_PATH');
-    return override === undefined || override === '' ? undefined : path.resolve(override);
-  })(),
+  MODEL_CATALOG_PATH: resolveOptionalPathEnv('MODEL_CATALOG_PATH'),
+  MCP_CATALOG_PATH: resolveOptionalPathEnv('MCP_CATALOG_PATH'),
+  SKILL_CATALOG_PATH: resolveOptionalPathEnv('SKILL_CATALOG_PATH'),
+  SANDBOX_CATALOG_PATH: resolveOptionalPathEnv('SANDBOX_CATALOG_PATH'),
   FRONTEND_DIR: resolveFrontendDir(),
   PUBLIC_BASE_URL: resolvePublicBaseUrl(port),
+
+  MCP_REQUEST_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'MCP_REQUEST_TIMEOUT_MS',
+    raw: getEnv('MCP_REQUEST_TIMEOUT_MS'),
+    defaultValue: 4 * 60 * 1000,
+  }),
+  MCP_CONNECT_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'MCP_CONNECT_TIMEOUT_MS',
+    raw: getEnv('MCP_CONNECT_TIMEOUT_MS'),
+    defaultValue: 30 * 1000,
+  }),
   OAUTH_CLIENT_NAME: getEnv('OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: parsePositiveInt({
     envKey: 'SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD',

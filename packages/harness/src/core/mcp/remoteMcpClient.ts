@@ -29,11 +29,8 @@ type McpTransport = StreamableHTTPClientTransport | SSEClientTransport;
 const CLIENT_INFO = { name: 'tfy-agent-mcp-client', version: '1.0.0' } as const;
 const TRANSPORT_PROBE_ORDER: RemoteMcpTransportType[] = ['streamable-http', 'sse'];
 
-export const REQUEST_TIMEOUT_MS = 1_800_000;
-export const CONNECT_TIMEOUT_MS = 30_000;
-
 class McpClientWithTimeout extends Client {
-  constructor() {
+  constructor(private readonly requestTimeoutMs: number) {
     super(CLIENT_INFO, { capabilities: {} });
   }
 
@@ -41,7 +38,7 @@ class McpClientWithTimeout extends Client {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MCP SDK request typing
   override request(req: any, schema: any, options?: any): Promise<any> {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- MCP SDK request typing
-    return super.request(req, schema, { ...options, timeout: REQUEST_TIMEOUT_MS });
+    return super.request(req, schema, { ...options, timeout: this.requestTimeoutMs });
   }
 }
 
@@ -134,7 +131,8 @@ export async function connectRemoteMcp(params: {
   headers: Record<string, string>;
   sessionId?: string | undefined;
   knownTransportType?: RemoteMcpTransportType | undefined;
-  connectTimeoutMs?: number | undefined;
+  requestTimeoutMs: number;
+  connectTimeoutMs: number;
   signal: AbortSignal;
   onClose?: (() => void) | undefined;
   onError?: ((error: Error) => void) | undefined;
@@ -148,14 +146,14 @@ export async function connectRemoteMcp(params: {
 
   for (const transportType of candidates) {
     const transport = createTransport(transportType, url, params.headers, params.sessionId);
-    const client = new McpClientWithTimeout();
+    const client = new McpClientWithTimeout(params.requestTimeoutMs);
     try {
       stampTraceHeaders(params.headers);
       await withTimeout(
         // Concrete transports use sessionId: string|undefined; Transport uses an optional
         // property — exactOptionalPropertyTypes rejects assignability without this cast.
         client.connect(transport as Parameters<Client['connect']>[0], requestOptions),
-        params.connectTimeoutMs ?? CONNECT_TIMEOUT_MS,
+        params.connectTimeoutMs,
         transportType,
       );
     } catch (error) {

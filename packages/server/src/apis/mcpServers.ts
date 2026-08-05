@@ -174,6 +174,8 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
       name,
       url: connection.url,
       headers: connection.headers,
+      requestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
+      connectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
       logger: deps.logger,
       signal: c.req.raw.signal,
     });

@@ -14,7 +14,7 @@ import type {
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { randomBytes } from 'node:crypto';
 import type { IOAuthClientStore, OAuthClientRecord } from '../../auth/IOAuthClientStore';
-import type { IOAuthTokenStore } from '../../auth/IOAuthTokenStore';
+import type { IOAuthTokenStore, OAuthPendingAuthorization } from '../../auth/IOAuthTokenStore';
 import { isOAuthAccessTokenUsable } from '../../auth/oauthToken';
 import { McpConnectionError, McpDcrConfigurationError } from '../../errors';
 import {
@@ -37,13 +37,6 @@ export type ResolveMcpAuthResult = McpAuthResolvedResult | McpAuthRequiredResult
 
 export function isMcpAuthRequired(result: ResolveMcpAuthResult): result is McpAuthRequiredResult {
   return 'authUrl' in result;
-}
-
-/** Result of a successful `completeMcpAuthorization` (token saved, pending cleared). */
-export interface CompleteMcpAuthorizationResult {
-  serverId: string;
-  /** FE post-OAuth landing URL from the original authorize call. */
-  redirectUrl: string | null;
 }
 
 /**
@@ -287,24 +280,20 @@ export async function resolveMcpAuth(params: {
 }
 
 /**
- * OAuth callback: exchange `code` for tokens. Route must already reject IdP `error` params.
- * Claims pending state atomically (`consumePendingAuthorization`) so duplicate callbacks lose
- * the race; `mcpServerUrl` for the RFC 8707 `resource` comes from that pending row.
+ * OAuth callback: exchange `code` for tokens against an already-claimed `pending` row. The caller
+ * claims it with `consumePendingAuthorization` (so duplicate callbacks lose the race) and keeps it
+ * for its FE landing URL; `mcpServerUrl` for the RFC 8707 `resource` comes from that row.
+ * Route must already reject IdP `error` params.
  * On `invalid_client`, clears stored client + token so the next authorize re-registers.
  */
 export async function completeMcpAuthorization(params: {
   tokenStore: IOAuthTokenStore;
   mcpServerStore: IOAuthClientStore;
-  state: string;
+  pending: OAuthPendingAuthorization;
   code: string;
-}): Promise<CompleteMcpAuthorizationResult> {
+}): Promise<void> {
   const nowMs = Date.now();
-
-  // Consume first so a concurrent/duplicate callback cannot redeem the same state.
-  const pending = await params.tokenStore.consumePendingAuthorization({ state: params.state });
-  if (!pending) {
-    throw new McpConnectionError('Unknown or expired OAuth state', 400);
-  }
+  const { pending } = params;
 
   const client = await params.mcpServerStore.getClient({ id: pending.id });
   if (!client) {
@@ -346,6 +335,4 @@ export async function completeMcpAuthorization(params: {
     id: pending.id,
     token: oauthTokensToOAuthToken(tokens, nowMs, null),
   });
-
-  return { serverId: pending.id, redirectUrl: pending.redirectUrl };
 }
