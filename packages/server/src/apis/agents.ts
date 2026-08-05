@@ -1,0 +1,114 @@
+/**
+ * DB-backed agent registry API (mounted at /api/v1/agents).
+ */
+import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
+import { AgentNameConflictError, type AgentRecord, type IAgentStore } from '../db/agentStore';
+import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
+import type { ISkillStore } from '../db/skillStore';
+import { createAgentRoute, getAgentRoute, listAgentsRoute, putAgentRoute } from '../routes/agentRoutes';
+import { validateAgentSpec } from '../runtime/sessionResources';
+import { toAgentManifest, type Agent, type AgentWriteRequest } from '../schemas/agent';
+import { TENANT_ID } from './sessions';
+
+export interface AgentsRouterDeps {
+  agentStore: IAgentStore;
+  modelProviderStore: IModelProviderStore;
+  mcpServerStore: IMcpServerStore;
+  skillStore: ISkillStore;
+  sandboxProviderStore: ISandboxProviderStore;
+}
+
+/** Wire view: identity columns plus AgentSpec fields flattened. */
+function toWireAgent(record: AgentRecord): Agent {
+  return {
+    id: record.id,
+    name: record.name,
+    ...record.manifest,
+  };
+}
+
+async function validateWriteBody({
+  body,
+  deps,
+}: {
+  body: AgentWriteRequest;
+  deps: AgentsRouterDeps;
+}): Promise<ReturnType<typeof toAgentManifest>> {
+  const manifest = toAgentManifest(body);
+  await validateAgentSpec({
+    spec: manifest,
+    tenant_id: TENANT_ID,
+    modelProviderStore: deps.modelProviderStore,
+    mcpServerStore: deps.mcpServerStore,
+    skillStore: deps.skillStore,
+    sandboxProviderStore: deps.sandboxProviderStore,
+  });
+  return manifest;
+}
+
+export function createAgentsRouter(deps: AgentsRouterDeps) {
+  const listHandler: RouteHandler<typeof listAgentsRoute> = async c => {
+    const records = await deps.agentStore.listAgents(TENANT_ID);
+    return c.json({ data: records.map(toWireAgent) }, 200);
+  };
+
+  const createHandler: RouteHandler<typeof createAgentRoute> = async c => {
+    const body = c.req.valid('json');
+    const manifest = await validateWriteBody({ body, deps });
+    try {
+      const record = await deps.agentStore.createAgent({
+        tenant_id: TENANT_ID,
+        name: body.name,
+        manifest,
+      });
+      return c.json({ data: toWireAgent(record) }, 200);
+    } catch (error) {
+      if (error instanceof AgentNameConflictError) {
+        return c.json({ error: { message: error.message } }, 409);
+      }
+      throw error;
+    }
+  };
+
+  const getHandler: RouteHandler<typeof getAgentRoute> = async c => {
+    const { agent_id: agentId } = c.req.valid('param');
+    const record = await deps.agentStore.getAgentById({ tenant_id: TENANT_ID, id: agentId });
+    if (record === undefined) {
+      return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
+    }
+    return c.json({ data: toWireAgent(record) }, 200);
+  };
+
+  const putHandler: RouteHandler<typeof putAgentRoute> = async c => {
+    const { agent_id: agentId } = c.req.valid('param');
+    const body = c.req.valid('json');
+    const manifest = await validateWriteBody({ body, deps });
+    try {
+      const record = await deps.agentStore.updateAgent({
+        tenant_id: TENANT_ID,
+        id: agentId,
+        name: body.name,
+        manifest,
+      });
+      if (record === undefined) {
+        return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
+      }
+      return c.json({ data: toWireAgent(record) }, 200);
+    } catch (error) {
+      if (error instanceof AgentNameConflictError) {
+        return c.json({ error: { message: error.message } }, 409);
+      }
+      throw error;
+    }
+  };
+
+  const router = new OpenAPIHono();
+  // Static `/` before `/{agent_id}` so list/create are not captured as an id.
+  router.openapi(listAgentsRoute, listHandler);
+  router.openapi(createAgentRoute, createHandler);
+  router.openapi(getAgentRoute, getHandler);
+  router.openapi(putAgentRoute, putHandler);
+  return router;
+}

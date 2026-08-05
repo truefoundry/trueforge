@@ -30,6 +30,7 @@ try {
     { PostgresSkillStore },
     { SandboxCatalog },
     { PostgresSandboxProviderStore },
+    { PostgresAgentStore },
   ] = await Promise.all([
     import('./app'),
     import('./frontend'),
@@ -51,6 +52,7 @@ try {
     import('./db/postgres/skill-store/PostgresSkillStore'),
     import('./catalog/SandboxCatalog'),
     import('./db/postgres/sandbox-provider-store/PostgresSandboxProviderStore'),
+    import('./db/postgres/agent-store/PostgresAgentStore'),
   ]);
 
   // Console logger shared by the server runtime (harness components require one).
@@ -70,6 +72,7 @@ try {
 
   const sessionStore = new PostgresSessionStore(db);
   const skillStore = new PostgresSkillStore(db);
+  const agentStore = new PostgresAgentStore(db);
   const activeTurns = new ActiveTurnRegistry();
 
   let redis: RedisClientType | undefined;
@@ -92,6 +95,7 @@ try {
     skillStore,
     sandboxCatalog: SandboxCatalog.load(),
     sandboxProviderStore: new PostgresSandboxProviderStore(db),
+    agentStore,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,

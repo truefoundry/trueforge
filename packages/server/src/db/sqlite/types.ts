@@ -182,6 +182,22 @@ export interface SandboxProviderTable {
 }
 
 /**
+ * Configured agents — mirrors the Postgres `agent` table.
+ * PRIMARY KEY (id); UNIQUE (tenant_id, name).
+ */
+export interface AgentTable {
+  /** application-generated (ulid); never re-derived from tenant_id/name */
+  id: string;
+  tenant_id: string;
+  /** natural uniqueness target within a tenant */
+  name: string;
+  /** AgentSpec document; replaced whole on every upsert */
+  manifest: JsonbColumn<AgentSpec>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * PRIMARY KEY (id)
  * UNIQUE (tenant_id, name) — the natural lookup key;
  */
@@ -240,6 +256,7 @@ export interface Database {
   model_provider: ModelProviderTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
+  agent: AgentTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;

@@ -1,0 +1,106 @@
+import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
+import type { ExpressionBuilder, Kysely } from 'kysely';
+import { ulid } from 'ulid';
+import {
+  AgentNameConflictError,
+  type AgentRecord,
+  type CreateAgentInput,
+  type GetAgentByIdInput,
+  type GetAgentByNameInput,
+  type IAgentStore,
+  type UpdateAgentInput,
+} from '../../agentStore';
+import { isUniqueViolation } from '../client';
+import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
+import type { Database } from '../types';
+
+/** Column list projecting the JSONB manifest as parsed JSON (see JSON_RESULT_COLUMNS). */
+function recordColumns(eb: ExpressionBuilder<Database, 'agent'>) {
+  return [
+    'id' as const,
+    'tenant_id' as const,
+    'name' as const,
+    jsonText<AgentSpec>(eb.ref('manifest')).as('manifest'),
+    'created_at' as const,
+    'updated_at' as const,
+  ];
+}
+
+export class SqliteAgentStore implements IAgentStore {
+  readonly #db: Kysely<Database>;
+
+  constructor(db: Kysely<Database>) {
+    this.#db = db;
+  }
+
+  async listAgents(tenantId: string): Promise<AgentRecord[]> {
+    return await this.#db
+      .selectFrom('agent')
+      .select(recordColumns)
+      .where('tenant_id', '=', tenantId)
+      .orderBy('name')
+      .execute();
+  }
+
+  async getAgentById(input: GetAgentByIdInput): Promise<AgentRecord | undefined> {
+    return await this.#db
+      .selectFrom('agent')
+      .select(recordColumns)
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.id)
+      .executeTakeFirst();
+  }
+
+  async getAgentByName(input: GetAgentByNameInput): Promise<AgentRecord | undefined> {
+    return await this.#db
+      .selectFrom('agent')
+      .select(recordColumns)
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
+      .executeTakeFirst();
+  }
+
+  async createAgent(input: CreateAgentInput): Promise<AgentRecord> {
+    const timestamp = nowIso();
+    try {
+      return await this.#db
+        .insertInto('agent')
+        .values({
+          id: ulid().toLowerCase(),
+          tenant_id: input.tenant_id,
+          name: input.name,
+          manifest: jsonbBind(input.manifest),
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .returning(recordColumns)
+        .executeTakeFirstOrThrow();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new AgentNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
+      }
+      throw error;
+    }
+  }
+
+  async updateAgent(input: UpdateAgentInput): Promise<AgentRecord | undefined> {
+    try {
+      return await this.#db
+        .updateTable('agent')
+        .set({
+          ...(input.name !== undefined ? { name: input.name } : {}),
+          ...(input.manifest !== undefined ? { manifest: jsonbBind(input.manifest) } : {}),
+          updated_at: nowIso(),
+        })
+        .where('tenant_id', '=', input.tenant_id)
+        .where('id', '=', input.id)
+        .returning(recordColumns)
+        .executeTakeFirst();
+    } catch (error) {
+      if (isUniqueViolation(error) && input.name !== undefined) {
+        throw new AgentNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
+      }
+      throw error;
+    }
+  }
+}

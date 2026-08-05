@@ -330,6 +330,22 @@ export interface SandboxProviderTable {
 }
 
 /**
+ * Configured agents — immutable ULID `id` PK; UNIQUE (tenant_id, name).
+ * PRIMARY KEY (id)
+ */
+export interface AgentTable {
+  /** application-generated (ulid); never re-derived from tenant_id/name */
+  id: string;
+  tenant_id: string;
+  /** natural uniqueness target within a tenant */
+  name: string;
+  /** AgentSpec document; replaced whole on every upsert */
+  manifest: JSONColumnType<AgentSpec, AgentSpec, AgentSpec>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
  * PRIMARY KEY (id)
  * UNIQUE (tenant_id, name) — the natural lookup key.
  */
@@ -393,8 +409,8 @@ export interface OAuthPendingAuthorizationTable {
  * `thread_capability_state` take small bounded HOT-friendly updates; the two logs
  * are pure insert. Nothing ever rewrites a large value except the array concat
  * itself — the documented, bounded cost of the raw-array model. `model_provider`,
- * `skill`, `sandbox_provider`, `mcp_server`, and the two `oauth_*` tables are
- * low-write, low-volume (one row per tenant/resource, or short-lived).
+ * `skill`, `sandbox_provider`, `agent`, `mcp_server`, and the two `oauth_*` tables
+ * are low-write, low-volume (one row per tenant/resource, or short-lived).
  *
  * Canonical Kysely database.
  */
@@ -408,6 +424,7 @@ export interface Database {
   model_provider: ModelProviderTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
+  agent: AgentTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;
