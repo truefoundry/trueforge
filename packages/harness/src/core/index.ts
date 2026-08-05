@@ -164,12 +164,7 @@ export {
   resolveMcpAuth,
   validateRedirectUris,
 } from './mcp/auth';
-export type {
-  CompleteMcpAuthorizationResult,
-  McpAuthRequiredResult,
-  McpAuthResolvedResult,
-  ResolveMcpAuthResult,
-} from './mcp/auth';
+export type { McpAuthRequiredResult, McpAuthResolvedResult, ResolveMcpAuthResult } from './mcp/auth';
 
 // Sandbox (concrete implementation; provider details exported for composition)
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';

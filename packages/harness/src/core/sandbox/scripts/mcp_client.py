@@ -21,7 +21,6 @@ from mcp.types import CallToolResult, TextContent, Tool
 
 logger = logging.getLogger(__name__)
 
-_NATS_REQUEST_TIMEOUT_SECONDS = 60
 _NATS_REQUEST_MAX_ATTEMPTS = 3
 _NATS_RETRY_BACKOFF_MS = 250
 
@@ -143,6 +142,7 @@ async def _nats_request(subject: str, payload: dict[str, Any]) -> Any:
     from nats.errors import NoRespondersError
 
     data = json.dumps(payload).encode()
+    request_timeout = float(os.environ["TFY_NATS_REQUEST_TIMEOUT_SECONDS"])
 
     # Phase 1: establish a connection, retrying only connect failures.
     nc = None
@@ -170,7 +170,7 @@ async def _nats_request(subject: str, payload: dict[str, Any]) -> Any:
                 msg = await nc.request(
                     subject,
                     data,
-                    timeout=_NATS_REQUEST_TIMEOUT_SECONDS,
+                    timeout=request_timeout,
                     headers=_nats_trace_headers or None,
                 )
             except NoRespondersError as e:

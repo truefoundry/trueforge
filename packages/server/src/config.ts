@@ -161,6 +161,10 @@ export interface ServerConfiguration {
    * Env: `FRONTEND_DIR`, defaults to `../frontend/dist` relative to the working directory.
    */
   FRONTEND_DIR: string;
+  /** Max milliseconds for one MCP request. Env: `MCP_REQUEST_TIMEOUT_MS`. Default 4 minutes. */
+  MCP_REQUEST_TIMEOUT_MS: number;
+  /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
+  MCP_CONNECT_TIMEOUT_MS: number;
   /**
    * Public base URL of this server used as the origin of the MCP OAuth callback
    * (`{PUBLIC_BASE_URL}/api/v1/mcp-servers/oauth/callback`). Not trimmed.
@@ -268,6 +272,17 @@ const singleBinary = parseBoolean({
   defaultValue: true,
 });
 
+const mcpRequestTimeoutMs = parsePositiveInt({
+  envKey: 'MCP_REQUEST_TIMEOUT_MS',
+  raw: getEnv('MCP_REQUEST_TIMEOUT_MS'),
+  defaultValue: 4 * 60 * 1000,
+});
+const mcpConnectTimeoutMs = parsePositiveInt({
+  envKey: 'MCP_CONNECT_TIMEOUT_MS',
+  raw: getEnv('MCP_CONNECT_TIMEOUT_MS'),
+  defaultValue: 30 * 1000,
+});
+
 const configuration: ServerConfiguration = {
   PORT: parsePort(getEnv('PORT')),
   EXECUTOR_ID: resolveExecutorId(singleBinary),
@@ -288,6 +303,8 @@ const configuration: ServerConfiguration = {
     return override === undefined || override === '' ? undefined : path.resolve(override);
   })(),
   FRONTEND_DIR: path.resolve(getEnv('FRONTEND_DIR', { defaultValue: DEFAULT_FRONTEND_DIR }) ?? DEFAULT_FRONTEND_DIR),
+  MCP_REQUEST_TIMEOUT_MS: mcpRequestTimeoutMs,
+  MCP_CONNECT_TIMEOUT_MS: mcpConnectTimeoutMs,
   PUBLIC_BASE_URL: requireNonEmptyEnv('PUBLIC_BASE_URL'),
   OAUTH_CLIENT_NAME: getEnv('OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: parsePositiveInt({
