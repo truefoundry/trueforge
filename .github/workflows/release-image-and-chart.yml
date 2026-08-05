@@ -124,11 +124,8 @@ jobs:
         run: |
           helm registry login -u "$HELM_REGISTRY_USERNAME" -p "$HELM_REGISTRY_PASSWORD" "$HELM_REGISTRY_URL"
 
-      # Pull the Bitnami postgresql/redis subcharts from the JFrog OCI mirror
-      # (same registry as the login above) into charts/trueforge/charts/.
-      - name: Build chart dependencies
-        run: helm dependency update "$CHART_DIR"
-
+      # The postgresql/redis subcharts are vendored under charts/trueforge/charts/,
+      # so no `helm dependency update` (and no mirror access) is needed here.
       - name: Package and push chart
         id: package
         run: |

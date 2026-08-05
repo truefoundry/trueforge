@@ -153,20 +153,26 @@ for public ECR push).
 
 ## Bundled dependencies
 
-The chart bundles Postgres and Redis as optional Bitnami subcharts pulled from
-the JFrog OCI mirror (`oci://tfy.jfrog.io/tfy-mirror/bitnamicharts`), mirroring
-CruiseKube. The release job runs `helm dependency update` after the Helm
-registry login (same JFrog host), so the subcharts resolve with the existing
-credentials. Disable them with `postgresql.enabled=false` / `redis.enabled=false`
-to target external services.
+The chart bundles Postgres and Redis as optional Bitnami subcharts, **vendored**
+under `charts/trueforge/charts/` (declared without a `repository`), matching the
+convention in [truefoundry/helm-charts](https://github.com/truefoundry/helm-charts).
+Because they are committed to the repo, packaging needs no registry access and no
+`helm dependency update` step. Disable them with `postgresql.enabled=false` /
+`redis.enabled=false` to target external services.
+
+To bump a bundled version, pull the new chart and re-vendor it, e.g.:
+
+```bash
+helm pull oci://registry-1.docker.io/bitnamicharts/redis --version <x.y.z> -d /tmp/v
+tar -xzf /tmp/v/redis-<x.y.z>.tgz -C charts/trueforge/charts
+# then update the version under `dependencies:` in charts/trueforge/Chart.yaml
+```
 
 ## Validating the chart locally
 
-Fetching subcharts needs access to the JFrog OCI mirror, so run `chart:deps`
-first (it authenticates via your local Helm registry login):
+The subcharts are vendored, so this works offline with no registry access:
 
 ```bash
-pnpm chart:deps       # helm dependency update (pulls postgresql + redis subcharts)
 pnpm chart:lint       # helm lint with charts/trueforge/ci/lint-values.yaml
 pnpm chart:template   # render the manifests
 pnpm chart:package    # package to dist/ (gitignored)

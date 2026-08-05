@@ -11,10 +11,9 @@ release.
 ## Dependencies
 
 Postgres and Redis ship as **bundled** dependencies (the Bitnami `postgresql`
-and `redis` charts, pulled from the TrueFoundry JFrog OCI mirror). They are
-enabled by default, so a basic install only needs `server.publicBaseUrl`. The
-chart wires the server's `POSTGRES_*` and `REDIS_URL` env to the bundled
-services automatically.
+and `redis` charts, vendored under `charts/`). They are enabled by default, so a
+basic install only needs `server.publicBaseUrl`. The chart wires the server's
+`POSTGRES_*` and `REDIS_URL` env to the bundled services automatically.
 
 Disable either dependency to point at an external service instead (see below).
 

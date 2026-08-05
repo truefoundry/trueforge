@@ -13,15 +13,14 @@ sources:
 maintainers:
   - name: TrueFoundry
     url: https://truefoundry.com
-# Postgres and Redis ship as optional bundled dependencies (Bitnami charts from
-# the TrueFoundry JFrog OCI mirror). Disable either to use an external service
-# via externalPostgres / externalRedis.
+# Postgres and Redis ship as optional bundled dependencies. The Bitnami
+# subcharts are vendored under charts/ (no repository field), matching the
+# convention in truefoundry/helm-charts, so packaging needs no registry access.
+# Disable either to use an external service via externalPostgres / externalRedis.
 dependencies:
   - name: postgresql
-    version: "18.1.14"
-    repository: "oci://tfy.jfrog.io/tfy-mirror/bitnamicharts"
+    version: "16.7.27"
     condition: postgresql.enabled
   - name: redis
-    version: "21.2.19"
-    repository: "oci://tfy.jfrog.io/tfy-mirror/bitnamicharts"
+    version: "24.0.0"
     condition: redis.enabled
