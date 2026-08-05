@@ -21,6 +21,12 @@ export interface GetSkillInput {
   name: string;
 }
 
+export interface ListSkillsInput {
+  tenant_id: string;
+  /** `undefined` lists all; empty returns `[]` without querying; otherwise `WHERE name IN (...)`. */
+  names: readonly string[] | undefined;
+}
+
 export interface UpsertSkillInput {
   tenant_id: string;
   name: ResourceName;
@@ -28,7 +34,7 @@ export interface UpsertSkillInput {
 }
 
 export interface ISkillStore {
-  listSkills(tenantId: string): Promise<SkillRecord[]>;
+  listSkills(input: ListSkillsInput): Promise<SkillRecord[]>;
   getSkill(input: GetSkillInput): Promise<SkillRecord | undefined>;
   /** Single-row write: creates the skill or replaces the whole manifest. */
   upsertSkill(input: UpsertSkillInput): Promise<SkillRecord>;

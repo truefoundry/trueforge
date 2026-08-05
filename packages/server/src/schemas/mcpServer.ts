@@ -7,7 +7,8 @@
  * turn execution resolves DCR tokens via resolveMcpAuth.
  */
 import { z } from '@hono/zod-openapi';
-import { isOAuthAccessTokenUsable, type OAuthToken } from '@truefoundry/utils-core/core';
+import { isOAuthAccessTokenUsable } from '../mcp/auth/mcpOAuthHelpers';
+import type { OAuthToken } from '../mcp/auth/types';
 import { NameSchema } from './common';
 
 /** Transport/kind of MCP server. Extend when non-remote kinds ship. */

@@ -943,6 +943,17 @@ export class SessionsClient {
                         }),
                         _response.rawResponse,
                     );
+                case 422:
+                    throw new TrueHarness.UnprocessableEntityError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 default:
                     throw new errors.TrueHarnessError({
                         statusCode: _response.error.statusCode,

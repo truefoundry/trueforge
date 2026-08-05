@@ -67,7 +67,7 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     expect(updated.created_at).toBe(created.created_at);
     expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
 
-    const skills = await store.listSkills(TENANT);
+    const skills = await store.listSkills({ tenant_id: TENANT, names: undefined });
     expect(skills).toEqual([updated]);
   });
 
@@ -89,8 +89,35 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
       manifest: manifest(),
     });
 
-    const skills = await store.listSkills(TENANT);
+    const skills = await store.listSkills({ tenant_id: TENANT, names: undefined });
     expect(skills.map(skill => skill.name)).toEqual(['algorithmic-art', 'web-artifacts']);
     expect(skills.every(skill => skill.tenant_id === TENANT)).toBe(true);
+  });
+
+  it('listSkills filters by names and returns empty for an empty name list', async () => {
+    const store = getStore();
+    await store.upsertSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() });
+    await store.upsertSkill({
+      tenant_id: TENANT,
+      name: 'web-artifacts',
+      manifest: manifest({
+        name: 'web-artifacts',
+        path: 'skills/web-artifacts-builder',
+        description: 'Build web artifacts.',
+      }),
+    });
+    await store.upsertSkill({
+      tenant_id: TENANT,
+      name: 'demo',
+      manifest: manifest({ name: 'demo', path: 'skills/demo', description: 'Demo skill.' }),
+    });
+
+    const filtered = await store.listSkills({
+      tenant_id: TENANT,
+      names: ['demo', 'missing', 'web-artifacts'],
+    });
+    expect(filtered.map(skill => skill.name)).toEqual(['demo', 'web-artifacts']);
+
+    await expect(store.listSkills({ tenant_id: TENANT, names: [] })).resolves.toEqual([]);
   });
 }

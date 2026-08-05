@@ -6,7 +6,7 @@
  * each backend supplies `seedResource` (create the FK parent) and `expirePending` (backdate a
  * pending row past its TTL).
  */
-import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from '@truefoundry/utils-core/core';
+import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from '../../src/mcp/auth/types';
 
 export interface OAuthTokenStoreHarness {
   store: IOAuthTokenStore;

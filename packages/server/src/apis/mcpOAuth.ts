@@ -1,13 +1,8 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import {
-  completeMcpAuthorization,
-  extractErrorLogFields,
-  McpConnectionError,
-  type IOAuthClientStore,
-  type IOAuthTokenStore,
-  type OAuthPendingAuthorization,
-} from '@truefoundry/utils-core/core';
+import { extractErrorLogFields, McpConnectionError } from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
+import { completeMcpAuthorization } from '../mcp/auth/mcpDcr';
+import type { IOAuthClientStore, IOAuthTokenStore, OAuthPendingAuthorization } from '../mcp/auth/types';
 import { mcpOAuthCallbackRoute } from '../routes/mcpOAuthRoutes';
 
 export interface McpOAuthRouterDeps {

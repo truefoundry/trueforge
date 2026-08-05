@@ -113,7 +113,7 @@ describe('agents router', () => {
       '/',
       jsonInit('POST', { ...writeBody, name: 'other', model: { name: 'missing/model' } }),
     );
-    expect(unknownModel.status).toBe(400);
+    expect(unknownModel.status).toBe(422);
 
     const first = await router.request('/', jsonInit('POST', { ...writeBody, name: 'alpha' }));
     expect(first.status).toBe(200);

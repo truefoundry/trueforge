@@ -1,6 +1,12 @@
 import type { ExpressionBuilder, Kysely } from 'kysely';
 import type { SkillManifest } from '../../../schemas/skill';
-import { type GetSkillInput, type ISkillStore, type SkillRecord, type UpsertSkillInput } from '../../skillStore';
+import {
+  type GetSkillInput,
+  type ISkillStore,
+  type ListSkillsInput,
+  type SkillRecord,
+  type UpsertSkillInput,
+} from '../../skillStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
@@ -22,13 +28,15 @@ export class SqliteSkillStore implements ISkillStore {
     this.#db = db;
   }
 
-  async listSkills(tenantId: string): Promise<SkillRecord[]> {
-    return await this.#db
-      .selectFrom('skill')
-      .select(recordColumns)
-      .where('tenant_id', '=', tenantId)
-      .orderBy('name')
-      .execute();
+  async listSkills(input: ListSkillsInput): Promise<SkillRecord[]> {
+    if (input.names?.length === 0) {
+      return [];
+    }
+    let query = this.#db.selectFrom('skill').select(recordColumns).where('tenant_id', '=', input.tenant_id);
+    if (input.names !== undefined) {
+      query = query.where('name', 'in', [...input.names]);
+    }
+    return await query.orderBy('name').execute();
   }
 
   async getSkill(input: GetSkillInput): Promise<SkillRecord | undefined> {

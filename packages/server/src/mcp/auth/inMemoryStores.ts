@@ -1,13 +1,15 @@
-import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from './IOAuthTokenStore';
+import type {
+  IOAuthClientStore,
+  IOAuthTokenStore,
+  OAuthClientRecord,
+  OAuthPendingAuthorization,
+  OAuthToken,
+} from './types';
 
-/** This implementation's read-expiry window; the SQL-backed stores pick their own. */
 const PENDING_AUTHORIZATION_TTL_MS = 10 * 60 * 1000;
 
-/**
- * In-memory `IOAuthTokenStore` — for tests and any dev/no-DB usage. Not for production use (no
- * persistence across process restarts, no multi-replica sharing).
- */
-/* eslint-disable @typescript-eslint/require-await -- in-memory store is synchronous; methods stay async for IOAuthTokenStore callers */
+/** In-memory OAuth token store for tests and development without a database. */
+/* eslint-disable @typescript-eslint/require-await -- synchronous implementation of an async store contract */
 export class InMemoryOAuthTokenStore implements IOAuthTokenStore {
   private readonly tokens = new Map<string, OAuthToken>();
   private readonly pending = new Map<string, { row: OAuthPendingAuthorization; createdAtMs: number }>();
@@ -34,18 +36,35 @@ export class InMemoryOAuthTokenStore implements IOAuthTokenStore {
   }
 
   async getTokens(params: { ids: string[] }): Promise<Map<string, OAuthToken>> {
-    const out = new Map<string, OAuthToken>();
+    const tokens = new Map<string, OAuthToken>();
     for (const id of params.ids) {
       const token = this.tokens.get(id);
-      if (token) {
-        out.set(id, token);
+      if (token !== undefined) {
+        tokens.set(id, token);
       }
     }
-    return out;
+    return tokens;
   }
 
   async deleteToken(params: { id: string }): Promise<void> {
     this.tokens.delete(params.id);
+  }
+}
+
+/** In-memory OAuth client store for tests and development without a database. */
+export class InMemoryOAuthClientStore implements IOAuthClientStore {
+  private readonly clients = new Map<string, OAuthClientRecord>();
+
+  async saveClient(params: { id: string; record: OAuthClientRecord }): Promise<void> {
+    this.clients.set(params.id, params.record);
+  }
+
+  async getClient(params: { id: string }): Promise<OAuthClientRecord | undefined> {
+    return this.clients.get(params.id);
+  }
+
+  async deleteClient(params: { id: string }): Promise<void> {
+    this.clients.delete(params.id);
   }
 }
 /* eslint-enable @typescript-eslint/require-await */

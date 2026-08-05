@@ -20,7 +20,6 @@ import {
   isFileContentPart,
   McpConnectionError,
   VercelAILLM,
-  type IOAuthTokenStore,
 } from '@truefoundry/utils-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -32,6 +31,7 @@ import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { IOAuthTokenStore } from '../mcp/auth/types';
 import {
   createAndExecuteTurnRoute,
   getTurnRoute,
@@ -45,7 +45,7 @@ import { mintPeeredTurnId } from '../runtime/peeringIds';
 import {
   buildTurnSandbox,
   getMcpConnection,
-  getProviderConfig,
+  getModelProviderConfig,
   resolveGitSkills,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
@@ -103,7 +103,7 @@ function createTurnResolver(deps: {
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
-      const providerConfig = await getProviderConfig({
+      const providerConfig = await getModelProviderConfig({
         tenant_id: TENANT_ID,
         name,
         store: modelProviderStore,
@@ -114,14 +114,21 @@ function createTurnResolver(deps: {
         signal,
       });
     },
-    mcp: async name =>
-      getMcpConnection({
+    mcp: async name => {
+      const connection = await getMcpConnection({
         tenant_id: TENANT_ID,
         name,
         store: mcpServerStore,
         tokenStore,
         clientName: configuration.OAUTH_CLIENT_NAME,
-      }),
+      });
+      if (connection === undefined) {
+        throw new HTTPException(422, {
+          message: `Unknown MCP server "${name}" — not configured`,
+        });
+      }
+      return connection;
+    },
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
     sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {

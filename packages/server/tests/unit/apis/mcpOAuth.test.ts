@@ -1,8 +1,7 @@
 /**
  * Authorize + OAuth callback against real sqlite stores with fetch stubbed
- * (same pattern as packages/harness MCP OAuth tests).
+ * (same pattern as the server MCP OAuth helper tests).
  */
-import { mcpOAuthCallbackUrl } from '@truefoundry/utils-core/core';
 import winston from 'winston';
 import { createMcpOAuthRouter } from '../../../src/apis/mcpOAuth';
 import { createMcpServersRouter } from '../../../src/apis/mcpServers';
@@ -11,6 +10,7 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
 
 const AS_ORIGIN = 'https://auth.example.com';
 const MCP_URL = 'https://mcp.example.com/sse';
