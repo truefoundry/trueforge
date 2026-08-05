@@ -3,6 +3,8 @@
 import type * as TrueHarness from "../index.js";
 
 export interface CatalogProvider {
+    /** URL of the provider logo asset. */
+    logo?: string;
     models: TrueHarness.ModelEntry[];
     name: TrueHarness.ResourceName;
     type: TrueHarness.CatalogProviderType;

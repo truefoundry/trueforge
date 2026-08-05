@@ -8,7 +8,6 @@ import {
 } from '@truefoundry/agent-ui-sdk';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './agentUiSlots';
-import { ApiErrorCard } from './ApiErrorCard';
 import { getCapabilities, listMcpServers, listModels, listSkills } from './catalog';
 import { createConnectorCatalog } from './connectorCatalog';
 import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';
@@ -122,31 +121,28 @@ export function App() {
     return (
       <div className="boot-screen" data-error="true">
         Failed to load application configuration: {boot.message}
-        <ApiErrorCard />
       </div>
     );
   }
 
   if (boot.status === 'loading') {
-    return (
-      <div className="boot-screen">
-        Loading application…
-        <ApiErrorCard />
-      </div>
-    );
+    return <div className="boot-screen">Loading application…</div>;
   }
 
   return (
     <div className="app-root">
       <TrueFoundryAssistantUI
         server={server}
+        theme={{
+          brand: {
+            name: 'TrueForge',
+          },
+        }}
         layout="sidebar"
         defaultAgentSpec={boot.defaultAgentSpec}
         overrides={overrides}
-        theme={{ mode: 'dark' }}
         className="app-assistant"
       />
-      <ApiErrorCard />
     </div>
   );
 }
