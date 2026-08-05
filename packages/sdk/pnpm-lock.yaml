@@ -25,7 +25,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.1
-        version: 4.1.10(@types/node@20.19.43)(msw@2.11.2(@types/node@20.19.43)(typescript@5.9.3))(vite@8.2.0(@types/node@20.19.43)(terser@5.49.1))
+        version: 4.1.10(@types/node@20.19.43)(msw@2.11.2(@types/node@20.19.43)(typescript@5.9.3))(vite@8.2.0(@types/node@20.19.43)(terser@5.49.2))
       webpack:
         specifier: ^5.105.4
         version: 5.109.2
@@ -797,8 +797,8 @@ packages:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
 
-  terser@5.49.1:
-    resolution: {integrity: sha512-7A2xlQ5EnGT8KPA92dUh6RbRYTVw8hEaEN9L1K68l4UOXFuV511NnAqObGoRqGOQofQcMypisu1s3xawCEHrvA==}
+  terser@5.49.2:
+    resolution: {integrity: sha512-rGbJiKeQ4WDe3EXlDAIaQcwftVfv2Q8o1awFNfvXolJYKkb1AuZY1RTOmqx4LJXZENbWZA7eIsYGHuEzHsi1nQ==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -1174,14 +1174,14 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.1
 
-  '@vitest/mocker@4.1.10(msw@2.11.2(@types/node@20.19.43)(typescript@5.9.3))(vite@8.2.0(@types/node@20.19.43)(terser@5.49.1))':
+  '@vitest/mocker@4.1.10(msw@2.11.2(@types/node@20.19.43)(typescript@5.9.3))(vite@8.2.0(@types/node@20.19.43)(terser@5.49.2))':
     dependencies:
       '@vitest/spy': 4.1.10
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
       msw: 2.11.2(@types/node@20.19.43)(typescript@5.9.3)
-      vite: 8.2.0(@types/node@20.19.43)(terser@5.49.1)
+      vite: 8.2.0(@types/node@20.19.43)(terser@5.49.2)
 
   '@vitest/pretty-format@4.1.10':
     dependencies:
@@ -1487,7 +1487,7 @@ snapshots:
       '@jridgewell/trace-mapping': 0.3.31
       jest-worker: 27.5.1
       schema-utils: 4.3.3
-      terser: 5.49.1
+      terser: 5.49.2
       webpack: 5.109.2
 
   msw@2.11.2(@types/node@20.19.43)(typescript@5.9.3):
@@ -1618,7 +1618,7 @@ snapshots:
 
   tapable@2.3.3: {}
 
-  terser@5.49.1:
+  terser@5.49.2:
     dependencies:
       '@jridgewell/source-map': 0.3.11
       acorn: 8.18.0
@@ -1666,7 +1666,7 @@ snapshots:
       escalade: 3.2.0
       picocolors: 1.1.1
 
-  vite@8.2.0(@types/node@20.19.43)(terser@5.49.1):
+  vite@8.2.0(@types/node@20.19.43)(terser@5.49.2):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.5
@@ -1676,12 +1676,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 20.19.43
       fsevents: 2.3.3
-      terser: 5.49.1
+      terser: 5.49.2
 
-  vitest@4.1.10(@types/node@20.19.43)(msw@2.11.2(@types/node@20.19.43)(typescript@5.9.3))(vite@8.2.0(@types/node@20.19.43)(terser@5.49.1)):
+  vitest@4.1.10(@types/node@20.19.43)(msw@2.11.2(@types/node@20.19.43)(typescript@5.9.3))(vite@8.2.0(@types/node@20.19.43)(terser@5.49.2)):
     dependencies:
       '@vitest/expect': 4.1.10
-      '@vitest/mocker': 4.1.10(msw@2.11.2(@types/node@20.19.43)(typescript@5.9.3))(vite@8.2.0(@types/node@20.19.43)(terser@5.49.1))
+      '@vitest/mocker': 4.1.10(msw@2.11.2(@types/node@20.19.43)(typescript@5.9.3))(vite@8.2.0(@types/node@20.19.43)(terser@5.49.2))
       '@vitest/pretty-format': 4.1.10
       '@vitest/runner': 4.1.10
       '@vitest/snapshot': 4.1.10
@@ -1698,7 +1698,7 @@ snapshots:
       tinyexec: 1.3.0
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.1
-      vite: 8.2.0(@types/node@20.19.43)(terser@5.49.1)
+      vite: 8.2.0(@types/node@20.19.43)(terser@5.49.2)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 20.19.43

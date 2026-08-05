@@ -163,7 +163,14 @@ describe("ModelProvidersClient", () => {
         const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
-            data: [{ models: [{ model_id: "model_id", name: "name", properties: {} }], name: "name", type: "openai" }],
+            data: [
+                {
+                    logo: "logo",
+                    models: [{ model_id: "model_id", name: "name", properties: {} }],
+                    name: "name",
+                    type: "openai",
+                },
+            ],
         };
 
         server
@@ -178,6 +185,7 @@ describe("ModelProvidersClient", () => {
         expect(response).toEqual({
             data: [
                 {
+                    logo: "logo",
                     models: [
                         {
                             modelId: "model_id",

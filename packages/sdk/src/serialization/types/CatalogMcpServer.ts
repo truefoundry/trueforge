@@ -12,6 +12,7 @@ export const CatalogMcpServer: core.serialization.ObjectSchema<
     TrueHarness.CatalogMcpServer
 > = core.serialization.object({
     auth: ConfiguredMcpServerAuth.optional(),
+    logo: core.serialization.string().optional(),
     name: ResourceName,
     type: McpServerType,
     url: core.serialization.string(),
@@ -20,6 +21,7 @@ export const CatalogMcpServer: core.serialization.ObjectSchema<
 export declare namespace CatalogMcpServer {
     export interface Raw {
         auth?: ConfiguredMcpServerAuth.Raw | null;
+        logo?: string | null;
         name: ResourceName.Raw;
         type: McpServerType.Raw;
         url: string;
