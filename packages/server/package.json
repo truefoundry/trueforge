@@ -11,7 +11,7 @@
     "build:gen:watch": "node --watch-path=src/catalog/model-catalog.yaml --watch-path=src/catalog/mcp-catalog.yaml --watch-path=src/catalog/skill-catalog.yaml --watch-path=src/catalog/sandbox-catalog.yaml scripts/generate-catalog.mjs",
     "build": "pnpm run build:gen && tsc --noEmit && tsup",
     "predev": "pnpm --filter @truefoundry/utils-core build:gen && pnpm run build:gen",
-    "dev": "pnpm run --parallel catalog-watch dev:serve",
+    "dev": "pnpm run \"/^(catalog-watch|dev:serve)$/\"",
     "catalog-watch": "pnpm run build:gen:watch",
     "dev:serve": "NODE_OPTIONS='--conditions=development' NODE_ENV=development tsx watch --env-file=.env src/main.ts",
     "predev:no-watch": "pnpm --filter @truefoundry/utils-core build:gen && pnpm run build:gen",

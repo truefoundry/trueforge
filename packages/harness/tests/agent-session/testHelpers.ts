@@ -91,6 +91,8 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
     mcp: name => {
       return Promise.reject(new Error(`unexpected mcp lookup: ${name}`));
     },
+    mcpRequestTimeoutMs: 60_000,
+    mcpConnectTimeoutMs: 5_000,
     logger: makeSilentLogger(),
     ...(options?.sandbox
       ? {
