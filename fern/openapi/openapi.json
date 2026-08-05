@@ -2005,6 +2005,59 @@
         },
         "type": "object"
       },
+      "SandboxArtifact": {
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "path"
+        ],
+        "type": "object"
+      },
+      "SandboxArtifactsEvent": {
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/SandboxArtifact"
+            },
+            "type": "array"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event",
+            "type": "string"
+          },
+          "sandbox_id": {
+            "type": "string"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "sandbox.artifacts"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "sandbox_id",
+          "artifacts",
+          "thread_id"
+        ],
+        "type": "object"
+      },
       "SandboxConfig": {
         "properties": {
           "enabled": {
@@ -2158,6 +2211,7 @@
             "mcp.auth_required": "#/components/schemas/MCPAuthRequiredEvent",
             "mcp.initialize": "#/components/schemas/MCPInitializeEvent",
             "model.message": "#/components/schemas/ModelMessageEvent",
+            "sandbox.artifacts": "#/components/schemas/SandboxArtifactsEvent",
             "sandbox.created": "#/components/schemas/SandboxCreatedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
@@ -2196,6 +2250,9 @@
           },
           {
             "$ref": "#/components/schemas/SandboxCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/SandboxArtifactsEvent"
           },
           {
             "$ref": "#/components/schemas/ToolApprovalRequiredEvent"
@@ -2976,6 +3033,7 @@
             "mcp.initialize": "#/components/schemas/MCPInitializeEvent",
             "model.message": "#/components/schemas/ModelMessageEvent",
             "model.message.delta": "#/components/schemas/ModelMessageDeltaEvent",
+            "sandbox.artifacts": "#/components/schemas/SandboxArtifactsEvent",
             "sandbox.created": "#/components/schemas/SandboxCreatedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
@@ -3011,6 +3069,9 @@
           },
           {
             "$ref": "#/components/schemas/SandboxCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/SandboxArtifactsEvent"
           },
           {
             "$ref": "#/components/schemas/ToolApprovalRequiredEvent"
@@ -3813,6 +3874,127 @@
           "sessions"
         ],
         "x-fern-sdk-method-name": "list_events"
+      }
+    },
+    "/api/v1/sessions/{session_id}/sandbox/file": {
+      "get": {
+        "description": "Download a file the agent produced inside this session's sandbox. Paths come from the `sandbox.artifacts` event; the sandbox is resolved from the session, so no sandbox id is needed. Requires `config.sandbox.file_downloads` on the agent spec.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Absolute path of the file inside the sandbox, as reported by a `sandbox.artifacts` event.",
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "description": "Absolute path of the file inside the sandbox, as reported by a `sandbox.artifacts` event.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "File contents."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Path is not absolute, is malformed, contains \"..\" segments, or refers to a directory."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox does not belong to this tenant."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session not found, session has no sandbox, or file not found."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox no longer exists."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "File exceeds the maximum download size."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "File downloads are disabled for this session, or no sandbox provider is configured."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox infrastructure error."
+          }
+        },
+        "summary": "Download a file from the session sandbox",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "download_sandbox_file"
       }
     },
     "/api/v1/sessions/{session_id}/turns": {

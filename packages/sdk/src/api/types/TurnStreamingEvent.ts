@@ -7,6 +7,7 @@ export type TurnStreamingEvent =
     | TrueHarness.McpInitializeEvent
     | TrueHarness.ModelMessageEvent
     | TrueHarness.ModelMessageDeltaEvent
+    | TrueHarness.SandboxArtifactsEvent
     | TrueHarness.SandboxCreatedEvent
     | TrueHarness.ThreadCreatedEvent
     | TrueHarness.ThreadDoneEvent

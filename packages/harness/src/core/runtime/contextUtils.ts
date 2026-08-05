@@ -135,6 +135,22 @@ export function assistantMessageContentToStringForSubAgent(
   return text;
 }
 
+/** Concatenates the assistant's visible text, dropping refusals and non-text parts. */
+export function assistantMessageText(
+  content: string | ({ type?: string; text?: string } | string)[] | null | undefined,
+): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+  if (!Array.isArray(content)) {
+    return '';
+  }
+  return content
+    .map(item => (typeof item === 'string' ? item : (item.text ?? '')))
+    .filter(text => text !== '')
+    .join('\n');
+}
+
 export function getThreadId(): string {
   return crypto.randomUUID();
 }

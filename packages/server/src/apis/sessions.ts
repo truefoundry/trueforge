@@ -2,12 +2,18 @@
  * DB-backed sessions API (mounted at /api/v1/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { ISessionStore, SessionRecord, Sessions } from '@truefoundry/utils-core/agent-session';
+import type { ISessionStore, SessionHandle, SessionRecord, Sessions } from '@truefoundry/utils-core/agent-session';
 import {
   CancellationReason,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
 } from '@truefoundry/utils-core/agent-session';
+import {
+  extractErrorLogFields,
+  SandboxError,
+  validateSandboxFilePath,
+  validateSandboxOwnedByTenant,
+} from '@truefoundry/utils-core/core';
 import type {
   RouteHandler as RequestReplyRouteHandler,
   RequestReplyRouter,
@@ -16,6 +22,7 @@ import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundr
 import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';
+import type { Logger } from 'winston';
 import { z } from 'zod';
 import configuration from '../config';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -26,6 +33,7 @@ import {
   cancelSessionRoute,
   createSessionRoute,
   deleteSessionRoute,
+  downloadSandboxFileRoute,
   getSessionRoute,
   listSessionEventsRoute,
   listSessionsRoute,
@@ -33,7 +41,7 @@ import {
 } from '../routes/sessionRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { executorFromTurnId } from '../runtime/peeringIds';
-import { validateAgentSpec } from '../runtime/sessionResources';
+import { resolveSandboxProvider, validateAgentSpec } from '../runtime/sessionResources';
 import type { Session } from '../schemas/session';
 
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
@@ -70,6 +78,67 @@ export interface SessionsRouterDeps {
   sandboxProviderStore: ISandboxProviderStore;
   redis?: RedisClientType | undefined;
   requestReplyRouter: RequestReplyRouter;
+  logger: Logger;
+}
+
+/**
+ * The live sandbox for a session is whichever one the newest turn is attached to;
+ * snapshots carry `sandbox_info` forward across turns, so the tip is authoritative.
+ */
+async function resolveSessionSandboxId(session: SessionHandle): Promise<string | undefined> {
+  const lastTurnId = session.record.last_turn_id;
+  if (lastTurnId === null) {
+    return undefined;
+  }
+  const turn = await session.getTurn(lastTurnId);
+  return turn?.record.snapshot.sandbox_info?.sandbox_id;
+}
+
+/** Narrows the sandbox error's status to the set this route documents. */
+function toSandboxErrorStatus(error: SandboxError): 400 | 403 | 404 | 410 | 413 | 502 {
+  switch (error.statusCode) {
+    case 400:
+    case 403:
+    case 404:
+    case 410:
+    case 413:
+      return error.statusCode;
+    default:
+      return 502;
+  }
+}
+
+/**
+ * Copies into a standalone ArrayBuffer for the response body: a pooled Buffer's
+ * backing store is shared and typed as ArrayBufferLike, which is not a body.
+ * Bounded by SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD.
+ */
+function toArrayBuffer(content: Buffer): ArrayBuffer {
+  const buffer = new ArrayBuffer(content.byteLength);
+  new Uint8Array(buffer).set(content);
+  return buffer;
+}
+
+/** Printable ASCII only: header values are ByteStrings, and `"`/`\` would end the quoted value. */
+function isSafeFilenameChar(char: string): boolean {
+  const code = char.codePointAt(0) ?? 0;
+  return code >= 0x20 && code <= 0x7e && char !== '"' && char !== '\\';
+}
+
+/** RFC 5987 attr-char, minus the four `encodeURIComponent` leaves unescaped. */
+function encodeExtendedFilename(name: string): string {
+  return encodeURIComponent(name).replace(/['()*]/g, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+/**
+ * The sandbox may hold a file named in any script, so RFC 6266 both ways: `filename` keeps an
+ * ASCII-only fallback (a code point above U+00FF makes the Response constructor throw) and
+ * `filename*` carries the real UTF-8 name for clients that read it.
+ */
+export function toContentDisposition(path: string): string {
+  const name = path.slice(path.lastIndexOf('/') + 1) || 'download';
+  const ascii = Array.from(name, char => (isSafeFilenameChar(char) ? char : '_')).join('');
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeExtendedFilename(name)}`;
 }
 
 function cancelTurnOnThisExecutor(
@@ -308,8 +377,59 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
   };
 
+  const downloadSandboxFileHandler: RouteHandler<typeof downloadSandboxFileRoute> = async c => {
+    const { session_id: sessionId } = c.req.valid('param');
+    const { path } = c.req.valid('query');
+
+    let sandboxId: string | undefined;
+    try {
+      // Cheapest first: a malformed path costs no session lookup and no provider round-trip.
+      validateSandboxFilePath(path);
+
+      const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+      if (!session) {
+        return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+      }
+      if (session.agent_spec.config?.sandbox?.file_downloads !== true) {
+        return c.json({ error: { message: 'File downloads are not enabled for this session' } }, 422);
+      }
+
+      sandboxId = await resolveSessionSandboxId(session);
+      if (sandboxId === undefined) {
+        return c.json({ error: { message: `Session has no sandbox: ${sessionId}` } }, 404);
+      }
+
+      const provider = await resolveSandboxProvider({
+        tenant_id: TENANT_ID,
+        store: deps.sandboxProviderStore,
+        logger: deps.logger,
+      });
+      if (provider === undefined) {
+        return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
+      }
+
+      validateSandboxOwnedByTenant(sandboxId, TENANT_ID);
+      const content = await provider.downloadFile({ sandboxId, path });
+
+      return c.body(toArrayBuffer(content), 200, {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': String(content.byteLength),
+        'Content-Disposition': toContentDisposition(path),
+        'Cache-Control': 'private, no-store',
+      });
+    } catch (error) {
+      // Every guard and the provider itself raise SandboxError, whose statusCode is the contract.
+      if (error instanceof SandboxError) {
+        return c.json({ error: { message: error.message } }, toSandboxErrorStatus(error));
+      }
+      deps.logger.error('Sandbox file download failed', { ...extractErrorLogFields(error), sandboxId, path });
+      return c.json({ error: { message: 'Failed to download file from sandbox' } }, 502);
+    }
+  };
+
   const router = new OpenAPIHono();
   router.openapi(createSessionRoute, createSessionHandler);
+  router.openapi(downloadSandboxFileRoute, downloadSandboxFileHandler);
   router.openapi(getSessionRoute, getSessionHandler);
   router.openapi(deleteSessionRoute, deleteSessionHandler);
   router.openapi(updateSessionRoute, updateSessionHandler);

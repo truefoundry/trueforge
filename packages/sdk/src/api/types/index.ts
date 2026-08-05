@@ -104,6 +104,8 @@ export * from "./ResponseFormatJsonSchema.js";
 export * from "./ResponseFormatJsonSchemaJsonSchema.js";
 export * from "./ResponseFormatText.js";
 export * from "./RuntimeConfig.js";
+export * from "./SandboxArtifact.js";
+export * from "./SandboxArtifactsEvent.js";
 export * from "./SandboxConfig.js";
 export * from "./SandboxCreatedEvent.js";
 export * from "./SandboxNetworkPolicy.js";

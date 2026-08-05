@@ -112,6 +112,7 @@ export function createServerApp(deps: ServerDeps) {
       sandboxProviderStore: deps.sandboxProviderStore,
       redis: deps.redis,
       requestReplyRouter: deps.requestReplyRouter,
+      logger: deps.logger,
     }),
   );
   app.route(

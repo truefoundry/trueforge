@@ -43,6 +43,7 @@ describe('public CRUD after session deletion', () => {
         sandboxProviderStore,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
+        logger: createLogger({ silent: true }),
       }),
     );
     app.route(

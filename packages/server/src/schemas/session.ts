@@ -57,3 +57,12 @@ export const ListSessionsResponseSchema = z
     pagination: TokenPaginationSchema,
   })
   .openapi('ListSessionsResponse');
+
+export const DownloadSandboxFileRequestQuerySchema = z
+  .object({
+    path: z
+      .string()
+      .min(1)
+      .describe('Absolute path of the file inside the sandbox, as reported by a `sandbox.artifacts` event.'),
+  })
+  .openapi('DownloadSandboxFileRequestQuery');

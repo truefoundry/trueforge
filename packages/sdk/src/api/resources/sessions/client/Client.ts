@@ -724,6 +724,157 @@ export class SessionsClient {
     }
 
     /**
+     * Download a file the agent produced inside this session's sandbox. Paths come from the `sandbox.artifacts` event; the sandbox is resolved from the session, so no sandbox id is needed. Requires `config.sandbox.file_downloads` on the agent spec.
+     *
+     * @throws {@link TrueHarness.BadRequestError}
+     * @throws {@link TrueHarness.ForbiddenError}
+     * @throws {@link TrueHarness.NotFoundError}
+     * @throws {@link TrueHarness.GoneError}
+     * @throws {@link TrueHarness.ContentTooLargeError}
+     * @throws {@link TrueHarness.UnprocessableEntityError}
+     * @throws {@link TrueHarness.BadGatewayError}
+     * @throws {@link errors.TrueHarnessError}
+     * @throws {@link errors.TrueHarnessTimeoutError}
+     */
+    public downloadSandboxFile(
+        session_id: string,
+        request: TrueHarness.DownloadSandboxFileSessionsRequest,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): core.HttpResponsePromise<core.BinaryResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__downloadSandboxFile(session_id, request, requestOptions));
+    }
+
+    private async __downloadSandboxFile(
+        session_id: string,
+        request: TrueHarness.DownloadSandboxFileSessionsRequest,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<core.BinaryResponse>> {
+        const { path } = request;
+        const _queryParams: Record<string, unknown> = {
+            path,
+        };
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
+        const _response = await (this._options.fetcher ?? core.fetcher)<core.BinaryResponse>({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}/sandbox/file`,
+            ),
+            method: "GET",
+            headers: _headers,
+            queryString: core.url
+                .queryBuilder()
+                .addMany(_queryParams)
+                .mergeAdditional(requestOptions?.queryParams)
+                .build(),
+            responseType: "binary-response",
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return { data: _response.body, rawResponse: _response.rawResponse };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 400:
+                    throw new TrueHarness.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 403:
+                    throw new TrueHarness.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueHarness.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 410:
+                    throw new TrueHarness.GoneError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 413:
+                    throw new TrueHarness.ContentTooLargeError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 422:
+                    throw new TrueHarness.UnprocessableEntityError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 502:
+                    throw new TrueHarness.BadGatewayError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueHarnessError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "GET",
+            "/api/v1/sessions/{session_id}/sandbox/file",
+        );
+    }
+
+    /**
      * List turns for a session (newest first by default), token-paginated.
      *
      * @param {string} session_id - Session identifier.

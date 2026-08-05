@@ -13,6 +13,7 @@ import { getCapabilities, listMcpServers, listModels, listSkills } from './catal
 import { createConnectorCatalog } from './connectorCatalog';
 import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';
 import { createModelProviderCatalog } from './modelProviderCatalog';
+import { createSandboxArtifactDownload } from './SandboxArtifacts';
 
 /** Harness model names are `provider/model`. */
 function providerOf(name: string): string {
@@ -33,8 +34,12 @@ function OpenSettingsWelcomeScreen(props: WelcomeScreenProps) {
   return <WelcomeScreen {...props} />;
 }
 
+const chatServer = createHarnessChatServer();
+
+const SandboxArtifactDownloadSlot = createSandboxArtifactDownload(chatServer);
+
 const server = createTrueFoundryServer<HarnessAgentSpec>({
-  chatServer: createHarnessChatServer(),
+  chatServer,
   getModels: async () => (await listModels()).map(model => ({ name: model.name, provider: providerOf(model.name) })),
   // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
   getSkills: async () => {
@@ -114,7 +119,10 @@ export function App() {
   }, []);
 
   const overrides: SlotOverrides = useMemo(
-    () => (boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
+    () => ({
+      SandboxArtifactDownload: SandboxArtifactDownloadSlot,
+      ...(boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
+    }),
     [boot],
   );
 

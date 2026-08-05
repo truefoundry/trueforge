@@ -7,6 +7,7 @@ import { McpAuthRequiredEvent } from "./McpAuthRequiredEvent.js";
 import { McpInitializeEvent } from "./McpInitializeEvent.js";
 import { ModelMessageDeltaEvent } from "./ModelMessageDeltaEvent.js";
 import { ModelMessageEvent } from "./ModelMessageEvent.js";
+import { SandboxArtifactsEvent } from "./SandboxArtifactsEvent.js";
 import { SandboxCreatedEvent } from "./SandboxCreatedEvent.js";
 import { ThreadCreatedEvent } from "./ThreadCreatedEvent.js";
 import { ThreadDoneEvent } from "./ThreadDoneEvent.js";
@@ -24,6 +25,7 @@ export const TurnStreamingEvent: core.serialization.Schema<
     McpInitializeEvent,
     ModelMessageEvent,
     ModelMessageDeltaEvent,
+    SandboxArtifactsEvent,
     SandboxCreatedEvent,
     ThreadCreatedEvent,
     ThreadDoneEvent,
@@ -40,6 +42,7 @@ export declare namespace TurnStreamingEvent {
         | McpInitializeEvent.Raw
         | ModelMessageEvent.Raw
         | ModelMessageDeltaEvent.Raw
+        | SandboxArtifactsEvent.Raw
         | SandboxCreatedEvent.Raw
         | ThreadCreatedEvent.Raw
         | ThreadDoneEvent.Raw

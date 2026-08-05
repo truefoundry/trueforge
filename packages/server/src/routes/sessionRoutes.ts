@@ -8,6 +8,7 @@ import { RequestErrorResponseSchema } from '../schemas/errors';
 import { ListSessionEventsRequestQuerySchema, ListSessionEventsResponseSchema } from '../schemas/events';
 import {
   CreateSessionRequestSchema,
+  DownloadSandboxFileRequestQuerySchema,
   GetSessionResponseSchema,
   ListSessionsRequestQuerySchema,
   ListSessionsResponseSchema,
@@ -213,6 +214,55 @@ export const listSessionEventsRoute = createRoute({
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Session not found.',
+    },
+  },
+});
+
+export const downloadSandboxFileRoute = createRoute({
+  method: 'get',
+  path: '/{session_id}/sandbox/file',
+  tags: [SESSIONS_TAG],
+  summary: 'Download a file from the session sandbox',
+  description:
+    "Download a file the agent produced inside this session's sandbox. Paths come from the `sandbox.artifacts` event; the sandbox is resolved from the session, so no sandbox id is needed. Requires `config.sandbox.file_downloads` on the agent spec.",
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'download_sandbox_file',
+  request: {
+    params: SessionIdParamsSchema,
+    query: DownloadSandboxFileRequestQuerySchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/octet-stream': { schema: z.string().openapi({ format: 'binary' }) } },
+      description: 'File contents.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Path is not absolute, is malformed, contains ".." segments, or refers to a directory.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox does not belong to this tenant.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session not found, session has no sandbox, or file not found.',
+    },
+    410: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox no longer exists.',
+    },
+    413: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'File exceeds the maximum download size.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'File downloads are disabled for this session, or no sandbox provider is configured.',
+    },
+    502: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox infrastructure error.',
     },
   },
 });

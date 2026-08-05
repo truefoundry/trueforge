@@ -11,6 +11,7 @@ import {
   LLMUserMessageSchema,
 } from '../llm/LLMTypes';
 import { CurrentContextUsageSchema } from '../runtime/contextUsage';
+import { SandboxArtifactSchema } from '../sandbox/artifacts';
 
 /**
  * Process-local monotonic ULIDs preserve event creation order, including
@@ -32,6 +33,7 @@ export const EventType = {
   MCP_INITIALIZE: 'mcp.initialize',
   MODEL_MESSAGE: 'model.message',
   MODEL_MESSAGE_DELTA: 'model.message.delta',
+  SANDBOX_ARTIFACTS: 'sandbox.artifacts',
   SANDBOX_CREATED: 'sandbox.created',
   THREAD_CREATED: 'thread.created',
   THREAD_DONE: 'thread.done',
@@ -302,6 +304,22 @@ export const SandboxCreatedEventSchema = z
   })
   .openapi('SandboxCreatedEvent');
 
+/**
+ * Files the model offered to the user for download, parsed out of its `sandbox_artifacts`
+ * block. Carries `sandbox_id` so a consumer can resolve the files without replaying the
+ * turn to find the preceding sandbox.created event.
+ */
+export const SandboxArtifactsEventSchema = z
+  .object({
+    type: z.literal(EventType.SANDBOX_ARTIFACTS),
+    id: EventIdSchema,
+    created_at: z.string(),
+    sandbox_id: z.string(),
+    artifacts: z.array(SandboxArtifactSchema),
+    thread_id: z.string(),
+  })
+  .openapi('SandboxArtifactsEvent');
+
 export const ToolCallRefSchema = z
   .object({
     id: z.string(),
@@ -346,6 +364,7 @@ export const AgentOutputEventSchema = z.discriminatedUnion('type', [
   MCPAuthRequiredEventSchema,
   MCPInitializeEventSchema,
   SandboxCreatedEventSchema,
+  SandboxArtifactsEventSchema,
   ToolApprovalRequiredEventSchema,
   ToolResponseRequiredEventSchema,
 ]);
@@ -373,6 +392,7 @@ export type MCPAuthRequiredEvent = z.infer<typeof MCPAuthRequiredEventSchema>;
 export type MCPServerInitInfo = z.infer<typeof MCPServerInitInfoSchema>;
 export type MCPInitializeEvent = z.infer<typeof MCPInitializeEventSchema>;
 export type SandboxCreatedEvent = z.infer<typeof SandboxCreatedEventSchema>;
+export type SandboxArtifactsEvent = z.infer<typeof SandboxArtifactsEventSchema>;
 export type ToolApprovalRequiredEvent = z.infer<typeof ToolApprovalRequiredEventSchema>;
 export type ToolResponseRequiredEvent = z.infer<typeof ToolResponseRequiredEventSchema>;
 export type ActionRequiredEvent = z.infer<typeof ActionRequiredEventSchema>;
