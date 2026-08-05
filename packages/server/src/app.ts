@@ -10,7 +10,7 @@ import type { Logger } from 'winston';
 import { createAgentsRouter } from './apis/agents';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
-import { createAvailableMcpServersRouter } from './apis/mcpServers';
+import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
@@ -78,7 +78,14 @@ export function createServerApp(deps: ServerDeps) {
 
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
-  app.route('/api/v1/mcp-servers', createAvailableMcpServersRouter(deps.mcpServerStore));
+  app.route(
+    '/api/v1/mcp-servers',
+    createMcpServersRouter({
+      mcpServerStore: deps.mcpServerStore,
+      tokenStore: deps.tokenStore,
+      logger: deps.logger,
+    }),
+  );
   // Shared OAuth callback — path must match the server-owned MCP_OAUTH_CALLBACK_PATH.
   app.route(
     '/api/v1/mcp-servers/oauth',

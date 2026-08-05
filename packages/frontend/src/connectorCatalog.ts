@@ -1,6 +1,6 @@
 /**
  * Maps agent-ui-sdk connector-settings calls onto Harness
- * `/api/v1/settings/mcp-servers` (name-keyed upsert, authorize; no delete/disconnect).
+ * `/api/v1/settings/mcp-servers` (upsert/list/tools) and `/api/v1/mcp-servers` (authorize).
  *
  * UI: `oauth` / `apiKey` / `none`, connector `id`.
  * Harness: `dcr` / `header` / omitted auth, resource `name`.
@@ -199,7 +199,7 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
     },
     authenticateConnector: async req => {
       const redirectUrl = `${globalThis.location.origin}${globalThis.location.pathname}`;
-      const result = await client.settings.mcpServers.authorize(req.id, { redirectUrl });
+      const result = await client.mcpServers.authorize(req.id, { redirectUrl });
       if (result.status === 'auth_required') {
         if (result.authorizationUrl === undefined) {
           throw new Error(`Authorization URL missing for MCP server "${req.id}"`);

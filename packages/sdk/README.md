@@ -62,7 +62,7 @@ following namespace:
 ```typescript
 import { TrueHarness } from "trueharness";
 
-const request: TrueHarness.ListSessionsRequest = {
+const request: TrueHarness.AuthorizeMcpServersRequest = {
     ...
 };
 ```
