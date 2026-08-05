@@ -47,18 +47,18 @@ function routeNotFound(c: Context) {
 
 export interface ServerDeps {
   modelCatalog: ModelCatalog;
-  modelProviderStore: IModelProviderStore;
   mcpCatalog: McpCatalog;
+  skillCatalog: SkillCatalog;
+  sandboxCatalog: SandboxCatalog;
+  modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
-  skillCatalog: SkillCatalog;
   skillStore: ISkillStore;
-  sandboxCatalog: SandboxCatalog;
   sandboxProviderStore: ISandboxProviderStore;
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
-  /** Primary Redis client (server-owned); undefined in single-binary mode. */
+  /** Primary Redis client (server-owned); undefined in standalone mode. */
   redis?: RedisClientType | undefined;
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;

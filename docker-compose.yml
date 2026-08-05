@@ -1,7 +1,7 @@
 # Full-stack smoke test. Reads packages/server/.env for secrets and
 # credentials; host ports and in-network DB/Redis targets are opinionated here
 # so they do not collide with or inherit host-dev values.
-name: harness
+name: trueforge
 
 services:
   postgres:
@@ -54,9 +54,9 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       # Compose runs one replica but keeps peering on so the peered cancel path
-      # stays exercised in development. A single-process deployment can set this
-      # to true and drop the redis service entirely.
-      SINGLE_BINARY: 'false'
+      # stays exercised. STANDALONE=false ⇒ Postgres + Redis.
+      # A single-process deployment can set STANDALONE=true and drop redis.
+      STANDALONE: 'false'
       REDIS_URL: redis://redis:6379
     # Secrets and Postgres credentials (POSTGRES_USER, …).
     # `environment` above overrides any colliding keys from this file.

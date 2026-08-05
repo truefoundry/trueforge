@@ -19,12 +19,14 @@ No login is required.
 
 ## Local development
 
-For the full host workflow (Compose Postgres/Redis, then API + Vite), see the root
-[`README.md`](../../README.md#development).
+For the full host workflow (standalone or non-standalone), see the root
+[`README.md`](../../README.md).
 
 ```bash
-pnpm dev            # API on :8790 and Vite on :3000 together (after `pnpm dev:infra`)
-pnpm dev:frontend   # or Vite alone, against an API that is already up
+pnpm standalone:dev   # zero-env: SQLite, Vite :3000 + API :8790
+# or:
+pnpm dev:infra        # then in another terminal:
+pnpm dev              # Postgres + Redis, Vite :3000 + API :8790
 ```
 
 Open `http://localhost:3000`: Vite serves the UI from source (edits hot-reload, no rebuild or server
