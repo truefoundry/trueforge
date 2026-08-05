@@ -32,7 +32,11 @@ export const mcpOAuthCallbackRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: McpOAuthCallbackSuccessSchema } },
-      description: 'Token exchanged successfully; no browser redirect.',
+      description: 'Token exchanged successfully and no `redirect_url` was given at authorize time.',
+    },
+    302: {
+      description:
+        'Redirect to the `redirect_url` given at authorize time, with `isSuccess` (and `reason` when it failed) appended to its existing query params.',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
