@@ -1,9 +1,6 @@
 # Shipped model catalog: provider/model presets offered by
 # GET /api/v1/settings/model-providers/catalog for the settings UI to copy into
 # PUT /api/v1/settings/model-providers bodies. Discovery-only — never executed against.
-# Properties are each provider's own serving limits, verified against its live API where reachable,
-# so a shared model differs between providers; a field is omitted where the provider neither
-# documents nor enforces a value, since an invented effort or cap would misvalidate turns.
 providers:
   - type: openai
     name: openai
@@ -168,6 +165,8 @@ providers:
           context_length: 1048576
           max_output_tokens: 65536
           reasoning_efforts:
+            - none
+            - minimal
             - low
             - medium
             - high
