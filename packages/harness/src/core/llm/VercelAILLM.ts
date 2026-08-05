@@ -102,13 +102,9 @@ export interface VercelAILLMConfig {
 }
 
 /**
- * Every OpenAI-compatible provider shares this adapter and differs only by endpoint, which the
- * caller resolves. The provider name doubles as the `providerOptions` key, which is why
- * {@link buildProviderOptions} can key on it directly. Fireworks, Together and Z AI stay here on
- * purpose: the Fireworks and Together packages both downgrade `json_schema` to a schema-less
- * `json_object`, and the only Z AI package is a community one that drops replayed reasoning. What
- * the Fireworks package offers over this adapter is an effort clamp to the three levels it serves,
- * which buys us nothing while no Fireworks model advertises an effort.
+ * Shared by every OpenAI-compatible provider, which differ only by endpoint. The provider name
+ * doubles as the `providerOptions` key. Fireworks, Together and Z AI stay here rather than on their
+ * own packages: those drop `json_schema`, and Fireworks also clamps efforts its models do accept.
  * TODO: move Z AI to @ai-sdk/zai once https://github.com/vercel/ai/pull/17340 ships.
  */
 function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
@@ -238,11 +234,9 @@ function isReasoningLevel(v: string): v is ReasoningLevel {
 }
 
 /**
- * Efforts models advertise that the SDK's cross-provider union cannot express. `xhigh` is its
- * ceiling, so `max` rides in as `xhigh`, which Anthropic's adapter raises back to `max` for models
- * without an `xhigh` level. Adapters that also take an effort of their own get the real `max`
- * through `providerOptions`, since for them `xhigh` is either a weaker level or an unknown string
- * they drop in silence.
+ * Efforts the SDK's cross-provider union cannot express. `xhigh` is its ceiling, so `max` rides in
+ * as `xhigh`; Anthropic's adapter raises that back to `max`, and {@link maxEffortOption} covers the
+ * adapters that need the literal value.
  */
 const EFFORT_ALIASES: Readonly<Record<string, ReasoningLevel>> = { max: 'xhigh' };
 
@@ -253,10 +247,9 @@ const EFFORT_ALIASES: Readonly<Record<string, ReasoningLevel>> = { max: 'xhigh' 
 export const SUPPORTED_REASONING_EFFORTS: readonly string[] = [...REASONING_LEVELS, ...Object.keys(EFFORT_ALIASES)];
 
 /**
- * Every provider takes the effort through the top-level `reasoning` setting, leaving the adapters
- * to translate it: an effort string for OpenAI-shaped APIs, a per-model thinking shape for
- * Anthropic, `thinkingLevel` or `thinkingBudget` for Gemini. A reasoning `providerOptions` entry
- * replaces this rather than merging with it, so only `max` sets one.
+ * The effort travels on the top-level `reasoning` setting, which each adapter translates per model:
+ * an effort string for OpenAI-shaped APIs, a thinking shape for Anthropic, a level or budget for
+ * Gemini. A reasoning `providerOptions` entry replaces that path rather than merging with it.
  */
 export function toReasoningLevel(reasoningEffort: string | undefined): ReasoningLevel | undefined {
   if (reasoningEffort === undefined) {
@@ -267,6 +260,20 @@ export function toReasoningLevel(reasoningEffort: string | undefined): Reasoning
     return aliased;
   }
   return isReasoningLevel(reasoningEffort) ? reasoningEffort : undefined;
+}
+
+/**
+ * OpenAI reads the aliased `xhigh` as a weaker level, and compatible endpoints ignore an effort they
+ * do not recognise, so these adapters need the literal `max` in their own option, which wins over
+ * the top-level setting. The intersection resolves to `'max'`: if a package stops accepting it, this
+ * stops compiling rather than going back to being silently dropped.
+ */
+type MaxEffortOption = Pick<OpenAIResponsesProviderOptions, 'reasoningEffort'> &
+  Pick<OpenAICompatibleProviderOptions, 'reasoningEffort'> &
+  Pick<MoonshotAIProviderOptions, 'reasoningEffort'>;
+
+function maxEffortOption(reasoningEffort: string | undefined): MaxEffortOption {
+  return reasoningEffort === 'max' ? { reasoningEffort: 'max' } : {};
 }
 
 /**
@@ -324,8 +331,6 @@ function openaiProviderOptions({
   strictJsonSchema: boolean | undefined;
   reasoningEffort: string | undefined;
 }): JSONObject {
-  const effort: Pick<OpenAIResponsesProviderOptions, 'reasoningEffort'> =
-    reasoningEffort === 'max' ? { reasoningEffort: 'max' } : {};
   const serviceTier = readBodyField({ rawBody, key: 'service_tier' });
   const user = readBodyField({ rawBody, key: 'user' });
   const promptCacheKey = readBodyField({ rawBody, key: 'prompt_cache_key' });
@@ -334,7 +339,7 @@ function openaiProviderOptions({
   return {
     store: false,
     include: ['reasoning.encrypted_content'],
-    ...effort,
+    ...maxEffortOption(reasoningEffort),
     ...(strictJsonSchema !== undefined ? { strictJsonSchema } : {}),
     ...(serviceTier !== undefined ? { serviceTier } : {}),
     ...(user !== undefined ? { user } : {}),
@@ -413,13 +418,10 @@ function moonshotProviderOptions({
   rawBody: unknown;
   reasoningEffort: string | undefined;
 }): JSONObject | undefined {
-  // Typed against the package so a change to the literal it accepts breaks the build, not the call.
-  const effort: Pick<MoonshotAIProviderOptions, 'reasoningEffort'> =
-    reasoningEffort === 'max' ? { reasoningEffort: 'max' } : {};
   const thinking = readBodyField({ rawBody, key: 'thinking' });
   const reasoningHistory = readBodyField({ rawBody, key: 'reasoning_history' });
   const opts: JSONObject = {
-    ...effort,
+    ...maxEffortOption(reasoningEffort),
     ...(thinking !== undefined ? { thinking } : {}),
     ...(reasoningHistory !== undefined ? { reasoningHistory } : {}),
   };
@@ -450,10 +452,8 @@ function compatibleProviderOptions({
   strictJsonSchema: boolean | undefined;
   reasoningEffort: string | undefined;
 }): JSONObject | undefined {
-  const effort: Pick<OpenAICompatibleProviderOptions, 'reasoningEffort'> =
-    reasoningEffort === 'max' ? { reasoningEffort: 'max' } : {};
   const opts: JSONObject = {
-    ...effort,
+    ...maxEffortOption(reasoningEffort),
     ...(strictJsonSchema !== undefined ? { strictJsonSchema } : {}),
   };
   return Object.keys(opts).length > 0 ? opts : undefined;
