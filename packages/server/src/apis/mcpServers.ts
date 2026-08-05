@@ -253,7 +253,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     if (record.manifest.auth?.type === 'dcr') {
       await deps.tokenStore.deleteToken({ id: record.id });
     }
-    return c.json({ data: toConfiguredMcpServer({ record }) }, 200);
+    return c.json({ data: toConfiguredMcpServer({ record, token: undefined }) }, 200);
   };
 
   const router = new OpenAPIHono();
