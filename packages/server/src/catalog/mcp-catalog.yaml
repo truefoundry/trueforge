@@ -8,5 +8,42 @@ mcp_servers:
     auth:
       type: dcr
   - type: remote
+    name: notion
+    url: https://mcp.notion.com/mcp
+    auth:
+      type: dcr
+  - type: remote
+    name: sentry
+    url: https://mcp.sentry.dev/mcp
+    auth:
+      type: dcr
+  - type: remote
     name: deepwiki
     url: https://mcp.deepwiki.com/mcp
+  - type: remote
+    name: exa
+    url: https://mcp.exa.ai/mcp
+  - type: remote
+    name: parallel-web
+    url: https://search.parallel.ai/mcp
+  - type: remote
+    name: github
+    url: https://api.githubcopilot.com/mcp/
+    auth:
+      type: header
+      headers:
+        Authorization: Bearer YOUR_GITHUB_PAT
+  - type: remote
+    name: tavily
+    url: https://mcp.tavily.com/mcp
+    auth:
+      type: header
+      headers:
+        Authorization: Bearer YOUR_TAVILY_API_KEY
+  - type: remote
+    name: bright-data
+    url: https://mcp.brightdata.com/mcp
+    auth:
+      type: header
+      headers:
+        Authorization: Bearer YOUR_BRIGHT_DATA_API_TOKEN
