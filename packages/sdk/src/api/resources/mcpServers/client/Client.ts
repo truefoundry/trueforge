@@ -7,7 +7,7 @@ import * as core from "../../../../core/index.js";
 import { handleNonStatusCodeError } from "../../../../errors/handleNonStatusCodeError.js";
 import * as errors from "../../../../errors/index.js";
 import * as serializers from "../../../../serialization/index.js";
-import type * as TrueHarness from "../../../index.js";
+import * as TrueHarness from "../../../index.js";
 
 export declare namespace McpServersClient {
     export type Options = BaseClientOptions;
@@ -80,5 +80,206 @@ export class McpServersClient {
         }
 
         return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/mcp-servers");
+    }
+
+    /**
+     * For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is where the OAuth callback then redirects the browser; without it the callback returns JSON.
+     *
+     * @param {string} name - Configured MCP server name.
+     * @param {TrueHarness.AuthorizeMcpServersRequest} request
+     * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link TrueHarness.BadRequestError}
+     * @throws {@link TrueHarness.NotFoundError}
+     * @throws {@link TrueHarness.InternalServerError}
+     * @throws {@link errors.TrueHarnessError}
+     * @throws {@link errors.TrueHarnessTimeoutError}
+     *
+     * @example
+     *     await client.mcpServers.authorize("name")
+     */
+    public authorize(
+        name: string,
+        request: TrueHarness.AuthorizeMcpServersRequest = {},
+        requestOptions?: McpServersClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueHarness.McpAuthStatus> {
+        return core.HttpResponsePromise.fromPromise(this.__authorize(name, request, requestOptions));
+    }
+
+    private async __authorize(
+        name: string,
+        request: TrueHarness.AuthorizeMcpServersRequest = {},
+        requestOptions?: McpServersClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueHarness.McpAuthStatus>> {
+        const { redirectUrl } = request;
+        const _queryParams: Record<string, unknown> = {
+            redirect_url: redirectUrl,
+        };
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/mcp-servers/${core.url.encodePathParam(name)}/authorize`,
+            ),
+            method: "GET",
+            headers: _headers,
+            queryString: core.url
+                .queryBuilder()
+                .addMany(_queryParams)
+                .mergeAdditional(requestOptions?.queryParams)
+                .build(),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return {
+                data: serializers.McpAuthStatus.parseOrThrow(_response.body, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    skipValidation: true,
+                    breadcrumbsPrefix: ["response"],
+                }),
+                rawResponse: _response.rawResponse,
+            };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 400:
+                    throw new TrueHarness.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueHarness.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 500:
+                    throw new TrueHarness.InternalServerError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueHarnessError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "GET",
+            "/api/v1/mcp-servers/{name}/authorize",
+        );
+    }
+
+    /**
+     * For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. No-op for header or no-auth servers (returns the server unchanged).
+     *
+     * @param {string} name - Configured MCP server name.
+     * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link TrueHarness.NotFoundError}
+     * @throws {@link errors.TrueHarnessError}
+     * @throws {@link errors.TrueHarnessTimeoutError}
+     *
+     * @example
+     *     await client.mcpServers.deleteAuthorize("name")
+     */
+    public deleteAuthorize(
+        name: string,
+        requestOptions?: McpServersClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueHarness.PutMcpServerResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__deleteAuthorize(name, requestOptions));
+    }
+
+    private async __deleteAuthorize(
+        name: string,
+        requestOptions?: McpServersClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueHarness.PutMcpServerResponse>> {
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/mcp-servers/${core.url.encodePathParam(name)}/authorize`,
+            ),
+            method: "DELETE",
+            headers: _headers,
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return {
+                data: serializers.PutMcpServerResponse.parseOrThrow(_response.body, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    skipValidation: true,
+                    breadcrumbsPrefix: ["response"],
+                }),
+                rawResponse: _response.rawResponse,
+            };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 404:
+                    throw new TrueHarness.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueHarnessError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "DELETE",
+            "/api/v1/mcp-servers/{name}/authorize",
+        );
     }
 }

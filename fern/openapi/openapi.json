@@ -3334,6 +3334,131 @@
         "x-fern-ignore": true
       }
     },
+    "/api/v1/mcp-servers/{name}/authorize": {
+      "delete": {
+        "description": "For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. No-op for header or no-auth servers (returns the server unchanged).",
+        "parameters": [
+          {
+            "description": "Configured MCP server name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "Configured MCP server name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutMcpServerResponse"
+                }
+              }
+            },
+            "description": "The MCP server after disconnect (auth_required for dcr)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not found."
+          }
+        },
+        "summary": "Disconnect OAuth for a configured MCP server",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "delete_authorize"
+      },
+      "get": {
+        "description": "For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is where the OAuth callback then redirects the browser; without it the callback returns JSON.",
+        "parameters": [
+          {
+            "description": "Configured MCP server name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "Configured MCP server name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional FE landing URL the OAuth callback redirects to, with `isSuccess`/`reason` appended.",
+            "in": "query",
+            "name": "redirect_url",
+            "required": false,
+            "schema": {
+              "description": "Optional FE landing URL the OAuth callback redirects to, with `isSuccess`/`reason` appended.",
+              "format": "uri",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpAuthStatus"
+                }
+              }
+            },
+            "description": "Either already authenticated, or an authorization URL to redirect to."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "DCR or authorize URL construction failed (e.g. server lacks registration_endpoint)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not found."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Server misconfiguration (e.g. PUBLIC_BASE_URL unset)."
+          }
+        },
+        "summary": "Start (or short-circuit) the auth flow for a configured MCP server",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "authorize"
+      }
+    },
     "/api/v1/models": {
       "get": {
         "description": "Models across all configured model providers, addressed by fully qualified name `name/model_name`.",
@@ -4365,133 +4490,6 @@
           "mcpServers"
         ],
         "x-fern-sdk-method-name": "catalog"
-      }
-    },
-    "/api/v1/settings/mcp-servers/{name}/authorize": {
-      "delete": {
-        "description": "For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. No-op for header or no-auth servers (returns the server unchanged).",
-        "parameters": [
-          {
-            "description": "Configured MCP server name.",
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "description": "Configured MCP server name.",
-              "minLength": 1,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PutMcpServerResponse"
-                }
-              }
-            },
-            "description": "The MCP server after disconnect (auth_required for dcr)."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "MCP server not found."
-          }
-        },
-        "summary": "Disconnect OAuth for a configured MCP server",
-        "tags": [
-          "MCP Servers"
-        ],
-        "x-fern-sdk-group-name": [
-          "settings",
-          "mcpServers"
-        ],
-        "x-fern-sdk-method-name": "delete_authorize"
-      },
-      "get": {
-        "description": "For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is where the OAuth callback then redirects the browser; without it the callback returns JSON.",
-        "parameters": [
-          {
-            "description": "Configured MCP server name.",
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "description": "Configured MCP server name.",
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
-            "description": "Optional FE landing URL the OAuth callback redirects to, with `isSuccess`/`reason` appended.",
-            "in": "query",
-            "name": "redirect_url",
-            "required": false,
-            "schema": {
-              "description": "Optional FE landing URL the OAuth callback redirects to, with `isSuccess`/`reason` appended.",
-              "format": "uri",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/McpAuthStatus"
-                }
-              }
-            },
-            "description": "Either already authenticated, or an authorization URL to redirect to."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "DCR or authorize URL construction failed (e.g. server lacks registration_endpoint)."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "MCP server not found."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Server misconfiguration (e.g. PUBLIC_BASE_URL unset)."
-          }
-        },
-        "summary": "Start (or short-circuit) the auth flow for a configured MCP server",
-        "tags": [
-          "MCP Servers"
-        ],
-        "x-fern-sdk-group-name": [
-          "settings",
-          "mcpServers"
-        ],
-        "x-fern-sdk-method-name": "authorize"
       }
     },
     "/api/v1/settings/mcp-servers/{name}/tools": {
