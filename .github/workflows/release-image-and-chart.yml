@@ -8,8 +8,10 @@ on:
     types: [published]
 
 # One release at a time so the commit back to main and the chart push cannot race.
+# The group is intentionally tag-independent so releases of different tags
+# serialize instead of running in parallel.
 concurrency:
-  group: release-image-and-chart-${{ github.event.release.tag_name }}
+  group: release-image-and-chart
   cancel-in-progress: false
 
 permissions:
