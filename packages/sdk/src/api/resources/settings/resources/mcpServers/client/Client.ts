@@ -362,6 +362,89 @@ export class McpServersClient {
     }
 
     /**
+     * For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. No-op for header or no-auth servers (returns the server unchanged).
+     *
+     * @param {string} name - Configured MCP server name.
+     * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link TrueHarness.NotFoundError}
+     * @throws {@link errors.TrueHarnessError}
+     * @throws {@link errors.TrueHarnessTimeoutError}
+     *
+     * @example
+     *     await client.settings.mcpServers.deleteAuthorize("name")
+     */
+    public deleteAuthorize(
+        name: string,
+        requestOptions?: McpServersClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueHarness.PutMcpServerResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__deleteAuthorize(name, requestOptions));
+    }
+
+    private async __deleteAuthorize(
+        name: string,
+        requestOptions?: McpServersClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueHarness.PutMcpServerResponse>> {
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/settings/mcp-servers/${core.url.encodePathParam(name)}/authorize`,
+            ),
+            method: "DELETE",
+            headers: _headers,
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return {
+                data: serializers.PutMcpServerResponse.parseOrThrow(_response.body, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    skipValidation: true,
+                    breadcrumbsPrefix: ["response"],
+                }),
+                rawResponse: _response.rawResponse,
+            };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 404:
+                    throw new TrueHarness.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueHarnessError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "DELETE",
+            "/api/v1/settings/mcp-servers/{name}/authorize",
+        );
+    }
+
+    /**
      * All tools exposed by the given configured MCP server (non-paginated), as returned by the MCP `tools/list` call.
      *
      * @param {string} name - Configured MCP server name.

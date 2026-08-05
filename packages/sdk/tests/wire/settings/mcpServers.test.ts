@@ -223,6 +223,64 @@ describe("McpServersClient", () => {
         }).rejects.toThrow(TrueHarnessTypes.InternalServerError);
     });
 
+    test("delete_authorize (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = {
+            data: {
+                auth: { type: "dcr" },
+                auth_status: { authorization_url: "authorization_url", status: "authenticated" },
+                name: "name",
+                type: "remote",
+                url: "url",
+            },
+        };
+
+        server
+            .mockEndpoint()
+            .delete("/api/v1/settings/mcp-servers/name/authorize")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.settings.mcpServers.deleteAuthorize("name");
+        expect(response).toEqual({
+            data: {
+                auth: {
+                    type: "dcr",
+                },
+                authStatus: {
+                    authorizationUrl: "authorization_url",
+                    status: "authenticated",
+                },
+                name: "name",
+                type: "remote",
+                url: "url",
+            },
+        });
+    });
+
+    test("delete_authorize (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .delete("/api/v1/settings/mcp-servers/name/authorize")
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.mcpServers.deleteAuthorize("name");
+        }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
+    });
+
     test("list_tools (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });

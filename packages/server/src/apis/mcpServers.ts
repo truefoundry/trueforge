@@ -20,6 +20,7 @@ import configuration from '../config';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
 import {
   authorizeConfiguredMcpServerRoute,
+  deleteConfiguredMcpServerAuthRoute,
   getMcpServerCatalogRoute,
   listAvailableMcpServersRoute,
   listConfiguredMcpServersRoute,
@@ -241,6 +242,20 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     }
   };
 
+  const deleteAuthHandler: RouteHandler<typeof deleteConfiguredMcpServerAuthRoute> = async c => {
+    const { name } = c.req.valid('param');
+    const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
+    if (!record) {
+      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
+    }
+    // DCR: drop the user token only — keep oauth_server / oauth_client so re-authorize can skip DCR.
+    // Header / no-auth: no-op.
+    if (record.manifest.auth?.type === 'dcr') {
+      await deps.tokenStore.deleteToken({ id: record.id });
+    }
+    return c.json({ data: toConfiguredMcpServer({ record, token: undefined }) }, 200);
+  };
+
   const router = new OpenAPIHono();
   // Static `/catalog` before `/{name}/…` so "catalog" is not captured as a name.
   router.openapi(getMcpServerCatalogRoute, catalogHandler);
@@ -248,6 +263,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
   router.openapi(putMcpServerRoute, putHandler);
   router.openapi(listMcpServerToolsRoute, listToolsHandler);
   router.openapi(authorizeConfiguredMcpServerRoute, authorizeHandler);
+  router.openapi(deleteConfiguredMcpServerAuthRoute, deleteAuthHandler);
   return router;
 }
 
