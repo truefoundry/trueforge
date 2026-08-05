@@ -54,7 +54,13 @@ describe('GET /{session_id}/sandbox/file', () => {
   it('rejects a malformed path before touching the session', async () => {
     const { app } = await buildApp();
 
-    for (const path of ['report.pdf', '/a/../../etc/passwd']) {
+    for (const path of [
+      'report.pdf',
+      '/a/../../etc/passwd',
+      '/tmp/nul\0.txt',
+      `/tmp/${'a'.repeat(300)}`,
+      `/${'a/'.repeat(3000)}b`,
+    ]) {
       const response = await app.request(downloadUrl('missing', path));
 
       expect(response.status).toBe(400);

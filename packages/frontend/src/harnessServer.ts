@@ -182,7 +182,7 @@ export interface HarnessChatServer extends AgentChatServer<HarnessAgentSpec> {
    * rendered by a slot with no session in scope, so the session is tracked here:
    * every session-scoped operation records the session the UI is showing.
    */
-  downloadSandboxArtifact(path: string, fileName: string): Promise<void>;
+  downloadSandboxArtifact({ path, fileName }: { path: string; fileName: string }): Promise<void>;
 }
 
 /** Triggers a browser save for an already-fetched artifact. */
@@ -207,7 +207,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
   let openSessionId: string | undefined;
 
   return {
-    async downloadSandboxArtifact(path, fileName) {
+    async downloadSandboxArtifact({ path, fileName }) {
       if (openSessionId === undefined) {
         throw new Error('Cannot download a sandbox artifact before a session is open');
       }

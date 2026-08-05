@@ -18,7 +18,7 @@ export function createSandboxArtifactDownload(server: HarnessChatServer) {
     const onDownloadArtifact = useCallback(
       async (path: string, fileName: string) => {
         try {
-          await server.downloadSandboxArtifact(path, fileName);
+          await server.downloadSandboxArtifact({ path, fileName });
         } catch (error) {
           errorToaster?.showError(error);
         }

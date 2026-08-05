@@ -66,12 +66,12 @@ class SandboxPathTraversalError extends SandboxError {
   }
 }
 
-class SandboxPathNotAbsoluteError extends SandboxError {
+class SandboxInvalidPathError extends SandboxError {
   readonly statusCode = 400;
 
-  constructor(path: string) {
-    super(`Path must be absolute: ${path}`);
-    this.name = 'SandboxPathNotAbsoluteError';
+  constructor({ path, reason }: { path: string; reason: string }) {
+    super(`Path ${reason}: ${path}`);
+    this.name = 'SandboxInvalidPathError';
   }
 }
 
@@ -90,10 +90,30 @@ export function validateNoPathTraversal(path: string): void {
   }
 }
 
-/** Every check a caller-supplied download path must pass before it reaches a provider. */
+/** Linux PATH_MAX / NAME_MAX: past these the kernel rejects the path before any file is opened. */
+const MAX_PATH_BYTES = 4096;
+const MAX_SEGMENT_BYTES = 255;
+
+/**
+ * Every check a caller-supplied download path must pass before it reaches a provider. Shape
+ * violations are caught here because a provider reports them as opaque backend failures,
+ * indistinguishable from a real outage.
+ */
 export function validateSandboxFilePath(path: string): void {
   if (!path.startsWith('/')) {
-    throw new SandboxPathNotAbsoluteError(path);
+    throw new SandboxInvalidPathError({ path, reason: 'must be absolute' });
+  }
+  if (path.includes('\0')) {
+    throw new SandboxInvalidPathError({ path, reason: 'must not contain a NUL byte' });
+  }
+  if (Buffer.byteLength(path) > MAX_PATH_BYTES) {
+    throw new SandboxInvalidPathError({ path, reason: `must be at most ${String(MAX_PATH_BYTES)} bytes` });
+  }
+  if (path.split('/').some(segment => Buffer.byteLength(segment) > MAX_SEGMENT_BYTES)) {
+    throw new SandboxInvalidPathError({
+      path,
+      reason: `must not have a segment longer than ${String(MAX_SEGMENT_BYTES)} bytes`,
+    });
   }
   validateNoPathTraversal(path);
 }
