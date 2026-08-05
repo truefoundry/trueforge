@@ -68,7 +68,7 @@ jobs:
       dockerfile_path: Dockerfile
       platforms: linux/amd64,linux/arm64
       enable_jfrog: true
-      enable_public_ecr: true
+      enable_public_ecr: false
       ecr_repository_url: public.ecr.aws/truefoundrycloud
       # Provenance publicly attests the source repo/commit; keep it off while the
       # repo is private (mirrors the npm publish stance in RELEASING.md).
