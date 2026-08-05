@@ -13,15 +13,29 @@ describe('auth router (no identity provider configured)', () => {
     });
   });
 
-  it('does not mount /login, /callback, or /logout', async () => {
+  it('GET /login redirects home — there is nothing to log into', async () => {
     const router = createAuthRouter();
 
-    const login = await router.request('/login');
-    const callback = await router.request('/callback');
-    const logout = await router.request('/logout', { method: 'POST' });
+    const res = await router.request('/login', { redirect: 'manual' });
 
-    expect(login.status).toBe(404);
-    expect(callback.status).toBe(404);
-    expect(logout.status).toBe(404);
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/');
+  });
+
+  it('GET /callback redirects home — there is nothing to complete', async () => {
+    const router = createAuthRouter();
+
+    const res = await router.request('/callback?state=abc', { redirect: 'manual' });
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/');
+  });
+
+  it('POST /logout is a no-op 204 — there is no real session to clear', async () => {
+    const router = createAuthRouter();
+
+    const res = await router.request('/logout', { method: 'POST' });
+
+    expect(res.status).toBe(204);
   });
 });

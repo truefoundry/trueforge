@@ -18,8 +18,8 @@ export const authLoginRoute = createRoute({
   tags: [AUTH_TAG],
   summary: 'Start the login flow',
   description:
-    'Redirects the browser to the configured identity provider. Not mounted at all when no identity provider is ' +
-    'configured (local mode) — there is nothing to log into.',
+    'Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight ' +
+    'back into the app — there is nothing to log into.',
   'x-fern-ignore': true,
   request: { query: AuthLoginQuerySchema },
   responses: {
@@ -34,7 +34,7 @@ export const oAuthCallbackRoute = createRoute({
   summary: 'Login callback',
   description:
     'Browser-redirect target hit by the identity provider after login, never called directly by SDK consumers. ' +
-    'Not mounted in local mode.',
+    'In local/single-binary mode, redirects straight back into the app.',
   'x-fern-ignore': true,
   request: { query: OAuthCallbackQuerySchema },
   responses: {
@@ -48,7 +48,8 @@ export const authLogoutRoute = createRoute({
   tags: [AUTH_TAG],
   summary: 'Clear the local session',
   description:
-    'Ends the local harness session only — does not hit the IdP end-session endpoint. Not mounted in local mode.',
+    'Ends the local harness session only — does not hit the IdP end-session endpoint. A no-op in local/single-binary ' +
+    'mode, since there is no real session to clear.',
   'x-fern-sdk-group-name': ['auth'],
   'x-fern-sdk-method-name': 'logout',
   responses: {

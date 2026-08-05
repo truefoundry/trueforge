@@ -73,7 +73,6 @@ export function createServerApp(deps: ServerDeps) {
 
   app.get('/healthz', c => c.text('OK!'));
 
-  // Only the no-identity-provider (local) case is implemented — see apis/auth.ts.
   app.route('/api/v1/auth', createAuthRouter());
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
