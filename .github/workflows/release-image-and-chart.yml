@@ -81,12 +81,13 @@ jobs:
       HELM_REGISTRY_PASSWORD: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD }}
       HELM_CHART_REPOSITORY: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY }}
     steps:
-      # Check out main (not the tag) so the version bump can be committed back.
-      - name: Check out main
+      # Package from the exact tagged commit so the published chart matches the
+      # release (the image build uses the same tag). main is checked out
+      # separately later, only for the version-bump commit.
+      - name: Check out release tag
         uses: actions/checkout@v4
         with:
-          ref: main
-          fetch-depth: 0
+          ref: ${{ github.event.release.tag_name }}
 
       - name: Install yq
         run: |
@@ -135,11 +136,24 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Sync the checked-in chart with the released version. Runs last so a
-      # rejected push to a protected main never blocks shipping the artifacts.
+      # Sync the checked-in chart on main with the released version. Uses its own
+      # main checkout (packaging above runs against the tag) and stamps main's
+      # current chart files rather than copying the tag's, so unrelated changes
+      # on main are preserved.
+      - name: Check out main for the version bump
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-checkout
+
+      # Runs last so a rejected push to a protected main never blocks shipping
+      # the artifacts.
       - name: Commit chart version bump to main
+        working-directory: main-checkout
         run: |
           set -euo pipefail
+          yq -i '.version = strenv(VERSION) | .appVersion = strenv(VERSION)' "$CHART_DIR/Chart.yaml"
+          yq -i '.image.tag = strenv(VERSION)' "$CHART_DIR/values.yaml"
           if git diff --quiet -- "$CHART_DIR"; then
             echo "Chart already at $VERSION; nothing to commit."
             exit 0
