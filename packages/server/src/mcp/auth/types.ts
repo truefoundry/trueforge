@@ -57,9 +57,3 @@ export interface McpAuthRequiredResult {
 }
 
 export type ResolveMcpAuthResult = McpAuthResolvedResult | McpAuthRequiredResult;
-
-/** Result of a successful OAuth callback after the token is saved. */
-export interface CompleteMcpAuthorizationResult {
-  serverId: string;
-  redirectUrl: string | null;
-}

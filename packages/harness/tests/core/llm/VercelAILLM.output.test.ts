@@ -138,6 +138,17 @@ describe('buildProviderOptions', () => {
       expect(opts['openai']).toMatchObject({ store: false, include: ['reasoning.encrypted_content'] });
     });
 
+    // The gpt-5.6 family offers both xhigh and max, so the aliased xhigh reasons a step short.
+    it('sends `max` as an effort of its own, since the top-level setting caps at xhigh', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: 'max',
+        structuredOutputSpec: textSpec,
+        rawBody: {},
+      });
+      expect(opts['openai']).toMatchObject({ reasoningEffort: 'max' });
+    });
+
     it('includes strictJsonSchema:true when spec is json_schema with strict:true', () => {
       const opts = buildProviderOptions({
         config: config,
@@ -259,6 +270,48 @@ describe('buildProviderOptions', () => {
         rawBody: {},
       });
       expect(opts).toEqual({ [provider]: { strictJsonSchema: true } });
+    });
+
+    it.each(['custom', 'fireworks', 'zai', 'together'] as const)(
+      '%s: sends `max` verbatim, which these endpoints ignore when it arrives as xhigh',
+      provider => {
+        const opts = buildProviderOptions({
+          config: makeConfig({ provider, baseUrl: 'http://localhost/v1' }),
+          reasoningEffort: 'max',
+          structuredOutputSpec: textSpec,
+          rawBody: {},
+        });
+        expect(opts).toEqual({ [provider]: { reasoningEffort: 'max' } });
+      },
+    );
+
+    // camelCase here sent a key no OpenAI-shaped endpoint reads, which is how it went unnoticed.
+    it('forwards body fields under their wire names', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: undefined,
+        structuredOutputSpec: textSpec,
+        rawBody: {
+          service_tier: 'auto',
+          user: 'u-1',
+          prompt_cache_key: 'k',
+          parallel_tool_calls: false,
+          thinking: { type: 'enabled' },
+          thinking_budget: 512,
+          enable_thinking: true,
+          reasoning_history: 'off',
+        },
+      });
+      expect(opts['custom']).toEqual({
+        service_tier: 'auto',
+        user: 'u-1',
+        prompt_cache_key: 'k',
+        parallel_tool_calls: false,
+        thinking: { type: 'enabled' },
+        thinking_budget: 512,
+        enable_thinking: true,
+        reasoning_history: 'off',
+      });
     });
 
     it('omits the custom key when the resulting object would be empty', () => {
@@ -399,8 +452,8 @@ describe('buildProviderOptions', () => {
     ];
 
     // Reasoning travels only on the top-level setting. A providerOptions copy would take precedence
-    // over it, so any provider growing one here would silently shadow the requested effort. Moonshot
-    // is the deliberate exception, and only for `max`, which the top-level setting cannot express.
+    // over it, so any provider growing one here would silently shadow the requested effort. The one
+    // exception is `max`, which the top-level setting cannot express.
     it.each(providers)('%s: no providerOptions entry carries the effort', provider => {
       const config = makeConfig({
         provider,
@@ -417,6 +470,27 @@ describe('buildProviderOptions', () => {
       for (const entry of Object.values(opts)) {
         expect(entry === undefined || !('reasoningEffort' in entry)).toBe(true);
       }
+    });
+
+    // `max` arrives as `xhigh`, which OpenAI-shaped APIs read as a weaker level or an unknown
+    // string they drop without complaint. Adapters taking an effort of their own get the real one;
+    // Anthropic and Gemini rely on their adapters, which resolve `xhigh` correctly.
+    it.each([
+      ['openai', true],
+      ['together', true],
+      ['moonshot', true],
+      ['anthropic', false],
+      ['google-gemini', false],
+      ['alibaba', false],
+    ] as const)('%s: carries max as its own effort = %s', (provider, carries) => {
+      const opts = buildProviderOptions({
+        config: makeConfig({ provider, baseUrl: 'http://localhost/v1' }),
+        reasoningEffort: 'max',
+        structuredOutputSpec: textSpec,
+        rawBody: {},
+      });
+      const sent = Object.values(opts).some(entry => entry?.['reasoningEffort'] === 'max');
+      expect(sent).toBe(carries);
     });
   });
 });

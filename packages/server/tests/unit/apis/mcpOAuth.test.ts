@@ -100,6 +100,25 @@ describe('MCP OAuth authorize + callback', () => {
     globalThis.fetch = realFetch;
   });
 
+  /** Registers a dcr server and authorizes it, returning the pending authorization's `state`. */
+  async function pendingState(name: string, redirectUrl?: string): Promise<string> {
+    const put = await settingsRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'remote', name, url: MCP_URL, auth: { type: 'dcr' } }),
+    });
+    expect(put.status).toBe(200);
+
+    let query = '';
+    if (redirectUrl) {
+      query = `?redirect_url=${encodeURIComponent(redirectUrl)}`;
+    }
+    const authorize = await settingsRouter.request(`/${name}/authorize${query}`);
+    expect(authorize.status).toBe(200);
+    const body = (await authorize.json()) as { authorization_url?: string };
+    return new URL(body.authorization_url ?? '').searchParams.get('state') ?? '';
+  }
+
   it('authorize runs DCR and returns an authorization URL; callback exchanges the code', async () => {
     const put = await settingsRouter.request('/', {
       method: 'PUT',
@@ -128,8 +147,8 @@ describe('MCP OAuth authorize + callback', () => {
     expect(state).toBeTruthy();
 
     const callback = await oauthRouter.request(`/callback?state=${encodeURIComponent(state ?? '')}&code=auth-code-1`);
-    expect(callback.status).toBe(200);
-    expect(await callback.json()).toEqual({ success: true });
+    expect(callback.status).toBe(302);
+    expect(callback.headers.get('location')).toBe(`${FE_REDIRECT}?isSuccess=true`);
 
     const record = await mcpServerStore.getServer({ tenant_id: 'default', name: 'oauth-mcp' });
     expect(record).toBeDefined();
@@ -144,12 +163,33 @@ describe('MCP OAuth authorize + callback', () => {
     expect(await reauthorize.json()).toEqual({ status: 'authenticated' });
   });
 
-  it('callback returns 400 for unknown state and IdP error', async () => {
+  it('callback returns 400 JSON when the pending row is gone, since its landing URL went with it', async () => {
     const unknown = await oauthRouter.request('/callback?state=no-such-state&code=x');
     expect(unknown.status).toBe(400);
+    expect(await unknown.json()).toEqual({ error: { message: 'Unknown or expired OAuth state' } });
 
+    // The missing row is the reason reported, even when the IdP also sent an `error`.
     const denied = await oauthRouter.request('/callback?state=any&error=access_denied&error_description=user%20denied');
     expect(denied.status).toBe(400);
-    expect(await denied.json()).toEqual({ error: { message: 'access_denied: user denied' } });
+    expect(await denied.json()).toEqual({ error: { message: 'Unknown or expired OAuth state' } });
+  });
+
+  it('callback redirects with the failure reason when the IdP denies consent', async () => {
+    const landing = 'https://app.example.com/mcp/connected?tab=mcp';
+    const state = await pendingState('oauth-mcp-denied', landing);
+
+    const denied = await oauthRouter.request(
+      `/callback?state=${encodeURIComponent(state)}&error=access_denied&error_description=user%20denied`,
+    );
+    expect(denied.status).toBe(302);
+    expect(denied.headers.get('location')).toBe(`${landing}&isSuccess=false&reason=access_denied`);
+  });
+
+  it('callback returns success JSON when authorize supplied no redirect_url', async () => {
+    const state = await pendingState('oauth-mcp-no-redirect');
+
+    const callback = await oauthRouter.request(`/callback?state=${encodeURIComponent(state)}&code=auth-code-1`);
+    expect(callback.status).toBe(200);
+    expect(await callback.json()).toEqual({ success: true });
   });
 });

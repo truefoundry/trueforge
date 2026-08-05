@@ -11,6 +11,7 @@ export const CatalogProviderSchema = z
   .object({
     type: ProviderTypeSchema.exclude(['custom']),
     name: NameSchema,
+    logo: z.url().optional().describe('URL of the provider logo asset.'),
     models: z.array(ModelEntrySchema).min(1),
   })
   .strict()

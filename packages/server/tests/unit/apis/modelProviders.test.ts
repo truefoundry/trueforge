@@ -136,13 +136,16 @@ describe('catalog presets are configurable', () => {
   // ships must therefore be in the configuration union; five of them once were not.
   it.each(ModelCatalog.load().list())('PUT accepts the $type preset', async preset => {
     const { settingsRouter } = await createRouters();
+    // `logo` is catalog-only discovery metadata — omit it from the configured PUT body.
+    const { logo, ...presetWithoutLogo } = preset;
     const body = {
-      ...preset,
+      ...presetWithoutLogo,
       auth: { api_key: `sk-${preset.name}` },
       // Alibaba is the one catalog type that also needs a base_url: a MaaS host embeds the
       // workspace id, so there is nothing to default to.
       ...(preset.type === 'alibaba' ? { base_url: 'https://ws-x.ap-southeast-1.maas.aliyuncs.com/v1' } : {}),
     };
+    expect(logo === undefined || typeof logo === 'string').toBe(true);
     const response = await settingsRouter.request('/model-providers', putInit(body));
     expect(response.status).toBe(200);
   });

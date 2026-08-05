@@ -23,11 +23,11 @@ import {
   oauthTokensToOAuthToken,
 } from './mcpOAuthHelpers';
 import type {
-  CompleteMcpAuthorizationResult,
   IOAuthClientStore,
   IOAuthTokenStore,
   McpAuthRequiredResult,
   OAuthClientRecord,
+  OAuthPendingAuthorization,
   ResolveMcpAuthResult,
 } from './types';
 
@@ -237,17 +237,21 @@ export async function resolveMcpAuth(params: {
   return { authUrl };
 }
 
+/**
+ * Exchanges `code` for tokens against an already-claimed `pending` row: the caller claims it with
+ * `consumePendingAuthorization` so duplicate callbacks lose the race, and keeps it for its FE
+ * landing URL. Route must already reject IdP `error` params. On `invalid_client`, clears the stored
+ * client and token so the next authorize re-registers.
+ */
 export async function completeMcpAuthorization(params: {
   tokenStore: IOAuthTokenStore;
   mcpServerStore: IOAuthClientStore;
-  state: string;
+  pending: OAuthPendingAuthorization;
   code: string;
-}): Promise<CompleteMcpAuthorizationResult> {
+}): Promise<void> {
   const nowMs = Date.now();
-  const pending = await params.tokenStore.consumePendingAuthorization({ state: params.state });
-  if (!pending) {
-    throw new McpConnectionError('Unknown or expired OAuth state', 400);
-  }
+  const { pending } = params;
+
   const client = await params.mcpServerStore.getClient({ id: pending.id });
   if (!client) {
     throw new McpConnectionError(
@@ -284,5 +288,4 @@ export async function completeMcpAuthorization(params: {
     id: pending.id,
     token: oauthTokensToOAuthToken(tokens, nowMs, null),
   });
-  return { serverId: pending.id, redirectUrl: pending.redirectUrl };
 }

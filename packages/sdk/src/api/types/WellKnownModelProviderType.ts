@@ -7,5 +7,6 @@ export const WellKnownModelProviderType = {
     Fireworks: "fireworks",
     Zai: "zai",
     Moonshot: "moonshot",
+    Together: "together",
 } as const;
 export type WellKnownModelProviderType = (typeof WellKnownModelProviderType)[keyof typeof WellKnownModelProviderType];
