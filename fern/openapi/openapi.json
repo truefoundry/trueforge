@@ -3289,7 +3289,10 @@
                 }
               }
             },
-            "description": "Token exchanged successfully; no browser redirect."
+            "description": "Token exchanged successfully and no `redirect_url` was given at authorize time."
+          },
+          "302": {
+            "description": "Redirect to the `redirect_url` given at authorize time, with `isSuccess` (and `reason` when it failed) appended to its existing query params."
           },
           "400": {
             "content": {
@@ -4344,7 +4347,7 @@
     },
     "/api/v1/settings/mcp-servers/{name}/authorize": {
       "get": {
-        "description": "For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).",
+        "description": "For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is where the OAuth callback then redirects the browser; without it the callback returns JSON.",
         "parameters": [
           {
             "description": "Configured MCP server name.",
@@ -4358,12 +4361,12 @@
             }
           },
           {
-            "description": "Optional FE landing URL after OAuth (stored on pending auth; callback does not redirect yet).",
+            "description": "Optional FE landing URL the OAuth callback redirects to, with `isSuccess`/`reason` appended.",
             "in": "query",
             "name": "redirect_url",
             "required": false,
             "schema": {
-              "description": "Optional FE landing URL after OAuth (stored on pending auth; callback does not redirect yet).",
+              "description": "Optional FE landing URL the OAuth callback redirects to, with `isSuccess`/`reason` appended.",
               "format": "uri",
               "type": "string"
             }
