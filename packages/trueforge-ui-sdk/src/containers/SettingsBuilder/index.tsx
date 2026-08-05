@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { auiButtonClass } from '@/atoms/lib/buttonClasses.js';
 import { cn } from '@/atoms/lib/cn.js';
-import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
 import { Icon } from '@/icons/Icon.js';
 import { useOptionalCatalogServer } from '@/server/ServerContext.js';
 import { useShellMode } from '@/server/ShellModeContext.js';
@@ -31,6 +31,18 @@ const TruefoundrySettingsBuilder = () => {
     }
   }, [hasSkills, hasSandbox, section]);
 
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.stopImmediatePropagation();
+      setSettingsOpen(false);
+    };
+    // Capture so layout Escape handlers (sessions drawer / widget) do not also fire.
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [settingsOpen, setSettingsOpen]);
+
   const sections = useMemo<
     Array<{
       id: SettingsSection;
@@ -55,14 +67,27 @@ const TruefoundrySettingsBuilder = () => {
     return baseSections;
   }, [hasSkills, hasSandbox]);
 
-  if (!catalog) return null;
+  if (!settingsOpen || !catalog) return null;
 
   return (
-    <CenteredModal open={settingsOpen} onOpenChange={setSettingsOpen} title="Settings" className="md:max-w-6xl">
+    <div className="flex h-full min-h-0 w-full flex-col bg-background">
+      <header className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
+        <button
+          type="button"
+          aria-label="Back"
+          title="Back"
+          className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+          onClick={() => setSettingsOpen(false)}
+        >
+          <Icon name="arrow-left" />
+        </button>
+        <h1 className="text-lg font-semibold tracking-tight text-foreground">Settings</h1>
+      </header>
+
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <nav
           aria-label="Settings sections"
-          className="flex w-full justify-center gap-1 border-r border-border bg-muted/30 p-2 md:w-48 md:flex-col md:justify-start"
+          className="flex w-full justify-center gap-1 border-b border-border bg-muted/30 p-2 md:w-48 md:flex-col md:justify-start md:border-b-0 md:border-r"
         >
           {sections.map(item => (
             <button
@@ -93,7 +118,7 @@ const TruefoundrySettingsBuilder = () => {
           {section === 'sandbox' && hasSandbox ? <SandboxSettings /> : null}
         </section>
       </div>
-    </CenteredModal>
+    </div>
   );
 };
 

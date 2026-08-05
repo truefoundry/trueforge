@@ -28,7 +28,6 @@ export function ShellActions({ className }: { className?: string }) {
           type="button"
           aria-label="Settings"
           title="Settings"
-          aria-haspopup="dialog"
           aria-expanded={shell.settingsOpen}
           className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
           onClick={() => shell.setSettingsOpen(true)}

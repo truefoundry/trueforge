@@ -8,6 +8,7 @@ import { cn } from '../atoms/lib/cn.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { ShellActions } from '../atoms/ShellActions.js';
+import TruefoundrySettingsBuilder from '../containers/SettingsBuilder/index.js';
 import { Thread } from '../containers/Thread.js';
 import { ThreadListContainer } from '../containers/ThreadListContainer.js';
 import { Icon } from '../icons/Icon.js';
@@ -39,6 +40,7 @@ export function SidebarLayout({ className }: { className?: string }) {
   const mainRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
   const isIdle = shell?.mode.type === 'idle';
+  const settingsOpen = shell?.settingsOpen === true;
 
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -134,33 +136,35 @@ export function SidebarLayout({ className }: { className?: string }) {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Thread header: always on mobile; on desktop when Clear Chat / Save are relevant. */}
-        <header
-          className={cn(
-            'flex shrink-0 items-center gap-1 border-b border-border bg-background px-2 py-1.5',
-            isIdle && 'md:hidden',
-          )}
-        >
-          <button
-            ref={menuBtnRef}
-            type="button"
-            aria-label="Sessions"
-            aria-expanded={mobileNavOpen}
-            className={cn(auiButtonClass({ variant: 'ghost', size: 'icon' }), 'md:hidden')}
-            onClick={() => setMobileNavOpen(true)}
+        {/* Thread header: always on mobile; on desktop when Clear Chat / Save are relevant. Hidden while Settings owns the pane. */}
+        {!settingsOpen ? (
+          <header
+            className={cn(
+              'flex shrink-0 items-center gap-1 border-b border-border bg-background px-2 py-1.5',
+              isIdle && 'md:hidden',
+            )}
           >
-            <Icon name="bars" />
-          </button>
-          <span className="min-w-0 flex-1" />
-          <SaveAgentButton />
-          <ClearChatButton />
-          <div className="md:hidden">
-            <ShellActions />
-          </div>
-        </header>
+            <button
+              ref={menuBtnRef}
+              type="button"
+              aria-label="Sessions"
+              aria-expanded={mobileNavOpen}
+              className={cn(auiButtonClass({ variant: 'ghost', size: 'icon' }), 'md:hidden')}
+              onClick={() => setMobileNavOpen(true)}
+            >
+              <Icon name="bars" />
+            </button>
+            <span className="min-w-0 flex-1" />
+            <SaveAgentButton />
+            <ClearChatButton />
+            <div className="md:hidden">
+              <ShellActions />
+            </div>
+          </header>
+        ) : null}
 
         <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
-          {isIdle ? <SelectAgentEmptyState /> : <Thread />}
+          {settingsOpen ? <TruefoundrySettingsBuilder /> : isIdle ? <SelectAgentEmptyState /> : <Thread />}
         </div>
       </div>
 

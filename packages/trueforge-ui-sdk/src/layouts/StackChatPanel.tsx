@@ -8,6 +8,7 @@ import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
+import TruefoundrySettingsBuilder from '../containers/SettingsBuilder/index.js';
 import { Thread } from '../containers/Thread.js';
 import { ThreadListContainer } from '../containers/ThreadListContainer.js';
 import { Icon } from '../icons/Icon.js';
@@ -30,11 +31,20 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const shell = useOptionalShellMode();
   const ClearChatButton = useSlot('ClearChatButton');
   const isIdle = shell?.mode.type === 'idle';
+  const settingsOpen = shell?.settingsOpen === true;
 
   useEffect(() => {
     if (isIdle) return;
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   }, [aui, isIdle]);
+
+  if (settingsOpen) {
+    return (
+      <div className={cn('flex h-full min-h-0 flex-col', className)}>
+        <TruefoundrySettingsBuilder />
+      </div>
+    );
+  }
 
   if (view === 'list') {
     return (

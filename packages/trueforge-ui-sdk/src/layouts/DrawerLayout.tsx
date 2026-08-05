@@ -8,6 +8,7 @@ import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
+import TruefoundrySettingsBuilder from '../containers/SettingsBuilder/index.js';
 import { Thread } from '../containers/Thread.js';
 import { ThreadListContainer } from '../containers/ThreadListContainer.js';
 import { Icon } from '../icons/Icon.js';
@@ -24,6 +25,7 @@ export function DrawerLayout({ className }: { className?: string }) {
   const mainRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
   const isIdle = shell?.mode.type === 'idle';
+  const settingsOpen = shell?.settingsOpen === true;
 
   useEffect(() => {
     if (!threadsOpen) return;
@@ -60,34 +62,36 @@ export function DrawerLayout({ className }: { className?: string }) {
 
   return (
     <div className={cn('relative flex h-full min-h-0 w-full flex-col', className)}>
-      <header className="flex shrink-0 items-center justify-end gap-1 border-b border-border bg-background px-2 py-1.5">
-        <SaveAgentButton />
-        <ClearChatButton />
-        <ShellActions />
-        {shell?.isNewChatEnabled !== false ? (
+      {!settingsOpen ? (
+        <header className="flex shrink-0 items-center justify-end gap-1 border-b border-border bg-background px-2 py-1.5">
+          <SaveAgentButton />
+          <ClearChatButton />
+          <ShellActions />
+          {shell?.isNewChatEnabled !== false ? (
+            <button
+              type="button"
+              aria-label="New chat"
+              title="New chat"
+              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+              onClick={handleNewChat}
+            >
+              <Icon name="plus" />
+            </button>
+          ) : null}
           <button
+            ref={threadsBtnRef}
             type="button"
-            aria-label="New chat"
-            title="New chat"
-            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-            onClick={handleNewChat}
+            aria-label="Sessions"
+            aria-expanded={threadsOpen}
+            className="text-muted-foreground hover:text-foreground inline-flex size-8 cursor-pointer items-center justify-center rounded-md"
+            onClick={() => setThreadsOpen(v => !v)}
           >
-            <Icon name="plus" />
+            <Icon name="clock-rotate-left" />
           </button>
-        ) : null}
-        <button
-          ref={threadsBtnRef}
-          type="button"
-          aria-label="Sessions"
-          aria-expanded={threadsOpen}
-          className="text-muted-foreground hover:text-foreground inline-flex size-8 cursor-pointer items-center justify-center rounded-md"
-          onClick={() => setThreadsOpen(v => !v)}
-        >
-          <Icon name="clock-rotate-left" />
-        </button>
-      </header>
+        </header>
+      ) : null}
       <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
-        {isIdle ? <SelectAgentEmptyState /> : <Thread />}
+        {settingsOpen ? <TruefoundrySettingsBuilder /> : isIdle ? <SelectAgentEmptyState /> : <Thread />}
       </div>
       {threadsOpen ? (
         <>

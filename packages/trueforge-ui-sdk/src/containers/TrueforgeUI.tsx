@@ -11,7 +11,6 @@ import type { TrueforgeServerConfig } from '../server/TrueforgeServerConfig.js';
 import { SlotsProvider, type SlotOverrides } from '../theme/SlotsProvider.js';
 import type { LayoutProp, ThemeConfig } from '../theme/types.js';
 import PostMcpOauthScreen from './McpOauthContainer/PostMcpOauthScreen.js';
-import TruefoundrySettingsBuilder from './SettingsBuilder/index.js';
 import { TrueFoundryChatProvider, type TrueFoundryChatProviderProps } from './TrueFoundryChatProvider.js';
 import { useResolvedServer } from './useResolvedServer.js';
 
@@ -203,7 +202,6 @@ export function TrueforgeUI(props: TrueforgeUIProps) {
           <ChatProviderFromShell server={server} onError={onError} {...providerRest}>
             {layoutTree}
           </ChatProviderFromShell>
-          <TruefoundrySettingsBuilder />
         </ShellModeProvider>
       </ServerProvider>
     </SlotsProvider>
