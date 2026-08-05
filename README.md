@@ -18,7 +18,7 @@ pnpm workspace with:
 | Dev        | `pnpm standalone:dev`                  | `pnpm dev` (after infra)                        |
 | Prod-like  | `pnpm build` → `pnpm standalone:start` | `pnpm build` → `pnpm start`                     |
 
-Root scripts set `STANDALONE` and `NODE_ENV` explicitly (they win over `.env`). Persistence can be overridden with `DATABASE_BACKEND=postgres|sqlite` independently of topology.
+Root scripts set `STANDALONE` and `NODE_ENV` explicitly (they win over `.env`). Mode selects persistence: standalone → SQLite; non-standalone → Postgres + Redis.
 
 Configure model providers (and MCP / skills / sandbox) in the UI under Settings, or via the settings APIs — discovery presets come from the `*/catalog` endpoints.
 
@@ -92,7 +92,7 @@ Migrations run on server startup. Postgres-only without HTTP:
 pnpm --filter @truefoundry/utils migrate
 ```
 
-This script forces `DATABASE_BACKEND=postgres` and connects using the `POSTGRES_*` values from `packages/server/.env`, so it works even when that file leaves the backend on the standalone SQLite default.
+This script sets `STANDALONE=false` and connects using the `POSTGRES_*` values from `packages/server/.env`. It refuses to run in standalone mode (SQLite migrations run on server boot instead).
 
 Workspace checks:
 

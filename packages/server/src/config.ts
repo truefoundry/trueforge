@@ -6,13 +6,10 @@
  * import time, so a misconfigured server fails fast at boot instead of
  * mid-run.
  *
- * `STANDALONE` controls process topology (Redis / executor peering). Default
- * true: single process, no Redis. False: requires Redis (default
- * `redis://localhost:6379`).
- *
- * `DATABASE_BACKEND` selects persistence (`postgres` | `sqlite`). When unset,
- * standalone defaults to sqlite and non-standalone to postgres. Postgres
- * connection fields default to local harness credentials; override via env.
+ * `STANDALONE` is a discriminated mode selector:
+ * - `true` (default): SQLite only; no Redis / executor peering.
+ * - `false`: Postgres + Redis (defaults to local harness credentials /
+ *   `redis://localhost:6379`).
  */
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -28,9 +25,7 @@ const DEFAULT_PORT = 8790;
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** Turn ids minted by a standalone process; no peer can ever own them. */
 const LOCAL_EXECUTOR_ID = 'local';
-/**
- * OS-standard data dir for SQLite when `DATABASE_BACKEND=sqlite`.
- */
+/** OS-standard data dir for SQLite in standalone mode. */
 const ENV_PATHS_APP_NAME = 'truefoundry-utils';
 const DEFAULT_SQLITE_FILENAME = 'db.sqlite';
 
@@ -40,8 +35,6 @@ const DEFAULT_POSTGRES_DB = 'harness';
 const DEFAULT_POSTGRES_HOST = 'localhost';
 const DEFAULT_POSTGRES_PORT = 5432;
 const DEFAULT_REDIS_URL = 'redis://localhost:6379';
-
-export type DatabaseBackend = 'postgres' | 'sqlite';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -139,24 +132,8 @@ function resolveOptionalPathEnv(envKey: string): string | undefined {
   return path.resolve(override);
 }
 
-/** Dropped in standalone mode so nothing downstream can connect to a Redis it must not use. */
-function resolveRedisUrl(standalone: boolean): string | undefined {
-  if (standalone) {
-    return undefined;
-  }
-  return getEnv('REDIS_URL', { defaultValue: DEFAULT_REDIS_URL }) ?? DEFAULT_REDIS_URL;
-}
-
-/** Always longer than `LOCAL_EXECUTOR_ID`, so a peer can never be mistaken for a local owner. */
-function resolveExecutorId(standalone: boolean): string {
-  if (standalone) {
-    return LOCAL_EXECUTOR_ID;
-  }
-  return randomAlphanumeric(6);
-}
-
 /**
- * Absolute SQLite file path when `DATABASE_BACKEND=sqlite`.
+ * Absolute SQLite file path for standalone mode.
  * Env: `SQLITE_PATH` (optional). Default: `{env-paths data}/db.sqlite`.
  */
 function resolveSqlitePath(): string {
@@ -168,24 +145,17 @@ function resolveSqlitePath(): string {
   return path.join(paths.data, DEFAULT_SQLITE_FILENAME);
 }
 
-/** Env: `DATABASE_BACKEND`. When unset, follows `STANDALONE` (true→sqlite, false→postgres). */
-function resolveDatabaseBackend(standalone: boolean): DatabaseBackend {
-  const raw = getEnv('DATABASE_BACKEND');
-  if (raw === undefined || raw.trim() === '') {
-    return standalone ? 'sqlite' : 'postgres';
+/** Redis peering URL for distributed mode. Env: `REDIS_URL`. */
+function resolveRedisUrl(): string {
+  const raw = getEnv('REDIS_URL', { defaultValue: DEFAULT_REDIS_URL }) ?? DEFAULT_REDIS_URL;
+  if (raw.trim() === '') {
+    throw new Error('Environment variable REDIS_URL must be non-empty when STANDALONE=false.');
   }
-  const value = raw.trim().toLowerCase();
-  if (value === 'postgres' || value === 'sqlite') {
-    return value;
-  }
-  throw new Error(`Environment variable DATABASE_BACKEND must be "postgres" or "sqlite", got "${raw}"`);
+  return raw;
 }
 
-/** Postgres URL when `DATABASE_BACKEND=postgres`; otherwise undefined. */
-function resolvePostgresDatabaseUrl(databaseBackend: DatabaseBackend): string | undefined {
-  if (databaseBackend !== 'postgres') {
-    return undefined;
-  }
+/** Postgres connection string derived from `POSTGRES_*` for distributed mode. */
+function resolvePostgresDatabaseUrl(): string {
   const postgresUser = getEnv('POSTGRES_USER', { defaultValue: DEFAULT_POSTGRES_USER }) ?? DEFAULT_POSTGRES_USER;
   const postgresPassword =
     getEnv('POSTGRES_PASSWORD', { defaultValue: DEFAULT_POSTGRES_PASSWORD }) ?? DEFAULT_POSTGRES_PASSWORD;
@@ -203,7 +173,7 @@ function resolvePostgresDatabaseUrl(databaseBackend: DatabaseBackend): string | 
     postgresHost.trim() === ''
   ) {
     throw new Error(
-      'POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, and POSTGRES_HOST must be non-empty when using Postgres.',
+      'POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, and POSTGRES_HOST must be non-empty when STANDALONE=false.',
     );
   }
   return buildPostgresConnectionString({
@@ -236,22 +206,12 @@ function resolvePublicBaseUrl(port: number): string {
 }
 
 // ============================================================================
-// CONFIGURATION INTERFACE
+// CONFIGURATION TYPES
 // ============================================================================
 
-export interface ServerConfiguration {
+export interface SharedServerConfiguration {
   /** HTTP port the server listens on. Env: `PORT`. */
   PORT: number;
-  /**
-   * Single-process topology: no Redis / executor peering.
-   * Env: `STANDALONE`. Default: true.
-   */
-  STANDALONE: boolean;
-  /**
-   * Persistence engine. Env: `DATABASE_BACKEND` (`postgres` | `sqlite`).
-   * When unset: sqlite if standalone, otherwise postgres.
-   */
-  DATABASE_BACKEND: DatabaseBackend;
   /** Peering identity embedded in the turn ids this process mints; `local` in standalone mode. */
   EXECUTOR_ID: string;
   /**
@@ -315,51 +275,6 @@ export interface ServerConfiguration {
    */
   SERVER_EXECUTION_TIMEOUT_SECONDS: number;
   /**
-   * Absolute SQLite database file path. Set when `DATABASE_BACKEND=sqlite`.
-   * Env: `SQLITE_PATH` (optional). Default: env-paths data dir + `db.sqlite`.
-   */
-  SQLITE_PATH: string | undefined;
-  /**
-   * Postgres connection string derived from `POSTGRES_*` (not read from env directly).
-   * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` with user/password URL-encoded.
-   * Set when `DATABASE_BACKEND=postgres`; undefined for sqlite.
-   */
-  DATABASE_URL: string | undefined;
-  /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
-  DATABASE_POOL_MAX: number;
-  /**
-   * Postgres `statement_timeout` for app and migrations (same pool).
-   * Env: `POSTGRES_STATEMENT_TIMEOUT_MS`. Default 60000.
-   */
-  POSTGRES_STATEMENT_TIMEOUT_MS: number;
-  /**
-   * Postgres `idle_in_transaction_session_timeout` for app and migrations (same pool).
-   * Env: `POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS`. Default 60000.
-   */
-  POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: number;
-  /** Peering URL shared by all replicas; undefined in standalone mode. Env: `REDIS_URL`. */
-  REDIS_URL: string | undefined;
-  /**
-   * Max ms to wait for a peer executor's reply before failing with 424.
-   * Env: `REDIS_REQUEST_REPLY_TIMEOUT_MS`. Default 60000.
-   */
-  REDIS_REQUEST_REPLY_TIMEOUT_MS: number;
-  /**
-   * How often this process refreshes its peering heartbeat key.
-   * Env: `REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS`. Default 5000.
-   */
-  REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS: number;
-  /**
-   * TTL for reply values so abandoned reply keys are reclaimed.
-   * Env: `REDIS_REQUEST_REPLY_REPLY_TTL_MS`. Default 120000.
-   */
-  REDIS_REQUEST_REPLY_REPLY_TTL_MS: number;
-  /**
-   * Sleep between reply poll attempts while waiting on a peer.
-   * Env: `REDIS_REQUEST_REPLY_POLL_INTERVAL_MS`. Default 500.
-   */
-  REDIS_REQUEST_REPLY_POLL_INTERVAL_MS: number;
-  /**
    * TTL for a running turn's resumable event stream.
    * Env: `TURN_STREAM_TTL_SECONDS`. Default execution timeout + 300.
    */
@@ -374,7 +289,73 @@ export interface ServerConfiguration {
    * Env: `TURN_SUBSCRIBE_TIMEOUT_MS`. Default 600000.
    */
   TURN_SUBSCRIBE_TIMEOUT_MS: number;
+  /**
+   * Max ms to wait for a peer executor's reply before failing with 424.
+   * Env: `REDIS_REQUEST_REPLY_TIMEOUT_MS`. Default 60000.
+   * Only used when a Redis client is wired (distributed mode).
+   */
+  REDIS_REQUEST_REPLY_TIMEOUT_MS: number;
+  /**
+   * How often this process refreshes its peering heartbeat key.
+   * Env: `REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS`. Default 5000.
+   * Only used when a Redis client is wired (distributed mode).
+   */
+  REDIS_REQUEST_REPLY_HEARTBEAT_INTERVAL_MS: number;
+  /**
+   * TTL for reply values so abandoned reply keys are reclaimed.
+   * Env: `REDIS_REQUEST_REPLY_REPLY_TTL_MS`. Default 120000.
+   * Only used when a Redis client is wired (distributed mode).
+   */
+  REDIS_REQUEST_REPLY_REPLY_TTL_MS: number;
+  /**
+   * Sleep between reply poll attempts while waiting on a peer.
+   * Env: `REDIS_REQUEST_REPLY_POLL_INTERVAL_MS`. Default 500.
+   * Only used when a Redis client is wired (distributed mode).
+   */
+  REDIS_REQUEST_REPLY_POLL_INTERVAL_MS: number;
 }
+
+export type StandaloneServerConfiguration = SharedServerConfiguration & {
+  /**
+   * Single-process topology: SQLite persistence, no Redis / executor peering.
+   * Env: `STANDALONE`. Default: true.
+   */
+  STANDALONE: true;
+  /**
+   * Absolute SQLite database file path.
+   * Env: `SQLITE_PATH` (optional). Default: env-paths data dir + `db.sqlite`.
+   */
+  SQLITE_PATH: string;
+};
+
+export type DistributedServerConfiguration = SharedServerConfiguration & {
+  /**
+   * Multi-replica topology: Postgres persistence + Redis executor peering.
+   * Env: `STANDALONE`. Default: true (so this branch requires an explicit `false`).
+   */
+  STANDALONE: false;
+  /**
+   * Postgres connection string derived from `POSTGRES_*` (not read from env directly).
+   * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` with user/password URL-encoded.
+   */
+  DATABASE_URL: string;
+  /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
+  DATABASE_POOL_MAX: number;
+  /**
+   * Postgres `statement_timeout` for app and migrations (same pool).
+   * Env: `POSTGRES_STATEMENT_TIMEOUT_MS`. Default 60000.
+   */
+  POSTGRES_STATEMENT_TIMEOUT_MS: number;
+  /**
+   * Postgres `idle_in_transaction_session_timeout` for app and migrations (same pool).
+   * Env: `POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS`. Default 60000.
+   */
+  POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: number;
+  /** Peering URL shared by all replicas. Env: `REDIS_URL`. Default `redis://localhost:6379`. */
+  REDIS_URL: string;
+};
+
+export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
 
 // ============================================================================
 // CONFIGURATION VALUES
@@ -392,15 +373,11 @@ const standalone = parseBoolean({
   defaultValue: true,
 });
 
-const databaseBackend = resolveDatabaseBackend(standalone);
-
 const port = parsePort(getEnv('PORT'));
 
-const configuration: ServerConfiguration = {
+const shared: SharedServerConfiguration = {
   PORT: port,
-  STANDALONE: standalone,
-  DATABASE_BACKEND: databaseBackend,
-  EXECUTOR_ID: resolveExecutorId(standalone),
+  EXECUTOR_ID: standalone ? LOCAL_EXECUTOR_ID : randomAlphanumeric(6),
   MODEL_CATALOG_PATH: resolveOptionalPathEnv('MODEL_CATALOG_PATH'),
   MCP_CATALOG_PATH: resolveOptionalPathEnv('MCP_CATALOG_PATH'),
   SKILL_CATALOG_PATH: resolveOptionalPathEnv('SKILL_CATALOG_PATH'),
@@ -430,24 +407,21 @@ const configuration: ServerConfiguration = {
     defaultValue: 30,
   }),
   SERVER_EXECUTION_TIMEOUT_SECONDS: serverExecutionTimeoutSeconds,
-  SQLITE_PATH: databaseBackend === 'sqlite' ? resolveSqlitePath() : undefined,
-  DATABASE_URL: resolvePostgresDatabaseUrl(databaseBackend),
-  DATABASE_POOL_MAX: parsePositiveInt({
-    envKey: 'DATABASE_POOL_MAX',
-    raw: getEnv('DATABASE_POOL_MAX'),
-    defaultValue: 10,
+  TURN_STREAM_TTL_SECONDS: parsePositiveInt({
+    envKey: 'TURN_STREAM_TTL_SECONDS',
+    raw: getEnv('TURN_STREAM_TTL_SECONDS'),
+    defaultValue: serverExecutionTimeoutSeconds + 300,
   }),
-  POSTGRES_STATEMENT_TIMEOUT_MS: parsePositiveInt({
-    envKey: 'POSTGRES_STATEMENT_TIMEOUT_MS',
-    raw: getEnv('POSTGRES_STATEMENT_TIMEOUT_MS'),
-    defaultValue: 60_000,
+  TURN_STREAM_POST_COMPLETION_TTL_SECONDS: parsePositiveInt({
+    envKey: 'TURN_STREAM_POST_COMPLETION_TTL_SECONDS',
+    raw: getEnv('TURN_STREAM_POST_COMPLETION_TTL_SECONDS'),
+    defaultValue: 300,
   }),
-  POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: parsePositiveInt({
-    envKey: 'POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS',
-    raw: getEnv('POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS'),
-    defaultValue: 60_000,
+  TURN_SUBSCRIBE_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'TURN_SUBSCRIBE_TIMEOUT_MS',
+    raw: getEnv('TURN_SUBSCRIBE_TIMEOUT_MS'),
+    defaultValue: 600_000,
   }),
-  REDIS_URL: resolveRedisUrl(standalone),
   REDIS_REQUEST_REPLY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'REDIS_REQUEST_REPLY_TIMEOUT_MS',
     raw: getEnv('REDIS_REQUEST_REPLY_TIMEOUT_MS'),
@@ -468,21 +442,34 @@ const configuration: ServerConfiguration = {
     raw: getEnv('REDIS_REQUEST_REPLY_POLL_INTERVAL_MS'),
     defaultValue: 500,
   }),
-  TURN_STREAM_TTL_SECONDS: parsePositiveInt({
-    envKey: 'TURN_STREAM_TTL_SECONDS',
-    raw: getEnv('TURN_STREAM_TTL_SECONDS'),
-    defaultValue: serverExecutionTimeoutSeconds + 300,
-  }),
-  TURN_STREAM_POST_COMPLETION_TTL_SECONDS: parsePositiveInt({
-    envKey: 'TURN_STREAM_POST_COMPLETION_TTL_SECONDS',
-    raw: getEnv('TURN_STREAM_POST_COMPLETION_TTL_SECONDS'),
-    defaultValue: 300,
-  }),
-  TURN_SUBSCRIBE_TIMEOUT_MS: parsePositiveInt({
-    envKey: 'TURN_SUBSCRIBE_TIMEOUT_MS',
-    raw: getEnv('TURN_SUBSCRIBE_TIMEOUT_MS'),
-    defaultValue: 600_000,
-  }),
 };
+
+const configuration: ServerConfiguration = standalone
+  ? {
+      ...shared,
+      STANDALONE: true,
+      SQLITE_PATH: resolveSqlitePath(),
+    }
+  : {
+      ...shared,
+      STANDALONE: false,
+      DATABASE_URL: resolvePostgresDatabaseUrl(),
+      DATABASE_POOL_MAX: parsePositiveInt({
+        envKey: 'DATABASE_POOL_MAX',
+        raw: getEnv('DATABASE_POOL_MAX'),
+        defaultValue: 10,
+      }),
+      POSTGRES_STATEMENT_TIMEOUT_MS: parsePositiveInt({
+        envKey: 'POSTGRES_STATEMENT_TIMEOUT_MS',
+        raw: getEnv('POSTGRES_STATEMENT_TIMEOUT_MS'),
+        defaultValue: 60_000,
+      }),
+      POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: parsePositiveInt({
+        envKey: 'POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS',
+        raw: getEnv('POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS'),
+        defaultValue: 60_000,
+      }),
+      REDIS_URL: resolveRedisUrl(),
+    };
 
 export default configuration;

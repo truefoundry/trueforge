@@ -1,18 +1,15 @@
 /**
  * Run pending Postgres migrations and exit.
- * Usage: `pnpm migrate` from packages/server.
- * The script pins `DATABASE_BACKEND=postgres` (process env wins over
- * `--env-file`), so `DATABASE_URL` resolves from `POSTGRES_*` regardless of the
- * `.env` backend. SQLite migrations run automatically when the server boots
- * with `DATABASE_BACKEND=sqlite`.
+ * Usage: `pnpm migrate` from packages/server with `STANDALONE=false`.
+ * SQLite migrations run automatically when the server boots in standalone mode.
  */
 import configuration from '../../config';
 import { migrateToLatest } from '../migratePostgres';
 import { createDb } from './client';
 
-if (configuration.DATABASE_URL === undefined) {
+if (configuration.STANDALONE) {
   throw new Error(
-    'pnpm migrate targets Postgres only and expects DATABASE_BACKEND=postgres; DATABASE_URL did not resolve from POSTGRES_* (see .env.example).',
+    'pnpm migrate targets Postgres only; set STANDALONE=false (and provide POSTGRES_* / Redis env as needed). SQLite migrations run on standalone server boot.',
   );
 }
 

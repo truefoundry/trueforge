@@ -54,7 +54,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       # Compose runs one replica but keeps peering on so the peered cancel path
-      # stays exercised. STANDALONE=false ⇒ default DATABASE_BACKEND=postgres.
+      # stays exercised. STANDALONE=false ⇒ Postgres + Redis.
       # A single-process deployment can set STANDALONE=true and drop redis.
       STANDALONE: 'false'
       REDIS_URL: redis://redis:6379
