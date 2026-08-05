@@ -8,10 +8,10 @@ Out of the box you get multi-turn sessions with streaming, MCP tool servers (inc
 
 | Package                   | Release Name                  | Path                                     | What it is                                                  |
 | ------------------------- | ----------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
-| `@truefoundry/utils`      | `@truefoundry/trueforge`      | [`packages/server`](packages/server)     | Agent server + bundled UI                                   |
-| `@truefoundry/utils-core` | `@truefoundry/trueforge-core` | [`packages/harness`](packages/harness)   | Library: agent core, sessions, and streaming                |
-| `trueharness`             | `@truefoundry/trueforge-sdk`  | [`packages/sdk`](packages/sdk)           | Generated TypeScript SDK                                    |
-| `frontend`                | —                             | [`packages/frontend`](packages/frontend) | Chat UI (bundled into the server; not published on its own) |
+| `@truefoundry/utils`      | `@truefoundry/trueforge`      | `[packages/server](packages/server)`     | Agent server + bundled UI                                   |
+| `@truefoundry/utils-core` | `@truefoundry/trueforge-core` | `[packages/harness](packages/harness)`   | Library: agent core, sessions, and streaming                |
+| `trueharness`             | `@truefoundry/trueforge-sdk`  | `[packages/sdk](packages/sdk)`           | Generated TypeScript SDK                                    |
+| `frontend`                | —                             | `[packages/frontend](packages/frontend)` | Chat UI (bundled into the server; not published on its own) |
 
 Requires **Node.js 22.13+** and **pnpm**.
 
@@ -21,8 +21,6 @@ Requires **Node.js 22.13+** and **pnpm**.
 pnpm install
 cp packages/server/.env.example packages/server/.env
 ```
-
-You usually do not set `STANDALONE` in `.env`. Root scripts set it (and `NODE_ENV`) for you.
 
 ### Standalone (local, zero infra)
 
@@ -34,15 +32,6 @@ pnpm standalone:dev
 
 - UI (Vite): [http://localhost:3000](http://localhost:3000) — proxies `/api/*` to the API
 - API: [http://localhost:8790](http://localhost:8790)
-
-Production-like (UI served by the server, no Vite):
-
-```bash
-pnpm build
-pnpm standalone:start
-```
-
-Open [http://localhost:8790](http://localhost:8790).
 
 ### Multi-replica (Postgres + Redis)
 
@@ -60,7 +49,8 @@ Terminal 2:
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+- UI (Vite): [http://localhost:3000](http://localhost:3000) — proxies `/api/*` to the API
+- API: [http://localhost:8790](http://localhost:8790)
 
 |           | Standalone                             | Multi-replica                                   |
 | --------- | -------------------------------------- | ----------------------------------------------- |
@@ -78,37 +68,67 @@ pnpm --filter @truefoundry/utils migrate
 
 That script sets `STANDALONE=false` and uses `POSTGRES_*` from `packages/server/.env`. It will not run in standalone mode (SQLite migrations happen on boot instead).
 
+### Serving the UI from the server
+
+Dev and production-like runs use different process topologies. Standalone vs multi-replica only changes storage/peering (`STANDALONE`); it does not change how the UI is served.
+
+**Development** — `pnpm standalone:dev` / `pnpm dev` run two processes in parallel: Vite (UI, with live reload) and the Hono API. The browser talks to Vite; Vite proxies `/api/`* to Hono.
+
+```
+  browser                     Vite (:3000)                   Hono (:8790)
+     │                             │                              │
+     │  GET /  (UI)                │                              │
+     │────────────────────────────>│                              │
+     │                             │                              │
+     │  /api/*                     │  proxy                       │
+     │────────────────────────────>│─────────────────────────────>│
+```
+
+**Production-like** — after `pnpm build`, `pnpm standalone:start` / `pnpm start` run a single Hono process. It serves the built frontend bundle for non-API routes and handles `/api/`* itself. The Docker container works the same way: one process, one origin.
+
+```
+  browser                                    Hono (:8790)
+     │                                            │
+     │  GET /  (static UI from dist/_frontend)    │
+     │───────────────────────────────────────────>│
+     │                                            │
+     │  /api/*                                    │
+     │───────────────────────────────────────────>│
+```
+
+Open the UI on `:3000` in dev, or on the API port (`:8790`) when the server is serving the bundle.
+
 ## Configuration
 
 Model providers, MCP servers, skills, and sandboxes are configured in the UI under **Settings**, or via the settings APIs. Discovery presets come from the `*/catalog` endpoints. Interactive API docs are at `/api/v1/docs`.
 
-See [`packages/server/.env.example`](packages/server/.env.example) for every env var.
+See `[packages/server/.env.example](packages/server/.env.example)` for every env var.
 
 Useful overrides:
 
 - `PORT` — API port (default `8790`)
-- `FRONTEND_PORT` — Vite UI port in dev (default `3000`); see [`packages/frontend/README.md`](packages/frontend/README.md)
+- `FRONTEND_PORT` — Vite UI port in dev (default `3000`); see `[packages/frontend/README.md](packages/frontend/README.md)`
 - `VITE_SERVER_URL` — point the Vite proxy at a different API
 - `FRONTEND_DIR` — directory of a built UI for the server to serve
 - `SQLITE_PATH` — SQLite file location in standalone mode
 - `REDIS_URL` / `POSTGRES_*` — used when `STANDALONE=false`
 
-Deployments are one process on one origin: `/api/*` (including OpenAPI) and `/healthz` are the API; everything else is the UI. The server prefers a packaged `dist/_frontend`, then `packages/frontend/dist`. With no UI build present it serves the API only (normal for Vite-backed `pnpm dev`).
+On one origin (start / Docker): `/api/*` (including OpenAPI) and `/healthz` are the API; everything else is the UI. The server prefers a packaged `dist/_frontend`, then `packages/frontend/dist`. With no UI build present it serves the API only (normal for Vite-backed `pnpm dev`). See [Serving the UI from the server](#serving-the-ui-from-the-server).
 
 ## Use as a library
 
 ```ts
-import { AgentThread } from '@truefoundry/trueforge-core/core';
-import { Sessions } from '@truefoundry/trueforge-core/agent-session';
+import { AgentThread } from '@truefoundry/utils-core/core';
+import { Sessions } from '@truefoundry/utils-core/agent-session';
 ```
 
 Or namespaced:
 
 ```ts
-import { core, agentSession } from '@truefoundry/trueforge-core';
+import { core, agentSession } from '@truefoundry/utils-core';
 ```
 
-The published package supports both CommonJS and ESM. Server-only dependencies (Hono, SQLite, Postgres, Redis, etc.) stay in `@truefoundry/trueforge` and are not pulled in by library consumers.
+The published package supports both CommonJS and ESM. Server-only dependencies (Hono, SQLite, Postgres, Redis, etc.) stay in `@truefoundry/utils` and are not pulled in by library consumers.
 
 ## Development
 
@@ -147,6 +167,5 @@ Open [http://localhost:8791](http://localhost:8791). Credentials come from `pack
 `packages/sdk` and `fern/openapi/openapi.json` are generated by [Fern](https://buildwithfern.com) and committed. Edit route handlers under `packages/server/src/routes/`, not the generated output. CI regenerates them; to run locally (Docker required):
 
 ```bash
-pnpm openapi:write
-fern check && fern generate --group ts-sdk --version 0.0.0 --local --generate-tests
+pnpm sdk:generate
 ```
