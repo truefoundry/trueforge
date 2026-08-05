@@ -12,6 +12,9 @@ The git tag `v*` must match **`packages/harness` (`@truefoundry/utils-core`) ver
 whenever the app/CLI changes. CI publishes **core first**, then utils (so
 `workspace:*` rewrites to the core version that just landed on npm).
 
+> **Currently only `@truefoundry/utils-core` publishes.** The `@truefoundry/utils`
+> publish step in `release.yml` is deferred (`TODO`); CI still builds and tests it.
+
 ---
 
 # Releasing `@truefoundry/utils-core`
@@ -74,12 +77,9 @@ root is the compiled file tree. Consequences:
    ```
 
 3. **CI publishes automatically.** `.github/workflows/release.yml` installs,
-   builds (utils-core → frontend → utils, staging `dist/_frontend` into the
-   server package), tests, verifies the tag matches
-   `packages/harness/package.json`, refuses a missing UI bundle, then:
-
-   1. `npm publish` **from `packages/harness/dist`**
-   2. `pnpm publish` from `packages/server` (rewrites `workspace:*` → the new core)
+   builds, tests, verifies the tag matches `packages/harness/package.json`, then
+   runs `npm publish` **from `packages/harness/dist`**. (The `@truefoundry/utils`
+   publish is deferred — see the note above.)
 
    Auth is trusted publishing (OIDC — no `NPM_TOKEN`). Watch the repo Actions tab.
 
