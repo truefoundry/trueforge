@@ -1,5 +1,6 @@
 export abstract class SandboxError extends Error {
-  abstract readonly statusCode: number;
+  /** Narrow rather than `number` so hosts can return it from a typed route without asserting. */
+  abstract readonly statusCode: 400 | 403 | 404 | 410 | 413;
 }
 
 export class SandboxFileNotFoundError extends SandboxError {

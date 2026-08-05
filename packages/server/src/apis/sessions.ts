@@ -375,17 +375,23 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       validateSandboxOwnedByTenant(sandboxId, TENANT_ID);
       const content = await provider.downloadFile({ sandboxId, path });
       const fileName = path.split('/').filter(Boolean).pop() ?? 'download';
+      // Header values are ByteStrings, so the name is percent-encoded rather than quoted; the four
+      // characters encodeURIComponent leaves behind are not RFC 5987 attr-char.
+      const encodedFileName = encodeURIComponent(fileName).replace(
+        /['()*]/g,
+        char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+      );
 
       return c.body(toArrayBuffer(content), 200, {
         'Content-Type': 'application/octet-stream',
         'Content-Length': String(content.byteLength),
-        'Content-Disposition': `attachment; filename="${fileName.replace(/"/g, '\\"')}"`,
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodedFileName}`,
         'Cache-Control': 'private, no-store',
       });
     } catch (error) {
       // Every guard and the provider itself raise SandboxError, whose statusCode is the contract.
       if (error instanceof SandboxError) {
-        return c.json({ error: { message: error.message } }, error.statusCode as 400 | 403 | 404 | 410 | 413);
+        return c.json({ error: { message: error.message } }, error.statusCode);
       }
       deps.logger.error('Sandbox file download failed', { ...extractErrorLogFields(error), sandboxId, path });
       return c.json({ error: { message: 'Failed to download file from sandbox' } }, 502);
