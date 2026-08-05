@@ -428,6 +428,7 @@ providers:
         properties:
           context_length: 1048576
           reasoning_efforts:
+            - none
             - low
             - medium
             - high
@@ -442,7 +443,7 @@ providers:
       - model_id: MiniMaxAI/MiniMax-M3
         name: minimax-m3
         properties:
-          context_length: 1000000
+          context_length: 524288
       - model_id: moonshotai/Kimi-K2.7-Code
         name: kimi-k2-7-code
         properties:
@@ -450,8 +451,9 @@ providers:
       - model_id: moonshotai/Kimi-K3
         name: kimi-k3
         properties:
-          context_length: 1000000
+          context_length: 1048576
           reasoning_efforts:
+            - none
             - low
             - medium
             - high
@@ -460,26 +462,30 @@ providers:
         name: qwen3-7-max
         properties:
           context_length: 1000000
+          max_output_tokens: 131072
           reasoning_efforts:
+            - none
+            - minimal
             - low
             - medium
             - high
-            - max
+            - xhigh
       - model_id: Qwen/Qwen3.7-Plus
         name: qwen3-7-plus
         properties:
           context_length: 1000000
-          max_output_tokens: 65536
+          max_output_tokens: 131072
           reasoning_efforts:
+            - none
+            - minimal
             - low
             - medium
             - high
-            - max
+            - xhigh
       - model_id: zai-org/GLM-5.2
         name: glm-5-2
         properties:
-          context_length: 262144
-          max_output_tokens: 131072
+          context_length: 512000
           reasoning_efforts:
             - high
             - max
