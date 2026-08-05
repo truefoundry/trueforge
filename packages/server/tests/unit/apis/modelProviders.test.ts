@@ -141,10 +141,9 @@ describe('well-known types are limited to one provider', () => {
       putInit({ ...anthropicBody, name: 'anthropic-eu', auth: { api_key: 'sk-ant-other' } }),
     );
     expect(second.status).toBe(409);
-    // Routers are exercised without the app's onError, which is what wraps the message as JSON.
+    // Text, not JSON: the app's onError wraps the message, and routers are exercised without it.
     expect(await second.text()).toContain('already configured as "anthropic"');
 
-    // The rejected write must not have partially landed.
     const list = await settingsRouter.request('/model-providers');
     expect(await list.json()).toEqual({ data: [anthropicBody] });
     const models = await modelsRouter.request('/');

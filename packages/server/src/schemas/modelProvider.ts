@@ -37,10 +37,9 @@ export const ProviderTypeSchema = z
 export type ProviderType = z.infer<typeof ProviderTypeSchema>;
 
 /**
- * A well-known type is limited to one configured provider per tenant: its endpoint is fixed, so a
- * second row of the same type is only ever a duplicate credential, and the settings UI keys its
- * provider cards by type rather than by name. Caller-supplied types stay unrestricted — each row
- * names a distinct endpoint, so several are meaningful.
+ * Only one provider per well-known type is allowed: the endpoint is fixed, so a second is a
+ * duplicate credential, and the settings UI keys its cards by type. Caller-supplied types are
+ * unrestricted — each names its own endpoint.
  */
 const WELL_KNOWN_TYPES: ReadonlySet<ProviderType> = new Set(WELL_KNOWN_BASE_URL_TYPES);
 

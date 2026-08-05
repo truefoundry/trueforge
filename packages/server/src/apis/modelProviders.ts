@@ -35,7 +35,6 @@ export function createModelProvidersRouter(deps: ModelProvidersRouterDeps) {
 
   const putHandler: RouteHandler<typeof putModelProviderRoute> = async c => {
     const body = c.req.valid('json');
-    // The upsert is keyed by `name`, so a same-name write is an update and stays allowed.
     if (isWellKnownProviderType(body.type)) {
       const records = await deps.modelProviderStore.listProviders(TENANT_ID);
       const configured = records.find(record => record.manifest.type === body.type && record.name !== body.name);
