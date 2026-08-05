@@ -4,30 +4,37 @@
 mcp_servers:
   - type: remote
     name: linear
+    logo: https://assets.production.truefoundry.com/linear.svg
     url: https://mcp.linear.app/mcp
     auth:
       type: dcr
   - type: remote
     name: notion
+    logo: https://assets.production.truefoundry.com/notion.svg
     url: https://mcp.notion.com/mcp
     auth:
       type: dcr
   - type: remote
     name: sentry
+    logo: https://assets.production.truefoundry.com/sentry-dark.svg
     url: https://mcp.sentry.dev/mcp
     auth:
       type: dcr
   - type: remote
     name: deepwiki
+    logo: https://assets.production.truefoundry.com/deepwiki.png
     url: https://mcp.deepwiki.com/mcp
   - type: remote
     name: exa
+    logo: https://assets.production.truefoundry.com/exa.svg
     url: https://mcp.exa.ai/mcp
   - type: remote
     name: parallel-web
+    logo: https://assets.production.truefoundry.com/parallel-web.svg
     url: https://search.parallel.ai/mcp
   - type: remote
     name: github
+    logo: https://assets.production.truefoundry.com/github-dark.svg
     url: https://api.githubcopilot.com/mcp/
     auth:
       type: header
@@ -35,6 +42,7 @@ mcp_servers:
         Authorization: Bearer YOUR_GITHUB_PAT
   - type: remote
     name: tavily
+    logo: https://assets.production.truefoundry.com/tavily.svg
     url: https://mcp.tavily.com/mcp
     auth:
       type: header
@@ -42,6 +50,7 @@ mcp_servers:
         Authorization: Bearer YOUR_TAVILY_API_KEY
   - type: remote
     name: bright-data
+    logo: https://assets.production.truefoundry.com/bright-data.png
     url: https://mcp.brightdata.com/mcp
     auth:
       type: header
@@ -49,21 +58,25 @@ mcp_servers:
         Authorization: Bearer YOUR_BRIGHT_DATA_API_TOKEN
   - type: remote
     name: supabase
+    logo: https://assets.production.truefoundry.com/supabase.svg
     url: https://mcp.supabase.com/mcp
     auth:
       type: dcr
   - type: remote
     name: stripe
+    logo: https://assets.production.truefoundry.com/stripe.svg
     url: https://mcp.stripe.com
     auth:
       type: dcr
   - type: remote
     name: confluence
+    logo: https://assets.production.truefoundry.com/confluence.svg
     url: https://mcp.atlassian.com/v1/mcp
     auth:
       type: dcr
   - type: remote
     name: jira
+    logo: https://assets.production.truefoundry.com/jira.png
     url: https://mcp.atlassian.com/v1/mcp
     auth:
       type: dcr

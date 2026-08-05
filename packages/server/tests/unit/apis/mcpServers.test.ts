@@ -285,4 +285,71 @@ describe('mcp-servers routers', () => {
       globalThis.fetch = realFetch;
     }
   });
+
+  it('DELETE /{name}/authorize removes the DCR token, keeps the client, and reports auth_required', async () => {
+    await settingsRouter.request('/', putInit(putBodyWithDcr));
+    const record = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithDcr.name });
+    if (!record) {
+      throw new Error('expected DCR server to exist');
+    }
+
+    await mcpServerStore.saveClient({
+      id: record.id,
+      record: {
+        server: {
+          authorizationEndpoint: 'https://auth.example.com/authorize',
+          tokenEndpoint: 'https://auth.example.com/token',
+          codeChallengeMethodsSupported: ['S256'],
+        },
+        client: {
+          clientId: 'keep-me',
+          clientSecret: 'keep-secret',
+        },
+      },
+    });
+    await tokenStore.saveToken({
+      id: record.id,
+      token: {
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        scope: null,
+      },
+    });
+
+    const response = await settingsRouter.request(`/${putBodyWithDcr.name}/authorize`, { method: 'DELETE' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      data: { ...putBodyWithDcr, auth_status: { status: 'auth_required' } },
+    });
+    expect(await tokenStore.getToken({ id: record.id })).toBeUndefined();
+    expect(await mcpServerStore.getClient({ id: record.id })).toEqual({
+      server: {
+        authorizationEndpoint: 'https://auth.example.com/authorize',
+        tokenEndpoint: 'https://auth.example.com/token',
+        codeChallengeMethodsSupported: ['S256'],
+      },
+      client: {
+        clientId: 'keep-me',
+        clientSecret: 'keep-secret',
+      },
+    });
+  });
+
+  it('DELETE /{name}/authorize is a no-op for non-DCR servers and 404s unknowns', async () => {
+    const noAuth = await settingsRouter.request('/deepwiki/authorize', { method: 'DELETE' });
+    expect(noAuth.status).toBe(200);
+    expect(await noAuth.json()).toEqual({
+      data: { ...putBody, auth_status: { status: 'not_required' } },
+    });
+
+    const headerAuth = await settingsRouter.request('/private-mcp/authorize', { method: 'DELETE' });
+    expect(headerAuth.status).toBe(200);
+    expect(await headerAuth.json()).toEqual({
+      data: { ...putBodyWithHeaderAuth, auth_status: { status: 'authenticated' } },
+    });
+
+    const missing = await settingsRouter.request('/missing/authorize', { method: 'DELETE' });
+    expect(missing.status).toBe(404);
+  });
 });
