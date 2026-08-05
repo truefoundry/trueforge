@@ -1,8 +1,13 @@
 /**
- * CLI entry for `@truefoundry/utils`. Parses argv, then hands off to `./main`.
- * Topology comes from env / config defaults (`SINGLE_BINARY=true` unless set).
- * Env must be finalized before importing `./main` because config reads
- * process.env at module load.
+ * CLI entry for `@truefoundry/utils` (`package.json` `bin` → `dist/cli.js`).
+ *
+ * Kept separate from `main.ts` so Docker / `pnpm start` can boot with env only
+ * (`node dist/main.js`), while `npx @truefoundry/utils` gets a shebang, `--help`,
+ * and `--port`. Flags must be applied before importing `./main` because config
+ * reads `process.env` at module load.
+ *
+ * Topology defaults from env / config (`STANDALONE=true` unless set). Persistence
+ * follows `DATABASE_BACKEND` (or standalone→sqlite / non-standalone→postgres).
  */
 import { parseArgs } from 'node:util';
 
@@ -11,8 +16,9 @@ function printUsage(): void {
   npx @truefoundry/utils
   npx @truefoundry/utils --port <n>
 
-Start the agent server. Defaults to single-binary mode (SQLite + in-memory
-streams); set SINGLE_BINARY=false with POSTGRES_* and REDIS_URL for multi-replica.
+Start the agent server. Defaults to standalone mode (no Redis; SQLite unless
+DATABASE_BACKEND=postgres). Set STANDALONE=false with Redis (and Postgres unless
+DATABASE_BACKEND=sqlite) for multi-replica peering.
 
 Options:
   --port <n>   HTTP port (default: 8790, or PORT env)

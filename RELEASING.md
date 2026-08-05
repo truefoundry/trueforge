@@ -2,10 +2,10 @@
 
 Two public packages ship from this repo:
 
-| Package                   | Source             | How it publishes                                               |
-| ------------------------- | ------------------ | -------------------------------------------------------------- |
-| `@truefoundry/utils-core` | `packages/harness` | From staged `packages/harness/dist` (library)                  |
-| `@truefoundry/utils`      | `packages/server`  | From package root (`dist/`, including `dist/frontend/` for UI) |
+| Package                   | Source             | How it publishes                                                |
+| ------------------------- | ------------------ | --------------------------------------------------------------- |
+| `@truefoundry/utils-core` | `packages/harness` | From staged `packages/harness/dist` (library)                   |
+| `@truefoundry/utils`      | `packages/server`  | From package root (`dist/`, including `dist/_frontend/` for UI) |
 
 The git tag `v*` must match **`packages/harness` (`@truefoundry/utils-core`) version**.
 `@truefoundry/utils` may use an independent version — bump it in the same release PR
@@ -74,7 +74,7 @@ root is the compiled file tree. Consequences:
    ```
 
 3. **CI publishes automatically.** `.github/workflows/release.yml` installs,
-   builds (utils-core → frontend → utils, staging `dist/frontend` into the
+   builds (utils-core → frontend → utils, staging `dist/_frontend` into the
    server package), tests, verifies the tag matches
    `packages/harness/package.json`, refuses a missing UI bundle, then:
 
@@ -108,7 +108,7 @@ matching core+utils together when the app uses new core APIs.
 For tight loops, skip the publish round-trip:
 
 ```bash
-pnpm clean && pnpm build && pnpm server:bin
+pnpm clean && pnpm build && pnpm standalone:start
 # or pack only:
 cd packages/harness && pnpm build && cd dist && pnpm pack
 cd packages/server && pnpm pack
@@ -127,7 +127,7 @@ Publish a real version when CI or teammates need it.
 - **Tag/version mismatch failure**: the guard step caught a tag that doesn't
   match `packages/harness/package.json`. Delete the tag
   (`git push origin :refs/tags/vX.Y.Z`), fix the version via PR, re-tag.
-- **Missing `dist/frontend/index.html`**: root `pnpm build` must build
+- **Missing `dist/_frontend/index.html`**: root `pnpm build` must build
   `frontend` before `@truefoundry/utils`; the release job fails closed if the
   copy is absent.
 - **OIDC/auth error in the publish step**: trusted publishing requires

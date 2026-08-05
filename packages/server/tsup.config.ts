@@ -34,7 +34,7 @@ export default defineConfig([
     entry: {
       main: 'src/main.ts',
       // Emit both engines under dist/{postgres,sqlite}/migrations/.
-      // Runtime applies Postgres when SINGLE_BINARY=false, SQLite when true.
+      // Runtime selects migrations via DATABASE_BACKEND (postgres | sqlite).
       ...migrationEntries('postgres'),
       ...migrationEntries('sqlite'),
     },

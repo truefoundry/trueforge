@@ -58,7 +58,7 @@ export interface ServerDeps {
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
-  /** Primary Redis client (server-owned); undefined in single-binary mode. */
+  /** Primary Redis client (server-owned); undefined in standalone mode. */
   redis?: RedisClientType | undefined;
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;

@@ -88,14 +88,16 @@ COPY --from=prod-deps /app/packages/server/node_modules ./packages/server/node_m
 COPY --from=builder /app/packages/harness/package.json ./packages/harness/package.json
 COPY --from=builder /app/packages/harness/dist ./packages/harness/dist
 
-# Built server (JS + UI under dist/frontend when present from a full workspace build).
+# Built server (JS). UI is copied below from the parallel frontend stage into
+# dist/_frontend — same path as the npm tarball / `pnpm build` copy step.
 COPY --from=builder /app/packages/server/package.json ./packages/server/package.json
 COPY --from=builder /app/packages/server/dist ./packages/server/dist
 # Frontend builds in a parallel stage; place it at the same path as the npm tarball.
-COPY --from=frontend-builder /app/packages/frontend/dist ./packages/server/dist/frontend
+COPY --from=frontend-builder /app/packages/frontend/dist ./packages/server/dist/_frontend
 
 WORKDIR /app/packages/server
 
 EXPOSE 8790
 
+# Launch-only (matches root `pnpm start` / `standalone:start`). Image already contains dist.
 CMD ["node", "dist/main.js"]

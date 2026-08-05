@@ -9,7 +9,7 @@ import type { Database } from './sqlite/types';
 /**
  * Runs all pending SQLite migrations.
  *
- * Used at single-binary startup and by SQLite store tests.
+ * Used at sqlite startup and by SQLite store tests.
  * Resolves `…/sqlite/migrations` next to this module (source or `dist/`).
  */
 export async function migrateSqliteToLatest(db: Kysely<Database>): Promise<void> {

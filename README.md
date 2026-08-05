@@ -8,61 +8,88 @@ pnpm workspace with:
 | `@truefoundry/utils`      | [`packages/server`](packages/server)     | Published app + CLI (`npx @truefoundry/utils`)        |
 | `frontend`                | [`packages/frontend`](packages/frontend) | Private draft-only agent chat UI (bundled into utils) |
 
-## Development
+## Choose a mode
 
-The API and frontend run on the host with hot reload. Postgres and Redis run in Docker.
+|            | **Standalone**                         | **Non-standalone**                              |
+| ---------- | -------------------------------------- | ----------------------------------------------- |
+| Process    | One server process                     | One or more replicas with Redis peering         |
+| Default DB | SQLite                                 | Postgres                                        |
+| Infra      | None                                   | Postgres + Redis (`pnpm dev:infra` or your own) |
+| Dev        | `pnpm standalone:dev`                  | `pnpm dev` (after infra)                        |
+| Prod-like  | `pnpm build` → `pnpm standalone:start` | `pnpm build` → `pnpm start`                     |
 
-### One-time setup
+Root scripts set `STANDALONE` and `NODE_ENV` explicitly (they win over `.env`). Persistence can be overridden with `DATABASE_BACKEND=postgres|sqlite` independently of topology.
+
+Configure model providers (and MCP / skills / sandbox) in the UI under Settings, or via the settings APIs — discovery presets come from the `*/catalog` endpoints.
+
+## One-time setup
 
 ```bash
 pnpm install
 cp packages/server/.env.example packages/server/.env
 ```
 
-For this host-dev flow, set `SINGLE_BINARY=false` in `packages/server/.env` so the server uses the Compose Postgres/Redis defaults. Configure model providers (API keys and endpoints) in the UI under Settings, or via `PUT /api/v1/settings/model-providers` — discovery presets come from `GET /api/v1/settings/model-providers/catalog`. MCP servers, skills, and sandbox providers use the same settings pattern when you need them.
+You usually do not set `STANDALONE` in `.env`; use the root scripts below. Leave `POSTGRES_*` / `REDIS_URL` as in the example for local non-standalone (Compose and config defaults match).
 
-### Day-to-day
+## Standalone quickstart
+
+Zero-env: SQLite, no Redis/Postgres.
+
+```bash
+pnpm standalone:dev
+```
+
+Open `http://localhost:3000` (Vite proxies `/api/*` to the API on `:8790`).
+
+Prod-like (packed UI served by the server, no Vite):
+
+```bash
+pnpm build
+pnpm standalone:start
+```
+
+Open `http://localhost:8790`. Same path as published `npx @truefoundry/utils` (CLI entry is `dist/cli.js`; see below).
+
+## Non-standalone quickstart
+
+Postgres + Redis required.
 
 Terminal 1:
 
 ```bash
-pnpm dev:infra   # Postgres + Redis (data in ./data/dev/postgres); Ctrl+C stops them
+pnpm dev:infra   # Postgres :5432 and Redis :6379; Ctrl+C stops them
 ```
 
 Terminal 2:
 
 ```bash
-pnpm dev         # API on :8790 and Vite on :3000
+pnpm dev         # API :8790 + Vite :3000; STANDALONE=false
 ```
 
-Open `http://localhost:3000`. Frontend changes update through Vite HMR; server changes automatically restart the API on `:8790`. Vite proxies `/api/*` to the API. Local server scripts resolve `@truefoundry/utils-core` from source (`exports.development`), so a utils-core `dist/` build is not required for `pnpm dev`. For drain testing without server hot reload, use `pnpm dev:no-watch` instead of `pnpm dev`.
+Open `http://localhost:3000`.
 
-The workspace utils-core package is ESM so the host server and source schemas share one ESM dependency graph. `NODE_OPTIONS=--conditions=development` selects `src/` at runtime, and TypeScript uses the same condition for source-based static analysis. Development, lint, typecheck, tests, OpenAPI generation, and migrations do not read or recreate `packages/harness/dist`; release builds, package checks, and Docker smoke tests create it intentionally.
+Prod-like:
 
-Root `pnpm dev` watches utils-core sandbox Python helpers and server catalog YAML, regenerates the matching TypeScript modules, and lets the server watcher restart normally. Neither path builds `dist`.
+```bash
+pnpm build
+pnpm start       # node dist/main.js, STANDALONE=false; needs infra still running
+```
 
-| Script              | Runs                                                                    |
-| ------------------- | ----------------------------------------------------------------------- |
-| `pnpm dev:infra`    | Postgres + Redis in the foreground                                      |
-| `pnpm dev`          | Sandbox/catalog generators + server (`tsx watch`) + Vite                |
-| `pnpm dev:no-watch` | Same stack without server file watching (still `NODE_ENV=development`)  |
-| `pnpm clean`        | Workspace build outputs and the ESLint cache                            |
-| `pnpm clean:all`    | The same outputs plus all workspace `node_modules`                      |
-| `pnpm server:bin`   | Built CLI (`node dist/cli.js`) — same entry as `npx @truefoundry/utils` |
+Open `http://localhost:8790` (UI from `packages/server/dist/_frontend`).
 
-Migrations run automatically on server startup. To migrate Postgres without starting HTTP:
+## Optional scripts
+
+| Script                                               | Purpose                                                                                        |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `pnpm dev:no-watch` / `pnpm standalone:dev:no-watch` | Same as `dev` / `standalone:dev` but server does not restart on file changes (Vite still runs) |
+| `pnpm dev:server:ui`                                 | Build FE, copy to `dist/_frontend`, watched API, no Vite — packed UI + hot server              |
+| `pnpm smoke` / `pnpm smoke:down`                     | Full Compose stack (API+UI image on `:8791`)                                                   |
+| `pnpm clean` / `pnpm clean:all`                      | Build outputs (+ `node_modules` for `:all`)                                                    |
+
+Migrations run on server startup. Postgres-only without HTTP:
 
 ```bash
 pnpm --filter @truefoundry/utils migrate
-```
-
-Zero-env single-binary (SQLite + UI), same path as published `npx` — leave `SINGLE_BINARY=true` (the `.env.example` default) and skip `pnpm dev:infra`:
-
-```bash
-pnpm clean
-pnpm build
-pnpm server:bin
-# or after publish: npx @truefoundry/utils
 ```
 
 Workspace checks:
@@ -73,21 +100,28 @@ pnpm test
 pnpm typecheck
 ```
 
-Root `build` / `typecheck` (and CI) include utils-core, server, and frontend. `FRONTEND_PORT` moves Vite off `:3000`, `VITE_SERVER_URL` points it at another API. See [`packages/frontend/README.md`](packages/frontend/README.md).
+`FRONTEND_PORT` moves Vite off `:3000`, `VITE_SERVER_URL` points it at another API. See [`packages/frontend/README.md`](packages/frontend/README.md).
+
+Local server scripts resolve `@truefoundry/utils-core` from source (`exports.development`), so a utils-core `dist/` build is not required for `pnpm dev` / `standalone:dev`. Root watched modes regenerate sandbox helpers and catalog YAML into TypeScript; neither path builds `dist`.
 
 ## Serving the UI from the server
 
-Deployments are one process on one origin: `/api/*` (including `/api/v1/docs` and `/api/v1/openapi.json`) and
-`/healthz` are the API, everything else resolves to the UI. Frontend resolution prefers packaged
-`dist/frontend` (npm tarball / Docker / `pnpm server:bin`), then the monorepo sibling
-`packages/frontend/dist` (host-dev before a copy). Override with `FRONTEND_DIR` if needed. With no
-build at that path the server logs a warning and serves the API only, which is what running the
-server behind Vite needs.
+Deployments are one process on one origin: `/api/*` (including `/api/v1/docs` and `/api/v1/openapi.json`) and `/healthz` are the API; everything else resolves to the UI.
+
+Frontend resolution prefers packaged `dist/_frontend` (npm tarball / Docker / `pnpm build` / `dev:server:ui` copy), then monorepo `packages/frontend/dist`. Override with `FRONTEND_DIR` if needed. With no build at that path the server logs a warning and serves the API only (what Vite-backed `dev` needs).
+
+### `cli.js` vs `main.js`
+
+| Entry          | Used by                                         | Role                                             |
+| -------------- | ----------------------------------------------- | ------------------------------------------------ |
+| `dist/main.js` | Docker, `pnpm start`, `pnpm standalone:start`   | Env-only server boot                             |
+| `dist/cli.js`  | `npx @truefoundry/utils` (`package.json` `bin`) | Shebang, `--help`, `--port`, then imports `main` |
+
+`--port` must be applied before config loads, which is why the published bin is not `main.js` alone.
 
 ## Docker Compose smoke test
 
-Full stack in containers — built server image serves API + UI (no Vite HMR). Smoke forces
-`SINGLE_BINARY=false` (Postgres + Redis):
+Full stack in containers — built server image serves API + UI (no Vite). Smoke forces `STANDALONE=false` (Postgres + Redis):
 
 ```bash
 pnpm smoke       # build, wait for healthy services, then check /healthz and the UI app shell

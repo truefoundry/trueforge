@@ -40,11 +40,11 @@ jobs:
             exit 1
           fi
 
-      # Root build copies FE into packages/server/dist/frontend; refuse an API-only tarball.
+      # Root build copies FE into packages/server/dist/_frontend; refuse an API-only tarball.
       - name: Verify packaged UI is present
         run: |
           test -f packages/server/dist/cli.js
-          test -f packages/server/dist/frontend/index.html
+          test -f packages/server/dist/_frontend/index.html
 
       # Library first: utils pins workspace:* → this concrete version on publish.
       # Prereleases (e.g. 0.1.9-rc.1) must pass --tag (npm 11); first preid → dist-tag (rc).
@@ -64,7 +64,7 @@ jobs:
         # TODO(oss): add --provenance once the repo is public. Do NOT add it now:
         # provenance publicly attests the source repo and commit.
 
-      # App + CLI from package root (dist/ includes dist/frontend/).
+      # App + CLI from package root (dist/ includes dist/_frontend/).
       # pnpm publish rewrites workspace:* deps to the utils-core version just published.
       - name: Publish @truefoundry/utils
         working-directory: packages/server

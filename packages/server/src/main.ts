@@ -1,9 +1,10 @@
 /**
- * Server entry point: validates config, migrates Postgres, wires DB stores
- * and starts the HTTP server. Any config, migration, or store error aborts startup.
- * SQLite migrations are packaged under dist/ but are not run at startup.
- * Single-binary mode uses SQLite + in-memory event streams; multi-replica
- * uses Postgres + Redis. Any config, migration, or store error aborts startup.
+ * Server entry point: validates config, migrates the selected database, wires
+ * stores, and starts the HTTP server. Any config, migration, or store error
+ * aborts startup.
+ *
+ * Persistence follows `DATABASE_BACKEND` (sqlite or postgres). Redis / executor
+ * peering follow `STANDALONE` (disabled when true).
  */
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -63,10 +64,10 @@ try {
   let sandboxProviderStore: ISandboxProviderStore;
   let destroyDb: () => Promise<void>;
 
-  if (configuration.SINGLE_BINARY) {
+  if (configuration.DATABASE_BACKEND === 'sqlite') {
     const sqlitePath = configuration.SQLITE_PATH;
     if (sqlitePath === undefined) {
-      throw new Error('SINGLE_BINARY=true requires SQLITE_PATH to be resolved');
+      throw new Error('DATABASE_BACKEND=sqlite requires SQLITE_PATH to be resolved');
     }
     await mkdir(path.dirname(sqlitePath), { recursive: true });
     const [{ createSqliteDb }, { migrateSqliteToLatest }, sqliteStores] = await Promise.all([
@@ -92,7 +93,7 @@ try {
 
     const db = createSqliteDb(sqlitePath);
     await migrateSqliteToLatest(db);
-    logger.info(`Single-binary mode: SQLite at ${sqlitePath}`);
+    logger.info(`Database backend sqlite: ${sqlitePath}`);
 
     sessionStore = new SqliteSessionStore(db);
     modelProviderStore = new SqliteModelProviderStore(db);
@@ -104,7 +105,7 @@ try {
   } else {
     const databaseUrl = configuration.DATABASE_URL;
     if (databaseUrl === undefined) {
-      throw new Error('SINGLE_BINARY=false requires POSTGRES_* to build DATABASE_URL');
+      throw new Error('DATABASE_BACKEND=postgres requires POSTGRES_* to build DATABASE_URL');
     }
     const [{ createDb }, { migrateToLatest }, postgresStores] = await Promise.all([
       import('./db/postgres/client'),
@@ -134,6 +135,7 @@ try {
       idleInTransactionSessionTimeoutMs: configuration.POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS,
     });
     await migrateToLatest(db);
+    logger.info('Database backend postgres');
 
     sessionStore = new PostgresSessionStore(db);
     modelProviderStore = new PostgresModelProviderStore(db);
@@ -148,7 +150,7 @@ try {
 
   let redis: RedisClientType | undefined;
   if (configuration.REDIS_URL === undefined) {
-    logger.info('Single-binary mode: executor peering disabled and Redis unused');
+    logger.info('Standalone mode: executor peering disabled and Redis unused');
   } else {
     logger.info(`Executor id: ${configuration.EXECUTOR_ID}`);
     redis = await connectRedis({ url: configuration.REDIS_URL, logger });
@@ -180,7 +182,7 @@ try {
   } else {
     logger.warn(
       `No frontend build at ${configuration.FRONTEND_DIR}: serving the API only. ` +
-        'Run `pnpm --filter frontend build` to serve the UI from here, or `pnpm dev:frontend` for UI work.',
+        'Run `pnpm --filter frontend build` (and copy via build:frontend-assets) to serve the UI, or `pnpm standalone:dev` / `pnpm dev` for Vite.',
     );
   }
 

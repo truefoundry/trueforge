@@ -6,10 +6,13 @@
  * import time, so a misconfigured server fails fast at boot instead of
  * mid-run.
  *
- * `SINGLE_BINARY=true` (default) is zero-env: SQLite under env-paths,
- * in-process event streams, no Redis/Postgres required. Model providers and
- * other settings are configured via the settings API after boot.
- * `SINGLE_BINARY=false` requires `POSTGRES_*` and `REDIS_URL`.
+ * `STANDALONE` controls process topology (Redis / executor peering). Default
+ * true: single process, no Redis. False: requires Redis (default
+ * `redis://localhost:6379`).
+ *
+ * `DATABASE_BACKEND` selects persistence (`postgres` | `sqlite`). When unset,
+ * standalone defaults to sqlite and non-standalone to postgres. Postgres
+ * connection fields default to local harness credentials; override via env.
  */
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -23,13 +26,22 @@ const DEFAULT_PORT = 8790;
  * into `dist/main.js` / `dist/cli.js` (`import.meta` → `dist/` → parent).
  */
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-/** Turn ids minted by a single-binary process; no peer can ever own them. */
+/** Turn ids minted by a standalone process; no peer can ever own them. */
 const LOCAL_EXECUTOR_ID = 'local';
 /**
- * OS-standard data dir for single-binary SQLite.
+ * OS-standard data dir for SQLite when `DATABASE_BACKEND=sqlite`.
  */
 const ENV_PATHS_APP_NAME = 'truefoundry-utils';
 const DEFAULT_SQLITE_FILENAME = 'db.sqlite';
+
+const DEFAULT_POSTGRES_USER = 'harness';
+const DEFAULT_POSTGRES_PASSWORD = 'harness';
+const DEFAULT_POSTGRES_DB = 'harness';
+const DEFAULT_POSTGRES_HOST = 'localhost';
+const DEFAULT_POSTGRES_PORT = 5432;
+const DEFAULT_REDIS_URL = 'redis://localhost:6379';
+
+export type DatabaseBackend = 'postgres' | 'sqlite';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -98,32 +110,12 @@ function parseBoolean(options: { envKey: string; raw: string | undefined; defaul
   throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
 }
 
-/** Required env var that also rejects blank strings. */
-function requireNonEmptyEnv(key: string): string {
-  const value = getEnv(key, { required: true });
-  if (value === undefined || value.trim() === '') {
-    throw new Error(`Environment variable ${key} is required but was not specified.`);
-  }
-  return value;
-}
-
-/** Builds a Postgres connection URL from discrete `POSTGRES_*` parts. */
-function buildPostgresConnectionString(parts: {
-  user: string;
-  password: string;
-  host: string;
-  port: number;
-  database: string;
-}): string {
-  return `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
-}
-
 /**
- * Prefer `dist/frontend` shipped in the npm tarball (npx / `pnpm server:bin`).
+ * Prefer `dist/_frontend` shipped in the npm tarball (npx / `pnpm start`).
  * Fall back to the monorepo sibling `../frontend/dist` (host-dev before a copy).
  */
 function resolveDefaultFrontendDir(): string {
-  const packaged = path.join(PACKAGE_ROOT, 'dist', 'frontend');
+  const packaged = path.join(PACKAGE_ROOT, 'dist', '_frontend');
   if (existsSync(path.join(packaged, 'index.html'))) {
     return packaged;
   }
@@ -147,25 +139,25 @@ function resolveOptionalPathEnv(envKey: string): string | undefined {
   return path.resolve(override);
 }
 
-/** Dropped in single-binary mode so nothing downstream can connect to a Redis it must not use. */
-function resolveRedisUrl(singleBinary: boolean): string | undefined {
-  if (singleBinary) {
+/** Dropped in standalone mode so nothing downstream can connect to a Redis it must not use. */
+function resolveRedisUrl(standalone: boolean): string | undefined {
+  if (standalone) {
     return undefined;
   }
-  return requireNonEmptyEnv('REDIS_URL');
+  return getEnv('REDIS_URL', { defaultValue: DEFAULT_REDIS_URL }) ?? DEFAULT_REDIS_URL;
 }
 
 /** Always longer than `LOCAL_EXECUTOR_ID`, so a peer can never be mistaken for a local owner. */
-function resolveExecutorId(singleBinary: boolean): string {
-  if (singleBinary) {
+function resolveExecutorId(standalone: boolean): string {
+  if (standalone) {
     return LOCAL_EXECUTOR_ID;
   }
   return randomAlphanumeric(6);
 }
 
 /**
- * Absolute SQLite file path for single-binary mode.
- * Env: `SQLITE_PATH` (optional). Default: `{env-paths data}/harness.sqlite`.
+ * Absolute SQLite file path when `DATABASE_BACKEND=sqlite`.
+ * Env: `SQLITE_PATH` (optional). Default: `{env-paths data}/db.sqlite`.
  */
 function resolveSqlitePath(): string {
   const override = getEnv('SQLITE_PATH');
@@ -176,20 +168,44 @@ function resolveSqlitePath(): string {
   return path.join(paths.data, DEFAULT_SQLITE_FILENAME);
 }
 
-/** Postgres URL only when multi-replica; single-binary never contacts Postgres. */
-function resolvePostgresDatabaseUrl(singleBinary: boolean): string | undefined {
-  if (singleBinary) {
+/** Env: `DATABASE_BACKEND`. When unset, follows `STANDALONE` (true→sqlite, false→postgres). */
+function resolveDatabaseBackend(standalone: boolean): DatabaseBackend {
+  const raw = getEnv('DATABASE_BACKEND');
+  if (raw === undefined || raw.trim() === '') {
+    return standalone ? 'sqlite' : 'postgres';
+  }
+  const value = raw.trim().toLowerCase();
+  if (value === 'postgres' || value === 'sqlite') {
+    return value;
+  }
+  throw new Error(`Environment variable DATABASE_BACKEND must be "postgres" or "sqlite", got "${raw}"`);
+}
+
+/** Postgres URL when `DATABASE_BACKEND=postgres`; otherwise undefined. */
+function resolvePostgresDatabaseUrl(databaseBackend: DatabaseBackend): string | undefined {
+  if (databaseBackend !== 'postgres') {
     return undefined;
   }
-  const postgresUser = requireNonEmptyEnv('POSTGRES_USER');
-  const postgresPassword = requireNonEmptyEnv('POSTGRES_PASSWORD');
-  const postgresDb = requireNonEmptyEnv('POSTGRES_DB');
-  const postgresHost = requireNonEmptyEnv('POSTGRES_HOST');
+  const postgresUser = getEnv('POSTGRES_USER', { defaultValue: DEFAULT_POSTGRES_USER }) ?? DEFAULT_POSTGRES_USER;
+  const postgresPassword =
+    getEnv('POSTGRES_PASSWORD', { defaultValue: DEFAULT_POSTGRES_PASSWORD }) ?? DEFAULT_POSTGRES_PASSWORD;
+  const postgresDb = getEnv('POSTGRES_DB', { defaultValue: DEFAULT_POSTGRES_DB }) ?? DEFAULT_POSTGRES_DB;
+  const postgresHost = getEnv('POSTGRES_HOST', { defaultValue: DEFAULT_POSTGRES_HOST }) ?? DEFAULT_POSTGRES_HOST;
   const postgresPort = parsePositiveInt({
     envKey: 'POSTGRES_PORT',
-    raw: requireNonEmptyEnv('POSTGRES_PORT'),
-    defaultValue: 5432,
+    raw: getEnv('POSTGRES_PORT'),
+    defaultValue: DEFAULT_POSTGRES_PORT,
   });
+  if (
+    postgresUser.trim() === '' ||
+    postgresPassword.trim() === '' ||
+    postgresDb.trim() === '' ||
+    postgresHost.trim() === ''
+  ) {
+    throw new Error(
+      'POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, and POSTGRES_HOST must be non-empty when using Postgres.',
+    );
+  }
   return buildPostgresConnectionString({
     user: postgresUser,
     password: postgresPassword,
@@ -199,7 +215,18 @@ function resolvePostgresDatabaseUrl(singleBinary: boolean): string | undefined {
   });
 }
 
-/** Defaults to `http://localhost:${PORT}` so local single-binary boots without an env file. */
+/** Builds a Postgres connection URL from discrete `POSTGRES_*` parts. */
+function buildPostgresConnectionString(parts: {
+  user: string;
+  password: string;
+  host: string;
+  port: number;
+  database: string;
+}): string {
+  return `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
+}
+
+/** Defaults to `http://localhost:${PORT}` so local standalone boots without an env file. */
 function resolvePublicBaseUrl(port: number): string {
   const override = getEnv('PUBLIC_BASE_URL');
   if (override !== undefined && override.trim() !== '') {
@@ -216,11 +243,16 @@ export interface ServerConfiguration {
   /** HTTP port the server listens on. Env: `PORT`. */
   PORT: number;
   /**
-   * Exactly one process: SQLite + in-memory event streams; Redis/Postgres unused.
-   * Env: `SINGLE_BINARY`. Default: true.
+   * Single-process topology: no Redis / executor peering.
+   * Env: `STANDALONE`. Default: true.
    */
-  SINGLE_BINARY: boolean;
-  /** Peering identity embedded in the turn ids this process mints; `local` in single-binary mode. */
+  STANDALONE: boolean;
+  /**
+   * Persistence engine. Env: `DATABASE_BACKEND` (`postgres` | `sqlite`).
+   * When unset: sqlite if standalone, otherwise postgres.
+   */
+  DATABASE_BACKEND: DatabaseBackend;
+  /** Peering identity embedded in the turn ids this process mints; `local` in standalone mode. */
   EXECUTOR_ID: string;
   /**
    * Optional override for the model catalog YAML (discovery presets for
@@ -248,7 +280,7 @@ export interface ServerConfiguration {
   SANDBOX_CATALOG_PATH: string | undefined;
   /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
-   * Env: `FRONTEND_DIR`. Default: packaged `dist/frontend` (npx tarball) or
+   * Env: `FRONTEND_DIR`. Default: packaged `dist/_frontend` (npx tarball) or
    * monorepo `packages/frontend/dist` — always absolute, independent of CWD.
    */
   FRONTEND_DIR: string;
@@ -283,14 +315,14 @@ export interface ServerConfiguration {
    */
   SERVER_EXECUTION_TIMEOUT_SECONDS: number;
   /**
-   * Absolute SQLite database file path. Set in single-binary mode only.
-   * Env: `SQLITE_PATH` (optional). Default: env-paths data dir + `harness.sqlite`.
+   * Absolute SQLite database file path. Set when `DATABASE_BACKEND=sqlite`.
+   * Env: `SQLITE_PATH` (optional). Default: env-paths data dir + `db.sqlite`.
    */
   SQLITE_PATH: string | undefined;
   /**
    * Postgres connection string derived from `POSTGRES_*` (not read from env directly).
    * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` with user/password URL-encoded.
-   * Required when `SINGLE_BINARY=false`; undefined in single-binary mode.
+   * Set when `DATABASE_BACKEND=postgres`; undefined for sqlite.
    */
   DATABASE_URL: string | undefined;
   /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
@@ -305,7 +337,7 @@ export interface ServerConfiguration {
    * Env: `POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS`. Default 60000.
    */
   POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: number;
-  /** Peering URL shared by all replicas; undefined in single-binary mode. Env: `REDIS_URL`. */
+  /** Peering URL shared by all replicas; undefined in standalone mode. Env: `REDIS_URL`. */
   REDIS_URL: string | undefined;
   /**
    * Max ms to wait for a peer executor's reply before failing with 424.
@@ -354,18 +386,21 @@ const serverExecutionTimeoutSeconds = parsePositiveInt({
   defaultValue: 600,
 });
 
-const singleBinary = parseBoolean({
-  envKey: 'SINGLE_BINARY',
-  raw: getEnv('SINGLE_BINARY'),
+const standalone = parseBoolean({
+  envKey: 'STANDALONE',
+  raw: getEnv('STANDALONE'),
   defaultValue: true,
 });
+
+const databaseBackend = resolveDatabaseBackend(standalone);
 
 const port = parsePort(getEnv('PORT'));
 
 const configuration: ServerConfiguration = {
   PORT: port,
-  SINGLE_BINARY: singleBinary,
-  EXECUTOR_ID: resolveExecutorId(singleBinary),
+  STANDALONE: standalone,
+  DATABASE_BACKEND: databaseBackend,
+  EXECUTOR_ID: resolveExecutorId(standalone),
   MODEL_CATALOG_PATH: resolveOptionalPathEnv('MODEL_CATALOG_PATH'),
   MCP_CATALOG_PATH: resolveOptionalPathEnv('MCP_CATALOG_PATH'),
   SKILL_CATALOG_PATH: resolveOptionalPathEnv('SKILL_CATALOG_PATH'),
@@ -395,8 +430,8 @@ const configuration: ServerConfiguration = {
     defaultValue: 30,
   }),
   SERVER_EXECUTION_TIMEOUT_SECONDS: serverExecutionTimeoutSeconds,
-  SQLITE_PATH: singleBinary ? resolveSqlitePath() : undefined,
-  DATABASE_URL: resolvePostgresDatabaseUrl(singleBinary),
+  SQLITE_PATH: databaseBackend === 'sqlite' ? resolveSqlitePath() : undefined,
+  DATABASE_URL: resolvePostgresDatabaseUrl(databaseBackend),
   DATABASE_POOL_MAX: parsePositiveInt({
     envKey: 'DATABASE_POOL_MAX',
     raw: getEnv('DATABASE_POOL_MAX'),
@@ -412,7 +447,7 @@ const configuration: ServerConfiguration = {
     raw: getEnv('POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS'),
     defaultValue: 60_000,
   }),
-  REDIS_URL: resolveRedisUrl(singleBinary),
+  REDIS_URL: resolveRedisUrl(standalone),
   REDIS_REQUEST_REPLY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'REDIS_REQUEST_REPLY_TIMEOUT_MS',
     raw: getEnv('REDIS_REQUEST_REPLY_TIMEOUT_MS'),
@@ -448,6 +483,6 @@ const configuration: ServerConfiguration = {
     raw: getEnv('TURN_SUBSCRIBE_TIMEOUT_MS'),
     defaultValue: 600_000,
   }),
-} as const;
+};
 
 export default configuration;
