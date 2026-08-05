@@ -158,6 +158,52 @@ describe("ModelProvidersClient", () => {
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
     });
 
+    test("upsert (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
+        const rawRequestBody = {
+            auth: { api_key: "x" },
+            models: [
+                { model_id: "x", name: "xy", properties: {} },
+                { model_id: "x", name: "xy", properties: {} },
+            ],
+            name: "xy",
+            type: "openai",
+        };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .put("/api/v1/settings/model-providers")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(409)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.modelProviders.upsert({
+                auth: {
+                    apiKey: "x",
+                },
+                models: [
+                    {
+                        modelId: "x",
+                        name: "xy",
+                        properties: {},
+                    },
+                    {
+                        modelId: "x",
+                        name: "xy",
+                        properties: {},
+                    },
+                ],
+                name: "xy",
+                type: "openai",
+            });
+        }).rejects.toThrow(TrueHarnessTypes.ConflictError);
+    });
+
     test("catalog", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });

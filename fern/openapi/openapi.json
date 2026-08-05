@@ -4587,7 +4587,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "put": {
-        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).",
+        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Well-known types are limited to one configured provider each; caller-supplied types (`alibaba`, `custom`) are unrestricted because each names its own endpoint.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4618,6 +4618,16 @@
               }
             },
             "description": "Invalid request body."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Another provider of the same well-known type is already configured under a different name."
           }
         },
         "summary": "Create or replace a model provider",

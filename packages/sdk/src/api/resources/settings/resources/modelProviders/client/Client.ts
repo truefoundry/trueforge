@@ -89,12 +89,13 @@ export class ModelProvidersClient {
     }
 
     /**
-     * Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).
+     * Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Well-known types are limited to one configured provider each; caller-supplied types (`alibaba`, `custom`) are unrestricted because each names its own endpoint.
      *
      * @param {TrueHarness.ModelProvider} request
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueHarness.BadRequestError}
+     * @throws {@link TrueHarness.ConflictError}
      * @throws {@link errors.TrueHarnessError}
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
@@ -167,6 +168,17 @@ export class ModelProvidersClient {
             switch (_response.error.statusCode) {
                 case 400:
                     throw new TrueHarness.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 409:
+                    throw new TrueHarness.ConflictError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,

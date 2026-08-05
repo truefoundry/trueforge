@@ -1515,7 +1515,7 @@ await client.settings.modelProviders.list();
 <dl>
 <dd>
 
-Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).
+Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Well-known types are limited to one configured provider each; caller-supplied types (`alibaba`, `custom`) are unrestricted because each names its own endpoint.
 </dd>
 </dl>
 </dd>
