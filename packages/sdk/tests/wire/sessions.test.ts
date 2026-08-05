@@ -12,6 +12,7 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: [
                 {
+                    agent_id: "agent_id",
                     agent_spec: { model: { name: "name" } },
                     created_at: "created_at",
                     id: "id",
@@ -33,6 +34,7 @@ describe("SessionsClient", () => {
         const expected = {
             data: [
                 {
+                    agentId: "agent_id",
                     agentSpec: {
                         model: {
                             name: "name",
@@ -77,6 +79,7 @@ describe("SessionsClient", () => {
         const rawRequestBody = { agent_spec: { model: { name: "name" } } };
         const rawResponseBody = {
             data: {
+                agent_id: "agent_id",
                 agent_spec: {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
@@ -111,6 +114,7 @@ describe("SessionsClient", () => {
         });
         expect(response).toEqual({
             data: {
+                agentId: "agent_id",
                 agentSpec: {
                     instructions: "instructions",
                     mcpServers: [
@@ -184,6 +188,32 @@ describe("SessionsClient", () => {
             .post("/api/v1/sessions")
             .jsonBody(rawRequestBody)
             .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.create({
+                agentSpec: {
+                    model: {
+                        name: "x",
+                    },
+                },
+            });
+        }).rejects.toThrow(TrueHarnessTypes.NotFoundError);
+    });
+
+    test("create (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
+        const rawRequestBody = { agent_spec: { model: { name: "x" } } };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions")
+            .jsonBody(rawRequestBody)
+            .respondWith()
             .statusCode(422)
             .jsonBody(rawResponseBody)
             .build();
@@ -205,6 +235,7 @@ describe("SessionsClient", () => {
 
         const rawResponseBody = {
             data: {
+                agent_id: "agent_id",
                 agent_spec: {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
@@ -232,6 +263,7 @@ describe("SessionsClient", () => {
         const response = await client.sessions.get("session_id");
         expect(response).toEqual({
             data: {
+                agentId: "agent_id",
                 agentSpec: {
                     instructions: "instructions",
                     mcpServers: [
@@ -303,6 +335,7 @@ describe("SessionsClient", () => {
         const rawRequestBody = {};
         const rawResponseBody = {
             data: {
+                agent_id: "agent_id",
                 agent_spec: {
                     instructions: "instructions",
                     mcp_servers: [{ name: "name" }],
@@ -331,6 +364,7 @@ describe("SessionsClient", () => {
         const response = await client.sessions.update("session_id");
         expect(response).toEqual({
             data: {
+                agentId: "agent_id",
                 agentSpec: {
                     instructions: "instructions",
                     mcpServers: [

@@ -109,9 +109,9 @@ for await (const item of response) {
 This SDK supports direct imports of subpackage clients, which allows JavaScript bundlers to tree-shake and include only the imported subpackage code. This results in much smaller bundle sizes.
 
 ```typescript
-import { ServerClient } from 'trueharness/server';
+import { AgentsClient } from 'trueharness/agents';
 
-const client = new ServerClient({...});
+const client = new AgentsClient({...});
 ```
 
 ### Additional Headers
