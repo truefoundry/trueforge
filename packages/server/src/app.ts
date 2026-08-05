@@ -138,6 +138,7 @@ export function createServerApp(deps: ServerDeps) {
       mcpServerStore: deps.mcpServerStore,
       tokenStore: deps.tokenStore,
       skillStore: deps.skillStore,
+      agentStore: deps.agentStore,
       eventSubscriptions: deps.eventSubscriptions,
       sandboxProviderStore: deps.sandboxProviderStore,
       logger: deps.logger,

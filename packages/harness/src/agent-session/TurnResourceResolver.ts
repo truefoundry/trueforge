@@ -13,6 +13,7 @@ import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
+import type { SessionAgentSource } from './schemas/session';
 
 /**
  * Factory that creates a Sandbox handle for a run (reattach via
@@ -55,11 +56,13 @@ export class TurnResourceResolver<
 > implements ITurnResourceResolver<TTurnCustom> {
   readonly #sources = new Map<string, Promise<ToolSource>>();
   #sandbox?: Sandbox | undefined;
+  /** Per-turn cache: first resolveAgentSpec wins for this resolver instance. */
+  #resolvedAgentSpec?: AgentSpec | undefined;
 
   constructor(
     protected readonly deps: {
-      /** Model name → client. Called once per resolved definition. */
-      llm: (model: string) => ILLM;
+      /** Model name → client. Called once per resolved definition; may load provider config. */
+      llm: (model: string) => Promise<ILLM>;
       /**
        * MCP server name → connection details. Required to use spec.mcp_servers:
        * the AgentSpec carries names only (no url/headers on the wire) — the
@@ -71,6 +74,11 @@ export class TurnResourceResolver<
       mcpConnectTimeoutMs: number;
       /** One sandbox type per runtime. Omit = no sandbox support. */
       sandboxProvider?: TurnSandboxFactory | undefined;
+      /**
+       * Named-agent lookup (registry id → live AgentSpec). Required when a
+       * session is bound by agent_id; omit only if all sessions are inline.
+       */
+      agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
@@ -83,6 +91,31 @@ export class TurnResourceResolver<
   /** Default: no-op tracing. Override to plug in a real tracer. */
   createTracing(): AgentTracing {
     return NOOP_AGENT_TRACING;
+  }
+
+  /**
+   * Inline → stored blob; named → deps.agent live lookup. Cached for this
+   * resolver instance (one turn).
+   */
+  async resolveAgentSpec(input: {
+    source: SessionAgentSource;
+    signal: AbortSignal;
+    tracing: AgentTracing;
+  }): Promise<AgentSpec> {
+    if (this.#resolvedAgentSpec !== undefined) {
+      return this.#resolvedAgentSpec;
+    }
+    if (input.source.type === 'inline') {
+      this.#resolvedAgentSpec = input.source.agent_spec;
+      return this.#resolvedAgentSpec;
+    }
+    if (this.deps.agent === undefined) {
+      throw new Error(
+        `Named agent '${input.source.agent_id}' cannot be resolved: no agent lookup configured on the turn resolver`,
+      );
+    }
+    this.#resolvedAgentSpec = await this.deps.agent(input.source.agent_id);
+    return this.#resolvedAgentSpec;
   }
 
   /**
@@ -179,7 +212,7 @@ export class TurnResourceResolver<
     return {
       definition: {
         model: spec.model.name,
-        modelClient: this.deps.llm(spec.model.name),
+        modelClient: await this.deps.llm(spec.model.name),
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.
         instruction: agentInfo ? undefined : spec.instructions,

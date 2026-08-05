@@ -388,7 +388,7 @@ describe('TurnHandle.stream()', () => {
     const closeSpy = jest.spyOn(sandbox, 'close').mockResolvedValue(undefined);
     const logger = makeSilentLogger();
     const resolver = new TurnResourceResolver({
-      llm: () => makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
+      llm: () => Promise.resolve(makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) })),
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
@@ -442,7 +442,7 @@ describe('TurnResourceResolver caches', () => {
         expect(a).toBe(b);
       }
     })({
-      llm: () => makeMockILLM(),
+      llm: () => Promise.resolve(makeMockILLM()),
       mcp: () => Promise.resolve({ url: 'http://example.invalid' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
@@ -458,7 +458,7 @@ describe('TurnResourceResolver caches', () => {
     let sandboxCreates = 0;
     const logger = makeSilentLogger();
     const resolver = new TurnResourceResolver({
-      llm: () => makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
+      llm: () => Promise.resolve(makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) })),
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,

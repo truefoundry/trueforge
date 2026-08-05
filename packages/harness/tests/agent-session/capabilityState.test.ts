@@ -167,6 +167,7 @@ describe('capability_state (tfy.plan fixture)', () => {
         return logger;
       },
       createTracing: () => resolver.createTracing(),
+      resolveAgentSpec: (input: Parameters<typeof resolver.resolveAgentSpec>[0]) => resolver.resolveAgentSpec(input),
       resolveSandbox: (input: Parameters<typeof resolver.resolveSandbox>[0]) => resolver.resolveSandbox(input),
       resolveAgentDefinition: (input: Parameters<typeof resolver.resolveAgentDefinition>[0]) =>
         resolver.resolveAgentDefinition(input),

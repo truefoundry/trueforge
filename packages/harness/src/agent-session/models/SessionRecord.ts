@@ -36,7 +36,7 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
 }
 
 /** Derive the turn-time agent source from a persisted session row. */
-export function sessionAgentSource(record: SessionRecord): SessionAgentSource {
+export function sessionAgentSource<TCustom extends object>(record: SessionRecord<TCustom>): SessionAgentSource {
   if (record.agent_id !== null && record.agent_spec === null) {
     return { type: 'named', agent_id: record.agent_id };
   }
