@@ -1,11 +1,11 @@
-import type { OAuthPendingAuthorization } from '@truefoundry/utils-core/core';
 import { sql, type Kysely } from 'kysely';
+import type { OAuthPendingAuthorization } from '../../../../mcp/auth/types';
 import {
   fromStoredOAuthPendingAuthorizationData,
   PENDING_AUTHORIZATION_TTL_MS,
   toStoredOAuthPendingAuthorizationData,
   type OAuthPendingAuthorizationData,
-} from '../../../mcpOAuthTypes';
+} from '../../../mcpServerStore';
 import { isoMsAgo, jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database } from '../../types';
 

@@ -7,6 +7,7 @@ export const CatalogProviderType = {
     Fireworks: "fireworks",
     Zai: "zai",
     Moonshot: "moonshot",
+    Together: "together",
     Alibaba: "alibaba",
 } as const;
 export type CatalogProviderType = (typeof CatalogProviderType)[keyof typeof CatalogProviderType];

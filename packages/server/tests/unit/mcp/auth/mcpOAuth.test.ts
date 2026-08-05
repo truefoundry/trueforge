@@ -3,20 +3,22 @@
  * Global fetch is stubbed; production code uses real fetch only.
  */
 import { resourceUrlFromServerUrl } from '@modelcontextprotocol/sdk/shared/auth-utils.js';
+import { McpConnectionError } from '@truefoundry/utils-core/core';
+import { InMemoryOAuthClientStore, InMemoryOAuthTokenStore } from '../../../../src/mcp/auth/inMemoryStores';
 import {
-  DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
-  InMemoryOAuthClientStore,
-  InMemoryOAuthTokenStore,
-  McpConnectionError,
   buildMcpAuthorizationUrl,
   completeMcpAuthorization,
   createMcpOAuthClient,
   ensureMcpClientRegistered,
   isMcpAuthRequired,
-  mcpOAuthCallbackUrl,
   resolveMcpAuth,
-  type OAuthClientRecord,
-} from '../../../../src/core';
+} from '../../../../src/mcp/auth/mcpDcr';
+import {
+  DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
+  mcpOAuthCallbackUrl,
+  validateRedirectUris,
+} from '../../../../src/mcp/auth/mcpOAuthHelpers';
+import type { OAuthClientRecord } from '../../../../src/mcp/auth/types';
 
 interface Stores {
   tokenStore: InMemoryOAuthTokenStore;
@@ -699,5 +701,23 @@ describe('completeMcpAuthorization', () => {
     });
     expect(await stores.mcpServerStore.getClient({ id: SERVER_ID })).toBeUndefined();
     expect(await stores.tokenStore.getToken({ id: SERVER_ID })).toBeUndefined();
+  });
+});
+
+describe('validateRedirectUris', () => {
+  it('accepts http(s) URLs', () => {
+    expect(() =>
+      validateRedirectUris({
+        redirectUris: ['https://harness.example.com/settings', 'http://localhost:3000/cb'],
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects non-http(s) URIs', () => {
+    expect(() => validateRedirectUris({ redirectUris: ['javascript:alert(1)'] })).toThrow(/Must be a valid URL/);
+  });
+
+  it('rejects malformed URIs', () => {
+    expect(() => validateRedirectUris({ redirectUris: ['not-a-url'] })).toThrow(McpConnectionError);
   });
 });

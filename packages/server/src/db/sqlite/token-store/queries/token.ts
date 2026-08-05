@@ -1,5 +1,5 @@
 import { sql, type Kysely } from 'kysely';
-import type { OAuthToken } from '../../../mcpOAuthTypes';
+import type { OAuthToken } from '../../../mcpServerStore';
 import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database } from '../../types';
 

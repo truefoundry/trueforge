@@ -1,29 +1,18 @@
-/**
- * Shared MCP OAuth URL / client-metadata helpers.
- * Protocol work stays in the MCP SDK (`client/auth.js`).
- */
 import type {
   AuthorizationServerMetadata,
   OAuthClientInformationMixed,
   OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
-import type { OAuthClientCredentials, OAuthServerMetadata } from '../../auth/IOAuthClientStore';
-import type { OAuthToken } from '../../auth/IOAuthTokenStore';
-import { McpConnectionError } from '../../errors';
+import { McpConnectionError } from '@truefoundry/utils-core/core';
+import type { OAuthClientCredentials, OAuthServerMetadata, OAuthToken } from './types';
 
-/** Fixed OAuth callback path for every MCP server (matches server mount). */
+/** Fixed OAuth callback path for every MCP server. */
 export const MCP_OAUTH_CALLBACK_PATH = '/api/v1/mcp-servers/oauth/callback';
 
-/**
- * When the token response omits `expires_in` (allowed by RFC 6749), use a 1h TTL so
- * the saved token is not treated as already expired on the next `resolveMcpAuth`.
- */
+/** Fallback TTL when an RFC 6749 token response omits `expires_in`. */
 export const DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS = 3600;
 
-/**
- * OAuth callback redirect_uri = `PUBLIC_BASE_URL` + fixed path. No trimming of the base.
- * Reads from process env (same source as server config).
- */
+/** Builds the server-owned MCP OAuth callback URL. */
 export function mcpOAuthCallbackUrl(): string {
   const publicBaseUrl = process.env['PUBLIC_BASE_URL'] ?? '';
   if (publicBaseUrl === '') {
@@ -32,10 +21,7 @@ export function mcpOAuthCallbackUrl(): string {
   return `${publicBaseUrl}${MCP_OAUTH_CALLBACK_PATH}`;
 }
 
-/** Client info for SDK token / authorize calls.
- * Same policy as servicefoundry outbound: form-body secret when present (client_secret_post),
- * otherwise public (none). Method is not stored on the client record.
- */
+/** Uses form-body client authentication when a secret is present. */
 export function mcpClientInformation(client: OAuthClientCredentials): OAuthClientInformationMixed {
   return client.clientSecret !== null
     ? {
@@ -49,7 +35,7 @@ export function mcpClientInformation(client: OAuthClientCredentials): OAuthClien
       };
 }
 
-/** Reconstruct authorization-server metadata enough for startAuthorization / token calls. */
+/** Reconstructs the metadata required by the MCP SDK authorization helpers. */
 export function mcpAuthorizationServerMetadata(server: OAuthServerMetadata): AuthorizationServerMetadata {
   return {
     issuer: new URL(server.authorizationEndpoint).origin,
@@ -72,11 +58,31 @@ export function oauthTokensToOAuthToken(
   fallbackRefreshToken: string | null,
 ): OAuthToken {
   const expiresInSeconds = tokens.expires_in ?? DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS;
-  const expiresAtMs = nowMs + expiresInSeconds * 1000;
   return {
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token ?? fallbackRefreshToken,
-    expiresAt: new Date(expiresAtMs).toISOString(),
+    expiresAt: new Date(nowMs + expiresInSeconds * 1000).toISOString(),
     scope: tokens.scope ?? null,
   };
+}
+
+/** True when the expiry parses and is strictly in the future. */
+export function isOAuthAccessTokenUsable(expiresAtIso: string, nowMs: number): boolean {
+  const expiresAtMs = Date.parse(expiresAtIso);
+  return !Number.isNaN(expiresAtMs) && expiresAtMs > nowMs;
+}
+
+/** Validates redirect URLs parse as HTTP(S). */
+export function validateRedirectUris({ redirectUris }: { redirectUris: string[] }): void {
+  for (const redirectUri of redirectUris) {
+    let parsed: URL;
+    try {
+      parsed = new URL(redirectUri);
+    } catch {
+      throw new McpConnectionError(`Invalid redirect URI: ${redirectUri}. Must be a valid URL.`, 400);
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new McpConnectionError(`Invalid redirect URI: ${redirectUri}. Must be a valid URL.`, 400);
+    }
+  }
 }

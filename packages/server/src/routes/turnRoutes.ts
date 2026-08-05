@@ -143,6 +143,11 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Requested action cannot be performed on the session because it is no longer usable.',
     },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description:
+        'The session is valid but a required resource is no longer available (e.g. model, MCP server, skill, or sandbox provider).',
+    },
   },
 });
 

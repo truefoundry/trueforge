@@ -7,8 +7,25 @@ import type * as serializers from "../index.js";
 export const CatalogProviderType: core.serialization.Schema<
     serializers.CatalogProviderType.Raw,
     TrueHarness.CatalogProviderType
-> = core.serialization.enum_(["openai", "anthropic", "google-gemini", "fireworks", "zai", "moonshot", "alibaba"]);
+> = core.serialization.enum_([
+    "openai",
+    "anthropic",
+    "google-gemini",
+    "fireworks",
+    "zai",
+    "moonshot",
+    "together",
+    "alibaba",
+]);
 
 export declare namespace CatalogProviderType {
-    export type Raw = "openai" | "anthropic" | "google-gemini" | "fireworks" | "zai" | "moonshot" | "alibaba";
+    export type Raw =
+        | "openai"
+        | "anthropic"
+        | "google-gemini"
+        | "fireworks"
+        | "zai"
+        | "moonshot"
+        | "together"
+        | "alibaba";
 }

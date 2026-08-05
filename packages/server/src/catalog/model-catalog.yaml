@@ -815,3 +815,102 @@ providers:
       - model_id: qwen3.8-max
         name: qwen3-8-max
         properties: {}
+  - type: together
+    name: together
+    models:
+      - model_id: deepseek-ai/DeepSeek-V4-Flash-0731
+        name: deepseek-ai-deepseek-v4-flash-0731
+        properties:
+          context_length: 1048576
+      - model_id: deepseek-ai/DeepSeek-V4-Pro
+        name: deepseek-ai-deepseek-v4-pro
+        properties:
+          context_length: 512000
+          reasoning_efforts:
+            - high
+            - max
+      - model_id: google/gemma-4-31B-it
+        name: google-gemma-4-31b-it
+        properties:
+          context_length: 262144
+      - model_id: LiquidAI/LFM2.5-8B-A1B
+        name: liquidai-lfm2-5-8b-a1b
+        properties:
+          context_length: 32768
+      - model_id: meta-llama/Llama-3.3-70B-Instruct-Turbo
+        name: meta-llama-llama-3-3-70b-instruct-turbo
+        properties:
+          context_length: 131072
+      - model_id: MiniMaxAI/MiniMax-M3
+        name: minimaxai-minimax-m3
+        properties:
+          context_length: 1000000
+      - model_id: moonshotai/Kimi-K2.6
+        name: moonshotai-kimi-k2-6
+        properties:
+          context_length: 262144
+      - model_id: moonshotai/Kimi-K2.7-Code
+        name: moonshotai-kimi-k2-7-code
+        properties:
+          context_length: 262144
+      - model_id: moonshotai/Kimi-K3
+        name: moonshotai-kimi-k3
+        properties:
+          context_length: 1000000
+      - model_id: nvidia/nemotron-3-ultra-550b-a55b
+        name: nvidia-nemotron-3-ultra-550b-a55b
+        properties:
+          context_length: 512300
+      - model_id: openai/gpt-oss-120b
+        name: openai-gpt-oss-120b
+        properties:
+          context_length: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+      - model_id: openai/gpt-oss-20b
+        name: openai-gpt-oss-20b
+        properties:
+          context_length: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+      - model_id: pearl-ai/gemma-4-31b-it
+        name: pearl-ai-gemma-4-31b-it
+        properties:
+          context_length: 32000
+      - model_id: Qwen/Qwen2.5-7B-Instruct-Turbo
+        name: qwen-qwen2-5-7b-instruct-turbo
+        properties:
+          context_length: 32768
+      - model_id: Qwen/Qwen3.5-9B
+        name: qwen-qwen3-5-9b
+        properties:
+          context_length: 262144
+      - model_id: Qwen/Qwen3.6-Plus
+        name: qwen-qwen3-6-plus
+        properties:
+          context_length: 1000000
+      - model_id: Qwen/Qwen3.7-Max
+        name: qwen-qwen3-7-max
+        properties:
+          context_length: 1000000
+      - model_id: Qwen/Qwen3.7-Plus
+        name: qwen-qwen3-7-plus
+        properties:
+          context_length: 1000000
+          max_output_tokens: 65536
+      - model_id: thinkingmachines/Inkling
+        name: thinkingmachines-inkling
+        properties:
+          context_length: 524288
+      - model_id: zai-org/GLM-5.2
+        name: zai-org-glm-5-2
+        properties:
+          context_length: 262144
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - high
+            - max

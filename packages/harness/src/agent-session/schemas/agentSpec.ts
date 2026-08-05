@@ -31,21 +31,10 @@ const ModelParamsSchema = z
   .loose() // this ensures extra model params are allowed
   .openapi('ModelParams');
 
-/** Same shape as server `parseModelFqn`: exactly one slash, non-empty provider and model. */
-function isModelFqn(name: string): boolean {
-  const slash = name.indexOf('/');
-  if (slash <= 0 || slash === name.length - 1) {
-    return false;
-  }
-  return !name.includes('/', slash + 1);
-}
-
+// Opaque runtime identifier; the hosting server owns naming conventions (e.g. provider/model).
 const ModelSpecSchema = z
   .object({
-    name: z
-      .string()
-      .min(1, 'model.name must not be empty')
-      .refine(isModelFqn, { message: 'model.name must be a fully qualified "provider/model"' }),
+    name: z.string().min(1, 'model.name must not be empty'),
     params: ModelParamsSchema.optional(),
   })
   .openapi('AgentSpecModel');

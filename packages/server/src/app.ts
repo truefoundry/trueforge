@@ -2,7 +2,6 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/utils-core/agent-session';
-import type { IOAuthTokenStore } from '@truefoundry/utils-core/core';
 import type { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -24,6 +23,7 @@ import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { ISkillStore } from './db/skillStore';
+import type { IOAuthTokenStore } from './mcp/auth/types';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 
@@ -75,7 +75,7 @@ export function createServerApp(deps: ServerDeps) {
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
   app.route('/api/v1/mcp-servers', createAvailableMcpServersRouter(deps.mcpServerStore));
-  // Shared OAuth callback — path must match MCP_OAUTH_CALLBACK_PATH in the harness package.
+  // Shared OAuth callback — path must match the server-owned MCP_OAUTH_CALLBACK_PATH.
   app.route(
     '/api/v1/mcp-servers/oauth',
     createMcpOAuthRouter({
