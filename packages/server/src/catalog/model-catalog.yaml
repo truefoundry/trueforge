@@ -221,14 +221,35 @@ providers:
         name: kimi-k2p7-code
         properties:
           context_length: 262144
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: accounts/fireworks/models/kimi-k3
         name: kimi-k3
         properties:
           context_length: 1048576
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: accounts/fireworks/models/minimax-m3
         name: minimax-m3
         properties:
           context_length: 512000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: accounts/fireworks/routers/glm-5p2-fast
         name: glm-5p2-fast
         properties:
@@ -244,10 +265,24 @@ providers:
         name: kimi-k2p7-code-fast
         properties:
           context_length: 262144
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: accounts/fireworks/routers/kimi-k3-fast
         name: kimi-k3-fast
         properties:
           context_length: 1048576
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
   - type: zai
     name: zai
     logo: https://assets.production.truefoundry.com/zai.svg
