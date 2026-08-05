@@ -7,6 +7,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
+import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createAvailableMcpServersRouter } from './apis/mcpServers';
@@ -72,6 +73,8 @@ export function createServerApp(deps: ServerDeps) {
 
   app.get('/healthz', c => c.text('OK!'));
 
+  // Only the no-identity-provider (local) case is implemented — see apis/auth.ts.
+  app.route('/api/v1/auth', createAuthRouter());
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
   app.route('/api/v1/mcp-servers', createAvailableMcpServersRouter(deps.mcpServerStore));

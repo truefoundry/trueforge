@@ -127,6 +127,18 @@ const resolveExecutorId = (singleBinary: boolean): string => {
   return randomAlphanumeric(6);
 };
 
+/**
+ * OIDC config.
+ */
+export interface OidcConfig {
+  /** e.g. an Okta custom authorization server, or an Azure AD tenant's v2.0 endpoint. Env: `OIDC_ISSUER_URL`. */
+  issuerUrl: string;
+  /** Env: `OIDC_CLIENT_ID`. */
+  clientId: string;
+  /** Env: `OIDC_CLIENT_SECRET`. */
+  clientSecret: string;
+}
+
 export interface ServerConfiguration {
   /** HTTP port the server listens on. Env: `PORT`. */
   PORT: number;
@@ -171,6 +183,11 @@ export interface ServerConfiguration {
    * Env: `PUBLIC_BASE_URL` (required).
    */
   PUBLIC_BASE_URL: string;
+  /**
+   * Undefined = local/single-binary mode: every request resolves to a fixed
+   * local admin identity instead of a real IdP session.
+   */
+  OIDC: OidcConfig | undefined;
   /**
    * RFC 7591 client_name shown on authorization-server consent screens.
    * Env: `OAUTH_CLIENT_NAME`. Default: "truefoundry-harness".
@@ -283,6 +300,28 @@ const mcpConnectTimeoutMs = parsePositiveInt({
   defaultValue: 30 * 1000,
 });
 
+/**
+ * OIDC is all-or-none: `OIDC_ISSUER_URL`/`OIDC_CLIENT_ID`/`OIDC_CLIENT_SECRET`
+ * must all be set (real auth) or all be unset (local/single-binary mode).
+ */
+const resolveOidcConfig = (): OidcConfig | undefined => {
+  const issuerUrl = getEnv('OIDC_ISSUER_URL');
+  const clientId = getEnv('OIDC_CLIENT_ID');
+  const clientSecret = getEnv('OIDC_CLIENT_SECRET');
+  const setCount = [issuerUrl, clientId, clientSecret].filter(value => value !== undefined && value !== '').length;
+
+  if (setCount === 0) {
+    return undefined;
+  }
+  if (setCount < 3 || issuerUrl === undefined || clientId === undefined || clientSecret === undefined) {
+    throw new Error(
+      'OIDC_ISSUER_URL, OIDC_CLIENT_ID, and OIDC_CLIENT_SECRET must all be set together, or all left unset ' +
+        '(unset = local/single-binary mode, no auth).',
+    );
+  }
+  return { issuerUrl, clientId, clientSecret };
+};
+
 const configuration: ServerConfiguration = {
   PORT: parsePort(getEnv('PORT')),
   EXECUTOR_ID: resolveExecutorId(singleBinary),
@@ -306,6 +345,7 @@ const configuration: ServerConfiguration = {
   MCP_REQUEST_TIMEOUT_MS: mcpRequestTimeoutMs,
   MCP_CONNECT_TIMEOUT_MS: mcpConnectTimeoutMs,
   PUBLIC_BASE_URL: requireNonEmptyEnv('PUBLIC_BASE_URL'),
+  OIDC: resolveOidcConfig(),
   OAUTH_CLIENT_NAME: getEnv('OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: parsePositiveInt({
     envKey: 'SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD',
@@ -377,5 +417,10 @@ const configuration: ServerConfiguration = {
     defaultValue: 600_000,
   }),
 } as const;
+
+/** True when a real identity provider is configured */
+export function isOidcConfigured(): boolean {
+  return configuration.OIDC !== undefined;
+}
 
 export default configuration;
