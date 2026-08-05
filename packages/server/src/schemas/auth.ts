@@ -13,7 +13,7 @@ export const AuthMeResponseSchema = z
 export type AuthMeResponse = z.infer<typeof AuthMeResponseSchema>;
 
 export const AuthLoginQuerySchema = z.object({
-  returnTo: z
+  return_to: z
     .string()
     .optional()
     .describe('Path to return to after login. Must be a same-origin relative path; anything else falls back to "/".'),
