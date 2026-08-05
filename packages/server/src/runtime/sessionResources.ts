@@ -231,16 +231,6 @@ export function buildTurnSandbox(input: {
   tracing: AgentTracing;
   tenantName: string;
 }): Sandbox {
-  const mcpBoundTimeoutMs = configuration.MCP_REQUEST_TIMEOUT_MS + configuration.MCP_CONNECT_TIMEOUT_MS;
-  const execTimeoutSeconds = Math.ceil(configuration.SANDBOX_EXEC_TIMEOUT_MS / 1000);
-  const natsRequestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000);
-  if (execTimeoutSeconds <= natsRequestTimeoutSeconds) {
-    throw new Error(
-      `SANDBOX_EXEC_TIMEOUT_MS (${String(configuration.SANDBOX_EXEC_TIMEOUT_MS)}) must exceed ` +
-        `MCP_REQUEST_TIMEOUT_MS + MCP_CONNECT_TIMEOUT_MS (${String(mcpBoundTimeoutMs)}) by at least one second`,
-    );
-  }
-
   const skillMounter = input.gitSkills.length > 0 ? new SkillMounter([...input.gitSkills]) : undefined;
   return new Sandbox({
     provider: input.provider,
@@ -249,7 +239,6 @@ export function buildTurnSandbox(input: {
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
-    execTimeoutSeconds,
     // Sandbox reads its tenant from TFY_TENANT_NAME for the ownership check
     // against provider-created sandbox ids (`<tenant>.<uuid>`).
     execExtraEnv: { TFY_TENANT_NAME: input.tenantName },

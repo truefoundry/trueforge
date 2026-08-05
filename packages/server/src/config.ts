@@ -182,12 +182,6 @@ export interface ServerConfiguration {
    */
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: number;
   /**
-   * Max milliseconds for one sandbox exec. Env: `SANDBOX_EXEC_TIMEOUT_MS`. Default 5 minutes.
-   * Must exceed `MCP_REQUEST_TIMEOUT_MS` + `MCP_CONNECT_TIMEOUT_MS` by at least one second
-   * (enforced when building a turn sandbox in sessionResources).
-   */
-  SANDBOX_EXEC_TIMEOUT_MS: number;
-  /**
    * Max seconds to wait for turn cancellation + connection drain on SIGTERM/SIGINT.
    * Env: `GRACEFUL_TIMEOUT_SECONDS`. Default 30.
    */
@@ -317,11 +311,6 @@ const configuration: ServerConfiguration = {
     envKey: 'SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD',
     raw: getEnv('SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD'),
     defaultValue: 20_971_520,
-  }),
-  SANDBOX_EXEC_TIMEOUT_MS: parsePositiveInt({
-    envKey: 'SANDBOX_EXEC_TIMEOUT_MS',
-    raw: getEnv('SANDBOX_EXEC_TIMEOUT_MS'),
-    defaultValue: 5 * 60 * 1000,
   }),
   GRACEFUL_TIMEOUT_SECONDS: parsePositiveInt({
     envKey: 'GRACEFUL_TIMEOUT_SECONDS',

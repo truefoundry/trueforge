@@ -31,6 +31,10 @@ export interface SandboxInfo {
 // Downloader/setup scripts can run longer than a normal exec.
 export const SKILL_DOWNLOAD_TIMEOUT_SECONDS = 180;
 
+// Keeps the sandbox-side NATS wait longer than the host's own MCP deadline, so the host
+// surfaces the real MCP error instead of the bridge client giving up first.
+const NATS_REQUEST_TIMEOUT_BUFFER_SECONDS = 30;
+
 // Write a script (base64-encoded, never interpolated raw) to a path and run it. Skill mounters reuse it.
 export function buildWriteAndRunScriptCommand(params: { scriptPath: string; scriptContent: string }): string {
   const b64 = Buffer.from(params.scriptContent, 'utf-8').toString('base64');
@@ -89,7 +93,6 @@ export interface SandboxOptions {
   /** Used to derive the Code Mode NATS wait as request + connect. */
   mcpRequestTimeoutMs: number;
   mcpConnectTimeoutMs: number;
-  execTimeoutSeconds: number;
   execExtraEnv?: Readonly<Record<string, string>> | undefined;
   tracing: AgentTracing;
   logger: Logger;
@@ -204,7 +207,6 @@ export class Sandbox extends LocalToolMCP {
   private codeExecToolSets: readonly IToolSet[] = [];
   private readonly fileDownloadEnabled: boolean;
   private readonly natsRequestTimeoutSeconds: number;
-  private readonly execTimeoutSeconds: number;
   private readonly execExtraEnv?: Readonly<Record<string, string>> | undefined;
   private readonly skillMounter?: ISkillMounter | undefined;
   private cachedSkillsSection?: string | undefined;
@@ -231,8 +233,7 @@ export class Sandbox extends LocalToolMCP {
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
     const mcpBoundTimeoutMs = options.mcpRequestTimeoutMs + options.mcpConnectTimeoutMs;
-    this.natsRequestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000);
-    this.execTimeoutSeconds = options.execTimeoutSeconds;
+    this.natsRequestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000) + NATS_REQUEST_TIMEOUT_BUFFER_SECONDS;
     this.execExtraEnv = options.execExtraEnv;
     // Scripts are internal to Sandbox: the upload paths, env contract, and prompt
     // text are all hardcoded here, so injecting different content was never a
@@ -496,7 +497,6 @@ export class Sandbox extends LocalToolMCP {
       command: input.command,
       cwd: input.cwd,
       env,
-      timeoutSeconds: this.execTimeoutSeconds,
     });
 
     return {
