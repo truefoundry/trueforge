@@ -71,6 +71,7 @@ export const VERCEL_AI_PROVIDER_NAMES = [
   'zai',
   'moonshot',
   'alibaba',
+  'together',
   'custom',
 ] as const;
 
@@ -101,9 +102,9 @@ export interface VercelAILLMConfig {
 /**
  * Every OpenAI-compatible provider shares this adapter and differs only by endpoint, which the
  * caller resolves. The provider name doubles as the `providerOptions` key, which is why
- * {@link buildProviderOptions} can key on it directly. Fireworks and Z AI stay here on purpose:
- * `@ai-sdk/fireworks` downgrades `json_schema` to a schema-less `json_object`, and the only Z AI
- * package is a community one that drops replayed reasoning.
+ * {@link buildProviderOptions} can key on it directly. Fireworks, Together and Z AI stay here on
+ * purpose: the Fireworks and Together packages both downgrade `json_schema` to a schema-less
+ * `json_object`, and the only Z AI package is a community one that drops replayed reasoning.
  */
 function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   const { provider, modelId, apiKey, headers, baseUrl } = config;
@@ -174,6 +175,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
     }
     case 'fireworks':
     case 'zai':
+    case 'together':
     case 'custom': {
       return compatibleModel(config);
     }

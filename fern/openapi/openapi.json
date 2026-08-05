@@ -375,6 +375,7 @@
               "fireworks",
               "zai",
               "moonshot",
+              "together",
               "alibaba"
             ],
             "type": "string"
@@ -3164,7 +3165,8 @@
               "google-gemini",
               "fireworks",
               "zai",
-              "moonshot"
+              "moonshot",
+              "together"
             ],
             "type": "string"
           }
