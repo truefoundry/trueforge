@@ -1,7 +1,7 @@
 # Full-stack smoke test. Reads packages/server/.env for secrets and
 # credentials; host ports and in-network DB/Redis targets are opinionated here
 # so they do not collide with or inherit host-dev values.
-name: harness
+name: trueforge
 
 services:
   postgres:

@@ -1,164 +1,152 @@
-# TrueFoundry harness workspace
+# TrueForge
 
-pnpm workspace with:
+TrueForge is an open-source agent harness: the runtime layer that turns an LLM into a working agent. It runs the execution loop — model calls, tool use, context, and session state — and exposes the result as a chat UI, an HTTP API, and a TypeScript library.
 
-| Package                   | Path                                     | Role                                                  |
-| ------------------------- | ---------------------------------------- | ----------------------------------------------------- |
-| `@truefoundry/utils-core` | [`packages/harness`](packages/harness)   | Published library (`core` + `agent-session`)          |
-| `@truefoundry/utils`      | [`packages/server`](packages/server)     | Published app + CLI (`npx @truefoundry/utils`)        |
-| `frontend`                | [`packages/frontend`](packages/frontend) | Private draft-only agent chat UI (bundled into utils) |
+Out of the box you get multi-turn sessions with streaming, MCP tool servers (including OAuth), skills, sandboxed code execution, human-in-the-loop approvals, and subagents. Configure providers in the UI or via the settings APIs; run as a single process on SQLite, or scale out with Postgres and Redis.
 
-## Choose a mode
+> Note: Package and folder names will be renamed soon to match the release names below. They have been intentionally named "utils" to not leak before announcement.
 
-|            | **Standalone**                         | **Non-standalone**                              |
-| ---------- | -------------------------------------- | ----------------------------------------------- |
-| Process    | One server process                     | One or more replicas with Redis peering         |
-| Default DB | SQLite                                 | Postgres                                        |
-| Infra      | None                                   | Postgres + Redis (`pnpm dev:infra` or your own) |
-| Dev        | `pnpm standalone:dev`                  | `pnpm dev` (after infra)                        |
-| Prod-like  | `pnpm build` → `pnpm standalone:start` | `pnpm build` → `pnpm start`                     |
+| Package                   | Release Name                  | Path                                     | What it is                                                  |
+| ------------------------- | ----------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
+| `@truefoundry/utils`      | `@truefoundry/trueforge`      | [`packages/server`](packages/server)     | Agent server + bundled UI                                   |
+| `@truefoundry/utils-core` | `@truefoundry/trueforge-core` | [`packages/harness`](packages/harness)   | Library: agent core, sessions, and streaming                |
+| `trueharness`             | `@truefoundry/trueforge-sdk`  | [`packages/sdk`](packages/sdk)           | Generated TypeScript SDK                                    |
+| `frontend`                | —                             | [`packages/frontend`](packages/frontend) | Chat UI (bundled into the server; not published on its own) |
 
-Root scripts set `STANDALONE` and `NODE_ENV` explicitly (they win over `.env`). Mode selects persistence: standalone → SQLite; non-standalone → Postgres + Redis.
+Requires **Node.js 22.13+** and **pnpm**.
 
-Configure model providers (and MCP / skills / sandbox) in the UI under Settings, or via the settings APIs — discovery presets come from the `*/catalog` endpoints.
-
-## One-time setup
+## Run from source
 
 ```bash
 pnpm install
 cp packages/server/.env.example packages/server/.env
 ```
 
-You usually do not set `STANDALONE` in `.env`; use the root scripts below. Leave `POSTGRES_*` / `REDIS_URL` as in the example for local non-standalone (Compose and config defaults match).
+You usually do not set `STANDALONE` in `.env`. Root scripts set it (and `NODE_ENV`) for you.
 
-## Standalone quickstart
+### Standalone (local, zero infra)
 
-Zero-env: SQLite, no Redis/Postgres.
+SQLite only — good for trying the product or single-process use.
 
 ```bash
 pnpm standalone:dev
 ```
 
-Open `http://localhost:3000` (Vite proxies `/api/*` to the API on `:8790`).
+- UI (Vite): [http://localhost:3000](http://localhost:3000) — proxies `/api/*` to the API
+- API: [http://localhost:8790](http://localhost:8790)
 
-Prod-like (packed UI served by the server, no Vite):
+Production-like (UI served by the server, no Vite):
 
 ```bash
 pnpm build
 pnpm standalone:start
 ```
 
-Open `http://localhost:8790`. Same path as published `npx @truefoundry/utils` (CLI entry is `dist/cli.js`; see below).
+Open [http://localhost:8790](http://localhost:8790).
 
-## Non-standalone quickstart
+### Multi-replica (Postgres + Redis)
 
-Postgres + Redis required.
+Use this when you need more than one server process (cancels and turn streams peer over Redis).
 
-Terminal 1:
+Terminal 1 — start Postgres (`:5432`) and Redis (`:6379`):
 
 ```bash
-pnpm dev:infra   # Postgres :5432 and Redis :6379; Ctrl+C stops them
+pnpm dev:infra
 ```
 
 Terminal 2:
 
 ```bash
-pnpm dev         # API :8790 + Vite :3000; STANDALONE=false
+pnpm dev
 ```
 
-Open `http://localhost:3000`.
+Open [http://localhost:3000](http://localhost:3000).
 
-Prod-like:
+|           | Standalone                             | Multi-replica                                   |
+| --------- | -------------------------------------- | ----------------------------------------------- |
+| Process   | One server                             | One or more replicas with Redis peering         |
+| Database  | SQLite                                 | Postgres                                        |
+| Infra     | None                                   | Postgres + Redis (`pnpm dev:infra` or your own) |
+| Dev       | `pnpm standalone:dev`                  | `pnpm dev` (after infra)                        |
+| Prod-like | `pnpm build` → `pnpm standalone:start` | `pnpm build` → `pnpm start`                     |
 
-```bash
-pnpm build
-pnpm start       # node dist/main.js, STANDALONE=false; needs infra still running
-```
-
-Open `http://localhost:8790` (UI from `packages/server/dist/_frontend`).
-
-## Optional scripts
-
-| Script                                               | Purpose                                                                                        |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `pnpm dev:no-watch` / `pnpm standalone:dev:no-watch` | Same as `dev` / `standalone:dev` but server does not restart on file changes (Vite still runs) |
-| `pnpm dev:server:ui`                                 | Build FE, copy to `dist/_frontend`, watched API, no Vite — packed UI + hot server              |
-| `pnpm smoke` / `pnpm smoke:down`                     | Full Compose stack (API+UI image on `:8791`)                                                   |
-| `pnpm clean` / `pnpm clean:all`                      | Build outputs (+ `node_modules` for `:all`)                                                    |
-
-Migrations run on server startup. Postgres-only without HTTP:
+Migrations run on server startup. To run Postgres migrations without starting HTTP:
 
 ```bash
 pnpm --filter @truefoundry/utils migrate
 ```
 
-This script sets `STANDALONE=false` and connects using the `POSTGRES_*` values from `packages/server/.env`. It refuses to run in standalone mode (SQLite migrations run on server boot instead).
+That script sets `STANDALONE=false` and uses `POSTGRES_*` from `packages/server/.env`. It will not run in standalone mode (SQLite migrations happen on boot instead).
 
-Workspace checks:
+## Configuration
 
-```bash
-pnpm build
-pnpm test
-pnpm typecheck
-```
+Model providers, MCP servers, skills, and sandboxes are configured in the UI under **Settings**, or via the settings APIs. Discovery presets come from the `*/catalog` endpoints. Interactive API docs are at `/api/v1/docs`.
 
-`FRONTEND_PORT` moves Vite off `:3000`, `VITE_SERVER_URL` points it at another API. See [`packages/frontend/README.md`](packages/frontend/README.md).
+See [`packages/server/.env.example`](packages/server/.env.example) for every env var.
 
-Local server scripts resolve `@truefoundry/utils-core` from source (`exports.development`), so a utils-core `dist/` build is not required for `pnpm dev` / `standalone:dev`. Root watched modes regenerate sandbox helpers and catalog YAML into TypeScript; neither path builds `dist`.
+Useful overrides:
 
-## Serving the UI from the server
+- `PORT` — API port (default `8790`)
+- `FRONTEND_PORT` — Vite UI port in dev (default `3000`); see [`packages/frontend/README.md`](packages/frontend/README.md)
+- `VITE_SERVER_URL` — point the Vite proxy at a different API
+- `FRONTEND_DIR` — directory of a built UI for the server to serve
+- `SQLITE_PATH` — SQLite file location in standalone mode
+- `REDIS_URL` / `POSTGRES_*` — used when `STANDALONE=false`
 
-Deployments are one process on one origin: `/api/*` (including `/api/v1/docs` and `/api/v1/openapi.json`) and `/healthz` are the API; everything else resolves to the UI.
+Deployments are one process on one origin: `/api/*` (including OpenAPI) and `/healthz` are the API; everything else is the UI. The server prefers a packaged `dist/_frontend`, then `packages/frontend/dist`. With no UI build present it serves the API only (normal for Vite-backed `pnpm dev`).
 
-Frontend resolution prefers packaged `dist/_frontend` (npm tarball / Docker / `pnpm build` / `dev:server:ui` copy), then monorepo `packages/frontend/dist`. Override with `FRONTEND_DIR` if needed. With no build at that path the server logs a warning and serves the API only (what Vite-backed `dev` needs).
-
-### `cli.js` vs `main.js`
-
-| Entry          | Used by                                         | Role                                             |
-| -------------- | ----------------------------------------------- | ------------------------------------------------ |
-| `dist/main.js` | Docker, `pnpm start`, `pnpm standalone:start`   | Env-only server boot                             |
-| `dist/cli.js`  | `npx @truefoundry/utils` (`package.json` `bin`) | Shebang, `--help`, `--port`, then imports `main` |
-
-`--port` must be applied before config loads, which is why the published bin is not `main.js` alone.
-
-## Docker Compose smoke test
-
-Full stack in containers — built server image serves API + UI (no Vite). Smoke forces `STANDALONE=false` (Postgres + Redis):
-
-```bash
-pnpm smoke       # build, wait for healthy services, then check /healthz and the UI app shell
-pnpm smoke:down  # stop the stack
-```
-
-Open `http://localhost:8791`. Secrets and Postgres credentials come from `packages/server/.env`. Host ports and in-network DB/Redis targets are fixed in Compose so they do not collide with development: Postgres `:5433`, Redis `:6380`, app `:8791` (vs `pnpm dev:infra` on `:5432`/`:6379` and `pnpm dev` on `:8790`/`:3000`).
-
-Requires `packages/server/.env`. `.env` and `data/` are gitignored. Development infra stores Postgres under `./data/dev/postgres`.
-
-## SDK generation
-
-`packages/sdk` and `fern/openapi/openapi.json` are both generated by
-[Fern](https://buildwithfern.com) and committed — edit `packages/server/src/routes/`, never the
-output. [`generate-sdk.yaml`](.github/workflows/generate-sdk.yaml) regenerates them on every change;
-see its comments for the flags if you need to run it by hand (Docker required):
-
-```bash
-pnpm openapi:write
-fern check && fern generate --group ts-sdk --version 0.0.0 --local --generate-tests
-```
-
-## Library imports
+## Use as a library
 
 ```ts
-import { AgentThread } from '@truefoundry/utils-core/core';
-import { Sessions } from '@truefoundry/utils-core/agent-session';
+import { AgentThread } from '@truefoundry/trueforge-core/core';
+import { Sessions } from '@truefoundry/trueforge-core/agent-session';
 ```
 
 Or namespaced:
 
 ```ts
-import { core, agentSession } from '@truefoundry/utils-core';
+import { core, agentSession } from '@truefoundry/trueforge-core';
 ```
 
-Workspace-only `development` exports are removed from the published package. Its staged `dist/package.json` remains CommonJS so `require()` uses `.js`, while ESM consumers use `.mjs`. After switching from `@truefoundry/utils` to `@truefoundry/utils-core`, consumers such as `tfy-llm-gateway` keep the same deep-import and CJS/ESM layout. Consumer compatibility is checked against a packed artifact, including root, barrel, deep skill imports, and both CJS and ESM loading.
+The published package supports both CommonJS and ESM. Server-only dependencies (Hono, SQLite, Postgres, Redis, etc.) stay in `@truefoundry/trueforge` and are not pulled in by library consumers.
 
-Server-only deps (`hono`, `@hono/node-server`, `@hono/swagger-ui`, `yaml`, `better-sqlite3`, `pg`, `redis`) live in `packages/server` and never reach library consumers.
+## Development
+
+| Script                                               | Purpose                                               |
+| ---------------------------------------------------- | ----------------------------------------------------- |
+| `pnpm standalone:dev` / `pnpm dev`                   | Local UI + API (see modes above)                      |
+| `pnpm standalone:dev:no-watch` / `pnpm dev:no-watch` | Same, but the server does not restart on file changes |
+| `pnpm dev:server:ui`                                 | Packed UI + watched API (no Vite)                     |
+| `pnpm build`                                         | Build all packages                                    |
+| `pnpm test` / `pnpm typecheck`                       | Workspace checks                                      |
+| `pnpm smoke` / `pnpm smoke:down`                     | Full Docker Compose stack                             |
+| `pnpm clean` / `pnpm clean:all`                      | Remove build outputs (+ `node_modules` for `:all`)    |
+
+Local server scripts resolve `@truefoundry/utils-core` from source, so you do not need a utils-core `dist/` build for `pnpm dev` / `standalone:dev`.
+
+### Smoke test (Docker)
+
+Full stack in containers — built server image serves API + UI. Forces multi-replica mode (`STANDALONE=false`):
+
+```bash
+pnpm smoke       # build, wait for healthy services, check /healthz and UI
+pnpm smoke:down
+```
+
+Open [http://localhost:8791](http://localhost:8791). Credentials come from `packages/server/.env`. Host ports differ from local dev so they do not collide: Postgres `:5433`, Redis `:6380`, app `:8791`.
+
+### Entry points
+
+| File           | Used by                                       | Role                                        |
+| -------------- | --------------------------------------------- | ------------------------------------------- |
+| `dist/main.js` | Docker, `pnpm start`, `pnpm standalone:start` | Env-only server boot                        |
+| `dist/cli.js`  | `npx @truefoundry/trueforge`                  | CLI (`--help`, `--port`), then loads `main` |
+
+### Generated SDK and OpenAPI
+
+`packages/sdk` and `fern/openapi/openapi.json` are generated by [Fern](https://buildwithfern.com) and committed. Edit route handlers under `packages/server/src/routes/`, not the generated output. CI regenerates them; to run locally (Docker required):
+
+```bash
+pnpm openapi:write
+fern check && fern generate --group ts-sdk --version 0.0.0 --local --generate-tests
+```
