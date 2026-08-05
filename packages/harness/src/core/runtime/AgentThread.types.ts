@@ -15,7 +15,6 @@ import type {
   MCPServerAuthInfo,
   ModelMessageDeltaEvent,
   ModelMessageEvent,
-  SandboxArtifactsEvent,
   SandboxCreatedEvent,
   ThreadCreatedEvent,
   ThreadOverwriteContextEvent,
@@ -128,7 +127,6 @@ export type AgentThreadEvent =
   | InternalCapabilityStateEvent
   | MCPInitializeEvent
   | SandboxCreatedEvent
-  | SandboxArtifactsEvent
   | ToolApprovalRequiredEvent
   | ToolResponseRequiredEvent
   | InternalPassthroughEvent;

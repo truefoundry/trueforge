@@ -2005,59 +2005,6 @@
         },
         "type": "object"
       },
-      "SandboxArtifact": {
-        "properties": {
-          "label": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "label",
-          "path"
-        ],
-        "type": "object"
-      },
-      "SandboxArtifactsEvent": {
-        "properties": {
-          "artifacts": {
-            "items": {
-              "$ref": "#/components/schemas/SandboxArtifact"
-            },
-            "type": "array"
-          },
-          "created_at": {
-            "type": "string"
-          },
-          "id": {
-            "description": "Unique identifier for the event",
-            "type": "string"
-          },
-          "sandbox_id": {
-            "type": "string"
-          },
-          "thread_id": {
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "sandbox.artifacts"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "id",
-          "created_at",
-          "sandbox_id",
-          "artifacts",
-          "thread_id"
-        ],
-        "type": "object"
-      },
       "SandboxConfig": {
         "properties": {
           "enabled": {
@@ -2211,7 +2158,6 @@
             "mcp.auth_required": "#/components/schemas/MCPAuthRequiredEvent",
             "mcp.initialize": "#/components/schemas/MCPInitializeEvent",
             "model.message": "#/components/schemas/ModelMessageEvent",
-            "sandbox.artifacts": "#/components/schemas/SandboxArtifactsEvent",
             "sandbox.created": "#/components/schemas/SandboxCreatedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
@@ -2250,9 +2196,6 @@
           },
           {
             "$ref": "#/components/schemas/SandboxCreatedEvent"
-          },
-          {
-            "$ref": "#/components/schemas/SandboxArtifactsEvent"
           },
           {
             "$ref": "#/components/schemas/ToolApprovalRequiredEvent"
@@ -3033,7 +2976,6 @@
             "mcp.initialize": "#/components/schemas/MCPInitializeEvent",
             "model.message": "#/components/schemas/ModelMessageEvent",
             "model.message.delta": "#/components/schemas/ModelMessageDeltaEvent",
-            "sandbox.artifacts": "#/components/schemas/SandboxArtifactsEvent",
             "sandbox.created": "#/components/schemas/SandboxCreatedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
@@ -3069,9 +3011,6 @@
           },
           {
             "$ref": "#/components/schemas/SandboxCreatedEvent"
-          },
-          {
-            "$ref": "#/components/schemas/SandboxArtifactsEvent"
           },
           {
             "$ref": "#/components/schemas/ToolApprovalRequiredEvent"
@@ -3878,7 +3817,7 @@
     },
     "/api/v1/sessions/{session_id}/sandbox/file": {
       "get": {
-        "description": "Download a file the agent produced inside this session's sandbox. Paths come from the `sandbox.artifacts` event; the sandbox is resolved from the session, so no sandbox id is needed. Requires `config.sandbox.file_downloads` on the agent spec.",
+        "description": "Download a file from this session's sandbox. Paths come from the assistant's `sandbox_artifacts` block. Requires `config.sandbox.file_downloads`.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -3893,12 +3832,12 @@
             }
           },
           {
-            "description": "Absolute path of the file inside the sandbox, as reported by a `sandbox.artifacts` event.",
+            "description": "Absolute path of the file inside the sandbox, as listed in the assistant's `sandbox_artifacts` block.",
             "in": "query",
             "name": "path",
             "required": true,
             "schema": {
-              "description": "Absolute path of the file inside the sandbox, as reported by a `sandbox.artifacts` event.",
+              "description": "Absolute path of the file inside the sandbox, as listed in the assistant's `sandbox_artifacts` block.",
               "minLength": 1,
               "type": "string"
             }
@@ -3924,7 +3863,7 @@
                 }
               }
             },
-            "description": "Path is not absolute, is malformed, contains \"..\" segments, or refers to a directory."
+            "description": "Invalid path, or the path is a directory."
           },
           "403": {
             "content": {
@@ -3934,7 +3873,7 @@
                 }
               }
             },
-            "description": "Sandbox does not belong to this tenant."
+            "description": "Sandbox belongs to another tenant."
           },
           "404": {
             "content": {
@@ -3944,7 +3883,7 @@
                 }
               }
             },
-            "description": "Session not found, session has no sandbox, or file not found."
+            "description": "Session, sandbox, or file not found."
           },
           "410": {
             "content": {
@@ -3974,7 +3913,7 @@
                 }
               }
             },
-            "description": "File downloads are disabled for this session, or no sandbox provider is configured."
+            "description": "File downloads disabled, or no sandbox provider configured."
           },
           "502": {
             "content": {

@@ -6,7 +6,6 @@ import type * as serializers from "../index.js";
 import { McpAuthRequiredEvent } from "./McpAuthRequiredEvent.js";
 import { McpInitializeEvent } from "./McpInitializeEvent.js";
 import { ModelMessageEvent } from "./ModelMessageEvent.js";
-import { SandboxArtifactsEvent } from "./SandboxArtifactsEvent.js";
 import { SandboxCreatedEvent } from "./SandboxCreatedEvent.js";
 import { ThreadCreatedEvent } from "./ThreadCreatedEvent.js";
 import { ThreadDoneEvent } from "./ThreadDoneEvent.js";
@@ -21,7 +20,6 @@ export const SessionEvent: core.serialization.Schema<serializers.SessionEvent.Ra
         McpAuthRequiredEvent,
         McpInitializeEvent,
         ModelMessageEvent,
-        SandboxArtifactsEvent,
         SandboxCreatedEvent,
         ThreadCreatedEvent,
         ThreadDoneEvent,
@@ -37,7 +35,6 @@ export declare namespace SessionEvent {
         | McpAuthRequiredEvent.Raw
         | McpInitializeEvent.Raw
         | ModelMessageEvent.Raw
-        | SandboxArtifactsEvent.Raw
         | SandboxCreatedEvent.Raw
         | ThreadCreatedEvent.Raw
         | ThreadDoneEvent.Raw

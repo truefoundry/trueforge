@@ -224,7 +224,7 @@ export const downloadSandboxFileRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Download a file from the session sandbox',
   description:
-    "Download a file the agent produced inside this session's sandbox. Paths come from the `sandbox.artifacts` event; the sandbox is resolved from the session, so no sandbox id is needed. Requires `config.sandbox.file_downloads` on the agent spec.",
+    "Download a file from this session's sandbox. Paths come from the assistant's `sandbox_artifacts` block. Requires `config.sandbox.file_downloads`.",
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'download_sandbox_file',
   request: {
@@ -238,15 +238,15 @@ export const downloadSandboxFileRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Path is not absolute, is malformed, contains ".." segments, or refers to a directory.',
+      description: 'Invalid path, or the path is a directory.',
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Sandbox does not belong to this tenant.',
+      description: 'Sandbox belongs to another tenant.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Session not found, session has no sandbox, or file not found.',
+      description: 'Session, sandbox, or file not found.',
     },
     410: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -258,7 +258,7 @@ export const downloadSandboxFileRoute = createRoute({
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'File downloads are disabled for this session, or no sandbox provider is configured.',
+      description: 'File downloads disabled, or no sandbox provider configured.',
     },
     502: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

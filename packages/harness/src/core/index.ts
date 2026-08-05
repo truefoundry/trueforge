@@ -109,7 +109,6 @@ export {
   MCPInitializeEventSchema,
   ModelMessageDeltaEventSchema,
   ModelMessageEventSchema,
-  SandboxArtifactsEventSchema,
   SandboxCreatedEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
@@ -126,7 +125,6 @@ export type {
   MCPAuthRequiredEvent,
   MCPServerAuthInfo,
   MCPServerInitInfo,
-  SandboxArtifactsEvent,
   ThreadDoneEvent,
   ThreadOverwriteContextEvent,
 } from './events/schema';
@@ -174,8 +172,6 @@ export type {
 } from './mcp/auth';
 
 // Sandbox (concrete implementation; provider details exported for composition)
-export { SandboxArtifactSchema, parseSandboxArtifacts } from './sandbox/artifacts';
-export type { SandboxArtifact } from './sandbox/artifacts';
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
 export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
 export type { SandboxExecParams, SandboxInit, SandboxProvider } from './sandbox/provider/Provider';

@@ -60,12 +60,12 @@ class SandboxPathTraversalError extends SandboxError {
   }
 }
 
-class SandboxInvalidPathError extends SandboxError {
+class SandboxPathNotAbsoluteError extends SandboxError {
   readonly statusCode = 400;
 
-  constructor({ path, reason }: { path: string; reason: string }) {
-    super(`Path ${reason}: ${path}`);
-    this.name = 'SandboxInvalidPathError';
+  constructor(path: string) {
+    super(`Path must be absolute: ${path}`);
+    this.name = 'SandboxPathNotAbsoluteError';
   }
 }
 
@@ -78,40 +78,16 @@ export function validateSandboxOwnedByTenant(sandboxId: string, tenantName: stri
 
 const PATH_TRAVERSAL_RE = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
 
-export function hasPathTraversal(path: string): boolean {
-  return PATH_TRAVERSAL_RE.test(path);
-}
-
 export function validateNoPathTraversal(path: string): void {
-  if (hasPathTraversal(path)) {
+  if (PATH_TRAVERSAL_RE.test(path)) {
     throw new SandboxPathTraversalError(path);
   }
 }
 
-/** Linux PATH_MAX / NAME_MAX: beyond these the kernel refuses the path outright. */
-const MAX_PATH_BYTES = 4096;
-const MAX_SEGMENT_BYTES = 255;
-
-/**
- * Every check a caller-supplied download path must pass. Shape violations are rejected here
- * rather than at the provider, which reports them as opaque backend failures indistinguishable
- * from real infrastructure errors.
- */
+/** Every check a caller-supplied download path must pass before it reaches a provider. */
 export function validateSandboxFilePath(path: string): void {
   if (!path.startsWith('/')) {
-    throw new SandboxInvalidPathError({ path, reason: 'must be absolute' });
-  }
-  if (path.includes('\0')) {
-    throw new SandboxInvalidPathError({ path, reason: 'must not contain a NUL byte' });
-  }
-  if (Buffer.byteLength(path) > MAX_PATH_BYTES) {
-    throw new SandboxInvalidPathError({ path, reason: `must be at most ${String(MAX_PATH_BYTES)} bytes` });
-  }
-  if (path.split('/').some(segment => Buffer.byteLength(segment) > MAX_SEGMENT_BYTES)) {
-    throw new SandboxInvalidPathError({
-      path,
-      reason: `must not have a segment longer than ${String(MAX_SEGMENT_BYTES)} bytes`,
-    });
+    throw new SandboxPathNotAbsoluteError(path);
   }
   validateNoPathTraversal(path);
 }

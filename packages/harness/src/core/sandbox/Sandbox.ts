@@ -414,17 +414,6 @@ export class Sandbox extends LocalToolMCP {
     );
   }
 
-  /**
-   * The sandbox to resolve model-declared artifacts against, or undefined when file
-   * downloads are off or nothing has created a sandbox yet (no sandbox, no artifacts).
-   */
-  getArtifactSandboxId(): string | undefined {
-    if (!this.fileDownloadEnabled) {
-      return undefined;
-    }
-    return this.existingSandboxInfo?.sandbox_id;
-  }
-
   private get requiredSandboxInfo(): SandboxInfo {
     if (!this.existingSandboxInfo) {
       throw new Error('Sandbox info not available');

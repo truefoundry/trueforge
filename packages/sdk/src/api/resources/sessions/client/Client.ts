@@ -724,7 +724,7 @@ export class SessionsClient {
     }
 
     /**
-     * Download a file the agent produced inside this session's sandbox. Paths come from the `sandbox.artifacts` event; the sandbox is resolved from the session, so no sandbox id is needed. Requires `config.sandbox.file_downloads` on the agent spec.
+     * Download a file from this session's sandbox. Paths come from the assistant's `sandbox_artifacts` block. Requires `config.sandbox.file_downloads`.
      *
      * @throws {@link TrueHarness.BadRequestError}
      * @throws {@link TrueHarness.ForbiddenError}

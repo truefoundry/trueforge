@@ -6,7 +6,6 @@ export type SessionEvent =
     | TrueHarness.McpAuthRequiredEvent
     | TrueHarness.McpInitializeEvent
     | TrueHarness.ModelMessageEvent
-    | TrueHarness.SandboxArtifactsEvent
     | TrueHarness.SandboxCreatedEvent
     | TrueHarness.ThreadCreatedEvent
     | TrueHarness.ThreadDoneEvent

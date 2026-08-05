@@ -94,20 +94,6 @@ async function resolveSessionSandboxId(session: SessionHandle): Promise<string |
   return turn?.record.snapshot.sandbox_info?.sandbox_id;
 }
 
-/** Narrows the sandbox error's status to the set this route documents. */
-function toSandboxErrorStatus(error: SandboxError): 400 | 403 | 404 | 410 | 413 | 502 {
-  switch (error.statusCode) {
-    case 400:
-    case 403:
-    case 404:
-    case 410:
-    case 413:
-      return error.statusCode;
-    default:
-      return 502;
-  }
-}
-
 /**
  * Copies into a standalone ArrayBuffer for the response body: a pooled Buffer's
  * backing store is shared and typed as ArrayBufferLike, which is not a body.
@@ -117,28 +103,6 @@ function toArrayBuffer(content: Buffer): ArrayBuffer {
   const buffer = new ArrayBuffer(content.byteLength);
   new Uint8Array(buffer).set(content);
   return buffer;
-}
-
-/** Printable ASCII only: header values are ByteStrings, and `"`/`\` would end the quoted value. */
-function isSafeFilenameChar(char: string): boolean {
-  const code = char.codePointAt(0) ?? 0;
-  return code >= 0x20 && code <= 0x7e && char !== '"' && char !== '\\';
-}
-
-/** RFC 5987 attr-char, minus the four `encodeURIComponent` leaves unescaped. */
-function encodeExtendedFilename(name: string): string {
-  return encodeURIComponent(name).replace(/['()*]/g, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
-}
-
-/**
- * The sandbox may hold a file named in any script, so RFC 6266 both ways: `filename` keeps an
- * ASCII-only fallback (a code point above U+00FF makes the Response constructor throw) and
- * `filename*` carries the real UTF-8 name for clients that read it.
- */
-export function toContentDisposition(path: string): string {
-  const name = path.slice(path.lastIndexOf('/') + 1) || 'download';
-  const ascii = Array.from(name, char => (isSafeFilenameChar(char) ? char : '_')).join('');
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeExtendedFilename(name)}`;
 }
 
 function cancelTurnOnThisExecutor(
@@ -410,17 +374,18 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
       validateSandboxOwnedByTenant(sandboxId, TENANT_ID);
       const content = await provider.downloadFile({ sandboxId, path });
+      const fileName = path.split('/').filter(Boolean).pop() ?? 'download';
 
       return c.body(toArrayBuffer(content), 200, {
         'Content-Type': 'application/octet-stream',
         'Content-Length': String(content.byteLength),
-        'Content-Disposition': toContentDisposition(path),
+        'Content-Disposition': `attachment; filename="${fileName.replace(/"/g, '\\"')}"`,
         'Cache-Control': 'private, no-store',
       });
     } catch (error) {
       // Every guard and the provider itself raise SandboxError, whose statusCode is the contract.
       if (error instanceof SandboxError) {
-        return c.json({ error: { message: error.message } }, toSandboxErrorStatus(error));
+        return c.json({ error: { message: error.message } }, error.statusCode as 400 | 403 | 404 | 410 | 413);
       }
       deps.logger.error('Sandbox file download failed', { ...extractErrorLogFields(error), sandboxId, path });
       return c.json({ error: { message: 'Failed to download file from sandbox' } }, 502);

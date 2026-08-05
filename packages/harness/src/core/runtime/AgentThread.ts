@@ -30,7 +30,6 @@ import {
   type ModelMessageDeltaEvent,
   type ModelMessageEvent,
   type ModelMessageUsage,
-  type SandboxArtifactsEvent,
   type SandboxCreatedEvent,
   type ThreadOverwriteContextEvent,
   type ToolApprovalRequiredEvent,
@@ -56,7 +55,6 @@ import { estimateTokensForString } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
-import { parseSandboxArtifacts, type SandboxArtifact } from '../sandbox/artifacts';
 import type { Sandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import type { AgentDefinition } from './AgentDefinition';
@@ -84,7 +82,6 @@ import {
 } from './contextUsage';
 import {
   assistantMessageContentToStringForSubAgent,
-  assistantMessageText,
   estimateTokensForContextMessages,
   INTERNAL_SYSTEM_PROMPT,
   isApprovalDecisionMessage,
@@ -217,25 +214,6 @@ function buildSandboxCreatedEvent(info: SandboxInfo): SandboxCreatedEvent {
     created_at: new Date().toISOString(),
     ...info,
     thread_id: null,
-  };
-}
-
-function buildSandboxArtifactsEvent({
-  artifacts,
-  sandboxId,
-  threadId,
-}: {
-  artifacts: SandboxArtifact[];
-  sandboxId: string;
-  threadId: string;
-}): SandboxArtifactsEvent {
-  return {
-    type: EventType.SANDBOX_ARTIFACTS,
-    id: newEventId(),
-    created_at: new Date().toISOString(),
-    sandbox_id: sandboxId,
-    artifacts,
-    thread_id: threadId,
   };
 }
 
@@ -1118,8 +1096,6 @@ export class AgentThread {
       completion,
     });
 
-    yield* this.emitSandboxArtifacts(assistantMessage.content);
-
     if (finishReason === 'length') {
       const errorContent = completion?.error_message ?? 'max_tokens breached';
       yield this.generateErrorEvent(errorContent, agentAssistantMessage);
@@ -1140,25 +1116,6 @@ export class AgentThread {
     }
 
     return { outcome: 'continue', modelMessageEventId };
-  }
-
-  /**
-   * Surfaces the files the model declared in its `sandbox_artifacts` block. Emitted after the
-   * assistant message is durable so an artifact event never references a message the consumer
-   * failed to persist.
-   */
-  private *emitSandboxArtifacts(
-    content: InternalEnrichedAssistantMessage['content'],
-  ): Generator<SandboxArtifactsEvent, void, unknown> {
-    const sandboxId = this.sandbox?.getArtifactSandboxId();
-    if (sandboxId === undefined) {
-      return;
-    }
-    const artifacts = parseSandboxArtifacts(assistantMessageText(content));
-    if (artifacts.length === 0) {
-      return;
-    }
-    yield buildSandboxArtifactsEvent({ artifacts, sandboxId, threadId: this.threadId });
   }
 
   private async *stepToolResponse(

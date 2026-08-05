@@ -538,7 +538,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         return event;
       }
 
-      case HarnessEventType.SANDBOX_ARTIFACTS:
       case HarnessEventType.TOOL_APPROVAL_REQUIRED:
       case HarnessEventType.TOOL_RESPONSE_REQUIRED: {
         await this.store.appendToEvents({

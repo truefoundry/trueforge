@@ -11,7 +11,6 @@ import {
   MCPAuthRequiredEventSchema,
   MCPInitializeEventSchema,
   ModelMessageEventSchema,
-  SandboxArtifactsEventSchema,
   SandboxCreatedEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
@@ -69,7 +68,6 @@ export const SessionEventSchema = z
     MCPAuthRequiredEventSchema,
     MCPInitializeEventSchema,
     SandboxCreatedEventSchema,
-    SandboxArtifactsEventSchema,
     ToolApprovalRequiredEventSchema,
     ToolResponseRequiredEventSchema,
   ])

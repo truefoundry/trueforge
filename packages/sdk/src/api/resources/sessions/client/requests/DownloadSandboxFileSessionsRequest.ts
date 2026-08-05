@@ -7,6 +7,6 @@
  *     }
  */
 export interface DownloadSandboxFileSessionsRequest {
-    /** Absolute path of the file inside the sandbox, as reported by a `sandbox.artifacts` event. */
+    /** Absolute path of the file inside the sandbox, as listed in the assistant's `sandbox_artifacts` block. */
     path: string;
 }
