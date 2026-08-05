@@ -285,6 +285,35 @@ describe('buildProviderOptions', () => {
       },
     );
 
+    // camelCase here sent a key no OpenAI-shaped endpoint reads, which is how it went unnoticed.
+    it('forwards body fields under their wire names', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: undefined,
+        structuredOutputSpec: textSpec,
+        rawBody: {
+          service_tier: 'auto',
+          user: 'u-1',
+          prompt_cache_key: 'k',
+          parallel_tool_calls: false,
+          thinking: { type: 'enabled' },
+          thinking_budget: 512,
+          enable_thinking: true,
+          reasoning_history: 'off',
+        },
+      });
+      expect(opts['custom']).toEqual({
+        service_tier: 'auto',
+        user: 'u-1',
+        prompt_cache_key: 'k',
+        parallel_tool_calls: false,
+        thinking: { type: 'enabled' },
+        thinking_budget: 512,
+        enable_thinking: true,
+        reasoning_history: 'off',
+      });
+    });
+
     it('omits the custom key when the resulting object would be empty', () => {
       const opts = buildProviderOptions({
         config: config,
