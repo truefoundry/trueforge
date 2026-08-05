@@ -11,6 +11,7 @@ export const CatalogProvider: core.serialization.ObjectSchema<
     serializers.CatalogProvider.Raw,
     TrueHarness.CatalogProvider
 > = core.serialization.object({
+    logo: core.serialization.string().optional(),
     models: core.serialization.list(ModelEntry),
     name: ResourceName,
     type: CatalogProviderType,
@@ -18,6 +19,7 @@ export const CatalogProvider: core.serialization.ObjectSchema<
 
 export declare namespace CatalogProvider {
     export interface Raw {
+        logo?: string | null;
         models: ModelEntry.Raw[];
         name: ResourceName.Raw;
         type: CatalogProviderType.Raw;

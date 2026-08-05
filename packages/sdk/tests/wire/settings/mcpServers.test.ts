@@ -117,7 +117,9 @@ describe("McpServersClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
 
-        const rawResponseBody = { data: [{ auth: { type: "dcr" }, name: "name", type: "remote", url: "url" }] };
+        const rawResponseBody = {
+            data: [{ auth: { type: "dcr" }, logo: "logo", name: "name", type: "remote", url: "url" }],
+        };
 
         server
             .mockEndpoint()
@@ -134,6 +136,7 @@ describe("McpServersClient", () => {
                     auth: {
                         type: "dcr",
                     },
+                    logo: "logo",
                     name: "name",
                     type: "remote",
                     url: "url",
