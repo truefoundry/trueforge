@@ -6,6 +6,10 @@ name: Release image and Helm chart
 on:
   release:
     types: [published]
+  # TEST(remove-before-merge): run the pipeline on pushes to the feature branch
+  # so we can validate image + chart publishing before merging to main.
+  push:
+    branches: [add-chart-n-release-workflow]
 
 # One release at a time so the commit back to main and the chart push cannot race.
 # The group is intentionally tag-independent so releases of different tags
@@ -26,19 +30,26 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - name: Resolve version from tag
+      - name: Resolve version
         id: version
         env:
+          EVENT_NAME: ${{ github.event_name }}
           TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
-          VERSION="${TAG#v}"
-          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
-            echo "Release tag '$TAG' is not a semver vX.Y.Z tag" >&2
-            exit 1
+          if [ "$EVENT_NAME" = "release" ]; then
+            VERSION="${TAG#v}"
+            if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+              echo "Release tag '$TAG' is not a semver vX.Y.Z tag" >&2
+              exit 1
+            fi
+            echo "Releasing version $VERSION"
+          else
+            # TEST(remove-before-merge): hardcoded image/chart tag for branch-push testing.
+            VERSION="0.0.1-test"
+            echo "Test build (push event); using hardcoded version $VERSION"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Releasing version $VERSION"
 
   # Build and push the server image (API + UI) via the shared reusable workflow.
   build:
@@ -87,7 +98,9 @@ jobs:
       - name: Check out release tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          # TEST(remove-before-merge): on a branch push there is no release tag,
+          # so fall back to the pushed commit.
+          ref: ${{ github.event.release.tag_name || github.sha }}
 
       - name: Install yq
         run: |
@@ -128,6 +141,8 @@ jobs:
           echo "package=$PACKAGE" >> "$GITHUB_OUTPUT"
 
       - name: Attach chart to the GitHub release
+        # TEST(remove-before-merge): only a real release has an asset to attach to.
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.release.tag_name }}
@@ -141,6 +156,8 @@ jobs:
       # current chart files rather than copying the tag's, so unrelated changes
       # on main are preserved.
       - name: Check out main for the version bump
+        # TEST(remove-before-merge): test pushes must not bump/commit to main.
+        if: github.event_name == 'release'
         uses: actions/checkout@v4
         with:
           ref: main
@@ -149,6 +166,8 @@ jobs:
       # Runs last so a rejected push to a protected main never blocks shipping
       # the artifacts.
       - name: Commit chart version bump to main
+        # TEST(remove-before-merge): test pushes must not bump/commit to main.
+        if: github.event_name == 'release'
         working-directory: main-checkout
         run: |
           set -euo pipefail
