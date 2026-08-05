@@ -47,3 +47,23 @@ mcp_servers:
       type: header
       headers:
         Authorization: Bearer YOUR_BRIGHT_DATA_API_TOKEN
+  - type: remote
+    name: supabase
+    url: https://mcp.supabase.com/mcp
+    auth:
+      type: dcr
+  - type: remote
+    name: stripe
+    url: https://mcp.stripe.com
+    auth:
+      type: dcr
+  - type: remote
+    name: confluence
+    url: https://mcp.atlassian.com/v1/mcp
+    auth:
+      type: dcr
+  - type: remote
+    name: jira
+    url: https://mcp.atlassian.com/v1/mcp
+    auth:
+      type: dcr
