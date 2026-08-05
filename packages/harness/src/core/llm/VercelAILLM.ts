@@ -3,7 +3,9 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogle } from '@ai-sdk/google';
 import type { MoonshotAIProviderOptions } from '@ai-sdk/moonshotai';
 import { createMoonshotAI } from '@ai-sdk/moonshotai';
+import type { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { createOpenAI } from '@ai-sdk/openai';
+import type { OpenAICompatibleProviderOptions } from '@ai-sdk/openai-compatible';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { JSONObject } from '@ai-sdk/provider';
 import type { ProviderOptions, ReasoningPart } from '@ai-sdk/provider-utils';
@@ -104,7 +106,10 @@ export interface VercelAILLMConfig {
  * caller resolves. The provider name doubles as the `providerOptions` key, which is why
  * {@link buildProviderOptions} can key on it directly. Fireworks, Together and Z AI stay here on
  * purpose: the Fireworks and Together packages both downgrade `json_schema` to a schema-less
- * `json_object`, and the only Z AI package is a community one that drops replayed reasoning.
+ * `json_object`, and the only Z AI package is a community one that drops replayed reasoning. What
+ * the Fireworks package offers over this adapter is an effort clamp to the three levels it serves,
+ * which buys us nothing while no Fireworks model advertises an effort.
+ * TODO: move Z AI to @ai-sdk/zai once https://github.com/vercel/ai/pull/17340 ships.
  */
 function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   const { provider, modelId, apiKey, headers, baseUrl } = config;
@@ -234,9 +239,10 @@ function isReasoningLevel(v: string): v is ReasoningLevel {
 
 /**
  * Efforts models advertise that the SDK's cross-provider union cannot express. `xhigh` is its
- * ceiling, so `max` rides in as `xhigh`. Anthropic's adapter raises that back to `max` for models
- * without an `xhigh` level; everyone else receives `xhigh` as sent, which for models offering both
- * levels — the gpt-5.6 family — is one step below what was asked for.
+ * ceiling, so `max` rides in as `xhigh`, which Anthropic's adapter raises back to `max` for models
+ * without an `xhigh` level. Adapters that also take an effort of their own get the real `max`
+ * through `providerOptions`, since for them `xhigh` is either a weaker level or an unknown string
+ * they drop in silence.
  */
 const EFFORT_ALIASES: Readonly<Record<string, ReasoningLevel>> = { max: 'xhigh' };
 
@@ -249,8 +255,8 @@ export const SUPPORTED_REASONING_EFFORTS: readonly string[] = [...REASONING_LEVE
 /**
  * Every provider takes the effort through the top-level `reasoning` setting, leaving the adapters
  * to translate it: an effort string for OpenAI-shaped APIs, a per-model thinking shape for
- * Anthropic, `thinkingLevel` or `thinkingBudget` for Gemini. Reasoning-related `providerOptions`
- * would override this rather than merge with it, so nothing here sets them.
+ * Anthropic, `thinkingLevel` or `thinkingBudget` for Gemini. A reasoning `providerOptions` entry
+ * replaces this rather than merging with it, so only `max` sets one.
  */
 export function toReasoningLevel(reasoningEffort: string | undefined): ReasoningLevel | undefined {
   if (reasoningEffort === undefined) {
@@ -312,10 +318,14 @@ function readBodyField({ rawBody, key }: { rawBody: unknown; key: string }): JSO
 function openaiProviderOptions({
   rawBody,
   strictJsonSchema,
+  reasoningEffort,
 }: {
   rawBody: unknown;
   strictJsonSchema: boolean | undefined;
+  reasoningEffort: string | undefined;
 }): JSONObject {
+  const effort: Pick<OpenAIResponsesProviderOptions, 'reasoningEffort'> =
+    reasoningEffort === 'max' ? { reasoningEffort: 'max' } : {};
   const serviceTier = readBodyField({ rawBody, key: 'service_tier' });
   const user = readBodyField({ rawBody, key: 'user' });
   const promptCacheKey = readBodyField({ rawBody, key: 'prompt_cache_key' });
@@ -324,6 +334,7 @@ function openaiProviderOptions({
   return {
     store: false,
     include: ['reasoning.encrypted_content'],
+    ...effort,
     ...(strictJsonSchema !== undefined ? { strictJsonSchema } : {}),
     ...(serviceTier !== undefined ? { serviceTier } : {}),
     ...(user !== undefined ? { user } : {}),
@@ -392,9 +403,8 @@ function googleGeminiProviderOptions({
 }
 
 /**
- * Moonshot is the only adapter that accepts `max` directly, so it escapes the `xhigh` alias every
- * other provider settles for. `thinking` and `reasoning_history` are forwarded but never pinned:
- * they are the caller's route to turning thinking off, or to replaying it verbatim.
+ * `thinking` and `reasoning_history` are forwarded but never pinned: they are the caller's route to
+ * turning thinking off, or to replaying it verbatim.
  */
 function moonshotProviderOptions({
   rawBody,
@@ -435,10 +445,18 @@ function alibabaProviderOptions(rawBody: unknown): JSONObject | undefined {
  */
 function compatibleProviderOptions({
   strictJsonSchema,
+  reasoningEffort,
 }: {
   strictJsonSchema: boolean | undefined;
+  reasoningEffort: string | undefined;
 }): JSONObject | undefined {
-  return strictJsonSchema !== undefined ? { strictJsonSchema } : undefined;
+  const effort: Pick<OpenAICompatibleProviderOptions, 'reasoningEffort'> =
+    reasoningEffort === 'max' ? { reasoningEffort: 'max' } : {};
+  const opts: JSONObject = {
+    ...effort,
+    ...(strictJsonSchema !== undefined ? { strictJsonSchema } : {}),
+  };
+  return Object.keys(opts).length > 0 ? opts : undefined;
 }
 
 /**
@@ -459,7 +477,7 @@ export function buildProviderOptions({
 }): ProviderOptions {
   const strictJsonSchema = structuredOutputSpec.mode === 'json_schema' ? structuredOutputSpec.strict : undefined;
   if (config.provider === 'openai') {
-    return { openai: openaiProviderOptions({ rawBody, strictJsonSchema }) };
+    return { openai: openaiProviderOptions({ rawBody, strictJsonSchema, reasoningEffort }) };
   } else if (config.provider === 'anthropic') {
     const anthropic = anthropicProviderOptions(rawBody);
     return anthropic !== undefined ? { anthropic } : {};
@@ -476,7 +494,7 @@ export function buildProviderOptions({
   } else {
     // The remaining providers all share the compatible adapter, which reads its options from a key
     // matching the `name` it was built with — the provider name itself.
-    const compatible = compatibleProviderOptions({ strictJsonSchema });
+    const compatible = compatibleProviderOptions({ strictJsonSchema, reasoningEffort });
     return compatible !== undefined ? { [config.provider]: compatible } : {};
   }
 }
