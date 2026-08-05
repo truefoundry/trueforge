@@ -181,3 +181,33 @@ export const authorizeConfiguredMcpServerRoute = createRoute({
     },
   },
 });
+
+export const deleteConfiguredMcpServerAuthRoute = createRoute({
+  method: 'delete',
+  path: '/{name}/auth',
+  tags: [MCP_SERVERS_TAG],
+  summary: 'Disconnect OAuth for a configured MCP server',
+  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
+  'x-fern-sdk-method-name': 'delete_auth',
+  description:
+    'Deletes the stored OAuth token for an auth.type dcr MCP server and returns the server with ' +
+    'auth_status auth_required. Keeps the dynamically registered OAuth client so the next authorize ' +
+    'can reuse it. Not supported for header or no-auth servers.',
+  request: {
+    params: McpServerNameParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: PutMcpServerResponseSchema } },
+      description: 'The MCP server after disconnect, with auth_status auth_required.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'MCP server is not auth.type dcr.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'MCP server not found.',
+    },
+  },
+});
