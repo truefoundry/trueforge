@@ -1,16 +1,10 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import {
-  ensureMcpClientRegistered,
   extractErrorLogFields,
-  type IOAuthTokenStore,
   isAuthRequired,
-  isMcpAuthRequired,
   McpConnectionError,
   McpDcrConfigurationError,
-  type OAuthToken,
   RemoteMCP,
-  resolveMcpAuth,
-  validateRedirectUris,
   withTimeout,
 } from '@truefoundry/utils-core/core';
 import { HTTPException } from 'hono/http-exception';
@@ -18,6 +12,9 @@ import type { Logger } from 'winston';
 import type { McpCatalog } from '../catalog/McpCatalog';
 import configuration from '../config';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
+import { ensureMcpClientRegistered, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
+import { validateRedirectUris } from '../mcp/auth/mcpOAuthHelpers';
+import type { IOAuthTokenStore, OAuthToken } from '../mcp/auth/types';
 import {
   authorizeConfiguredMcpServerRoute,
   deleteConfiguredMcpServerAuthRoute,

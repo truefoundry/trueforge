@@ -5,13 +5,10 @@ import { Daytona } from '@daytona/sdk';
 import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
 import {
   DaytonaSandboxProvider,
-  isMcpAuthRequired,
-  resolveMcpAuth,
   Sandbox,
   SkillMounter,
   type AgentTracing,
   type GitSkill,
-  type IOAuthTokenStore,
   type RemoteMcpHeaders,
   type SandboxProvider,
   type VercelAIProviderConfig,
@@ -23,6 +20,8 @@ import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
+import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
 import { PROVIDER_DEFAULT_BASE_URLS } from '../schemas/modelProvider';
 import { toDaytonaSandboxProviderInput } from '../schemas/sandboxProvider';

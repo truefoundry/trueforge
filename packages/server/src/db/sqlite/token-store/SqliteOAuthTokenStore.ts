@@ -1,6 +1,6 @@
-import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from '@truefoundry/utils-core/core';
 import type { Kysely } from 'kysely';
-import { fromStoredOAuthToken, toStoredOAuthToken } from '../../mcpOAuthTypes';
+import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from '../../../mcp/auth/types';
+import { fromStoredOAuthToken, toStoredOAuthToken } from '../../mcpServerStore';
 import type { Database } from '../types';
 import { consumePendingAuthorization, savePendingAuthorization } from './queries/pendingAuthorization';
 import { deleteToken, getToken, getTokens, saveToken } from './queries/token';
