@@ -1,5 +1,5 @@
 import winston from 'winston';
-import { createAvailableMcpServersRouter, createMcpServersRouter } from '../../../src/apis/mcpServers';
+import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../../src/apis/mcpServers';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -39,8 +39,8 @@ function putInit(body: unknown): RequestInit {
 }
 
 describe('mcp-servers routers', () => {
-  let settingsRouter: ReturnType<typeof createMcpServersRouter>;
-  let availableRouter: ReturnType<typeof createAvailableMcpServersRouter>;
+  let settingsRouter: ReturnType<typeof createSettingsMcpServersRouter>;
+  let mcpServersRouter: ReturnType<typeof createMcpServersRouter>;
   let mcpServerStore: SqliteMcpServerStore;
   let tokenStore: SqliteOAuthTokenStore;
   const originalFetch = globalThis.fetch;
@@ -55,13 +55,18 @@ describe('mcp-servers routers', () => {
     await migrateSqliteToLatest(db);
     mcpServerStore = new SqliteMcpServerStore(db);
     tokenStore = new SqliteOAuthTokenStore(db);
-    settingsRouter = createMcpServersRouter({
+    const logger = winston.createLogger({ silent: true });
+    settingsRouter = createSettingsMcpServersRouter({
       mcpCatalog: McpCatalog.load(),
       mcpServerStore,
       tokenStore,
-      logger: winston.createLogger({ silent: true }),
+      logger,
     });
-    availableRouter = createAvailableMcpServersRouter(mcpServerStore);
+    mcpServersRouter = createMcpServersRouter({
+      mcpServerStore,
+      tokenStore,
+      logger,
+    });
   });
 
   afterAll(() => {
@@ -176,7 +181,7 @@ describe('mcp-servers routers', () => {
   });
 
   it('GET / on the chat router returns the slim projection without auth fields', async () => {
-    const response = await availableRouter.request('/');
+    const response = await mcpServersRouter.request('/');
     expect(response.status).toBe(200);
     const body = (await response.json()) as { data: { name: string; url: string }[] };
     expect(body.data.map(server => server.name).sort()).toEqual(['deepwiki', 'linear', 'private-mcp']);
@@ -203,15 +208,17 @@ describe('mcp-servers routers', () => {
   });
 
   it('GET /{name}/authorize short-circuits non-DCR servers and 404s unknowns', async () => {
-    const noAuth = await settingsRouter.request('/deepwiki/authorize?redirect_url=https://example.com/callback');
+    const noAuth = await mcpServersRouter.request('/deepwiki/authorize?redirect_url=https://example.com/callback');
     expect(noAuth.status).toBe(200);
     expect(await noAuth.json()).toEqual({ status: 'not_required' });
 
-    const headerAuth = await settingsRouter.request('/private-mcp/authorize?redirect_url=https://example.com/callback');
+    const headerAuth = await mcpServersRouter.request(
+      '/private-mcp/authorize?redirect_url=https://example.com/callback',
+    );
     expect(headerAuth.status).toBe(200);
     expect(await headerAuth.json()).toEqual({ status: 'authenticated' });
 
-    const missing = await settingsRouter.request('/missing/authorize?redirect_url=https://example.com/callback');
+    const missing = await mcpServersRouter.request('/missing/authorize?redirect_url=https://example.com/callback');
     expect(missing.status).toBe(404);
   });
 
@@ -270,7 +277,7 @@ describe('mcp-servers routers', () => {
       );
       expect(put.status).toBe(200);
 
-      const authorize = await settingsRouter.request(
+      const authorize = await mcpServersRouter.request(
         '/oauth-mcp/authorize?redirect_url=https://example.com/after-oauth',
       );
       expect(authorize.status).toBe(200);
@@ -317,7 +324,7 @@ describe('mcp-servers routers', () => {
       },
     });
 
-    const response = await settingsRouter.request(`/${putBodyWithDcr.name}/authorize`, { method: 'DELETE' });
+    const response = await mcpServersRouter.request(`/${putBodyWithDcr.name}/authorize`, { method: 'DELETE' });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: { ...putBodyWithDcr, auth_status: { status: 'auth_required' } },
@@ -337,19 +344,19 @@ describe('mcp-servers routers', () => {
   });
 
   it('DELETE /{name}/authorize is a no-op for non-DCR servers and 404s unknowns', async () => {
-    const noAuth = await settingsRouter.request('/deepwiki/authorize', { method: 'DELETE' });
+    const noAuth = await mcpServersRouter.request('/deepwiki/authorize', { method: 'DELETE' });
     expect(noAuth.status).toBe(200);
     expect(await noAuth.json()).toEqual({
       data: { ...putBody, auth_status: { status: 'not_required' } },
     });
 
-    const headerAuth = await settingsRouter.request('/private-mcp/authorize', { method: 'DELETE' });
+    const headerAuth = await mcpServersRouter.request('/private-mcp/authorize', { method: 'DELETE' });
     expect(headerAuth.status).toBe(200);
     expect(await headerAuth.json()).toEqual({
       data: { ...putBodyWithHeaderAuth, auth_status: { status: 'authenticated' } },
     });
 
-    const missing = await settingsRouter.request('/missing/authorize', { method: 'DELETE' });
+    const missing = await mcpServersRouter.request('/missing/authorize', { method: 'DELETE' });
     expect(missing.status).toBe(404);
   });
 });

@@ -1,7 +1,7 @@
 /**
  * DB-backed MCP server route definitions.
- * Admin routes mount at /api/v1/settings/mcp-servers; the chat list mounts at
- * /api/v1/mcp-servers.
+ * Admin routes mount at /api/v1/settings/mcp-servers; the chat list and
+ * authorize routes mount at /api/v1/mcp-servers.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -151,7 +151,7 @@ export const authorizeConfiguredMcpServerRoute = createRoute({
   path: '/{name}/authorize',
   tags: [MCP_SERVERS_TAG],
   summary: 'Start (or short-circuit) the auth flow for a configured MCP server',
-  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
+  'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'authorize',
   description:
     'For servers without auth returns not_required, and for header credentials returns authenticated ' +
@@ -187,7 +187,7 @@ export const deleteConfiguredMcpServerAuthRoute = createRoute({
   path: '/{name}/authorize',
   tags: [MCP_SERVERS_TAG],
   summary: 'Disconnect OAuth for a configured MCP server',
-  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
+  'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'delete_authorize',
   description:
     'For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status ' +
