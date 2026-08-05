@@ -335,6 +335,11 @@
           "auth": {
             "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
           },
+          "logo": {
+            "description": "URL of the MCP server logo asset.",
+            "format": "uri",
+            "type": "string"
+          },
           "name": {
             "$ref": "#/components/schemas/ResourceName"
           },
@@ -357,6 +362,11 @@
       "CatalogProvider": {
         "additionalProperties": false,
         "properties": {
+          "logo": {
+            "description": "URL of the provider logo asset.",
+            "format": "uri",
+            "type": "string"
+          },
           "models": {
             "items": {
               "$ref": "#/components/schemas/ModelEntry"

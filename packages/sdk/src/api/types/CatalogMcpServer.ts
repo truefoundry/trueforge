@@ -4,6 +4,8 @@ import type * as TrueHarness from "../index.js";
 
 export interface CatalogMcpServer {
     auth?: TrueHarness.ConfiguredMcpServerAuth;
+    /** URL of the MCP server logo asset. */
+    logo?: string;
     name: TrueHarness.ResourceName;
     type: TrueHarness.McpServerType;
     /** URL of the remote MCP server. */
