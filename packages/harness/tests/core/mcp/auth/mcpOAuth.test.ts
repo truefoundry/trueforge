@@ -593,7 +593,7 @@ describe('end-to-end DCR + authorize with normalised MCP URL', () => {
 });
 
 describe('completeMcpAuthorization', () => {
-  it('exchanges the code, saves the token, clears pending, and returns redirectUrl', async () => {
+  it('exchanges the code and saves the token for the claimed pending row', async () => {
     const stores = newStores();
     await stores.mcpServerStore.saveClient({ id: SERVER_ID, record: sampleClient });
 
@@ -612,20 +612,22 @@ describe('completeMcpAuthorization', () => {
       },
     });
 
+    const pending = await stores.tokenStore.consumePendingAuthorization({ state });
+    if (!pending) {
+      throw new Error('expected buildMcpAuthorizationUrl to save a pending authorization');
+    }
+    expect(pending.redirectUrl).toBe('https://app.example.com/connected');
+
     const beforeMs = Date.now();
-    const result = await completeMcpAuthorization({
+    await completeMcpAuthorization({
       tokenStore: stores.tokenStore,
       mcpServerStore: stores.mcpServerStore,
-      state,
+      pending,
       code: 'auth-code-1',
     });
     const afterMs = Date.now();
 
-    expect(result).toEqual({
-      serverId: SERVER_ID,
-      redirectUrl: 'https://app.example.com/connected',
-    });
-    // Complete claimed the pending row; a second callback would fail.
+    // The row was claimed once; a duplicate callback finds nothing left to redeem.
     expect(await stores.tokenStore.consumePendingAuthorization({ state })).toBeUndefined();
     const saved = await stores.tokenStore.getToken({ id: SERVER_ID });
     expect(saved?.accessToken).toBe('exchanged-access');
@@ -641,18 +643,24 @@ describe('completeMcpAuthorization', () => {
     expect(tokenBody.get('resource')).toBe(resourceUrlFromServerUrl(SERVER_URL).href);
   });
 
-  it('throws on unknown state', async () => {
+  it('throws when the pending row has no registered OAuth client', async () => {
     const stores = newStores();
     await expect(
       completeMcpAuthorization({
         tokenStore: stores.tokenStore,
         mcpServerStore: stores.mcpServerStore,
-        state: 'missing-state',
+        pending: {
+          state: 'state-1',
+          id: SERVER_ID,
+          mcpServerUrl: SERVER_URL,
+          codeVerifier: 'verifier-1',
+          redirectUrl: null,
+        },
         code: 'code',
       }),
     ).rejects.toMatchObject({
       name: 'McpConnectionError',
-      message: expect.stringContaining('Unknown or expired'),
+      message: expect.stringContaining('No OAuth client registered'),
     });
   });
 
@@ -673,11 +681,16 @@ describe('completeMcpAuthorization', () => {
       return new Response(`unexpected url: ${url}`, { status: 404 });
     }) as typeof fetch;
 
+    const pending = await stores.tokenStore.consumePendingAuthorization({ state });
+    if (!pending) {
+      throw new Error('expected buildMcpAuthorizationUrl to save a pending authorization');
+    }
+
     await expect(
       completeMcpAuthorization({
         tokenStore: stores.tokenStore,
         mcpServerStore: stores.mcpServerStore,
-        state,
+        pending,
         code: 'auth-code-1',
       }),
     ).rejects.toMatchObject({

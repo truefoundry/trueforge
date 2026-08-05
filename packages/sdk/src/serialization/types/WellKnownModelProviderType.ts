@@ -7,8 +7,8 @@ import type * as serializers from "../index.js";
 export const WellKnownModelProviderType: core.serialization.Schema<
     serializers.WellKnownModelProviderType.Raw,
     TrueHarness.WellKnownModelProviderType
-> = core.serialization.enum_(["openai", "anthropic", "google-gemini", "fireworks", "zai", "moonshot"]);
+> = core.serialization.enum_(["openai", "anthropic", "google-gemini", "fireworks", "zai", "moonshot", "together"]);
 
 export declare namespace WellKnownModelProviderType {
-    export type Raw = "openai" | "anthropic" | "google-gemini" | "fireworks" | "zai" | "moonshot";
+    export type Raw = "openai" | "anthropic" | "google-gemini" | "fireworks" | "zai" | "moonshot" | "together";
 }

@@ -143,7 +143,7 @@ const McpAuthorizeQuerySchema = z.object({
   redirect_url: z
     .url()
     .optional()
-    .describe('Optional FE landing URL after OAuth (stored on pending auth; callback does not redirect yet).'),
+    .describe('Optional FE landing URL the OAuth callback redirects to, with `isSuccess`/`reason` appended.'),
 });
 
 export const authorizeConfiguredMcpServerRoute = createRoute({
@@ -157,7 +157,7 @@ export const authorizeConfiguredMcpServerRoute = createRoute({
     'For servers without auth returns not_required, and for header credentials returns authenticated ' +
     '(no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token ' +
     'exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. ' +
-    'Optional redirect_url is stored for a future FE landing redirect (callback currently returns JSON only).',
+    'Optional redirect_url is where the OAuth callback then redirects the browser; without it the callback returns JSON.',
   request: {
     params: McpServerNameParamsSchema,
     query: McpAuthorizeQuerySchema,
@@ -178,6 +178,32 @@ export const authorizeConfiguredMcpServerRoute = createRoute({
     500: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Server misconfiguration (e.g. PUBLIC_BASE_URL unset).',
+    },
+  },
+});
+
+export const deleteConfiguredMcpServerAuthRoute = createRoute({
+  method: 'delete',
+  path: '/{name}/authorize',
+  tags: [MCP_SERVERS_TAG],
+  summary: 'Disconnect OAuth for a configured MCP server',
+  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
+  'x-fern-sdk-method-name': 'delete_authorize',
+  description:
+    'For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status ' +
+    'auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. ' +
+    'No-op for header or no-auth servers (returns the server unchanged).',
+  request: {
+    params: McpServerNameParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: PutMcpServerResponseSchema } },
+      description: 'The MCP server after disconnect (auth_required for dcr).',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'MCP server not found.',
     },
   },
 });

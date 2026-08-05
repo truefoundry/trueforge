@@ -24,6 +24,7 @@ const WELL_KNOWN_BASE_URL_TYPES = [
   'fireworks',
   'zai',
   'moonshot',
+  'together',
 ] as const satisfies readonly VercelAIProviderName[];
 
 /** `alibaba` scopes its endpoint to the caller's workspace, `custom` is arbitrary by definition. */
@@ -43,6 +44,7 @@ export const PROVIDER_DEFAULT_BASE_URLS: Partial<Record<ProviderType, string>> =
   fireworks: 'https://api.fireworks.ai/inference/v1',
   zai: 'https://api.z.ai/api/paas/v4',
   moonshot: 'https://api.moonshot.ai/v1',
+  together: 'https://api.together.xyz/v1',
 };
 
 export const ModelPropertiesSchema = z

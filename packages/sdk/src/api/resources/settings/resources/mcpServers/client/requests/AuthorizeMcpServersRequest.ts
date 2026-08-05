@@ -5,6 +5,6 @@
  *     {}
  */
 export interface AuthorizeMcpServersRequest {
-    /** Optional FE landing URL after OAuth (stored on pending auth; callback does not redirect yet). */
+    /** Optional FE landing URL the OAuth callback redirects to, with `isSuccess`/`reason` appended. */
     redirectUrl?: string;
 }

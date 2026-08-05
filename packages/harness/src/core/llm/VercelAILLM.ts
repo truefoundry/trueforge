@@ -3,7 +3,9 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogle } from '@ai-sdk/google';
 import type { MoonshotAIProviderOptions } from '@ai-sdk/moonshotai';
 import { createMoonshotAI } from '@ai-sdk/moonshotai';
+import type { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { createOpenAI } from '@ai-sdk/openai';
+import type { OpenAICompatibleProviderOptions } from '@ai-sdk/openai-compatible';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { JSONObject } from '@ai-sdk/provider';
 import type { ProviderOptions, ReasoningPart } from '@ai-sdk/provider-utils';
@@ -71,6 +73,7 @@ export const VERCEL_AI_PROVIDER_NAMES = [
   'zai',
   'moonshot',
   'alibaba',
+  'together',
   'custom',
 ] as const;
 
@@ -99,11 +102,10 @@ export interface VercelAILLMConfig {
 }
 
 /**
- * Every OpenAI-compatible provider shares this adapter and differs only by endpoint, which the
- * caller resolves. The provider name doubles as the `providerOptions` key, which is why
- * {@link buildProviderOptions} can key on it directly. Fireworks and Z AI stay here on purpose:
- * `@ai-sdk/fireworks` downgrades `json_schema` to a schema-less `json_object`, and the only Z AI
- * package is a community one that drops replayed reasoning.
+ * Shared by every OpenAI-compatible provider, which differ only by endpoint. The provider name
+ * doubles as the `providerOptions` key. Fireworks, Together and Z AI stay here rather than on their
+ * own packages: those drop `json_schema`, and Fireworks also clamps efforts its models do accept.
+ * TODO: move Z AI to @ai-sdk/zai once https://github.com/vercel/ai/pull/17340 ships.
  */
 function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   const { provider, modelId, apiKey, headers, baseUrl } = config;
@@ -174,6 +176,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
     }
     case 'fireworks':
     case 'zai':
+    case 'together':
     case 'custom': {
       return compatibleModel(config);
     }
@@ -231,24 +234,18 @@ function isReasoningLevel(v: string): v is ReasoningLevel {
 }
 
 /**
- * Efforts models advertise that the SDK's cross-provider union cannot express. `xhigh` is its
- * ceiling, so `max` rides in as `xhigh`. Anthropic's adapter raises that back to `max` for models
- * without an `xhigh` level; everyone else receives `xhigh` as sent, which for models offering both
- * levels — the gpt-5.6 family — is one step below what was asked for.
+ * Efforts the SDK's union cannot express. `xhigh` is its ceiling, so `max` rides in as `xhigh`;
+ * Anthropic's adapter raises that back, and {@link maxEffortOption} covers the rest.
  */
 const EFFORT_ALIASES: Readonly<Record<string, ReasoningLevel>> = { max: 'xhigh' };
 
-/**
- * What a model may advertise in `reasoning_efforts`. Anything else reaches `toReasoningLevel`,
- * resolves to `undefined`, and runs at the provider default without a word of complaint.
- */
+/** What a model may advertise in `reasoning_efforts`; anything else resolves to the provider default. */
 export const SUPPORTED_REASONING_EFFORTS: readonly string[] = [...REASONING_LEVELS, ...Object.keys(EFFORT_ALIASES)];
 
 /**
- * Every provider takes the effort through the top-level `reasoning` setting, leaving the adapters
- * to translate it: an effort string for OpenAI-shaped APIs, a per-model thinking shape for
- * Anthropic, `thinkingLevel` or `thinkingBudget` for Gemini. Reasoning-related `providerOptions`
- * would override this rather than merge with it, so nothing here sets them.
+ * The effort travels on the top-level `reasoning` setting, which each adapter translates per model:
+ * an effort string for OpenAI-shaped APIs, a thinking shape for Anthropic, a level or budget for
+ * Gemini. A reasoning `providerOptions` entry replaces that path rather than merging with it.
  */
 export function toReasoningLevel(reasoningEffort: string | undefined): ReasoningLevel | undefined {
   if (reasoningEffort === undefined) {
@@ -259,6 +256,18 @@ export function toReasoningLevel(reasoningEffort: string | undefined): Reasoning
     return aliased;
   }
   return isReasoningLevel(reasoningEffort) ? reasoningEffort : undefined;
+}
+
+/**
+ * `max` needs each adapter's own option, which wins over the top-level setting; the callers below
+ * say why. The intersection resolves to `'max'`, so a package dropping it breaks the build.
+ */
+type MaxEffortOption = Pick<OpenAIResponsesProviderOptions, 'reasoningEffort'> &
+  Pick<OpenAICompatibleProviderOptions, 'reasoningEffort'> &
+  Pick<MoonshotAIProviderOptions, 'reasoningEffort'>;
+
+function maxEffortOption(reasoningEffort: string | undefined): MaxEffortOption {
+  return reasoningEffort === 'max' ? { reasoningEffort: 'max' } : {};
 }
 
 /**
@@ -310,9 +319,11 @@ function readBodyField({ rawBody, key }: { rawBody: unknown; key: string }): JSO
 function openaiProviderOptions({
   rawBody,
   strictJsonSchema,
+  reasoningEffort,
 }: {
   rawBody: unknown;
   strictJsonSchema: boolean | undefined;
+  reasoningEffort: string | undefined;
 }): JSONObject {
   const serviceTier = readBodyField({ rawBody, key: 'service_tier' });
   const user = readBodyField({ rawBody, key: 'user' });
@@ -322,6 +333,8 @@ function openaiProviderOptions({
   return {
     store: false,
     include: ['reasoning.encrypted_content'],
+    // gpt-5.6 serves both xhigh and max, so the aliased top-level level asks for one rung less.
+    ...maxEffortOption(reasoningEffort),
     ...(strictJsonSchema !== undefined ? { strictJsonSchema } : {}),
     ...(serviceTier !== undefined ? { serviceTier } : {}),
     ...(user !== undefined ? { user } : {}),
@@ -390,9 +403,8 @@ function googleGeminiProviderOptions({
 }
 
 /**
- * Moonshot is the only adapter that accepts `max` directly, so it escapes the `xhigh` alias every
- * other provider settles for. `thinking` and `reasoning_history` are forwarded but never pinned:
- * they are the caller's route to turning thinking off, or to replaying it verbatim.
+ * `thinking` and `reasoning_history` are forwarded but never pinned: they are the caller's route to
+ * turning thinking off, or to replaying it verbatim.
  */
 function moonshotProviderOptions({
   rawBody,
@@ -401,13 +413,11 @@ function moonshotProviderOptions({
   rawBody: unknown;
   reasoningEffort: string | undefined;
 }): JSONObject | undefined {
-  // Typed against the package so a change to the literal it accepts breaks the build, not the call.
-  const effort: Pick<MoonshotAIProviderOptions, 'reasoningEffort'> =
-    reasoningEffort === 'max' ? { reasoningEffort: 'max' } : {};
   const thinking = readBodyField({ rawBody, key: 'thinking' });
   const reasoningHistory = readBodyField({ rawBody, key: 'reasoning_history' });
   const opts: JSONObject = {
-    ...effort,
+    // Moonshot's own ceiling is `max`; the aliased `xhigh` is not one of its levels.
+    ...maxEffortOption(reasoningEffort),
     ...(thinking !== undefined ? { thinking } : {}),
     ...(reasoningHistory !== undefined ? { reasoningHistory } : {}),
   };
@@ -428,15 +438,42 @@ function alibabaProviderOptions(rawBody: unknown): JSONObject | undefined {
 }
 
 /**
- * `parallel_tool_calls` is deliberately not forwarded: `OpenAICompatibleProviderOptions` has no
- * field for it, so it never reached the wire.
+ * The adapter copies options outside its own schema into the body under the same key, so these are
+ * wire names, not camelCase. Unvalidated: a field the endpoint rejects fails loudly.
  */
+const COMPATIBLE_BODY_FIELDS = [
+  'service_tier',
+  'user',
+  'prompt_cache_key',
+  'parallel_tool_calls',
+  'thinking',
+  'thinking_budget',
+  'enable_thinking',
+  'reasoning_history',
+] as const;
+
 function compatibleProviderOptions({
   strictJsonSchema,
+  reasoningEffort,
+  rawBody,
 }: {
   strictJsonSchema: boolean | undefined;
+  reasoningEffort: string | undefined;
+  rawBody: unknown;
 }): JSONObject | undefined {
-  return strictJsonSchema !== undefined ? { strictJsonSchema } : undefined;
+  const forwarded: JSONObject = Object.fromEntries(
+    COMPATIBLE_BODY_FIELDS.flatMap(key => {
+      const value = readBodyField({ rawBody, key });
+      return value === undefined ? [] : [[key, value] as const];
+    }),
+  );
+  const opts: JSONObject = {
+    // These endpoints discard an effort they do not recognise, and `xhigh` is one of those.
+    ...maxEffortOption(reasoningEffort),
+    ...forwarded,
+    ...(strictJsonSchema !== undefined ? { strictJsonSchema } : {}),
+  };
+  return Object.keys(opts).length > 0 ? opts : undefined;
 }
 
 /**
@@ -457,7 +494,7 @@ export function buildProviderOptions({
 }): ProviderOptions {
   const strictJsonSchema = structuredOutputSpec.mode === 'json_schema' ? structuredOutputSpec.strict : undefined;
   if (config.provider === 'openai') {
-    return { openai: openaiProviderOptions({ rawBody, strictJsonSchema }) };
+    return { openai: openaiProviderOptions({ rawBody, strictJsonSchema, reasoningEffort }) };
   } else if (config.provider === 'anthropic') {
     const anthropic = anthropicProviderOptions(rawBody);
     return anthropic !== undefined ? { anthropic } : {};
@@ -474,7 +511,7 @@ export function buildProviderOptions({
   } else {
     // The remaining providers all share the compatible adapter, which reads its options from a key
     // matching the `name` it was built with — the provider name itself.
-    const compatible = compatibleProviderOptions({ strictJsonSchema });
+    const compatible = compatibleProviderOptions({ strictJsonSchema, reasoningEffort, rawBody });
     return compatible !== undefined ? { [config.provider]: compatible } : {};
   }
 }
@@ -549,9 +586,6 @@ export function toUserContent(content: string | ChatCompletionContentPart[]): Us
  * - `'anthropic'`     → `anthropic.signature`
  * - `'google-gemini'` → per-tool-call `google.thoughtSignature`, no standalone reasoning block
  * - `'custom'`        → OpenAI-compatible ignores providerOptions, so the token has nowhere to go
- *
- * Alibaba gets no reasoning at all: its adapter appends replayed thinking to the visible answer,
- * and Qwen issues no signature, so there is nothing to lose by leaving it out.
  */
 export function toAssistantModelMessage({
   msg,
@@ -564,6 +598,7 @@ export function toAssistantModelMessage({
 
   // `thinking_blocks` is attached at runtime by AgentThread and absent from the OpenAI SDK type.
   const rawThinking: unknown = Reflect.get(msg, 'thinking_blocks');
+  // Alibaba appends replayed thinking to the visible answer, and Qwen signs nothing to preserve.
   if (Array.isArray(rawThinking) && provider !== 'alibaba') {
     // Widen any[] → unknown[] so the in-guards below narrow safely.
     const blocks: unknown[] = rawThinking;
