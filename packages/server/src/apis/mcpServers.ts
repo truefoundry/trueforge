@@ -31,8 +31,14 @@ import { TENANT_ID } from './sessions';
 /** Registering a DCR OAuth client hits the MCP server's authorization server, so bound that call. */
 export const MCP_DCR_REGISTRATION_TIMEOUT_MS = 10_000;
 
-export interface McpServersRouterDeps {
+export interface SettingsMcpServersRouterDeps {
   mcpCatalog: McpCatalog;
+  mcpServerStore: IMcpServerStore;
+  tokenStore: IOAuthTokenStore;
+  logger: Logger;
+}
+
+export interface McpServersRouterDeps {
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   logger: Logger;
@@ -75,7 +81,7 @@ function toConfiguredMcpServer({
 /** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers).
  *  TODO: Remove the server via txn if DCR fails to register
  */
-export function createMcpServersRouter(deps: McpServersRouterDeps) {
+export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDeps) {
   const registerDcrClient = async (params: {
     serverId: string;
     mcpServerUrl: string;
@@ -189,6 +195,17 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     }
   };
 
+  const router = new OpenAPIHono();
+  // Static `/catalog` before `/{name}/…` so "catalog" is not captured as a name.
+  router.openapi(getMcpServerCatalogRoute, catalogHandler);
+  router.openapi(listConfiguredMcpServersRoute, listConfiguredHandler);
+  router.openapi(putMcpServerRoute, putHandler);
+  router.openapi(listMcpServerToolsRoute, listToolsHandler);
+  return router;
+}
+
+/** List + authorize (mounted at /api/v1/mcp-servers). */
+export function createMcpServersRouter(deps: McpServersRouterDeps) {
   const authorizeHandler: RouteHandler<typeof authorizeConfiguredMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const { redirect_url: redirectUrl } = c.req.valid('query');
@@ -247,21 +264,8 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
   };
 
   const router = new OpenAPIHono();
-  // Static `/catalog` before `/{name}/…` so "catalog" is not captured as a name.
-  router.openapi(getMcpServerCatalogRoute, catalogHandler);
-  router.openapi(listConfiguredMcpServersRoute, listConfiguredHandler);
-  router.openapi(putMcpServerRoute, putHandler);
-  router.openapi(listMcpServerToolsRoute, listToolsHandler);
-  router.openapi(authorizeConfiguredMcpServerRoute, authorizeHandler);
-  router.openapi(deleteConfiguredMcpServerAuthRoute, deleteAuthHandler);
-  return router;
-}
-
-/** Chat slim list (mounted at /api/v1/mcp-servers) — mirrors GET /api/v1/models. */
-export function createAvailableMcpServersRouter(store: IMcpServerStore) {
-  const router = new OpenAPIHono();
   router.openapi(listAvailableMcpServersRoute, async c => {
-    const records = await store.listServers({ tenant_id: TENANT_ID, names: undefined });
+    const records = await deps.mcpServerStore.listServers({ tenant_id: TENANT_ID, names: undefined });
     return c.json(
       {
         data: records.map(record => ({ name: record.name, url: record.manifest.url })),
@@ -269,5 +273,7 @@ export function createAvailableMcpServersRouter(store: IMcpServerStore) {
       200,
     );
   });
+  router.openapi(authorizeConfiguredMcpServerRoute, authorizeHandler);
+  router.openapi(deleteConfiguredMcpServerAuthRoute, deleteAuthHandler);
   return router;
 }
