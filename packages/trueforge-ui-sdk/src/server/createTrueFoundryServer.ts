@@ -10,6 +10,7 @@ import type {
   CreateSessionRequest,
   ListSessionsParams,
   ModelSelection,
+  SaveAgentRequest,
   SearchAgentsParams,
   Session,
   SessionEventItem,
@@ -33,7 +34,7 @@ export type CreateTrueFoundryServerOptions<
   getSkills: () => Promise<TSkill[]>;
   getMcp: () => Promise<TMcp[]>;
   searchAgents: (req?: SearchAgentsParams) => Promise<TAgent[]>;
-  saveAgent: (req: { agentName: string; agentSpec: TSpec }) => Promise<TSave>;
+  saveAgent: (req: SaveAgentRequest<TSpec>) => Promise<TSave>;
   deleteAgent?: (req: { agentName: string }) => Promise<void>;
   /** Settings catalog (models + connectors). Optional. */
   catalog?: TCatalog;

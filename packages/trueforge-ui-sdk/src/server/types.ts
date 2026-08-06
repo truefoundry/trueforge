@@ -79,7 +79,7 @@ export interface Model<TParams extends ModelParams = ModelParams> {
  * SDK-owned agent definition — fields the FE reads/writes.
  *
  * - Nested slots are generic: host widens `Model` / `SkillMount` / `McpServerMount`.
- * - The spec itself is extendable: `interface TfySpec extends AgentSpec<...> { instructions?: string }`.
+ * - The spec itself is extendable: `interface TfySpec extends AgentSpec<...> { config?: RuntimeConfig }`.
  *
  * @example
  * ```ts
@@ -89,7 +89,6 @@ export interface Model<TParams extends ModelParams = ModelParams> {
  * interface TfyMcpMount extends McpServerMount { type: string; enableTools: string[] }
  *
  * interface TfySpec extends AgentSpec<TfyModel, TfySkillMount, TfyMcpMount> {
- *   instructions?: string;
  *   config?: RuntimeConfig;
  * }
  * ```
@@ -100,8 +99,16 @@ export interface AgentSpec<
   TMcp extends McpServerMount = McpServerMount,
 > {
   model: TModel;
+  /** System prompt / instructions for the agent. */
+  instructions?: string;
   skills?: TSkill[];
   mcpServers?: TMcp[];
+}
+
+/** Request body for `AgentBuilderServer.saveAgent`. */
+export interface SaveAgentRequest<TSpec extends AgentSpec = AgentSpec> {
+  agentName: string;
+  agentSpec: TSpec;
 }
 
 // ---------------------------------------------------------------------------
@@ -324,7 +331,7 @@ export interface AgentBuilderServer<
   getSkills(): Promise<TSkill[]>;
   getMcp(): Promise<TMcp[]>;
   searchAgents(req?: SearchAgentsParams): Promise<TAgent[]>;
-  saveAgent(req: { agentName: string; agentSpec: TSpec }): Promise<TSave>;
+  saveAgent(req: SaveAgentRequest<TSpec>): Promise<TSave>;
   deleteAgent?(req: { agentName: string }): Promise<void>;
 }
 
