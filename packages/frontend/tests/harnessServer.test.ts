@@ -4,6 +4,7 @@ import { createHarnessChatServer, type HarnessAgentSpec } from '../src/harnessSe
 
 const session = {
   id: 'ses_1',
+  agent_id: null,
   agent_spec: {
     model: { name: 'test/model' },
     mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],

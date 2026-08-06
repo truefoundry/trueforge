@@ -38,8 +38,8 @@ export interface HarnessAgentSpec extends AgentSpec<Harness.AgentSpecModel, Harn
 }
 
 export interface HarnessSession extends Session<HarnessAgentSpec> {
-  agentSpec: HarnessAgentSpec;
-  isMutable: true;
+  agentSpec?: HarnessAgentSpec;
+  isMutable: boolean;
 }
 
 export interface CreateHarnessServerOptions {
@@ -75,7 +75,7 @@ function toHarnessAgentSpec(spec: HarnessAgentSpec): Harness.AgentSpec {
   };
 }
 
-function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
+function toUiAgentSpec(spec: Harness.AgentSpec | Harness.SessionAgentSpec): HarnessAgentSpec {
   const { mcpServers, skills, ...rest } = spec;
   return {
     ...rest,
@@ -85,12 +85,15 @@ function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
 }
 
 function toUiSession(session: Harness.Session): HarnessSession {
-  const { title, agentSpec, ...rest } = session;
+  // Draft sessions carry agent_spec; named sessions bind agent_id and leave agent_spec null.
+  const isMutable = session.agentId === null;
   return {
-    ...rest,
-    agentSpec: toUiAgentSpec(agentSpec),
-    isMutable: true,
-    ...(title === null ? {} : { title }),
+    id: session.id,
+    isMutable,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+    ...(session.title === null ? {} : { title: session.title }),
+    ...(session.agentSpec === null ? {} : { agentSpec: toUiAgentSpec(session.agentSpec) }),
   };
 }
 
