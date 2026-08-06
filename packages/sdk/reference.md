@@ -67,7 +67,7 @@ await client.agents.list();
 <dl>
 <dd>
 
-Creates an agent and allocates an immutable id. Fails if `name` is already taken.
+Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.
 </dd>
 </dl>
 </dd>
@@ -186,7 +186,7 @@ await client.agents.get("agent_id");
 </dl>
 </details>
 
-<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">update</a>(agent_id, { ...params }) -> TrueForge.PutAgentResponse</code></summary>
+<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">update</a>(name, { ...params }) -> TrueForge.PutAgentResponse</code></summary>
 <dl>
 <dd>
 
@@ -198,7 +198,7 @@ await client.agents.get("agent_id");
 <dl>
 <dd>
 
-Replaces `name` and AgentSpec for an existing agent by id. The id is never changed; renames are allowed via a new `name`.
+Replaces the AgentSpec for an existing agent keyed by immutable `name`.
 </dd>
 </dl>
 </dd>
@@ -213,11 +213,10 @@ Replaces `name` and AgentSpec for an existing agent by id. The id is never chang
 <dd>
 
 ```typescript
-await client.agents.update("agent_id", {
+await client.agents.update("name", {
     model: {
         name: "name"
-    },
-    name: "name"
+    }
 });
 
 ```
@@ -234,7 +233,7 @@ await client.agents.update("agent_id", {
 <dl>
 <dd>
 
-**agent_id:** `string` — Immutable agent identifier.
+**name:** `string` — Immutable unique agent name within the tenant.
     
 </dd>
 </dl>
@@ -242,7 +241,7 @@ await client.agents.update("agent_id", {
 <dl>
 <dd>
 
-**request:** `TrueForge.AgentWriteRequest` 
+**request:** `TrueForge.UpdateAgentRequest` 
     
 </dd>
 </dl>

@@ -4,18 +4,17 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { AgentSpec } from "./AgentSpec.js";
-import { ResourceName } from "./ResourceName.js";
 
 export const Agent: core.serialization.ObjectSchema<serializers.Agent.Raw, TrueForge.Agent> = core.serialization
     .object({
         id: core.serialization.string(),
-        name: ResourceName,
+        name: core.serialization.string(),
     })
     .extend(AgentSpec);
 
 export declare namespace Agent {
     export interface Raw extends AgentSpec.Raw {
         id: string;
-        name: ResourceName.Raw;
+        name: string;
     }
 }

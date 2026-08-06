@@ -62,7 +62,7 @@ following namespace:
 ```typescript
 import { TrueForge } from "trueforge";
 
-const request: TrueForge.AuthorizeMcpServersRequest = {
+const request: TrueForge.AgentWriteRequest = {
     ...
 };
 ```

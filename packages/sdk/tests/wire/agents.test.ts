@@ -303,7 +303,7 @@ describe("AgentsClient", () => {
     test("update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
-        const rawRequestBody = { model: { name: "name" }, name: "name" };
+        const rawRequestBody = { model: { name: "name" } };
         const rawResponseBody = {
             data: {
                 config: { iteration_limit: 1, sandbox: { enabled: true } },
@@ -321,18 +321,17 @@ describe("AgentsClient", () => {
 
         server
             .mockEndpoint()
-            .put("/api/v1/agents/agent_id")
+            .put("/api/v1/agents/name")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.agents.update("agent_id", {
+        const response = await client.agents.update("name", {
             model: {
                 name: "name",
             },
-            name: "name",
         });
         expect(response).toEqual({
             data: {
@@ -377,12 +376,12 @@ describe("AgentsClient", () => {
     test("update (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "xy", model: { name: "x" } };
+        const rawRequestBody = { model: { name: "x" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .put("/api/v1/agents/agent_id")
+            .put("/api/v1/agents/name")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(400)
@@ -390,8 +389,7 @@ describe("AgentsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.agents.update("agent_id", {
-                name: "xy",
+            return await client.agents.update("name", {
                 model: {
                     name: "x",
                 },
@@ -402,12 +400,12 @@ describe("AgentsClient", () => {
     test("update (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "xy", model: { name: "x" } };
+        const rawRequestBody = { model: { name: "x" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .put("/api/v1/agents/agent_id")
+            .put("/api/v1/agents/name")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(404)
@@ -415,8 +413,7 @@ describe("AgentsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.agents.update("agent_id", {
-                name: "xy",
+            return await client.agents.update("name", {
                 model: {
                     name: "x",
                 },
@@ -427,37 +424,12 @@ describe("AgentsClient", () => {
     test("update (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "xy", model: { name: "x" } };
+        const rawRequestBody = { model: { name: "x" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .put("/api/v1/agents/agent_id")
-            .jsonBody(rawRequestBody)
-            .respondWith()
-            .statusCode(409)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.agents.update("agent_id", {
-                name: "xy",
-                model: {
-                    name: "x",
-                },
-            });
-        }).rejects.toThrow(TrueForgeTypes.ConflictError);
-    });
-
-    test("update (5)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "xy", model: { name: "x" } };
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .put("/api/v1/agents/agent_id")
+            .put("/api/v1/agents/name")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(422)
@@ -465,8 +437,7 @@ describe("AgentsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.agents.update("agent_id", {
-                name: "xy",
+            return await client.agents.update("name", {
                 model: {
                     name: "x",
                 },

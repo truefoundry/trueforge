@@ -36,7 +36,14 @@
                 "type": "string"
               },
               "name": {
-                "$ref": "#/components/schemas/ResourceName"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ResourceName"
+                  },
+                  {
+                    "description": "Immutable unique agent name within the tenant."
+                  }
+                ]
               }
             },
             "required": [
@@ -3228,6 +3235,51 @@
           }
         ]
       },
+      "UpdateAgentRequest": {
+        "description": "Agent Definition",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/RuntimeConfig"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "mcp_servers": {
+            "items": {
+              "$ref": "#/components/schemas/MCPServer"
+            },
+            "type": "array"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AgentSpecUserMessage"
+            },
+            "type": "array"
+          },
+          "model": {
+            "$ref": "#/components/schemas/AgentSpecModel"
+          },
+          "response_format": {
+            "$ref": "#/components/schemas/ResponseFormat"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillNameRef"
+            },
+            "type": "array"
+          },
+          "variables": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "model"
+        ],
+        "type": "object"
+      },
       "UpdateSessionRequest": {
         "properties": {
           "agent": {
@@ -3430,7 +3482,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "post": {
-        "description": "Creates an agent and allocates an immutable id. Fails if `name` is already taken.",
+        "description": "Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3540,20 +3592,26 @@
           "agents"
         ],
         "x-fern-sdk-method-name": "get"
-      },
+      }
+    },
+    "/api/v1/agents/{name}": {
       "put": {
-        "description": "Replaces `name` and AgentSpec for an existing agent by id. The id is never changed; renames are allowed via a new `name`.",
+        "description": "Replaces the AgentSpec for an existing agent keyed by immutable `name`.",
         "parameters": [
           {
-            "description": "Immutable agent identifier.",
+            "description": "Immutable unique agent name within the tenant.",
             "in": "path",
-            "name": "agent_id",
+            "name": "name",
             "required": true,
             "schema": {
-              "description": "Immutable agent identifier.",
-              "maxLength": 64,
-              "minLength": 1,
-              "type": "string"
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ResourceName"
+                },
+                {
+                  "description": "Immutable unique agent name within the tenant."
+                }
+              ]
             }
           }
         ],
@@ -3561,7 +3619,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AgentWriteRequest"
+                "$ref": "#/components/schemas/UpdateAgentRequest"
               }
             }
           },
@@ -3597,16 +3655,6 @@
               }
             },
             "description": "Agent not found."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Another agent already uses this name."
           },
           "422": {
             "content": {

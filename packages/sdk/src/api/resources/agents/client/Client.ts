@@ -82,7 +82,7 @@ export class AgentsClient {
     }
 
     /**
-     * Creates an agent and allocates an immutable id. Fails if `name` is already taken.
+     * Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.
      *
      * @param {TrueForge.AgentWriteRequest} request
      * @param {AgentsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -278,38 +278,36 @@ export class AgentsClient {
     }
 
     /**
-     * Replaces `name` and AgentSpec for an existing agent by id. The id is never changed; renames are allowed via a new `name`.
+     * Replaces the AgentSpec for an existing agent keyed by immutable `name`.
      *
-     * @param {string} agent_id - Immutable agent identifier.
-     * @param {TrueForge.AgentWriteRequest} request
+     * @param {string} name - Immutable unique agent name within the tenant.
+     * @param {TrueForge.UpdateAgentRequest} request
      * @param {AgentsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.NotFoundError}
-     * @throws {@link TrueForge.ConflictError}
      * @throws {@link TrueForge.UnprocessableEntityError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.agents.update("agent_id", {
+     *     await client.agents.update("name", {
      *         model: {
      *             name: "name"
-     *         },
-     *         name: "name"
+     *         }
      *     })
      */
     public update(
-        agent_id: string,
-        request: TrueForge.AgentWriteRequest,
+        name: string,
+        request: TrueForge.UpdateAgentRequest,
         requestOptions?: AgentsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.PutAgentResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__update(agent_id, request, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__update(name, request, requestOptions));
     }
 
     private async __update(
-        agent_id: string,
-        request: TrueForge.AgentWriteRequest,
+        name: string,
+        request: TrueForge.UpdateAgentRequest,
         requestOptions?: AgentsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.PutAgentResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
@@ -317,7 +315,7 @@ export class AgentsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/agents/${core.url.encodePathParam(agent_id)}`,
+                `api/v1/agents/${core.url.encodePathParam(name)}`,
             ),
             method: "PUT",
             headers: _headers,
@@ -325,7 +323,7 @@ export class AgentsClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.AgentWriteRequest.jsonOrThrow(request, {
+                serializers.UpdateAgentRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -376,17 +374,6 @@ export class AgentsClient {
                         }),
                         _response.rawResponse,
                     );
-                case 409:
-                    throw new TrueForge.ConflictError(
-                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
-                            unrecognizedObjectKeys: "passthrough",
-                            allowUnrecognizedUnionMembers: true,
-                            allowUnrecognizedEnumValues: true,
-                            skipValidation: true,
-                            breadcrumbsPrefix: ["response"],
-                        }),
-                        _response.rawResponse,
-                    );
                 case 422:
                     throw new TrueForge.UnprocessableEntityError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -407,6 +394,6 @@ export class AgentsClient {
             }
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "PUT", "/api/v1/agents/{agent_id}");
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "PUT", "/api/v1/agents/{name}");
     }
 }

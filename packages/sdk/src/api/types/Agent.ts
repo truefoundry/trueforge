@@ -8,5 +8,6 @@ import type * as TrueForge from "../index.js";
 export interface Agent extends TrueForge.AgentSpec {
     /** Immutable server-generated agent identifier. */
     id: string;
-    name: TrueForge.ResourceName;
+    /** Immutable unique agent name within the tenant. */
+    name: string;
 }

@@ -5,7 +5,6 @@ export * from "./AgentParent.js";
 export * from "./AgentSpec.js";
 export * from "./AgentSpecModel.js";
 export * from "./AgentSpecUserMessage.js";
-export * from "./AgentWriteRequest.js";
 export * from "./ApprovalAllow.js";
 export * from "./ApprovalDecision.js";
 export * from "./ApprovalDeny.js";
