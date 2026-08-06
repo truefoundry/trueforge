@@ -8,5 +8,5 @@ import type * as TrueForge from "../../../../index.js";
  */
 export interface CreateTurnSessionsStreamRequest {
     input?: TrueForge.TurnInputItem[];
-    previousTurnId?: TrueForge.PreviousTurnIdInput | null;
+    previousTurnId?: TrueForge.PreviousTurnIdInput;
 }

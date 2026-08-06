@@ -1908,15 +1908,18 @@
             "type": "string"
           },
           {
-            "minLength": 1,
+            "enum": [
+              "none"
+            ],
             "type": "string"
           },
           {
-            "type": "null"
+            "minLength": 1,
+            "type": "string"
           }
         ],
         "default": "auto",
-        "description": "Defaults to 'auto' (chain to session last turn). Use 'null' for the session's first turn."
+        "description": "Defaults to 'auto' (chain to session last turn). Use 'none' for a new root turn."
       },
       "PutAgentResponse": {
         "properties": {
@@ -4692,7 +4695,7 @@
         "x-fern-sdk-method-name": "list_turns"
       },
       "post": {
-        "description": "Create a turn within a session and execute it.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`).",
+        "description": "Create a turn within a session and execute it.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
         "parameters": [
           {
             "description": "Session identifier.",

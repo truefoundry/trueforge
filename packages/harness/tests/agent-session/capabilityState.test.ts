@@ -73,7 +73,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         extraCapabilities: [
@@ -142,7 +142,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         extraCapabilities: [makePlanShapedCapability({ enabled: true, emitState: planV1 })],
@@ -230,7 +230,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'x' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({ extraCapabilities: [undefinedStateCapability] }),
     });

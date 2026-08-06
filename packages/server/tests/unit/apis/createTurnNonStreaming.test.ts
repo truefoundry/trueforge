@@ -5,6 +5,7 @@ import { createLogger } from 'winston';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, turnStreamId } from '../../../src/apis/turns';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
@@ -83,6 +84,7 @@ describe('create turn non-streaming', () => {
         sessionStore: new SqliteSessionStore(db),
         activeTurns: new ActiveTurnRegistry(),
         modelProviderStore,
+        agentStore: new SqliteAgentStore(db),
         mcpServerStore: new SqliteMcpServerStore(db),
         tokenStore: new SqliteOAuthTokenStore(db),
         skillStore: new SqliteSkillStore(db),

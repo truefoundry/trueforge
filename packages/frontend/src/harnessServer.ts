@@ -168,14 +168,6 @@ function toHarnessInput(input: TurnInputItem[]): Harness.TurnInputItem[] {
   );
 }
 
-/**
- * The runtime marks a chain root with the gateway's `"none"` sentinel; Harness
- * spells that `null` and would otherwise look `"none"` up as a turn id (404).
- */
-function toHarnessPreviousTurnId(previousTurnId: string): Harness.PreviousTurnIdInput | null {
-  return previousTurnId === 'none' ? null : previousTurnId;
-}
-
 export function createHarnessChatServer(options: CreateHarnessServerOptions = {}): AgentChatServer<HarnessAgentSpec> {
   const client =
     options.baseUrl === undefined && options.fetch === undefined ? harnessClient : createHarnessClient(options);
@@ -223,7 +215,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
     }) {
       const stream = await client.sessions.createTurnStream(sessionId, {
         ...(input === undefined ? {} : { input: toHarnessInput(input) }),
-        ...(previousTurnId === undefined ? {} : { previousTurnId: toHarnessPreviousTurnId(previousTurnId) }),
+        ...(previousTurnId === undefined ? {} : { previousTurnId }),
       });
       let fallbackSequence = 0;
       for await (const item of stream.withMetadata()) {

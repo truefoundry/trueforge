@@ -113,7 +113,7 @@ export const createAndExecuteTurnRoute = createRoute({
   description: `Create a turn within a session and execute it.
 When \`stream\` is true (default), respond with a Server-Sent Events stream of turn events.
 When \`stream\` is false, return the turn immediately with \`state.status: "running"\` while execution continues in the background; use get turn or subscribe to observe completion.
-Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`).`,
+Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`); use \`none\` for a new root.`,
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create_turn',
   'x-fern-streaming': {
