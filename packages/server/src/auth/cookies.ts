@@ -2,7 +2,9 @@ import type { Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { z } from 'zod';
 import configuration from '../config';
-import { ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, OAUTH_STATE_MAX_AGE_SECONDS } from './constants';
+
+export const OAUTH_STATE_COOKIE = 'oauth_state';
+export const ID_TOKEN_COOKIE = 'id_token';
 
 const OAuthStateSchema = z.object({
   state: z.string(),
@@ -27,10 +29,10 @@ function cookieOptions(): {
   };
 }
 
-export function setOAuthStateCookie(c: Context, value: OAuthState): void {
-  setCookie(c, OAUTH_STATE_COOKIE, JSON.stringify(value), {
+export function setAuthCookie(options: { context: Context; name: string; value: string; maxAgeSeconds: number }): void {
+  setCookie(options.context, options.name, options.value, {
     ...cookieOptions(),
-    maxAge: OAUTH_STATE_MAX_AGE_SECONDS,
+    maxAge: options.maxAgeSeconds,
   });
 }
 
@@ -50,17 +52,6 @@ export function readOAuthStateCookie(c: Context): OAuthState | undefined {
   }
 }
 
-export function clearOAuthStateCookie(c: Context): void {
-  deleteCookie(c, OAUTH_STATE_COOKIE, { path: '/' });
-}
-
-export function setIdTokenCookie(c: Context, idToken: string, maxAgeSeconds: number): void {
-  setCookie(c, ID_TOKEN_COOKIE, idToken, {
-    ...cookieOptions(),
-    maxAge: maxAgeSeconds,
-  });
-}
-
-export function clearIdTokenCookie(c: Context): void {
-  deleteCookie(c, ID_TOKEN_COOKIE, { path: '/' });
+export function clearAuthCookie(options: { context: Context; name: string }): void {
+  deleteCookie(options.context, options.name, { path: '/' });
 }

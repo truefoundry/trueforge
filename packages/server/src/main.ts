@@ -201,7 +201,7 @@ try {
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
 
-  await initOidc();
+  await initOidc({ logger });
 
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),

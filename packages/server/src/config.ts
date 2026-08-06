@@ -409,8 +409,7 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   REDIS_URL: string;
   /**
    * OIDC configuration for server authentication.
-   * Undefined = every request resolves to a fixed
-   * local admin identity instead of a real IdP session.
+   * Undefined means browser login is disabled.
    */
   OIDC: OIDCConfig | undefined;
 };
@@ -533,5 +532,12 @@ const configuration: ServerConfiguration = standalone
       REDIS_URL: resolveRedisUrl(),
       OIDC: resolveOIDCConfig(),
     };
+
+export function oidcConfig(): OIDCConfig | undefined {
+  if (configuration.STANDALONE) {
+    return undefined;
+  }
+  return configuration.OIDC;
+}
 
 export default configuration;
