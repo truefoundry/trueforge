@@ -10,8 +10,9 @@
  * Skills are name refs on the wire (`SkillNameRef`); the UI SkillMount only
  * needs `{ id, name }`, so id is derived as the skill name.
  *
- * Sessions speak agent names on the wire (`{ name }` or bare AgentSpec); the UI
- * Session shape keeps `agentName` / `agentSpec` / `isMutable`.
+ * Session create accepts `{ name }` or a bare AgentSpec. Reads still carry the
+ * internal `ref`/`value` discriminator and agent ids; the UI speaks names, so
+ * list/get resolve ids through the agent registry.
  */
 import type {
   AgentChatServer,
@@ -79,22 +80,34 @@ function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
   };
 }
 
-/** Named sessions carry only `{ name }`; inline sessions carry a bare AgentSpec (`model` required). */
-function isNamedSessionAgent(agent: Harness.SessionWireAgent): agent is Harness.SessionAgentNameRef {
-  return !('model' in agent);
-}
-
-function toUiSession(session: Harness.Session): Session<HarnessAgentSpec> {
+/**
+ * UI sessions speak agent names; session reads carry agent ids. Callers pass the
+ * registry (small, one tenant) so ref rows can stamp `agentName`.
+ */
+function toUiSession(
+  session: Harness.Session,
+  agents: readonly { id: string; name: string }[] = [],
+): Session<HarnessAgentSpec> {
   const { agent } = session;
-  const named = isNamedSessionAgent(agent);
+  const agentName = agent.type === 'ref' ? agents.find(candidate => candidate.id === agent.agentId)?.name : undefined;
   return {
     id: session.id,
-    isMutable: !named,
+    isMutable: agent.type === 'value',
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     ...(session.title === null ? {} : { title: session.title }),
-    ...(named ? { agentName: agent.name } : { agentSpec: toUiAgentSpec(agent) }),
+    ...(agentName === undefined ? {} : { agentName }),
+    ...(agent.type === 'value' ? { agentSpec: toUiAgentSpec(agent.agentSpec) } : {}),
   };
+}
+
+/** There is no get-by-name endpoint; the UI keys agents by unique name. */
+function requireAgent(agents: readonly { id: string; name: string }[], name: string): { id: string; name: string } {
+  const agent = agents.find(candidate => candidate.name === name);
+  if (agent === undefined) {
+    throw new Error(`Agent not found: ${name}`);
+  }
+  return agent;
 }
 
 /** Spread drops the interface identity, which is what makes the SDK's index-signature part type accept it. */
@@ -187,7 +200,8 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
         const created = await client.sessions.create({
           agent: { name: request.agentName },
         });
-        return toUiSession(created.data);
+        const { agent } = created.data;
+        return toUiSession(created.data, agent.type === 'ref' ? [{ id: agent.agentId, name: request.agentName }] : []);
       }
       if (request.agentSpec !== undefined) {
         const created = await client.sessions.create({
@@ -199,24 +213,31 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
     },
 
     async listSessions(request = {}) {
+      const { data: agents } = await client.agents.list();
+      const filter =
+        request.agentName === undefined || request.agentName.length === 0
+          ? undefined
+          : requireAgent(agents, request.agentName);
+
       const page = await client.sessions.list({
         ...(request.limit === undefined ? {} : { limit: request.limit }),
         ...(request.order === undefined ? {} : { order: request.order }),
         ...(request.pageToken === undefined ? {} : { pageToken: request.pageToken }),
-        ...(request.agentName === undefined || request.agentName.length === 0 ? {} : { agentName: request.agentName }),
+        ...(filter === undefined ? {} : { agentId: filter.id }),
       });
-      return toPage(page, toUiSession);
+      return toPage(page, session => toUiSession(session, agents));
     },
 
     async getSession({ sessionId }) {
       const response = await client.sessions.get(sessionId);
-      return toUiSession(response.data);
+      const agents = response.data.agent.type === 'ref' ? (await client.agents.list()).data : [];
+      return toUiSession(response.data, agents);
     },
 
     async updateSession({ sessionId, agentSpec }) {
       if (agentSpec !== undefined) {
         const current = await client.sessions.get(sessionId);
-        if (isNamedSessionAgent(current.data.agent)) {
+        if (current.data.agent.type === 'ref') {
           throw new Error('Cannot update agent on a named session');
         }
       }
