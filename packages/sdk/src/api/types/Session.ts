@@ -3,7 +3,9 @@
 import type * as TrueForge from "../index.js";
 
 export interface Session {
-    agentSpec: TrueForge.AgentSpec;
+    agentId: string | null;
+    /** Agent Definition */
+    agentSpec: TrueForge.SessionAgentSpec | null;
     createdAt: string;
     id: string;
     title: string | null;
