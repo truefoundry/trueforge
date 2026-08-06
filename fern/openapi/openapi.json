@@ -701,33 +701,16 @@
         "type": "object"
       },
       "CreateSessionRequest": {
-        "anyOf": [
-          {
-            "additionalProperties": false,
-            "properties": {
-              "agent_spec": {
-                "$ref": "#/components/schemas/AgentSpec"
-              }
-            },
-            "required": [
-              "agent_spec"
-            ],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "agent_id": {
-                "minLength": 1,
-                "type": "string"
-              }
-            },
-            "required": [
-              "agent_id"
-            ],
-            "type": "object"
+        "additionalProperties": false,
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/SessionAgent"
           }
-        ]
+        },
+        "required": [
+          "agent"
+        ],
+        "type": "object"
       },
       "CreateTurnRequest": {
         "properties": {
@@ -2300,24 +2283,8 @@
       },
       "Session": {
         "properties": {
-          "agent_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "agent_spec": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/AgentSpec"
-              },
-              {
-                "type": [
-                  "object",
-                  "null"
-                ]
-              }
-            ]
+          "agent": {
+            "$ref": "#/components/schemas/SessionAgent"
           },
           "created_at": {
             "type": "string"
@@ -2337,13 +2304,55 @@
         },
         "required": [
           "id",
-          "agent_id",
-          "agent_spec",
+          "agent",
           "title",
           "created_at",
           "updated_at"
         ],
         "type": "object"
+      },
+      "SessionAgent": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "agent_id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "ref"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "agent_id"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "agent_spec": {
+                "$ref": "#/components/schemas/AgentSpec"
+              },
+              "type": {
+                "enum": [
+                  "value"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "agent_spec"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "SessionEvent": {
         "discriminator": {
@@ -3221,8 +3230,24 @@
       },
       "UpdateSessionRequest": {
         "properties": {
-          "agent_spec": {
-            "$ref": "#/components/schemas/AgentSpec"
+          "agent": {
+            "additionalProperties": false,
+            "properties": {
+              "agent_spec": {
+                "$ref": "#/components/schemas/AgentSpec"
+              },
+              "type": {
+                "enum": [
+                  "value"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "agent_spec"
+            ],
+            "type": "object"
           }
         },
         "type": "object"
@@ -4145,7 +4170,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "post": {
-        "description": "Create a session bound to an inline draft `agent_spec` or a named registry `agent_id` (exactly one). Named sessions resolve the live agent on each turn.",
+        "description": "Create a session with `agent` as either `{ type: \"value\", agent_spec }` (draft) or `{ type: \"ref\", agent_id }` (named). Named sessions resolve the live agent on each turn.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4287,7 +4312,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a draft session's inline `agent_spec`. Named sessions (bound by `agent_id`) reject `agent_spec` updates. An empty body is a valid no-op that refreshes `updated_at`.",
+        "description": "Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4331,7 +4356,7 @@
                 }
               }
             },
-            "description": "Invalid request body, or named session rejected an `agent_spec` update."
+            "description": "Invalid request body, or named session rejected an agent update."
           },
           "404": {
             "content": {

@@ -135,7 +135,7 @@ export class SessionsClient {
     }
 
     /**
-     * Create a session bound to an inline draft `agent_spec` or a named registry `agent_id` (exactly one). Named sessions resolve the live agent on each turn.
+     * Create a session with `agent` as either `{ type: "value", agent_spec }` (draft) or `{ type: "ref", agent_id }` (named). Named sessions resolve the live agent on each turn.
      *
      * @param {TrueForge.CreateSessionRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -148,10 +148,9 @@ export class SessionsClient {
      *
      * @example
      *     await client.sessions.create({
-     *         agentSpec: {
-     *             model: {
-     *                 name: "name"
-     *             }
+     *         agent: {
+     *             agentId: "agent_id",
+     *             type: "ref"
      *         }
      *     })
      */
@@ -388,7 +387,7 @@ export class SessionsClient {
     }
 
     /**
-     * Update a draft session's inline `agent_spec`. Named sessions (bound by `agent_id`) reject `agent_spec` updates. An empty body is a valid no-op that refreshes `updated_at`.
+     * Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.UpdateSessionRequest} request

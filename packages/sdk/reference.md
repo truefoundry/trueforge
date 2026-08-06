@@ -751,7 +751,7 @@ await client.sessions.list();
 <dl>
 <dd>
 
-Create a session bound to an inline draft `agent_spec` or a named registry `agent_id` (exactly one). Named sessions resolve the live agent on each turn.
+Create a session with `agent` as either `{ type: "value", agent_spec }` (draft) or `{ type: "ref", agent_id }` (named). Named sessions resolve the live agent on each turn.
 </dd>
 </dl>
 </dd>
@@ -767,10 +767,9 @@ Create a session bound to an inline draft `agent_spec` or a named registry `agen
 
 ```typescript
 await client.sessions.create({
-    agentSpec: {
-        model: {
-            name: "name"
-        }
+    agent: {
+        agentId: "agent_id",
+        type: "ref"
     }
 });
 
@@ -946,7 +945,7 @@ await client.sessions.delete("session_id");
 <dl>
 <dd>
 
-Update a draft session's inline `agent_spec`. Named sessions (bound by `agent_id`) reject `agent_spec` updates. An empty body is a valid no-op that refreshes `updated_at`.
+Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.
 </dd>
 </dl>
 </dd>
