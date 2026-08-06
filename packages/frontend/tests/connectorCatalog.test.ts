@@ -101,6 +101,11 @@ describe('connectorCatalog mappers', () => {
       name: 'search',
       description: 'Find docs',
     });
+    assert.deepEqual(toUiTool({ name: 'search' }), {
+      id: 'search',
+      name: 'search',
+      description: '',
+    });
     assert.deepEqual(toUiTool({}), { id: 'tool', name: 'tool', description: '' });
   });
 
