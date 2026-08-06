@@ -13,9 +13,10 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
 let configuration: typeof import('./config').default;
+let isOidcConfigured: typeof import('./config').isOidcConfigured;
 
 try {
-  ({ default: configuration } = await import('./config'));
+  ({ default: configuration, isOidcConfigured } = await import('./config'));
 } catch (error) {
   console.error(
     'Failed to start server: Failed to load configuration:',
@@ -201,7 +202,13 @@ try {
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
 
-  await initOidc({ logger });
+  const oidc = isOidcConfigured(configuration) ? configuration.OIDC : undefined;
+  if (oidc) {
+    logger.info('OIDC is configured', { issuer: oidc.OIDC_ISSUER_URL });
+  } else {
+    logger.warn('OIDC is not configured; browser login is disabled');
+  }
+  const oidcClient = await initOidc(oidc);
 
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),
@@ -221,6 +228,7 @@ try {
     requestReplyRouter,
     eventSubscriptions,
     logger,
+    oidcClient,
   });
 
   if (mountFrontend(app, configuration.FRONTEND_DIR)) {

@@ -1,9 +1,10 @@
-import * as jose from 'jose';
+import { exportJWK, generateKeyPair, type JWK, SignJWT } from 'jose';
 import { createHash } from 'node:crypto';
+import type { Configuration } from 'openid-client';
 import winston from 'winston';
 import { createAuthRouter } from '../../../src/apis/auth';
 import { initOidc } from '../../../src/auth/oidc';
-import configuration, { oidcConfig } from '../../../src/config';
+import configuration from '../../../src/config';
 
 jest.mock('../../../src/config', () => {
   const OIDC = {
@@ -22,7 +23,6 @@ jest.mock('../../../src/config', () => {
       OIDC,
       PORT: 8790,
     },
-    oidcConfig: jest.fn(),
   };
 });
 
@@ -35,16 +35,13 @@ const CLIENT_ID = 'harness-client';
 const STATE_COOKIE = 'oauth_state';
 const ID_TOKEN_COOKIE = 'id_token';
 const configuredOidc = configuration.OIDC;
-const mockedOidcConfig = jest.mocked(oidcConfig);
 const logger = winston.createLogger({ silent: true });
 
-describe('auth router (no identity provider configured)', () => {
-  beforeEach(() => {
-    mockedOidcConfig.mockReturnValue(undefined);
-  });
+const ACCESS_TOKEN = 'access-1';
 
+describe('auth router (no identity provider configured)', () => {
   it('GET /login redirects home — there is nothing to log into', async () => {
-    const router = createAuthRouter();
+    const router = createAuthRouter({ oidcClient: undefined, logger });
 
     const res = await router.request('/login', { redirect: 'manual' });
 
@@ -53,7 +50,7 @@ describe('auth router (no identity provider configured)', () => {
   });
 
   it('GET /callback redirects home — there is nothing to complete', async () => {
-    const router = createAuthRouter();
+    const router = createAuthRouter({ oidcClient: undefined, logger });
 
     const res = await router.request('/callback?state=abc', { redirect: 'manual' });
 
@@ -62,7 +59,7 @@ describe('auth router (no identity provider configured)', () => {
   });
 
   it('POST /logout is a no-op 204 — there is no real session to clear', async () => {
-    const router = createAuthRouter();
+    const router = createAuthRouter({ oidcClient: undefined, logger });
 
     const res = await router.request('/logout', { method: 'POST' });
 
@@ -94,45 +91,44 @@ function cookieValue(cookies: string[], name: string): string | undefined {
 
 describe('auth router (OIDC configured)', () => {
   const realFetch = globalThis.fetch;
-  let privateKey: jose.CryptoKey;
-  let publicJwk: jose.JWK;
+  let privateKey: Awaited<ReturnType<typeof generateKeyPair>>['privateKey'];
+  let publicJwk: JWK;
+  let oidcClient: Configuration;
 
   beforeAll(async () => {
-    const pair = await jose.generateKeyPair('RS256');
-    privateKey = pair.privateKey;
-    publicJwk = await jose.exportJWK(pair.publicKey);
+    const keyPair = await generateKeyPair('RS256');
+    privateKey = keyPair.privateKey;
+    publicJwk = await exportJWK(keyPair.publicKey);
     publicJwk.kid = 'test-kid';
     publicJwk.alg = 'RS256';
     publicJwk.use = 'sig';
   });
 
   beforeEach(async () => {
-    mockedOidcConfig.mockReturnValue(configuredOidc);
     stubOidcFetch();
-    await initOidc({ logger });
+    const client = await initOidc(configuredOidc);
+    if (!client) {
+      throw new Error('OIDC client was not initialized');
+    }
+    oidcClient = client;
   });
 
   afterEach(() => {
     globalThis.fetch = realFetch;
   });
 
-  function accessTokenHash(accessToken: string): string {
-    const digest = createHash('sha256').update(accessToken).digest();
-    return Buffer.from(digest.subarray(0, digest.length / 2)).toString('base64url');
-  }
-
-  async function signIdToken(options: { email: string; accessToken?: string }): Promise<string> {
-    const payload: Record<string, string> = { email: options.email };
-    if (options.accessToken !== undefined) {
-      payload['at_hash'] = accessTokenHash(options.accessToken);
-    }
-    return new jose.SignJWT(payload)
+  async function createIdToken(): Promise<string> {
+    const digest = createHash('sha256').update(ACCESS_TOKEN).digest();
+    return new SignJWT({
+      email: 'alice@customer.com',
+      at_hash: digest.subarray(0, digest.length / 2).toString('base64url'),
+    })
       .setProtectedHeader({ alg: 'RS256', kid: 'test-kid' })
       .setIssuer(ISSUER)
       .setAudience(CLIENT_ID)
       .setSubject('user-1')
       .setIssuedAt()
-      .setExpirationTime('3600s')
+      .setExpirationTime('48h')
       .sign(privateKey);
   }
 
@@ -161,11 +157,9 @@ describe('auth router (OIDC configured)', () => {
       }
 
       if (url === `${ISSUER}/token` && init?.method === 'POST') {
-        const accessToken = 'access-1';
-        const idToken = await signIdToken({ email: 'alice@customer.com', accessToken });
         return json({
-          access_token: accessToken,
-          id_token: idToken,
+          access_token: ACCESS_TOKEN,
+          id_token: await createIdToken(),
           token_type: 'Bearer',
           expires_in: 3600,
         });
@@ -177,7 +171,7 @@ describe('auth router (OIDC configured)', () => {
   }
 
   it('GET /login redirects to the IdP and stores state', async () => {
-    const res = await createAuthRouter().request('/login?return_to=/sessions/abc123', {
+    const res = await createAuthRouter({ oidcClient, logger }).request('/login?return_to=/sessions/abc123', {
       redirect: 'manual',
     });
 
@@ -193,7 +187,7 @@ describe('auth router (OIDC configured)', () => {
 
   // `iss` is forwarded verbatim: IdPs advertising it reject an exchange that drops it.
   it('GET /callback exchanges the code and sets id_token', async () => {
-    const router = createAuthRouter();
+    const router = createAuthRouter({ oidcClient, logger });
     const loginRes = await router.request('/login?return_to=/sessions/abc123', { redirect: 'manual' });
     const stateCookieRaw = cookieValue(setCookies(loginRes), STATE_COOKIE) ?? '';
     const authorizationUrl = new URL(loginRes.headers.get('location') ?? '');
@@ -206,11 +200,12 @@ describe('auth router (OIDC configured)', () => {
 
     expect(callbackRes.status).toBe(302);
     expect(callbackRes.headers.get('location')).toBe('/sessions/abc123');
-    expect(cookieValue(setCookies(callbackRes), ID_TOKEN_COOKIE)).toBeTruthy();
+    const idTokenCookie = setCookies(callbackRes).find(cookie => cookie.startsWith(`${ID_TOKEN_COOKIE}=`));
+    expect(idTokenCookie).toContain('Max-Age=86400');
   });
 
   it('POST /logout clears id_token even when no cookie is present', async () => {
-    const res = await createAuthRouter().request('/logout', {
+    const res = await createAuthRouter({ oidcClient, logger }).request('/logout', {
       method: 'POST',
     });
 

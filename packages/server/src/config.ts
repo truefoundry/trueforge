@@ -533,11 +533,10 @@ const configuration: ServerConfiguration = standalone
       OIDC: resolveOIDCConfig(),
     };
 
-export function oidcConfig(): OIDCConfig | undefined {
-  if (configuration.STANDALONE) {
-    return undefined;
-  }
-  return configuration.OIDC;
+export function isOidcConfigured(
+  value: ServerConfiguration,
+): value is DistributedServerConfiguration & { OIDC: OIDCConfig } {
+  return !value.STANDALONE && value.OIDC !== undefined;
 }
 
 export default configuration;

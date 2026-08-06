@@ -1,24 +1,25 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
+import type { Configuration } from 'openid-client';
+import type { Logger } from 'winston';
 import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCookie } from '../auth/cookies';
 import { buildLoginAuthorization, exchangeAuthorizationCode, safeReturnTo } from '../auth/oidc';
-import { oidcConfig } from '../config';
 import { authLoginRoute, authLogoutRoute, oAuthCallbackRoute } from '../routes/authRoutes';
 
 const LOGIN_ERROR_PATH = '/?error=login_failed';
 
-export function createAuthRouter() {
+export function createAuthRouter(params: { oidcClient: Configuration | undefined; logger: Logger }) {
   const router = new OpenAPIHono();
 
   router.openapi(authLoginRoute, async c => {
-    const oidc = oidcConfig();
-    if (!oidc) {
+    // TODO: remove this checks once the middleware is implemented
+    if (!params.oidcClient) {
       return c.redirect('/', 302);
     }
 
     try {
       const authorizationUrl = await buildLoginAuthorization({
         context: c,
-        oidc,
+        client: params.oidcClient,
         returnTo: c.req.valid('query').return_to,
       });
       return c.redirect(authorizationUrl, 302);
@@ -28,35 +29,30 @@ export function createAuthRouter() {
   });
 
   router.openapi(oAuthCallbackRoute, async c => {
-    const oidc = oidcConfig();
-    if (!oidc) {
+    if (!params.oidcClient) {
       return c.redirect('/', 302);
     }
 
     const query = c.req.valid('query');
-    const pending = readOAuthStateCookie(c);
+    const pending = readOAuthStateCookie({ context: c, logger: params.logger });
     clearAuthCookie({ context: c, name: OAUTH_STATE_COOKIE });
 
-    if (!pending) {
-      return c.redirect(LOGIN_ERROR_PATH, 302);
-    }
-    if (pending.state !== query.state) {
-      return c.redirect(LOGIN_ERROR_PATH, 302);
-    }
-    if (query.error || !query.code) {
+    if (pending?.state !== query.state || query.error || !query.code) {
+      // TODO: handle the error here once frontend error page is implemented
       return c.redirect(LOGIN_ERROR_PATH, 302);
     }
 
     try {
       await exchangeAuthorizationCode({
         context: c,
-        oidc,
+        client: params.oidcClient,
         callbackParams: new URL(c.req.url).searchParams,
         codeVerifier: pending.code_verifier,
-        expectedState: pending.state,
+        state: pending.state,
       });
       return c.redirect(safeReturnTo(pending.return_to), 302);
     } catch {
+      // TODO: handle the error here once frontend error page is implemented
       return c.redirect(LOGIN_ERROR_PATH, 302);
     }
   });
