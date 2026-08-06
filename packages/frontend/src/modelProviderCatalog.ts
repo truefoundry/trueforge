@@ -13,8 +13,7 @@ import type {
   ModelProviderCatalogEntry,
   UpdateModelProviderRequest,
 } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi as Harness } from 'trueforge';
-import { TrueForge } from 'trueforge';
+import { TrueForgeApi as Harness, TrueForge } from 'trueforge';
 /** Custom-form rows omit properties; catalog rows round-trip them. */
 export type UiModelEntry = ModelEntry & {
   properties?: Harness.ModelProperties;
