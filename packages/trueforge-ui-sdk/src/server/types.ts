@@ -31,6 +31,10 @@ export interface ConnectorState {
   id: string;
   name: string;
   description?: string;
+  /** When true, the connector must be authenticated before use. Omitted when the host does not report auth. */
+  requiresAuth?: boolean;
+  /** When true, the connector is already authenticated. Omitted when the host does not report auth. */
+  authenticated?: boolean;
 }
 
 /** Agents library row — UI shows name only. Host extends for metadata. */

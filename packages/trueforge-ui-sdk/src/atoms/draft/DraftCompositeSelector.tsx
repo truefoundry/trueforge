@@ -129,13 +129,17 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
+  // Offer only usable connectors: authenticated, or ones that need no auth.
+  // Hosts that omit auth info keep their connectors selectable.
+  const selectableConnectors = useMemo(() => connectors.filter(c => c.authenticated || !c.requiresAuth), [connectors]);
+
   const filteredConnectors = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return connectors;
-    return connectors.filter(
+    if (!needle) return selectableConnectors;
+    return selectableConnectors.filter(
       c => c.name.toLowerCase().includes(needle) || (c.description?.toLowerCase().includes(needle) ?? false),
     );
-  }, [connectors, query]);
+  }, [selectableConnectors, query]);
 
   const filteredSkills = useMemo(() => {
     const needle = query.trim().toLowerCase();
