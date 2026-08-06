@@ -7,7 +7,7 @@ import * as core from "../../../../core/index.js";
 import { handleNonStatusCodeError } from "../../../../errors/handleNonStatusCodeError.js";
 import * as errors from "../../../../errors/index.js";
 import * as serializers from "../../../../serialization/index.js";
-import type * as TrueHarness from "../../../index.js";
+import type * as TrueForge from "../../../index.js";
 
 export declare namespace ServerClient {
     export type Options = BaseClientOptions;
@@ -27,21 +27,21 @@ export class ServerClient {
      *
      * @param {ServerClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.server.getCapabilities()
      */
     public getCapabilities(
         requestOptions?: ServerClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.GetCapabilitiesResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetCapabilitiesResponse> {
         return core.HttpResponsePromise.fromPromise(this.__getCapabilities(requestOptions));
     }
 
     private async __getCapabilities(
         requestOptions?: ServerClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.GetCapabilitiesResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetCapabilitiesResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -72,7 +72,7 @@ export class ServerClient {
         }
 
         if (_response.error.reason === "status-code") {
-            throw new errors.TrueHarnessError({
+            throw new errors.TrueForgeError({
                 statusCode: _response.error.statusCode,
                 body: _response.error.body,
                 rawResponse: _response.rawResponse,

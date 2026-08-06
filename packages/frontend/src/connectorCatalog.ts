@@ -15,8 +15,8 @@ import type {
   ToolBase,
   UpdateConnectorRequest,
 } from '@truefoundry/agent-ui-sdk';
-import type { TrueHarnessApi as Harness } from 'trueharness';
-import { TrueHarness } from 'trueharness';
+import type { TrueForgeApi as Harness } from 'trueforge';
+import { TrueForge } from 'trueforge';
 
 export type UiConnectorAuth = ConnectorAuth<'none' | 'oauth' | 'apiKey'>;
 export type UiConnectorAuthPublic = ConnectorAuthPublic<'none' | 'oauth' | 'apiKey'>;
@@ -25,7 +25,7 @@ export type UiConnectorCatalogEntry = ConnectorCatalogEntry<UiConnectorAuthPubli
 
 const DEFAULT_API_KEY_HEADER = 'Authorization';
 
-const client = new TrueHarness({ baseUrl: '/' });
+const client = new TrueForge({ baseUrl: '/' });
 
 export function toUiAuthPublic(auth: Harness.ConfiguredMcpServerAuth | undefined): UiConnectorAuthPublic {
   if (auth === undefined) {

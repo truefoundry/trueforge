@@ -5,7 +5,7 @@ Private draft-only agent chat UI for the harness server. **Not published to npm*
 Built on:
 
 ```
-trueharness (local Harness SDK)
+trueforge (local Harness SDK)
   → Harness AgentChatServer adapter
     → createTrueFoundryServer (chat port + catalog callbacks)
       → @truefoundry/agent-ui-sdk (TrueFoundryAssistantUI, layout="sidebar")
@@ -45,7 +45,7 @@ metadata while keeping the browser pointed directly at `/api/v1/sessions`.
 and tolerates `null`. The adapter emits values valid under both — derived mount ids, pages carrying
 `nextPageToken` _and_ `hasNextPage()`, `null` normalised to absent — so no layer needs a cast.
 
-The local SDK is linked as `trueharness`. Frontend dev, typecheck, test, and build scripts build it first,
+The local SDK is linked as `trueforge`. Frontend dev, typecheck, test, and build scripts build it first,
 so clean checkouts do not rely on committed `dist/` output.
 
 ## Production
@@ -61,7 +61,7 @@ docker compose up --build   # UI + API on http://localhost:8791
 
 ## Catalogs (model + MCP + skills)
 
-[`src/catalog.ts`](src/catalog.ts) calls the DB-backed list endpoints via `trueharness`.
+[`src/catalog.ts`](src/catalog.ts) calls the DB-backed list endpoints via `trueforge`.
 `App.tsx` passes the results into `createTrueFoundryServer`:
 
 | Callback       | Source                                                            |

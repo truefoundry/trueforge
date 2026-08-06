@@ -10,7 +10,7 @@ Out of the box you get multi-turn sessions with streaming, MCP tool servers (inc
 | ------------------------- | ----------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
 | `@truefoundry/utils`      | `@truefoundry/trueforge`      | `[packages/server](packages/server)`     | Agent server + bundled UI                                   |
 | `@truefoundry/utils-core` | `@truefoundry/trueforge-core` | `[packages/harness](packages/harness)`   | Library: agent core, sessions, and streaming                |
-| `trueharness`             | `@truefoundry/trueforge-sdk`  | `[packages/sdk](packages/sdk)`           | Generated TypeScript SDK                                    |
+| `trueforge`               | `@truefoundry/trueforge-sdk`  | `[packages/sdk](packages/sdk)`           | Generated TypeScript SDK                                    |
 | `frontend`                | —                             | `[packages/frontend](packages/frontend)` | Chat UI (bundled into the server; not published on its own) |
 
 Requires **Node.js 22.13+** and **pnpm**.
