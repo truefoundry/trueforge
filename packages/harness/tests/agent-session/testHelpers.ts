@@ -50,6 +50,7 @@ export function makeAgentSpec(
       iteration_limit: 5,
       ask_user_questions: { enabled: false },
       dynamic_sub_agents: { enabled: false },
+      generative_ui: { enabled: false },
       context_management: {
         compaction: { enabled: false },
         large_tool_response: { enabled: false },

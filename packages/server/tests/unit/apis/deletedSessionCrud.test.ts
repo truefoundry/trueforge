@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { Sessions } from '@truefoundry/utils-core/agent-session';
+import { AgentSpecSchema, Sessions } from '@truefoundry/utils-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
@@ -64,10 +64,10 @@ describe('public CRUD after session deletion', () => {
     await sessionStore.createSession({
       tenant_id: TENANT_ID,
       session_id: 's1',
-      agent_spec: {
+      agent_spec: AgentSpecSchema.parse({
         model: { name: 'test-provider/test-model' },
         instructions: 'test',
-      },
+      }),
       custom: null,
     });
     expect((await app.request('/s1', { method: 'DELETE' })).status).toBe(204);

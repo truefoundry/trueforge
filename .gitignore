@@ -4,7 +4,6 @@ dist/
 .DS_Store
 *.log
 .env
-packages/server/registry/
 coverage/
 .turbo/
 *.tsbuildinfo

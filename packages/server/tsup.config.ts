@@ -2,7 +2,7 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { defineConfig } from 'tsup';
+import { defineConfig, type Options } from 'tsup';
 
 const packageDir = path.dirname(fileURLToPath(import.meta.url));
 const srcDbDir = path.join(packageDir, 'src/db');
@@ -19,19 +19,38 @@ function migrationEntries(engine: 'postgres' | 'sqlite'): Record<string, string>
   );
 }
 
-export default defineConfig({
-  entry: {
-    main: 'src/main.ts',
-    // Emit both engines under dist/{postgres,sqlite}/migrations/.
-    // Only Postgres is applied at runtime (main) and via `pnpm migrate`.
-    ...migrationEntries('postgres'),
-    ...migrationEntries('sqlite'),
-  },
+const shared: Options = {
   format: ['esm'],
   dts: false,
   splitting: false,
   sourcemap: true,
-  clean: true,
   target: 'esnext',
   outDir: 'dist',
-});
+};
+
+// tsup builds every config here concurrently, so neither may use `clean`: it wipes the
+// shared dist/ mid-flight and can delete the sibling config's output. The build script
+// clears dist/ before invoking tsup instead.
+export default defineConfig([
+  {
+    ...shared,
+    entry: {
+      main: 'src/main.ts',
+      // Emit both engines under dist/{postgres,sqlite}/migrations/.
+      // Runtime selects migrations via STANDALONE (false → postgres, true → sqlite).
+      ...migrationEntries('postgres'),
+      ...migrationEntries('sqlite'),
+    },
+  },
+  {
+    ...shared,
+    entry: {
+      cli: 'src/cli.ts',
+    },
+    // Keep cli as a thin launcher that dynamically imports ./main.js.
+    external: ['./main.js'],
+    banner: {
+      js: '#!/usr/bin/env node',
+    },
+  },
+]);
