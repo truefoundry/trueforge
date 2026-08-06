@@ -327,7 +327,7 @@ export async function validateAgentSpec({
     }
   }
 
-  const wantsSandbox = spec.config?.sandbox?.enabled === true;
+  const wantsSandbox = spec.config.sandbox.enabled;
   const hasSkills = requestedSkills.length > 0;
   if (wantsSandbox || hasSkills) {
     const record = await sandboxProviderStore.getSandboxProvider(tenant_id);

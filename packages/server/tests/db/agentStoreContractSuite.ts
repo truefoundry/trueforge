@@ -2,17 +2,17 @@
  * Backend-agnostic behavioural contract for IAgentStore.
  * Runs under jest against a fresh store per test (see backend test files).
  */
-import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
+import { AgentSpecSchema, type AgentSpec } from '@truefoundry/utils-core/agent-session';
 import { AgentNameConflictError, type IAgentStore } from '../../src/db/agentStore';
 
 const TENANT = 'default';
 
 function manifest(overrides: Partial<AgentSpec> = {}): AgentSpec {
-  return {
+  return AgentSpecSchema.parse({
     model: { name: 'anthropic/claude-sonnet-4-6' },
     instructions: 'Be helpful.',
     ...overrides,
-  };
+  });
 }
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;

@@ -90,7 +90,7 @@ describe('createHarnessChatServer', () => {
     const server = createHarnessChatServer({ fetch: fetchMock });
 
     const events = [];
-    for await (const event of server.prepareAndExecuteTurn({
+    for await (const event of server.createTurn({
       sessionId: 'ses_1',
       input: [{ type: 'user.message', content: 'hello' }],
       // The runtime's root sentinel; Harness 404s unless it becomes `null`.

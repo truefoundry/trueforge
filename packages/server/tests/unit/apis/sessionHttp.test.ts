@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { Sessions } from '@truefoundry/utils-core/agent-session';
+import { AgentSpecSchema, Sessions } from '@truefoundry/utils-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import { createClient } from 'redis';
 import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
@@ -13,10 +13,10 @@ import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteS
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 
-const draftSpec = {
+const draftSpec = AgentSpecSchema.parse({
   model: { name: 'anthropic/claude-sonnet-4-6' },
   instructions: 'draft',
-};
+});
 
 function jsonInit(method: string, body: unknown): RequestInit {
   return {
@@ -84,10 +84,10 @@ describe('sessions HTTP (agent_id XOR agent_spec)', () => {
     const agent = await agentStore.createAgent({
       tenant_id: TENANT_ID,
       name: 'named-agent',
-      manifest: {
+      manifest: AgentSpecSchema.parse({
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'from-registry',
-      },
+      }),
     });
 
     const missing = await app.request('/', jsonInit('POST', { agent_id: 'does-not-exist' }));

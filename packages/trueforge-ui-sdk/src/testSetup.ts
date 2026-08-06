@@ -1,0 +1,52 @@
+import '@testing-library/jest-dom/vitest';
+import { createElement, type ReactNode } from 'react';
+import { vi } from 'vitest';
+
+// react-syntax-highlighter ships both CJS and ESM; refractor (its dependency)
+// is ESM-only and breaks when required via CJS. Mock in tests since it is
+// external in production anyway.
+vi.mock('react-syntax-highlighter', () => ({
+  Prism: ({
+    children,
+    language,
+  }: {
+    children?: string;
+    language?: string;
+    PreTag?: unknown;
+    CodeTag?: unknown;
+    style?: unknown;
+    showLineNumbers?: boolean;
+  }) =>
+    createElement(
+      'pre',
+      { className: `language-${language ?? 'text'}`, 'data-testid': 'aui-syntax-highlighter' },
+      createElement('code', null, children),
+    ),
+}));
+
+vi.mock('react-syntax-highlighter/dist/esm/styles/prism', () => ({
+  oneDark: {},
+  oneLight: {},
+}));
+
+vi.mock('@openuidev/react-lang', () => ({
+  Renderer: ({ response, isStreaming }: { response?: string | null; isStreaming?: boolean }) =>
+    createElement('div', { 'data-testid': 'aui-openui-renderer', 'data-streaming': String(!!isStreaming) }, response),
+}));
+
+vi.mock('@openuidev/react-ui', () => ({
+  ThemeProvider: ({ children }: { children?: ReactNode }) => children,
+  openuiLibrary: {},
+}));
+
+// jsdom does not implement ResizeObserver; assistant-ui's viewport/scroll
+// tracking primitives use it, so tests need a no-op stand-in.
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+}

@@ -1,0 +1,17 @@
+@truefoundry/trueforge-ui
+Copyright 2024-2026 TrueFoundry
+
+This product includes software developed at TrueFoundry.
+
+This distribution may include or depend on third-party software. Notable
+dependencies and their licenses include (non-exhaustive):
+
+- @assistant-ui/react / @assistant-ui/core — see their respective LICENSE files
+- tfy-web-components — see its LICENSE
+- @openuidev/react-ui and related OpenUI packages — see their LICENSE files
+- @fortawesome/fontawesome-svg-core and related packages — Font Awesome Free license
+- @mui/material and @emotion/* — see their respective LICENSE files
+- lucide-react — ISC / Lucide license
+
+Full license texts for installed packages are available in node_modules under
+each package's LICENSE (or equivalent) file.

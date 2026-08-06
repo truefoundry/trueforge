@@ -1,0 +1,148 @@
+import { describe, expect, it, vi } from 'vitest';
+import type { AgentChatServer, CatalogServer } from './types.js';
+
+import { createTrueFoundryServer } from './createTrueFoundryServer.js';
+
+describe('createTrueFoundryServer', () => {
+  it('composes chat server with builder callbacks', async () => {
+    const chatServer = {
+      createSession: vi.fn(),
+      listSessions: vi.fn(),
+      getSession: vi.fn(),
+      updateSession: vi.fn(),
+      createTurn: vi.fn(),
+      cancelSession: vi.fn(),
+      listTurns: vi.fn(),
+      getTurn: vi.fn(),
+      listEvents: vi.fn(),
+    } as unknown as AgentChatServer;
+
+    const getModels = vi.fn(async () => [{ name: 'm', provider: 'p', apiModel: 'p/m', modelId: 'm' }]);
+    const getSkills = vi.fn(async () => []);
+    const getMcp = vi.fn(async () => []);
+    const searchAgents = vi.fn(async () => [{ name: 'ask-ai-agent' }]);
+    const saveAgent = vi.fn(async () => ({ ok: true }));
+
+    const server = createTrueFoundryServer({
+      chatServer,
+      getModels,
+      getSkills,
+      getMcp,
+      searchAgents,
+      saveAgent,
+    });
+
+    expect(server.createSession).toBe(chatServer.createSession);
+    expect(server.listSessions).toBe(chatServer.listSessions);
+    expect(server.catalog).toBeUndefined();
+
+    await expect(server.getModels()).resolves.toHaveLength(1);
+    await expect(server.searchAgents({ query: 'ask' })).resolves.toEqual([{ name: 'ask-ai-agent' }]);
+    expect(searchAgents).toHaveBeenCalledWith({ query: 'ask' });
+
+    await server.saveAgent({
+      agentName: 'my-agent',
+      agentSpec: { model: { name: 'p/m' } },
+    });
+    expect(saveAgent).toHaveBeenCalled();
+  });
+
+  it('attaches optional catalog when provided', async () => {
+    const chatServer = {
+      createSession: vi.fn(),
+      listSessions: vi.fn(),
+      getSession: vi.fn(),
+      updateSession: vi.fn(),
+      createTurn: vi.fn(),
+      cancelSession: vi.fn(),
+      listTurns: vi.fn(),
+      getTurn: vi.fn(),
+      listEvents: vi.fn(),
+    } as unknown as AgentChatServer;
+
+    const catalog: CatalogServer = {
+      modelCatalog: {
+        getModelProviderCatalog: vi.fn(async () => []),
+        listModelProviders: vi.fn(async () => [{ id: 'openai', type: 'openai', name: 'OpenAI', models: [] }]),
+        createModelProvider: vi.fn(async req => ({
+          id: 'openai',
+          type: req.type,
+          name: req.name,
+          models: req.models,
+        })),
+        updateModelProvider: vi.fn(async req => ({
+          id: req.id,
+          type: req.type,
+          name: req.name,
+          models: req.models,
+        })),
+      },
+      connectorCatalog: {
+        getConnectorCatalog: vi.fn(async () => []),
+        listConnectors: vi.fn(async () => []),
+        getToolsByConnectorId: vi.fn(async () => []),
+        createConnector: vi.fn(async req => ({
+          id: 'c1',
+          name: req.name,
+          description: '',
+          url: req.url,
+          auth:
+            req.auth.type === 'oauth'
+              ? { type: 'oauth' as const, authUrl: 'https://example.com/oauth' }
+              : req.auth.type === 'apiKey'
+                ? { type: 'apiKey' as const }
+                : { type: 'none' as const },
+          requiresAuth: req.auth.type === 'oauth',
+          authenticated: false,
+        })),
+        updateConnector: vi.fn(async req => ({
+          id: req.id,
+          name: req.name,
+          description: '',
+          url: req.url,
+          auth:
+            req.auth.type === 'oauth'
+              ? { type: 'oauth' as const, authUrl: 'https://example.com/oauth' }
+              : req.auth.type === 'apiKey'
+                ? { type: 'apiKey' as const }
+                : { type: 'none' as const },
+          requiresAuth: req.auth.type === 'oauth',
+          authenticated: false,
+        })),
+        authenticateConnector: vi.fn(async ({ id }) => ({
+          id,
+          name: '',
+          description: '',
+          url: '',
+          auth: { type: 'oauth' as const, authUrl: 'https://example.com/oauth' },
+          requiresAuth: true,
+          authenticated: true,
+        })),
+        disconnectConnector: vi.fn(async ({ id }) => ({
+          id,
+          name: '',
+          description: '',
+          url: '',
+          auth: { type: 'none' as const },
+          requiresAuth: false,
+          authenticated: false,
+        })),
+      },
+    };
+
+    const server = createTrueFoundryServer({
+      chatServer,
+      getModels: async () => [],
+      getSkills: async () => [],
+      getMcp: async () => [],
+      searchAgents: async () => [],
+      saveAgent: async () => ({ ok: true }),
+      catalog,
+    });
+
+    expect(server.catalog).toBe(catalog);
+    await expect(server.catalog!.modelCatalog.listModelProviders()).resolves.toEqual([
+      { id: 'openai', type: 'openai', name: 'OpenAI', models: [] },
+    ]);
+  });
+});

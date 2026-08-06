@@ -8,6 +8,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { createAgentsRouter } from './apis/agents';
+import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
@@ -50,19 +51,19 @@ function routeNotFound(c: Context) {
 
 export interface ServerDeps {
   modelCatalog: ModelCatalog;
-  modelProviderStore: IModelProviderStore;
   mcpCatalog: McpCatalog;
+  skillCatalog: SkillCatalog;
+  sandboxCatalog: SandboxCatalog;
+  modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
-  skillCatalog: SkillCatalog;
   skillStore: ISkillStore;
-  sandboxCatalog: SandboxCatalog;
   sandboxProviderStore: ISandboxProviderStore;
   agentStore: IAgentStore;
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
-  /** Primary Redis client (server-owned); undefined in single-binary mode. */
+  /** Primary Redis client (server-owned); undefined in standalone mode. */
   redis?: RedisClientType | undefined;
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;
@@ -76,6 +77,7 @@ export function createServerApp(deps: ServerDeps) {
 
   app.get('/healthz', c => c.text('OK!'));
 
+  app.route('/api/v1/auth', createAuthRouter());
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
   app.route(

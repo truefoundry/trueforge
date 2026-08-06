@@ -1,6 +1,6 @@
 # Reference
-## Agents
-<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">list</a>() -> TrueHarness.ListAgentsResponse</code></summary>
+## Auth
+<details><summary><code>client.auth.<a href="/src/api/resources/auth/client/Client.ts">logout</a>() -> void</code></summary>
 <dl>
 <dd>
 
@@ -12,7 +12,7 @@
 <dl>
 <dd>
 
-All configured agents for the tenant.
+Ends the local harness session only — does not hit the IdP end-session endpoint. A no-op in local/single-binary mode, since there is no real session to clear.
 </dd>
 </dl>
 </dd>
@@ -27,7 +27,7 @@ All configured agents for the tenant.
 <dd>
 
 ```typescript
-await client.agents.list();
+await client.auth.logout();
 
 ```
 </dd>
@@ -43,7 +43,7 @@ await client.agents.list();
 <dl>
 <dd>
 
-**requestOptions:** `AgentsClient.RequestOptions` 
+**requestOptions:** `AuthClient.RequestOptions` 
     
 </dd>
 </dl>
@@ -55,7 +55,7 @@ await client.agents.list();
 </dl>
 </details>
 
-<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">create</a>({ ...params }) -> TrueHarness.CreateAgentResponse</code></summary>
+<details><summary><code>client.auth.<a href="/src/api/resources/auth/client/Client.ts">me</a>() -> TrueForge.AuthMeResponse</code></summary>
 <dl>
 <dd>
 
@@ -67,7 +67,7 @@ await client.agents.list();
 <dl>
 <dd>
 
-Creates an agent and allocates an immutable id. Fails if `name` is already taken.
+Returns the fixed local identity in local/single-binary mode; otherwise the caller's verified identity.
 </dd>
 </dl>
 </dd>
@@ -82,12 +82,7 @@ Creates an agent and allocates an immutable id. Fails if `name` is already taken
 <dd>
 
 ```typescript
-await client.agents.create({
-    model: {
-        name: "name"
-    },
-    name: "name"
-});
+await client.auth.me();
 
 ```
 </dd>
@@ -103,154 +98,7 @@ await client.agents.create({
 <dl>
 <dd>
 
-**request:** `TrueHarness.AgentWriteRequest` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**requestOptions:** `AgentsClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">get</a>(agent_id) -> TrueHarness.GetAgentResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Fetch a configured agent by immutable id.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.agents.get("agent_id");
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**agent_id:** `string` — Immutable agent identifier.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**requestOptions:** `AgentsClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">update</a>(agent_id, { ...params }) -> TrueHarness.PutAgentResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Replaces `name` and AgentSpec for an existing agent by id. The id is never changed; renames are allowed via a new `name`.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.agents.update("agent_id", {
-    model: {
-        name: "name"
-    },
-    name: "name"
-});
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**agent_id:** `string` — Immutable agent identifier.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request:** `TrueHarness.AgentWriteRequest` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**requestOptions:** `AgentsClient.RequestOptions` 
+**requestOptions:** `AuthClient.RequestOptions` 
     
 </dd>
 </dl>
@@ -263,7 +111,7 @@ await client.agents.update("agent_id", {
 </details>
 
 ## Server
-<details><summary><code>client.server.<a href="/src/api/resources/server/client/Client.ts">getCapabilities</a>() -> TrueHarness.GetCapabilitiesResponse</code></summary>
+<details><summary><code>client.server.<a href="/src/api/resources/server/client/Client.ts">getCapabilities</a>() -> TrueForge.GetCapabilitiesResponse</code></summary>
 <dl>
 <dd>
 
@@ -319,7 +167,7 @@ await client.server.getCapabilities();
 </details>
 
 ## McpServers
-<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">list</a>() -> TrueHarness.ListAvailableMcpServersResponse</code></summary>
+<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">list</a>() -> TrueForge.ListAvailableMcpServersResponse</code></summary>
 <dl>
 <dd>
 
@@ -331,7 +179,7 @@ await client.server.getCapabilities();
 <dl>
 <dd>
 
-Configured MCP servers as a slim name/url list for the composer. No auth or auth_status.
+MCP servers as a slim name/url list for the composer. No auth or auth_status.
 </dd>
 </dl>
 </dd>
@@ -374,7 +222,7 @@ await client.mcpServers.list();
 </dl>
 </details>
 
-<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">authorize</a>(name, { ...params }) -> TrueHarness.McpAuthStatus</code></summary>
+<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">authorize</a>(name, { ...params }) -> TrueForge.McpAuthStatus</code></summary>
 <dl>
 <dd>
 
@@ -417,7 +265,7 @@ await client.mcpServers.authorize("name");
 <dl>
 <dd>
 
-**name:** `string` — Configured MCP server name.
+**name:** `string` — MCP server name.
     
 </dd>
 </dl>
@@ -425,7 +273,7 @@ await client.mcpServers.authorize("name");
 <dl>
 <dd>
 
-**request:** `TrueHarness.AuthorizeMcpServersRequest` 
+**request:** `TrueForge.AuthorizeMcpServersRequest` 
     
 </dd>
 </dl>
@@ -445,7 +293,7 @@ await client.mcpServers.authorize("name");
 </dl>
 </details>
 
-<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">deleteAuthorize</a>(name) -> TrueHarness.PutMcpServerResponse</code></summary>
+<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">deleteAuthorize</a>(name) -> TrueForge.PutMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -488,7 +336,7 @@ await client.mcpServers.deleteAuthorize("name");
 <dl>
 <dd>
 
-**name:** `string` — Configured MCP server name.
+**name:** `string` — MCP server name.
     
 </dd>
 </dl>
@@ -509,7 +357,7 @@ await client.mcpServers.deleteAuthorize("name");
 </details>
 
 ## Models
-<details><summary><code>client.models.<a href="/src/api/resources/models/client/Client.ts">list</a>() -> TrueHarness.ListModelsResponse</code></summary>
+<details><summary><code>client.models.<a href="/src/api/resources/models/client/Client.ts">list</a>() -> TrueForge.ListModelsResponse</code></summary>
 <dl>
 <dd>
 
@@ -565,7 +413,7 @@ await client.models.list();
 </details>
 
 ## Sessions
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueHarness.Session, TrueHarness.ListSessionsResponse&gt;</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.Session, TrueForge.ListSessionsResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -577,7 +425,7 @@ await client.models.list();
 <dl>
 <dd>
 
-List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
+List sessions (newest first by default), token-paginated. Pass `page_token` to fetch the next page, keeping the other query params constant.
 </dd>
 </dl>
 </dd>
@@ -608,7 +456,7 @@ await client.sessions.list();
 <dl>
 <dd>
 
-**request:** `TrueHarness.ListSessionsRequest` 
+**request:** `TrueForge.ListSessionsRequest` 
     
 </dd>
 </dl>
@@ -628,7 +476,7 @@ await client.sessions.list();
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">create</a>({ ...params }) -> TrueHarness.GetSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">create</a>({ ...params }) -> TrueForge.GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -640,7 +488,7 @@ await client.sessions.list();
 <dl>
 <dd>
 
-Create a session bound to an inline draft `agent_spec` or a named registry `agent_id` (exactly one). Named sessions resolve the live agent on each turn.
+Create a session holding an inline agent spec. Turns are executed against this spec.
 </dd>
 </dl>
 </dd>
@@ -677,7 +525,7 @@ await client.sessions.create({
 <dl>
 <dd>
 
-**request:** `TrueHarness.CreateSessionRequest` 
+**request:** `TrueForge.CreateSessionRequest` 
     
 </dd>
 </dl>
@@ -697,7 +545,7 @@ await client.sessions.create({
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">get</a>(session_id) -> TrueHarness.GetSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">get</a>(session_id) -> TrueForge.GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -823,7 +671,7 @@ await client.sessions.delete("session_id");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">update</a>(session_id, { ...params }) -> TrueHarness.GetSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">update</a>(session_id, { ...params }) -> TrueForge.GetSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -835,7 +683,7 @@ await client.sessions.delete("session_id");
 <dl>
 <dd>
 
-Update a draft session's inline `agent_spec`. Named sessions (bound by `agent_id`) reject `agent_spec` updates. An empty body is a valid no-op that refreshes `updated_at`.
+Update a session's inline agent spec. An empty body is a valid no-op that refreshes `updated_at`.
 </dd>
 </dl>
 </dd>
@@ -874,7 +722,7 @@ await client.sessions.update("session_id");
 <dl>
 <dd>
 
-**request:** `TrueHarness.UpdateSessionRequest` 
+**request:** `TrueForge.UpdateSessionRequest` 
     
 </dd>
 </dl>
@@ -894,7 +742,7 @@ await client.sessions.update("session_id");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">cancel</a>(session_id, { ...params }) -> TrueHarness.CancelSessionResponse</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">cancel</a>(session_id, { ...params }) -> TrueForge.CancelSessionResponse</code></summary>
 <dl>
 <dd>
 
@@ -945,7 +793,7 @@ await client.sessions.cancel("session_id");
 <dl>
 <dd>
 
-**request:** `TrueHarness.CancelSessionRequest` 
+**request:** `TrueForge.CancelSessionRequest` 
     
 </dd>
 </dl>
@@ -965,7 +813,7 @@ await client.sessions.cancel("session_id");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listEvents</a>(session_id, { ...params }) -> core.Page&lt;TrueHarness.SessionEventItem, TrueHarness.ListSessionEventsResponse&gt;</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listEvents</a>(session_id, { ...params }) -> core.Page&lt;TrueForge.SessionEventItem, TrueForge.ListSessionEventsResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -1016,7 +864,7 @@ await client.sessions.listEvents("session_id");
 <dl>
 <dd>
 
-**request:** `TrueHarness.ListEventsSessionsRequest` 
+**request:** `TrueForge.ListEventsSessionsRequest` 
     
 </dd>
 </dl>
@@ -1036,7 +884,7 @@ await client.sessions.listEvents("session_id");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listTurns</a>(session_id, { ...params }) -> core.Page&lt;TrueHarness.Turn, TrueHarness.ListTurnsResponse&gt;</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listTurns</a>(session_id, { ...params }) -> core.Page&lt;TrueForge.Turn, TrueForge.ListTurnsResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -1087,7 +935,7 @@ await client.sessions.listTurns("session_id");
 <dl>
 <dd>
 
-**request:** `TrueHarness.ListTurnsSessionsRequest` 
+**request:** `TrueForge.ListTurnsSessionsRequest` 
     
 </dd>
 </dl>
@@ -1107,7 +955,7 @@ await client.sessions.listTurns("session_id");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurn</a>(session_id, { ...params }) -> core.Stream&lt;TrueHarness.TurnStreamingEvent&gt;</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurn</a>(session_id, { ...params }) -> core.Stream&lt;TrueForge.TurnStreamingEvent&gt;</code></summary>
 <dl>
 <dd>
 
@@ -1162,7 +1010,7 @@ for await (const item of response) {
 <dl>
 <dd>
 
-**request:** `TrueHarness.CreateTurnRequest` 
+**request:** `TrueForge.CreateTurnRequest` 
     
 </dd>
 </dl>
@@ -1182,7 +1030,7 @@ for await (const item of response) {
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">getTurn</a>(session_id, turn_id) -> TrueHarness.GetTurnResponse</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">getTurn</a>(session_id, turn_id) -> TrueForge.GetTurnResponse</code></summary>
 <dl>
 <dd>
 
@@ -1253,7 +1101,7 @@ await client.sessions.getTurn("session_id", "turn_id");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listTurnEvents</a>(session_id, turn_id, { ...params }) -> core.Page&lt;TrueHarness.SessionEvent, TrueHarness.ListTurnEventsResponse&gt;</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listTurnEvents</a>(session_id, turn_id, { ...params }) -> core.Page&lt;TrueForge.SessionEvent, TrueForge.ListTurnEventsResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -1312,7 +1160,7 @@ await client.sessions.listTurnEvents("session_id", "turn_id");
 <dl>
 <dd>
 
-**request:** `TrueHarness.ListTurnEventsSessionsRequest` 
+**request:** `TrueForge.ListTurnEventsSessionsRequest` 
     
 </dd>
 </dl>
@@ -1332,7 +1180,7 @@ await client.sessions.listTurnEvents("session_id", "turn_id");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">subscribeToTurn</a>(session_id, turn_id, { ...params }) -> core.Stream&lt;TrueHarness.TurnStreamingEvent&gt;</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">subscribeToTurn</a>(session_id, turn_id, { ...params }) -> core.Stream&lt;TrueForge.TurnStreamingEvent&gt;</code></summary>
 <dl>
 <dd>
 
@@ -1394,7 +1242,7 @@ for await (const item of response) {
 <dl>
 <dd>
 
-**request:** `TrueHarness.SubscribeToTurnSessionsRequest` 
+**request:** `TrueForge.SubscribeToTurnSessionsRequest` 
     
 </dd>
 </dl>
@@ -1415,7 +1263,7 @@ for await (const item of response) {
 </details>
 
 ## Skills
-<details><summary><code>client.skills.<a href="/src/api/resources/skills/client/Client.ts">list</a>() -> TrueHarness.ListAvailableSkillsResponse</code></summary>
+<details><summary><code>client.skills.<a href="/src/api/resources/skills/client/Client.ts">list</a>() -> TrueForge.ListAvailableSkillsResponse</code></summary>
 <dl>
 <dd>
 
@@ -1471,7 +1319,7 @@ await client.skills.list();
 </details>
 
 ## Settings McpServers
-<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">list</a>() -> TrueHarness.ListConfiguredMcpServersResponse</code></summary>
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">list</a>() -> TrueForge.ListMcpServersResponse</code></summary>
 <dl>
 <dd>
 
@@ -1483,7 +1331,7 @@ await client.skills.list();
 <dl>
 <dd>
 
-All configured MCP servers with nested auth_status (settings / admin projection).
+All MCP servers with nested auth_status (settings / admin projection).
 </dd>
 </dl>
 </dd>
@@ -1526,7 +1374,7 @@ await client.settings.mcpServers.list();
 </dl>
 </details>
 
-<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">upsert</a>({ ...params }) -> TrueHarness.PutMcpServerResponse</code></summary>
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.PutMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -1572,7 +1420,7 @@ await client.settings.mcpServers.upsert({
 <dl>
 <dd>
 
-**request:** `TrueHarness.settings.McpServerManifest` 
+**request:** `TrueForge.settings.McpServerManifest` 
     
 </dd>
 </dl>
@@ -1592,7 +1440,7 @@ await client.settings.mcpServers.upsert({
 </dl>
 </details>
 
-<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">catalog</a>() -> TrueHarness.GetMcpServerCatalogResponse</code></summary>
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">catalog</a>() -> TrueForge.GetMcpServerCatalogResponse</code></summary>
 <dl>
 <dd>
 
@@ -1647,7 +1495,7 @@ await client.settings.mcpServers.catalog();
 </dl>
 </details>
 
-<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">listTools</a>(name) -> TrueHarness.ListMcpServerToolsResponse</code></summary>
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">get</a>(name) -> TrueForge.GetMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -1659,7 +1507,70 @@ await client.settings.mcpServers.catalog();
 <dl>
 <dd>
 
-All tools exposed by the given configured MCP server (non-paginated), as returned by the MCP `tools/list` call.
+A single MCP server by name, with nested auth_status (settings / admin projection).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.settings.mcpServers.get("name");
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**name:** `string` — MCP server name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `McpServersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">listTools</a>(name) -> TrueForge.ListMcpServerToolsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call.
 </dd>
 </dl>
 </dd>
@@ -1690,7 +1601,7 @@ await client.settings.mcpServers.listTools("name");
 <dl>
 <dd>
 
-**name:** `string` — Configured MCP server name.
+**name:** `string` — MCP server name.
     
 </dd>
 </dl>
@@ -1711,7 +1622,7 @@ await client.settings.mcpServers.listTools("name");
 </details>
 
 ## Settings ModelProviders
-<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">list</a>() -> TrueHarness.ListModelProvidersResponse</code></summary>
+<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">list</a>() -> TrueForge.ListModelProvidersResponse</code></summary>
 <dl>
 <dd>
 
@@ -1766,7 +1677,7 @@ await client.settings.modelProviders.list();
 </dl>
 </details>
 
-<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">upsert</a>({ ...params }) -> TrueHarness.PutModelProviderResponse</code></summary>
+<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.PutModelProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -1820,7 +1731,7 @@ await client.settings.modelProviders.upsert({
 <dl>
 <dd>
 
-**request:** `TrueHarness.ModelProvider` 
+**request:** `TrueForge.ModelProvider` 
     
 </dd>
 </dl>
@@ -1840,7 +1751,7 @@ await client.settings.modelProviders.upsert({
 </dl>
 </details>
 
-<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">catalog</a>() -> TrueHarness.GetModelProviderCatalogResponse</code></summary>
+<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">catalog</a>() -> TrueForge.GetModelProviderCatalogResponse</code></summary>
 <dl>
 <dd>
 
@@ -1896,7 +1807,7 @@ await client.settings.modelProviders.catalog();
 </details>
 
 ## Settings SandboxProviders
-<details><summary><code>client.settings.sandboxProviders.<a href="/src/api/resources/settings/resources/sandboxProviders/client/Client.ts">get</a>() -> TrueHarness.GetSandboxProviderResponse</code></summary>
+<details><summary><code>client.settings.sandboxProviders.<a href="/src/api/resources/settings/resources/sandboxProviders/client/Client.ts">get</a>() -> TrueForge.GetSandboxProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -1951,7 +1862,7 @@ await client.settings.sandboxProviders.get();
 </dl>
 </details>
 
-<details><summary><code>client.settings.sandboxProviders.<a href="/src/api/resources/settings/resources/sandboxProviders/client/Client.ts">upsert</a>({ ...params }) -> TrueHarness.PutSandboxProviderResponse</code></summary>
+<details><summary><code>client.settings.sandboxProviders.<a href="/src/api/resources/settings/resources/sandboxProviders/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.PutSandboxProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -2004,7 +1915,7 @@ await client.settings.sandboxProviders.upsert({
 <dl>
 <dd>
 
-**request:** `TrueHarness.DaytonaSandboxProvider` 
+**request:** `TrueForge.DaytonaSandboxProvider` 
     
 </dd>
 </dl>
@@ -2024,7 +1935,7 @@ await client.settings.sandboxProviders.upsert({
 </dl>
 </details>
 
-<details><summary><code>client.settings.sandboxProviders.<a href="/src/api/resources/settings/resources/sandboxProviders/client/Client.ts">catalog</a>() -> TrueHarness.GetSandboxProviderCatalogResponse</code></summary>
+<details><summary><code>client.settings.sandboxProviders.<a href="/src/api/resources/settings/resources/sandboxProviders/client/Client.ts">catalog</a>() -> TrueForge.GetSandboxProviderCatalogResponse</code></summary>
 <dl>
 <dd>
 
@@ -2080,7 +1991,7 @@ await client.settings.sandboxProviders.catalog();
 </details>
 
 ## Settings Skills
-<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">list</a>() -> TrueHarness.ListConfiguredSkillsResponse</code></summary>
+<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">list</a>() -> TrueForge.ListConfiguredSkillsResponse</code></summary>
 <dl>
 <dd>
 
@@ -2135,7 +2046,7 @@ await client.settings.skills.list();
 </dl>
 </details>
 
-<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">upsert</a>({ ...params }) -> TrueHarness.PutSkillResponse</code></summary>
+<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.PutSkillResponse</code></summary>
 <dl>
 <dd>
 
@@ -2184,7 +2095,7 @@ await client.settings.skills.upsert({
 <dl>
 <dd>
 
-**request:** `TrueHarness.SkillManifest` 
+**request:** `TrueForge.SkillManifest` 
     
 </dd>
 </dl>
@@ -2204,7 +2115,7 @@ await client.settings.skills.upsert({
 </dl>
 </details>
 
-<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">catalog</a>() -> TrueHarness.GetSkillCatalogResponse</code></summary>
+<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">catalog</a>() -> TrueForge.GetSkillCatalogResponse</code></summary>
 <dl>
 <dd>
 

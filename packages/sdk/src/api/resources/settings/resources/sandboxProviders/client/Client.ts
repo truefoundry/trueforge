@@ -8,7 +8,7 @@ import { mergeAdditionalBodyParameters } from "../../../../../../core/requestBod
 import { handleNonStatusCodeError } from "../../../../../../errors/handleNonStatusCodeError.js";
 import * as errors from "../../../../../../errors/index.js";
 import * as serializers from "../../../../../../serialization/index.js";
-import * as TrueHarness from "../../../../../index.js";
+import * as TrueForge from "../../../../../index.js";
 
 export declare namespace SandboxProvidersClient {
     export type Options = BaseClientOptions;
@@ -28,22 +28,22 @@ export class SandboxProvidersClient {
      *
      * @param {SandboxProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.NotFoundError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.settings.sandboxProviders.get()
      */
     public get(
         requestOptions?: SandboxProvidersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.GetSandboxProviderResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetSandboxProviderResponse> {
         return core.HttpResponsePromise.fromPromise(this.__get(requestOptions));
     }
 
     private async __get(
         requestOptions?: SandboxProvidersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.GetSandboxProviderResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetSandboxProviderResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -76,7 +76,7 @@ export class SandboxProvidersClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 404:
-                    throw new TrueHarness.NotFoundError(
+                    throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -87,7 +87,7 @@ export class SandboxProvidersClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,
@@ -106,12 +106,12 @@ export class SandboxProvidersClient {
     /**
      * Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration.
      *
-     * @param {TrueHarness.DaytonaSandboxProvider} request
+     * @param {TrueForge.DaytonaSandboxProvider} request
      * @param {SandboxProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.BadRequestError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.settings.sandboxProviders.upsert({
@@ -127,16 +127,16 @@ export class SandboxProvidersClient {
      *     })
      */
     public upsert(
-        request: TrueHarness.DaytonaSandboxProvider,
+        request: TrueForge.DaytonaSandboxProvider,
         requestOptions?: SandboxProvidersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.PutSandboxProviderResponse> {
+    ): core.HttpResponsePromise<TrueForge.PutSandboxProviderResponse> {
         return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
     }
 
     private async __upsert(
-        request: TrueHarness.DaytonaSandboxProvider,
+        request: TrueForge.DaytonaSandboxProvider,
         requestOptions?: SandboxProvidersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.PutSandboxProviderResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.PutSandboxProviderResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -180,7 +180,7 @@ export class SandboxProvidersClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 400:
-                    throw new TrueHarness.BadRequestError(
+                    throw new TrueForge.BadRequestError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -191,7 +191,7 @@ export class SandboxProvidersClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,
@@ -212,21 +212,21 @@ export class SandboxProvidersClient {
      *
      * @param {SandboxProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.settings.sandboxProviders.catalog()
      */
     public catalog(
         requestOptions?: SandboxProvidersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.GetSandboxProviderCatalogResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetSandboxProviderCatalogResponse> {
         return core.HttpResponsePromise.fromPromise(this.__catalog(requestOptions));
     }
 
     private async __catalog(
         requestOptions?: SandboxProvidersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.GetSandboxProviderCatalogResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetSandboxProviderCatalogResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -257,7 +257,7 @@ export class SandboxProvidersClient {
         }
 
         if (_response.error.reason === "status-code") {
-            throw new errors.TrueHarnessError({
+            throw new errors.TrueForgeError({
                 statusCode: _response.error.statusCode,
                 body: _response.error.body,
                 rawResponse: _response.rawResponse,

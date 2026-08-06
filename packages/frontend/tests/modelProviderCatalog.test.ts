@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { TrueHarnessApi } from 'trueharness';
+import { TrueForgeApi } from 'trueforge';
 import {
   toHarnessModelEntry,
   toHarnessModelProvider,
@@ -164,8 +164,8 @@ describe('modelProviderCatalog mappers', () => {
   // does not is a preset the user cannot save.
   it('builds a body for every provider type the API accepts', () => {
     const types = [
-      ...Object.values(TrueHarnessApi.WellKnownModelProviderType),
-      ...Object.values(TrueHarnessApi.CallerSuppliedModelProviderType),
+      ...Object.values(TrueForgeApi.WellKnownModelProviderType),
+      ...Object.values(TrueForgeApi.CallerSuppliedModelProviderType),
     ];
     for (const type of types) {
       const body = toHarnessModelProvider({

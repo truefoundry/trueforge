@@ -9,8 +9,7 @@ import type { Database } from './sqlite/types';
 /**
  * Runs all pending SQLite migrations.
  *
- * Test / packaging helper only — do not import from `main` or `migrate-cli`.
- * Production startup and `pnpm migrate` run Postgres via `migratePostgres`.
+ * Used at sqlite startup and by SQLite store tests.
  * Resolves `…/sqlite/migrations` next to this module (source or `dist/`).
  */
 export async function migrateSqliteToLatest(db: Kysely<Database>): Promise<void> {

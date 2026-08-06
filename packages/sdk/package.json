@@ -1,5 +1,5 @@
 {
-    "name": "trueharness",
+    "name": "trueforge",
     "version": "0.0.0",
     "private": false,
     "type": "commonjs",
@@ -29,16 +29,16 @@
             },
             "default": "./dist/cjs/serialization/index.js"
         },
-        "./agents": {
+        "./auth": {
             "import": {
-                "types": "./dist/esm/api/resources/agents/exports.d.mts",
-                "default": "./dist/esm/api/resources/agents/exports.mjs"
+                "types": "./dist/esm/api/resources/auth/exports.d.mts",
+                "default": "./dist/esm/api/resources/auth/exports.mjs"
             },
             "require": {
-                "types": "./dist/cjs/api/resources/agents/exports.d.ts",
-                "default": "./dist/cjs/api/resources/agents/exports.js"
+                "types": "./dist/cjs/api/resources/auth/exports.d.ts",
+                "default": "./dist/cjs/api/resources/auth/exports.js"
             },
-            "default": "./dist/cjs/api/resources/agents/exports.js"
+            "default": "./dist/cjs/api/resources/auth/exports.js"
         },
         "./server": {
             "import": {
