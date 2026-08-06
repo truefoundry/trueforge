@@ -17,6 +17,7 @@ import type { IOAuthTokenStore, OAuthToken } from '../mcp/auth/types';
 import {
   authorizeConfiguredMcpServerRoute,
   deleteConfiguredMcpServerAuthRoute,
+  getConfiguredMcpServerRoute,
   getMcpServerCatalogRoute,
   listAvailableMcpServersRoute,
   listConfiguredMcpServersRoute,
@@ -116,6 +117,19 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
     );
   };
 
+  const getConfiguredHandler: RouteHandler<typeof getConfiguredMcpServerRoute> = async c => {
+    const { name } = c.req.valid('param');
+    const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
+    if (!record) {
+      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
+    }
+    let token: OAuthToken | undefined;
+    if (record.manifest.auth?.type === 'dcr') {
+      token = await deps.tokenStore.getToken({ id: record.id });
+    }
+    return c.json({ data: toConfiguredMcpServer({ record, token }) }, 200);
+  };
+
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
     const manifest: McpServerManifest = c.req.valid('json');
     const record = await deps.mcpServerStore.upsertServer({
@@ -200,7 +214,9 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
   router.openapi(getMcpServerCatalogRoute, catalogHandler);
   router.openapi(listConfiguredMcpServersRoute, listConfiguredHandler);
   router.openapi(putMcpServerRoute, putHandler);
+  // `/{name}/tools` before `/{name}` so the tools suffix is not swallowed.
   router.openapi(listMcpServerToolsRoute, listToolsHandler);
+  router.openapi(getConfiguredMcpServerRoute, getConfiguredHandler);
   return router;
 }
 

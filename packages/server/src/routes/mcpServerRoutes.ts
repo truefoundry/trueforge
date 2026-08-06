@@ -7,6 +7,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { GetMcpServerCatalogResponseSchema } from '../schemas/mcpCatalog';
 import {
+  GetConfiguredMcpServerResponseSchema,
   ListAvailableMcpServersResponseSchema,
   ListConfiguredMcpServersResponseSchema,
   McpAuthStatusSchema,
@@ -67,6 +68,33 @@ export const listConfiguredMcpServersRoute = createRoute({
   },
 });
 
+const McpServerNameParamsSchema = z.object({
+  name: z.string().min(1).describe('Configured MCP server name.'),
+});
+
+export const getConfiguredMcpServerRoute = createRoute({
+  method: 'get',
+  path: '/{name}',
+  tags: [MCP_SERVERS_TAG],
+  summary: 'Get a configured MCP server',
+  description: 'A single configured MCP server by name, with nested auth_status (settings / admin projection).',
+  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
+  'x-fern-sdk-method-name': 'get',
+  request: {
+    params: McpServerNameParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetConfiguredMcpServerResponseSchema } },
+      description: 'The configured MCP server.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'MCP server not found.',
+    },
+  },
+});
+
 export const putMcpServerRoute = createRoute({
   method: 'put',
   path: '/',
@@ -102,10 +130,6 @@ const ListMcpServerToolsResponseSchema = z
       .describe('MCP `tools/list` entries, passed through verbatim from the MCP server.'),
   })
   .openapi('ListMcpServerToolsResponse');
-
-const McpServerNameParamsSchema = z.object({
-  name: z.string().min(1).describe('Configured MCP server name.'),
-});
 
 export const listMcpServerToolsRoute = createRoute({
   method: 'get',
