@@ -5,7 +5,7 @@
  */
 import { z } from '@hono/zod-openapi';
 import { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/utils-core/core';
-import { NameSchema, uniqueNames } from './common';
+import { NameSchema, uniqueNames, type ResourceName } from './common';
 
 /** Every type the harness has an adapter for; a test asserts each one has a schema below. */
 export const ProviderTypeSchema = z.enum(VERCEL_AI_PROVIDER_NAMES).openapi('ProviderType');
@@ -65,10 +65,11 @@ const ModelProviderManifestBaseSchema = z
   .strict();
 
 /**
- * Naming a provider after its type limits a tenant to one of each: the `(tenant_id, name)` primary
- * key replaces the row rather than adding a sibling. `base_url` defaults to the adapter's endpoint.
+ * A well-known provider has no name of its own: it is named after its type, which limits a tenant to
+ * one of each because the `(tenant_id, name)` primary key replaces the row rather than adding a
+ * sibling. `base_url` defaults to the adapter's endpoint and stays overridable.
  */
-function wellKnownProviderSchema<Type extends Exclude<ProviderType, 'custom'>>({
+function wellKnownProviderManifestSchema<Type extends Exclude<ProviderType, 'custom'>>({
   type,
   base_url,
 }: {
@@ -77,70 +78,58 @@ function wellKnownProviderSchema<Type extends Exclude<ProviderType, 'custom'>>({
 }) {
   return ModelProviderManifestBaseSchema.extend({
     type: z.literal(type),
-    name: z.literal(type).default(type),
     base_url: z.url().default(base_url).describe("Override of the provider's default API base URL."),
   }).strict();
 }
 
-const OpenAiModelProviderSchema = wellKnownProviderSchema({
+const OpenAiModelProviderManifestSchema = wellKnownProviderManifestSchema({
   type: 'openai',
   base_url: 'https://api.openai.com/v1',
-}).openapi('OpenAIModelProvider');
+}).openapi('OpenAIModelProviderManifest');
 
-const AnthropicModelProviderSchema = wellKnownProviderSchema({
+const AnthropicModelProviderManifestSchema = wellKnownProviderManifestSchema({
   type: 'anthropic',
   base_url: 'https://api.anthropic.com/v1',
-}).openapi('AnthropicModelProvider');
+}).openapi('AnthropicModelProviderManifest');
 
-const GoogleGeminiModelProviderSchema = wellKnownProviderSchema({
+const GoogleGeminiModelProviderManifestSchema = wellKnownProviderManifestSchema({
   type: 'google-gemini',
   base_url: 'https://generativelanguage.googleapis.com/v1beta',
-}).openapi('GoogleGeminiModelProvider');
+}).openapi('GoogleGeminiModelProviderManifest');
 
-const FireworksModelProviderSchema = wellKnownProviderSchema({
+const FireworksModelProviderManifestSchema = wellKnownProviderManifestSchema({
   type: 'fireworks',
   base_url: 'https://api.fireworks.ai/inference/v1',
-}).openapi('FireworksModelProvider');
+}).openapi('FireworksModelProviderManifest');
 
-const ZaiModelProviderSchema = wellKnownProviderSchema({
+const ZaiModelProviderManifestSchema = wellKnownProviderManifestSchema({
   type: 'zai',
   base_url: 'https://api.z.ai/api/paas/v4',
-}).openapi('ZaiModelProvider');
+}).openapi('ZaiModelProviderManifest');
 
-const MoonshotModelProviderSchema = wellKnownProviderSchema({
+const MoonshotModelProviderManifestSchema = wellKnownProviderManifestSchema({
   type: 'moonshot',
   base_url: 'https://api.moonshot.ai/v1',
-}).openapi('MoonshotModelProvider');
+}).openapi('MoonshotModelProviderManifest');
 
-const TogetherAIModelProviderSchema = wellKnownProviderSchema({
+const TogetherAIModelProviderManifestSchema = wellKnownProviderManifestSchema({
   type: 'together',
   base_url: 'https://api.together.xyz/v1',
-}).openapi('TogetherAIModelProvider');
+}).openapi('TogetherAIModelProviderManifest');
 
-const AlibabaModelProviderSchema = wellKnownProviderSchema({
+const AlibabaModelProviderManifestSchema = wellKnownProviderManifestSchema({
   type: 'alibaba',
   base_url: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
-}).openapi('AlibabaModelProvider');
+}).openapi('AlibabaModelProviderManifest');
 
-const CustomModelProviderSchema = ModelProviderManifestBaseSchema.extend({
+/** The one type a caller names, because only it supplies its own endpoint. */
+const CustomModelProviderManifestSchema = ModelProviderManifestBaseSchema.extend({
   type: z.literal('custom'),
   name: NameSchema,
   base_url: z.url().describe("Base URL of the provider's API."),
 })
   .strict()
-  .openapi('CustomModelProvider');
-
-const MODEL_PROVIDER_SCHEMAS = [
-  OpenAiModelProviderSchema,
-  AnthropicModelProviderSchema,
-  GoogleGeminiModelProviderSchema,
-  FireworksModelProviderSchema,
-  ZaiModelProviderSchema,
-  MoonshotModelProviderSchema,
-  TogetherAIModelProviderSchema,
-  AlibabaModelProviderSchema,
-  CustomModelProviderSchema,
-] as const;
+  .openapi('CustomModelProviderManifest');
 
 export function refineModelProviderManifest(
   manifest: { models: { model_id: string; name: string }[] },
@@ -151,16 +140,37 @@ export function refineModelProviderManifest(
 
 export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
 
-/**
- * Configured provider: PUT body, response data, and the persisted `model_provider.manifest` document
- * in one shape. The `name` column is written from it, so the two cannot disagree.
- */
-export const ModelProviderSchema = z
-  .discriminatedUnion('type', MODEL_PROVIDER_SCHEMAS)
+/** PUT body and the persisted `model_provider.manifest` document: configuration without identity. */
+export const ModelProviderManifestSchema = z
+  .discriminatedUnion('type', [
+    OpenAiModelProviderManifestSchema,
+    AnthropicModelProviderManifestSchema,
+    GoogleGeminiModelProviderManifestSchema,
+    FireworksModelProviderManifestSchema,
+    ZaiModelProviderManifestSchema,
+    MoonshotModelProviderManifestSchema,
+    TogetherAIModelProviderManifestSchema,
+    AlibabaModelProviderManifestSchema,
+    CustomModelProviderManifestSchema,
+  ])
   .superRefine(refineModelProviderManifest)
+  .openapi('ModelProviderManifest');
+
+/** The row's key: only `custom` carries a name of its own. */
+export function modelProviderName(manifest: ModelProviderManifest): ResourceName {
+  return manifest.type === 'custom' ? manifest.name : manifest.type;
+}
+
+/** Configured provider as the API returns it: the row's identity beside its document. */
+export const ModelProviderSchema = z
+  .object({
+    name: NameSchema.describe('Identity of the configured provider; first segment of a model FQN.'),
+    manifest: ModelProviderManifestSchema,
+  })
+  .strict()
   .openapi('ModelProvider');
 
-export const PutModelProviderRequestSchema = ModelProviderSchema;
+export const PutModelProviderRequestSchema = ModelProviderManifestSchema;
 
 export const ListModelProvidersResponseSchema = z
   .object({
@@ -192,5 +202,6 @@ export const ListModelsResponseSchema = z
   })
   .openapi('ListModelsResponse');
 
+export type ModelProviderManifest = z.infer<typeof ModelProviderManifestSchema>;
 export type ModelProvider = z.infer<typeof ModelProviderSchema>;
 export type Model = z.infer<typeof ModelSchema>;

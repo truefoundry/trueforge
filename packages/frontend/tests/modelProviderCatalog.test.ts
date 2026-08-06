@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { TrueForgeApi } from 'trueforge';
 import {
   toHarnessModelEntry,
-  toHarnessModelProvider,
+  toHarnessModelProviderManifest,
   toUiCatalogEntry,
   toUiModelEntry,
   toUiModelProvider,
@@ -40,18 +40,20 @@ describe('modelProviderCatalog mappers', () => {
     });
   });
 
-  it('uses provider name as the UI id and strips auth from the list card', () => {
+  it('uses the API-assigned name as the UI id and strips auth from the list card', () => {
     const harness = {
-      type: 'openai' as const,
       name: 'openai',
-      auth: { apiKey: 'sk-secret' },
-      models: [
-        {
-          modelId: 'gpt-5.6-sol',
-          name: 'gpt-5-6-sol',
-          properties: { contextLength: 400000, maxOutputTokens: 32768 },
-        },
-      ],
+      manifest: {
+        type: 'openai' as const,
+        auth: { apiKey: 'sk-secret' },
+        models: [
+          {
+            modelId: 'gpt-5.6-sol',
+            name: 'gpt-5-6-sol',
+            properties: { contextLength: 400000, maxOutputTokens: 32768 },
+          },
+        ],
+      },
     };
 
     assert.deepEqual(toUiModelProvider(harness), {
@@ -97,7 +99,7 @@ describe('modelProviderCatalog mappers', () => {
 
   it('builds discriminated harness upsert bodies from UI create/update requests', () => {
     assert.deepEqual(
-      toHarnessModelProvider({
+      toHarnessModelProviderManifest({
         type: 'openai',
         name: 'openai',
         apiKey: 'sk-test',
@@ -109,7 +111,7 @@ describe('modelProviderCatalog mappers', () => {
           },
         ],
       }),
-      // No name: a well-known provider is named after its type by the API.
+      // No name: the API names a well-known provider after its type.
       {
         type: 'openai',
         auth: { apiKey: 'sk-test' },
@@ -124,7 +126,7 @@ describe('modelProviderCatalog mappers', () => {
     );
 
     assert.deepEqual(
-      toHarnessModelProvider({
+      toHarnessModelProviderManifest({
         type: 'custom',
         name: 'local-llama',
         apiKey: 'sk-local',
@@ -150,7 +152,7 @@ describe('modelProviderCatalog mappers', () => {
   it('rejects custom providers without a base URL', () => {
     assert.throws(
       () =>
-        toHarnessModelProvider({
+        toHarnessModelProviderManifest({
           type: 'custom',
           name: 'broken',
           apiKey: 'sk',
@@ -165,7 +167,7 @@ describe('modelProviderCatalog mappers', () => {
   it('builds a body for every provider type the API accepts', () => {
     const types = [...Object.values(TrueForgeApi.CatalogProviderType), 'custom'];
     for (const type of types) {
-      const body = toHarnessModelProvider({
+      const body = toHarnessModelProviderManifest({
         type,
         name: type,
         apiKey: 'sk',

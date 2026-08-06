@@ -1,16 +1,22 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ModelCatalog } from '../catalog/ModelCatalog';
-import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { IModelProviderStore, ModelProviderRecord } from '../db/modelProviderStore';
 import {
   getModelProviderCatalogRoute,
   listModelProvidersRoute,
   putModelProviderRoute,
 } from '../routes/modelProviderRoutes';
+import { type ModelProvider, modelProviderName } from '../schemas/modelProvider';
 import { TENANT_ID } from './sessions';
 
 export interface ModelProvidersRouterDeps {
   modelCatalog: ModelCatalog;
   modelProviderStore: IModelProviderStore;
+}
+
+/** Wire view of a stored provider: derived `name` plus persisted manifest. */
+function toModelProvider(record: ModelProviderRecord): ModelProvider {
+  return { name: record.name, manifest: record.manifest };
 }
 
 export function createModelProvidersRouter(deps: ModelProvidersRouterDeps) {
@@ -20,15 +26,17 @@ export function createModelProvidersRouter(deps: ModelProvidersRouterDeps) {
 
   const listHandler: RouteHandler<typeof listModelProvidersRoute> = async c => {
     const records = await deps.modelProviderStore.listProviders(TENANT_ID);
-    return c.json({ data: records.map(record => record.manifest) }, 200);
+    return c.json({ data: records.map(toModelProvider) }, 200);
   };
 
   const putHandler: RouteHandler<typeof putModelProviderRoute> = async c => {
+    const manifest = c.req.valid('json');
     const record = await deps.modelProviderStore.upsertProvider({
       tenant_id: TENANT_ID,
-      manifest: c.req.valid('json'),
+      name: modelProviderName(manifest),
+      manifest,
     });
-    return c.json({ data: record.manifest }, 200);
+    return c.json({ data: toModelProvider(record) }, 200);
   };
 
   const router = new OpenAPIHono();
