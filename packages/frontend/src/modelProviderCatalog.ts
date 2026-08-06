@@ -13,7 +13,8 @@ import type {
   ModelProviderCatalogEntry,
   UpdateModelProviderRequest,
 } from '@truefoundry/trueforge-ui';
-import { TrueForgeApi as Harness, TrueForge } from 'trueforge';
+import { TrueForgeApi as Harness } from 'trueforge';
+import { harnessClient as client } from './harnessClient';
 /** Custom-form rows omit properties; catalog rows round-trip them. */
 export type UiModelEntry = ModelEntry & {
   properties?: Harness.ModelProperties;
@@ -26,8 +27,6 @@ const DEFAULT_MODEL_PROPERTIES: Harness.ModelProperties = {
   contextLength: 128_000,
   maxOutputTokens: 16_384,
 };
-
-const client = new TrueForge({ baseUrl: '/' });
 
 export function toUiModelEntry(model: Harness.ModelEntry): UiModelEntry {
   return {

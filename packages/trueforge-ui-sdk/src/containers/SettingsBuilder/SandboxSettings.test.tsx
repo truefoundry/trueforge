@@ -6,10 +6,10 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { ServerProvider } from '../../server/ServerContext.js';
 import type {
   AgentUIServer,
-  CreateSandboxRequest,
-  SandboxBase,
-  SandboxCatalogEntry,
-  UpdateSandboxRequest,
+  CreateSandboxProviderRequest,
+  SandboxProviderBase,
+  SandboxProviderCatalogEntry,
+  UpdateSandboxProviderRequest,
 } from '../../server/types.js';
 import SandboxSettings from './SandboxSettings.js';
 
@@ -22,7 +22,7 @@ beforeAll(() => {
   };
 });
 
-const catalogEntry: SandboxCatalogEntry = {
+const catalogEntry: SandboxProviderCatalogEntry = {
   id: 'cat-daytona',
   name: 'Daytona',
   type: 'daytona',
@@ -33,17 +33,17 @@ const catalogEntry: SandboxCatalogEntry = {
   autoDeleteIntervalInMinutes: 43200,
 };
 
-function createFakeHost(initial: SandboxBase[] = []) {
-  let sandboxes = [...initial];
-  const created: CreateSandboxRequest[] = [];
-  const updated: UpdateSandboxRequest[] = [];
+function createFakeHost(initial: SandboxProviderBase[] = []) {
+  let providers = [...initial];
+  const created: CreateSandboxProviderRequest[] = [];
+  const updated: UpdateSandboxProviderRequest[] = [];
 
   const sandboxCatalog = {
-    getSandboxCatalog: async () => [catalogEntry],
-    listSandboxes: async () => sandboxes,
-    createSandbox: async (req: CreateSandboxRequest) => {
+    getSandboxProviderCatalog: async () => [catalogEntry],
+    listSandboxProviders: async () => providers,
+    createSandboxProvider: async (req: CreateSandboxProviderRequest) => {
       created.push(req);
-      const sandbox: SandboxBase = {
+      const provider: SandboxProviderBase = {
         id: `sb-${req.catalogId}`,
         name: req.name,
         catalogId: req.catalogId,
@@ -54,27 +54,28 @@ function createFakeHost(initial: SandboxBase[] = []) {
         autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
         autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
       };
-      sandboxes = [...sandboxes, sandbox];
-      return sandbox;
+      providers = [...providers, provider];
+      return provider;
     },
-    updateSandbox: async (req: UpdateSandboxRequest) => {
+    updateSandboxProvider: async (req: UpdateSandboxProviderRequest) => {
       updated.push(req);
-      sandboxes = sandboxes.map(sandbox =>
-        sandbox.id === req.id
+      providers = providers.map(provider =>
+        provider.id === req.id
           ? {
-              ...sandbox,
+              ...provider,
               snapshotName: req.snapshotName,
               execTimeoutMs: req.execTimeoutMs,
               autoStopIntervalInMinutes: req.autoStopIntervalInMinutes,
               autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
               autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
             }
-          : sandbox,
+          : provider,
       );
-      return sandboxes.find(sandbox => sandbox.id === req.id)!;
-    },
-    deleteSandbox: async ({ id }: { id: string }) => {
-      sandboxes = sandboxes.filter(sandbox => sandbox.id !== id);
+      const next = providers.find(provider => provider.id === req.id);
+      if (next === undefined) {
+        throw new Error(`Sandbox provider "${req.id}" not found`);
+      }
+      return next;
     },
   };
 
@@ -83,7 +84,7 @@ function createFakeHost(initial: SandboxBase[] = []) {
   return {
     created,
     updated,
-    getSandboxes: () => sandboxes,
+    getProviders: () => providers,
     wrapper: ({ children }: { children: ReactNode }) => <ServerProvider server={server}>{children}</ServerProvider>,
   };
 }
@@ -135,7 +136,7 @@ describe('SandboxSettings', () => {
   });
 
   it('prefills update form and allows saving without re-entering apiKey', async () => {
-    const existing: SandboxBase = {
+    const existing: SandboxProviderBase = {
       id: 'sb-1',
       name: 'Daytona',
       catalogId: 'cat-daytona',
@@ -157,6 +158,7 @@ describe('SandboxSettings', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Update' })).toBeTruthy();
     });
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Update' }));
 
