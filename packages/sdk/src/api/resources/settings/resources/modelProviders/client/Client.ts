@@ -89,13 +89,12 @@ export class ModelProvidersClient {
     }
 
     /**
-     * Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Well-known types are limited to one configured provider each; caller-supplied types (`alibaba`, `custom`) are unrestricted because each names its own endpoint.
+     * Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Every type but `custom` is named after itself, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named, and numbered, by the caller.
      *
      * @param {TrueHarness.ModelProvider} request
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueHarness.BadRequestError}
-     * @throws {@link TrueHarness.ConflictError}
      * @throws {@link errors.TrueHarnessError}
      * @throws {@link errors.TrueHarnessTimeoutError}
      *
@@ -109,8 +108,7 @@ export class ModelProvidersClient {
      *                 name: "name",
      *                 properties: {}
      *             }],
-     *         name: "name",
-     *         type: "openai"
+     *         type: "alibaba"
      *     })
      */
     public upsert(
@@ -168,17 +166,6 @@ export class ModelProvidersClient {
             switch (_response.error.statusCode) {
                 case 400:
                     throw new TrueHarness.BadRequestError(
-                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
-                            unrecognizedObjectKeys: "passthrough",
-                            allowUnrecognizedUnionMembers: true,
-                            allowUnrecognizedEnumValues: true,
-                            skipValidation: true,
-                            breadcrumbsPrefix: ["response"],
-                        }),
-                        _response.rawResponse,
-                    );
-                case 409:
-                    throw new TrueHarness.ConflictError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,

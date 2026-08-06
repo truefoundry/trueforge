@@ -2,11 +2,11 @@
 
 import type * as TrueHarness from "../index.js";
 
-export interface WellKnownModelProvider {
+export interface ZaiModelProvider {
     auth: TrueHarness.ModelProviderAuth;
-    /** Optional override of the provider's default API base URL. */
+    /** Override of the provider's default API base URL. */
     baseUrl?: string;
     models: TrueHarness.ModelEntry[];
-    name: TrueHarness.ResourceName;
-    type: TrueHarness.WellKnownModelProviderType;
+    name?: "zai";
+    type: "zai";
 }

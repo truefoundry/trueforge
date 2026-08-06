@@ -5,26 +5,24 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ModelEntry } from "./ModelEntry.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
-import { ResourceName } from "./ResourceName.js";
-import { WellKnownModelProviderType } from "./WellKnownModelProviderType.js";
 
-export const WellKnownModelProvider: core.serialization.ObjectSchema<
-    serializers.WellKnownModelProvider.Raw,
-    TrueHarness.WellKnownModelProvider
+export const MoonshotModelProvider: core.serialization.ObjectSchema<
+    serializers.MoonshotModelProvider.Raw,
+    TrueHarness.MoonshotModelProvider
 > = core.serialization.object({
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    name: ResourceName,
-    type: WellKnownModelProviderType,
+    name: core.serialization.stringLiteral("moonshot").optional(),
+    type: core.serialization.stringLiteral("moonshot"),
 });
 
-export declare namespace WellKnownModelProvider {
+export declare namespace MoonshotModelProvider {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
-        name: ResourceName.Raw;
-        type: WellKnownModelProviderType.Raw;
+        name?: "moonshot" | null;
+        type: "moonshot";
     }
 }

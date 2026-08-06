@@ -1515,7 +1515,7 @@ await client.settings.modelProviders.list();
 <dl>
 <dd>
 
-Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Well-known types are limited to one configured provider each; caller-supplied types (`alibaba`, `custom`) are unrestricted because each names its own endpoint.
+Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Every type but `custom` is named after itself, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named, and numbered, by the caller.
 </dd>
 </dl>
 </dd>
@@ -1539,8 +1539,7 @@ await client.settings.modelProviders.upsert({
             name: "name",
             properties: {}
         }],
-    name: "name",
-    type: "openai"
+    type: "alibaba"
 });
 
 ```

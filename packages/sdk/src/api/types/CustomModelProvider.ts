@@ -2,11 +2,11 @@
 
 import type * as TrueHarness from "../index.js";
 
-export interface CallerSuppliedModelProvider {
+export interface CustomModelProvider {
     auth: TrueHarness.ModelProviderAuth;
     /** Base URL of the provider's API. */
     baseUrl: string;
     models: TrueHarness.ModelEntry[];
     name: TrueHarness.ResourceName;
-    type: TrueHarness.CallerSuppliedModelProviderType;
+    type: "custom";
 }

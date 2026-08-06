@@ -2,4 +2,13 @@
 
 import type * as TrueHarness from "../index.js";
 
-export type ModelProvider = TrueHarness.WellKnownModelProvider | TrueHarness.CallerSuppliedModelProvider;
+export type ModelProvider =
+    | TrueHarness.AlibabaModelProvider
+    | TrueHarness.AnthropicModelProvider
+    | TrueHarness.CustomModelProvider
+    | TrueHarness.FireworksModelProvider
+    | TrueHarness.GoogleGeminiModelProvider
+    | TrueHarness.MoonshotModelProvider
+    | TrueHarness.OpenAiModelProvider
+    | TrueHarness.TogetherModelProvider
+    | TrueHarness.ZaiModelProvider;

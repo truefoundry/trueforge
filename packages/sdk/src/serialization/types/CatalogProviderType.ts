@@ -14,8 +14,8 @@ export const CatalogProviderType: core.serialization.Schema<
     "fireworks",
     "zai",
     "moonshot",
-    "together",
     "alibaba",
+    "together",
 ]);
 
 export declare namespace CatalogProviderType {
@@ -26,6 +26,6 @@ export declare namespace CatalogProviderType {
         | "fireworks"
         | "zai"
         | "moonshot"
-        | "together"
-        | "alibaba";
+        | "alibaba"
+        | "together";
 }

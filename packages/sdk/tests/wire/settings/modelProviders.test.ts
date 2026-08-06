@@ -15,8 +15,8 @@ describe("ModelProvidersClient", () => {
                     auth: { api_key: "api_key" },
                     base_url: "base_url",
                     models: [{ model_id: "model_id", name: "name", properties: {} }],
-                    name: "name",
-                    type: "openai",
+                    name: "alibaba",
+                    type: "alibaba",
                 },
             ],
         };
@@ -44,8 +44,8 @@ describe("ModelProvidersClient", () => {
                             properties: {},
                         },
                     ],
-                    name: "name",
-                    type: "openai",
+                    name: "alibaba",
+                    type: "alibaba",
                 },
             ],
         });
@@ -57,16 +57,15 @@ describe("ModelProvidersClient", () => {
         const rawRequestBody = {
             auth: { api_key: "api_key" },
             models: [{ model_id: "model_id", name: "name", properties: {} }],
-            name: "name",
-            type: "openai",
+            type: "alibaba",
         };
         const rawResponseBody = {
             data: {
                 auth: { api_key: "api_key" },
                 base_url: "base_url",
                 models: [{ model_id: "model_id", name: "name", properties: {} }],
-                name: "name",
-                type: "openai",
+                name: "alibaba",
+                type: "alibaba",
             },
         };
 
@@ -90,8 +89,7 @@ describe("ModelProvidersClient", () => {
                     properties: {},
                 },
             ],
-            name: "name",
-            type: "openai",
+            type: "alibaba",
         });
         expect(response).toEqual({
             data: {
@@ -106,8 +104,8 @@ describe("ModelProvidersClient", () => {
                         properties: {},
                     },
                 ],
-                name: "name",
-                type: "openai",
+                name: "alibaba",
+                type: "alibaba",
             },
         });
     });
@@ -121,8 +119,7 @@ describe("ModelProvidersClient", () => {
                 { model_id: "x", name: "xy", properties: {} },
                 { model_id: "x", name: "xy", properties: {} },
             ],
-            name: "xy",
-            type: "openai",
+            type: "alibaba",
         };
         const rawResponseBody = { error: { message: "message" } };
 
@@ -152,56 +149,9 @@ describe("ModelProvidersClient", () => {
                         properties: {},
                     },
                 ],
-                name: "xy",
-                type: "openai",
+                type: "alibaba",
             });
         }).rejects.toThrow(TrueHarnessTypes.BadRequestError);
-    });
-
-    test("upsert (3)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueHarness({ maxRetries: 0, baseUrl: server.baseUrl });
-        const rawRequestBody = {
-            auth: { api_key: "x" },
-            models: [
-                { model_id: "x", name: "xy", properties: {} },
-                { model_id: "x", name: "xy", properties: {} },
-            ],
-            name: "xy",
-            type: "openai",
-        };
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .put("/api/v1/settings/model-providers")
-            .jsonBody(rawRequestBody)
-            .respondWith()
-            .statusCode(409)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.settings.modelProviders.upsert({
-                auth: {
-                    apiKey: "x",
-                },
-                models: [
-                    {
-                        modelId: "x",
-                        name: "xy",
-                        properties: {},
-                    },
-                    {
-                        modelId: "x",
-                        name: "xy",
-                        properties: {},
-                    },
-                ],
-                name: "xy",
-                type: "openai",
-            });
-        }).rejects.toThrow(TrueHarnessTypes.ConflictError);
     });
 
     test("catalog", async () => {
