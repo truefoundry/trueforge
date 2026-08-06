@@ -5,22 +5,25 @@
 import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema } from './agentSpec';
 
+export const SessionAgentRefSchema = z
+  .object({
+    type: z.literal('ref'),
+    agent_id: z.string().min(1),
+  })
+  .strict()
+  .openapi('SessionAgentRef');
+
+export const SessionAgentValueSchema = z
+  .object({
+    type: z.literal('value'),
+    agent_spec: AgentSpecSchema,
+  })
+  .strict()
+  .openapi('SessionAgentValue');
+
 /** Named registry binding or inline draft spec — exactly one arm. */
 export const SessionAgentSchema = z
-  .discriminatedUnion('type', [
-    z
-      .object({
-        type: z.literal('ref'),
-        agent_id: z.string().min(1),
-      })
-      .strict(),
-    z
-      .object({
-        type: z.literal('value'),
-        agent_spec: AgentSpecSchema,
-      })
-      .strict(),
-  ])
+  .discriminatedUnion('type', [SessionAgentRefSchema, SessionAgentValueSchema])
   .openapi('SessionAgent');
 
 export const SessionSchema = z
@@ -44,15 +47,11 @@ export const CreateSessionRequestSchema = z
 /** Draft sessions only may replace the value agent; named (ref) sessions reject it. */
 export const UpdateSessionRequestSchema = z
   .object({
-    agent: z
-      .object({
-        type: z.literal('value'),
-        agent_spec: AgentSpecSchema,
-      })
-      .strict()
-      .optional(),
+    agent: SessionAgentValueSchema.optional(),
   })
   .openapi('UpdateSessionRequest');
 
+export type SessionAgentRef = z.infer<typeof SessionAgentRefSchema>;
+export type SessionAgentValue = z.infer<typeof SessionAgentValueSchema>;
 export type SessionAgent = z.infer<typeof SessionAgentSchema>;
 export type Session = z.infer<typeof SessionSchema>;

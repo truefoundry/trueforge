@@ -72,7 +72,7 @@ function toHarnessAgentSpec(spec: HarnessAgentSpec): Harness.AgentSpec {
   };
 }
 
-function toUiAgentSpec(spec: Harness.AgentSpec | Harness.SessionAgentSpec): HarnessAgentSpec {
+function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
   const { mcpServers, skills, ...rest } = spec;
   return {
     ...rest,
