@@ -37,11 +37,11 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
-      - name: Lint
-        run: pnpm lint:ci
-
       - name: Build
         run: pnpm build
+
+      - name: Lint
+        run: pnpm lint:ci
 
       - name: Test
         run: pnpm test
