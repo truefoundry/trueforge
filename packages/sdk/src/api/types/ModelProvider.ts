@@ -2,13 +2,4 @@
 
 import type * as TrueForge from "../index.js";
 
-export type ModelProvider =
-    | TrueForge.AlibabaModelProvider
-    | TrueForge.AnthropicModelProvider
-    | TrueForge.CustomModelProvider
-    | TrueForge.FireworksModelProvider
-    | TrueForge.GoogleGeminiModelProvider
-    | TrueForge.MoonshotModelProvider
-    | TrueForge.OpenAiModelProvider
-    | TrueForge.TogetherModelProvider
-    | TrueForge.ZaiModelProvider;
+export type ModelProvider = TrueForge.WellKnownModelProvider | TrueForge.CallerSuppliedModelProvider;

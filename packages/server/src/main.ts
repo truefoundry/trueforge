@@ -41,6 +41,7 @@ import { ModelCatalog } from './catalog/ModelCatalog';
 import { SandboxCatalog } from './catalog/SandboxCatalog';
 import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
+import type { IAgentStore } from './db/agentStore';
 import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
@@ -58,6 +59,7 @@ interface ServerPersistence {
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
+  agentStore: IAgentStore;
   destroyDb: () => Promise<void>;
   redis: RedisClientType | undefined;
 }
@@ -79,6 +81,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/token-store/SqliteOAuthTokenStore'),
       import('./db/sqlite/skill-store/SqliteSkillStore'),
       import('./db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore'),
+      import('./db/sqlite/agent-store/SqliteAgentStore'),
     ]),
   ]);
   const [
@@ -88,6 +91,7 @@ async function createStandalonePersistence(options: {
     { SqliteOAuthTokenStore },
     { SqliteSkillStore },
     { SqliteSandboxProviderStore },
+    { SqliteAgentStore },
   ] = sqliteStores;
 
   const db = createSqliteDb(sqlitePath);
@@ -102,6 +106,7 @@ async function createStandalonePersistence(options: {
     tokenStore: new SqliteOAuthTokenStore(db),
     skillStore: new SqliteSkillStore(db),
     sandboxProviderStore: new SqliteSandboxProviderStore(db),
+    agentStore: new SqliteAgentStore(db),
     destroyDb: () => db.destroy(),
     redis: undefined,
   };
@@ -133,6 +138,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/token-store/PostgresOAuthTokenStore'),
       import('./db/postgres/skill-store/PostgresSkillStore'),
       import('./db/postgres/sandbox-provider-store/PostgresSandboxProviderStore'),
+      import('./db/postgres/agent-store/PostgresAgentStore'),
     ]),
   ]);
   const [
@@ -142,6 +148,7 @@ async function createDistributedPersistence(options: {
     { PostgresOAuthTokenStore },
     { PostgresSkillStore },
     { PostgresSandboxProviderStore },
+    { PostgresAgentStore },
   ] = postgresStores;
 
   const db = createDb({
@@ -161,6 +168,7 @@ async function createDistributedPersistence(options: {
     tokenStore: new PostgresOAuthTokenStore(db),
     skillStore: new PostgresSkillStore(db),
     sandboxProviderStore: new PostgresSandboxProviderStore(db),
+    agentStore: new PostgresAgentStore(db),
     destroyDb: () => db.destroy(),
     redis: await connectRedis({ url: redisUrl, logger }),
   };
@@ -181,6 +189,7 @@ try {
     tokenStore,
     skillStore,
     sandboxProviderStore,
+    agentStore,
     destroyDb,
     redis,
   } = configuration.STANDALONE
@@ -201,6 +210,7 @@ try {
     tokenStore,
     skillStore,
     sandboxProviderStore,
+    agentStore,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,

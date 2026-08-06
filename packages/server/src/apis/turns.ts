@@ -20,13 +20,13 @@ import {
   isFileContentPart,
   McpConnectionError,
   VercelAILLM,
-  type VercelAIProviderConfig,
 } from '@truefoundry/utils-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import configuration from '../config';
+import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -40,7 +40,7 @@ import {
   subscribeTurnRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { StreamGoneError, type EventSubscriptionRegistry } from '../runtime/event-subscription';
+import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry } from '../runtime/event-subscription';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
 import {
   buildTurnSandbox,
@@ -70,6 +70,7 @@ export interface TurnsRouterDeps {
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
+  agentStore: IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   sandboxProviderStore: ISandboxProviderStore;
@@ -77,26 +78,36 @@ export interface TurnsRouterDeps {
 }
 
 /**
- * TurnResourceResolver requires a sync llm factory; preload the session model
- * config so the factory stays sync while the store read stays async.
+ * Builds the per-turn resolver. Agent / MCP / sandbox / LLM lookups are wired
+ * the same way: async factories over the corresponding stores.
  */
 function createTurnResolver(deps: {
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
+  agentStore: IAgentStore;
+  modelProviderStore: IModelProviderStore;
   logger: Logger;
   signal: AbortSignal;
-  modelName: string;
-  providerConfig: VercelAIProviderConfig;
 }): TurnResourceResolver {
-  const { mcpServerStore, tokenStore, skillStore, sandboxProviderStore, logger, signal, modelName, providerConfig } =
-    deps;
+  const {
+    mcpServerStore,
+    tokenStore,
+    skillStore,
+    sandboxProviderStore,
+    agentStore,
+    modelProviderStore,
+    logger,
+    signal,
+  } = deps;
   return new TurnResourceResolver({
-    llm: name => {
-      if (name !== modelName) {
-        throw new Error(`Model not registered: ${name}`);
-      }
+    llm: async name => {
+      const providerConfig = await getModelProviderConfig({
+        tenant_id: TENANT_ID,
+        name,
+        store: modelProviderStore,
+      });
       return new VercelAILLM({
         providerConfig,
         logger,
@@ -145,6 +156,13 @@ function createTurnResolver(deps: {
         tracing,
         tenantName: TENANT_ID,
       });
+    },
+    agent: async agentId => {
+      const record = await agentStore.getAgent({ tenant_id: TENANT_ID, id: agentId });
+      if (record === undefined) {
+        throw new HTTPException(422, { message: `Agent not found: ${agentId}` });
+      }
+      return record.manifest;
     },
     logger,
   });
@@ -207,6 +225,48 @@ export function streamTTLSecondsFor(event: TurnStreamingEvent): number | undefin
 /** Redis/in-memory key for one turn's resumable event stream. */
 export function turnStreamId(tenantId: string, sessionId: string, turnId: string): string {
   return `agent:turn:${tenantId}:${sessionId}:${turnId}:stream`;
+}
+
+/**
+ * Dual-write turn events to the resumable subscription registry, then optionally
+ * forward each sequenced event (SSE path). Shared by streaming and non-streaming
+ * create-turn; the HTTP response lifecycle does not own execution.
+ */
+export async function drainTurnEvents(input: {
+  trackedStream: AsyncIterable<TurnStreamingEvent>;
+  turnEventStream: EventSubscription<TurnStreamingEvent>;
+  sessionId: string;
+  turnId: string;
+  maxExecutionTimer: NodeJS.Timeout;
+  logger: Logger;
+  onEvent?: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
+}): Promise<void> {
+  const { trackedStream, turnEventStream, sessionId, turnId, maxExecutionTimer, logger, onEvent } = input;
+  try {
+    for await (const event of trackedStream) {
+      // Dual-write before any client sink so subscribers can resume after disconnect.
+      const sequenceNumber = await turnEventStream.put(event, {
+        streamTTLSeconds: streamTTLSecondsFor(event),
+      });
+      await onEvent?.(event, sequenceNumber);
+    }
+  } catch (error) {
+    if (error instanceof SessionStoreNotFoundError) {
+      logger.warn('Turn stream ended after session/turn was removed', {
+        sessionId,
+        turnId,
+        ...extractErrorLogFields(error),
+      });
+    } else {
+      logger.error('Unexpected error in turn event drain', {
+        sessionId,
+        turnId,
+        ...extractErrorLogFields(error),
+      });
+    }
+  } finally {
+    clearTimeout(maxExecutionTimer);
+  }
 }
 
 /**
@@ -299,21 +359,15 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }
 
     const abortController = new AbortController();
-    const modelName = session.agent_spec.model.name;
-    const providerConfig = await getModelProviderConfig({
-      tenant_id: TENANT_ID,
-      name: modelName,
-      store: deps.modelProviderStore,
-    });
     const resolver = createTurnResolver({
       mcpServerStore: deps.mcpServerStore,
       tokenStore: deps.tokenStore,
       skillStore: deps.skillStore,
       sandboxProviderStore: deps.sandboxProviderStore,
+      agentStore: deps.agentStore,
+      modelProviderStore: deps.modelProviderStore,
       logger: deps.logger,
       signal: abortController.signal,
-      modelName,
-      providerConfig,
     });
 
     // First turn only: derive the title from the first user message. The store
@@ -354,20 +408,43 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       stream: turn.stream(),
     });
 
-    let shouldWriteToSSEStream = true;
     // Held for the whole turn; the stream's sequence counter dies with it.
     const turnEventStream = deps.eventSubscriptions.get(turnStreamId(TENANT_ID, sessionId, turn.id));
+    const drainInput = {
+      trackedStream,
+      turnEventStream,
+      sessionId,
+      turnId: turn.id,
+      maxExecutionTimer,
+      logger: deps.logger,
+    };
+
+    // Non-stream: same unawaited drain scheduling as Hono streamSSE's run(cb).
+    // Wait until the first dual-write (turn.created) so immediate subscribeToTurn
+    // cannot 412 before the resumable stream exists.
+    if (!body.stream) {
+      const { promise: firstEventDualWritten, resolve: markFirstEventDualWritten } = Promise.withResolvers<undefined>();
+      void drainTurnEvents({
+        ...drainInput,
+        onEvent: () => {
+          markFirstEventDualWritten(undefined);
+          return Promise.resolve();
+        },
+      }).finally(() => {
+        markFirstEventDualWritten(undefined);
+      });
+      await firstEventDualWritten;
+      return c.json({ data: toWireTurn(turn.record) }, 200);
+    }
+
+    let shouldWriteToSSEStream = true;
     return streamSSE(c, async stream => {
       stream.onAbort(() => {
         shouldWriteToSSEStream = false;
       });
-      try {
-        for await (const event of trackedStream) {
-          // Dual-write before SSE so subscribers can resume even after the
-          // creating client disconnects; the returned sequence is the SSE id.
-          const sequenceNumber = await turnEventStream.put(event, {
-            streamTTLSeconds: streamTTLSecondsFor(event),
-          });
+      await drainTurnEvents({
+        ...drainInput,
+        onEvent: async (event, sequenceNumber) => {
           if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
             try {
               await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
@@ -376,25 +453,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
               shouldWriteToSSEStream = false;
             }
           }
-        }
-      } catch (error) {
-        if (error instanceof SessionStoreNotFoundError) {
-          deps.logger.warn('Turn stream ended after session/turn was removed', {
-            sessionId,
-            turnId: turn.id,
-            ...extractErrorLogFields(error),
-          });
-        } else {
-          deps.logger.error('Unexpected error in turn SSE stream loop', {
-            sessionId,
-            turnId: turn.id,
-            ...extractErrorLogFields(error),
-          });
-        }
-      } finally {
-        clearTimeout(maxExecutionTimer);
-        await stream.close();
-      }
+        },
+      });
+      await stream.close();
     });
   };
 

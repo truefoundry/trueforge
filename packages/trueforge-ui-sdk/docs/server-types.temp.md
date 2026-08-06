@@ -102,7 +102,7 @@ export type PageParams = {
   endTimestamp?: string;
 };
 
-export type PreviousTurnIdInput = 'auto' | string;
+export type PreviousTurnIdInput = 'auto' | 'none' | string;
 ```
 
 ### AgentSpec (+ nested)

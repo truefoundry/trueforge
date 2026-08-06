@@ -4,10 +4,13 @@ import { createHarnessChatServer, type HarnessAgentSpec } from '../src/harnessSe
 
 const session = {
   id: 'ses_1',
-  agent_spec: {
-    model: { name: 'test/model' },
-    mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
-    skills: [{ name: 'review' }],
+  agent: {
+    type: 'value',
+    agent_spec: {
+      model: { name: 'test/model' },
+      mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
+      skills: [{ name: 'review' }],
+    },
   },
   title: null,
   created_at: '2026-08-03T00:00:00.000Z',
@@ -78,11 +81,14 @@ describe('createHarnessChatServer', () => {
     });
 
     const sent = sessionRequests.at(-1);
-    assert.ok(sent !== null && typeof sent === 'object' && 'agent_spec' in sent);
-    assert.deepEqual(sent.agent_spec, {
-      model: { name: 'test/model' },
-      mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
-      skills: [{ name: 'review' }],
+    assert.ok(sent !== null && typeof sent === 'object' && 'agent' in sent);
+    assert.deepEqual(sent.agent, {
+      type: 'value',
+      agent_spec: {
+        model: { name: 'test/model' },
+        mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
+        skills: [{ name: 'review' }],
+      },
     });
   });
 
@@ -103,15 +109,15 @@ describe('createHarnessChatServer', () => {
     for await (const event of server.createTurn({
       sessionId: 'ses_1',
       input: [{ type: 'user.message', content: 'hello' }],
-      // The runtime's root sentinel; Harness 404s unless it becomes `null`.
       previousTurnId: 'none',
     })) {
       events.push(event);
     }
 
     const sent = turnRequests.at(-1);
-    assert.ok(sent !== null && typeof sent === 'object' && 'previous_turn_id' in sent);
-    assert.equal(sent.previous_turn_id, null);
+    assert.ok(sent !== null && typeof sent === 'object' && 'previous_turn_id' in sent && 'stream' in sent);
+    assert.equal(sent.previous_turn_id, 'none');
+    assert.equal(sent.stream, true);
 
     assert.deepEqual(events, [
       {

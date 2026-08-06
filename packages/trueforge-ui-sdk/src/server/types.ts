@@ -174,7 +174,7 @@ export interface ListSessionsResponse<
   pagination: TokenPagination;
 }
 
-export type PreviousTurnIdInput = 'auto' | string;
+export type PreviousTurnIdInput = 'auto' | 'none' | string;
 
 // ---------------------------------------------------------------------------
 // Turn input / state — what runtime sends and reads

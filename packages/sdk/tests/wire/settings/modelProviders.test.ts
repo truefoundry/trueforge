@@ -15,8 +15,8 @@ describe("ModelProvidersClient", () => {
                     auth: { api_key: "api_key" },
                     base_url: "base_url",
                     models: [{ model_id: "model_id", name: "name", properties: {} }],
-                    name: "alibaba",
-                    type: "alibaba",
+                    name: "name",
+                    type: "openai",
                 },
             ],
         };
@@ -44,8 +44,8 @@ describe("ModelProvidersClient", () => {
                             properties: {},
                         },
                     ],
-                    name: "alibaba",
-                    type: "alibaba",
+                    name: "name",
+                    type: "openai",
                 },
             ],
         });
@@ -57,15 +57,16 @@ describe("ModelProvidersClient", () => {
         const rawRequestBody = {
             auth: { api_key: "api_key" },
             models: [{ model_id: "model_id", name: "name", properties: {} }],
-            type: "alibaba",
+            name: "name",
+            type: "openai",
         };
         const rawResponseBody = {
             data: {
                 auth: { api_key: "api_key" },
                 base_url: "base_url",
                 models: [{ model_id: "model_id", name: "name", properties: {} }],
-                name: "alibaba",
-                type: "alibaba",
+                name: "name",
+                type: "openai",
             },
         };
 
@@ -89,7 +90,8 @@ describe("ModelProvidersClient", () => {
                     properties: {},
                 },
             ],
-            type: "alibaba",
+            name: "name",
+            type: "openai",
         });
         expect(response).toEqual({
             data: {
@@ -104,8 +106,8 @@ describe("ModelProvidersClient", () => {
                         properties: {},
                     },
                 ],
-                name: "alibaba",
-                type: "alibaba",
+                name: "name",
+                type: "openai",
             },
         });
     });
@@ -119,7 +121,8 @@ describe("ModelProvidersClient", () => {
                 { model_id: "x", name: "xy", properties: {} },
                 { model_id: "x", name: "xy", properties: {} },
             ],
-            type: "alibaba",
+            name: "xy",
+            type: "openai",
         };
         const rawResponseBody = { error: { message: "message" } };
 
@@ -149,7 +152,8 @@ describe("ModelProvidersClient", () => {
                         properties: {},
                     },
                 ],
-                type: "alibaba",
+                name: "xy",
+                type: "openai",
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });

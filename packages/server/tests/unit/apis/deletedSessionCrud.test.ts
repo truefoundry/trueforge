@@ -6,6 +6,7 @@ import { createLogger } from 'winston';
 import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
@@ -28,6 +29,7 @@ describe('public CRUD after session deletion', () => {
     const mcpServerStore = new SqliteMcpServerStore(db);
     const tokenStore = new SqliteOAuthTokenStore(db);
     const skillStore = new SqliteSkillStore(db);
+    const agentStore = new SqliteAgentStore(db);
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     const app = new OpenAPIHono();
 
@@ -40,6 +42,7 @@ describe('public CRUD after session deletion', () => {
         modelProviderStore,
         mcpServerStore,
         skillStore,
+        agentStore,
         sandboxProviderStore,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
@@ -55,6 +58,7 @@ describe('public CRUD after session deletion', () => {
         mcpServerStore,
         tokenStore,
         skillStore,
+        agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         sandboxProviderStore,
         logger: createLogger({ silent: true }),
@@ -64,10 +68,13 @@ describe('public CRUD after session deletion', () => {
     await sessionStore.createSession({
       tenant_id: TENANT_ID,
       session_id: 's1',
-      agent_spec: AgentSpecSchema.parse({
-        model: { name: 'test-provider/test-model' },
-        instructions: 'test',
-      }),
+      agent: {
+        type: 'value',
+        agent_spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+        }),
+      },
       custom: null,
     });
     expect((await app.request('/s1', { method: 'DELETE' })).status).toBe(204);
