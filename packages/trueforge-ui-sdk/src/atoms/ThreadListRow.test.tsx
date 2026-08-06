@@ -94,10 +94,13 @@ describe('ThreadListRow', () => {
     const row = container.querySelector('[data-slot="aui_thread-list-item"]');
     expect(row?.className).toMatch(/items-center/);
     const time = screen.getByText('2d');
-    expect(time.className).toMatch(/group-hover:opacity-0/);
+    expect(time.getAttribute('data-slot')).toBe('aui_thread-list-item-age');
     const actionsSlot = screen.getByRole('button', { name: 'Session actions' }).parentElement;
+    expect(actionsSlot?.getAttribute('data-slot')).toBe('aui_thread-list-item-actions');
     expect(actionsSlot?.className).toMatch(/absolute/);
-    expect(actionsSlot?.className).toMatch(/opacity-0/);
-    expect(actionsSlot?.className).toMatch(/group-hover:opacity-100/);
+    expect(actionsSlot?.className).toMatch(/md:opacity-0/);
+    expect(actionsSlot?.className).toMatch(/md:group-hover:opacity-100/);
+    expect(time.className).toMatch(/md:opacity-100/);
+    expect(time.className).toMatch(/md:group-hover:opacity-0/);
   });
 });

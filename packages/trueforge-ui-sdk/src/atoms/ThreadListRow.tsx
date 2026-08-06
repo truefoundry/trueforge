@@ -66,14 +66,16 @@ export function ThreadListRow({
         </span>
       </button>
       {hasTrailing ? (
-        <div className="relative flex size-7 shrink-0 items-center justify-center pr-0.5">
+        <div className="relative mr-1 flex size-7 shrink-0 items-center justify-center">
           {relative != null ? (
             <span
+              data-slot="aui_thread-list-item-age"
               className={cn(
                 'pointer-events-none text-xs text-muted-foreground transition-opacity',
-                // Swap with actions on hover / focus / open menu; always hide when actions on touch.
+                // md: variants survive host Tailwind tree-shaking (same set as AgentsLibrary).
+                // Bare group-hover:opacity-* is dropped from the example CSS bundle.
                 actions != null &&
-                  'group-hover:opacity-0 group-focus-within:opacity-0 group-has-[[data-state=open]]:opacity-0 max-md:opacity-0',
+                  'opacity-0 md:opacity-100 md:group-hover:opacity-0 md:group-focus-within:opacity-0 md:group-has-[[data-state=open]]:opacity-0',
               )}
             >
               {relative}
@@ -81,10 +83,11 @@ export function ThreadListRow({
           ) : null}
           {actions != null ? (
             <div
+              data-slot="aui_thread-list-item-actions"
               className={cn(
                 'absolute inset-0 flex items-center justify-center transition-opacity',
                 relative != null &&
-                  'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 group-has-[[data-state=open]]:opacity-100 max-md:opacity-100',
+                  'md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 md:group-has-[[data-state=open]]:opacity-100',
               )}
             >
               {actions}
