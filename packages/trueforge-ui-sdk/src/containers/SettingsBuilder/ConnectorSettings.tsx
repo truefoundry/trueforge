@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
+import { Button } from '@/atoms/primitives/Button.js';
+import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
+import SearchInput from '@/atoms/primitives/SearchInput.js';
+import { useMCPAuth } from '@/hooks/useMcpAuth.js';
 import { Icon } from '@/icons/Icon.js';
-import { Button } from '../../atoms/primitives/Button.js';
-import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
-import SearchInput from '../../atoms/primitives/SearchInput.js';
-import { useMCPAuth } from '../../hooks/useMcpAuth.js';
-import { useCatalogServer } from '../../server/ServerContext.js';
-import type { ConnectorAuth, ConnectorBase, ConnectorCatalogEntry } from '../../server/types.js';
+import { useCatalogServer } from '@/server/ServerContext.js';
+import type { ConnectorAuth, ConnectorBase, ConnectorCatalogEntry } from '@/server/types.js';
 import AddMcpServerForm, { type AddMcpServerDraft } from './AddMcpServerForm.js';
 import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
 import ConnectorDetails from './ConnectorDetails.js';
@@ -34,6 +34,7 @@ const ConnectorSettings = () => {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [catalog, setCatalog] = useState<ConnectorCatalogEntry[]>([]);
   const [addMcpServerFormOpen, setAddMcpServerFormOpen] = useState(false);
   const [connectorAwaitingKey, setConnectorAwaitingKey] = useState<ConnectorCatalogEntry | null>(null);
   const [selectedConnector, setSelectedConnector] = useState<ConnectorBase | null>(null);
@@ -57,6 +58,7 @@ const ConnectorSettings = () => {
         connectorCatalog.listConnectors(),
         connectorCatalog.getConnectorCatalog(),
       ]);
+      setCatalog(available);
       const configured = listed ?? [];
       const seenIds = new Set(configured.map(connector => connector.id));
       const ordered: ConnectorListItem[] = [
