@@ -227,6 +227,9 @@ importers:
       hono:
         specifier: ^4.12.34
         version: 4.13.0
+      jose:
+        specifier: ^6.2.8
+        version: 6.2.8
       kysely:
         specifier: ^0.29.4
         version: 0.29.4
@@ -273,9 +276,6 @@ importers:
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@24.13.3)(babel-plugin-macros@3.1.0)(supports-color@8.1.1)
-      jose:
-        specifier: ^6.2.8
-        version: 6.2.8
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(@swc/core@1.15.46)(jiti@2.7.0)(postcss@8.5.22)(supports-color@8.1.1)(tsx@4.23.1)(typescript@7.0.2)(yaml@2.9.0)

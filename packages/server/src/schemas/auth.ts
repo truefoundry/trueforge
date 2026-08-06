@@ -24,3 +24,15 @@ export const OAuthCallbackQuerySchema = z.object({
 export const OAuthCallbackSuccessSchema = z.object({
   success: z.literal(true),
 });
+
+export const MeResponseSchema = z
+  .object({
+    type: z
+      .enum(['default', 'passport'])
+      .describe(
+        'Session kind: `default` when no OIDC id_token cookie is present; `passport` after a successful login.',
+      ),
+  })
+  .openapi('MeResponse');
+
+export type MeResponse = z.infer<typeof MeResponseSchema>;

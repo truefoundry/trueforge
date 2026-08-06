@@ -40,28 +40,28 @@ const logger = winston.createLogger({ silent: true });
 const ACCESS_TOKEN = 'access-1';
 
 describe('auth router (no identity provider configured)', () => {
-  it('GET /login redirects home — there is nothing to log into', async () => {
+  it('GET /auth/login redirects home — there is nothing to log into', async () => {
     const router = createAuthRouter({ oidcClient: undefined, logger });
 
-    const res = await router.request('/login', { redirect: 'manual' });
+    const res = await router.request('/auth/login', { redirect: 'manual' });
 
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('/');
   });
 
-  it('GET /callback redirects home — there is nothing to complete', async () => {
+  it('GET /auth/callback redirects home — there is nothing to complete', async () => {
     const router = createAuthRouter({ oidcClient: undefined, logger });
 
-    const res = await router.request('/callback?state=abc', { redirect: 'manual' });
+    const res = await router.request('/auth/callback?state=abc', { redirect: 'manual' });
 
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('/');
   });
 
-  it('POST /logout is a no-op 204 — there is no real session to clear', async () => {
+  it('POST /auth/logout is a no-op 204 — there is no real session to clear', async () => {
     const router = createAuthRouter({ oidcClient: undefined, logger });
 
-    const res = await router.request('/logout', { method: 'POST' });
+    const res = await router.request('/auth/logout', { method: 'POST' });
 
     expect(res.status).toBe(204);
   });
@@ -170,8 +170,8 @@ describe('auth router (OIDC configured)', () => {
     globalThis.fetch = fetchStub;
   }
 
-  it('GET /login redirects to the IdP and stores state', async () => {
-    const res = await createAuthRouter({ oidcClient, logger }).request('/login?return_to=/sessions/abc123', {
+  it('GET /auth/login redirects to the IdP and stores state', async () => {
+    const res = await createAuthRouter({ oidcClient, logger }).request('/auth/login?return_to=/sessions/abc123', {
       redirect: 'manual',
     });
 
@@ -186,17 +186,20 @@ describe('auth router (OIDC configured)', () => {
   });
 
   // `iss` is forwarded verbatim: IdPs advertising it reject an exchange that drops it.
-  it('GET /callback exchanges the code and sets id_token', async () => {
+  it('GET /auth/callback exchanges the code and sets id_token', async () => {
     const router = createAuthRouter({ oidcClient, logger });
-    const loginRes = await router.request('/login?return_to=/sessions/abc123', { redirect: 'manual' });
+    const loginRes = await router.request('/auth/login?return_to=/sessions/abc123', { redirect: 'manual' });
     const stateCookieRaw = cookieValue(setCookies(loginRes), STATE_COOKIE) ?? '';
     const authorizationUrl = new URL(loginRes.headers.get('location') ?? '');
     const state = authorizationUrl.searchParams.get('state') ?? '';
 
-    const callbackRes = await router.request(`/callback?code=abc123&state=${state}&iss=${encodeURIComponent(ISSUER)}`, {
-      redirect: 'manual',
-      headers: { Cookie: `${STATE_COOKIE}=${stateCookieRaw}` },
-    });
+    const callbackRes = await router.request(
+      `/auth/callback?code=abc123&state=${state}&iss=${encodeURIComponent(ISSUER)}`,
+      {
+        redirect: 'manual',
+        headers: { Cookie: `${STATE_COOKIE}=${stateCookieRaw}` },
+      },
+    );
 
     expect(callbackRes.status).toBe(302);
     expect(callbackRes.headers.get('location')).toBe('/sessions/abc123');
@@ -204,8 +207,8 @@ describe('auth router (OIDC configured)', () => {
     expect(idTokenCookie).toContain('Max-Age=86400');
   });
 
-  it('POST /logout clears id_token even when no cookie is present', async () => {
-    const res = await createAuthRouter({ oidcClient, logger }).request('/logout', {
+  it('POST /auth/logout clears id_token even when no cookie is present', async () => {
+    const res = await createAuthRouter({ oidcClient, logger }).request('/auth/logout', {
       method: 'POST',
     });
 
@@ -213,5 +216,21 @@ describe('auth router (OIDC configured)', () => {
     expect(
       setCookies(res).some(cookie => cookie.startsWith(`${ID_TOKEN_COOKIE}=`) && cookie.includes('Max-Age=0')),
     ).toBe(true);
+  });
+});
+
+describe('GET /me', () => {
+  it('returns type default when the id_token cookie is absent', async () => {
+    const res = await createAuthRouter({ oidcClient: undefined, logger }).request('/me');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ type: 'default' });
+  });
+
+  it('returns type passport when the id_token cookie is present', async () => {
+    const res = await createAuthRouter({ oidcClient: undefined, logger }).request('/me', {
+      headers: { Cookie: 'id_token=session-token' },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ type: 'passport' });
   });
 });

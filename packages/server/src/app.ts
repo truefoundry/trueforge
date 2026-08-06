@@ -18,6 +18,7 @@ import { createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
+import { createRequireAuthMiddleware } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -80,7 +81,21 @@ export function createServerApp(deps: ServerDeps) {
 
   app.get('/healthz', c => c.text('OK!'));
 
-  app.route('/api/v1/auth', createAuthRouter({ oidcClient: deps.oidcClient, logger: deps.logger }));
+  // Public routes mounted above the auth middleware (Hono only applies `use` to later routes).
+  app.route('/api/v1', createAuthRouter({ oidcClient: deps.oidcClient, logger: deps.logger }));
+  app.route(
+    '/api/v1/mcp-servers/oauth',
+    createMcpOAuthRouter({
+      tokenStore: deps.tokenStore,
+      mcpServerStore: deps.mcpServerStore,
+      logger: deps.logger,
+    }),
+  );
+  app.get('/api/v1/docs', swaggerUI({ url: '/api/v1/openapi.json' }));
+  app.get('/api/v1/openapi.json', c => c.json(buildOpenApiDocument(app)));
+
+  app.use('/api/v1/*', createRequireAuthMiddleware({ oidcClient: deps.oidcClient }));
+
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
   app.route(
@@ -88,15 +103,6 @@ export function createServerApp(deps: ServerDeps) {
     createMcpServersRouter({
       mcpServerStore: deps.mcpServerStore,
       tokenStore: deps.tokenStore,
-      logger: deps.logger,
-    }),
-  );
-  // Shared OAuth callback — path must match the server-owned MCP_OAUTH_CALLBACK_PATH.
-  app.route(
-    '/api/v1/mcp-servers/oauth',
-    createMcpOAuthRouter({
-      tokenStore: deps.tokenStore,
-      mcpServerStore: deps.mcpServerStore,
       logger: deps.logger,
     }),
   );
@@ -157,9 +163,6 @@ export function createServerApp(deps: ServerDeps) {
       logger: deps.logger,
     }),
   );
-
-  app.get('/api/v1/docs', swaggerUI({ url: '/api/v1/openapi.json' }));
-  app.get('/api/v1/openapi.json', c => c.json(buildOpenApiDocument(app)));
 
   app.notFound(routeNotFound);
 

@@ -1,12 +1,13 @@
 /**
- * Auth route definitions (mounted at /api/v1/auth). Handlers in apis/auth.ts.
+ * Auth route definitions. Mounted under `/api/v1`: login/callback/logout live
+ * under `/auth/*` (see createAuthRouter), while `me` is `/me`.
  *
  * `login`/`callback` are browser-redirect targets, never called by SDK
  * consumers — both carry `x-fern-ignore`, the same convention used for the
- * MCP OAuth callback in mcpOAuthRoutes.ts. `logout` generates normally.
+ * MCP OAuth callback in mcpOAuthRoutes.ts. `logout` and `me` generate normally.
  */
 import { createRoute } from '@hono/zod-openapi';
-import { AuthLoginQuerySchema, OAuthCallbackQuerySchema } from '../schemas/auth';
+import { AuthLoginQuerySchema, MeResponseSchema, OAuthCallbackQuerySchema } from '../schemas/auth';
 
 const AUTH_TAG = 'Auth';
 
@@ -52,5 +53,24 @@ export const authLogoutRoute = createRoute({
   'x-fern-sdk-method-name': 'logout',
   responses: {
     204: { description: 'Session cookie cleared.' },
+  },
+});
+
+/** Absolute path is `/api/v1/me` when createAuthRouter is mounted at `/api/v1`. */
+export const meRoute = createRoute({
+  method: 'get',
+  path: '/me',
+  tags: [AUTH_TAG],
+  summary: 'Current session type',
+  description:
+    'Returns whether the browser has an OIDC session cookie. Does not require authentication — ' +
+    'anonymous callers get `type: "default"`.',
+  'x-fern-sdk-group-name': ['auth'],
+  'x-fern-sdk-method-name': 'me',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: MeResponseSchema } },
+      description: 'Session type for the current request.',
+    },
   },
 });
