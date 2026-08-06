@@ -334,39 +334,6 @@
         },
         "type": "object"
       },
-      "AuthConfigResponse": {
-        "properties": {
-          "oidc_enabled": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "oidc_enabled"
-        ],
-        "type": "object"
-      },
-      "AuthMeResponse": {
-        "properties": {
-          "role": {
-            "$ref": "#/components/schemas/AuthRole"
-          },
-          "user_ref": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "user_ref",
-          "role"
-        ],
-        "type": "object"
-      },
-      "AuthRole": {
-        "enum": [
-          "admin",
-          "user"
-        ],
-        "type": "string"
-      },
       "BaseMCPAuthRequiredEvent": {
         "properties": {
           "created_at": {
@@ -4074,31 +4041,6 @@
         "x-fern-ignore": true
       }
     },
-    "/api/v1/auth/config": {
-      "get": {
-        "description": "Returns whether OIDC login is enabled. Public; no session required.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthConfigResponse"
-                }
-              }
-            },
-            "description": "Whether OIDC is enabled."
-          }
-        },
-        "summary": "Auth configuration for the UI",
-        "tags": [
-          "Auth"
-        ],
-        "x-fern-sdk-group-name": [
-          "auth"
-        ],
-        "x-fern-sdk-method-name": "config"
-      }
-    },
     "/api/v1/auth/login": {
       "get": {
         "description": "Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight back into the app — there is nothing to log into.",
@@ -4142,41 +4084,6 @@
           "auth"
         ],
         "x-fern-sdk-method-name": "logout"
-      }
-    },
-    "/api/v1/auth/me": {
-      "get": {
-        "description": "Returns the fixed local identity in local/single-binary mode; otherwise the caller's verified identity.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthMeResponse"
-                }
-              }
-            },
-            "description": "The caller's identity."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Not authenticated."
-          }
-        },
-        "summary": "Get the current identity",
-        "tags": [
-          "Auth"
-        ],
-        "x-fern-sdk-group-name": [
-          "auth"
-        ],
-        "x-fern-sdk-method-name": "me"
       }
     },
     "/api/v1/capabilities": {
