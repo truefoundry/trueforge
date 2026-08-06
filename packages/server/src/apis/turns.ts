@@ -19,6 +19,8 @@ import {
   isAgentInputUserMessage,
   isFileContentPart,
   McpConnectionError,
+  SandboxError,
+  validateSandboxOwnedByTenant,
   VercelAILLM,
 } from '@truefoundry/utils-core/core';
 import type { Context } from 'hono';
@@ -34,6 +36,7 @@ import type { ISkillStore } from '../db/skillStore';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
 import {
   createAndExecuteTurnRoute,
+  downloadSandboxFileRoute,
   getTurnRoute,
   listTurnEventsRoute,
   listTurnsRoute,
@@ -42,6 +45,7 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry } from '../runtime/event-subscription';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
+import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
   getMcpConnection,
@@ -60,6 +64,37 @@ export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
     state: record.state,
     created_at: record.created_at.toISOString(),
   };
+}
+
+/**
+ * Copies into a standalone ArrayBuffer for the response body: a pooled Buffer's
+ * backing store is shared and typed as ArrayBufferLike, which is not a body.
+ * Bounded by SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD.
+ */
+function toArrayBuffer(content: Buffer): ArrayBuffer {
+  const buffer = new ArrayBuffer(content.byteLength);
+  new Uint8Array(buffer).set(content);
+  return buffer;
+}
+
+/**
+ * Builds the Content-Disposition telling the browser to save the file under its sandbox name.
+ *
+ * A sandbox file can be named in any script, but an HTTP header can only carry bytes, so a name
+ * like `中文.csv` cannot be written into the header as-is — doing so throws when the response is
+ * constructed. RFC 6266's `filename*` exists for this: percent-encode the UTF-8 name so the value
+ * stays plain ASCII, and the client decodes it back. Encoding also defuses quotes and newlines,
+ * which could otherwise close the value or inject another header.
+ */
+export function toContentDisposition(path: string): string {
+  // Trailing separators are dropped so a path ending in `/` still yields its last real segment.
+  const fileName = path.split('/').filter(Boolean).pop() ?? 'download';
+  // encodeURIComponent covers everything except these four, which RFC 5987 also disallows here.
+  const encoded = encodeURIComponent(fileName).replace(
+    /['()*]/g,
+    char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `attachment; filename*=UTF-8''${encoded}`;
 }
 
 export interface TurnsRouterDeps {
@@ -323,6 +358,65 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     return c.json({ data: toWireTurn(turn.record) }, 200);
   };
 
+  const downloadSandboxFileHandler: RouteHandler<typeof downloadSandboxFileRoute> = async c => {
+    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
+    const { path } = c.req.valid('query');
+
+    let sandboxId: string | undefined;
+    try {
+      // Cheapest first: a malformed path costs no store read and no provider round-trip.
+      validateSandboxFilePath(path);
+
+      const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+      if (!session) {
+        return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+      }
+
+      // Loading the turn through the session is also the ownership check: a turn id from another
+      // session cannot be used to reach this session's sandbox.
+      const turn = await session.getTurn(turnId);
+      if (!turn) {
+        return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
+      }
+      sandboxId = turn.record.snapshot.sandbox_info?.sandbox_id;
+      if (sandboxId === undefined) {
+        return c.json({ error: { message: `Turn has no sandbox: ${turnId}` } }, 412);
+      }
+
+      const provider = await resolveSandboxProvider({
+        tenant_id: TENANT_ID,
+        store: deps.sandboxProviderStore,
+        logger: deps.logger,
+      });
+      if (provider === undefined) {
+        return c.json({ error: { message: 'No sandbox provider configured' } }, 412);
+      }
+
+      validateSandboxOwnedByTenant(sandboxId, TENANT_ID);
+      // TODO: stream the body instead of buffering the whole file in memory.
+      const content = await provider.downloadFile({ sandboxId, path });
+      return c.body(toArrayBuffer(content), 200, {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': String(content.byteLength),
+        'Content-Disposition': toContentDisposition(path),
+        'Cache-Control': 'private, no-store',
+      });
+    } catch (error) {
+      // Every guard and the provider itself raise SandboxError, whose statusCode is the contract.
+      if (error instanceof SandboxError) {
+        return c.json({ error: { message: error.message } }, error.statusCode);
+      }
+      deps.logger.error('Sandbox file download failed', {
+        ...extractErrorLogFields(error),
+        sessionId,
+        turnId,
+        sandboxId,
+        path,
+      });
+      return c.json({ error: { message: 'Failed to download file from sandbox' } }, 424);
+    }
+  };
+
   const listTurnEventsHandler: RouteHandler<typeof listTurnEventsRoute> = async c => {
     const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const query = c.req.valid('query');
@@ -532,6 +626,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   router.openapi(createAndExecuteTurnRoute, createAndExecuteTurnHandler);
   router.openapi(listTurnsRoute, listTurnsHandler);
   router.openapi(getTurnRoute, getTurnHandler);
+  router.openapi(downloadSandboxFileRoute, downloadSandboxFileHandler);
   router.openapi(listTurnEventsRoute, listTurnEventsHandler);
   router.openapi(subscribeTurnRoute, subscribeTurnHandler);
   return router;

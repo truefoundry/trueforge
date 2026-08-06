@@ -8,6 +8,7 @@ import { RequestErrorResponseSchema } from '../schemas/errors';
 import { TurnStreamingEventSchema } from '../schemas/events';
 import {
   CreateTurnRequestSchema,
+  DownloadSandboxFileRequestQuerySchema,
   GetTurnResponseSchema,
   ListTurnEventsRequestQuerySchema,
   ListTurnEventsResponseSchema,
@@ -72,6 +73,55 @@ export const getTurnRoute = createRoute({
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Session or turn not found.',
+    },
+  },
+});
+
+export const downloadSandboxFileRoute = createRoute({
+  method: 'get',
+  path: '/{session_id}/turns/{turn_id}/download',
+  tags: [SESSIONS_TAG],
+  summary: 'Download a file from the turn sandbox',
+  description:
+    "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block.",
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'download_sandbox_file',
+  request: {
+    params: TurnIdParamsSchema,
+    query: DownloadSandboxFileRequestQuerySchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/octet-stream': { schema: z.string().openapi({ format: 'binary' }) } },
+      description: 'File contents.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid path, or the path is a directory.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox belongs to another tenant.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session, turn, or file not found.',
+    },
+    410: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox no longer exists.',
+    },
+    412: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Turn has no sandbox, or no sandbox provider is configured.',
+    },
+    413: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'File exceeds the maximum download size.',
+    },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox infrastructure error.',
     },
   },
 });

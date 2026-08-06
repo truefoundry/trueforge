@@ -5182,6 +5182,138 @@
         "x-fern-sdk-method-name": "get_turn"
       }
     },
+    "/api/v1/sessions/{session_id}/turns/{turn_id}/download": {
+      "get": {
+        "description": "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Turn identifier.",
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "description": "Turn identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Absolute path of the file inside the sandbox, as listed in the assistant's `sandbox_artifacts` block.",
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "description": "Absolute path of the file inside the sandbox, as listed in the assistant's `sandbox_artifacts` block.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "File contents."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid path, or the path is a directory."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox belongs to another tenant."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session, turn, or file not found."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox no longer exists."
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Turn has no sandbox, or no sandbox provider is configured."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "File exceeds the maximum download size."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox infrastructure error."
+          }
+        },
+        "summary": "Download a file from the turn sandbox",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "download_sandbox_file"
+      }
+    },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/events": {
       "get": {
         "description": "Paginated persisted events for a turn (insertion order by default).",
