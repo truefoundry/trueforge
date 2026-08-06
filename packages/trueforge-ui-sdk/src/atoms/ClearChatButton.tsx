@@ -8,7 +8,7 @@ import { auiButtonClass } from './lib/buttonClasses.js';
 export function ClearChatButton() {
   const shell = useOptionalShellMode();
 
-  if (shell == null || shell.mode.type === 'idle') return null;
+  if (shell == null || shell.mode.status === 'idle') return null;
 
   return (
     <button

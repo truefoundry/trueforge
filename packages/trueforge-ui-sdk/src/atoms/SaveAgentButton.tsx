@@ -24,9 +24,11 @@ export function SaveAgentButton() {
   const nameId = useId();
   const instructionsId = useId();
 
-  if (shell?.mode.type !== 'draft' || server == null) return null;
+  if (shell?.mode.status !== 'active' || !shell.mode.isMutable || server == null) return null;
 
-  const draftSpec = shell.mode.defaultAgentSpec;
+  const editingAgentName = shell.mode.agentName ?? shell.mode.agentId;
+  const isUpdate = editingAgentName != null && editingAgentName !== '';
+  const draftSpec = shell.mode.agentSpec ?? { model: { name: 'openai-main/gpt-4.1' } };
   // Runtime AgentSpec is structurally compatible; cast across package boundary.
   const specToSave: AgentSpec = (agentSpec as AgentSpec | undefined) ?? draftSpec;
 
@@ -39,7 +41,8 @@ export function SaveAgentButton() {
 
   const handleOpenChange = (next: boolean) => {
     if (next) {
-      setInstructions(specToSave.instructions ?? '');
+      setName(editingAgentName ?? '');
+      setInstructions(specToSave.instructions ?? draftSpec.instructions ?? '');
     } else {
       reset();
     }
@@ -54,20 +57,35 @@ export function SaveAgentButton() {
     setSaving(true);
     setError(null);
     const trimmedInstructions = instructions.trim();
+    const savedSpec: AgentSpec = {
+      ...specToSave,
+      instructions: trimmedInstructions || undefined,
+    };
     try {
       await server.saveAgent({
         agentName,
-        agentSpec: {
-          ...specToSave,
-          instructions: trimmedInstructions || undefined,
-        },
+        agentSpec: savedSpec,
       });
+      // Same draft chat continues as editable agent — do not remount via selectLibraryAgent.
+      shell.bindMutableAgent({
+        agentId: agentName,
+        agentName,
+        agentSpec: savedSpec,
+      });
+      shell.invalidateAgentsList();
       handleOpenChange(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to save agent.');
+      setError(err instanceof Error ? err.message : isUpdate ? 'Failed to update agent.' : 'Failed to save agent.');
       setSaving(false);
     }
   };
+
+  const triggerLabel = isUpdate ? 'Update Agent' : 'Save as agent';
+  const modalTitle = isUpdate ? 'Update Agent' : 'Save as agent';
+  const modalDescription = isUpdate
+    ? 'Save changes to this agent in the Agents library'
+    : 'Reuse this setup later from the Agents library';
+  const submitLabel = saving ? (isUpdate ? 'Updating…' : 'Saving…') : isUpdate ? 'Update' : 'Save';
 
   return (
     <>
@@ -76,14 +94,14 @@ export function SaveAgentButton() {
         className={auiButtonClass({ variant: 'outline', size: 'sm' })}
         onClick={() => handleOpenChange(true)}
       >
-        Save as agent
+        {triggerLabel}
       </button>
 
       <CenteredModal
         open={open}
         onOpenChange={handleOpenChange}
-        title="Save as agent"
-        description="Reuse this setup later from the Agents library"
+        title={modalTitle}
+        description={modalDescription}
         contentSized
       >
         <form className="flex flex-col gap-4 p-5" onSubmit={e => void handleSubmit(e)}>
@@ -97,9 +115,9 @@ export function SaveAgentButton() {
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="Release notes writer"
-              autoFocus
+              autoFocus={!isUpdate}
               autoComplete="off"
-              disabled={saving}
+              disabled={saving || isUpdate}
               className={`${inputClassName} h-9`}
             />
           </div>
@@ -113,6 +131,7 @@ export function SaveAgentButton() {
               onChange={e => setInstructions(e.target.value)}
               placeholder="You are a release notes writer for the platform team..."
               rows={4}
+              autoFocus={isUpdate}
               disabled={saving}
               className={`${inputClassName} min-h-24 resize-y py-2`}
             />
@@ -123,7 +142,7 @@ export function SaveAgentButton() {
             disabled={saving || name.trim().length === 0}
             className={auiButtonClass({ variant: 'default', className: 'w-full' })}
           >
-            {saving ? 'Saving…' : 'Save'}
+            {submitLabel}
           </button>
         </form>
       </CenteredModal>

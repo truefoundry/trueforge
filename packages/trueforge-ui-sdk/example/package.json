@@ -12,8 +12,8 @@
   "dependencies": {
     "@assistant-ui/core": "^0.2.22",
     "@assistant-ui/react": "^0.14.24",
-    "@truefoundry/trueforge-ui": "link:..",
     "@truefoundry/assistant-ui-runtime": "file:../../../../side-chick/mono/truefoundry-agents-assistant-ui-runtime/packages/truefoundry-agents-assistant-ui-runtime",
+    "@truefoundry/trueforge-ui": "link:..",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "truefoundry-gateway-sdk": "^0.4.0-rc.5"

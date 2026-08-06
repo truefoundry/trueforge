@@ -124,18 +124,25 @@ function ThreadListItemRow({ onThreadOpen, showDelete }: { onThreadOpen?: () => 
           onThreadOpen?.();
           shell?.setSettingsOpen(false);
 
-          const sameNamed = agentName != null && shell?.mode.type === 'named' && shell.mode.agentName === agentName;
-          const sameDraft = agentName == null && shell?.mode.type === 'draft';
+          // History rows: agentName set → immutable; omitted → mutable.
+          // Same mutability + identity: switch in-place. Crossing requires remount
+          // so mutable mode does not try to load agentSpec from an immutable session.
+          const sessionMutable = agentName == null;
+          const sameImmutable =
+            !sessionMutable &&
+            shell?.mode.status === 'active' &&
+            !shell.mode.isMutable &&
+            (shell.mode.agentName === agentName || shell.mode.agentId === agentName);
+          const sameMutable = sessionMutable && shell?.mode.status === 'active' && shell.mode.isMutable;
 
-          // Same runtime mode: switch in-place. Crossing named ↔ draft requires a remount
-          // so draft mode does not try to load agentSpec from an immutable named session.
-          if ((sameNamed || sameDraft) && remoteId != null) {
+          if ((sameImmutable || sameMutable) && remoteId != null) {
             void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
             return;
           }
           if (remoteId != null) {
             shell?.openHistorySession({
               sessionId: remoteId,
+              isMutable: sessionMutable,
               ...(agentName != null ? { agentName } : {}),
             });
             return;
@@ -209,7 +216,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   auiRef.current = aui;
 
   const showNewChat = shell?.isNewChatEnabled !== false;
-  const isIdle = shell?.mode.type === 'idle';
+  const isIdle = shell?.mode.status === 'idle';
   const canDeleteSession = typeof server?.deleteSession === 'function';
 
   // Scroll-driven pagination only — never auto-chain pages while the sentinel
@@ -219,8 +226,11 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
     const viewport = viewportRef.current;
     if (!viewport) return;
 
+    let cancelled = false;
+    let chainRaf = 0;
+
     const tryLoadMore = () => {
-      if (!hasMoreRef.current || loadMoreInflightRef.current) return;
+      if (cancelled || !hasMoreRef.current || loadMoreInflightRef.current) return;
       // Require a real scroll so a short first page does not fill-drain the cursor.
       if (viewport.scrollTop <= 0) return;
       const remaining = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
@@ -229,13 +239,18 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
       loadMoreInflightRef.current = true;
       void Promise.resolve(auiRef.current.threads().loadMore()).finally(() => {
         loadMoreInflightRef.current = false;
+        if (cancelled) return;
         // Still glued to the bottom after append → fetch the next page.
-        requestAnimationFrame(() => tryLoadMore());
+        chainRaf = requestAnimationFrame(() => tryLoadMore());
       });
     };
 
     viewport.addEventListener('scroll', tryLoadMore, { passive: true });
-    return () => viewport.removeEventListener('scroll', tryLoadMore);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(chainRaf);
+      viewport.removeEventListener('scroll', tryLoadMore);
+    };
   }, [isIdle]);
 
   const handleNewChat = () => {

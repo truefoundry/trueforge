@@ -228,10 +228,12 @@ export {
 export {
   DEFAULT_AGENT_CONFIG,
   ShellModeProvider,
+  libraryAgentId,
+  shellIsMutable,
   useOptionalShellMode,
   useShellMode,
 } from './server/ShellModeContext.js';
-export type { AgentConfig, ShellMode } from './server/ShellModeContext.js';
+export type { AgentConfig, SelectLibraryAgentRequest, ShellMode } from './server/ShellModeContext.js';
 export type {
   AgentBuilderServer,
   AgentChatServer,

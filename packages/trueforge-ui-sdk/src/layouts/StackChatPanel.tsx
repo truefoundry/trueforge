@@ -30,7 +30,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const aui = useAui();
   const shell = useOptionalShellMode();
   const ClearChatButton = useSlot('ClearChatButton');
-  const isIdle = shell?.mode.type === 'idle';
+  const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
 
   useEffect(() => {

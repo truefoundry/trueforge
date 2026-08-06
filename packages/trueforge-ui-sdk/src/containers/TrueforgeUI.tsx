@@ -130,20 +130,42 @@ function ChatProviderFromShell({
 } & Omit<TrueFoundryChatProviderProps, 'agent' | 'agentName' | 'listSessionsAgentId' | 'children'>) {
   const { mode, runtimeKey, listSessionsAgentId, pendingSessionId } = useShellMode();
 
-  const agent: TrueFoundryAgentConfig = useMemo(() => {
-    if (mode.type === 'named') {
-      return { mode: 'named', agentName: mode.agentName };
+  // Freeze draft seed for the life of this runtimeKey so bindMutableAgent (identity /
+  // instructions on shell) does not push a new defaultAgentSpec into the runtime.
+  const draftDefaultAgentSpec = useMemo(() => {
+    if (mode.status === 'active' && mode.isMutable) {
+      return mode.agentSpec ?? { model: { name: 'openai-main/gpt-4.1' } };
     }
+    return { model: { name: 'openai-main/gpt-4.1' } };
+    // runtimeKey is the remount boundary for mutable chats.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on runtimeKey only
+  }, [runtimeKey]);
+
+  const agent: TrueFoundryAgentConfig = useMemo(() => {
     // idle uses a placeholder draft so layout chrome (useAui) still mounts;
     // layouts render an empty CTA instead of the thread.
-    if (mode.type === 'idle') {
+    if (mode.status === 'idle') {
       return {
         mode: 'draft',
         defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
       };
     }
-    return { mode: 'draft', defaultAgentSpec: mode.defaultAgentSpec };
-  }, [mode]);
+    // Runtime still uses named|draft; shell mutability maps onto that adapter.
+    if (!mode.isMutable) {
+      const agentName = mode.agentName ?? mode.agentId;
+      if (agentName == null) {
+        return {
+          mode: 'draft',
+          defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        };
+      }
+      return { mode: 'named', agentName };
+    }
+    return {
+      mode: 'draft',
+      defaultAgentSpec: draftDefaultAgentSpec,
+    };
+  }, [mode, draftDefaultAgentSpec]);
 
   return (
     <TrueFoundryChatProvider
