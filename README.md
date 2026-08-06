@@ -4,6 +4,23 @@ TrueForge is an open-source agent harness: the runtime layer that turns an LLM i
 
 Out of the box you get multi-turn sessions with streaming, MCP tool servers (including OAuth), skills, sandboxed code execution, human-in-the-loop approvals, and subagents. Configure providers in the UI or via the settings APIs; run as a single process on SQLite, or scale out with Postgres and Redis.
 
+## Quick Start
+
+### Prerequisites
+
+- Node.js 22.13+
+- pnpm
+- Docker (optional)
+
+### Run the server
+
+```bash
+cp packages/server/.env.example packages/server/.env
+pnpm standalone:dev
+```
+
+## Packages
+
 > Note: Package and folder names will be renamed soon to match the release names below. They have been intentionally named "utils" to not leak before announcement.
 
 | Package                     | Release Name                  | Path                                                     | What it is                                           |
