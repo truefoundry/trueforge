@@ -1,0 +1,94 @@
+'use client';
+
+import { useCallback, useState, type ReactNode } from 'react';
+
+import { Icon } from '../icons/Icon.js';
+import { auiButtonClass } from './lib/buttonClasses.js';
+import { cn } from './lib/cn.js';
+
+export type ToastProps = {
+  title: string;
+  description: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  className?: string;
+};
+
+export function Toast({ title, description, open, onOpenChange, className }: ToastProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    const text = `${title}\n${description}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard can fail in insecure contexts; toast still usable
+    }
+  }, [title, description]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      role="alert"
+      className={cn(
+        'font-sans-flex bg-background text-foreground pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-gray-200 px-4 py-4 shadow-md dark:bg-card',
+        'animate-in fade-in-0 slide-in-from-bottom-4',
+        className,
+      )}
+    >
+      <Icon name="circle-exclamation" size="1.25em" className="text-destructive shrink-0" />
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="text-destructive text-sm leading-none font-semibold dark:text-red-200">{title}</div>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              aria-label="Copy"
+              title="Copy"
+              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+              onClick={handleCopy}
+            >
+              <Icon name={copied ? 'check' : 'clone'} />
+            </button>
+            <button
+              type="button"
+              aria-label="Close"
+              title="Close"
+              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+              onClick={() => onOpenChange(false)}
+            >
+              <Icon name="xmark" />
+            </button>
+          </div>
+        </div>
+        <div className="text-muted-foreground mt-1 max-h-24 overflow-y-auto text-sm leading-snug break-words whitespace-pre-wrap">
+          {description}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export type ToastStackProps = {
+  children: ReactNode;
+  duration?: number;
+};
+
+export function ToastStack({ children, duration: _duration = Number.POSITIVE_INFINITY }: ToastStackProps) {
+  return (
+    <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 flex-col-reverse gap-2 px-4">
+      {children}
+    </div>
+  );
+}
+
+declare module '../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    Toast: typeof Toast;
+    ToastStack: typeof ToastStack;
+  }
+}

@@ -8,7 +8,7 @@ import { mergeAdditionalBodyParameters } from "../../../../../../core/requestBod
 import { handleNonStatusCodeError } from "../../../../../../errors/handleNonStatusCodeError.js";
 import * as errors from "../../../../../../errors/index.js";
 import * as serializers from "../../../../../../serialization/index.js";
-import * as TrueHarness from "../../../../../index.js";
+import * as TrueForge from "../../../../../index.js";
 
 export declare namespace SkillsClient {
     export type Options = BaseClientOptions;
@@ -28,21 +28,21 @@ export class SkillsClient {
      *
      * @param {SkillsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.settings.skills.list()
      */
     public list(
         requestOptions?: SkillsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.ListConfiguredSkillsResponse> {
+    ): core.HttpResponsePromise<TrueForge.ListConfiguredSkillsResponse> {
         return core.HttpResponsePromise.fromPromise(this.__list(requestOptions));
     }
 
     private async __list(
         requestOptions?: SkillsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.ListConfiguredSkillsResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.ListConfiguredSkillsResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -73,7 +73,7 @@ export class SkillsClient {
         }
 
         if (_response.error.reason === "status-code") {
-            throw new errors.TrueHarnessError({
+            throw new errors.TrueForgeError({
                 statusCode: _response.error.statusCode,
                 body: _response.error.body,
                 rawResponse: _response.rawResponse,
@@ -86,12 +86,12 @@ export class SkillsClient {
     /**
      * Full upsert keyed by `name`: creates the skill or replaces its entire manifest.
      *
-     * @param {TrueHarness.SkillManifest} request
+     * @param {TrueForge.SkillManifest} request
      * @param {SkillsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.BadRequestError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.settings.skills.upsert({
@@ -103,16 +103,16 @@ export class SkillsClient {
      *     })
      */
     public upsert(
-        request: TrueHarness.SkillManifest,
+        request: TrueForge.SkillManifest,
         requestOptions?: SkillsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.PutSkillResponse> {
+    ): core.HttpResponsePromise<TrueForge.PutSkillResponse> {
         return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
     }
 
     private async __upsert(
-        request: TrueHarness.SkillManifest,
+        request: TrueForge.SkillManifest,
         requestOptions?: SkillsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.PutSkillResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.PutSkillResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -156,7 +156,7 @@ export class SkillsClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 400:
-                    throw new TrueHarness.BadRequestError(
+                    throw new TrueForge.BadRequestError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -167,7 +167,7 @@ export class SkillsClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,
@@ -183,21 +183,21 @@ export class SkillsClient {
      *
      * @param {SkillsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.settings.skills.catalog()
      */
     public catalog(
         requestOptions?: SkillsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.GetSkillCatalogResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetSkillCatalogResponse> {
         return core.HttpResponsePromise.fromPromise(this.__catalog(requestOptions));
     }
 
     private async __catalog(
         requestOptions?: SkillsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.GetSkillCatalogResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetSkillCatalogResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -228,7 +228,7 @@ export class SkillsClient {
         }
 
         if (_response.error.reason === "status-code") {
-            throw new errors.TrueHarnessError({
+            throw new errors.TrueForgeError({
                 statusCode: _response.error.statusCode,
                 body: _response.error.body,
                 rawResponse: _response.rawResponse,

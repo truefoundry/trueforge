@@ -98,6 +98,20 @@ describe('mcp-servers routers', () => {
     });
   });
 
+  it('GET /{name} returns the configured server and 404s unknowns', async () => {
+    const response = await settingsRouter.request(`/${putBody.name}`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      data: { ...putBody, auth_status: { status: 'not_required' } },
+    });
+
+    const missing = await settingsRouter.request('/missing');
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({
+      error: { message: 'MCP server not found: missing' },
+    });
+  });
+
   it('PUT with DCR auth reports auth_required while no token is stored', async () => {
     const response = await settingsRouter.request('/', putInit(putBodyWithDcr));
     expect(response.status).toBe(200);

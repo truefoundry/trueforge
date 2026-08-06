@@ -12,7 +12,7 @@ import {
 describe('connectorCatalog mappers', () => {
   it('maps harness auth to UI public auth without secrets', () => {
     assert.deepEqual(toUiAuthPublic(undefined), { type: 'none' });
-    assert.deepEqual(toUiAuthPublic({ type: 'dcr' }), { type: 'oauth' });
+    assert.deepEqual(toUiAuthPublic({ type: 'dcr' }), { type: 'oauth', authUrl: '' });
     assert.deepEqual(toUiAuthPublic({ type: 'header', headers: { Authorization: 'Bearer secret' } }), {
       type: 'apiKey',
       headerName: 'Authorization',
@@ -48,18 +48,18 @@ describe('connectorCatalog mappers', () => {
         id: 'linear',
         name: 'linear',
         url: 'https://mcp.linear.app/mcp',
-        auth: { type: 'oauth' },
+        auth: { type: 'oauth', authUrl: '' },
       },
     );
   });
 
-  it('maps configured servers without eagerly loading tools', () => {
+  it('maps configured servers without embedding tools', () => {
     assert.deepEqual(
       toUiConnector({
         type: 'remote',
         name: 'deepwiki',
         url: 'https://mcp.deepwiki.com/mcp',
-        authStatus: { status: 'authenticated' },
+        authStatus: { status: 'not_required' },
       }),
       {
         id: 'deepwiki',
@@ -67,11 +67,43 @@ describe('connectorCatalog mappers', () => {
         description: 'https://mcp.deepwiki.com/mcp',
         url: 'https://mcp.deepwiki.com/mcp',
         auth: { type: 'none' },
+        requiresAuth: false,
         authenticated: true,
       },
     );
     assert.deepEqual(toUiTool({ name: 'search' }), { id: 'search', name: 'search' });
     assert.deepEqual(toUiTool({}), { id: 'tool', name: 'tool' });
+  });
+
+  it('maps auth_required vs authenticated for oauth connectors', () => {
+    const pending = toUiConnector({
+      type: 'remote',
+      name: 'linear',
+      url: 'https://mcp.linear.app/mcp',
+      auth: { type: 'dcr' },
+      authStatus: { status: 'auth_required' },
+    });
+    assert.equal(pending.authenticated, false);
+    assert.equal(pending.requiresAuth, true);
+
+    const connected = toUiConnector({
+      type: 'remote',
+      name: 'linear',
+      url: 'https://mcp.linear.app/mcp',
+      auth: { type: 'dcr' },
+      authStatus: { status: 'authenticated' },
+    });
+    assert.equal(connected.authenticated, true);
+    assert.equal(connected.requiresAuth, false);
+  });
+
+  it('maps tool rows with description for getToolsByConnectorId', () => {
+    assert.deepEqual(toUiTool({ name: 'search', description: 'Find docs' }), {
+      id: 'search',
+      name: 'search',
+      description: 'Find docs',
+    });
+    assert.deepEqual(toUiTool({}), { id: 'tool', name: 'tool', description: '' });
   });
 
   it('builds upsert manifests from UI create/update requests', () => {

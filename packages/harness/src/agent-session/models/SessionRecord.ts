@@ -1,17 +1,13 @@
-import type { AgentSpec } from '../schemas/agentSpec';
+import type { SessionAgent } from '../schemas/session';
 
 /**
- * Every Session / SessionRecord exposes a hydrated `agent_spec`. Persistence
- * may store the full blob or only a uri/id — an ISessionStore impl detail.
- * `getSession` MUST hydrate so callers (and Session.run) never see a bare
- * pointer; agent resolution stays inside the store. Callers rewrite the
- * binding via the updateSession patch.
+ * Session persistence record. Agent binding is a single discriminated `agent`
+ * (`ref` | `value`). Named agents are not hydrated on read.
  */
 export interface SessionRecord<TCustom extends object = Record<string, never>> {
   tenant_id: string;
   session_id: string;
-  /** Always hydrated on read. Source of `spec` in SessionHandle.createTurn(). */
-  agent_spec: AgentSpec;
+  agent: SessionAgent;
   /**
    * Wire SessionSchema.title (nullable). Written via updateSession patch or
    * createTurn's update_session_title_if_not_exist (first write wins; caller derives).

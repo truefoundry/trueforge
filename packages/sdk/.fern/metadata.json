@@ -4,7 +4,7 @@
     "generatorVersion": "3.87.1",
     "generatorConfig": {
         "packageJson": {
-            "name": "trueharness"
+            "name": "trueforge"
         },
         "allowExtraFields": true,
         "allowCustomFetcher": true,
@@ -16,8 +16,8 @@
         "inlineFileProperties": true,
         "inlinePathParameters": true,
         "naming": {
-            "namespace": "TrueHarness",
-            "client": "TrueHarness"
+            "namespace": "TrueForge",
+            "client": "TrueForge"
         },
         "noSerdeLayer": false,
         "omitUndefined": true,
@@ -27,7 +27,7 @@
         "streamType": "web",
         "useDefaultRequestParameterValues": true
     },
-    "originGitCommit": "fe9595189620be077f6a3a910beaa696525a1482",
+    "originGitCommit": "eab25dc9e6f0b57dd676d78befe0a33b5dbda76d",
     "originGitCommitIsDirty": true,
     "invokedBy": "ci",
     "requestedVersion": "0.0.0",

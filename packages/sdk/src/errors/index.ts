@@ -1,2 +1,2 @@
-export { TrueHarnessError } from "./TrueHarnessError.js";
-export { TrueHarnessTimeoutError } from "./TrueHarnessTimeoutError.js";
+export { TrueForgeError } from "./TrueForgeError.js";
+export { TrueForgeTimeoutError } from "./TrueForgeTimeoutError.js";

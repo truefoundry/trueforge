@@ -4,48 +4,13 @@
  * ModelCatalog.
  */
 import { z } from '@hono/zod-openapi';
-import type { VercelAIProviderName } from '@truefoundry/utils-core/core';
-import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/utils-core/core';
+import { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/utils-core/core';
 import { NameSchema, uniqueNames } from './common';
 
-/**
- * A provider's endpoint is either already known or it isn't, and that is the only thing the wire
- * shape turns on. `openai`, `anthropic` and `google-gemini` get theirs from their dedicated Vercel
- * AI SDK adapter; the OpenAI-compatible ones named here get {@link PROVIDER_DEFAULT_BASE_URLS}.
- *
- * `satisfies` ties both lists to the adapters the harness can actually build. A type missing from
- * them is the dangerous direction — its catalog entries would be unconfigurable — so a test asserts
- * the two together cover every adapter.
- */
-const WELL_KNOWN_BASE_URL_TYPES = [
-  'openai',
-  'anthropic',
-  'google-gemini',
-  'fireworks',
-  'zai',
-  'moonshot',
-  'together',
-] as const satisfies readonly VercelAIProviderName[];
-
-/** `alibaba` scopes its endpoint to the caller's workspace, `custom` is arbitrary by definition. */
-const CALLER_SUPPLIED_BASE_URL_TYPES = ['alibaba', 'custom'] as const satisfies readonly VercelAIProviderName[];
-
-export const ProviderTypeSchema = z
-  .enum([...WELL_KNOWN_BASE_URL_TYPES, ...CALLER_SUPPLIED_BASE_URL_TYPES])
-  .openapi('ProviderType');
+/** Every type the harness has an adapter for; a test asserts each one has a schema below. */
+export const ProviderTypeSchema = z.enum(VERCEL_AI_PROVIDER_NAMES).openapi('ProviderType');
 
 export type ProviderType = z.infer<typeof ProviderTypeSchema>;
-
-/**
- * Endpoint to use when a manifest omits `base_url`. Absent means the provider's adapter supplies its
- * own, or that the schema required a `base_url` in the first place.
- */
-export const PROVIDER_DEFAULT_BASE_URLS: Partial<Record<ProviderType, string>> = {
-  fireworks: 'https://api.fireworks.ai/inference/v1',
-  zai: 'https://api.z.ai/api/paas/v4',
-  moonshot: 'https://api.moonshot.ai/v1',
-  together: 'https://api.together.xyz/v1',
-};
 
 export const ModelPropertiesSchema = z
   .object({
@@ -105,26 +70,83 @@ const ModelProviderManifestBaseSchema = z
   })
   .strict();
 
-/** The endpoint is already known, so `base_url` only overrides it. */
-const WellKnownModelProviderManifestSchema = ModelProviderManifestBaseSchema.extend({
-  type: z.enum(WELL_KNOWN_BASE_URL_TYPES),
-  base_url: z.url().optional().describe("Optional override of the provider's default API base URL."),
-}).strict();
-
-/** Nothing to fall back on, so `base_url` is required. */
-const CallerSuppliedModelProviderManifestSchema = ModelProviderManifestBaseSchema.extend({
-  type: z.enum(CALLER_SUPPLIED_BASE_URL_TYPES),
-  base_url: z.url().describe("Base URL of the provider's API."),
-}).strict();
-
 /**
- * Non-identity fields of a configured provider, shared verbatim between the
- * PUT request body and the persisted `model_provider.manifest` document.
+ * Naming a provider after its type limits a tenant to one of each: the `(tenant_id, name)` primary
+ * key replaces the row rather than adding a sibling. `base_url` defaults to the adapter's endpoint.
  */
-export const ModelProviderManifestObjectSchema = z.union([
-  WellKnownModelProviderManifestSchema,
-  CallerSuppliedModelProviderManifestSchema,
-]);
+function wellKnownProviderSchema<Type extends Exclude<ProviderType, 'custom'>>({
+  type,
+  base_url,
+}: {
+  type: Type;
+  base_url: string;
+}) {
+  return ModelProviderManifestBaseSchema.extend({
+    type: z.literal(type),
+    name: z.literal(type).default(type),
+    base_url: z.url().default(base_url).describe("Override of the provider's default API base URL."),
+  }).strict();
+}
+
+const OpenAiModelProviderSchema = wellKnownProviderSchema({
+  type: 'openai',
+  base_url: 'https://api.openai.com/v1',
+}).openapi('OpenAiModelProvider');
+
+const AnthropicModelProviderSchema = wellKnownProviderSchema({
+  type: 'anthropic',
+  base_url: 'https://api.anthropic.com/v1',
+}).openapi('AnthropicModelProvider');
+
+const GoogleGeminiModelProviderSchema = wellKnownProviderSchema({
+  type: 'google-gemini',
+  base_url: 'https://generativelanguage.googleapis.com/v1beta',
+}).openapi('GoogleGeminiModelProvider');
+
+const FireworksModelProviderSchema = wellKnownProviderSchema({
+  type: 'fireworks',
+  base_url: 'https://api.fireworks.ai/inference/v1',
+}).openapi('FireworksModelProvider');
+
+const ZaiModelProviderSchema = wellKnownProviderSchema({
+  type: 'zai',
+  base_url: 'https://api.z.ai/api/paas/v4',
+}).openapi('ZaiModelProvider');
+
+const MoonshotModelProviderSchema = wellKnownProviderSchema({
+  type: 'moonshot',
+  base_url: 'https://api.moonshot.ai/v1',
+}).openapi('MoonshotModelProvider');
+
+const TogetherModelProviderSchema = wellKnownProviderSchema({
+  type: 'together',
+  base_url: 'https://api.together.xyz/v1',
+}).openapi('TogetherModelProvider');
+
+const AlibabaModelProviderSchema = wellKnownProviderSchema({
+  type: 'alibaba',
+  base_url: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+}).openapi('AlibabaModelProvider');
+
+const CustomModelProviderSchema = ModelProviderManifestBaseSchema.extend({
+  type: z.literal('custom'),
+  name: NameSchema,
+  base_url: z.url().describe("Base URL of the provider's API."),
+})
+  .strict()
+  .openapi('CustomModelProvider');
+
+const MODEL_PROVIDER_SCHEMAS = [
+  OpenAiModelProviderSchema,
+  AnthropicModelProviderSchema,
+  GoogleGeminiModelProviderSchema,
+  FireworksModelProviderSchema,
+  ZaiModelProviderSchema,
+  MoonshotModelProviderSchema,
+  TogetherModelProviderSchema,
+  AlibabaModelProviderSchema,
+  CustomModelProviderSchema,
+] as const;
 
 export function refineModelProviderManifest(
   manifest: { models: { model_id: string; name: string }[] },
@@ -134,22 +156,13 @@ export function refineModelProviderManifest(
 }
 
 export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
-export type ModelProviderManifest = z.infer<typeof ModelProviderManifestObjectSchema>;
-
-const WellKnownModelProviderSchema = WellKnownModelProviderManifestSchema.extend({ name: NameSchema })
-  .strict()
-  .openapi('WellKnownModelProvider');
-
-const CallerSuppliedModelProviderSchema = CallerSuppliedModelProviderManifestSchema.extend({ name: NameSchema })
-  .strict()
-  .openapi('CallerSuppliedModelProvider');
 
 /**
- * Configured provider: PUT body and list/upsert response data (identity `name`
- * plus manifest fields, including `auth.api_key`).
+ * Configured provider: PUT body, response data, and the persisted `model_provider.manifest` document
+ * in one shape. The `name` column is written from it, so the two cannot disagree.
  */
 export const ModelProviderSchema = z
-  .union([WellKnownModelProviderSchema, CallerSuppliedModelProviderSchema])
+  .discriminatedUnion('type', MODEL_PROVIDER_SCHEMAS)
   .superRefine(refineModelProviderManifest)
   .openapi('ModelProvider');
 
@@ -186,12 +199,4 @@ export const ListModelsResponseSchema = z
   .openapi('ListModelsResponse');
 
 export type ModelProvider = z.infer<typeof ModelProviderSchema>;
-export type PutModelProviderRequest = ModelProvider;
 export type Model = z.infer<typeof ModelSchema>;
-
-/** Strip wire identity `name`; remaining fields are the persisted manifest document. */
-export function toModelProviderManifest(provider: ModelProvider): ModelProviderManifest {
-  const { name, ...manifest } = provider;
-  void name;
-  return manifest;
-}
