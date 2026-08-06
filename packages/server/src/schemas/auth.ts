@@ -1,17 +1,6 @@
 /** Auth wire schemas. */
 import { z } from '@hono/zod-openapi';
 
-export const AuthRoleSchema = z.enum(['admin', 'user']).openapi('AuthRole');
-
-export const AuthMeResponseSchema = z
-  .object({
-    user_ref: z.string(),
-    role: AuthRoleSchema,
-  })
-  .openapi('AuthMeResponse');
-
-export type AuthMeResponse = z.infer<typeof AuthMeResponseSchema>;
-
 export const AuthLoginQuerySchema = z.object({
   return_to: z
     .string()
