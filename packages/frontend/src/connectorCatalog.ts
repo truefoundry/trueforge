@@ -61,6 +61,7 @@ export function toUiCatalogEntry(server: Harness.CatalogMcpServer): UiConnectorC
     id: server.name,
     name: server.name,
     url: server.url,
+    ...(server.logo === undefined ? {} : { logo: server.logo }),
     auth: toUiAuthPublic(server.auth),
   };
 }
@@ -149,6 +150,10 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
     getConnectorCatalog: async () => {
       const body = await client.settings.mcpServers.catalog();
       return body.data.map(toUiCatalogEntry);
+    },
+    getConnector: async req => {
+      const body = await client.settings.mcpServers.get(req.id);
+      return toUiConnector(body.data);
     },
     listConnectors: async req => {
       const body = await client.settings.mcpServers.list();

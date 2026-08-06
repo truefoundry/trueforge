@@ -30,8 +30,10 @@ function OpenSettingsWelcomeScreen(props: WelcomeScreenProps) {
   return <WelcomeScreen {...props} />;
 }
 
+const chatServer = createHarnessChatServer();
+
 const server = createTrueFoundryServer<HarnessAgentSpec>({
-  chatServer: createHarnessChatServer(),
+  chatServer,
   ...createHarnessBuilderServer(),
   catalog: {
     modelCatalog: createModelProviderCatalog(),
@@ -97,7 +99,9 @@ export function App() {
   }, []);
 
   const overrides: SlotOverrides = useMemo(
-    () => (boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
+    () => ({
+      ...(boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
+    }),
     [boot],
   );
 

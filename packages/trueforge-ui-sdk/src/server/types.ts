@@ -311,7 +311,12 @@ export interface AgentChatServer<
     afterSequenceNumber?: number;
   }): AsyncIterable<TurnStreamData<TStreamEvent>>;
 
-  downloadSandboxFile?(sandboxId: string, req: { path: string }): Promise<unknown>;
+  /**
+   * Reads a file the agent wrote inside its sandbox. Hosts whose download route is scoped to a
+   * turn resolve the sandbox from `turnId` and ignore `sandboxId`; hosts addressing sandboxes
+   * directly use `sandboxId`.
+   */
+  downloadSandboxFile?(req: { sessionId: string; turnId: string; sandboxId: string; path: string }): Promise<Blob>;
 }
 
 /**
@@ -392,6 +397,7 @@ export interface ModelProviderCatalogEntry<TModel extends ModelEntry = ModelEntr
   type: ProviderType;
   name: string;
   models: TModel[];
+  logo?: string;
 }
 
 /** Create — no `id`; server assigns it. Catalog path = entry + apiKey. */
@@ -478,6 +484,7 @@ export interface ConnectorCatalogEntry<TAuth extends ConnectorAuthPublic = Conne
   description?: string;
   url: string;
   auth: TAuth;
+  logo?: string;
 }
 
 /** Create connector — no `id`; server assigns it. Host extends. */
@@ -510,6 +517,7 @@ export interface ConnectorCatalogServer<
   TUpdate extends UpdateConnectorRequest<TAuthWrite> = UpdateConnectorRequest<TAuthWrite>,
 > {
   getConnectorCatalog(): Promise<TCatalogEntry[]>;
+  getConnector(req: { id: string }): Promise<TConnector>;
   listConnectors(req?: { query?: string }): Promise<TConnector[]>;
   getToolsByConnectorId(req: { id: string }): Promise<TTool[]>;
   createConnector(req: TCreate): Promise<TConnector>;

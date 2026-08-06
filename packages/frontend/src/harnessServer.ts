@@ -174,8 +174,14 @@ function toHarnessInput(input: TurnInputItem[]): Harness.TurnInputItem[] {
 export function createHarnessChatServer(options: CreateHarnessServerOptions = {}): AgentChatServer<HarnessAgentSpec> {
   const client =
     options.baseUrl === undefined && options.fetch === undefined ? harnessClient : createHarnessClient(options);
-
   return {
+    // The sandbox is resolved server-side from the turn, so `sandboxId` is accepted for parity
+    // with hosts that address sandboxes directly and deliberately not forwarded.
+    async downloadSandboxFile({ sessionId, turnId, path }) {
+      const response = await client.sessions.downloadSandboxFile(sessionId, turnId, { path });
+      return response.blob();
+    },
+
     async createSession(request) {
       if (request.agentName !== undefined && request.agentName.length > 0) {
         const created = await client.sessions.create({
