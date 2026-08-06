@@ -46,7 +46,7 @@ describe('SaveAgentButton', () => {
     expect(screen.queryByRole('button', { name: 'Save as agent' })).not.toBeInTheDocument();
   });
 
-  it('opens a name-only modal and saves the current agentSpec', async () => {
+  it('opens a modal with name + system instructions and saves them on agentSpec', async () => {
     const saveAgent = vi.fn(async () => ({ ok: true }));
 
     render(
@@ -66,9 +66,12 @@ describe('SaveAgentButton', () => {
     expect(dialog.className).toContain('md:max-w-md');
     expect(dialog).toHaveStyle({ height: 'fit-content' });
     expect(screen.getByLabelText('Name')).toBeInTheDocument();
-    expect(screen.queryByLabelText(/system instructions/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('System instructions')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: '  my-agent  ' } });
+    fireEvent.change(screen.getByLabelText('System instructions'), {
+      target: { value: '  You write release notes.  ' },
+    });
     fireEvent.click(dialog.querySelector('button[type="submit"]')!);
 
     await waitFor(() => {
@@ -77,6 +80,7 @@ describe('SaveAgentButton', () => {
         agentSpec: {
           model: { name: 'openai-main/gpt-4.1' },
           skills: [{ id: 's1', name: 'Skill One' }],
+          instructions: 'You write release notes.',
         },
       });
     });

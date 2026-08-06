@@ -10,13 +10,8 @@ import { useMCPAuth } from '../../hooks/useMcpAuth.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { ConnectorAuth, ConnectorBase, ConnectorCatalogEntry } from '../../server/types.js';
 import AddMcpServerForm, { type AddMcpServerDraft } from './AddMcpServerForm.js';
+import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
 import ConnectorDetails from './ConnectorDetails.js';
-
-const AUTH_TYPE_LABELS: Record<string, string> = {
-  oauth: 'OAuth2',
-  apiKey: 'API Key',
-  none: 'No Auth',
-};
 
 const ConnectorSettings = () => {
   const { connectorCatalog } = useCatalogServer();
