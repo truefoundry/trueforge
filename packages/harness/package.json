@@ -69,9 +69,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "pnpm run build:gen && tsc --noEmit && pnpm run build:js && pnpm run build:dts && pnpm run build:pkg && pnpm run build:check",
     "build:gen": "node scripts/generate-sandbox-scripts.mjs",
     "build:gen:watch": "node --watch-path=src/core/sandbox/scripts scripts/generate-sandbox-scripts.mjs",
+    "build": "pnpm run build:gen && tsc --noEmit && pnpm run build:js && pnpm run build:dts && pnpm run build:pkg && pnpm run build:check",
     "dev": "pnpm run build:gen:watch",
     "build:js": "tsup",
     "build:dts": "tsc -p tsconfig.build.json --emitDeclarationOnly",

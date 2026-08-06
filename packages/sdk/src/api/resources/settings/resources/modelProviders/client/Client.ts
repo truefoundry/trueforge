@@ -8,7 +8,7 @@ import { mergeAdditionalBodyParameters } from "../../../../../../core/requestBod
 import { handleNonStatusCodeError } from "../../../../../../errors/handleNonStatusCodeError.js";
 import * as errors from "../../../../../../errors/index.js";
 import * as serializers from "../../../../../../serialization/index.js";
-import * as TrueHarness from "../../../../../index.js";
+import * as TrueForge from "../../../../../index.js";
 
 export declare namespace ModelProvidersClient {
     export type Options = BaseClientOptions;
@@ -28,21 +28,21 @@ export class ModelProvidersClient {
      *
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.settings.modelProviders.list()
      */
     public list(
         requestOptions?: ModelProvidersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.ListModelProvidersResponse> {
+    ): core.HttpResponsePromise<TrueForge.ListModelProvidersResponse> {
         return core.HttpResponsePromise.fromPromise(this.__list(requestOptions));
     }
 
     private async __list(
         requestOptions?: ModelProvidersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.ListModelProvidersResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.ListModelProvidersResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -73,7 +73,7 @@ export class ModelProvidersClient {
         }
 
         if (_response.error.reason === "status-code") {
-            throw new errors.TrueHarnessError({
+            throw new errors.TrueForgeError({
                 statusCode: _response.error.statusCode,
                 body: _response.error.body,
                 rawResponse: _response.rawResponse,
@@ -91,12 +91,12 @@ export class ModelProvidersClient {
     /**
      * Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).
      *
-     * @param {TrueHarness.ModelProvider} request
+     * @param {TrueForge.ModelProvider} request
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.BadRequestError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.settings.modelProviders.upsert({
@@ -113,16 +113,16 @@ export class ModelProvidersClient {
      *     })
      */
     public upsert(
-        request: TrueHarness.ModelProvider,
+        request: TrueForge.ModelProvider,
         requestOptions?: ModelProvidersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.PutModelProviderResponse> {
+    ): core.HttpResponsePromise<TrueForge.PutModelProviderResponse> {
         return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
     }
 
     private async __upsert(
-        request: TrueHarness.ModelProvider,
+        request: TrueForge.ModelProvider,
         requestOptions?: ModelProvidersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.PutModelProviderResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.PutModelProviderResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -166,7 +166,7 @@ export class ModelProvidersClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 400:
-                    throw new TrueHarness.BadRequestError(
+                    throw new TrueForge.BadRequestError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -177,7 +177,7 @@ export class ModelProvidersClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,
@@ -198,21 +198,21 @@ export class ModelProvidersClient {
      *
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.settings.modelProviders.catalog()
      */
     public catalog(
         requestOptions?: ModelProvidersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.GetModelProviderCatalogResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetModelProviderCatalogResponse> {
         return core.HttpResponsePromise.fromPromise(this.__catalog(requestOptions));
     }
 
     private async __catalog(
         requestOptions?: ModelProvidersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.GetModelProviderCatalogResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetModelProviderCatalogResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -243,7 +243,7 @@ export class ModelProvidersClient {
         }
 
         if (_response.error.reason === "status-code") {
-            throw new errors.TrueHarnessError({
+            throw new errors.TrueForgeError({
                 statusCode: _response.error.statusCode,
                 body: _response.error.body,
                 rawResponse: _response.rawResponse,

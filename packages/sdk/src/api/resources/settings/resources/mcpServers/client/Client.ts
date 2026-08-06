@@ -8,7 +8,7 @@ import { mergeAdditionalBodyParameters } from "../../../../../../core/requestBod
 import { handleNonStatusCodeError } from "../../../../../../errors/handleNonStatusCodeError.js";
 import * as errors from "../../../../../../errors/index.js";
 import * as serializers from "../../../../../../serialization/index.js";
-import * as TrueHarness from "../../../../../index.js";
+import * as TrueForge from "../../../../../index.js";
 
 export declare namespace McpServersClient {
     export type Options = BaseClientOptions;
@@ -28,21 +28,21 @@ export class McpServersClient {
      *
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.settings.mcpServers.list()
      */
     public list(
         requestOptions?: McpServersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.ListConfiguredMcpServersResponse> {
+    ): core.HttpResponsePromise<TrueForge.ListConfiguredMcpServersResponse> {
         return core.HttpResponsePromise.fromPromise(this.__list(requestOptions));
     }
 
     private async __list(
         requestOptions?: McpServersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.ListConfiguredMcpServersResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.ListConfiguredMcpServersResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -73,7 +73,7 @@ export class McpServersClient {
         }
 
         if (_response.error.reason === "status-code") {
-            throw new errors.TrueHarnessError({
+            throw new errors.TrueForgeError({
                 statusCode: _response.error.statusCode,
                 body: _response.error.body,
                 rawResponse: _response.rawResponse,
@@ -86,12 +86,12 @@ export class McpServersClient {
     /**
      * Full upsert keyed by `name`: creates the server or replaces its manifest. Does not start DCR or modify stored oauth_server / oauth_client columns.
      *
-     * @param {TrueHarness.settings.McpServerManifest} request
+     * @param {TrueForge.settings.McpServerManifest} request
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.BadRequestError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.settings.mcpServers.upsert({
@@ -100,16 +100,16 @@ export class McpServersClient {
      *     })
      */
     public upsert(
-        request: TrueHarness.settings.McpServerManifest,
+        request: TrueForge.settings.McpServerManifest,
         requestOptions?: McpServersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.PutMcpServerResponse> {
+    ): core.HttpResponsePromise<TrueForge.PutMcpServerResponse> {
         return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
     }
 
     private async __upsert(
-        request: TrueHarness.settings.McpServerManifest,
+        request: TrueForge.settings.McpServerManifest,
         requestOptions?: McpServersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.PutMcpServerResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.PutMcpServerResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -156,7 +156,7 @@ export class McpServersClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 400:
-                    throw new TrueHarness.BadRequestError(
+                    throw new TrueForge.BadRequestError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -167,7 +167,7 @@ export class McpServersClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,
@@ -183,21 +183,21 @@ export class McpServersClient {
      *
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.settings.mcpServers.catalog()
      */
     public catalog(
         requestOptions?: McpServersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.GetMcpServerCatalogResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetMcpServerCatalogResponse> {
         return core.HttpResponsePromise.fromPromise(this.__catalog(requestOptions));
     }
 
     private async __catalog(
         requestOptions?: McpServersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.GetMcpServerCatalogResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetMcpServerCatalogResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -228,7 +228,7 @@ export class McpServersClient {
         }
 
         if (_response.error.reason === "status-code") {
-            throw new errors.TrueHarnessError({
+            throw new errors.TrueForgeError({
                 statusCode: _response.error.statusCode,
                 body: _response.error.body,
                 rawResponse: _response.rawResponse,
@@ -249,11 +249,11 @@ export class McpServersClient {
      * @param {string} name - Configured MCP server name.
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.UnauthorizedError}
-     * @throws {@link TrueHarness.NotFoundError}
-     * @throws {@link TrueHarness.BadGatewayError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.UnauthorizedError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link TrueForge.BadGatewayError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.settings.mcpServers.listTools("name")
@@ -261,14 +261,14 @@ export class McpServersClient {
     public listTools(
         name: string,
         requestOptions?: McpServersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.ListMcpServerToolsResponse> {
+    ): core.HttpResponsePromise<TrueForge.ListMcpServerToolsResponse> {
         return core.HttpResponsePromise.fromPromise(this.__listTools(name, requestOptions));
     }
 
     private async __listTools(
         name: string,
         requestOptions?: McpServersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.ListMcpServerToolsResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.ListMcpServerToolsResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -301,7 +301,7 @@ export class McpServersClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 401:
-                    throw new TrueHarness.UnauthorizedError(
+                    throw new TrueForge.UnauthorizedError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -312,7 +312,7 @@ export class McpServersClient {
                         _response.rawResponse,
                     );
                 case 404:
-                    throw new TrueHarness.NotFoundError(
+                    throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -323,7 +323,7 @@ export class McpServersClient {
                         _response.rawResponse,
                     );
                 case 502:
-                    throw new TrueHarness.BadGatewayError(
+                    throw new TrueForge.BadGatewayError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -334,7 +334,7 @@ export class McpServersClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,

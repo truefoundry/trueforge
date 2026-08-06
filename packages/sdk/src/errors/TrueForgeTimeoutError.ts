@@ -2,7 +2,7 @@
 
 import * as errors from "./index.js";
 
-export class TrueHarnessTimeoutError extends errors.TrueHarnessError {
+export class TrueForgeTimeoutError extends errors.TrueForgeError {
     constructor(message: string, opts?: { cause?: unknown }) {
         super({
             message: message,
@@ -13,6 +13,6 @@ export class TrueHarnessTimeoutError extends errors.TrueHarnessError {
             Error.captureStackTrace(this, this.constructor);
         }
 
-        this.name = "TrueHarnessTimeoutError";
+        this.name = "TrueForgeTimeoutError";
     }
 }

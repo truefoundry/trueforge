@@ -5,7 +5,7 @@ Private draft-only agent chat UI for the harness server. **Not published to npm*
 Built on:
 
 ```
-trueharness (local Harness SDK)
+trueforge (local Harness SDK)
   → Harness AgentChatServer adapter
     → createTrueFoundryServer (chat port + catalog callbacks)
       → @truefoundry/trueforge-ui (TrueforgeUI, layout="sidebar")
@@ -19,12 +19,14 @@ No login is required.
 
 ## Local development
 
-For the full host workflow (Compose Postgres/Redis, then API + Vite), see the root
-[`README.md`](../../README.md#development).
+For the full host workflow (standalone or non-standalone), see the root
+[`README.md`](../../README.md).
 
 ```bash
-pnpm dev            # API on :8790 and Vite on :3000 together (after `pnpm dev:infra`)
-pnpm dev:frontend   # or Vite alone, against an API that is already up
+pnpm standalone:dev   # zero-env: SQLite, Vite :3000 + API :8790
+# or:
+pnpm dev:infra        # then in another terminal:
+pnpm dev              # Postgres + Redis, Vite :3000 + API :8790
 ```
 
 Open `http://localhost:3000`: Vite serves the UI from source (edits hot-reload, no rebuild or server
@@ -43,7 +45,7 @@ metadata while keeping the browser pointed directly at `/api/v1/sessions`.
 and tolerates `null`. The adapter emits values valid under both — derived mount ids, pages carrying
 `nextPageToken` _and_ `hasNextPage()`, `null` normalised to absent — so no layer needs a cast.
 
-The local SDK is linked as `trueharness`. Frontend dev, typecheck, test, and build scripts build it first,
+The local SDK is linked as `trueforge`. Frontend dev, typecheck, test, and build scripts build it first,
 so clean checkouts do not rely on committed `dist/` output.
 
 ## Production
@@ -59,7 +61,7 @@ docker compose up --build   # UI + API on http://localhost:8791
 
 ## Catalogs (model + MCP + skills)
 
-[`src/catalog.ts`](src/catalog.ts) calls the DB-backed list endpoints via `trueharness`.
+[`src/catalog.ts`](src/catalog.ts) calls the DB-backed list endpoints via `trueforge`.
 `App.tsx` passes the results into `createTrueFoundryServer`:
 
 | Callback       | Source                                                            |
