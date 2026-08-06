@@ -1,7 +1,7 @@
 import * as jose from 'jose';
 import { createHash } from 'node:crypto';
 import { createAuthRouter } from '../../../src/apis/auth';
-import { initOidc, resetOidcForTests } from '../../../src/auth/oidc';
+import { initOidc } from '../../../src/auth/oidc';
 
 const ISSUER = 'https://issuer.example.com';
 const CLIENT_ID = 'harness-client';
@@ -25,7 +25,6 @@ jest.mock('../../../src/config', () => {
       OIDC,
       PORT: 8790,
     },
-    isOidcConfigured: () => true,
   };
 });
 
@@ -66,14 +65,12 @@ describe('auth router (OIDC configured)', () => {
   });
 
   beforeEach(async () => {
-    resetOidcForTests();
     stubOidcFetch();
     await initOidc();
   });
 
   afterEach(() => {
     globalThis.fetch = realFetch;
-    resetOidcForTests();
   });
 
   function accessTokenHash(accessToken: string): string {
@@ -143,13 +140,6 @@ describe('auth router (OIDC configured)', () => {
     globalThis.fetch = fetchStub;
   }
 
-  it('GET /config reports oidc enabled', async () => {
-    const res = await createAuthRouter().request('/config');
-
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ oidc_enabled: true });
-  });
-
   it('GET /login redirects to the IdP and stores state', async () => {
     const res = await createAuthRouter().request('/login?return_to=/sessions/abc123', { redirect: 'manual' });
 
@@ -178,27 +168,6 @@ describe('auth router (OIDC configured)', () => {
     expect(callbackRes.status).toBe(302);
     expect(callbackRes.headers.get('location')).toBe('/sessions/abc123');
     expect(cookieValue(setCookies(callbackRes), ID_TOKEN_COOKIE)).toBeTruthy();
-  });
-
-  it('GET /me returns the email as user_ref and a default user role', async () => {
-    const idToken = await signIdToken({ email: 'alice@customer.com' });
-
-    const res = await createAuthRouter().request('/me', {
-      headers: { Cookie: `${ID_TOKEN_COOKIE}=${idToken}` },
-    });
-
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      user_ref: 'alice@customer.com',
-      role: 'user',
-    });
-  });
-
-  it('GET /me returns 401 without a cookie', async () => {
-    const res = await createAuthRouter().request('/me');
-
-    expect(res.status).toBe(401);
-    expect(await res.json()).toEqual({ error: { message: 'Not authenticated' } });
   });
 
   it('POST /logout clears id_token', async () => {

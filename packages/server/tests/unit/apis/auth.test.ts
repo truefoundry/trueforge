@@ -1,25 +1,6 @@
 import { createAuthRouter } from '../../../src/apis/auth';
 
 describe('auth router (no identity provider configured)', () => {
-  it('GET /config reports oidc disabled', async () => {
-    const res = await createAuthRouter().request('/config');
-
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ oidc_enabled: false });
-  });
-
-  it('GET /me returns the fixed local identity', async () => {
-    const router = createAuthRouter();
-
-    const res = await router.request('/me');
-
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      user_ref: 'trueforge-default',
-      role: 'admin',
-    });
-  });
-
   it('GET /login redirects home — there is nothing to log into', async () => {
     const router = createAuthRouter();
 

@@ -1,35 +1,18 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { LOCAL_USER, LOGIN_ERROR_PATH } from '../auth/constants';
+import { LOGIN_ERROR_PATH } from '../auth/constants';
 import {
   clearIdTokenCookie,
   clearOAuthStateCookie,
-  readIdTokenCookie,
   readOAuthStateCookie,
   setIdTokenCookie,
   setOAuthStateCookie,
 } from '../auth/cookies';
-import {
-  buildLoginAuthorization,
-  exchangeAuthorizationCode,
-  identityFromIdToken,
-  oidcConfig,
-  safeReturnTo,
-} from '../auth/oidc';
-import configuration, { isOidcConfigured } from '../config';
-import {
-  authConfigRoute,
-  authLoginRoute,
-  authLogoutRoute,
-  authMeRoute,
-  oAuthCallbackRoute,
-} from '../routes/authRoutes';
+import { buildLoginAuthorization, exchangeAuthorizationCode, oidcConfig, safeReturnTo } from '../auth/oidc';
+import configuration from '../config';
+import { authLoginRoute, authLogoutRoute, oAuthCallbackRoute } from '../routes/authRoutes';
 
 export function createAuthRouter() {
   const router = new OpenAPIHono();
-
-  router.openapi(authConfigRoute, c => {
-    return c.json({ oidc_enabled: isOidcConfigured() }, 200);
-  });
 
   router.openapi(authLoginRoute, async c => {
     const oidc = oidcConfig();
@@ -89,25 +72,6 @@ export function createAuthRouter() {
   router.openapi(authLogoutRoute, c => {
     clearIdTokenCookie(c);
     return c.body(null, 204);
-  });
-
-  router.openapi(authMeRoute, async c => {
-    const oidc = oidcConfig();
-    if (!oidc) {
-      return c.json(LOCAL_USER, 200);
-    }
-
-    const idToken = readIdTokenCookie(c);
-    if (!idToken) {
-      return c.json({ error: { message: 'Not authenticated' } }, 401);
-    }
-
-    try {
-      const identity = await identityFromIdToken({ oidc, idToken });
-      return c.json(identity, 200);
-    } catch {
-      return c.json({ error: { message: 'Not authenticated' } }, 401);
-    }
   });
 
   return router;

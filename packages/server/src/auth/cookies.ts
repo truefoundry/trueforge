@@ -61,10 +61,6 @@ export function setIdTokenCookie(c: Context, idToken: string, maxAgeSeconds: num
   });
 }
 
-export function readIdTokenCookie(c: Context): string | undefined {
-  return getCookie(c, ID_TOKEN_COOKIE);
-}
-
 export function clearIdTokenCookie(c: Context): void {
   deleteCookie(c, ID_TOKEN_COOKIE, { path: '/' });
 }

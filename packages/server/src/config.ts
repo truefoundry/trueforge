@@ -534,9 +534,4 @@ const configuration: ServerConfiguration = standalone
       OIDC: resolveOIDCConfig(),
     };
 
-/** True when a real identity provider is configured */
-export function isOidcConfigured(): boolean {
-  return !configuration.STANDALONE && configuration.OIDC !== undefined;
-}
-
 export default configuration;

@@ -1,7 +1,5 @@
-import { createRemoteJWKSet, jwtVerify } from 'jose';
 import * as client from 'openid-client';
 import configuration, { type OIDCConfig } from '../config';
-import type { AuthMeResponse } from '../schemas/auth';
 import { CALLBACK_PATH, OIDC_SCOPES } from './constants';
 
 let oidcConfiguration: client.Configuration | undefined;
@@ -26,11 +24,6 @@ export async function initOidc(): Promise<void> {
   );
   discoveryUrl.searchParams.set('client_id', oidc.OIDC_CLIENT_ID);
   oidcConfiguration = await client.discovery(discoveryUrl, oidc.OIDC_CLIENT_ID, oidc.OIDC_CLIENT_SECRET);
-}
-
-/** Clears discovery state between unit tests. */
-export function resetOidcForTests(): void {
-  oidcConfiguration = undefined;
 }
 
 function requireOidcConfiguration(): client.Configuration {
@@ -95,20 +88,4 @@ export async function exchangeAuthorizationCode(options: {
     throw new Error('Token response missing id_token or exp');
   }
   return { idToken, expiresAtSeconds: claims.exp };
-}
-
-export async function identityFromIdToken(options: { oidc: OIDCConfig; idToken: string }): Promise<AuthMeResponse> {
-  const metadata = requireOidcConfiguration().serverMetadata();
-  if (!metadata.jwks_uri) {
-    throw new Error('OIDC discovery missing jwks_uri');
-  }
-  const { payload } = await jwtVerify(options.idToken, createRemoteJWKSet(new URL(metadata.jwks_uri)), {
-    issuer: metadata.issuer,
-    audience: options.oidc.OIDC_CLIENT_ID,
-  });
-  const email = payload['email'];
-  if (!email || typeof email !== 'string') {
-    throw new Error('ID token missing email');
-  }
-  return { user_ref: email, role: 'user' };
 }
