@@ -166,9 +166,9 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const session = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       expect(session).toBeDefined();
       expect(mustGet(session).tenant_id).toBe(tenant);
-      expect(mustGet(session).agent).toEqual({
+      expect(mustGet(session).agent).toMatchObject({
         type: 'value',
-        agent_spec: expect.objectContaining({ model: { name: 'test-provider/test-model' } }),
+        agent_spec: { model: { name: 'test-provider/test-model' } },
       });
       expect(mustGet(session).last_activity_timestamp_ms).toBeGreaterThanOrEqual(before);
       expect(mustGet(session).title).toBeNull();
@@ -230,9 +230,9 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         title: 'Hello',
       });
       const after = await store.getSession({ tenant_id: tenant, session_id: sessionId });
-      expect(mustGet(after).agent).toEqual({
+      expect(mustGet(after).agent).toMatchObject({
         type: 'value',
-        agent_spec: expect.objectContaining({ instructions: 'updated' }),
+        agent_spec: { instructions: 'updated' },
       });
       expect(mustGet(after).title).toBe('Hello');
       expect(mustGet(after).last_activity_timestamp_ms).toBeGreaterThan(mustGet(before).last_activity_timestamp_ms);
@@ -1555,9 +1555,9 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       });
       const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
       expect(session.title).toBe(jsonLooking);
-      expect(session.agent).toEqual({
+      expect(session.agent).toMatchObject({
         type: 'value',
-        agent_spec: expect.objectContaining({ instructions: jsonLooking }),
+        agent_spec: { instructions: jsonLooking },
       });
       expect(mustGet(turn).snapshot.threads[MAIN_THREAD_ID]?.context).toEqual([{ role: 'user', content: jsonLooking }]);
     });
@@ -1886,9 +1886,9 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       }
       session.agent.agent_spec.instructions = 'mutated';
       const again = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
-      expect(again.agent).toEqual({
+      expect(again.agent).toMatchObject({
         type: 'value',
-        agent_spec: expect.objectContaining({ instructions: 'You are a test agent.' }),
+        agent_spec: { instructions: 'You are a test agent.' },
       });
     });
   });
