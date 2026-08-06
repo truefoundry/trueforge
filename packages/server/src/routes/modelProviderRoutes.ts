@@ -19,8 +19,9 @@ export const getModelProviderCatalogRoute = createRoute({
   tags: [MODEL_PROVIDERS_TAG],
   summary: 'Get the model catalog',
   description:
-    'Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: copy an entry ' +
-    'into PUT /settings/model-providers to configure it. Custom providers are not listed here.',
+    'Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a ' +
+    'PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. ' +
+    'Custom providers are not listed here.',
   'x-fern-sdk-group-name': ['settings', 'modelProviders'],
   'x-fern-sdk-method-name': 'catalog',
   responses: {

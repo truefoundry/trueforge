@@ -2125,7 +2125,7 @@ await client.settings.modelProviders.upsert({
 <dl>
 <dd>
 
-Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: copy an entry into PUT /settings/model-providers to configure it. Custom providers are not listed here.
+Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Custom providers are not listed here.
 </dd>
 </dl>
 </dd>

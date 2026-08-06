@@ -140,7 +140,10 @@ export function refineModelProviderManifest(
 
 export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
 
-/** PUT body and the persisted `model_provider.manifest` document: configuration without identity. */
+/**
+ * PUT body and the persisted `model_provider.manifest` document: configuration, plus the name on
+ * `custom`, which is the only type with nothing to derive one from.
+ */
 export const ModelProviderManifestSchema = z
   .discriminatedUnion('type', [
     OpenAiModelProviderManifestSchema,
