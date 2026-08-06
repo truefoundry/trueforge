@@ -1,9 +1,9 @@
 import {
   buildAuthorizationRequestParams,
   claimValues,
-  resolveIdentity,
   resolveRole,
   resolveUserRef,
+  toUserContext,
 } from '../../../src/auth/claims';
 import type { OIDCConfig } from '../../../src/config';
 
@@ -89,16 +89,16 @@ describe('resolveRole', () => {
   });
 });
 
-describe('resolveIdentity', () => {
+describe('toUserContext', () => {
   it('combines userRef and role from the claims', () => {
-    expect(resolveIdentity({ sub: 'user-123', groups: ['harness-admins'] }, config())).toEqual({
+    expect(toUserContext({ sub: 'user-123', groups: ['harness-admins'] }, config())).toEqual({
       userRef: 'user-123',
       role: 'admin',
     });
   });
 
   it('propagates resolveUserRef throwing when the reference claim is missing', () => {
-    expect(() => resolveIdentity({ groups: ['harness-admins'] }, config())).toThrow();
+    expect(() => toUserContext({ groups: ['harness-admins'] }, config())).toThrow();
   });
 });
 
@@ -118,8 +118,22 @@ describe('buildAuthorizationRequestParams', () => {
     expect(scopes).not.toContain('groups');
   });
 
-  it('requests the configured role claim as essential in the id_token', () => {
+  it('requests both the role claim and the (default) reference claim as essential in the id_token', () => {
     const { claims } = buildAuthorizationRequestParams(config({ OIDC_USER_ROLE_CLAIM: 'roles' }));
-    expect(claims).toEqual({ id_token: { roles: { essential: true } } });
+    expect(claims).toEqual({ id_token: { sub: { essential: true }, roles: { essential: true } } });
+  });
+
+  it('requests a non-default reference claim as essential too', () => {
+    const { claims } = buildAuthorizationRequestParams(
+      config({ OIDC_USER_REFERENCE_CLAIM: 'email', OIDC_USER_ROLE_CLAIM: 'roles' }),
+    );
+    expect(claims).toEqual({ id_token: { email: { essential: true }, roles: { essential: true } } });
+  });
+
+  it('collapses to a single essential entry when the reference and role claim names collide', () => {
+    const { claims } = buildAuthorizationRequestParams(
+      config({ OIDC_USER_REFERENCE_CLAIM: 'groups', OIDC_USER_ROLE_CLAIM: 'groups' }),
+    );
+    expect(claims).toEqual({ id_token: { groups: { essential: true } } });
   });
 });

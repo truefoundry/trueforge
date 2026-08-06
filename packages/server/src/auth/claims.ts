@@ -65,13 +65,13 @@ export interface AuthorizationRequestParams {
 }
 
 /**
- * Scopes + `claims` parameter for the authorization request, derived purely
- * from the configured role claim name - never from provider identity. Okta's
- * `groups` claim additionally requires the `groups` scope to be requested
- * (Okta won't return it otherwise, even once mapped on the custom
- * authorization server); Azure AD returns `roles`/`groups` without a
- * matching scope, so requesting a `groups` scope there is harmless but never
- * required. `essential: true` on the role claim makes the IdP reject the
+ * Scopes + `claims` parameter for the authorization request, derived
+ * from the configured claim names. Okta's `groups` claim additionally
+ * requires the `groups` scope to be requested (Okta won't return it otherwise,
+ * even once mapped on the custom authorization server); Azure AD returns
+ * `roles`/`groups` without a matching scope, so requesting a `groups` scope
+ * there is harmless but never required.
+ * `essential: true` on the role claim makes the IdP reject the
  * login outright if it can't actually produce that claim (e.g. a broken
  * claim mapping) instead of silently omitting it and defaulting the user to
  * non-admin.
@@ -86,6 +86,7 @@ export function buildAuthorizationRequestParams(config: OIDCConfig): Authorizati
     scopes,
     claims: {
       id_token: {
+        [config.OIDC_USER_REFERENCE_CLAIM]: { essential: true },
         [config.OIDC_USER_ROLE_CLAIM]: { essential: true },
       },
     },
