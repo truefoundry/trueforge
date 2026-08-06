@@ -10,7 +10,7 @@ import { FireworksModelProvider } from "./FireworksModelProvider.js";
 import { GoogleGeminiModelProvider } from "./GoogleGeminiModelProvider.js";
 import { MoonshotModelProvider } from "./MoonshotModelProvider.js";
 import { OpenAiModelProvider } from "./OpenAiModelProvider.js";
-import { TogetherModelProvider } from "./TogetherModelProvider.js";
+import { TogetherAiModelProvider } from "./TogetherAiModelProvider.js";
 import { ZaiModelProvider } from "./ZaiModelProvider.js";
 
 export const ModelProvider: core.serialization.Schema<serializers.ModelProvider.Raw, TrueForge.ModelProvider> =
@@ -22,7 +22,7 @@ export const ModelProvider: core.serialization.Schema<serializers.ModelProvider.
         GoogleGeminiModelProvider,
         MoonshotModelProvider,
         OpenAiModelProvider,
-        TogetherModelProvider,
+        TogetherAiModelProvider,
         ZaiModelProvider,
     ]);
 
@@ -35,6 +35,6 @@ export declare namespace ModelProvider {
         | GoogleGeminiModelProvider.Raw
         | MoonshotModelProvider.Raw
         | OpenAiModelProvider.Raw
-        | TogetherModelProvider.Raw
+        | TogetherAiModelProvider.Raw
         | ZaiModelProvider.Raw;
 }
