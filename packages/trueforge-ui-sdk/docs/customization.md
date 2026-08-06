@@ -30,7 +30,7 @@ over hacking third-party CSS:
     mode: 'dark',
     tokens: { primary: '#e11d48' },
     brand: { name: 'Acme', icon: MyMark },
-    icons: { 'arrow-up': MySendSvg },
+    icons: { send: MySendSvg },
     classNames: {
       markdown: 'prose max-w-none',
       inlineCode: 'font-semibold',

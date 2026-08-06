@@ -30,7 +30,7 @@ export type SemanticTokens = {
   input: string;
   ring: string;
   radius: string;
-  fontSans: string;
+  fontFamily: string;
   composerRadius?: string;
   userBubble?: string;
   userBubbleForeground?: string;
@@ -119,7 +119,7 @@ export const TOKEN_CSS_VARS: Record<keyof SemanticTokens, string> = {
   input: '--input',
   ring: '--ring',
   radius: '--radius',
-  fontSans: '--font-agent-ui',
+  fontFamily: '--font-agent-ui',
   composerRadius: '--composer-radius',
   userBubble: '--user-bubble',
   userBubbleForeground: '--user-bubble-foreground',

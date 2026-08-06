@@ -139,7 +139,7 @@ type SemanticTokens = {
   input: string;
   ring: string;
   radius: string;
-  fontSans: string; // maps to --font-agent-ui
+  fontFamily: string; // maps to --font-agent-ui
   // optional chat-specific:
   userBubble?: string;
   userBubbleForeground?: string;
@@ -242,14 +242,14 @@ function MyLayout({ className }: { className?: string }) {
   theme={{
     preset: 'claude',
     mode: 'dark',
-    tokens: { primary: '#…', fontSans: '"My Font", system-ui' },
+    tokens: { primary: '#…', fontFamily: '"My Font", system-ui' },
     brand: {
       name: 'Acme Agent',
       logo: { src: '/acme-wordmark.svg', alt: 'Acme' },
       icon: MyAcmeMark,
     },
     className: 'my-chat',
-    icons: { 'arrow-up': MySendSvg, paperclip: MyAttachSvg },
+    icons: { send: MySendSvg, paperclip: MyAttachSvg },
     classNames: {
       markdown: 'prose prose-neutral dark:prose-invert max-w-none',
       inlineCode: 'font-semibold',
