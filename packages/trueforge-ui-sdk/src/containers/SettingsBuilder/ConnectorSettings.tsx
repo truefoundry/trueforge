@@ -30,6 +30,16 @@ const ConnectorSettings = () => {
   const [selectedConnector, setSelectedConnector] = useState<ConnectorBase | null>(null);
   const [apiKey, setApiKey] = useState('');
 
+  const connectorIconMap = useMemo(() => {
+    return (catalog ?? []).reduce(
+      (acc, entry) => {
+        acc[entry.name] = entry.logo ?? '';
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+  }, [catalog]);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -212,7 +222,11 @@ const ConnectorSettings = () => {
           className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted"
           aria-hidden
         >
-          <Icon name="mcp-server" className="size-4.5 text-foreground" />
+          {connectorIconMap[connector.name] ? (
+            <img src={connectorIconMap[connector.name]} alt={connector.name} className="size-4.5" />
+          ) : (
+            <Icon name="mcp-server" className="size-4.5 text-foreground" />
+          )}
         </span>
 
         <div className="min-w-0 flex-1">
@@ -266,7 +280,11 @@ const ConnectorSettings = () => {
         className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted"
         aria-hidden
       >
-        <Icon name="mcp-server" className="size-4.5 text-foreground" />
+        {connectorIconMap[entry.name] ? (
+          <img src={connectorIconMap[entry.name]} alt={entry.name} className="size-4.5" />
+        ) : (
+          <Icon name="mcp-server" className="size-4.5 text-foreground" />
+        )}
       </span>
 
       <div className="min-w-0 flex-1">
