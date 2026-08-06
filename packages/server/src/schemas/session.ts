@@ -5,11 +5,11 @@ import { NameSchema } from './common';
 
 export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('AgentRef');
 
-const InlineSessionAgentSchema = AgentSpecSchema.strict().openapi('Agent');
+const SessionAgentSpecSchema = AgentSpecSchema.strict().openapi('AgentSpec');
 
-/** Create accepts either a unique agent name or an inline AgentSpec. */
+/** Create accepts either a unique agent name or an AgentSpec. */
 export const CreateSessionAgentSchema = z
-  .union([SessionAgentNameRefSchema, InlineSessionAgentSchema])
+  .union([SessionAgentNameRefSchema, SessionAgentSpecSchema])
   .openapi('CreateSessionAgent');
 
 export const CreateSessionRequestSchema = z
@@ -17,9 +17,9 @@ export const CreateSessionRequestSchema = z
   .strict()
   .openapi('CreateSessionRequest');
 
-/** Only inline AgentSpec sessions may be updated; named sessions reject agent updates. */
+/** Only AgentSpec sessions may be updated; named sessions reject agent updates. */
 export const UpdateSessionRequestSchema = z
-  .object({ agent: InlineSessionAgentSchema.optional() })
+  .object({ agent: SessionAgentSpecSchema.optional() })
   .strict()
   .openapi('UpdateSessionRequest');
 
