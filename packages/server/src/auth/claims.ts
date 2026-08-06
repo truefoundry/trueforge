@@ -1,8 +1,14 @@
 import type { OIDCConfig } from '../config';
-import type { AuthMeResponse } from '../schemas/auth';
 
 /** Raw claims from a decoded ID token; values are untyped until read here. */
 export type IdTokenClaims = Record<string, unknown>;
+
+export type Role = 'admin' | 'user';
+
+export interface UserContext {
+  userRef: string;
+  role: Role;
+}
 
 /**
  * Normalizes a claim value into a string list to check membership against.
@@ -40,14 +46,14 @@ export function resolveUserRef(claims: IdTokenClaims, config: OIDCConfig): strin
  * Admin iff the configured role claim's values include the configured admin
  * value, exact case-sensitive string match.
  */
-export function resolveRole(claims: IdTokenClaims, config: OIDCConfig): AuthMeResponse['role'] {
+export function resolveRole(claims: IdTokenClaims, config: OIDCConfig): Role {
   return claimValues(claims[config.OIDC_USER_ROLE_CLAIM]).includes(config.OIDC_ADMIN_ROLE_VALUE) ? 'admin' : 'user';
 }
 
 /** Everything `/callback` (and later `/me`, once sessions are real) needs from a set of claims. */
-export function resolveIdentity(claims: IdTokenClaims, config: OIDCConfig): AuthMeResponse {
+export function toUserContext(claims: IdTokenClaims, config: OIDCConfig): UserContext {
   return {
-    user_ref: resolveUserRef(claims, config),
+    userRef: resolveUserRef(claims, config),
     role: resolveRole(claims, config),
   };
 }

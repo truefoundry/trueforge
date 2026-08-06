@@ -90,9 +90,9 @@ describe('resolveRole', () => {
 });
 
 describe('resolveIdentity', () => {
-  it('combines user_ref and role from the claims', () => {
+  it('combines userRef and role from the claims', () => {
     expect(resolveIdentity({ sub: 'user-123', groups: ['harness-admins'] }, config())).toEqual({
-      user_ref: 'user-123',
+      userRef: 'user-123',
       role: 'admin',
     });
   });
