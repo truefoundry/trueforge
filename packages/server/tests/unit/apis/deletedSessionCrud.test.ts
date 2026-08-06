@@ -68,11 +68,13 @@ describe('public CRUD after session deletion', () => {
     await sessionStore.createSession({
       tenant_id: TENANT_ID,
       session_id: 's1',
-      agent_id: null,
-      agent_spec: AgentSpecSchema.parse({
-        model: { name: 'test-provider/test-model' },
-        instructions: 'test',
-      }),
+      agent: {
+        type: 'value',
+        agent_spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+        }),
+      },
       custom: null,
     });
     expect((await app.request('/s1', { method: 'DELETE' })).status).toBe(204);

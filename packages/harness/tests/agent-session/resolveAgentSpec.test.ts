@@ -16,10 +16,10 @@ describe('TurnResourceResolver.resolveAgentSpec', () => {
     });
 
     const first = await resolver.resolveAgentSpec({
-      source: { type: 'inline', agent_spec: spec },
+      agent: { type: 'value', agent_spec: spec },
     });
     const second = await resolver.resolveAgentSpec({
-      source: { type: 'inline', agent_spec: makeAgentSpec({ instructions: 'other' }) },
+      agent: { type: 'value', agent_spec: makeAgentSpec({ instructions: 'other' }) },
     });
 
     expect(first.instructions).toBe('inline');
@@ -39,10 +39,10 @@ describe('TurnResourceResolver.resolveAgentSpec', () => {
     });
 
     const first = await resolver.resolveAgentSpec({
-      source: { type: 'named', agent_id: 'agent-1' },
+      agent: { type: 'ref', agent_id: 'agent-1' },
     });
     const second = await resolver.resolveAgentSpec({
-      source: { type: 'named', agent_id: 'agent-1' },
+      agent: { type: 'ref', agent_id: 'agent-1' },
     });
 
     expect(first.instructions).toBe('live-named');
@@ -62,7 +62,7 @@ describe('TurnResourceResolver.resolveAgentSpec', () => {
 
     await expect(
       resolver.resolveAgentSpec({
-        source: { type: 'named', agent_id: 'missing' },
+        agent: { type: 'ref', agent_id: 'missing' },
       }),
     ).rejects.toThrow(/no agent lookup configured/);
   });
@@ -75,8 +75,7 @@ describe('SessionHandle.createTurn named resolve', () => {
     const session = await sessions.create({
       tenant_id: 'tenant-1',
       session_id: 's-named',
-      agent_id: 'agent-abc',
-      agent_spec: null,
+      agent: { type: 'ref', agent_id: 'agent-abc' },
     });
 
     const live = makeAgentSpec({ instructions: 'from-registry' });

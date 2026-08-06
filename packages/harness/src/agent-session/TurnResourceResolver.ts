@@ -13,7 +13,7 @@ import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
-import type { SessionAgentSource } from './schemas/session';
+import type { SessionAgent } from './schemas/session';
 
 /**
  * Factory that creates a Sandbox handle for a run (reattach via
@@ -76,7 +76,7 @@ export class TurnResourceResolver<
       sandboxProvider?: TurnSandboxFactory | undefined;
       /**
        * Named-agent lookup (registry id → live AgentSpec). Required when a
-       * session is bound by agent_id; omit only if all sessions are inline.
+       * session is bound by ref; omit only if all sessions use value agents.
        */
       agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
@@ -94,23 +94,23 @@ export class TurnResourceResolver<
   }
 
   /**
-   * Inline → stored blob; named → deps.agent live lookup. Cached for this
+   * Value → stored blob; ref → deps.agent live lookup. Cached for this
    * resolver instance (one turn).
    */
-  async resolveAgentSpec(input: { source: SessionAgentSource }): Promise<AgentSpec> {
+  async resolveAgentSpec(input: { agent: SessionAgent }): Promise<AgentSpec> {
     if (this.#resolvedAgentSpec !== undefined) {
       return this.#resolvedAgentSpec;
     }
-    if (input.source.type === 'inline') {
-      this.#resolvedAgentSpec = input.source.agent_spec;
+    if (input.agent.type === 'value') {
+      this.#resolvedAgentSpec = input.agent.agent_spec;
       return this.#resolvedAgentSpec;
     }
     if (this.deps.agent === undefined) {
       throw new Error(
-        `Named agent '${input.source.agent_id}' cannot be resolved: no agent lookup configured on the turn resolver`,
+        `Named agent '${input.agent.agent_id}' cannot be resolved: no agent lookup configured on the turn resolver`,
       );
     }
-    this.#resolvedAgentSpec = await this.deps.agent(input.source.agent_id);
+    this.#resolvedAgentSpec = await this.deps.agent(input.agent.agent_id);
     return this.#resolvedAgentSpec;
   }
 

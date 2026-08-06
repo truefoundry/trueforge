@@ -14,6 +14,7 @@ import {
   SessionStoreInvariantError,
 } from '@truefoundry/utils-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
+import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
 import { isUniqueViolation } from '../../client';
 import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database } from '../../types';
@@ -35,14 +36,6 @@ function parseSessionCustom(value: Record<string, unknown> | null): SessionCusto
   return value;
 }
 
-function assertAgentXor(input: { session_id: string; agent_id: string | null; agent_spec: unknown }): void {
-  const hasAgentId = input.agent_id !== null;
-  const hasAgentSpec = input.agent_spec !== null;
-  if (hasAgentId === hasAgentSpec) {
-    throw new SessionStoreInvariantError(`Session ${input.session_id} requires exactly one of agent_id or agent_spec`);
-  }
-}
-
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
@@ -58,8 +51,11 @@ function mapRowToSessionRecord(row: {
   return {
     tenant_id: row.tenant_id,
     session_id: row.session_id,
-    agent_id: row.agent_id,
-    agent_spec: row.agent_spec,
+    agent: sessionAgentFromColumns({
+      session_id: row.session_id,
+      agent_id: row.agent_id,
+      agent_spec: row.agent_spec,
+    }),
     title: row.title,
     last_turn_id: row.last_turn_id,
     custom: parseSessionCustom(row.custom),
@@ -85,7 +81,7 @@ function sessionSelectColumns() {
 }
 
 export async function createSession(db: Kysely<Database>, input: CreateSessionInput<SessionCustom>): Promise<void> {
-  assertAgentXor(input);
+  const columns = sessionAgentToColumns(input.agent);
   const now = nowIso();
 
   try {
@@ -94,8 +90,8 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .values({
         tenant_id: input.tenant_id,
         session_id: input.session_id,
-        agent_id: input.agent_id,
-        agent_spec: input.agent_spec !== null ? jsonbBind(input.agent_spec) : null,
+        agent_id: columns.agent_id,
+        agent_spec: columns.agent_spec !== null ? jsonbBind(columns.agent_spec) : null,
         title: null,
         custom: input.custom !== null ? jsonbBind(input.custom) : null,
         created_at: now,
@@ -138,16 +134,16 @@ export async function getSession(
 }
 
 export async function updateSession(db: Kysely<Database>, input: UpdateSessionInput<SessionCustom>): Promise<void> {
-  const agentSpec = input.agent_spec;
+  const agent = input.agent;
   const title = input.title;
 
-  if (agentSpec !== undefined) {
+  if (agent !== undefined) {
     const existing = await getSession(db, { tenant_id: input.tenant_id, session_id: input.session_id });
     if (existing === undefined) {
       throw new SessionNotFoundError(input.session_id);
     }
-    if (existing.agent_id !== null) {
-      throw new SessionStoreInvariantError(`Session ${input.session_id} is named; agent_spec cannot be updated`);
+    if (existing.agent.type === 'ref') {
+      throw new SessionStoreInvariantError(`Session ${input.session_id} is named; agent cannot be updated`);
     }
   }
 
@@ -160,8 +156,8 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
     .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id);
 
-  if (agentSpec !== undefined) {
-    qb = qb.set({ agent_spec: jsonbBind(agentSpec) });
+  if (agent !== undefined) {
+    qb = qb.set({ agent_spec: jsonbBind(agent.agent_spec) });
   }
   if (title !== undefined) {
     qb = qb.set({ title });

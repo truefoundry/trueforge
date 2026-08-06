@@ -20,7 +20,7 @@ export class Sessions<
   }
 
   /**
-   * Creates and persists a new session with agent_id XOR agent_spec.
+   * Creates and persists a new session with a ref or value agent binding.
    */
   async create(input: SessionsCreateInput<TSessionCustom>): Promise<SessionHandle<TSessionCustom, TTurnCustom>> {
     await this.store.createSession({
@@ -41,7 +41,7 @@ export class Sessions<
   }
 
   /**
-   * Returns the session as stored (named sessions keep agent_spec null), or
+   * Returns the session as stored (ref agents are not hydrated to a value), or
    * undefined if not found. Read-only: does not bump last_activity_timestamp_ms.
    */
   async get(input: GetSessionInput): Promise<SessionHandle<TSessionCustom, TTurnCustom> | undefined> {

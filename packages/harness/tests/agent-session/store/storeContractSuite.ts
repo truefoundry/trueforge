@@ -82,8 +82,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
     await store.createSession({
       tenant_id: tenant,
       session_id: sessionId,
-      agent_id: null,
-      agent_spec: agentSpec,
+      agent: { type: 'value', agent_spec: agentSpec },
       custom: null,
     });
   }
@@ -160,54 +159,33 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
   }
 
   describe('session CRUD + activity', () => {
-    it('createSession stores inline agent_spec and sets last_activity_timestamp_ms', async () => {
+    it('createSession stores a value agent and sets last_activity_timestamp_ms', async () => {
       const store = createStore();
       const before = Date.now();
       await seedSession(store);
       const session = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       expect(session).toBeDefined();
       expect(mustGet(session).tenant_id).toBe(tenant);
-      expect(mustGet(session).agent_id).toBeNull();
-      expect(mustGet(session).agent_spec).toEqual(
-        expect.objectContaining({ model: { name: 'test-provider/test-model' } }),
-      );
+      expect(mustGet(session).agent).toEqual({
+        type: 'value',
+        agent_spec: expect.objectContaining({ model: { name: 'test-provider/test-model' } }),
+      });
       expect(mustGet(session).last_activity_timestamp_ms).toBeGreaterThanOrEqual(before);
       expect(mustGet(session).title).toBeNull();
     });
 
-    it('createSession accepts named agent_id XOR and listSessions filters by agent_id', async () => {
+    it('createSession accepts ref agents and listSessions filters by agent_id', async () => {
       const store = createStore();
       await store.createSession({
         tenant_id: tenant,
         session_id: 'named-1',
-        agent_id: 'agent-abc',
-        agent_spec: null,
+        agent: { type: 'ref', agent_id: 'agent-abc' },
         custom: null,
       });
       await seedSession(store);
 
       const named = mustGet(await store.getSession({ tenant_id: tenant, session_id: 'named-1' }));
-      expect(named.agent_id).toBe('agent-abc');
-      expect(named.agent_spec).toBeNull();
-
-      await expect(
-        store.createSession({
-          tenant_id: tenant,
-          session_id: 'both',
-          agent_id: 'agent-abc',
-          agent_spec: makeAgentSpec(),
-          custom: null,
-        }),
-      ).rejects.toBeInstanceOf(SessionStoreInvariantError);
-      await expect(
-        store.createSession({
-          tenant_id: tenant,
-          session_id: 'neither',
-          agent_id: null,
-          agent_spec: null,
-          custom: null,
-        }),
-      ).rejects.toBeInstanceOf(SessionStoreInvariantError);
+      expect(named.agent).toEqual({ type: 'ref', agent_id: 'agent-abc' });
 
       const filtered = await store.listSessions({
         agent_id: 'agent-abc',
@@ -224,7 +202,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.updateSession({
           tenant_id: tenant,
           session_id: 'named-1',
-          agent_spec: makeAgentSpec({ instructions: 'nope' }),
+          agent: { type: 'value', agent_spec: makeAgentSpec({ instructions: 'nope' }) },
           title: undefined,
         }),
       ).rejects.toBeInstanceOf(SessionStoreInvariantError);
@@ -248,11 +226,14 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.updateSession({
         tenant_id: tenant,
         session_id: sessionId,
-        agent_spec: nextSpec,
+        agent: { type: 'value', agent_spec: nextSpec },
         title: 'Hello',
       });
       const after = await store.getSession({ tenant_id: tenant, session_id: sessionId });
-      expect(mustGet(after).agent_spec).toEqual(expect.objectContaining({ instructions: 'updated' }));
+      expect(mustGet(after).agent).toEqual({
+        type: 'value',
+        agent_spec: expect.objectContaining({ instructions: 'updated' }),
+      });
       expect(mustGet(after).title).toBe('Hello');
       expect(mustGet(after).last_activity_timestamp_ms).toBeGreaterThan(mustGet(before).last_activity_timestamp_ms);
     });
@@ -270,8 +251,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.createSession({
           tenant_id: 'other',
           session_id: sessionId,
-          agent_id: null,
-          agent_spec: makeAgentSpec(),
+          agent: { type: 'value', agent_spec: makeAgentSpec() },
           custom: null,
         }),
       ).rejects.toBeInstanceOf(SessionStoreConflictError);
@@ -285,8 +265,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: 'other',
         session_id: 'other-session',
-        agent_id: null,
-        agent_spec: makeAgentSpec(),
+        agent: { type: 'value', agent_spec: makeAgentSpec() },
         custom: null,
       });
 
@@ -408,7 +387,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.updateSession({
           tenant_id: tenant,
           session_id: sessionId,
-          agent_spec: undefined,
+          agent: undefined,
           title: 'new-title',
         }),
       ).rejects.toBeInstanceOf(SessionNotFoundError);
@@ -466,8 +445,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: nested,
-        agent_id: null,
-        agent_spec: makeAgentSpec(),
+        agent: { type: 'value', agent_spec: makeAgentSpec() },
         custom: null,
       });
       await store.createTurn(makeCreateTurnInput({ sessionId: nested, turnId: 'turn-1' }));
@@ -540,7 +518,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.updateSession({
           tenant_id: tenant,
           session_id: missingSessionId,
-          agent_spec: undefined,
+          agent: undefined,
           title: 'new-title',
         }),
       ).rejects.toBeInstanceOf(SessionNotFoundError);
@@ -594,8 +572,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         await store.createSession({
           tenant_id: tenant,
           session_id: id,
-          agent_id: null,
-          agent_spec: makeAgentSpec(),
+          agent: { type: 'value', agent_spec: makeAgentSpec() },
           custom: null,
         });
         await new Promise(r => setTimeout(r, 2));
@@ -608,8 +585,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: 'other',
         session_id: 'sx',
-        agent_id: null,
-        agent_spec: makeAgentSpec(),
+        agent: { type: 'value', agent_spec: makeAgentSpec() },
         custom: null,
       });
 
@@ -1557,7 +1533,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.updateSession({
         tenant_id: tenant,
         session_id: sessionId,
-        agent_spec: undefined,
+        agent: undefined,
         title: jsonLooking,
       });
       await store.createTurn(
@@ -1579,7 +1555,10 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       });
       const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
       expect(session.title).toBe(jsonLooking);
-      expect(session.agent_spec).toEqual(expect.objectContaining({ instructions: jsonLooking }));
+      expect(session.agent).toEqual({
+        type: 'value',
+        agent_spec: expect.objectContaining({ instructions: jsonLooking }),
+      });
       expect(mustGet(turn).snapshot.threads[MAIN_THREAD_ID]?.context).toEqual([{ role: 'user', content: jsonLooking }]);
     });
 
@@ -1902,13 +1881,15 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const store = createStore();
       await seedSession(store);
       const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
-      const spec = session.agent_spec;
-      if (spec === null) {
-        throw new Error('expected inline agent_spec');
+      if (session.agent.type !== 'value') {
+        throw new Error('expected value agent');
       }
-      spec.instructions = 'mutated';
+      session.agent.agent_spec.instructions = 'mutated';
       const again = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
-      expect(again.agent_spec).toEqual(expect.objectContaining({ instructions: 'You are a test agent.' }));
+      expect(again.agent).toEqual({
+        type: 'value',
+        agent_spec: expect.objectContaining({ instructions: 'You are a test agent.' }),
+      });
     });
   });
 

@@ -1,3 +1,4 @@
+import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
 import type { SessionRecord } from '@truefoundry/utils-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
@@ -13,6 +14,7 @@ import {
   SessionStoreInvariantError,
 } from '@truefoundry/utils-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
+import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
 import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
 
@@ -43,19 +45,11 @@ function parseSessionCustom(value: Record<string, unknown> | null): SessionCusto
   return value;
 }
 
-function assertAgentXor(input: { session_id: string; agent_id: string | null; agent_spec: unknown }): void {
-  const hasAgentId = input.agent_id !== null;
-  const hasAgentSpec = input.agent_spec !== null;
-  if (hasAgentId === hasAgentSpec) {
-    throw new SessionStoreInvariantError(`Session ${input.session_id} requires exactly one of agent_id or agent_spec`);
-  }
-}
-
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
   agent_id: string | null;
-  agent_spec: ProtoSessionRecord['agent_spec'];
+  agent_spec: AgentSpec | null;
   title: string | null;
   last_turn_id: string | null;
   custom: Record<string, unknown> | null;
@@ -66,8 +60,11 @@ function mapRowToSessionRecord(row: {
   return {
     tenant_id: row.tenant_id,
     session_id: row.session_id,
-    agent_id: row.agent_id,
-    agent_spec: row.agent_spec,
+    agent: sessionAgentFromColumns({
+      session_id: row.session_id,
+      agent_id: row.agent_id,
+      agent_spec: row.agent_spec,
+    }),
     title: row.title,
     last_turn_id: row.last_turn_id,
     custom: parseSessionCustom(row.custom),
@@ -78,7 +75,7 @@ function mapRowToSessionRecord(row: {
 }
 
 export async function createSession(db: Kysely<Database>, input: CreateSessionInput<SessionCustom>): Promise<void> {
-  assertAgentXor(input);
+  const columns = sessionAgentToColumns(input.agent);
   const nowMs = Date.now();
 
   try {
@@ -87,8 +84,8 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .values({
         tenant_id: input.tenant_id,
         session_id: input.session_id,
-        agent_id: input.agent_id,
-        agent_spec: input.agent_spec !== null ? json(input.agent_spec) : null,
+        agent_id: columns.agent_id,
+        agent_spec: columns.agent_spec !== null ? json(columns.agent_spec) : null,
         title: null,
         custom: input.custom !== null ? json(input.custom) : null,
         created_at: new Date(nowMs),
@@ -131,16 +128,16 @@ export async function getSession(
 }
 
 export async function updateSession(db: Kysely<Database>, input: UpdateSessionInput<SessionCustom>): Promise<void> {
-  const agentSpec = input.agent_spec;
+  const agent = input.agent;
   const title = input.title;
 
-  if (agentSpec !== undefined) {
+  if (agent !== undefined) {
     const existing = await getSession(db, { tenant_id: input.tenant_id, session_id: input.session_id });
     if (existing === undefined) {
       throw new SessionNotFoundError(input.session_id);
     }
-    if (existing.agent_id !== null) {
-      throw new SessionStoreInvariantError(`Session ${input.session_id} is named; agent_spec cannot be updated`);
+    if (existing.agent.type === 'ref') {
+      throw new SessionStoreInvariantError(`Session ${input.session_id} is named; agent cannot be updated`);
     }
   }
 
@@ -150,11 +147,11 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
       updated_at: sql<Date>`now()`,
       last_activity_timestamp_ms: Date.now(),
     })
-    .$if(agentSpec !== undefined, qb => {
-      if (agentSpec === undefined) {
+    .$if(agent !== undefined, qb => {
+      if (agent === undefined) {
         return qb;
       }
-      return qb.set({ agent_spec: json(agentSpec) });
+      return qb.set({ agent_spec: json(agent.agent_spec) });
     })
     .$if(title !== undefined, qb => {
       if (title === undefined) {

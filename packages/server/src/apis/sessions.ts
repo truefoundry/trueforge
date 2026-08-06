@@ -55,8 +55,7 @@ type CancelPeerBody = z.infer<typeof CancelPeerBodySchema>;
 export function toWireSession(record: SessionRecord): Session {
   return {
     id: record.session_id,
-    agent_id: record.agent_id,
-    agent_spec: record.agent_spec,
+    agent: record.agent,
     title: record.title,
     created_at: record.created_at.toISOString(),
     updated_at: record.updated_at.toISOString(),
@@ -190,22 +189,21 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const body = c.req.valid('json');
     const sessionId = ulid().toLowerCase();
 
-    if ('agent_id' in body) {
-      const agent = await deps.agentStore.getAgentById({ tenant_id: TENANT_ID, id: body.agent_id });
+    if (body.agent.type === 'ref') {
+      const agent = await deps.agentStore.getAgentById({ tenant_id: TENANT_ID, id: body.agent.agent_id });
       if (agent === undefined) {
-        return c.json({ error: { message: `Agent not found: ${body.agent_id}` } }, 404);
+        return c.json({ error: { message: `Agent not found: ${body.agent.agent_id}` } }, 404);
       }
       const session = await deps.sessions.create({
         tenant_id: TENANT_ID,
         session_id: sessionId,
-        agent_id: body.agent_id,
-        agent_spec: null,
+        agent: body.agent,
       });
       return c.json({ data: toWireSession(session.record) }, 201);
     }
 
     await validateAgentSpec({
-      spec: body.agent_spec,
+      spec: body.agent.agent_spec,
       tenant_id: TENANT_ID,
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
@@ -215,8 +213,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const session = await deps.sessions.create({
       tenant_id: TENANT_ID,
       session_id: sessionId,
-      agent_id: null,
-      agent_spec: body.agent_spec,
+      agent: body.agent,
     });
     return c.json({ data: toWireSession(session.record) }, 201);
   };
@@ -239,9 +236,9 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   const updateSessionHandler: RouteHandler<typeof updateSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
-    if (body.agent_spec) {
+    if (body.agent !== undefined) {
       await validateAgentSpec({
-        spec: body.agent_spec,
+        spec: body.agent.agent_spec,
         tenant_id: TENANT_ID,
         modelProviderStore: deps.modelProviderStore,
         mcpServerStore: deps.mcpServerStore,
@@ -253,7 +250,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       await deps.sessionStore.updateSession({
         tenant_id: TENANT_ID,
         session_id: sessionId,
-        agent_spec: body.agent_spec,
+        agent: body.agent,
         title: undefined,
       });
     } catch (error) {

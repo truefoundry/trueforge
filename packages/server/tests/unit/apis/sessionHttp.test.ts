@@ -26,14 +26,21 @@ function jsonInit(method: string, body: unknown): RequestInit {
   };
 }
 
-describe('sessions HTTP (agent_id XOR agent_spec)', () => {
+describe('sessions HTTP (SessionAgent ref | value)', () => {
   let app: OpenAPIHono;
   let agentStore: SqliteAgentStore;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
+    const sessionStore = new SqliteSessionStore(db);
+    const sessions = new Sessions({ sessionStore });
     const modelProviderStore = new SqliteModelProviderStore(db);
+    const mcpServerStore = new SqliteMcpServerStore(db);
+    const skillStore = new SqliteSkillStore(db);
+    const sandboxProviderStore = new SqliteSandboxProviderStore(db);
+    agentStore = new SqliteAgentStore(db);
+
     await modelProviderStore.upsertProvider({
       tenant_id: TENANT_ID,
       name: 'anthropic',
@@ -49,9 +56,7 @@ describe('sessions HTTP (agent_id XOR agent_spec)', () => {
         ],
       },
     });
-    agentStore = new SqliteAgentStore(db);
-    const sessionStore = new SqliteSessionStore(db);
-    const sessions = new Sessions({ sessionStore });
+
     app = new OpenAPIHono();
     app.route(
       '/',
@@ -60,27 +65,27 @@ describe('sessions HTTP (agent_id XOR agent_spec)', () => {
         sessionStore,
         activeTurns: new ActiveTurnRegistry(),
         modelProviderStore,
-        mcpServerStore: new SqliteMcpServerStore(db),
-        skillStore: new SqliteSkillStore(db),
+        mcpServerStore,
+        skillStore,
         agentStore,
-        sandboxProviderStore: new SqliteSandboxProviderStore(db),
+        sandboxProviderStore,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
       }),
     );
   });
 
-  it('creates a draft session from agent_spec', async () => {
-    const res = await app.request('/', jsonInit('POST', { agent_spec: draftSpec }));
+  it('creates a draft session from a value agent', async () => {
+    const res = await app.request('/', jsonInit('POST', { agent: { type: 'value', agent_spec: draftSpec } }));
     expect(res.status).toBe(201);
     const json = (await res.json()) as {
-      data: { id: string; agent_id: string | null; agent_spec: { instructions?: string } | null };
+      data: { id: string; agent: { type: string; agent_spec?: { instructions?: string } } };
     };
-    expect(json.data.agent_id).toBeNull();
-    expect(json.data.agent_spec?.instructions).toBe('draft');
+    expect(json.data.agent.type).toBe('value');
+    expect(json.data.agent.agent_spec?.instructions).toBe('draft');
   });
 
-  it('creates a named session from agent_id and rejects unknown agents', async () => {
+  it('creates a named session from a ref agent and rejects unknown agents', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: TENANT_ID,
       name: 'named-agent',
@@ -90,46 +95,50 @@ describe('sessions HTTP (agent_id XOR agent_spec)', () => {
       }),
     });
 
-    const missing = await app.request('/', jsonInit('POST', { agent_id: 'does-not-exist' }));
+    const missing = await app.request('/', jsonInit('POST', { agent: { type: 'ref', agent_id: 'does-not-exist' } }));
     expect(missing.status).toBe(404);
 
-    const created = await app.request('/', jsonInit('POST', { agent_id: agent.id }));
+    const created = await app.request('/', jsonInit('POST', { agent: { type: 'ref', agent_id: agent.id } }));
     expect(created.status).toBe(201);
     const json = (await created.json()) as {
-      data: { id: string; agent_id: string | null; agent_spec: unknown };
+      data: { id: string; agent: { type: string; agent_id?: string } };
     };
-    expect(json.data.agent_id).toBe(agent.id);
-    expect(json.data.agent_spec).toBeNull();
+    expect(json.data.agent).toEqual({ type: 'ref', agent_id: agent.id });
 
     const listed = await app.request(`/?agent_id=${encodeURIComponent(agent.id)}`);
     expect(listed.status).toBe(200);
-    const listJson = (await listed.json()) as { data: Array<{ id: string; agent_id: string | null }> };
-    expect(listJson.data.every(row => row.agent_id === agent.id)).toBe(true);
+    const listJson = (await listed.json()) as {
+      data: Array<{ id: string; agent: { type: string; agent_id?: string } }>;
+    };
+    expect(listJson.data.every(row => row.agent.type === 'ref' && row.agent.agent_id === agent.id)).toBe(true);
     expect(listJson.data.some(row => row.id === json.data.id)).toBe(true);
 
     const patchNamed = await app.request(
       `/${json.data.id}`,
-      jsonInit('PATCH', { agent_spec: { ...draftSpec, instructions: 'nope' } }),
+      jsonInit('PATCH', { agent: { type: 'value', agent_spec: { ...draftSpec, instructions: 'nope' } } }),
     );
     expect(patchNamed.status).toBe(400);
   });
 
-  it('allows draft agent_spec updates and rejects create bodies with both fields', async () => {
-    const created = await app.request('/', jsonInit('POST', { agent_spec: draftSpec }));
+  it('updates draft agent_spec and rejects invalid create bodies', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { type: 'value', agent_spec: draftSpec } }));
     expect(created.status).toBe(201);
     const { data } = (await created.json()) as { data: { id: string } };
 
     const patched = await app.request(
       `/${data.id}`,
-      jsonInit('PATCH', { agent_spec: { ...draftSpec, instructions: 'updated' } }),
+      jsonInit('PATCH', { agent: { type: 'value', agent_spec: { ...draftSpec, instructions: 'updated' } } }),
     );
     expect(patched.status).toBe(200);
     const patchedJson = (await patched.json()) as {
-      data: { agent_spec: { instructions?: string } | null };
+      data: { agent: { type: string; agent_spec?: { instructions?: string } } };
     };
-    expect(patchedJson.data.agent_spec?.instructions).toBe('updated');
+    expect(patchedJson.data.agent.agent_spec?.instructions).toBe('updated');
 
-    const both = await app.request('/', jsonInit('POST', { agent_id: 'x', agent_spec: draftSpec }));
+    const both = await app.request(
+      '/',
+      jsonInit('POST', { agent: { type: 'ref', agent_id: 'x', agent_spec: draftSpec } }),
+    );
     expect(both.status).toBe(400);
   });
 });

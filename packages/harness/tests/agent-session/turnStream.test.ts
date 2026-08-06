@@ -23,12 +23,14 @@ describe('TurnHandle.stream()', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      agent_id: null,
-      agent_spec: makeAgentSpec({
-        config: {
-          sandbox: { enabled: true, file_downloads: true },
-        },
-      }),
+      agent: {
+        type: 'value',
+        agent_spec: makeAgentSpec({
+          config: {
+            sandbox: { enabled: true, file_downloads: true },
+          },
+        }),
+      },
     });
     return { store, session };
   }
@@ -473,12 +475,14 @@ describe('TurnResourceResolver caches', () => {
     const session = await sessions.create({
       tenant_id: 't',
       session_id: 's',
-      agent_id: null,
-      agent_spec: makeAgentSpec({
-        config: {
-          sandbox: { enabled: true, file_downloads: true },
-        },
-      }),
+      agent: {
+        type: 'value',
+        agent_spec: makeAgentSpec({
+          config: {
+            sandbox: { enabled: true, file_downloads: true },
+          },
+        }),
+      },
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),

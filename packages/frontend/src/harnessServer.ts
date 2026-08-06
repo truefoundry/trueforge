@@ -82,15 +82,15 @@ function toUiAgentSpec(spec: Harness.AgentSpec | Harness.SessionAgentSpec): Harn
 }
 
 function toUiSession(session: Harness.Session): HarnessSession {
-  // Draft sessions carry agent_spec; named sessions bind agent_id and leave agent_spec null.
-  const isMutable = session.agentId === null;
+  // Value agents are draft/mutable; ref agents are named/immutable.
+  const isMutable = session.agent.type === 'value';
   return {
     id: session.id,
     isMutable,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     ...(session.title === null ? {} : { title: session.title }),
-    ...(session.agentSpec === null ? {} : { agentSpec: toUiAgentSpec(session.agentSpec) }),
+    ...(session.agent.type === 'value' ? { agentSpec: toUiAgentSpec(session.agent.agentSpec) } : {}),
   };
 }
 
@@ -185,7 +185,9 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
       if (!request.agentSpec) {
         throw new Error('Harness sessions require an agentSpec');
       }
-      const created = await client.sessions.create({ agentSpec: toHarnessAgentSpec(request.agentSpec) });
+      const created = await client.sessions.create({
+        agent: { type: 'value', agentSpec: toHarnessAgentSpec(request.agentSpec) },
+      });
       return toUiSession(created.data);
     },
 
@@ -205,7 +207,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
 
     async updateSession({ sessionId, agentSpec }) {
       const response = await client.sessions.update(sessionId, {
-        ...(agentSpec === undefined ? {} : { agentSpec: toHarnessAgentSpec(agentSpec) }),
+        ...(agentSpec === undefined ? {} : { agent: { type: 'value', agentSpec: toHarnessAgentSpec(agentSpec) } }),
       });
       return toUiSession(response.data);
     },

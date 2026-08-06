@@ -51,8 +51,7 @@ describe('turn SSE after session deletion', () => {
           record: {
             session_id: 's1',
             last_turn_id: null,
-            agent_id: null,
-            agent_spec: agentSpec,
+            agent: { type: 'value', agent_spec: agentSpec },
           },
           createTurn: () =>
             Promise.resolve({

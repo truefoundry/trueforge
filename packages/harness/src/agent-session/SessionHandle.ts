@@ -20,12 +20,13 @@ import type { Sandbox } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { builtinsFromSpec } from './builtinsFromSpec';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
-import { sessionAgentSource, type SessionRecord } from './models/SessionRecord';
+import type { SessionRecord } from './models/SessionRecord';
 import { MAIN_THREAD_ID, type TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
 import type { SessionEventItem } from './schemas/events';
 import { EventType, type TurnDoneEvent } from './schemas/events';
 import type { TokenPagination } from './schemas/pagination';
+import type { SessionAgent } from './schemas/session';
 import type { TurnInputItem } from './schemas/turn';
 import { CancellationReason } from './schemas/turn';
 import type { ISessionStore, NewThreadInit, TurnContextAppend, TurnRecordWithoutSnapshot } from './store/ISessionStore';
@@ -134,12 +135,8 @@ export class SessionHandle<
     return this.session.tenant_id;
   }
 
-  get agent_spec(): AgentSpec | null {
-    return this.session.agent_spec;
-  }
-
-  get agent_id(): string | null {
-    return this.session.agent_id;
+  get agent(): SessionAgent {
+    return this.session.agent;
   }
 
   get custom(): TSessionCustom | null {
@@ -203,7 +200,7 @@ export class SessionHandle<
     try {
       const tracing = input.resolver.createTracing();
       const spec = await input.resolver.resolveAgentSpec({
-        source: sessionAgentSource(this.session),
+        agent: this.session.agent,
       });
       const sandbox = await input.resolver.resolveSandbox({
         spec,

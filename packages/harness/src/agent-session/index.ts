@@ -21,8 +21,13 @@ export {
 } from './schemas/turn';
 export type { TerminalTurnState, Turn, TurnInputItem, TurnMetrics, TurnState } from './schemas/turn';
 
-export { CreateSessionRequestSchema, SessionSchema, UpdateSessionRequestSchema } from './schemas/session';
-export type { CreateSessionRequest, Session, SessionAgentSource } from './schemas/session';
+export {
+  CreateSessionRequestSchema,
+  SessionAgentSchema,
+  SessionSchema,
+  UpdateSessionRequestSchema,
+} from './schemas/session';
+export type { CreateSessionRequest, Session, SessionAgent } from './schemas/session';
 
 export {
   EventType,
@@ -42,7 +47,6 @@ export type {
 export { TokenPaginationSchema } from './schemas/pagination';
 export type { TokenPagination } from './schemas/pagination';
 
-export { sessionAgentSource } from './models/SessionRecord';
 export type { SessionRecord } from './models/SessionRecord';
 export { MAIN_THREAD_ID } from './models/TurnRecord';
 export type { TurnRecord, TurnSnapshot } from './models/TurnRecord';
