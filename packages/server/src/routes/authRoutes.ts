@@ -7,10 +7,31 @@
  * endpoints and generate normally.
  */
 import { createRoute } from '@hono/zod-openapi';
-import { AuthLoginQuerySchema, AuthMeResponseSchema, OAuthCallbackQuerySchema } from '../schemas/auth';
+import {
+  AuthConfigResponseSchema,
+  AuthLoginQuerySchema,
+  AuthMeResponseSchema,
+  OAuthCallbackQuerySchema,
+} from '../schemas/auth';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 
 const AUTH_TAG = 'Auth';
+
+export const authConfigRoute = createRoute({
+  method: 'get',
+  path: '/config',
+  tags: [AUTH_TAG],
+  summary: 'Auth configuration for the UI',
+  description: 'Returns whether OIDC login is enabled. Public; no session required.',
+  'x-fern-sdk-group-name': ['auth'],
+  'x-fern-sdk-method-name': 'config',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: AuthConfigResponseSchema } },
+      description: 'Whether OIDC is enabled.',
+    },
+  },
+});
 
 export const authLoginRoute = createRoute({
   method: 'get',

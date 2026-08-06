@@ -60,6 +60,7 @@ Public override surface (primitives stay theme/CSS — not slots):
   `OpenUiFenceBlock`, `SandboxArtifactDownload`
 - **Thread list:** `ThreadListShell`, `ThreadListNewButton`, `ThreadListRow`,
   `ThreadListRowSkeleton`, `ThreadListEmptyState`, `HistoryLoader`
+- **Shell:** `LogoutButton` (default empty; host auth owns sign-out)
 - **Attachments / toasts:** `AttachmentCard`, `AttachmentPreviewDialog`,
   `AttachmentPickerButton`, `Toast`, `ToastStack`
 - **Tools / prompts:** `ToolCallCard`, `ToolCallContentBlock`,

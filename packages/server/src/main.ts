@@ -36,6 +36,7 @@ import type { RedisClientType } from 'redis';
 import winston, { type Logger } from 'winston';
 
 import { createServerApp } from './app';
+import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
 import { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -199,6 +200,8 @@ try {
   const activeTurns = new ActiveTurnRegistry();
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
+
+  await initOidc();
 
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),

@@ -12,6 +12,14 @@ export const AuthMeResponseSchema = z
 
 export type AuthMeResponse = z.infer<typeof AuthMeResponseSchema>;
 
+export const AuthConfigResponseSchema = z
+  .object({
+    oidc_enabled: z.boolean(),
+  })
+  .openapi('AuthConfigResponse');
+
+export type AuthConfigResponse = z.infer<typeof AuthConfigResponseSchema>;
+
 export const AuthLoginQuerySchema = z.object({
   return_to: z
     .string()
