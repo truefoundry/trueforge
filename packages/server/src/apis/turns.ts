@@ -40,7 +40,7 @@ import {
   subscribeTurnRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { StreamGoneError, type EventSubscriptionRegistry } from '../runtime/event-subscription';
+import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry } from '../runtime/event-subscription';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
 import {
   buildTurnSandbox,
@@ -228,6 +228,48 @@ export function turnStreamId(tenantId: string, sessionId: string, turnId: string
 }
 
 /**
+ * Dual-write turn events to the resumable subscription registry, then optionally
+ * forward each sequenced event (SSE path). Shared by streaming and non-streaming
+ * create-turn; the HTTP response lifecycle does not own execution.
+ */
+export async function drainTurnEvents(input: {
+  trackedStream: AsyncIterable<TurnStreamingEvent>;
+  turnEventStream: EventSubscription<TurnStreamingEvent>;
+  sessionId: string;
+  turnId: string;
+  maxExecutionTimer: NodeJS.Timeout;
+  logger: Logger;
+  onEvent?: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
+}): Promise<void> {
+  const { trackedStream, turnEventStream, sessionId, turnId, maxExecutionTimer, logger, onEvent } = input;
+  try {
+    for await (const event of trackedStream) {
+      // Dual-write before any client sink so subscribers can resume after disconnect.
+      const sequenceNumber = await turnEventStream.put(event, {
+        streamTTLSeconds: streamTTLSecondsFor(event),
+      });
+      await onEvent?.(event, sequenceNumber);
+    }
+  } catch (error) {
+    if (error instanceof SessionStoreNotFoundError) {
+      logger.warn('Turn stream ended after session/turn was removed', {
+        sessionId,
+        turnId,
+        ...extractErrorLogFields(error),
+      });
+    } else {
+      logger.error('Unexpected error in turn event drain', {
+        sessionId,
+        turnId,
+        ...extractErrorLogFields(error),
+      });
+    }
+  } finally {
+    clearTimeout(maxExecutionTimer);
+  }
+}
+
+/**
  * Resume cursor: `Last-Event-ID` header wins over the body value because the
  * header is updated by the SDK on every reconnect to reflect the last delivered
  * event, whereas the body is the original caller-supplied cursor and never
@@ -366,20 +408,43 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       stream: turn.stream(),
     });
 
-    let shouldWriteToSSEStream = true;
     // Held for the whole turn; the stream's sequence counter dies with it.
     const turnEventStream = deps.eventSubscriptions.get(turnStreamId(TENANT_ID, sessionId, turn.id));
+    const drainInput = {
+      trackedStream,
+      turnEventStream,
+      sessionId,
+      turnId: turn.id,
+      maxExecutionTimer,
+      logger: deps.logger,
+    };
+
+    // Non-stream: same unawaited drain scheduling as Hono streamSSE's run(cb).
+    // Wait until the first dual-write (turn.created) so immediate subscribeToTurn
+    // cannot 412 before the resumable stream exists.
+    if (!body.stream) {
+      const { promise: firstEventDualWritten, resolve: markFirstEventDualWritten } = Promise.withResolvers<undefined>();
+      void drainTurnEvents({
+        ...drainInput,
+        onEvent: () => {
+          markFirstEventDualWritten(undefined);
+          return Promise.resolve();
+        },
+      }).finally(() => {
+        markFirstEventDualWritten(undefined);
+      });
+      await firstEventDualWritten;
+      return c.json({ data: toWireTurn(turn.record) }, 200);
+    }
+
+    let shouldWriteToSSEStream = true;
     return streamSSE(c, async stream => {
       stream.onAbort(() => {
         shouldWriteToSSEStream = false;
       });
-      try {
-        for await (const event of trackedStream) {
-          // Dual-write before SSE so subscribers can resume even after the
-          // creating client disconnects; the returned sequence is the SSE id.
-          const sequenceNumber = await turnEventStream.put(event, {
-            streamTTLSeconds: streamTTLSecondsFor(event),
-          });
+      await drainTurnEvents({
+        ...drainInput,
+        onEvent: async (event, sequenceNumber) => {
           if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
             try {
               await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
@@ -388,25 +453,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
               shouldWriteToSSEStream = false;
             }
           }
-        }
-      } catch (error) {
-        if (error instanceof SessionStoreNotFoundError) {
-          deps.logger.warn('Turn stream ended after session/turn was removed', {
-            sessionId,
-            turnId: turn.id,
-            ...extractErrorLogFields(error),
-          });
-        } else {
-          deps.logger.error('Unexpected error in turn SSE stream loop', {
-            sessionId,
-            turnId: turn.id,
-            ...extractErrorLogFields(error),
-          });
-        }
-      } finally {
-        clearTimeout(maxExecutionTimer);
-        await stream.close();
-      }
+        },
+      });
+      await stream.close();
     });
   };
 

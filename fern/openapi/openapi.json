@@ -729,6 +729,11 @@
           },
           "previous_turn_id": {
             "$ref": "#/components/schemas/PreviousTurnIdInput"
+          },
+          "stream": {
+            "default": true,
+            "description": "When true (default), stream turn events as SSE. When false, return the running turn immediately.",
+            "type": "boolean"
           }
         },
         "type": "object"
@@ -4687,7 +4692,7 @@
         "x-fern-sdk-method-name": "list_turns"
       },
       "post": {
-        "description": "Create a turn within a session and stream its execution as Server-Sent Events.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`).",
+        "description": "Create a turn within a session and execute it.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`).",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4715,13 +4720,18 @@
         "responses": {
           "200": {
             "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTurnResponse"
+                }
+              },
               "text/event-stream": {
                 "schema": {
                   "$ref": "#/components/schemas/TurnStreamingEvent"
                 }
               }
             },
-            "description": "Server-Sent Events stream of turn events."
+            "description": "When stream is false: the running turn. When stream is true: Server-Sent Events stream of turn events."
           },
           "400": {
             "content": {
@@ -4774,7 +4784,14 @@
         "x-fern-sdk-method-name": "create_turn",
         "x-fern-streaming": {
           "format": "sse",
-          "resumable": false
+          "response": {
+            "$ref": "#/components/schemas/GetTurnResponse"
+          },
+          "response-stream": {
+            "$ref": "#/components/schemas/TurnStreamingEvent"
+          },
+          "resumable": false,
+          "stream-condition": "$request.stream"
         }
       }
     },

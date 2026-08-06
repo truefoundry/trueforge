@@ -1216,7 +1216,7 @@ await client.sessions.listTurns("session_id");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurn</a>(session_id, { ...params }) -> core.Stream&lt;TrueForge.TurnStreamingEvent&gt;</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurnStream</a>(session_id, { ...params }) -> core.Stream&lt;TrueForge.TurnStreamingEvent&gt;</code></summary>
 <dl>
 <dd>
 
@@ -1228,7 +1228,9 @@ await client.sessions.listTurns("session_id");
 <dl>
 <dd>
 
-Create a turn within a session and stream its execution as Server-Sent Events.
+Create a turn within a session and execute it.
+When `stream` is true (default), respond with a Server-Sent Events stream of turn events.
+When `stream` is false, return the turn immediately with `state.status: "running"` while execution continues in the background; use get turn or subscribe to observe completion.
 Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`).
 </dd>
 </dl>
@@ -1244,7 +1246,7 @@ Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`).
 <dd>
 
 ```typescript
-const response = await client.sessions.createTurn("session_id");
+const response = await client.sessions.createTurnStream("session_id", {});
 for await (const item of response) {
     console.log(item);
 }
@@ -1271,7 +1273,81 @@ for await (const item of response) {
 <dl>
 <dd>
 
-**request:** `TrueForge.CreateTurnRequest` 
+**request:** `TrueForge.CreateTurnSessionsStreamRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurn</a>(session_id, { ...params }) -> TrueForge.GetTurnResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Create a turn within a session and execute it.
+When `stream` is true (default), respond with a Server-Sent Events stream of turn events.
+When `stream` is false, return the turn immediately with `state.status: "running"` while execution continues in the background; use get turn or subscribe to observe completion.
+Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sessions.createTurn("session_id", {});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `string` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.CreateTurnSessionsRequest` 
     
 </dd>
 </dl>

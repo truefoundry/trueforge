@@ -110,11 +110,19 @@ export const createAndExecuteTurnRoute = createRoute({
   path: '/{session_id}/turns',
   tags: [SESSIONS_TAG],
   summary: 'Create and execute a turn in a session',
-  description: `Create a turn within a session and stream its execution as Server-Sent Events.
+  description: `Create a turn within a session and execute it.
+When \`stream\` is true (default), respond with a Server-Sent Events stream of turn events.
+When \`stream\` is false, return the turn immediately with \`state.status: "running"\` while execution continues in the background; use get turn or subscribe to observe completion.
 Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`).`,
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create_turn',
-  'x-fern-streaming': { format: 'sse', resumable: false },
+  'x-fern-streaming': {
+    format: 'sse',
+    resumable: false,
+    'stream-condition': '$request.stream',
+    response: { $ref: '#/components/schemas/GetTurnResponse' },
+    'response-stream': { $ref: '#/components/schemas/TurnStreamingEvent' },
+  },
   request: {
     params: SessionIdParamsSchema,
     body: {
@@ -125,11 +133,15 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
   responses: {
     200: {
       content: {
+        'application/json': {
+          schema: GetTurnResponseSchema,
+        },
         'text/event-stream': {
           schema: TurnStreamingEventSchema,
         },
       },
-      description: 'Server-Sent Events stream of turn events.',
+      description:
+        'When stream is false: the running turn. When stream is true: Server-Sent Events stream of turn events.',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

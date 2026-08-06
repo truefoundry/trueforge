@@ -116,8 +116,9 @@ describe('createHarnessChatServer', () => {
     }
 
     const sent = turnRequests.at(-1);
-    assert.ok(sent !== null && typeof sent === 'object' && 'previous_turn_id' in sent);
+    assert.ok(sent !== null && typeof sent === 'object' && 'previous_turn_id' in sent && 'stream' in sent);
     assert.equal(sent.previous_turn_id, null);
+    assert.equal(sent.stream, true);
 
     assert.deepEqual(events, [
       {
