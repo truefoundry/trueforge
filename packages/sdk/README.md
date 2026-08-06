@@ -1,7 +1,7 @@
 # Truefoundry TypeScript Library
 
 [![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=Truefoundry%2FTypeScript)
-[![npm shield](https://img.shields.io/npm/v/trueharness)](https://www.npmjs.com/package/trueharness)
+[![npm shield](https://img.shields.io/npm/v/trueforge)](https://www.npmjs.com/package/trueforge)
 
 TypeScript client for the TrueFoundry agent harness server: a self-hosted runtime that executes agent turns and streams them over Server-Sent Events.
 
@@ -16,6 +16,7 @@ The harness server has no built-in authentication, so point the client at your o
 - [Request and Response Types](#request-and-response-types)
 - [Exception Handling](#exception-handling)
 - [Streaming Response](#streaming-response)
+- [Binary Response](#binary-response)
 - [Advanced](#advanced)
   - [Subpackage Exports](#subpackage-exports)
   - [Additional Headers](#additional-headers)
@@ -33,7 +34,7 @@ The harness server has no built-in authentication, so point the client at your o
 ## Installation
 
 ```sh
-npm i -s trueharness
+npm i -s trueforge
 ```
 
 ## Reference
@@ -45,10 +46,10 @@ A full reference for this library is available [here](./reference.md).
 Instantiate and use the client with the following:
 
 ```typescript
-import { TrueHarness } from "trueharness";
+import { TrueForge } from "trueforge";
 
-const client = new TrueHarness({ baseUrl: "YOUR_BASE_URL" });
-const response = await client.sessions.createTurn("session_id");
+const client = new TrueForge({ baseUrl: "YOUR_BASE_URL" });
+const response = await client.sessions.createTurnStream("session_id", {});
 for await (const item of response) {
     console.log(item);
 }
@@ -60,9 +61,9 @@ The SDK exports all request and response types as TypeScript interfaces. Simply 
 following namespace:
 
 ```typescript
-import { TrueHarness } from "trueharness";
+import { TrueForge } from "trueforge";
 
-const request: TrueHarness.AuthorizeMcpServersRequest = {
+const request: TrueForge.AgentWriteRequest = {
     ...
 };
 ```
@@ -73,12 +74,12 @@ When the API returns a non-success status code (4xx or 5xx response), a subclass
 will be thrown.
 
 ```typescript
-import { TrueHarnessError } from "trueharness";
+import { TrueForgeError } from "trueforge";
 
 try {
-    await client.sessions.createTurn(...);
+    await client.sessions.createTurnStream(...);
 } catch (err) {
-    if (err instanceof TrueHarnessError) {
+    if (err instanceof TrueForgeError) {
         console.log(err.statusCode);
         console.log(err.message);
         console.log(err.body);
@@ -93,14 +94,403 @@ Some endpoints return streaming responses instead of returning the full response
 The SDK uses async iterators, so you can consume the responses using a `for await...of` loop.
 
 ```typescript
-import { TrueHarness } from "trueharness";
+import { TrueForge } from "trueforge";
 
-const client = new TrueHarness({ baseUrl: "YOUR_BASE_URL" });
-const response = await client.sessions.createTurn("session_id");
+const client = new TrueForge({ baseUrl: "YOUR_BASE_URL" });
+const response = await client.sessions.createTurnStream("session_id", {});
 for await (const item of response) {
     console.log(item);
 }
 ```
+
+## Binary Response
+
+You can consume binary data from endpoints using the `BinaryResponse` type which lets you choose how to consume the data:
+
+```typescript
+const response = await client.sessions.downloadSandboxFile(...);
+const stream: ReadableStream<Uint8Array> = response.stream();
+// const arrayBuffer: ArrayBuffer = await response.arrayBuffer();
+// const blob: Blob = response.blob();
+// const bytes: Uint8Array = response.bytes();
+// You can only use the response body once, so you must choose one of the above methods.
+// If you want to check if the response body has been used, you can use the following property.
+const bodyUsed = response.bodyUsed;
+```
+<details>
+<summary>Save binary response to a file</summary>
+
+<blockquote>
+<details>
+<summary>Node.js</summary>
+
+<blockquote>
+<details>
+<summary>ReadableStream (most-efficient)</summary>
+
+```ts
+import { createWriteStream } from 'fs';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
+
+const response = await client.sessions.downloadSandboxFile(...);
+
+const stream = response.stream();
+const nodeStream = Readable.fromWeb(stream);
+const writeStream = createWriteStream('path/to/file');
+
+await pipeline(nodeStream, writeStream);
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>ArrayBuffer</summary>
+
+```ts
+import { writeFile } from 'fs/promises';
+
+const response = await client.sessions.downloadSandboxFile(...);
+
+const arrayBuffer = await response.arrayBuffer();
+await writeFile('path/to/file', Buffer.from(arrayBuffer));
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>Blob</summary>
+
+```ts
+import { writeFile } from 'fs/promises';
+
+const response = await client.sessions.downloadSandboxFile(...);
+
+const blob = await response.blob();
+const arrayBuffer = await blob.arrayBuffer();
+await writeFile('output.bin', Buffer.from(arrayBuffer));
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>Bytes (UIntArray8)</summary>
+
+```ts
+import { writeFile } from 'fs/promises';
+
+const response = await client.sessions.downloadSandboxFile(...);
+
+const bytes = await response.bytes();
+await writeFile('path/to/file', bytes);
+```
+
+</details>
+</blockquote>
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>Bun</summary>
+
+<blockquote>
+<details>
+<summary>ReadableStream (most-efficient)</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const stream = response.stream();
+await Bun.write('path/to/file', stream);
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>ArrayBuffer</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const arrayBuffer = await response.arrayBuffer();
+await Bun.write('path/to/file', arrayBuffer);
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>Blob</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const blob = await response.blob();
+await Bun.write('path/to/file', blob);
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>Bytes (UIntArray8)</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const bytes = await response.bytes();
+await Bun.write('path/to/file', bytes);
+```
+
+</details>
+</blockquote>
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>Deno</summary>
+
+<blockquote>
+<details>
+<summary>ReadableStream (most-efficient)</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const stream = response.stream();
+const file = await Deno.open('path/to/file', { write: true, create: true });
+await stream.pipeTo(file.writable);
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>ArrayBuffer</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const arrayBuffer = await response.arrayBuffer();
+await Deno.writeFile('path/to/file', new Uint8Array(arrayBuffer));
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>Blob</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const blob = await response.blob();
+const arrayBuffer = await blob.arrayBuffer();
+await Deno.writeFile('path/to/file', new Uint8Array(arrayBuffer));
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>Bytes (UIntArray8)</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const bytes = await response.bytes();
+await Deno.writeFile('path/to/file', bytes);
+```
+
+</details>
+</blockquote>
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>Browser</summary>
+
+<blockquote>
+<details>
+<summary>Blob (most-efficient)</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const blob = await response.blob();
+const url = URL.createObjectURL(blob);
+
+// trigger download
+const a = document.createElement('a');
+a.href = url;
+a.download = 'filename';
+a.click();
+URL.revokeObjectURL(url);
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>ReadableStream</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const stream = response.stream();
+const reader = stream.getReader();
+const chunks = [];
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  chunks.push(value);
+}
+
+const blob = new Blob(chunks);
+const url = URL.createObjectURL(blob);
+
+// trigger download
+const a = document.createElement('a');
+a.href = url;
+a.download = 'filename';
+a.click();
+URL.revokeObjectURL(url);
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>ArrayBuffer</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const arrayBuffer = await response.arrayBuffer();
+const blob = new Blob([arrayBuffer]);
+const url = URL.createObjectURL(blob);
+
+// trigger download
+const a = document.createElement('a');
+a.href = url;
+a.download = 'filename';
+a.click();
+URL.revokeObjectURL(url);
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>Bytes (UIntArray8)</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const bytes = await response.bytes();
+const blob = new Blob([bytes]);
+const url = URL.createObjectURL(blob);
+
+// trigger download
+const a = document.createElement('a');
+a.href = url;
+a.download = 'filename';
+a.click();
+URL.revokeObjectURL(url);
+```
+
+</details>
+</blockquote>
+
+</details>
+</blockquote>
+
+</details>
+</blockquote>
+
+<details>
+<summary>Convert binary response to text</summary>
+
+<blockquote>
+<details>
+<summary>ReadableStream</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const stream = response.stream();
+const text = await new Response(stream).text();
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>ArrayBuffer</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const arrayBuffer = await response.arrayBuffer();
+const text = new TextDecoder().decode(arrayBuffer);
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>Blob</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const blob = await response.blob();
+const text = await blob.text();
+```
+
+</details>
+</blockquote>
+
+<blockquote>
+<details>
+<summary>Bytes (UIntArray8)</summary>
+
+```ts
+const response = await client.sessions.downloadSandboxFile(...);
+
+const bytes = await response.bytes();
+const text = new TextDecoder().decode(bytes);
+```
+
+</details>
+</blockquote>
+
+</details>
 
 ## Advanced
 
@@ -109,9 +499,9 @@ for await (const item of response) {
 This SDK supports direct imports of subpackage clients, which allows JavaScript bundlers to tree-shake and include only the imported subpackage code. This results in much smaller bundle sizes.
 
 ```typescript
-import { ServerClient } from 'trueharness/server';
+import { AgentsClient } from 'trueforge/agents';
 
-const client = new ServerClient({...});
+const client = new AgentsClient({...});
 ```
 
 ### Additional Headers
@@ -119,16 +509,16 @@ const client = new ServerClient({...});
 If you would like to send additional headers as part of the request, use the `headers` request option.
 
 ```typescript
-import { TrueHarness } from "trueharness";
+import { TrueForge } from "trueforge";
 
-const client = new TrueHarness({
+const client = new TrueForge({
     ...
     headers: {
         'X-Custom-Header': 'custom value'
     }
 });
 
-const response = await client.sessions.createTurn(..., {
+const response = await client.sessions.createTurnStream(..., {
     headers: {
         'X-Custom-Header': 'custom value'
     }
@@ -140,7 +530,7 @@ const response = await client.sessions.createTurn(..., {
 If you would like to send additional query string parameters as part of the request, use the `queryParams` request option.
 
 ```typescript
-const response = await client.sessions.createTurn(..., {
+const response = await client.sessions.createTurnStream(..., {
     queryParams: {
         'customQueryParamKey': 'custom query param value'
     }
@@ -170,7 +560,7 @@ Which status codes are retried depends on the `retryStatusCodes` generator confi
 Use the `maxRetries` request option to configure this behavior.
 
 ```typescript
-const response = await client.sessions.createTurn(..., {
+const response = await client.sessions.createTurnStream(..., {
     maxRetries: 0 // override maxRetries at the request level
 });
 ```
@@ -180,7 +570,7 @@ const response = await client.sessions.createTurn(..., {
 The SDK defaults to a 60 second timeout. Use the `timeoutInSeconds` option to configure this behavior.
 
 ```typescript
-const response = await client.sessions.createTurn(..., {
+const response = await client.sessions.createTurnStream(..., {
     timeoutInSeconds: 30 // override timeout to 30s
 });
 ```
@@ -191,7 +581,7 @@ The SDK allows users to abort requests at any point by passing in an abort signa
 
 ```typescript
 const controller = new AbortController();
-const response = await client.sessions.createTurn(..., {
+const response = await client.sessions.createTurnStream(..., {
     abortSignal: controller.signal
 });
 controller.abort(); // aborts the request
@@ -203,7 +593,7 @@ The SDK provides access to raw response data, including headers, through the `.w
 The `.withRawResponse()` method returns a promise that results to an object with a `data` and a `rawResponse` property.
 
 ```typescript
-const { data, rawResponse } = await client.sessions.createTurn(...).withRawResponse();
+const { data, rawResponse } = await client.sessions.createTurnStream(...).withRawResponse();
 
 console.log(data);
 console.log(rawResponse.headers['X-My-Header']);
@@ -214,9 +604,9 @@ console.log(rawResponse.headers['X-My-Header']);
 The SDK supports logging. You can configure the logger by passing in a `logging` object to the client options.
 
 ```typescript
-import { TrueHarness, logging } from "trueharness";
+import { TrueForge, logging } from "trueforge";
 
-const client = new TrueHarness({
+const client = new TrueForge({
     ...
     logging: {
         level: logging.LogLevel.Debug, // defaults to logging.LogLevel.Info
@@ -298,9 +688,9 @@ The SDK provides a way for you to customize the underlying HTTP client / Fetch f
 unsupported environment, this provides a way for you to break glass and ensure the SDK works.
 
 ```typescript
-import { TrueHarness } from "trueharness";
+import { TrueForge } from "trueforge";
 
-const client = new TrueHarness({
+const client = new TrueForge({
     ...
     fetcher: // provide your implementation here
 });

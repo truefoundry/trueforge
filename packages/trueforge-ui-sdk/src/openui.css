@@ -1,0 +1,40 @@
+@import '@openuidev/react-ui/defaults.css';
+@import '@openuidev/react-ui/styles/index.css';
+@source ".";
+
+/*
+ * Keep OpenUI embeds inside the chat column. GenUI widgets (charts, tables)
+ * often assume a wide host; without min-w-0 / max-w-full they expand the
+ * flex parent and the Markdown shell shows a horizontal scrollbar.
+ */
+.aui-openui,
+.markdown-openui-scope {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.aui-openui *,
+.markdown-openui-scope * {
+  box-sizing: border-box;
+}
+
+.aui-openui .recharts-responsive-container,
+.aui-openui .recharts-wrapper,
+.aui-openui [class*='openui-card'],
+.aui-openui [class*='openui-chart'],
+.aui-openui [class*='openui-table'],
+.aui-openui [class*='openui-scrollable'] {
+  max-width: 100%;
+}
+
+.markdown-openui-scope .openui-scrollable-table-wrapper {
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.markdown-openui-scope .openui-table-container {
+  max-width: 100%;
+  overflow-x: auto;
+}

@@ -1,0 +1,55 @@
+import type { Context } from 'hono';
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
+import type { Logger } from 'winston';
+import { z } from 'zod';
+import configuration from '../config';
+
+export const OAUTH_STATE_COOKIE = 'oauth_state';
+export const ID_TOKEN_COOKIE = 'id_token';
+
+const OAuthStateSchema = z.object({
+  state: z.string(),
+  code_verifier: z.string(),
+  return_to: z.string(),
+});
+
+export type OAuthState = z.infer<typeof OAuthStateSchema>;
+
+const AUTH_COOKIE_ATTRIBUTES = {
+  httpOnly: true,
+  sameSite: 'Lax' as const,
+  secure: configuration.PUBLIC_BASE_URL.startsWith('https://'),
+  path: '/',
+};
+
+export function setAuthCookie(params: { context: Context; name: string; value: string; maxAgeSeconds: number }): void {
+  setCookie(params.context, params.name, params.value, {
+    ...AUTH_COOKIE_ATTRIBUTES,
+    maxAge: params.maxAgeSeconds,
+  });
+}
+
+export function readOAuthStateCookie(params: { context: Context; logger: Logger }): OAuthState | undefined {
+  const raw = getCookie(params.context, OAUTH_STATE_COOKIE);
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    // JSON.parse throws SyntaxError when the cookie value is not JSON.
+    const result = OAuthStateSchema.safeParse(JSON.parse(raw));
+    if (!result.success) {
+      params.logger.warn('oauth_state cookie failed schema validation', { error: result.error.message });
+      return undefined;
+    }
+    return result.data;
+  } catch (error) {
+    params.logger.warn('oauth_state cookie is not valid JSON', {
+      error: error instanceof Error ? error.message : error,
+    });
+    return undefined;
+  }
+}
+
+export function clearAuthCookie(params: { context: Context; name: string }): void {
+  deleteCookie(params.context, params.name, AUTH_COOKIE_ATTRIBUTES);
+}

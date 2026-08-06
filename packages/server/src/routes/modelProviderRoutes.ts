@@ -53,7 +53,9 @@ export const putModelProviderRoute = createRoute({
   tags: [MODEL_PROVIDERS_TAG],
   summary: 'Create or replace a model provider',
   description:
-    'Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).',
+    'Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). ' +
+    'Every type but `custom` is named after itself, so each is limited to one configured provider and a repeat ' +
+    'call replaces it; only `custom` providers are named, and numbered, by the caller.',
   'x-fern-sdk-group-name': ['settings', 'modelProviders'],
   'x-fern-sdk-method-name': 'upsert',
   request: {

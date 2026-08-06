@@ -28,15 +28,6 @@ providers:
             - medium
             - high
             - xhigh
-      - model_id: gpt-5.5-pro
-        name: gpt-5-5-pro
-        properties:
-          context_length: 1050000
-          max_output_tokens: 128000
-          reasoning_efforts:
-            - medium
-            - high
-            - xhigh
       - model_id: gpt-5.6-luna
         name: gpt-5-6-luna
         properties:
@@ -149,27 +140,6 @@ providers:
             - low
             - medium
             - high
-      - model_id: gemini-3.5-flash-lite
-        name: gemini-3-5-flash-lite
-        properties:
-          context_length: 1048576
-          max_output_tokens: 65536
-          reasoning_efforts:
-            - minimal
-            - low
-            - medium
-            - high
-      - model_id: gemini-3.5-flash
-        name: gemini-3-5-flash
-        properties:
-          context_length: 1048576
-          max_output_tokens: 65536
-          reasoning_efforts:
-            - none
-            - minimal
-            - low
-            - medium
-            - high
       - model_id: gemini-3.6-flash
         name: gemini-3-6-flash
         properties:
@@ -184,17 +154,6 @@ providers:
     name: fireworks
     logo: https://assets.production.truefoundry.com/fireworks.svg
     models:
-      - model_id: accounts/fireworks/models/deepseek-v4-flash
-        name: deepseek-v4-flash
-        properties:
-          context_length: 1048576
-          reasoning_efforts:
-            - none
-            - low
-            - medium
-            - high
-            - xhigh
-            - max
       - model_id: accounts/fireworks/models/deepseek-v4-pro
         name: deepseek-v4-pro
         properties:
@@ -250,39 +209,6 @@ providers:
             - high
             - xhigh
             - max
-      - model_id: accounts/fireworks/routers/glm-5p2-fast
-        name: glm-5p2-fast
-        properties:
-          context_length: 1048576
-          reasoning_efforts:
-            - none
-            - low
-            - medium
-            - high
-            - xhigh
-            - max
-      - model_id: accounts/fireworks/routers/kimi-k2p7-code-fast
-        name: kimi-k2p7-code-fast
-        properties:
-          context_length: 262144
-          reasoning_efforts:
-            - none
-            - low
-            - medium
-            - high
-            - xhigh
-            - max
-      - model_id: accounts/fireworks/routers/kimi-k3-fast
-        name: kimi-k3-fast
-        properties:
-          context_length: 1048576
-          reasoning_efforts:
-            - none
-            - low
-            - medium
-            - high
-            - xhigh
-            - max
   - type: zai
     name: zai
     logo: https://assets.production.truefoundry.com/zai.svg
@@ -318,10 +244,6 @@ providers:
         name: kimi-k2-7-code
         properties:
           context_length: 262144
-      - model_id: kimi-k2.7-code-highspeed
-        name: kimi-k2-7-code-highspeed
-        properties:
-          context_length: 262144
       - model_id: kimi-k3
         name: kimi-k3
         properties:
@@ -334,42 +256,6 @@ providers:
     name: alibaba
     logo: https://assets.production.truefoundry.com/alibaba.png
     models:
-      - model_id: deepseek-v4-pro
-        name: deepseek-v4-pro
-        properties:
-          context_length: 1000000
-          max_output_tokens: 393216
-          reasoning_efforts:
-            - low
-            - medium
-            - high
-            - xhigh
-            - max
-      - model_id: glm-5.2
-        name: glm-5-2
-        properties:
-          context_length: 1048576
-          max_output_tokens: 131072
-          reasoning_efforts:
-            - none
-            - minimal
-            - low
-            - medium
-            - high
-            - xhigh
-            - max
-      - model_id: kimi-k2.7-code
-        name: kimi-k2-7-code
-        properties:
-          context_length: 262144
-          max_output_tokens: 262144
-          reasoning_efforts:
-            - none
-            - minimal
-            - low
-            - medium
-            - high
-            - xhigh
       - model_id: qwen3.7-flash
         name: qwen3-7-flash
         properties:
@@ -423,16 +309,6 @@ providers:
     name: together
     logo: https://assets.production.truefoundry.com/togetherai.svg
     models:
-      - model_id: deepseek-ai/DeepSeek-V4-Flash-0731
-        name: deepseek-v4-flash-0731
-        properties:
-          context_length: 1048576
-          reasoning_efforts:
-            - none
-            - low
-            - medium
-            - high
-            - max
       - model_id: deepseek-ai/DeepSeek-V4-Pro
         name: deepseek-v4-pro
         properties:
