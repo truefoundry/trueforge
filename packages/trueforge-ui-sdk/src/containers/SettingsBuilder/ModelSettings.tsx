@@ -24,6 +24,16 @@ const ModelSettings = () => {
   const [apiKey, setApiKey] = useState('');
   const [customProviderOpen, setCustomProviderOpen] = useState(false);
 
+  const modelProviderIconMap = useMemo(() => {
+    return (catalog ?? []).reduce(
+      (acc, entry) => {
+        acc[entry.name] = entry.logo ?? '';
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+  }, [catalog]);
+
   const normalizedQuery = query.trim().toLowerCase();
 
   const refresh = useCallback(async () => {
@@ -260,8 +270,12 @@ const ModelSettings = () => {
                               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
                               aria-hidden
                             >
-                              {provider.logo ? (
-                                <img src={provider.logo} alt={provider.name} className="size-4.5" />
+                              {modelProviderIconMap[provider.name] ? (
+                                <img
+                                  src={modelProviderIconMap[provider.name]}
+                                  alt={provider.name}
+                                  className="size-4.5"
+                                />
                               ) : (
                                 <Icon name="cpu" className="size-4.5" />
                               )}
@@ -392,8 +406,8 @@ const ModelSettings = () => {
                             className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
                             aria-hidden
                           >
-                            {provider.logo ? (
-                              <img src={provider.logo} alt={provider.name} className="size-4.5" />
+                            {modelProviderIconMap[provider.name] ? (
+                              <img src={modelProviderIconMap[provider.name]} alt={provider.name} className="size-4.5" />
                             ) : (
                               <Icon name="cpu" className="size-4.5" />
                             )}
