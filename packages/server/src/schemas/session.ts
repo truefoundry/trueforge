@@ -1,29 +1,19 @@
-/** Public session wire schemas. Internal stores keep discriminated ref/value bindings. */
+/** Server session wire schemas. Core Session lives in agentSession. */
 import { z } from '@hono/zod-openapi';
-import { AgentSpecSchema, TokenPaginationSchema } from '@truefoundry/utils-core/agent-session';
+import { AgentSpecSchema, SessionSchema, TokenPaginationSchema } from '@truefoundry/utils-core/agent-session';
 import { NameSchema } from './common';
 
-const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('SessionAgentNameRef');
+export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('SessionAgentNameRef');
 
 const InlineSessionAgentSchema = AgentSpecSchema.strict().openapi('InlineSessionAgent');
 
-/** The public API uses a name ref or an inline AgentSpec without internal discriminator fields. */
-export const SessionWireAgentSchema = z
+/** Create accepts either a unique agent name or an inline AgentSpec. */
+export const CreateSessionAgentSchema = z
   .union([SessionAgentNameRefSchema, InlineSessionAgentSchema])
-  .openapi('SessionWireAgent');
-
-export const SessionSchema = z
-  .object({
-    id: z.string(),
-    agent: SessionWireAgentSchema,
-    title: z.string().nullable(),
-    created_at: z.string(),
-    updated_at: z.string(),
-  })
-  .openapi('Session');
+  .openapi('CreateSessionAgent');
 
 export const CreateSessionRequestSchema = z
-  .object({ agent: SessionWireAgentSchema })
+  .object({ agent: CreateSessionAgentSchema })
   .strict()
   .openapi('CreateSessionRequest');
 
@@ -33,7 +23,7 @@ export const UpdateSessionRequestSchema = z
   .strict()
   .openapi('UpdateSessionRequest');
 
-export type Session = z.infer<typeof SessionSchema>;
+export type { Session } from '@truefoundry/utils-core/agent-session';
 
 export const DEFAULT_SESSIONS_LIMIT = 10;
 export const SESSIONS_MAX_LIMIT = 100;
@@ -67,7 +57,7 @@ export const ListSessionsRequestQuerySchema = z
     end_timestamp: IsoTimestampQueryParam.optional().describe(
       'Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339).',
     ),
-    agent_name: NameSchema.optional().describe('When set, only sessions bound to this named agent are returned.'),
+    agent_id: z.string().min(1).optional().describe('When set, only sessions bound to this agent id are returned.'),
   })
   .openapi('ListSessionsRequestQuery');
 

@@ -80,9 +80,9 @@ describe('sessions HTTP agent binding', () => {
     const res = await app.request('/', jsonInit('POST', { agent: draftSpec }));
     expect(res.status).toBe(201);
     const json = (await res.json()) as {
-      data: { id: string; agent: { instructions?: string } };
+      data: { id: string; agent: { type: 'value'; agent_spec: { instructions?: string } } };
     };
-    expect(json.data.agent.instructions).toBe('draft');
+    expect(json.data.agent.agent_spec.instructions).toBe('draft');
   });
 
   it('returns 404 when creating a session for an unknown agent name', async () => {
@@ -90,7 +90,7 @@ describe('sessions HTTP agent binding', () => {
     expect(missing.status).toBe(404);
   });
 
-  it('creates a named session and filters list by agent_name', async () => {
+  it('creates a named session and filters list by agent_id', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: TENANT_ID,
       name: 'named-agent',
@@ -103,16 +103,16 @@ describe('sessions HTTP agent binding', () => {
     const created = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
     expect(created.status).toBe(201);
     const json = (await created.json()) as {
-      data: { id: string; agent: { name: string } };
+      data: { id: string; agent: { type: 'ref'; agent_id: string } };
     };
-    expect(json.data.agent).toEqual({ name: agent.name });
+    expect(json.data.agent).toEqual({ type: 'ref', agent_id: agent.id });
 
-    const listed = await app.request(`/?agent_name=${encodeURIComponent(agent.name)}`);
+    const listed = await app.request(`/?agent_id=${encodeURIComponent(agent.id)}`);
     expect(listed.status).toBe(200);
     const listJson = (await listed.json()) as {
-      data: Array<{ id: string; agent: { name: string } }>;
+      data: Array<{ id: string; agent: { type: 'ref'; agent_id: string } }>;
     };
-    expect(listJson.data.every(row => row.agent.name === agent.name)).toBe(true);
+    expect(listJson.data.every(row => row.agent.agent_id === agent.id)).toBe(true);
     expect(listJson.data.some(row => row.id === json.data.id)).toBe(true);
   });
 
@@ -148,9 +148,9 @@ describe('sessions HTTP agent binding', () => {
     );
     expect(patched.status).toBe(200);
     const patchedJson = (await patched.json()) as {
-      data: { agent: { instructions?: string } };
+      data: { agent: { type: 'value'; agent_spec: { instructions?: string } } };
     };
-    expect(patchedJson.data.agent.instructions).toBe('updated');
+    expect(patchedJson.data.agent.agent_spec.instructions).toBe('updated');
   });
 
   it('rejects create bodies that mix name and AgentSpec fields', async () => {

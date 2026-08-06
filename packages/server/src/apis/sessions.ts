@@ -4,6 +4,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ISessionStore, SessionRecord, Sessions } from '@truefoundry/utils-core/agent-session';
 import {
+  AgentSpecSchema,
   CancellationReason,
   SessionStoreConflictError,
   SessionStoreInvariantError,
@@ -19,7 +20,7 @@ import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';
 import { z } from 'zod';
 import configuration from '../config';
-import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -36,7 +37,7 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { executorFromTurnId } from '../runtime/peeringIds';
 import { validateAgentSpec } from '../runtime/sessionResources';
-import type { Session } from '../schemas/session';
+import { SessionAgentNameRefSchema, type Session } from '../schemas/session';
 
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
 export const TENANT_ID = 'default';
@@ -52,34 +53,14 @@ const CancelPeerBodySchema = z.object({
 });
 type CancelPeerBody = z.infer<typeof CancelPeerBodySchema>;
 
-function requireAgentName(record: SessionRecord, agents: AgentRecord[]): string {
-  if (record.agent.type !== 'ref') {
-    throw new Error('Cannot resolve an agent name for an inline session');
-  }
-  const agentId = record.agent.agent_id;
-  const agent = agents.find(candidate => candidate.id === agentId);
-  if (agent === undefined) {
-    throw new Error(`Agent not found for session: ${agentId}`);
-  }
-  return agent.name;
-}
-
-export function toWireSession(record: SessionRecord, agents: AgentRecord[] = []): Session {
+export function toWireSession(record: SessionRecord): Session {
   return {
     id: record.session_id,
-    agent: record.agent.type === 'ref' ? { name: requireAgentName(record, agents) } : record.agent.agent_spec,
+    agent: record.agent,
     title: record.title,
     created_at: record.created_at.toISOString(),
     updated_at: record.updated_at.toISOString(),
   };
-}
-
-async function agentsForSession(record: SessionRecord, agentStore: IAgentStore): Promise<AgentRecord[]> {
-  if (record.agent.type === 'value') {
-    return [];
-  }
-  const agent = await agentStore.getAgent({ tenant_id: TENANT_ID, id: record.agent.agent_id });
-  return agent === undefined ? [] : [agent];
 }
 
 export interface SessionsRouterDeps {
@@ -209,21 +190,23 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const body = c.req.valid('json');
     const sessionId = ulid().toLowerCase();
 
-    if ('name' in body.agent) {
-      const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: body.agent.name });
+    const namedAgent = SessionAgentNameRefSchema.safeParse(body.agent);
+    if (namedAgent.success) {
+      const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: namedAgent.data.name });
       if (agent === undefined) {
-        return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
+        return c.json({ error: { message: `Agent not found: ${namedAgent.data.name}` } }, 404);
       }
       const session = await deps.sessions.create({
         tenant_id: TENANT_ID,
         session_id: sessionId,
         agent: { type: 'ref', agent_id: agent.id },
       });
-      return c.json({ data: toWireSession(session.record, [agent]) }, 201);
+      return c.json({ data: toWireSession(session.record) }, 201);
     }
 
+    const agentSpec = AgentSpecSchema.parse(body.agent);
     await validateAgentSpec({
-      spec: body.agent,
+      spec: agentSpec,
       tenant_id: TENANT_ID,
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
@@ -233,7 +216,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const session = await deps.sessions.create({
       tenant_id: TENANT_ID,
       session_id: sessionId,
-      agent: { type: 'value', agent_spec: body.agent },
+      agent: { type: 'value', agent_spec: agentSpec },
     });
     return c.json({ data: toWireSession(session.record) }, 201);
   };
@@ -244,8 +227,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    const agents = await agentsForSession(record, deps.agentStore);
-    return c.json({ data: toWireSession(record, agents) }, 200);
+    return c.json({ data: toWireSession(record) }, 200);
   };
 
   const deleteSessionHandler: RouteHandler<typeof deleteSessionRoute> = async c => {
@@ -289,22 +271,14 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    const agents = await agentsForSession(record, deps.agentStore);
-    return c.json({ data: toWireSession(record, agents) }, 200);
+    return c.json({ data: toWireSession(record) }, 200);
   };
 
   const listSessionsHandler: RouteHandler<typeof listSessionsRoute> = async c => {
     const query = c.req.valid('query');
-    const filterAgent =
-      query.agent_name === undefined
-        ? undefined
-        : await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: query.agent_name });
-    if (query.agent_name !== undefined && filterAgent === undefined) {
-      return c.json({ error: { message: `Agent not found: ${query.agent_name}` } }, 404);
-    }
     try {
       const { data, pagination } = await deps.sessionStore.listSessions({
-        agent_id: filterAgent?.id,
+        agent_id: query.agent_id,
         tenant_id: TENANT_ID,
         limit: query.limit,
         order: query.order,
@@ -312,8 +286,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         start_timestamp: query.start_timestamp,
         end_timestamp: query.end_timestamp,
       });
-      const agents = filterAgent === undefined ? await deps.agentStore.listAgents(TENANT_ID) : [filterAgent];
-      return c.json({ data: data.map(record => toWireSession(record, agents)), pagination }, 200);
+      return c.json({ data: data.map(toWireSession), pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
         return c.json({ error: { message: error.message } }, 400);
