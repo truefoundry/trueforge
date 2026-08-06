@@ -437,8 +437,7 @@ export type ConnectorAuthApiKey = {
 export type ConnectorAuthNone = { type: 'none' };
 export type ConnectorAuth = ConnectorAuthOAuth | ConnectorAuthApiKey | ConnectorAuthNone;
 
-// Public (list/detail) — no secrets; oauth requires authUrl
-export type ConnectorAuthPublicOAuth = { type: 'dcr'; authUrl: string };
+export type ConnectorAuthPublicOAuth = { type: 'dcr'; authUrl?: string };
 export type ConnectorAuthPublicApiKey = {
   type: 'header';
   headerName?: string;

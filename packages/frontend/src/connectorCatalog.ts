@@ -179,7 +179,10 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
       return toUiConnector(body.data);
     },
     authenticateConnector: async req => {
-      const result = await client.mcpServers.authorize(req.id, { redirectUrl: req.redirectURL });
+      const result = await client.mcpServers.authorize(
+        req.id,
+        req.redirectURL === undefined ? {} : { redirectUrl: req.redirectURL },
+      );
       return { status: result.status, authorization_endpoint: result.authorizationUrl };
     },
     disconnectConnector: async req => {
