@@ -85,14 +85,14 @@ export async function buildLoginAuthorization(options: {
 export async function exchangeAuthorizationCode(options: {
   context: Context;
   oidc: OIDCConfig;
-  code: string;
+  /** Whole IdP response query: openid-client validates `state`, `error` and `iss` from it. */
+  callbackParams: URLSearchParams;
   codeVerifier: string;
   expectedState: string;
 }): Promise<void> {
-  // redirect_uri is fixed; openid-client still needs the IdP response query (code + state).
+  // Origin and path come from config so redirect_uri matches the one registered with the IdP.
   const callbackUrl = new URL(authCallbackUrl());
-  callbackUrl.searchParams.set('code', options.code);
-  callbackUrl.searchParams.set('state', options.expectedState);
+  callbackUrl.search = options.callbackParams.toString();
   const tokens = await client.authorizationCodeGrant(requireOidcConfiguration(options.oidc), callbackUrl, {
     pkceCodeVerifier: options.codeVerifier,
     expectedState: options.expectedState,

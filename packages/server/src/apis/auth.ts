@@ -51,7 +51,7 @@ export function createAuthRouter() {
       await exchangeAuthorizationCode({
         context: c,
         oidc,
-        code: query.code,
+        callbackParams: new URL(c.req.url).searchParams,
         codeVerifier: pending.code_verifier,
         expectedState: pending.state,
       });

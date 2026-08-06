@@ -152,6 +152,7 @@ describe('auth router (OIDC configured)', () => {
           token_endpoint_auth_methods_supported: ['client_secret_post'],
           id_token_signing_alg_values_supported: ['RS256'],
           subject_types_supported: ['public'],
+          authorization_response_iss_parameter_supported: true,
         });
       }
 
@@ -190,6 +191,7 @@ describe('auth router (OIDC configured)', () => {
     expect(cookieValue(setCookies(res), STATE_COOKIE)).toBeTruthy();
   });
 
+  // `iss` is forwarded verbatim: IdPs advertising it reject an exchange that drops it.
   it('GET /callback exchanges the code and sets id_token', async () => {
     const router = createAuthRouter();
     const loginRes = await router.request('/login?return_to=/sessions/abc123', { redirect: 'manual' });
@@ -197,7 +199,7 @@ describe('auth router (OIDC configured)', () => {
     const authorizationUrl = new URL(loginRes.headers.get('location') ?? '');
     const state = authorizationUrl.searchParams.get('state') ?? '';
 
-    const callbackRes = await router.request(`/callback?code=abc123&state=${state}`, {
+    const callbackRes = await router.request(`/callback?code=abc123&state=${state}&iss=${encodeURIComponent(ISSUER)}`, {
       redirect: 'manual',
       headers: { Cookie: `${STATE_COOKIE}=${stateCookieRaw}` },
     });
