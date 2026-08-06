@@ -136,11 +136,6 @@ describe('createHarnessChatServer', () => {
     const requests: { url: string; body?: unknown }[] = [];
     const fetchNamed: typeof fetch = async (input, init) => {
       const url = input instanceof Request ? input.url : String(input);
-      if (url.endsWith('/api/v1/agents')) {
-        return Response.json({
-          data: [{ id: 'agt_1', name: 'reviewer', model: { name: 'test/model' } }],
-        });
-      }
       if (url.endsWith('/api/v1/sessions') && init?.method === 'POST' && typeof init.body === 'string') {
         requests.push({ url, body: JSON.parse(init.body) });
         return Response.json({ data: { ...session, agent: { type: 'ref', agent_id: 'agt_1' } } });

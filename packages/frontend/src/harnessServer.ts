@@ -209,13 +209,14 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
         const created = await client.sessions.create({
           agent: { name: request.agentName },
         });
-        return toUiSessionResolvingAgent(client, created.data);
+        const { agent } = created.data;
+        return toUiSession(created.data, agent.type === 'ref' ? [{ id: agent.agentId, name: request.agentName }] : []);
       }
       if (request.agentSpec !== undefined) {
         const created = await client.sessions.create({
           agent: toHarnessAgentSpec(request.agentSpec),
         });
-        return toUiSessionResolvingAgent(client, created.data);
+        return toUiSession(created.data);
       }
       throw new Error('createSession requires agentName or agentSpec');
     },
