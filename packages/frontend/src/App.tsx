@@ -99,7 +99,9 @@ export function App() {
   }, []);
 
   const overrides: SlotOverrides = useMemo(
-    () => (boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
+    () => ({
+      ...(boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
+    }),
     [boot],
   );
 
