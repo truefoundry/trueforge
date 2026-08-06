@@ -209,15 +209,14 @@ function resolveOIDCConfig(): OIDCConfig | undefined {
   const issuerUrl = getEnv('OIDC_ISSUER_URL');
   const clientId = getEnv('OIDC_CLIENT_ID');
   const clientSecret = getEnv('OIDC_CLIENT_SECRET');
-  const setCount = [issuerUrl, clientId, clientSecret].filter(value => value !== undefined && value !== '').length;
 
-  if (setCount === 0) {
+  if (!issuerUrl && !clientId && !clientSecret) {
     return undefined;
   }
-  if (setCount < 3 || issuerUrl === undefined || clientId === undefined || clientSecret === undefined) {
+  if (!issuerUrl || !clientId || !clientSecret) {
     throw new Error(
       'OIDC_ISSUER_URL, OIDC_CLIENT_ID, and OIDC_CLIENT_SECRET must all be set together, or all left unset ' +
-        '(unset = local/single-binary mode, no auth).',
+        '(unset = fixed local admin identity, no IdP).',
     );
   }
   return { OIDC_ISSUER_URL: issuerUrl, OIDC_CLIENT_ID: clientId, OIDC_CLIENT_SECRET: clientSecret };
