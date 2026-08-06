@@ -291,7 +291,7 @@ export async function validateAgentSpec({
   const reasoningEffort = spec.model.params?.reasoning_effort;
   if (reasoningEffort !== undefined) {
     const efforts = model.properties.reasoning_efforts;
-    if (!efforts?.includes(reasoningEffort)) {
+    if (!efforts?.some(effort => effort === reasoningEffort)) {
       throw new HTTPException(422, {
         message: efforts
           ? `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`
