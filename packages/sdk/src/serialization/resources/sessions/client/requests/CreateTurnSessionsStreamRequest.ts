@@ -6,17 +6,17 @@ import type * as serializers from "../../../../index.js";
 import { PreviousTurnIdInput } from "../../../../types/PreviousTurnIdInput.js";
 import { TurnInputItem } from "../../../../types/TurnInputItem.js";
 
-export const CreateTurnRequest: core.serialization.Schema<
-    serializers.CreateTurnRequest.Raw,
-    TrueForge.CreateTurnRequest
+export const CreateTurnSessionsStreamRequest: core.serialization.Schema<
+    serializers.CreateTurnSessionsStreamRequest.Raw,
+    TrueForge.CreateTurnSessionsStreamRequest
 > = core.serialization.object({
     input: core.serialization.list(TurnInputItem).optional(),
-    previousTurnId: core.serialization.property("previous_turn_id", PreviousTurnIdInput.optionalNullable()),
+    previousTurnId: core.serialization.property("previous_turn_id", PreviousTurnIdInput.optional()),
 });
 
-export declare namespace CreateTurnRequest {
+export declare namespace CreateTurnSessionsStreamRequest {
     export interface Raw {
         input?: TurnInputItem.Raw[] | null;
-        previous_turn_id?: (PreviousTurnIdInput.Raw | null | undefined) | null;
+        previous_turn_id?: PreviousTurnIdInput.Raw | null;
     }
 }

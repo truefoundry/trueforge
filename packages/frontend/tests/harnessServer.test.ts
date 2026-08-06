@@ -109,15 +109,15 @@ describe('createHarnessChatServer', () => {
     for await (const event of server.createTurn({
       sessionId: 'ses_1',
       input: [{ type: 'user.message', content: 'hello' }],
-      // The runtime's root sentinel; Harness 404s unless it becomes `null`.
       previousTurnId: 'none',
     })) {
       events.push(event);
     }
 
     const sent = turnRequests.at(-1);
-    assert.ok(sent !== null && typeof sent === 'object' && 'previous_turn_id' in sent);
-    assert.equal(sent.previous_turn_id, null);
+    assert.ok(sent !== null && typeof sent === 'object' && 'previous_turn_id' in sent && 'stream' in sent);
+    assert.equal(sent.previous_turn_id, 'none');
+    assert.equal(sent.stream, true);
 
     assert.deepEqual(events, [
       {
