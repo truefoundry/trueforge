@@ -24,7 +24,7 @@ import type {
   TurnInputItem,
   UserMessageContent,
 } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi as Harness } from 'trueforge';
+import type { TrueForgeApi as Harness, TrueForge } from 'trueforge';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 export type HarnessSkillMount = SkillMount;
 export type HarnessMcpServerMount = McpServerMount & Harness.McpServer;
@@ -35,11 +35,6 @@ export interface HarnessAgentSpec extends AgentSpec<Harness.AgentSpecModel, Harn
   messages?: Harness.AgentSpecUserMessage[];
   responseFormat?: Harness.ResponseFormat;
   variables?: Record<string, string>;
-}
-
-export interface HarnessSession extends Session<HarnessAgentSpec> {
-  agentSpec?: HarnessAgentSpec;
-  isMutable: boolean;
 }
 
 export type CreateHarnessServerOptions = CreateHarnessClientOptions;
@@ -81,17 +76,28 @@ function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
   };
 }
 
-function toUiSession(session: Harness.Session): HarnessSession {
+/** `agentName` is caller-known (UI speaks names; the wire carries only agent ids). */
+function toUiSession(session: Harness.Session, agentName?: string): Session<HarnessAgentSpec> {
   // Value agents are draft/mutable; ref agents are named/immutable.
-  const isMutable = session.agent.type === 'value';
   return {
     id: session.id,
-    isMutable,
+    isMutable: session.agent.type === 'value',
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     ...(session.title === null ? {} : { title: session.title }),
+    ...(session.agent.type === 'ref' && agentName !== undefined ? { agentName } : {}),
     ...(session.agent.type === 'value' ? { agentSpec: toUiAgentSpec(session.agent.agentSpec) } : {}),
   };
+}
+
+/** No get-by-name endpoint; list and match. Registries are small (one tenant). */
+async function findAgentByName(client: TrueForge, name: string): Promise<Harness.Agent> {
+  const { data } = await client.agents.list();
+  const agent = data.find(candidate => candidate.name === name);
+  if (agent === undefined) {
+    throw new Error(`Agent not found: ${name}`);
+  }
+  return agent;
 }
 
 /** Spread drops the interface identity, which is what makes the SDK's index-signature part type accept it. */
@@ -182,30 +188,53 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
 
   return {
     async createSession(request) {
-      if (!request.agentSpec) {
-        throw new Error('Harness sessions require an agentSpec');
+      if (request.agentName !== undefined && request.agentName.length > 0) {
+        const agent = await findAgentByName(client, request.agentName);
+        const created = await client.sessions.create({
+          agent: { type: 'ref', agentId: agent.id },
+        });
+        return toUiSession(created.data, agent.name);
       }
-      const created = await client.sessions.create({
-        agent: { type: 'value', agentSpec: toHarnessAgentSpec(request.agentSpec) },
-      });
-      return toUiSession(created.data);
+      if (request.agentSpec !== undefined) {
+        const created = await client.sessions.create({
+          agent: { type: 'value', agentSpec: toHarnessAgentSpec(request.agentSpec) },
+        });
+        return toUiSession(created.data);
+      }
+      throw new Error('createSession requires agentName or agentSpec');
     },
 
     async listSessions(request = {}) {
+      // The filter is the name, so every ref row in the result carries it.
+      const agentName = request.agentName !== undefined && request.agentName.length > 0 ? request.agentName : undefined;
+      const agent = agentName === undefined ? undefined : await findAgentByName(client, agentName);
+
       const page = await client.sessions.list({
         ...(request.limit === undefined ? {} : { limit: request.limit }),
         ...(request.order === undefined ? {} : { order: request.order }),
         ...(request.pageToken === undefined ? {} : { pageToken: request.pageToken }),
+        ...(agent === undefined ? {} : { agentId: agent.id }),
       });
-      return toPage(page, toUiSession);
+      return toPage(page, session => toUiSession(session, agentName));
     },
 
     async getSession({ sessionId }) {
       const response = await client.sessions.get(sessionId);
+      const { agent } = response.data;
+      if (agent.type === 'ref') {
+        const { data } = await client.agents.list();
+        return toUiSession(response.data, data.find(candidate => candidate.id === agent.agentId)?.name);
+      }
       return toUiSession(response.data);
     },
 
     async updateSession({ sessionId, agentSpec }) {
+      if (agentSpec !== undefined) {
+        const current = await client.sessions.get(sessionId);
+        if (current.data.agent.type === 'ref') {
+          throw new Error('Cannot update agent on a named session');
+        }
+      }
       const response = await client.sessions.update(sessionId, {
         ...(agentSpec === undefined ? {} : { agent: { type: 'value', agentSpec: toHarnessAgentSpec(agentSpec) } }),
       });
