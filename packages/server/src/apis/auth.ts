@@ -23,7 +23,10 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
         returnTo: c.req.valid('query').return_to,
       });
       return c.redirect(authorizationUrl, 302);
-    } catch {
+    } catch (error) {
+      params.logger.error('Failed to build login authorization', {
+        error: error instanceof Error ? error.message : error,
+      });
       return c.redirect(LOGIN_ERROR_PATH, 302);
     }
   });
@@ -51,7 +54,10 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
         state: pending.state,
       });
       return c.redirect(safeReturnTo(pending.return_to), 302);
-    } catch {
+    } catch (error) {
+      params.logger.error('Failed to exchange authorization code', {
+        error: error instanceof Error ? error.message : error,
+      });
       // TODO: handle the error here once frontend error page is implemented
       return c.redirect(LOGIN_ERROR_PATH, 302);
     }
