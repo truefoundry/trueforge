@@ -13,7 +13,6 @@ import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
-import type { SessionAgent } from './schemas/session';
 
 /**
  * Factory that creates a Sandbox handle for a run (reattach via
@@ -56,8 +55,6 @@ export class TurnResourceResolver<
 > implements ITurnResourceResolver<TTurnCustom> {
   readonly #sources = new Map<string, Promise<ToolSource>>();
   #sandbox?: Sandbox | undefined;
-  /** Per-turn cache: first resolveAgentSpec wins for this resolver instance. */
-  #resolvedAgentSpec?: AgentSpec | undefined;
 
   constructor(
     protected readonly deps: {
@@ -93,25 +90,14 @@ export class TurnResourceResolver<
     return NOOP_AGENT_TRACING;
   }
 
-  /**
-   * Value → stored blob; ref → deps.agent live lookup. Cached for this
-   * resolver instance (one turn).
-   */
-  async resolveAgentSpec(input: { agent: SessionAgent }): Promise<AgentSpec> {
-    if (this.#resolvedAgentSpec !== undefined) {
-      return this.#resolvedAgentSpec;
-    }
-    if (input.agent.type === 'value') {
-      this.#resolvedAgentSpec = input.agent.agent_spec;
-      return this.#resolvedAgentSpec;
-    }
+  /** Named (ref) session agent → live registry lookup via deps.agent. */
+  async resolveAgentSpec(input: { agent_id: string }): Promise<AgentSpec> {
     if (this.deps.agent === undefined) {
       throw new Error(
-        `Named agent '${input.agent.agent_id}' cannot be resolved: no agent lookup configured on the turn resolver`,
+        `Named agent '${input.agent_id}' cannot be resolved: no agent lookup configured on the turn resolver`,
       );
     }
-    this.#resolvedAgentSpec = await this.deps.agent(input.agent.agent_id);
-    return this.#resolvedAgentSpec;
+    return await this.deps.agent(input.agent_id);
   }
 
   /**

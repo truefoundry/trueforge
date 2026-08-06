@@ -199,9 +199,9 @@ export class SessionHandle<
     // wraps getAgent/handler.init and calls gatewayStore.dispose() on failure.
     try {
       const tracing = input.resolver.createTracing();
-      const spec = await input.resolver.resolveAgentSpec({
-        agent: this.session.agent,
-      });
+      const agent = this.session.agent;
+      const spec =
+        agent.type === 'value' ? agent.agent_spec : await input.resolver.resolveAgentSpec({ agent_id: agent.agent_id });
       const sandbox = await input.resolver.resolveSandbox({
         spec,
         existing: previous?.snapshot.sandbox_info ?? undefined,
