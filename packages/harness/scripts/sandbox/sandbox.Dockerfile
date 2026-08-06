@@ -1,7 +1,8 @@
 FROM python:3.13-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
-ARG NATS_SERVER_VERSION=2.14.2
+ARG NATS_SERVER_VERSION="v2.14.2"
+ARG HELM_VERSION="v4.2.3"
 
 RUN apt-get update \
       && apt-get install -y --no-install-recommends \
@@ -14,13 +15,19 @@ RUN apt-get update \
         tree \
         unzip \
         zip \
+      && curl -LO https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz \
+      && tar -zxvf helm-${HELM_VERSION}-linux-amd64.tar.gz \
+      && mv linux-amd64/helm /usr/local/bin/helm \
+      && rm -rf helm-${HELM_VERSION}-linux-amd64.tar.gz linux-amd64 \
+      && helm version \
+      && curl -L https://github.com/nats-io/nats-server/releases/download/${NATS_SERVER_VERSION}/nats-server-${NATS_SERVER_VERSION}-linux-amd64.tar.gz -o /tmp/nats-server.tar.gz \
+      && tar -xzf /tmp/nats-server.tar.gz -C /tmp \
+      && mv /tmp/nats-server-${NATS_SERVER_VERSION}-linux-amd64/nats-server /usr/local/bin/nats-server \
+      && rm -rf /tmp/nats-server.tar.gz /tmp/nats-server-${NATS_SERVER_VERSION}-linux-amd64 \
+      && mkdir -p /var/lib/nats /var/log/nats \
+      && nats-server --version \
       && git config --global user.email "trueforge@example.org" \
       && git config --global user.name "TrueForge Agent" \
-      && curl -L https://github.com/nats-io/nats-server/releases/download/v${NATS_SERVER_VERSION}/nats-server-v${NATS_SERVER_VERSION}-linux-amd64.tar.gz -o /tmp/nats-server.tar.gz \
-      && tar -xzf /tmp/nats-server.tar.gz -C /tmp \
-      && mv /tmp/nats-server-v${NATS_SERVER_VERSION}-linux-amd64/nats-server /usr/local/bin/nats-server \
-      && rm -rf /tmp/nats-server.tar.gz /tmp/nats-server-v${NATS_SERVER_VERSION}-linux-amd64 \
-      && mkdir -p /var/lib/nats /var/log/nats \
       && python -m pip install --no-cache-dir --upgrade pip \
       && python -m pip install --no-cache-dir \
         aiohttp==3.14.1 \
