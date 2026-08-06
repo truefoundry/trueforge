@@ -5,24 +5,25 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ModelEntry } from "./ModelEntry.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
+import { ResourceName } from "./ResourceName.js";
 
-export const FireworksModelProvider: core.serialization.ObjectSchema<
-    serializers.FireworksModelProvider.Raw,
-    TrueForge.FireworksModelProvider
+export const CustomModelProviderManifest: core.serialization.ObjectSchema<
+    serializers.CustomModelProviderManifest.Raw,
+    TrueForge.CustomModelProviderManifest
 > = core.serialization.object({
     auth: ModelProviderAuth,
-    baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
+    baseUrl: core.serialization.property("base_url", core.serialization.string()),
     models: core.serialization.list(ModelEntry),
-    name: core.serialization.stringLiteral("fireworks").optional(),
-    type: core.serialization.stringLiteral("fireworks"),
+    name: ResourceName,
+    type: core.serialization.stringLiteral("custom"),
 });
 
-export declare namespace FireworksModelProvider {
+export declare namespace CustomModelProviderManifest {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
-        base_url?: string | null;
+        base_url: string;
         models: ModelEntry.Raw[];
-        name?: "fireworks" | null;
-        type: "fireworks";
+        name: ResourceName.Raw;
+        type: "custom";
     }
 }

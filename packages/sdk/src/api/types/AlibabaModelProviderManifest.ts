@@ -2,11 +2,10 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface ZaiModelProvider {
+export interface AlibabaModelProviderManifest {
     auth: TrueForge.ModelProviderAuth;
     /** Override of the provider's default API base URL. */
     baseUrl?: string;
     models: TrueForge.ModelEntry[];
-    name?: "zai";
-    type: "zai";
+    type: "alibaba";
 }

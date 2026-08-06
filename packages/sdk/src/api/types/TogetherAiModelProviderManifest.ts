@@ -2,11 +2,10 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface OpenAiModelProvider {
+export interface TogetherAiModelProviderManifest {
     auth: TrueForge.ModelProviderAuth;
     /** Override of the provider's default API base URL. */
     baseUrl?: string;
     models: TrueForge.ModelEntry[];
-    name?: "openai";
-    type: "openai";
+    type: "together";
 }

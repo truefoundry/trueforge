@@ -5,25 +5,22 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ModelEntry } from "./ModelEntry.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
-import { ResourceName } from "./ResourceName.js";
 
-export const CustomModelProvider: core.serialization.ObjectSchema<
-    serializers.CustomModelProvider.Raw,
-    TrueForge.CustomModelProvider
+export const TogetherAiModelProviderManifest: core.serialization.ObjectSchema<
+    serializers.TogetherAiModelProviderManifest.Raw,
+    TrueForge.TogetherAiModelProviderManifest
 > = core.serialization.object({
     auth: ModelProviderAuth,
-    baseUrl: core.serialization.property("base_url", core.serialization.string()),
+    baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    name: ResourceName,
-    type: core.serialization.stringLiteral("custom"),
+    type: core.serialization.stringLiteral("together"),
 });
 
-export declare namespace CustomModelProvider {
+export declare namespace TogetherAiModelProviderManifest {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
-        base_url: string;
+        base_url?: string | null;
         models: ModelEntry.Raw[];
-        name: ResourceName.Raw;
-        type: "custom";
+        type: "together";
     }
 }

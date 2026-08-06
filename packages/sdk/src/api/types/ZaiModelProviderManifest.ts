@@ -2,11 +2,10 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface FireworksModelProvider {
+export interface ZaiModelProviderManifest {
     auth: TrueForge.ModelProviderAuth;
     /** Override of the provider's default API base URL. */
     baseUrl?: string;
     models: TrueForge.ModelEntry[];
-    name?: "fireworks";
-    type: "fireworks";
+    type: "zai";
 }

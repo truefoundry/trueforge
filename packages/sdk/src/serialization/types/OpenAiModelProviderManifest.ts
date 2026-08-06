@@ -6,23 +6,21 @@ import type * as serializers from "../index.js";
 import { ModelEntry } from "./ModelEntry.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
 
-export const TogetherAiModelProvider: core.serialization.ObjectSchema<
-    serializers.TogetherAiModelProvider.Raw,
-    TrueForge.TogetherAiModelProvider
+export const OpenAiModelProviderManifest: core.serialization.ObjectSchema<
+    serializers.OpenAiModelProviderManifest.Raw,
+    TrueForge.OpenAiModelProviderManifest
 > = core.serialization.object({
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    name: core.serialization.stringLiteral("together").optional(),
-    type: core.serialization.stringLiteral("together"),
+    type: core.serialization.stringLiteral("openai"),
 });
 
-export declare namespace TogetherAiModelProvider {
+export declare namespace OpenAiModelProviderManifest {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
-        name?: "together" | null;
-        type: "together";
+        type: "openai";
     }
 }

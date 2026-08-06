@@ -194,7 +194,7 @@
         ],
         "description": "Agent Definition"
       },
-      "AlibabaModelProvider": {
+      "AlibabaModelProviderManifest": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -213,13 +213,6 @@
             "minItems": 1,
             "type": "array"
           },
-          "name": {
-            "default": "alibaba",
-            "enum": [
-              "alibaba"
-            ],
-            "type": "string"
-          },
           "type": {
             "enum": [
               "alibaba"
@@ -234,7 +227,7 @@
         ],
         "type": "object"
       },
-      "AnthropicModelProvider": {
+      "AnthropicModelProviderManifest": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -252,13 +245,6 @@
             },
             "minItems": 1,
             "type": "array"
-          },
-          "name": {
-            "default": "anthropic",
-            "enum": [
-              "anthropic"
-            ],
-            "type": "string"
           },
           "type": {
             "enum": [
@@ -758,7 +744,7 @@
         },
         "type": "object"
       },
-      "CustomModelProvider": {
+      "CustomModelProviderManifest": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -918,7 +904,7 @@
         ],
         "type": "string"
       },
-      "FireworksModelProvider": {
+      "FireworksModelProviderManifest": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -936,13 +922,6 @@
             },
             "minItems": 1,
             "type": "array"
-          },
-          "name": {
-            "default": "fireworks",
-            "enum": [
-              "fireworks"
-            ],
-            "type": "string"
           },
           "type": {
             "enum": [
@@ -1122,7 +1101,7 @@
         ],
         "type": "object"
       },
-      "GoogleGeminiModelProvider": {
+      "GoogleGeminiModelProviderManifest": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -1140,13 +1119,6 @@
             },
             "minItems": 1,
             "type": "array"
-          },
-          "name": {
-            "default": "google-gemini",
-            "enum": [
-              "google-gemini"
-            ],
-            "type": "string"
           },
           "type": {
             "enum": [
@@ -2013,49 +1985,27 @@
         "type": "object"
       },
       "ModelProvider": {
-        "discriminator": {
-          "mapping": {
-            "alibaba": "#/components/schemas/AlibabaModelProvider",
-            "anthropic": "#/components/schemas/AnthropicModelProvider",
-            "custom": "#/components/schemas/CustomModelProvider",
-            "fireworks": "#/components/schemas/FireworksModelProvider",
-            "google-gemini": "#/components/schemas/GoogleGeminiModelProvider",
-            "moonshot": "#/components/schemas/MoonshotModelProvider",
-            "openai": "#/components/schemas/OpenAIModelProvider",
-            "together": "#/components/schemas/TogetherAIModelProvider",
-            "zai": "#/components/schemas/ZaiModelProvider"
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/ModelProviderManifest"
           },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/OpenAIModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/AnthropicModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/GoogleGeminiModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/FireworksModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/ZaiModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/MoonshotModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/TogetherAIModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/AlibabaModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/CustomModelProvider"
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Identity of the configured provider; first segment of a model FQN."
+              }
+            ]
           }
-        ]
+        },
+        "required": [
+          "name",
+          "manifest"
+        ],
+        "type": "object"
       },
       "ModelProviderAuth": {
         "additionalProperties": false,
@@ -2070,7 +2020,52 @@
         ],
         "type": "object"
       },
-      "MoonshotModelProvider": {
+      "ModelProviderManifest": {
+        "discriminator": {
+          "mapping": {
+            "alibaba": "#/components/schemas/AlibabaModelProviderManifest",
+            "anthropic": "#/components/schemas/AnthropicModelProviderManifest",
+            "custom": "#/components/schemas/CustomModelProviderManifest",
+            "fireworks": "#/components/schemas/FireworksModelProviderManifest",
+            "google-gemini": "#/components/schemas/GoogleGeminiModelProviderManifest",
+            "moonshot": "#/components/schemas/MoonshotModelProviderManifest",
+            "openai": "#/components/schemas/OpenAIModelProviderManifest",
+            "together": "#/components/schemas/TogetherAIModelProviderManifest",
+            "zai": "#/components/schemas/ZaiModelProviderManifest"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OpenAIModelProviderManifest"
+          },
+          {
+            "$ref": "#/components/schemas/AnthropicModelProviderManifest"
+          },
+          {
+            "$ref": "#/components/schemas/GoogleGeminiModelProviderManifest"
+          },
+          {
+            "$ref": "#/components/schemas/FireworksModelProviderManifest"
+          },
+          {
+            "$ref": "#/components/schemas/ZaiModelProviderManifest"
+          },
+          {
+            "$ref": "#/components/schemas/MoonshotModelProviderManifest"
+          },
+          {
+            "$ref": "#/components/schemas/TogetherAIModelProviderManifest"
+          },
+          {
+            "$ref": "#/components/schemas/AlibabaModelProviderManifest"
+          },
+          {
+            "$ref": "#/components/schemas/CustomModelProviderManifest"
+          }
+        ]
+      },
+      "MoonshotModelProviderManifest": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -2089,13 +2084,6 @@
             "minItems": 1,
             "type": "array"
           },
-          "name": {
-            "default": "moonshot",
-            "enum": [
-              "moonshot"
-            ],
-            "type": "string"
-          },
           "type": {
             "enum": [
               "moonshot"
@@ -2110,7 +2098,7 @@
         ],
         "type": "object"
       },
-      "OpenAIModelProvider": {
+      "OpenAIModelProviderManifest": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -2128,13 +2116,6 @@
             },
             "minItems": 1,
             "type": "array"
-          },
-          "name": {
-            "default": "openai",
-            "enum": [
-              "openai"
-            ],
-            "type": "string"
           },
           "type": {
             "enum": [
@@ -2942,7 +2923,7 @@
         ],
         "type": "object"
       },
-      "TogetherAIModelProvider": {
+      "TogetherAIModelProviderManifest": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -2960,13 +2941,6 @@
             },
             "minItems": 1,
             "type": "array"
-          },
-          "name": {
-            "default": "together",
-            "enum": [
-              "together"
-            ],
-            "type": "string"
           },
           "type": {
             "enum": [
@@ -3714,7 +3688,7 @@
         ],
         "type": "object"
       },
-      "ZaiModelProvider": {
+      "ZaiModelProviderManifest": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -3732,13 +3706,6 @@
             },
             "minItems": 1,
             "type": "array"
-          },
-          "name": {
-            "default": "zai",
-            "enum": [
-              "zai"
-            ],
-            "type": "string"
           },
           "type": {
             "enum": [
@@ -5699,12 +5666,12 @@
         "x-fern-sdk-method-name": "list"
       },
       "put": {
-        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Every type but `custom` is named after itself, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named, and numbered, by the caller.",
+        "description": "Full upsert: creates the provider or replaces its entire configuration (models included). The key is the returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named by the caller.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ModelProvider"
+                "$ref": "#/components/schemas/ModelProviderManifest"
               }
             }
           },

@@ -6,23 +6,21 @@ import type * as serializers from "../index.js";
 import { ModelEntry } from "./ModelEntry.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
 
-export const AnthropicModelProvider: core.serialization.ObjectSchema<
-    serializers.AnthropicModelProvider.Raw,
-    TrueForge.AnthropicModelProvider
+export const ZaiModelProviderManifest: core.serialization.ObjectSchema<
+    serializers.ZaiModelProviderManifest.Raw,
+    TrueForge.ZaiModelProviderManifest
 > = core.serialization.object({
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    name: core.serialization.stringLiteral("anthropic").optional(),
-    type: core.serialization.stringLiteral("anthropic"),
+    type: core.serialization.stringLiteral("zai"),
 });
 
-export declare namespace AnthropicModelProvider {
+export declare namespace ZaiModelProviderManifest {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
-        name?: "anthropic" | null;
-        type: "anthropic";
+        type: "zai";
     }
 }
