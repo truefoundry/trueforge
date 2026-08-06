@@ -9,6 +9,9 @@
  *
  * Skills are name refs on the wire (`SkillNameRef`); the UI SkillMount only
  * needs `{ id, name }`, so id is derived as the skill name.
+ *
+ * Sessions speak agent names on the wire (`{ name }` or bare AgentSpec); the UI
+ * Session shape keeps `agentName` / `agentSpec` / `isMutable`.
  */
 import type {
   AgentChatServer,
@@ -76,32 +79,22 @@ function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
   };
 }
 
-/**
- * UI sessions speak agent names; the wire carries only agent ids. Callers pass
- * the registry (small, one tenant) and this resolves the name for ref sessions.
- * Value agents are draft/mutable; ref agents are named/immutable.
- */
-function toUiSession(session: Harness.Session, agents: Harness.Agent[] = []): Session<HarnessAgentSpec> {
+/** Named sessions carry only `{ name }`; inline sessions carry a bare AgentSpec (`model` required). */
+function isNamedSessionAgent(agent: Harness.SessionWireAgent): agent is Harness.SessionAgentNameRef {
+  return !('model' in agent);
+}
+
+function toUiSession(session: Harness.Session): Session<HarnessAgentSpec> {
   const { agent } = session;
-  const agentName = agent.type === 'ref' ? agents.find(candidate => candidate.id === agent.agentId)?.name : undefined;
+  const named = isNamedSessionAgent(agent);
   return {
     id: session.id,
-    isMutable: agent.type === 'value',
+    isMutable: !named,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     ...(session.title === null ? {} : { title: session.title }),
-    ...(agentName === undefined ? {} : { agentName }),
-    ...(agent.type === 'value' ? { agentSpec: toUiAgentSpec(agent.agentSpec) } : {}),
+    ...(named ? { agentName: agent.name } : { agentSpec: toUiAgentSpec(agent) }),
   };
-}
-
-/** There is no get-by-name endpoint; the UI keys agents by unique name. */
-function requireAgent(agents: Harness.Agent[], name: string): Harness.Agent {
-  const agent = agents.find(candidate => candidate.name === name);
-  if (agent === undefined) {
-    throw new Error(`Agent not found: ${name}`);
-  }
-  return agent;
 }
 
 /** Spread drops the interface identity, which is what makes the SDK's index-signature part type accept it. */
@@ -185,16 +178,14 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
   return {
     async createSession(request) {
       if (request.agentName !== undefined && request.agentName.length > 0) {
-        const { data: agents } = await client.agents.list();
-        const agent = requireAgent(agents, request.agentName);
         const created = await client.sessions.create({
-          agent: { type: 'ref', agentId: agent.id },
+          agent: { name: request.agentName },
         });
-        return toUiSession(created.data, agents);
+        return toUiSession(created.data);
       }
       if (request.agentSpec !== undefined) {
         const created = await client.sessions.create({
-          agent: { type: 'value', agentSpec: toHarnessAgentSpec(request.agentSpec) },
+          agent: toHarnessAgentSpec(request.agentSpec),
         });
         return toUiSession(created.data);
       }
@@ -202,36 +193,29 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
     },
 
     async listSessions(request = {}) {
-      const { data: agents } = await client.agents.list();
-      const filter =
-        request.agentName === undefined || request.agentName.length === 0
-          ? undefined
-          : requireAgent(agents, request.agentName);
-
       const page = await client.sessions.list({
         ...(request.limit === undefined ? {} : { limit: request.limit }),
         ...(request.order === undefined ? {} : { order: request.order }),
         ...(request.pageToken === undefined ? {} : { pageToken: request.pageToken }),
-        ...(filter === undefined ? {} : { agentId: filter.id }),
+        ...(request.agentName === undefined || request.agentName.length === 0 ? {} : { agentName: request.agentName }),
       });
-      return toPage(page, session => toUiSession(session, agents));
+      return toPage(page, toUiSession);
     },
 
     async getSession({ sessionId }) {
       const response = await client.sessions.get(sessionId);
-      const agents = response.data.agent.type === 'ref' ? (await client.agents.list()).data : [];
-      return toUiSession(response.data, agents);
+      return toUiSession(response.data);
     },
 
     async updateSession({ sessionId, agentSpec }) {
       if (agentSpec !== undefined) {
         const current = await client.sessions.get(sessionId);
-        if (current.data.agent.type === 'ref') {
+        if (isNamedSessionAgent(current.data.agent)) {
           throw new Error('Cannot update agent on a named session');
         }
       }
       const response = await client.sessions.update(sessionId, {
-        ...(agentSpec === undefined ? {} : { agent: { type: 'value', agentSpec: toHarnessAgentSpec(agentSpec) } }),
+        ...(agentSpec === undefined ? {} : { agent: toHarnessAgentSpec(agentSpec) }),
       });
       return toUiSession(response.data);
     },
