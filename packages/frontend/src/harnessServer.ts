@@ -55,7 +55,7 @@ function toUiSkill(skill: Harness.SkillNameRef): HarnessSkillMount {
 }
 
 /** Strip UI-only `id` before admission; Harness skills are name refs only. */
-function toHarnessAgentSpec(spec: HarnessAgentSpec): Harness.AgentSpec {
+export function toHarnessAgentSpec(spec: HarnessAgentSpec): Harness.AgentSpec {
   const { skills, mcpServers, ...rest } = spec;
   return {
     ...rest,
