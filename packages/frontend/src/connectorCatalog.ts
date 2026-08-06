@@ -20,8 +20,8 @@ import { TrueForge } from 'trueforge';
 
 export type UiConnectorAuth = ConnectorAuth;
 export type UiConnectorAuthPublic = ConnectorAuthPublic;
-export type UiConnector = ConnectorBase<UiConnectorAuthPublic>;
-export type UiConnectorCatalogEntry = ConnectorCatalogEntry<UiConnectorAuthPublic>;
+export type UiConnector = ConnectorBase;
+export type UiConnectorCatalogEntry = ConnectorCatalogEntry;
 
 const DEFAULT_API_KEY_HEADER = 'Authorization';
 
@@ -49,18 +49,13 @@ export function toHarnessAuth(auth: ConnectorAuth): Harness.ConfiguredMcpServerA
   if (auth.type === 'oauth') {
     return { type: 'dcr' };
   }
-  if (auth.type === 'apiKey') {
-    const apiKey = auth.apiKey?.trim();
-    if (apiKey === undefined || apiKey === '') {
-      throw new Error('API key is required for header-authenticated MCP servers');
-    }
-    const trimmedHeader = auth.headerName?.trim();
-    const headerName = trimmedHeader !== undefined && trimmedHeader !== '' ? trimmedHeader : DEFAULT_API_KEY_HEADER;
-    return { type: 'header', headers: { [headerName]: apiKey } };
+  const apiKey = auth.apiKey?.trim();
+  if (apiKey === undefined || apiKey === '') {
+    throw new Error('API key is required for header-authenticated MCP servers');
   }
-  const _exhaustive: never = auth;
-  void _exhaustive;
-  throw new Error('Unsupported connector auth type');
+  const trimmedHeader = auth.headerName?.trim();
+  const headerName = trimmedHeader !== undefined && trimmedHeader !== '' ? trimmedHeader : DEFAULT_API_KEY_HEADER;
+  return { type: 'header', headers: { [headerName]: apiKey } };
 }
 
 export function toUiCatalogEntry(server: Harness.CatalogMcpServer): UiConnectorCatalogEntry {
@@ -159,8 +154,8 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
   UiConnectorAuthPublic,
   UiConnector,
   UiConnectorCatalogEntry,
-  CreateConnectorRequest<UiConnectorAuth>,
-  UpdateConnectorRequest<UiConnectorAuth>
+  CreateConnectorRequest,
+  UpdateConnectorRequest
 > {
   return {
     getConnectorCatalog: async () => {

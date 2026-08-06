@@ -8,7 +8,6 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   trueFoundryAttachmentAdapter: {},
   useTrueFoundryAgentRuntime: () =>
     // Called from ChatRuntimeScope (a React component), so hooks are valid here.
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     useExternalStoreRuntime<ThreadMessageLike>({
       messages: [],
       isRunning: false,

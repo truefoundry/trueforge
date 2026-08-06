@@ -159,10 +159,11 @@ export function TrueforgeUI(props: TrueforgeUIProps) {
   const isMcpAuthScreen =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('screenType') === 'mcp-auth';
 
-  if (isMcpAuthScreen) {
-    return <PostMcpOauthScreen />;
-  }
+  // Kept in a wrapper so the OAuth callback screen renders without resolving a server.
+  return isMcpAuthScreen ? <PostMcpOauthScreen /> : <TrueforgeUIShell {...props} />;
+}
 
+function TrueforgeUIShell(props: TrueforgeUIProps) {
   const {
     layout,
     overrides,

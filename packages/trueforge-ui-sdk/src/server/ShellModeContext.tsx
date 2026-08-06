@@ -91,9 +91,11 @@ export function ShellModeProvider({
   const [clearEpoch, setClearEpoch] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const effectiveMode: ShellMode = locked
-    ? { type: 'named', agentName: agentConfig.mode === 'SingleAgent' ? agentConfig.name : '', locked: true }
-    : mode;
+  const lockedAgentName = agentConfig.mode === 'SingleAgent' ? agentConfig.name : '';
+  const effectiveMode: ShellMode = useMemo(
+    () => (locked ? { type: 'named', agentName: lockedAgentName, locked: true } : mode),
+    [locked, lockedAgentName, mode],
+  );
 
   const selectAgent = useCallback(
     (name: string) => {
