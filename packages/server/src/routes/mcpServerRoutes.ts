@@ -7,9 +7,9 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { GetMcpServerCatalogResponseSchema } from '../schemas/mcpCatalog';
 import {
-  GetConfiguredMcpServerResponseSchema,
+  GetMcpServerResponseSchema,
   ListAvailableMcpServersResponseSchema,
-  ListConfiguredMcpServersResponseSchema,
+  ListMcpServersResponseSchema,
   McpAuthStatusSchema,
   PutMcpServerRequestSchema,
   PutMcpServerResponseSchema,
@@ -41,43 +41,43 @@ export const listAvailableMcpServersRoute = createRoute({
   path: '/',
   tags: [MCP_SERVERS_TAG],
   summary: 'List MCP servers for chat',
-  description: 'Configured MCP servers as a slim name/url list for the composer. No auth or auth_status.',
+  description: 'MCP servers as a slim name/url list for the composer. No auth or auth_status.',
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
       content: { 'application/json': { schema: ListAvailableMcpServersResponseSchema } },
-      description: 'All configured MCP servers (chat projection).',
+      description: 'All MCP servers (chat projection).',
     },
   },
 });
 
-export const listConfiguredMcpServersRoute = createRoute({
+export const listMcpServersRoute = createRoute({
   method: 'get',
   path: '/',
   tags: [MCP_SERVERS_TAG],
-  summary: 'List configured MCP servers',
-  description: 'All configured MCP servers with nested auth_status (settings / admin projection).',
+  summary: 'List MCP servers',
+  description: 'All MCP servers with nested auth_status (settings / admin projection).',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
-      content: { 'application/json': { schema: ListConfiguredMcpServersResponseSchema } },
-      description: 'All configured MCP servers.',
+      content: { 'application/json': { schema: ListMcpServersResponseSchema } },
+      description: 'All MCP servers.',
     },
   },
 });
 
 const McpServerNameParamsSchema = z.object({
-  name: z.string().min(1).describe('Configured MCP server name.'),
+  name: z.string().min(1).describe('MCP server name.'),
 });
 
-export const getConfiguredMcpServerRoute = createRoute({
+export const getMcpServerRoute = createRoute({
   method: 'get',
   path: '/{name}',
   tags: [MCP_SERVERS_TAG],
-  summary: 'Get a single configured MCP server by name',
-  description: 'A single configured MCP server by name, with nested auth_status (settings / admin projection).',
+  summary: 'Get a single MCP server by name',
+  description: 'A single MCP server by name, with nested auth_status (settings / admin projection).',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'get',
   request: {
@@ -85,8 +85,8 @@ export const getConfiguredMcpServerRoute = createRoute({
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: GetConfiguredMcpServerResponseSchema } },
-      description: 'The configured MCP server.',
+      content: { 'application/json': { schema: GetMcpServerResponseSchema } },
+      description: 'The MCP server.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -135,11 +135,10 @@ export const listMcpServerToolsRoute = createRoute({
   method: 'get',
   path: '/{name}/tools',
   tags: [MCP_SERVERS_TAG],
-  summary: 'List tools of a configured MCP server',
+  summary: 'List tools of an MCP server',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'list_tools',
-  description:
-    'All tools exposed by the given configured MCP server (non-paginated), as returned by the MCP `tools/list` call.',
+  description: 'All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call.',
   request: {
     params: McpServerNameParamsSchema,
   },
@@ -170,11 +169,11 @@ const McpAuthorizeQuerySchema = z.object({
     .describe('Optional FE landing URL the OAuth callback redirects to, with `isSuccess`/`reason` appended.'),
 });
 
-export const authorizeConfiguredMcpServerRoute = createRoute({
+export const authorizeMcpServerRoute = createRoute({
   method: 'get',
   path: '/{name}/authorize',
   tags: [MCP_SERVERS_TAG],
-  summary: 'Start (or short-circuit) the auth flow for a configured MCP server',
+  summary: 'Start (or short-circuit) the auth flow for an MCP server',
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'authorize',
   description:
@@ -206,11 +205,11 @@ export const authorizeConfiguredMcpServerRoute = createRoute({
   },
 });
 
-export const deleteConfiguredMcpServerAuthRoute = createRoute({
+export const deleteMcpServerAuthRoute = createRoute({
   method: 'delete',
   path: '/{name}/authorize',
   tags: [MCP_SERVERS_TAG],
-  summary: 'Disconnect OAuth for a configured MCP server',
+  summary: 'Disconnect OAuth for an MCP server',
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'delete_authorize',
   description:
