@@ -19,7 +19,7 @@ import type { TerminalTurnState } from '../schemas/turn';
  */
 export type CreateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
-  'tenant_id' | 'session_id' | 'agent'
+  'tenant_id' | 'session_id' | 'agent' | 'created_by'
 > & {
   custom: TSessionCustom | null;
 };
@@ -211,6 +211,7 @@ export interface ISessionStore<
   /**
    * Persists a discriminated `agent` (ref | value). SQL backends may flatten to columns.
    * `session_id` is globally unique across tenants.
+   * Persists caller-supplied `created_by` (immutable after create).
    * Sets `last_activity_timestamp_ms` (= now) on create.
    */
   createSession(input: CreateSessionInput<TSessionCustom>): Promise<void>;

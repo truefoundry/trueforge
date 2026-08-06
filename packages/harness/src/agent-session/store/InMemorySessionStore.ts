@@ -165,6 +165,7 @@ export class InMemorySessionStore<
     const record: SessionRecord<TSessionCustom> = {
       tenant_id: input.tenant_id,
       session_id: input.session_id,
+      created_by: input.created_by,
       agent: deepCopy(input.agent),
       title: null,
       last_turn_id: null,

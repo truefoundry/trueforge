@@ -82,6 +82,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
     await store.createSession({
       tenant_id: tenant,
       session_id: sessionId,
+      created_by: 'user-1',
       agent: { type: 'value', agent_spec: agentSpec },
       custom: null,
     });
@@ -166,6 +167,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const session = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       expect(session).toBeDefined();
       expect(mustGet(session).tenant_id).toBe(tenant);
+      expect(mustGet(session).created_by).toBe('user-1');
       expect(mustGet(session).agent).toMatchObject({
         type: 'value',
         agent_spec: { model: { name: 'test-provider/test-model' } },
@@ -174,11 +176,37 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(mustGet(session).title).toBeNull();
     });
 
+    it('createSession persists created_by', async () => {
+      const store = createStore();
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'created-by-session',
+        created_by: 'alice@example.com',
+        agent: { type: 'value', agent_spec: makeAgentSpec() },
+        custom: null,
+      });
+      const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: 'created-by-session' }));
+      expect(session.created_by).toBe('alice@example.com');
+
+      const listed = await store.listSessions({
+        tenant_id: tenant,
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+        start_timestamp: undefined,
+        end_timestamp: undefined,
+        agent_id: undefined,
+      });
+      expect(listed.data.map(s => s.session_id)).toContain('created-by-session');
+      expect(listed.data.find(s => s.session_id === 'created-by-session')?.created_by).toBe('alice@example.com');
+    });
+
     it('persists ref agents and listSessions filters by agent_id', async () => {
       const store = createStore();
       await store.createSession({
         tenant_id: tenant,
         session_id: 'named-1',
+        created_by: 'user-1',
         agent: { type: 'ref', agent_id: 'agent-abc' },
         custom: null,
       });
@@ -204,6 +232,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: 'named-1',
+        created_by: 'user-1',
         agent: { type: 'ref', agent_id: 'agent-abc' },
         custom: null,
       });
@@ -261,6 +290,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.createSession({
           tenant_id: 'other',
           session_id: sessionId,
+          created_by: 'user-1',
           agent: { type: 'value', agent_spec: makeAgentSpec() },
           custom: null,
         }),
@@ -275,6 +305,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: 'other',
         session_id: 'other-session',
+        created_by: 'user-1',
         agent: { type: 'value', agent_spec: makeAgentSpec() },
         custom: null,
       });
@@ -455,6 +486,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: nested,
+        created_by: 'user-1',
         agent: { type: 'value', agent_spec: makeAgentSpec() },
         custom: null,
       });
@@ -582,6 +614,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         await store.createSession({
           tenant_id: tenant,
           session_id: id,
+          created_by: 'user-1',
           agent: { type: 'value', agent_spec: makeAgentSpec() },
           custom: null,
         });
@@ -595,6 +628,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: 'other',
         session_id: 'sx',
+        created_by: 'user-1',
         agent: { type: 'value', agent_spec: makeAgentSpec() },
         custom: null,
       });

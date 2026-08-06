@@ -48,6 +48,8 @@ type JsonbColumn<T extends object | null> = JSONColumnType<T, T | string, T | st
 export interface SessionTable {
   tenant_id: string;
   session_id: string;
+  /** Caller identity that created the session (immutable after create). */
+  created_by: string;
   /** Named registry binding; XOR with `agent_spec`. */
   agent_id: string | null;
   /** Inline draft binding; XOR with `agent_id`. */

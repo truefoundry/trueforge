@@ -197,6 +197,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       const session = await deps.sessions.create({
         tenant_id: TENANT_ID,
         session_id: sessionId,
+        created_by: 'trueforge-default',
         agent: body.agent,
       });
       return c.json({ data: toWireSession(session.record) }, 201);
@@ -213,6 +214,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const session = await deps.sessions.create({
       tenant_id: TENANT_ID,
       session_id: sessionId,
+      created_by: 'trueforge-default',
       agent: body.agent,
     });
     return c.json({ data: toWireSession(session.record) }, 201);
