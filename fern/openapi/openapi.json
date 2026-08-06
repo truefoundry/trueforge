@@ -767,7 +767,7 @@
             "$ref": "#/components/schemas/AgentRef"
           },
           {
-            "$ref": "#/components/schemas/Agent"
+            "$ref": "#/components/schemas/AgentSpec"
           }
         ]
       },
@@ -3653,7 +3653,7 @@
         "additionalProperties": false,
         "properties": {
           "agent": {
-            "$ref": "#/components/schemas/Agent"
+            "$ref": "#/components/schemas/AgentSpec"
           }
         },
         "type": "object"
