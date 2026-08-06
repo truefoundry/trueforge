@@ -5,9 +5,9 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
 import { Icon } from '../../icons/Icon.js';
-import type { SandboxConfig } from '../../server/types.js';
+import type { SandboxProviderConfig } from '../../server/types.js';
 
-export type SandboxConfigDraft = SandboxConfig & {
+export type SandboxConfigDraft = SandboxProviderConfig & {
   apiKey: string;
 };
 
@@ -18,13 +18,13 @@ type ConfigureSandboxFormProps = {
   title: string;
   description?: string;
   /** Prefills config fields; apiKey is never autofilled. */
-  initialConfig?: SandboxConfig | null;
+  initialConfig?: SandboxProviderConfig | null;
   /** When false (updates), empty apiKey means keep the existing key. */
   requireApiKey?: boolean;
   busy?: boolean;
 };
 
-const EMPTY_CONFIG: SandboxConfig = {
+const EMPTY_CONFIG: SandboxProviderConfig = {
   snapshotName: '',
   execTimeoutMs: 0,
   autoStopIntervalInMinutes: 0,

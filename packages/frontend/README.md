@@ -60,10 +60,11 @@ those on the fly.
 docker compose up --build   # UI + API on http://localhost:8791
 ```
 
-## Catalogs (model + MCP + skills)
+## Composer lists + builder (model + MCP + skills)
 
-[`src/catalog.ts`](src/catalog.ts) calls the DB-backed list endpoints via `trueforge`.
-`App.tsx` passes the results into `createTrueFoundryServer`:
+[`src/composerLists.ts`](src/composerLists.ts) calls the DB-backed list endpoints via `trueforge`.
+[`src/harnessBuilderServer.ts`](src/harnessBuilderServer.ts) maps those into `AgentBuilderServer`
+callbacks; `App.tsx` spreads them into `createTrueFoundryServer` (settings CRUD lives in `*Catalog.ts`):
 
 | Callback       | Source                                                            |
 | -------------- | ----------------------------------------------------------------- |

@@ -71,6 +71,7 @@ export function SidebarLayout({ className }: { className?: string }) {
       shell.openDraft();
       return;
     }
+    shell?.setSettingsOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 

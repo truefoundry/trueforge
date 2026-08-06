@@ -115,7 +115,7 @@ describe('createTrueFoundryServer', () => {
           description: '',
           url: '',
           auth: { type: 'oauth' as const, authUrl: 'https://example.com/oauth' },
-          requiresAuth: true,
+          requiresAuth: false,
           authenticated: true,
         })),
         disconnectConnector: vi.fn(async ({ id }) => ({

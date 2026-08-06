@@ -6,6 +6,7 @@ import { Button } from '../../atoms/primitives/Button.js';
 import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { ConnectorBase, ToolBase } from '../../server/types.js';
+import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
 
 type ConnectorDetailsProps = {
   connector: ConnectorBase;
@@ -75,14 +76,16 @@ const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: Con
               <span className="text-muted-foreground">· {connector.description}</span>
             </div>
             <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{connector.url}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Auth · {connector.auth.type}</p>
+            <span className="mt-2 inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              {AUTH_TYPE_LABELS[connector.auth.type] ?? AUTH_TYPE_LABELS.none}
+            </span>
           </div>
 
-          {connector.requiresAuth ? null : (
+          {connector.auth.type !== 'none' && !connector.requiresAuth ? (
             <Button variant="outline" size="sm" type="button" disabled={busy} onClick={onDisconnect}>
               Disconnect
             </Button>
-          )}
+          ) : null}
         </header>
 
         <section className="mt-6" aria-labelledby="connector-tools-heading">
