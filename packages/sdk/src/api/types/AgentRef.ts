@@ -2,4 +2,6 @@
 
 import type * as TrueForge from "../index.js";
 
-export type SessionWireAgent = TrueForge.SessionAgentNameRef | TrueForge.InlineSessionAgent;
+export interface AgentRef {
+    name: TrueForge.ResourceName;
+}

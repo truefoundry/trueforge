@@ -5,14 +5,12 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ResourceName } from "./ResourceName.js";
 
-export const SessionAgentNameRef: core.serialization.ObjectSchema<
-    serializers.SessionAgentNameRef.Raw,
-    TrueForge.SessionAgentNameRef
-> = core.serialization.object({
-    name: ResourceName,
-});
+export const AgentRef: core.serialization.ObjectSchema<serializers.AgentRef.Raw, TrueForge.AgentRef> =
+    core.serialization.object({
+        name: ResourceName,
+    });
 
-export declare namespace SessionAgentNameRef {
+export declare namespace AgentRef {
     export interface Raw {
         name: ResourceName.Raw;
     }

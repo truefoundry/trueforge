@@ -24,13 +24,12 @@ export class SessionsClient {
     }
 
     /**
-     * List sessions (newest first by default), token-paginated. Optional `agent_name` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
+     * List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
      *
      * @param {TrueForge.ListSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
-     * @throws {@link TrueForge.NotFoundError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -45,7 +44,7 @@ export class SessionsClient {
             async (
                 request: TrueForge.ListSessionsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListSessionsResponse>> => {
-                const { limit = 10, order, pageToken, startTimestamp, endTimestamp, agentName } = request;
+                const { limit = 10, order, pageToken, startTimestamp, endTimestamp, agentId } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     order:
@@ -60,7 +59,7 @@ export class SessionsClient {
                     page_token: pageToken,
                     start_timestamp: startTimestamp != null ? startTimestamp?.toISOString() : undefined,
                     end_timestamp: endTimestamp != null ? endTimestamp?.toISOString() : undefined,
-                    agent_name: agentName,
+                    agent_id: agentId,
                 };
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
                     this._options?.headers,
@@ -101,17 +100,6 @@ export class SessionsClient {
                     switch (_response.error.statusCode) {
                         case 400:
                             throw new TrueForge.BadRequestError(
-                                serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
-                                    unrecognizedObjectKeys: "passthrough",
-                                    allowUnrecognizedUnionMembers: true,
-                                    allowUnrecognizedEnumValues: true,
-                                    skipValidation: true,
-                                    breadcrumbsPrefix: ["response"],
-                                }),
-                                _response.rawResponse,
-                            );
-                        case 404:
-                            throw new TrueForge.NotFoundError(
                                 serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                                     unrecognizedObjectKeys: "passthrough",
                                     allowUnrecognizedUnionMembers: true,

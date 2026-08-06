@@ -7,5 +7,5 @@ import type * as TrueForge from "../../../../index.js";
  *     {}
  */
 export interface UpdateSessionRequest {
-    agent?: TrueForge.InlineSessionAgent;
+    agent?: TrueForge.Agent;
 }
