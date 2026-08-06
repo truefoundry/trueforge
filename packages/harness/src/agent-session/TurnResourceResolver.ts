@@ -93,6 +93,8 @@ export class TurnResourceResolver<
   /** Named (ref) session agent → live registry lookup via deps.agent. */
   async resolveAgentSpec(input: { agent_id: string }): Promise<AgentSpec> {
     if (this.deps.agent === undefined) {
+      // Host forgot to wire deps.agent — not "agent id missing from the registry"
+      // (that failure belongs in the lookup callback, e.g. HTTP 422 on the server).
       throw new Error(
         `Named agent '${input.agent_id}' cannot be resolved: no agent lookup configured on the turn resolver`,
       );
