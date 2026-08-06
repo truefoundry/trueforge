@@ -829,6 +829,17 @@
         ],
         "type": "object"
       },
+      "GetMcpServerResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ConfiguredMcpServer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetModelProviderCatalogResponse": {
         "properties": {
           "data": {
@@ -944,20 +955,6 @@
         ],
         "type": "object"
       },
-      "ListConfiguredMcpServersResponse": {
-        "properties": {
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/ConfiguredMcpServer"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "type": "object"
-      },
       "ListConfiguredSkillsResponse": {
         "properties": {
           "data": {
@@ -979,6 +976,20 @@
             "items": {
               "additionalProperties": {},
               "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListMcpServersResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredMcpServer"
             },
             "type": "array"
           }
@@ -3225,7 +3236,7 @@
     },
     "/api/v1/mcp-servers": {
       "get": {
-        "description": "Configured MCP servers as a slim name/url list for the composer. No auth or auth_status.",
+        "description": "MCP servers as a slim name/url list for the composer. No auth or auth_status.",
         "responses": {
           "200": {
             "content": {
@@ -3235,7 +3246,7 @@
                 }
               }
             },
-            "description": "All configured MCP servers (chat projection)."
+            "description": "All MCP servers (chat projection)."
           }
         },
         "summary": "List MCP servers for chat",
@@ -3339,12 +3350,12 @@
         "description": "For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. No-op for header or no-auth servers (returns the server unchanged).",
         "parameters": [
           {
-            "description": "Configured MCP server name.",
+            "description": "MCP server name.",
             "in": "path",
             "name": "name",
             "required": true,
             "schema": {
-              "description": "Configured MCP server name.",
+              "description": "MCP server name.",
               "minLength": 1,
               "type": "string"
             }
@@ -3372,7 +3383,7 @@
             "description": "MCP server not found."
           }
         },
-        "summary": "Disconnect OAuth for a configured MCP server",
+        "summary": "Disconnect OAuth for an MCP server",
         "tags": [
           "MCP Servers"
         ],
@@ -3385,12 +3396,12 @@
         "description": "For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is where the OAuth callback then redirects the browser; without it the callback returns JSON.",
         "parameters": [
           {
-            "description": "Configured MCP server name.",
+            "description": "MCP server name.",
             "in": "path",
             "name": "name",
             "required": true,
             "schema": {
-              "description": "Configured MCP server name.",
+              "description": "MCP server name.",
               "minLength": 1,
               "type": "string"
             }
@@ -3449,7 +3460,7 @@
             "description": "Server misconfiguration (e.g. PUBLIC_BASE_URL unset)."
           }
         },
-        "summary": "Start (or short-circuit) the auth flow for a configured MCP server",
+        "summary": "Start (or short-circuit) the auth flow for an MCP server",
         "tags": [
           "MCP Servers"
         ],
@@ -4398,20 +4409,20 @@
     },
     "/api/v1/settings/mcp-servers": {
       "get": {
-        "description": "All configured MCP servers with nested auth_status (settings / admin projection).",
+        "description": "All MCP servers with nested auth_status (settings / admin projection).",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListConfiguredMcpServersResponse"
+                  "$ref": "#/components/schemas/ListMcpServersResponse"
                 }
               }
             },
-            "description": "All configured MCP servers."
+            "description": "All MCP servers."
           }
         },
-        "summary": "List configured MCP servers",
+        "summary": "List MCP servers",
         "tags": [
           "MCP Servers"
         ],
@@ -4492,17 +4503,66 @@
         "x-fern-sdk-method-name": "catalog"
       }
     },
-    "/api/v1/settings/mcp-servers/{name}/tools": {
+    "/api/v1/settings/mcp-servers/{name}": {
       "get": {
-        "description": "All tools exposed by the given configured MCP server (non-paginated), as returned by the MCP `tools/list` call.",
+        "description": "A single MCP server by name, with nested auth_status (settings / admin projection).",
         "parameters": [
           {
-            "description": "Configured MCP server name.",
+            "description": "MCP server name.",
             "in": "path",
             "name": "name",
             "required": true,
             "schema": {
-              "description": "Configured MCP server name.",
+              "description": "MCP server name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMcpServerResponse"
+                }
+              }
+            },
+            "description": "The MCP server."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not found."
+          }
+        },
+        "summary": "Get a single MCP server by name",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "get"
+      }
+    },
+    "/api/v1/settings/mcp-servers/{name}/tools": {
+      "get": {
+        "description": "All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call.",
+        "parameters": [
+          {
+            "description": "MCP server name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "MCP server name.",
               "minLength": 1,
               "type": "string"
             }
@@ -4550,7 +4610,7 @@
             "description": "The MCP server could not be reached or returned an error."
           }
         },
-        "summary": "List tools of a configured MCP server",
+        "summary": "List tools of an MCP server",
         "tags": [
           "MCP Servers"
         ],

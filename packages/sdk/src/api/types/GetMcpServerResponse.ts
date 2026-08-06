@@ -2,6 +2,6 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface ListConfiguredMcpServersResponse {
-    data: TrueForge.ConfiguredMcpServer[];
+export interface GetMcpServerResponse {
+    data: TrueForge.ConfiguredMcpServer;
 }
