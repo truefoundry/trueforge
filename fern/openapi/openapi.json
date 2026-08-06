@@ -203,6 +203,28 @@
         },
         "type": "object"
       },
+      "AuthMeResponse": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/AuthRole"
+          },
+          "user_ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_ref",
+          "role"
+        ],
+        "type": "object"
+      },
+      "AuthRole": {
+        "enum": [
+          "admin",
+          "user"
+        ],
+        "type": "string"
+      },
       "BaseMCPAuthRequiredEvent": {
         "properties": {
           "created_at": {
@@ -1375,20 +1397,6 @@
         },
         "required": [
           "status"
-        ],
-        "type": "object"
-      },
-      "McpOAuthCallbackSuccess": {
-        "properties": {
-          "success": {
-            "enum": [
-              true
-            ],
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "success"
         ],
         "type": "object"
       },
@@ -3246,6 +3254,143 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/auth/callback": {
+      "get": {
+        "description": "Browser-redirect target hit by the identity provider after login, never called directly by SDK consumers. In local/single-binary mode, redirects straight back into the app.",
+        "parameters": [
+          {
+            "description": "Authorization code, present when the user granted consent.",
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "description": "Authorization code, present when the user granted consent.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque token; correlates this callback to its pending login. Always present, success or error.",
+            "in": "query",
+            "name": "state",
+            "required": true,
+            "schema": {
+              "description": "Opaque token; correlates this callback to its pending login. Always present, success or error.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Error code from the identity provider, present instead of `code` if the user denied consent.",
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "description": "Error code from the identity provider, present instead of `code` if the user denied consent.",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error_description",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect back into the app on success, or to /login?error=... on failure."
+          }
+        },
+        "summary": "Login callback",
+        "tags": [
+          "Auth"
+        ],
+        "x-fern-ignore": true
+      }
+    },
+    "/api/v1/auth/login": {
+      "get": {
+        "description": "Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight back into the app — there is nothing to log into.",
+        "parameters": [
+          {
+            "description": "Path to return to after login. Must be a same-origin relative path; anything else falls back to \"/\".",
+            "in": "query",
+            "name": "return_to",
+            "required": false,
+            "schema": {
+              "description": "Path to return to after login. Must be a same-origin relative path; anything else falls back to \"/\".",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to the IdP authorization endpoint."
+          }
+        },
+        "summary": "Start the login flow",
+        "tags": [
+          "Auth"
+        ],
+        "x-fern-ignore": true
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "description": "Ends the local harness session only — does not hit the IdP end-session endpoint. A no-op in local/single-binary mode, since there is no real session to clear.",
+        "responses": {
+          "204": {
+            "description": "Session cookie cleared."
+          }
+        },
+        "summary": "Clear the local session",
+        "tags": [
+          "Auth"
+        ],
+        "x-fern-sdk-group-name": [
+          "auth"
+        ],
+        "x-fern-sdk-method-name": "logout"
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "description": "Returns the fixed local identity in local/single-binary mode; otherwise the caller's verified identity.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthMeResponse"
+                }
+              }
+            },
+            "description": "The caller's identity."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not authenticated."
+          }
+        },
+        "summary": "Get the current identity",
+        "tags": [
+          "Auth"
+        ],
+        "x-fern-sdk-group-name": [
+          "auth"
+        ],
+        "x-fern-sdk-method-name": "me"
+      }
+    },
     "/api/v1/capabilities": {
       "get": {
         "description": "Report optional runtime capabilities available for this tenant.",
@@ -3300,17 +3445,6 @@
       "get": {
         "parameters": [
           {
-            "description": "Opaque token; correlates this callback to its pending authorization.",
-            "in": "query",
-            "name": "state",
-            "required": true,
-            "schema": {
-              "description": "Opaque token; correlates this callback to its pending authorization.",
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
             "description": "Authorization code, present when the user granted consent.",
             "in": "query",
             "name": "code",
@@ -3322,12 +3456,23 @@
             }
           },
           {
-            "description": "OAuth error code, present instead of `code` if the user denied consent or the IdP errored.",
+            "description": "Opaque token; correlates this callback to its pending login. Always present, success or error.",
+            "in": "query",
+            "name": "state",
+            "required": true,
+            "schema": {
+              "description": "Opaque token; correlates this callback to its pending login. Always present, success or error.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Error code from the identity provider, present instead of `code` if the user denied consent.",
             "in": "query",
             "name": "error",
             "required": false,
             "schema": {
-              "description": "OAuth error code, present instead of `code` if the user denied consent or the IdP errored.",
+              "description": "Error code from the identity provider, present instead of `code` if the user denied consent.",
               "type": "string"
             }
           },
@@ -3345,7 +3490,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/McpOAuthCallbackSuccess"
+                  "properties": {
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ],
+                  "type": "object"
                 }
               }
             },

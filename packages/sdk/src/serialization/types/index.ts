@@ -8,6 +8,8 @@ export * from "./ApprovalAllow.js";
 export * from "./ApprovalDecision.js";
 export * from "./ApprovalDeny.js";
 export * from "./AskUserQuestionsConfig.js";
+export * from "./AuthMeResponse.js";
+export * from "./AuthRole.js";
 export * from "./BaseMcpAuthRequiredEvent.js";
 export * from "./BaseThreadDoneEvent.js";
 export * from "./CallerSuppliedModelProvider.js";

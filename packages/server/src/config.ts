@@ -205,9 +205,35 @@ function resolvePublicBaseUrl(port: number): string {
   return `http://localhost:${String(port)}`;
 }
 
+function resolveOIDCConfig(): OIDCConfig | undefined {
+  const issuerUrl = getEnv('OIDC_ISSUER_URL');
+  const clientId = getEnv('OIDC_CLIENT_ID');
+  const clientSecret = getEnv('OIDC_CLIENT_SECRET');
+
+  if (!issuerUrl && !clientId && !clientSecret) {
+    return undefined;
+  }
+  if (!issuerUrl || !clientId || !clientSecret) {
+    throw new Error(
+      'OIDC_ISSUER_URL, OIDC_CLIENT_ID, and OIDC_CLIENT_SECRET must all be set together, or all left unset ' +
+        '(unset = fixed local admin identity, no IdP).',
+    );
+  }
+  return { OIDC_ISSUER_URL: issuerUrl, OIDC_CLIENT_ID: clientId, OIDC_CLIENT_SECRET: clientSecret };
+}
+
 // ============================================================================
 // CONFIGURATION TYPES
 // ============================================================================
+
+export interface OIDCConfig {
+  /** e.g. an Okta custom authorization server, or an Azure AD tenant's v2.0 endpoint. Env: `OIDC_ISSUER_URL`. */
+  OIDC_ISSUER_URL: string;
+  /** Env: `OIDC_CLIENT_ID`. */
+  OIDC_CLIENT_ID: string;
+  /** Env: `OIDC_CLIENT_SECRET`. */
+  OIDC_CLIENT_SECRET: string;
+}
 
 export interface SharedServerConfiguration {
   /** HTTP port the server listens on. Env: `PORT`. */
@@ -255,10 +281,11 @@ export interface SharedServerConfiguration {
    */
   PUBLIC_BASE_URL: string;
   /**
-   * RFC 7591 client_name shown on authorization-server consent screens.
-   * Env: `OAUTH_CLIENT_NAME`. Default: "truefoundry-harness".
+   * Client name used for Dynamic Client Registration (DCR) of MCP servers.
+   * This is the client name shown on authorization-server consent screens.
+   * Env: `MCP_DCR_OAUTH_CLIENT_NAME`. Default: "truefoundry-harness".
    */
-  OAUTH_CLIENT_NAME: string;
+  MCP_DCR_OAUTH_CLIENT_NAME: string;
   /**
    * Max bytes for a single file download out of the sandbox.
    * Env: `SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD`. Default 20 MB (same as gateway).
@@ -353,6 +380,12 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: number;
   /** Peering URL shared by all replicas. Env: `REDIS_URL`. Default `redis://localhost:6379`. */
   REDIS_URL: string;
+  /**
+   * OIDC configuration for server authentication.
+   * Undefined = every request resolves to a fixed
+   * local admin identity instead of a real IdP session.
+   */
+  OIDC: OIDCConfig | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -395,7 +428,8 @@ const shared: SharedServerConfiguration = {
     raw: getEnv('MCP_CONNECT_TIMEOUT_MS'),
     defaultValue: 30 * 1000,
   }),
-  OAUTH_CLIENT_NAME: getEnv('OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
+  MCP_DCR_OAUTH_CLIENT_NAME:
+    getEnv('MCP_DCR_OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: parsePositiveInt({
     envKey: 'SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD',
     raw: getEnv('SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD'),
@@ -470,6 +504,12 @@ const configuration: ServerConfiguration = standalone
         defaultValue: 60_000,
       }),
       REDIS_URL: resolveRedisUrl(),
+      OIDC: resolveOIDCConfig(),
     };
+
+/** True when a real identity provider is configured */
+export function isOidcConfigured(): boolean {
+  return !configuration.STANDALONE && configuration.OIDC !== undefined;
+}
 
 export default configuration;
