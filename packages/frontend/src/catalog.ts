@@ -1,8 +1,6 @@
 /** DB-backed catalog list helpers for the composer pickers and boot. */
 import type { TrueForgeApi as Harness } from 'trueforge';
-import { TrueForge } from 'trueforge';
-
-const client = new TrueForge({ baseUrl: '/' });
+import { harnessClient as client } from './harnessClient';
 
 export async function listModels(): Promise<Harness.Model[]> {
   const body = await client.models.list();

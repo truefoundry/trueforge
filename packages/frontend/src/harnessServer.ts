@@ -25,7 +25,7 @@ import type {
   UserMessageContent,
 } from '@truefoundry/trueforge-ui';
 import type { TrueForgeApi as Harness } from 'trueforge';
-import { TrueForge } from 'trueforge';
+import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 export type HarnessSkillMount = SkillMount;
 export type HarnessMcpServerMount = McpServerMount & Harness.McpServer;
 
@@ -42,10 +42,7 @@ export interface HarnessSession extends Session<HarnessAgentSpec> {
   isMutable: true;
 }
 
-export interface CreateHarnessServerOptions {
-  baseUrl?: string;
-  fetch?: typeof fetch;
-}
+export type CreateHarnessServerOptions = CreateHarnessClientOptions;
 
 /** Mount ids are derived, not stored: Harness returns MCP servers keyed by name. */
 function toUiMcpServer(server: Harness.McpServer): HarnessMcpServerMount {
@@ -177,10 +174,8 @@ function toHarnessPreviousTurnId(previousTurnId: string): Harness.PreviousTurnId
 }
 
 export function createHarnessChatServer(options: CreateHarnessServerOptions = {}): AgentChatServer<HarnessAgentSpec> {
-  const client = new TrueForge({
-    baseUrl: options.baseUrl ?? '/',
-    ...(options.fetch ? { fetch: options.fetch } : {}),
-  });
+  const client =
+    options.baseUrl === undefined && options.fetch === undefined ? harnessClient : createHarnessClient(options);
 
   return {
     async createSession(request) {

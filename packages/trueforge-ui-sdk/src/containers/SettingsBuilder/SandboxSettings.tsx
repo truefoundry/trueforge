@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '../../atoms/primitives/Button.js';
 import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
-import type { SandboxBase, SandboxCatalogEntry, SandboxConfig } from '../../server/types.js';
+import type { SandboxProviderBase, SandboxProviderCatalogEntry, SandboxProviderConfig } from '../../server/types.js';
 import ConfigureSandboxForm, { type SandboxConfigDraft } from './ConfigureSandboxForm.js';
 
 const configFrom = ({
@@ -14,7 +14,7 @@ const configFrom = ({
   autoStopIntervalInMinutes,
   autoArchiveIntervalInMinutes,
   autoDeleteIntervalInMinutes,
-}: SandboxConfig): SandboxConfig => ({
+}: SandboxProviderConfig): SandboxProviderConfig => ({
   snapshotName,
   execTimeoutMs,
   autoStopIntervalInMinutes,
@@ -25,14 +25,14 @@ const configFrom = ({
 const SandboxSettings = () => {
   const { sandboxCatalog } = useCatalogServer();
 
-  const [sandboxes, setSandboxes] = useState<SandboxBase[]>([]);
-  const [catalog, setCatalog] = useState<SandboxCatalogEntry[]>([]);
+  const [providers, setProviders] = useState<SandboxProviderBase[]>([]);
+  const [catalog, setCatalog] = useState<SandboxProviderCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [createEntry, setCreateEntry] = useState<SandboxCatalogEntry | null>(null);
-  const [updateSandbox, setUpdateSandbox] = useState<SandboxBase | null>(null);
+  const [createEntry, setCreateEntry] = useState<SandboxProviderCatalogEntry | null>(null);
+  const [updateProvider, setUpdateProvider] = useState<SandboxProviderBase | null>(null);
 
   const refresh = useCallback(
     async ({ quiet = false }: { quiet?: boolean } = {}) => {
@@ -41,10 +41,10 @@ const SandboxSettings = () => {
       setError(null);
       try {
         const [listed, available] = await Promise.all([
-          sandboxCatalog.listSandboxes(),
-          sandboxCatalog.getSandboxCatalog(),
+          sandboxCatalog.listSandboxProviders(),
+          sandboxCatalog.getSandboxProviderCatalog(),
         ]);
-        setSandboxes(listed);
+        setProviders(listed);
         setCatalog(available);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load sandboxes');
@@ -60,13 +60,13 @@ const SandboxSettings = () => {
   }, [refresh]);
 
   const availableEntries = useMemo(() => {
-    const connectedCatalogIds = new Set(sandboxes.map(sandbox => sandbox.catalogId));
+    const connectedCatalogIds = new Set(providers.map(provider => provider.catalogId));
     return catalog.filter(entry => !connectedCatalogIds.has(entry.id));
-  }, [catalog, sandboxes]);
+  }, [catalog, providers]);
 
   const formInitialConfig = useMemo(
-    () => (updateSandbox ? configFrom(updateSandbox) : createEntry ? configFrom(createEntry) : null),
-    [updateSandbox, createEntry],
+    () => (updateProvider ? configFrom(updateProvider) : createEntry ? configFrom(createEntry) : null),
+    [updateProvider, createEntry],
   );
 
   if (!sandboxCatalog) {
@@ -90,7 +90,7 @@ const SandboxSettings = () => {
   const handleCreate = async (draft: SandboxConfigDraft) => {
     if (!createEntry) return;
     await runMutation(async () => {
-      await sandboxCatalog.createSandbox({
+      await sandboxCatalog.createSandboxProvider({
         catalogId: createEntry.id,
         name: createEntry.name,
         type: createEntry.type,
@@ -102,27 +102,29 @@ const SandboxSettings = () => {
   };
 
   const handleUpdate = async (draft: SandboxConfigDraft) => {
-    if (!updateSandbox) return;
+    if (!updateProvider) return;
     await runMutation(async () => {
-      await sandboxCatalog.updateSandbox({
-        id: updateSandbox.id,
+      await sandboxCatalog.updateSandboxProvider({
+        id: updateProvider.id,
         ...configFrom(draft),
         ...(draft.apiKey ? { apiKey: draft.apiKey } : {}),
       });
     });
-    setUpdateSandbox(null);
+    setUpdateProvider(null);
   };
 
-  const handleRemove = (sandbox: SandboxBase) => {
+  const handleRemove = (provider: SandboxProviderBase) => {
+    const deleteSandboxProvider = sandboxCatalog.deleteSandboxProvider;
+    if (!deleteSandboxProvider) return;
     void runMutation(async () => {
-      await sandboxCatalog.deleteSandbox({ id: sandbox.id });
+      await deleteSandboxProvider({ id: provider.id });
     }).catch(() => {});
   };
 
-  const formOpen = createEntry != null || updateSandbox != null;
-  const isUpdate = updateSandbox != null;
-  const formTitle = updateSandbox
-    ? `Update ${updateSandbox.name}`
+  const formOpen = createEntry != null || updateProvider != null;
+  const isUpdate = updateProvider != null;
+  const formTitle = updateProvider
+    ? `Update ${updateProvider.name}`
     : createEntry
       ? `Configure ${createEntry.name}`
       : 'Configure sandbox';
@@ -145,15 +147,15 @@ const SandboxSettings = () => {
           <p className="text-sm text-muted-foreground">Loading sandboxes…</p>
         ) : (
           <div className="space-y-6">
-            {sandboxes.length > 0 ? (
+            {providers.length > 0 ? (
               <section>
                 <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Connected · {sandboxes.length}
+                  Connected · {providers.length}
                 </h4>
                 <div className="overflow-hidden rounded-xl border border-border bg-card">
-                  {sandboxes.map(sandbox => (
+                  {providers.map(provider => (
                     <article
-                      key={sandbox.id}
+                      key={provider.id}
                       className="flex flex-col gap-3 border-b border-border p-3 last:border-b-0 sm:flex-row sm:items-center"
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -164,13 +166,13 @@ const SandboxSettings = () => {
                           <Icon name="cube" className="size-4.5" />
                         </span>
                         <div className="min-w-0">
-                          <h5 className="truncate text-sm font-medium text-foreground">{sandbox.name}</h5>
-                          <p className="truncate text-[0.8125rem] text-muted-foreground">{sandbox.snapshotName}</p>
+                          <h5 className="truncate text-sm font-medium text-foreground">{provider.name}</h5>
+                          <p className="truncate text-[0.8125rem] text-muted-foreground">{provider.snapshotName}</p>
                         </div>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
-                        {sandbox.isConnected ? (
+                        {provider.isConnected ? (
                           <span className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
                             <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
                             Connected
@@ -183,23 +185,25 @@ const SandboxSettings = () => {
                           disabled={busy}
                           onClick={() => {
                             setCreateEntry(null);
-                            setUpdateSandbox(sandbox);
+                            setUpdateProvider(provider);
                           }}
                         >
                           Update
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-muted-foreground"
-                          type="button"
-                          disabled={busy}
-                          onClick={() => {
-                            handleRemove(sandbox);
-                          }}
-                        >
-                          Remove
-                        </Button>
+                        {sandboxCatalog.deleteSandboxProvider ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground"
+                            type="button"
+                            disabled={busy}
+                            onClick={() => {
+                              handleRemove(provider);
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        ) : null}
                       </div>
                     </article>
                   ))}
@@ -213,7 +217,7 @@ const SandboxSettings = () => {
               </h4>
               {availableEntries.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  {sandboxes.length > 0 ? 'All catalog sandboxes are configured.' : 'No sandboxes in the catalog.'}
+                  {providers.length > 0 ? 'All catalog sandboxes are configured.' : 'No sandboxes in the catalog.'}
                 </p>
               ) : (
                 <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -242,7 +246,7 @@ const SandboxSettings = () => {
                         type="button"
                         disabled={busy}
                         onClick={() => {
-                          setUpdateSandbox(null);
+                          setUpdateProvider(null);
                           setCreateEntry(entry);
                         }}
                       >
@@ -262,7 +266,7 @@ const SandboxSettings = () => {
         onOpenChange={open => {
           if (!open) {
             setCreateEntry(null);
-            setUpdateSandbox(null);
+            setUpdateProvider(null);
           }
         }}
         onSave={isUpdate ? handleUpdate : handleCreate}

@@ -583,11 +583,11 @@ export interface SkillCatalogServer<
 }
 
 // ---------------------------------------------------------------------------
-// Sandboxes catalog — public rows omit credentials; writes accept them
+// Sandbox providers catalog — public rows omit credentials; writes accept them
 // ---------------------------------------------------------------------------
 
-/** Mutable sandbox settings shared by catalog rows, create, and update. */
-export interface SandboxConfig {
+/** Mutable sandbox provider settings shared by catalog rows, create, and update. */
+export interface SandboxProviderConfig {
   snapshotName: string;
   execTimeoutMs: number;
   autoStopIntervalInMinutes: number;
@@ -595,17 +595,17 @@ export interface SandboxConfig {
   autoDeleteIntervalInMinutes: number;
 }
 
-export interface SandboxCatalogEntry extends SandboxConfig {
+export interface SandboxProviderCatalogEntry extends SandboxProviderConfig {
   id: string;
   name: string;
   type: string;
 }
 
 /**
- * Connected sandbox row (settings/sandboxes). No raw `apiKey`.
+ * Connected sandbox provider row (settings/sandboxes). No raw `apiKey`.
  * Includes last-saved config so update forms can show previous values.
  */
-export interface SandboxBase extends SandboxConfig {
+export interface SandboxProviderBase extends SandboxProviderConfig {
   id: string;
   name: string;
   catalogId: string;
@@ -614,33 +614,33 @@ export interface SandboxBase extends SandboxConfig {
 
 /**
  * Create — catalog identity + config + apiKey.
- * `catalogId` is `SandboxCatalogEntry.id`; the server assigns the sandbox instance `id`.
+ * `catalogId` is `SandboxProviderCatalogEntry.id`; the server assigns the provider `id`.
  */
-export interface CreateSandboxRequest extends SandboxConfig {
+export interface CreateSandboxProviderRequest extends SandboxProviderConfig {
   catalogId: string;
   name: string;
   type: string;
   apiKey: string;
 }
 
-/** Update — full replace of config keyed by sandbox instance `id`. */
-export interface UpdateSandboxRequest extends SandboxConfig {
+/** Update — full replace of config keyed by sandbox provider `id`. */
+export interface UpdateSandboxProviderRequest extends SandboxProviderConfig {
   id: string;
   /** Omit to keep the existing key; send a value to rotate. */
   apiKey?: string;
 }
 
 export interface SandboxCatalogServer<
-  TSandbox extends SandboxBase = SandboxBase,
-  TCatalogEntry extends SandboxCatalogEntry = SandboxCatalogEntry,
-  TCreate extends CreateSandboxRequest = CreateSandboxRequest,
-  TUpdate extends UpdateSandboxRequest = UpdateSandboxRequest,
+  TProvider extends SandboxProviderBase = SandboxProviderBase,
+  TCatalogEntry extends SandboxProviderCatalogEntry = SandboxProviderCatalogEntry,
+  TCreate extends CreateSandboxProviderRequest = CreateSandboxProviderRequest,
+  TUpdate extends UpdateSandboxProviderRequest = UpdateSandboxProviderRequest,
 > {
-  getSandboxCatalog(): Promise<TCatalogEntry[]>;
-  listSandboxes(req?: { query?: string }): Promise<TSandbox[]>;
-  createSandbox(req: TCreate): Promise<TSandbox>;
-  updateSandbox(req: TUpdate): Promise<TSandbox>;
-  deleteSandbox(req: { id: string }): Promise<void>;
+  getSandboxProviderCatalog(): Promise<TCatalogEntry[]>;
+  listSandboxProviders(req?: { query?: string }): Promise<TProvider[]>;
+  createSandboxProvider(req: TCreate): Promise<TProvider>;
+  updateSandboxProvider(req: TUpdate): Promise<TProvider>;
+  deleteSandboxProvider?(req: { id: string }): Promise<void>;
 }
 
 /**

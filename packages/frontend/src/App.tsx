@@ -12,6 +12,8 @@ import { getCapabilities, listMcpServers, listModels, listSkills } from './catal
 import { createConnectorCatalog } from './connectorCatalog';
 import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';
 import { createModelProviderCatalog } from './modelProviderCatalog';
+import { createSandboxProviderCatalog } from './sandboxProviderCatalog';
+import { createSkillCatalog } from './skillCatalog';
 
 /** Harness model names are `provider/model`. */
 function providerOf(name: string): string {
@@ -49,12 +51,8 @@ const server = createTrueFoundryServer<HarnessAgentSpec>({
   catalog: {
     modelCatalog: createModelProviderCatalog(),
     connectorCatalog: createConnectorCatalog(),
-    // Skills settings still deferred (UI create shape is repo/directory; Harness is git manifest).
-    skillCatalog: {
-      getSkillCatalog: () => Promise.resolve([]),
-      listSkills: () => Promise.resolve([]),
-      createSkill: () => Promise.reject(new Error('not implemented')),
-    },
+    skillCatalog: createSkillCatalog(),
+    sandboxCatalog: createSandboxProviderCatalog(),
   },
 });
 

@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "@truefoundry/trueforge-ui/styles.css";
+@import 'tailwindcss';
+@import '@truefoundry/trueforge-ui/styles.css';
 
 *,
 *::before,
@@ -101,7 +101,7 @@ body {
 }
 
 .layout-switcher__btn.is-active,
-.theme-toggle[aria-pressed="true"] {
+.theme-toggle[aria-pressed='true'] {
   background: var(--muted, #f3f4f6);
   border-color: var(--border, #e5e7eb);
   color: var(--foreground, #111827);
@@ -113,7 +113,11 @@ body {
   height: 100%;
   padding: 2.5rem 2rem;
   background:
-    radial-gradient(ellipse 80% 50% at 20% 0%, color-mix(in oklab, var(--primary, #4f46e5) 12%, transparent), transparent),
+    radial-gradient(
+      ellipse 80% 50% at 20% 0%,
+      color-mix(in oklab, var(--primary, #4f46e5) 12%, transparent),
+      transparent
+    ),
     var(--muted, #f3f4f6);
 }
 

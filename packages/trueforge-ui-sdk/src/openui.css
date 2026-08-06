@@ -1,5 +1,5 @@
-@import "@openuidev/react-ui/defaults.css";
-@import "@openuidev/react-ui/styles/index.css";
+@import '@openuidev/react-ui/defaults.css';
+@import '@openuidev/react-ui/styles/index.css';
 @source ".";
 
 /*
@@ -22,10 +22,10 @@
 
 .aui-openui .recharts-responsive-container,
 .aui-openui .recharts-wrapper,
-.aui-openui [class*="openui-card"],
-.aui-openui [class*="openui-chart"],
-.aui-openui [class*="openui-table"],
-.aui-openui [class*="openui-scrollable"] {
+.aui-openui [class*='openui-card'],
+.aui-openui [class*='openui-chart'],
+.aui-openui [class*='openui-table'],
+.aui-openui [class*='openui-scrollable'] {
   max-width: 100%;
 }
 
