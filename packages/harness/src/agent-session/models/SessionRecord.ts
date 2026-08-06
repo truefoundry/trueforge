@@ -9,8 +9,8 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
   session_id: string;
   agent: SessionAgent;
   /**
-   * Wire SessionSchema.title (nullable). Written via updateSession patch or
-   * createTurn's update_session_title_if_not_exist (first write wins; caller derives).
+   * Public session title (nullable). Written via updateSession patch or createTurn's
+   * update_session_title_if_not_exist (first write wins; caller derives).
    */
   title: string | null;
   /**

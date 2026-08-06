@@ -1,14 +1,39 @@
-/** Server session wire schemas. Core Session/Create/Update live in agentSession. */
+/** Public session wire schemas. Internal stores keep discriminated ref/value bindings. */
 import { z } from '@hono/zod-openapi';
-import {
-  CreateSessionRequestSchema,
-  SessionSchema,
-  TokenPaginationSchema,
-  UpdateSessionRequestSchema,
-} from '@truefoundry/utils-core/agent-session';
+import { AgentSpecSchema, TokenPaginationSchema } from '@truefoundry/utils-core/agent-session';
+import { NameSchema } from './common';
 
-export type { Session } from '@truefoundry/utils-core/agent-session';
-export { CreateSessionRequestSchema, UpdateSessionRequestSchema };
+const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('SessionAgentNameRef');
+
+const InlineSessionAgentSchema = AgentSpecSchema.strict().openapi('InlineSessionAgent');
+
+/** The public API uses a name ref or an inline AgentSpec without internal discriminator fields. */
+export const SessionWireAgentSchema = z
+  .union([SessionAgentNameRefSchema, InlineSessionAgentSchema])
+  .openapi('SessionWireAgent');
+
+export const SessionSchema = z
+  .object({
+    id: z.string(),
+    agent: SessionWireAgentSchema,
+    title: z.string().nullable(),
+    created_at: z.string(),
+    updated_at: z.string(),
+  })
+  .openapi('Session');
+
+export const CreateSessionRequestSchema = z
+  .object({ agent: SessionWireAgentSchema })
+  .strict()
+  .openapi('CreateSessionRequest');
+
+/** Only inline AgentSpec sessions may be updated; named sessions reject agent updates. */
+export const UpdateSessionRequestSchema = z
+  .object({ agent: InlineSessionAgentSchema.optional() })
+  .strict()
+  .openapi('UpdateSessionRequest');
+
+export type Session = z.infer<typeof SessionSchema>;
 
 export const DEFAULT_SESSIONS_LIMIT = 10;
 export const SESSIONS_MAX_LIMIT = 100;
@@ -42,7 +67,7 @@ export const ListSessionsRequestQuerySchema = z
     end_timestamp: IsoTimestampQueryParam.optional().describe(
       'Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339).',
     ),
-    agent_id: z.string().min(1).optional().describe('When set, only sessions bound to this agent id are returned.'),
+    agent_name: NameSchema.optional().describe('When set, only sessions bound to this named agent are returned.'),
   })
   .openapi('ListSessionsRequestQuery');
 
