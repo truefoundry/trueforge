@@ -753,7 +753,7 @@
         "additionalProperties": false,
         "properties": {
           "agent": {
-            "$ref": "#/components/schemas/SessionAgent"
+            "$ref": "#/components/schemas/SessionWireAgent"
           }
         },
         "required": [
@@ -1181,6 +1181,51 @@
           "auth",
           "models",
           "type"
+        ],
+        "type": "object"
+      },
+      "InlineSessionAgent": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/RuntimeConfig"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "mcp_servers": {
+            "items": {
+              "$ref": "#/components/schemas/MCPServer"
+            },
+            "type": "array"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AgentSpecUserMessage"
+            },
+            "type": "array"
+          },
+          "model": {
+            "$ref": "#/components/schemas/AgentSpecModel"
+          },
+          "response_format": {
+            "$ref": "#/components/schemas/ResponseFormat"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillNameRef"
+            },
+            "type": "array"
+          },
+          "variables": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "model"
         ],
         "type": "object"
       },
@@ -2573,7 +2618,7 @@
       "Session": {
         "properties": {
           "agent": {
-            "$ref": "#/components/schemas/SessionAgent"
+            "$ref": "#/components/schemas/SessionWireAgent"
           },
           "created_at": {
             "type": "string"
@@ -2600,59 +2645,15 @@
         ],
         "type": "object"
       },
-      "SessionAgent": {
-        "discriminator": {
-          "mapping": {
-            "ref": "#/components/schemas/SessionAgentRef",
-            "value": "#/components/schemas/SessionAgentValue"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/SessionAgentRef"
-          },
-          {
-            "$ref": "#/components/schemas/SessionAgentValue"
-          }
-        ]
-      },
-      "SessionAgentRef": {
+      "SessionAgentNameRef": {
         "additionalProperties": false,
         "properties": {
-          "agent_id": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "ref"
-            ],
-            "type": "string"
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
           }
         },
         "required": [
-          "type",
-          "agent_id"
-        ],
-        "type": "object"
-      },
-      "SessionAgentValue": {
-        "additionalProperties": false,
-        "properties": {
-          "agent_spec": {
-            "$ref": "#/components/schemas/AgentSpec"
-          },
-          "type": {
-            "enum": [
-              "value"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "agent_spec"
+          "name"
         ],
         "type": "object"
       },
@@ -2723,6 +2724,16 @@
           "event"
         ],
         "type": "object"
+      },
+      "SessionWireAgent": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SessionAgentNameRef"
+          },
+          {
+            "$ref": "#/components/schemas/InlineSessionAgent"
+          }
+        ]
       },
       "SkillManifest": {
         "additionalProperties": false,
@@ -3616,9 +3627,10 @@
         "type": "object"
       },
       "UpdateSessionRequest": {
+        "additionalProperties": false,
         "properties": {
           "agent": {
-            "$ref": "#/components/schemas/SessionAgentValue"
+            "$ref": "#/components/schemas/InlineSessionAgent"
           }
         },
         "type": "object"
@@ -4430,7 +4442,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "description": "List sessions (newest first by default), token-paginated. Optional `agent_name` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
         "parameters": [
           {
             "description": "Page size. Defaults to 10, max 100.",
@@ -4487,14 +4499,19 @@
             }
           },
           {
-            "description": "When set, only sessions bound to this agent id are returned.",
+            "description": "When set, only sessions bound to this named agent are returned.",
             "in": "query",
-            "name": "agent_id",
+            "name": "agent_name",
             "required": false,
             "schema": {
-              "description": "When set, only sessions bound to this agent id are returned.",
-              "minLength": 1,
-              "type": "string"
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ResourceName"
+                },
+                {
+                  "description": "When set, only sessions bound to this named agent are returned."
+                }
+              ]
             }
           }
         ],
@@ -4518,6 +4535,16 @@
               }
             },
             "description": "Invalid query parameters or page token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Named agent not found."
           }
         },
         "summary": "List sessions",
@@ -4535,7 +4562,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "post": {
-        "description": "Create a session with `agent` as either `{ type: \"value\", agent_spec }` (draft) or `{ type: \"ref\", agent_id }` (named). Named sessions resolve the live agent on each turn.",
+        "description": "Create a session with `agent` as either an inline AgentSpec (draft) or `{ name }` (named). Named sessions resolve the live agent on each turn.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4575,7 +4602,7 @@
                 }
               }
             },
-            "description": "Named `agent_id` not found."
+            "description": "Named agent not found."
           },
           "422": {
             "content": {
@@ -4677,7 +4704,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.",
+        "description": "Update a draft session by replacing `agent` with an inline AgentSpec. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.",
         "parameters": [
           {
             "description": "Session identifier.",

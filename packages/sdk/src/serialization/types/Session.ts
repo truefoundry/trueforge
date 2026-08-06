@@ -3,11 +3,11 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { SessionAgent } from "./SessionAgent.js";
+import { SessionWireAgent } from "./SessionWireAgent.js";
 
 export const Session: core.serialization.ObjectSchema<serializers.Session.Raw, TrueForge.Session> =
     core.serialization.object({
-        agent: SessionAgent,
+        agent: SessionWireAgent,
         createdAt: core.serialization.property("created_at", core.serialization.string()),
         id: core.serialization.string(),
         title: core.serialization.string().nullable(),
@@ -16,7 +16,7 @@ export const Session: core.serialization.ObjectSchema<serializers.Session.Raw, T
 
 export declare namespace Session {
     export interface Raw {
-        agent: SessionAgent.Raw;
+        agent: SessionWireAgent.Raw;
         created_at: string;
         id: string;
         title?: string | null;

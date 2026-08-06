@@ -17,6 +17,6 @@ export interface ListSessionsRequest {
     startTimestamp?: Date;
     /** Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339). */
     endTimestamp?: Date;
-    /** When set, only sessions bound to this agent id are returned. */
-    agentId?: string;
+    /** When set, only sessions bound to this named agent are returned. */
+    agentName?: string;
 }

@@ -24,12 +24,13 @@ export class SessionsClient {
     }
 
     /**
-     * List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
+     * List sessions (newest first by default), token-paginated. Optional `agent_name` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
      *
      * @param {TrueForge.ListSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.NotFoundError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -44,7 +45,7 @@ export class SessionsClient {
             async (
                 request: TrueForge.ListSessionsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListSessionsResponse>> => {
-                const { limit = 10, order, pageToken, startTimestamp, endTimestamp, agentId } = request;
+                const { limit = 10, order, pageToken, startTimestamp, endTimestamp, agentName } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     order:
@@ -59,7 +60,7 @@ export class SessionsClient {
                     page_token: pageToken,
                     start_timestamp: startTimestamp != null ? startTimestamp?.toISOString() : undefined,
                     end_timestamp: endTimestamp != null ? endTimestamp?.toISOString() : undefined,
-                    agent_id: agentId,
+                    agent_name: agentName,
                 };
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
                     this._options?.headers,
@@ -109,6 +110,17 @@ export class SessionsClient {
                                 }),
                                 _response.rawResponse,
                             );
+                        case 404:
+                            throw new TrueForge.NotFoundError(
+                                serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                                    unrecognizedObjectKeys: "passthrough",
+                                    allowUnrecognizedUnionMembers: true,
+                                    allowUnrecognizedEnumValues: true,
+                                    skipValidation: true,
+                                    breadcrumbsPrefix: ["response"],
+                                }),
+                                _response.rawResponse,
+                            );
                         default:
                             throw new errors.TrueForgeError({
                                 statusCode: _response.error.statusCode,
@@ -135,7 +147,7 @@ export class SessionsClient {
     }
 
     /**
-     * Create a session with `agent` as either `{ type: "value", agent_spec }` (draft) or `{ type: "ref", agent_id }` (named). Named sessions resolve the live agent on each turn.
+     * Create a session with `agent` as either an inline AgentSpec (draft) or `{ name }` (named). Named sessions resolve the live agent on each turn.
      *
      * @param {TrueForge.CreateSessionRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -149,8 +161,7 @@ export class SessionsClient {
      * @example
      *     await client.sessions.create({
      *         agent: {
-     *             agentId: "agent_id",
-     *             type: "ref"
+     *             name: "name"
      *         }
      *     })
      */
@@ -387,7 +398,7 @@ export class SessionsClient {
     }
 
     /**
-     * Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.
+     * Update a draft session by replacing `agent` with an inline AgentSpec. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.UpdateSessionRequest} request

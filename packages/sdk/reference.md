@@ -687,7 +687,7 @@ await client.models.list();
 <dl>
 <dd>
 
-List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
+List sessions (newest first by default), token-paginated. Optional `agent_name` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
 </dd>
 </dl>
 </dd>
@@ -750,7 +750,7 @@ await client.sessions.list();
 <dl>
 <dd>
 
-Create a session with `agent` as either `{ type: "value", agent_spec }` (draft) or `{ type: "ref", agent_id }` (named). Named sessions resolve the live agent on each turn.
+Create a session with `agent` as either an inline AgentSpec (draft) or `{ name }` (named). Named sessions resolve the live agent on each turn.
 </dd>
 </dl>
 </dd>
@@ -767,8 +767,7 @@ Create a session with `agent` as either `{ type: "value", agent_spec }` (draft) 
 ```typescript
 await client.sessions.create({
     agent: {
-        agentId: "agent_id",
-        type: "ref"
+        name: "name"
     }
 });
 
@@ -944,7 +943,7 @@ await client.sessions.delete("session_id");
 <dl>
 <dd>
 
-Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.
+Update a draft session by replacing `agent` with an inline AgentSpec. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.
 </dd>
 </dl>
 </dd>
