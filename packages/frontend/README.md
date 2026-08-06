@@ -31,14 +31,15 @@ pnpm dev              # Postgres + Redis, Vite :3000 + API :8790
 
 Open `http://localhost:3000`: Vite serves the UI from source (edits hot-reload, no rebuild or server
 restart) and proxies `/api/*` to `VITE_SERVER_URL`, default `http://localhost:8790`. `FRONTEND_PORT`
-moves Vite off `:3000`. That proxy is the only dev-specific wiring and lives entirely in
+moves Vite off `:3000`. Vite uses `strictPort` — if that port is already bound, dev exits instead of
+picking another. That proxy is the only dev-specific wiring and lives entirely in
 [`vite.config.ts`](vite.config.ts); the server needs no build to answer the API.
 
 ### Server adapter
 
 [`src/harnessServer.ts`](src/harnessServer.ts) wraps the Harness SDK with the flat `AgentChatServer`
-contract. It maps mutable session DTOs, pagination, turns, event history, cancellation, and SSE
-metadata while keeping the browser pointed directly at `/api/v1/sessions`.
+contract. It maps mutable session DTOs, pagination, turns, event history, turn subscribe/resume,
+cancellation, and SSE metadata while keeping the browser pointed directly at `/api/v1/sessions`.
 
 `trueforge-ui` still declares the pre-0.1.6 contract (mounts carry `id`, list results are
 `PageResult`, absent values are `undefined`) while the runtime it delegates to reads `nextPageToken`
@@ -59,10 +60,11 @@ those on the fly.
 docker compose up --build   # UI + API on http://localhost:8791
 ```
 
-## Catalogs (model + MCP + skills)
+## Composer lists + builder (model + MCP + skills)
 
-[`src/catalog.ts`](src/catalog.ts) calls the DB-backed list endpoints via `trueforge`.
-`App.tsx` passes the results into `createTrueFoundryServer`:
+[`src/composerLists.ts`](src/composerLists.ts) calls the DB-backed list endpoints via `trueforge`.
+[`src/harnessBuilderServer.ts`](src/harnessBuilderServer.ts) maps those into `AgentBuilderServer`
+callbacks; `App.tsx` spreads them into `createTrueFoundryServer` (settings CRUD lives in `*Catalog.ts`):
 
 | Callback       | Source                                                            |
 | -------------- | ----------------------------------------------------------------- |

@@ -3,12 +3,38 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { CallerSuppliedModelProvider } from "./CallerSuppliedModelProvider.js";
-import { WellKnownModelProvider } from "./WellKnownModelProvider.js";
+import { AlibabaModelProvider } from "./AlibabaModelProvider.js";
+import { AnthropicModelProvider } from "./AnthropicModelProvider.js";
+import { CustomModelProvider } from "./CustomModelProvider.js";
+import { FireworksModelProvider } from "./FireworksModelProvider.js";
+import { GoogleGeminiModelProvider } from "./GoogleGeminiModelProvider.js";
+import { MoonshotModelProvider } from "./MoonshotModelProvider.js";
+import { OpenAiModelProvider } from "./OpenAiModelProvider.js";
+import { TogetherModelProvider } from "./TogetherModelProvider.js";
+import { ZaiModelProvider } from "./ZaiModelProvider.js";
 
 export const ModelProvider: core.serialization.Schema<serializers.ModelProvider.Raw, TrueForge.ModelProvider> =
-    core.serialization.undiscriminatedUnion([WellKnownModelProvider, CallerSuppliedModelProvider]);
+    core.serialization.undiscriminatedUnion([
+        AlibabaModelProvider,
+        AnthropicModelProvider,
+        CustomModelProvider,
+        FireworksModelProvider,
+        GoogleGeminiModelProvider,
+        MoonshotModelProvider,
+        OpenAiModelProvider,
+        TogetherModelProvider,
+        ZaiModelProvider,
+    ]);
 
 export declare namespace ModelProvider {
-    export type Raw = WellKnownModelProvider.Raw | CallerSuppliedModelProvider.Raw;
+    export type Raw =
+        | AlibabaModelProvider.Raw
+        | AnthropicModelProvider.Raw
+        | CustomModelProvider.Raw
+        | FireworksModelProvider.Raw
+        | GoogleGeminiModelProvider.Raw
+        | MoonshotModelProvider.Raw
+        | OpenAiModelProvider.Raw
+        | TogetherModelProvider.Raw
+        | ZaiModelProvider.Raw;
 }

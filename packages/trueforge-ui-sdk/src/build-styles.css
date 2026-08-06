@@ -5,8 +5,8 @@
  * not reset global consumer styles. `styles.css` supplies the SDK's sources,
  * dependencies, and semantic-token bridge.
  */
-@import "tailwindcss/theme" layer(tfy-agent-ui-theme);
-@import "tailwindcss/utilities" layer(tfy-agent-ui-utilities);
-@import "./styles.css";
+@import 'tailwindcss/theme' layer(tfy-agent-ui-theme);
+@import 'tailwindcss/utilities' layer(tfy-agent-ui-utilities);
+@import './styles.css';
 
 @custom-variant dark (&:is(.dark *));

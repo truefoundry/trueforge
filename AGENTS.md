@@ -1,5 +1,5 @@
 - Workspace tasks MUST use `package.json` scripts; add a script when a missing workflow is repeatable like the existing commands, not ad hoc commands.
-- Release wiring MUST keep dist-free host development, `pnpm smoke`, and packed CJS/ESM consumers of `@truefoundry/utils-core` working without changes in `tfy-llm-gateway` (beyond the package rename from `@truefoundry/utils`).
+- Release wiring MUST keep dist-free host development, `pnpm smoke`, and packed CJS/ESM consumers of `@truefoundry/utils-core` working without changes.
 - Shared Postgres/Redis settings in `docker-compose.yml` and `docker-compose.dev.yml` (image versions, health checks, `env_file`) MUST stay synchronized; intentional differences (app services, data paths, project `name`, host ports, in-network `POSTGRES_HOST` / `REDIS_URL`) MUST stay explicit. `packages/server/.env` is the host-dev + secrets source; `docker-compose.yml` may read it but MUST override container connectivity so host-dev localhost values are not used inside the smoke-test stack.
 - Changes to types or schemas MUST keep `packages/harness`, `packages/frontend`, `packages/server`, and `patches` synchronized; they MUST NOT update only one affected layer.
 - TypeScript code MUST NOT use assertion escapes such as `as T`, `as unknown as T`, non-null `!`, or `as never` to silence type errors; implementations MUST use sound contracts, guards, or corrected types.
@@ -16,3 +16,4 @@
 - Functions with more than one parameter of the same type MUST take a single options object (e.g. `f({ a, b }: { a: string; b: string })`); they MUST NOT use multiple positional parameters of that repeated type (e.g. `f(a: string, b: string)`).
 - Zod unions MUST use `z.discriminatedUnion` whenever every member carries a shared literal discriminator field; `z.union` is only permitted when no such common discriminator exists.
 - HTTP/OpenAPI wire shapes (path params, query params, request/response JSON fields) and database identifiers (table/column names, persisted jsonb document keys) MUST use `snake_case`.
+- Server code MUST NOT read environment variables via `process.env` directly; all env reads MUST go through `packages/server/src/config.ts`, unless there is a documented special requirement (for example bootstrap before config is loaded).

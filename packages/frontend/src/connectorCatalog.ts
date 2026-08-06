@@ -16,7 +16,7 @@ import type {
   UpdateConnectorRequest,
 } from '@truefoundry/trueforge-ui';
 import type { TrueForgeApi as Harness } from 'trueforge';
-import { TrueForge } from 'trueforge';
+import { harnessClient as client } from './harnessClient';
 
 export type UiConnectorAuth = ConnectorAuth;
 export type UiConnectorAuthPublic = ConnectorAuthPublic;
@@ -24,8 +24,6 @@ export type UiConnector = ConnectorBase;
 export type UiConnectorCatalogEntry = ConnectorCatalogEntry;
 
 const DEFAULT_API_KEY_HEADER = 'Authorization';
-
-const client = new TrueForge({ baseUrl: '/' });
 
 export function toUiAuthPublic(auth: Harness.ConfiguredMcpServerAuth | undefined): UiConnectorAuthPublic {
   if (auth === undefined) {
@@ -63,6 +61,7 @@ export function toUiCatalogEntry(server: Harness.CatalogMcpServer): UiConnectorC
     id: server.name,
     name: server.name,
     url: server.url,
+    ...(server.logo === undefined ? {} : { logo: server.logo }),
     auth: toUiAuthPublic(server.auth),
   };
 }
@@ -81,8 +80,8 @@ export function toUiConnector(server: Harness.ConfiguredMcpServer): UiConnector 
     description: server.url,
     url: server.url,
     auth,
-    requiresAuth: auth.type === 'oauth',
-    authenticated: server.authStatus.status === 'authenticated',
+    requiresAuth: server.authStatus.status === 'auth_required',
+    authenticated: server.authStatus.status !== 'auth_required',
   };
 }
 
@@ -99,15 +98,6 @@ export function toHarnessManifest(req: { name: string; url: string; auth: Connec
     url: req.url,
     ...(auth === undefined ? {} : { auth }),
   };
-}
-
-async function listToolsSafe(name: string): Promise<ToolBase[]> {
-  try {
-    const body = await client.settings.mcpServers.listTools(name);
-    return body.data.map(toUiTool);
-  } catch {
-    return [];
-  }
 }
 
 async function getConfigured(name: string): Promise<Harness.ConfiguredMcpServer> {
@@ -147,7 +137,6 @@ async function resolveWriteAuth(req: { id?: string; auth: ConnectorAuth }): Prom
   return { type: 'apiKey', apiKey: stored, headerName };
 }
 
-/** Settings connector port for `createTrueFoundryServer`. Delete omitted; disconnect unsupported. */
 export function createConnectorCatalog(): ConnectorCatalogServer<
   ToolBase,
   UiConnectorAuth,
@@ -180,7 +169,10 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
           connector.url.toLowerCase().includes(query),
       );
     },
-    getToolsByConnectorId: async ({ id }) => listToolsSafe(id),
+    getToolsByConnectorId: async ({ id }) => {
+      const body = await client.settings.mcpServers.listTools(id);
+      return body.data.map(toUiTool);
+    },
     createConnector: async req => {
       const auth = await resolveWriteAuth({ auth: req.auth });
       const body = await client.settings.mcpServers.upsert(toHarnessManifest({ name: req.name, url: req.url, auth }));
@@ -203,6 +195,13 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
       const server = await getConfigured(req.id);
       return toUiConnector(server);
     },
-    disconnectConnector: () => Promise.reject(new Error('Disconnect is not supported by Harness yet')),
+    disconnectConnector: async req => {
+      const existing = await getConfigured(req.id);
+      if (existing.auth?.type !== 'dcr') {
+        throw new Error(`Disconnect is only supported for OAuth MCP servers`);
+      }
+      const body = await client.mcpServers.deleteAuthorize(req.id);
+      return toUiConnector(body.data);
+    },
   };
 }

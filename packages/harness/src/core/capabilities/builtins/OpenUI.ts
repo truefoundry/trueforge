@@ -1,6 +1,16 @@
 import dedent from 'dedent';
+import { z } from 'zod';
 import { InstructionBuilder } from '../../InstructionBuilder';
+import { toolResultResponse } from '../../mcp/IMCPServer';
+import { defineTool, LocalToolMCP, type ToolDefinition } from '../../mcp/LocalToolMCP';
+import type { AgentTracing } from '../../tracing/AgentTracing';
+import { NOOP_AGENT_TRACING } from '../../tracing/NoopAgentTracing';
 import type { AgentCapability } from '../AgentCapability';
+
+export const OPENUI_SERVER_ID = 'openui';
+export const GET_OPENUI_INSTRUCTIONS_TOOL_NAME = 'get_openui_instructions';
+
+const getOpenUIInstructionsInputSchema = z.object({}).strict();
 
 export const OPENUI_SECTION_TAG = 'openui';
 export const OPENUI_MARKDOWN_FENCING_TAG = 'openui-markdown-fencing';
@@ -251,8 +261,69 @@ export function buildOpenUIInstruction(builder: InstructionBuilder): void {
   );
 }
 
-export function openUI(): AgentCapability {
+/** Renders the existing OpenUI prompt tree without duplicating section bodies. */
+export function renderOpenUIPrompt(): string {
+  const root = new InstructionBuilder('_openui_render');
+  buildOpenUIInstruction(root);
+  const wrapped = root.build();
+  const openTag = `<${OPENUI_SECTION_TAG}>`;
+  const closeTag = `</${OPENUI_SECTION_TAG}>`;
+  const start = wrapped.indexOf(openTag);
+  const end = wrapped.lastIndexOf(closeTag);
+  if (start === -1 || end === -1) {
+    throw new Error('Failed to render OpenUI prompt from buildOpenUIInstruction');
+  }
+  return wrapped.slice(start, end + closeTag.length);
+}
+
+function buildOpenUIDeferredInstruction(builder: InstructionBuilder): void {
+  builder.addSection(
+    OPENUI_SECTION_TAG,
+    dedent`
+      The Agent can render interactive UI that markdown cannot express by emitting a fenced \`\`\`openui block.
+
+      Before writing any \`\`\`openui fence, the Agent MUST call ${GET_OPENUI_INSTRUCTIONS_TOOL_NAME} with arguments {}.
+      Do not invent OpenUI syntax or component APIs without loading those instructions.
+
+      Use OpenUI only when the response is UI-heavy and needs components markdown does not support.
+    `.trim(),
+  );
+}
+
+export class OpenUIInstructions extends LocalToolMCP {
+  readonly name = OPENUI_SERVER_ID;
+  readonly displayName = 'OpenUI';
+
+  constructor(tracing: AgentTracing) {
+    super({ tracing });
+  }
+
+  private tools: ToolDefinition[] = [
+    defineTool({
+      name: GET_OPENUI_INSTRUCTIONS_TOOL_NAME,
+      description: [
+        'Load the full OpenUI generative-UI authoring instructions (syntax, components, builtins, examples, rules).',
+        'Call this before emitting any ```openui fenced block. Pass an empty object as arguments: {}.',
+      ].join(' '),
+      schema: getOpenUIInstructionsInputSchema,
+      handler: () => Promise.resolve(toolResultResponse({ text: renderOpenUIPrompt() })),
+    }),
+  ];
+
+  protected getTools(): ToolDefinition[] {
+    return this.tools;
+  }
+}
+
+export function openUI(options?: { preload?: boolean; tracing?: AgentTracing }): AgentCapability {
+  const preload = options?.preload ?? true;
+  if (preload) {
+    return {
+      instructionBuilders: [buildOpenUIInstruction],
+    };
+  }
   return {
-    instructionBuilders: [buildOpenUIInstruction],
+    systemToolSets: [new OpenUIInstructions(options?.tracing ?? NOOP_AGENT_TRACING)],
+    instructionBuilders: [buildOpenUIDeferredInstruction],
   };
 }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { auiButtonClass } from '@/atoms/lib/buttonClasses.js';
 import { cn } from '@/atoms/lib/cn.js';
+import { useCompactLayout } from '@/atoms/lib/CompactLayoutContext.js';
 import { Icon } from '@/icons/Icon.js';
 import { useOptionalCatalogServer } from '@/server/ServerContext.js';
 import { useShellMode } from '@/server/ShellModeContext.js';
@@ -17,6 +18,8 @@ type SettingsSection = 'models' | 'connectors' | 'skills' | 'sandbox';
 const TruefoundrySettingsBuilder = () => {
   const { settingsOpen, setSettingsOpen } = useShellMode();
   const catalog = useOptionalCatalogServer();
+  // dock/widget panels are ~mobile width even on a wide viewport — keep Settings stacked.
+  const compact = useCompactLayout();
   const [section, setSection] = useState<SettingsSection>('models');
 
   const hasSkills = catalog?.skillCatalog != null;
@@ -84,19 +87,25 @@ const TruefoundrySettingsBuilder = () => {
         <h1 className="text-lg font-semibold tracking-tight text-foreground">Settings</h1>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+      <div className={cn('flex min-h-0 flex-1 flex-col', !compact && 'md:flex-row')}>
         <nav
           aria-label="Settings sections"
-          className="flex w-full justify-center gap-1 border-b border-border bg-muted/30 p-2 md:w-48 md:flex-col md:justify-start md:border-b-0 md:border-r"
+          className={cn(
+            'flex w-full gap-1 border-b border-border bg-muted/30 p-2',
+            compact ? 'min-w-0' : 'justify-center md:w-48 md:flex-col md:justify-start md:border-b-0 md:border-r',
+          )}
         >
           {sections.map(item => (
             <button
               key={item.id}
               type="button"
               aria-current={section === item.id ? 'page' : undefined}
+              {...(compact ? { title: item.label } : {})}
               className={cn(
-                'flex min-h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
+                'flex min-h-9 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
                 'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                // Narrow panels cannot fit fixed-width tabs, so tabs split the row instead.
+                compact ? 'min-w-0 flex-1 justify-center gap-1.5 px-1.5' : 'shrink-0',
                 section === item.id
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
@@ -105,8 +114,8 @@ const TruefoundrySettingsBuilder = () => {
                 setSection(item.id);
               }}
             >
-              <Icon name={item.icon} className="h-4 w-4" />
-              {item.label}
+              <Icon name={item.icon} className="h-4 w-4 shrink-0" />
+              {compact ? <span className="truncate">{item.label}</span> : item.label}
             </button>
           ))}
         </nav>

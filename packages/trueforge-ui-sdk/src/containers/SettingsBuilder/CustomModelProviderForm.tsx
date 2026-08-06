@@ -148,11 +148,17 @@ const CustomModelProviderForm = ({ open, onOpenChange, onAdd, busy = false }: Cu
           />
         </div>
 
-        <fieldset>
-          <legend className="mb-1.5 block text-sm font-medium text-foreground">
+        <fieldset className="m-0 min-w-0 border-0 p-0">
+          {/* float clears the extra legend gap some browsers leave inside fieldset */}
+          <legend className="float-left mb-1 w-full p-0 text-sm font-medium text-foreground">
             Models
             <RequiredMark />
           </legend>
+          <div className="flex clear-both items-center gap-2 text-xs font-medium text-muted-foreground">
+            <span className="min-w-0 flex-1">Model ID</span>
+            <span className="min-w-0 flex-1">Display name</span>
+            <span className="size-10 shrink-0" aria-hidden />
+          </div>
           <div className="flex flex-col gap-2">
             {models.map((model, index) => (
               <div key={index} className="flex items-center gap-2">
@@ -165,7 +171,7 @@ const CustomModelProviderForm = ({ open, onOpenChange, onAdd, busy = false }: Cu
                     updateModel(index, { id: event.target.value });
                   }}
                   placeholder="llama3.1:70b"
-                  className={`${inputClassName} font-mono`}
+                  className={`${inputClassName} min-w-0 flex-1 font-mono`}
                 />
                 <input
                   type="text"
@@ -176,7 +182,7 @@ const CustomModelProviderForm = ({ open, onOpenChange, onAdd, busy = false }: Cu
                     updateModel(index, { name: event.target.value });
                   }}
                   placeholder="Llama 3.1 70B"
-                  className={inputClassName}
+                  className={`${inputClassName} min-w-0 flex-1`}
                 />
                 <Button
                   variant="outline"

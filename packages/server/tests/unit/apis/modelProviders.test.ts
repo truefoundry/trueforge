@@ -21,10 +21,12 @@ const model = {
 
 const anthropicBody = {
   type: 'anthropic' as const,
-  name: 'anthropic',
   auth: { api_key: 'sk-ant-secret' },
   models: [model],
 };
+
+/** What the body above is stored and echoed as: named after its type, endpoint from its schema. */
+const anthropicProvider = { ...anthropicBody, name: 'anthropic', base_url: 'https://api.anthropic.com/v1' };
 
 const customBody = {
   type: 'custom' as const,
@@ -89,11 +91,11 @@ describe('settings model-providers and models routers', () => {
   it('PUT upserts a well-known provider without base_url and echoes the stored auth', async () => {
     const response = await settingsRouter.request('/model-providers', putInit(anthropicBody));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ data: anthropicBody });
+    expect(await response.json()).toEqual({ data: anthropicProvider });
 
     const list = await settingsRouter.request('/model-providers');
     expect(list.status).toBe(200);
-    expect(await list.json()).toEqual({ data: [anthropicBody] });
+    expect(await list.json()).toEqual({ data: [anthropicProvider] });
   });
 
   it('PUT requires base_url for custom providers', async () => {
@@ -131,19 +133,61 @@ describe('settings model-providers and models routers', () => {
   });
 });
 
+describe('well-known types are limited to one provider', () => {
+  it('PUT replaces the configured provider instead of adding a second of the type', async () => {
+    const { settingsRouter, modelsRouter } = await createRouters();
+    expect((await settingsRouter.request('/model-providers', putInit(anthropicBody))).status).toBe(200);
+
+    const rotated = { ...anthropicBody, auth: { api_key: 'sk-ant-rotated' } };
+    const update = await settingsRouter.request('/model-providers', putInit(rotated));
+    expect(update.status).toBe(200);
+    expect(await update.json()).toEqual({ data: { ...anthropicProvider, auth: rotated.auth } });
+
+    const list = await settingsRouter.request('/model-providers');
+    expect(await list.json()).toEqual({ data: [{ ...anthropicProvider, auth: rotated.auth }] });
+    const models = await modelsRouter.request('/');
+    expect(((await models.json()) as { data: { name: string }[] }).data.map(entry => entry.name)).toEqual([
+      'anthropic/claude-sonnet-4-6',
+    ]);
+  });
+
+  it('PUT rejects a name of its own for a well-known type', async () => {
+    const { settingsRouter } = await createRouters();
+    const named = await settingsRouter.request('/model-providers', putInit({ ...anthropicBody, name: 'anthropic-eu' }));
+    expect(named.status).toBe(400);
+
+    const list = await settingsRouter.request('/model-providers');
+    expect(await list.json()).toEqual({ data: [] });
+  });
+
+  it('PUT keeps a caller-supplied base_url over the schema default', async () => {
+    const { settingsRouter } = await createRouters();
+    const proxied = { ...anthropicBody, base_url: 'https://gateway.internal.example.com/v1' };
+    const response = await settingsRouter.request('/model-providers', putInit(proxied));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ data: { ...anthropicProvider, base_url: proxied.base_url } });
+  });
+
+  it('PUT allows several caller-supplied providers, which each name their own endpoint', async () => {
+    const { settingsRouter } = await createRouters();
+    const second = { ...customBody, name: 'internal-eu', base_url: 'https://llm.eu.example.com/v1' };
+    expect((await settingsRouter.request('/model-providers', putInit(customBody))).status).toBe(200);
+    expect((await settingsRouter.request('/model-providers', putInit(second))).status).toBe(200);
+
+    const list = await settingsRouter.request('/model-providers');
+    expect(await list.json()).toEqual({ data: [customBody, second] });
+  });
+});
+
 describe('catalog presets are configurable', () => {
-  // A preset is meant to be copied into a PUT body with an api_key added. Every type the catalog
-  // ships must therefore be in the configuration union; five of them once were not.
+  // A preset is copied into a PUT body with an api_key added, so every catalog type must parse.
   it.each(ModelCatalog.load().list())('PUT accepts the $type preset', async preset => {
     const { settingsRouter } = await createRouters();
-    // `logo` is catalog-only discovery metadata — omit it from the configured PUT body.
+    // `logo` is catalog-only metadata; everything else copies straight into a PUT body.
     const { logo, ...presetWithoutLogo } = preset;
     const body = {
       ...presetWithoutLogo,
       auth: { api_key: `sk-${preset.name}` },
-      // Alibaba is the one catalog type that also needs a base_url: a MaaS host embeds the
-      // workspace id, so there is nothing to default to.
-      ...(preset.type === 'alibaba' ? { base_url: 'https://ws-x.ap-southeast-1.maas.aliyuncs.com/v1' } : {}),
     };
     expect(logo === undefined || typeof logo === 'string').toBe(true);
     const response = await settingsRouter.request('/model-providers', putInit(body));

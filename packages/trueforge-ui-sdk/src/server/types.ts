@@ -79,7 +79,7 @@ export interface Model<TParams extends ModelParams = ModelParams> {
  * SDK-owned agent definition — fields the FE reads/writes.
  *
  * - Nested slots are generic: host widens `Model` / `SkillMount` / `McpServerMount`.
- * - The spec itself is extendable: `interface TfySpec extends AgentSpec<...> { instructions?: string }`.
+ * - The spec itself is extendable: `interface TfySpec extends AgentSpec<...> { config?: RuntimeConfig }`.
  *
  * @example
  * ```ts
@@ -89,7 +89,6 @@ export interface Model<TParams extends ModelParams = ModelParams> {
  * interface TfyMcpMount extends McpServerMount { type: string; enableTools: string[] }
  *
  * interface TfySpec extends AgentSpec<TfyModel, TfySkillMount, TfyMcpMount> {
- *   instructions?: string;
  *   config?: RuntimeConfig;
  * }
  * ```
@@ -100,8 +99,16 @@ export interface AgentSpec<
   TMcp extends McpServerMount = McpServerMount,
 > {
   model: TModel;
+  /** System prompt / instructions for the agent. */
+  instructions?: string;
   skills?: TSkill[];
   mcpServers?: TMcp[];
+}
+
+/** Request body for `AgentBuilderServer.saveAgent`. */
+export interface SaveAgentRequest<TSpec extends AgentSpec = AgentSpec> {
+  agentName: string;
+  agentSpec: TSpec;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +174,7 @@ export interface ListSessionsResponse<
   pagination: TokenPagination;
 }
 
-export type PreviousTurnIdInput = 'auto' | string;
+export type PreviousTurnIdInput = 'auto' | 'none' | string;
 
 // ---------------------------------------------------------------------------
 // Turn input / state — what runtime sends and reads
@@ -324,7 +331,7 @@ export interface AgentBuilderServer<
   getSkills(): Promise<TSkill[]>;
   getMcp(): Promise<TMcp[]>;
   searchAgents(req?: SearchAgentsParams): Promise<TAgent[]>;
-  saveAgent(req: { agentName: string; agentSpec: TSpec }): Promise<TSave>;
+  saveAgent(req: SaveAgentRequest<TSpec>): Promise<TSave>;
   deleteAgent?(req: { agentName: string }): Promise<void>;
 }
 
@@ -385,6 +392,7 @@ export interface ModelProviderCatalogEntry<TModel extends ModelEntry = ModelEntr
   type: ProviderType;
   name: string;
   models: TModel[];
+  logo?: string;
 }
 
 /** Create — no `id`; server assigns it. Catalog path = entry + apiKey. */
@@ -471,6 +479,7 @@ export interface ConnectorCatalogEntry<TAuth extends ConnectorAuthPublic = Conne
   description?: string;
   url: string;
   auth: TAuth;
+  logo?: string;
 }
 
 /** Create connector — no `id`; server assigns it. Host extends. */
@@ -584,11 +593,11 @@ export interface SkillCatalogServer<
 }
 
 // ---------------------------------------------------------------------------
-// Sandboxes catalog — public rows omit credentials; writes accept them
+// Sandbox providers catalog — public rows omit credentials; writes accept them
 // ---------------------------------------------------------------------------
 
-/** Mutable sandbox settings shared by catalog rows, create, and update. */
-export interface SandboxConfig {
+/** Mutable sandbox provider settings shared by catalog rows, create, and update. */
+export interface SandboxProviderConfig {
   snapshotName: string;
   execTimeoutMs: number;
   autoStopIntervalInMinutes: number;
@@ -596,17 +605,17 @@ export interface SandboxConfig {
   autoDeleteIntervalInMinutes: number;
 }
 
-export interface SandboxCatalogEntry extends SandboxConfig {
+export interface SandboxProviderCatalogEntry extends SandboxProviderConfig {
   id: string;
   name: string;
   type: string;
 }
 
 /**
- * Connected sandbox row (settings/sandboxes). No raw `apiKey`.
+ * Connected sandbox provider row (settings/sandboxes). No raw `apiKey`.
  * Includes last-saved config so update forms can show previous values.
  */
-export interface SandboxBase extends SandboxConfig {
+export interface SandboxProviderBase extends SandboxProviderConfig {
   id: string;
   name: string;
   catalogId: string;
@@ -615,33 +624,33 @@ export interface SandboxBase extends SandboxConfig {
 
 /**
  * Create — catalog identity + config + apiKey.
- * `catalogId` is `SandboxCatalogEntry.id`; the server assigns the sandbox instance `id`.
+ * `catalogId` is `SandboxProviderCatalogEntry.id`; the server assigns the provider `id`.
  */
-export interface CreateSandboxRequest extends SandboxConfig {
+export interface CreateSandboxProviderRequest extends SandboxProviderConfig {
   catalogId: string;
   name: string;
   type: string;
   apiKey: string;
 }
 
-/** Update — full replace of config keyed by sandbox instance `id`. */
-export interface UpdateSandboxRequest extends SandboxConfig {
+/** Update — full replace of config keyed by sandbox provider `id`. */
+export interface UpdateSandboxProviderRequest extends SandboxProviderConfig {
   id: string;
   /** Omit to keep the existing key; send a value to rotate. */
   apiKey?: string;
 }
 
 export interface SandboxCatalogServer<
-  TSandbox extends SandboxBase = SandboxBase,
-  TCatalogEntry extends SandboxCatalogEntry = SandboxCatalogEntry,
-  TCreate extends CreateSandboxRequest = CreateSandboxRequest,
-  TUpdate extends UpdateSandboxRequest = UpdateSandboxRequest,
+  TProvider extends SandboxProviderBase = SandboxProviderBase,
+  TCatalogEntry extends SandboxProviderCatalogEntry = SandboxProviderCatalogEntry,
+  TCreate extends CreateSandboxProviderRequest = CreateSandboxProviderRequest,
+  TUpdate extends UpdateSandboxProviderRequest = UpdateSandboxProviderRequest,
 > {
-  getSandboxCatalog(): Promise<TCatalogEntry[]>;
-  listSandboxes(req?: { query?: string }): Promise<TSandbox[]>;
-  createSandbox(req: TCreate): Promise<TSandbox>;
-  updateSandbox(req: TUpdate): Promise<TSandbox>;
-  deleteSandbox(req: { id: string }): Promise<void>;
+  getSandboxProviderCatalog(): Promise<TCatalogEntry[]>;
+  listSandboxProviders(req?: { query?: string }): Promise<TProvider[]>;
+  createSandboxProvider(req: TCreate): Promise<TProvider>;
+  updateSandboxProvider(req: TUpdate): Promise<TProvider>;
+  deleteSandboxProvider?(req: { id: string }): Promise<void>;
 }
 
 /**

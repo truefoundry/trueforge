@@ -14,6 +14,7 @@ import {
   SessionStoreInvariantError,
 } from '@truefoundry/utils-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
+import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
 import { isUniqueViolation } from '../../client';
 import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
 import type { Database } from '../../types';
@@ -38,7 +39,8 @@ function parseSessionCustom(value: Record<string, unknown> | null): SessionCusto
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
-  agent_spec: AgentSpec;
+  agent_id: string | null;
+  agent_spec: AgentSpec | null;
   title: string | null;
   last_turn_id: string | null;
   custom: Record<string, unknown> | null;
@@ -49,7 +51,11 @@ function mapRowToSessionRecord(row: {
   return {
     tenant_id: row.tenant_id,
     session_id: row.session_id,
-    agent_spec: row.agent_spec,
+    agent: sessionAgentFromColumns({
+      session_id: row.session_id,
+      agent_id: row.agent_id,
+      agent_spec: row.agent_spec,
+    }),
     title: row.title,
     last_turn_id: row.last_turn_id,
     custom: parseSessionCustom(row.custom),
@@ -59,7 +65,23 @@ function mapRowToSessionRecord(row: {
   };
 }
 
+function sessionSelectColumns() {
+  return [
+    'tenant_id' as const,
+    'session_id' as const,
+    'agent_id' as const,
+    jsonText<AgentSpec | null>(sql.ref('agent_spec')).as('agent_spec'),
+    'title' as const,
+    'last_turn_id' as const,
+    jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
+    'created_at' as const,
+    'updated_at' as const,
+    'last_activity_timestamp_ms' as const,
+  ];
+}
+
 export async function createSession(db: Kysely<Database>, input: CreateSessionInput<SessionCustom>): Promise<void> {
+  const columns = sessionAgentToColumns(input.agent);
   const now = nowIso();
 
   try {
@@ -68,7 +90,8 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .values({
         tenant_id: input.tenant_id,
         session_id: input.session_id,
-        agent_spec: jsonbBind(input.agent_spec),
+        agent_id: columns.agent_id,
+        agent_spec: columns.agent_spec !== null ? jsonbBind(columns.agent_spec) : null,
         title: null,
         custom: input.custom !== null ? jsonbBind(input.custom) : null,
         created_at: now,
@@ -98,17 +121,7 @@ export async function getSession(
 ): Promise<ProtoSessionRecord | undefined> {
   const row = await db
     .selectFrom('session')
-    .select([
-      'tenant_id',
-      'session_id',
-      jsonText<AgentSpec>(sql.ref('agent_spec')).as('agent_spec'),
-      'title',
-      'last_turn_id',
-      jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
-      'created_at',
-      'updated_at',
-      'last_activity_timestamp_ms',
-    ])
+    .select(sessionSelectColumns)
     .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
     .executeTakeFirst();
@@ -121,8 +134,18 @@ export async function getSession(
 }
 
 export async function updateSession(db: Kysely<Database>, input: UpdateSessionInput<SessionCustom>): Promise<void> {
-  const agentSpec = input.agent_spec;
+  const agent = input.agent;
   const title = input.title;
+
+  if (agent !== undefined) {
+    const existing = await getSession(db, { tenant_id: input.tenant_id, session_id: input.session_id });
+    if (existing === undefined) {
+      throw new SessionNotFoundError(input.session_id);
+    }
+    if (existing.agent.type === 'ref') {
+      throw new SessionStoreInvariantError(`Session ${input.session_id} is named; agent cannot be updated`);
+    }
+  }
 
   let qb = db
     .updateTable('session')
@@ -133,8 +156,8 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
     .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id);
 
-  if (agentSpec !== undefined) {
-    qb = qb.set({ agent_spec: jsonbBind(agentSpec) });
+  if (agent !== undefined) {
+    qb = qb.set({ agent_spec: jsonbBind(agent.agent_spec) });
   }
   if (title !== undefined) {
     qb = qb.set({ title });
@@ -159,21 +182,11 @@ export async function listSessions(
   const offset = decodeOffsetPageToken(input.page_token);
   const order = input.order ?? 'desc';
 
-  let query = db
-    .selectFrom('session')
-    .select([
-      'tenant_id',
-      'session_id',
-      jsonText<AgentSpec>(sql.ref('agent_spec')).as('agent_spec'),
-      'title',
-      'last_turn_id',
-      jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
-      'created_at',
-      'updated_at',
-      'last_activity_timestamp_ms',
-    ])
-    .where('tenant_id', '=', input.tenant_id);
+  let query = db.selectFrom('session').select(sessionSelectColumns).where('tenant_id', '=', input.tenant_id);
 
+  if (input.agent_id !== undefined) {
+    query = query.where('agent_id', '=', input.agent_id);
+  }
   if (input.start_timestamp !== undefined) {
     query = query.where('created_at', '>=', input.start_timestamp.toISOString());
   }

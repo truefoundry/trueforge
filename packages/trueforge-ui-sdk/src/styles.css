@@ -34,15 +34,15 @@
  * Both work because the `@layer` block below has the lowest precedence —
  * any plain `:root` / `.aui-root` declaration in the consumer's CSS wins.
  */
-@import "./openui.css";
+@import './openui.css';
 
 /*
  * GitHub Markdown styles (https://github.com/sindresorhus/github-markdown-css).
  * Applied via `.markdown-body` on the Markdown atom. The bridge remaps light/dark
  * CSS variables to the SDK ThemeProvider mode (class + data-theme).
  */
-@import "github-markdown-css/github-markdown.css";
-@import "./github-markdown-bridge.css";
+@import 'github-markdown-css/github-markdown.css';
+@import './github-markdown-bridge.css';
 
 /* ──────────────────────────────────────────────────────────────────────
  * Owned palette (minimal set used by semantic tokens + gray utilities).
@@ -161,9 +161,9 @@
     ui-sans-serif,
     system-ui,
     -apple-system,
-    "Segoe UI",
+    'Segoe UI',
     Roboto,
-    "Helvetica Neue",
+    'Helvetica Neue',
     Arial,
     sans-serif
   );
@@ -172,9 +172,9 @@
     ui-sans-serif,
     system-ui,
     -apple-system,
-    "Segoe UI",
+    'Segoe UI',
     Roboto,
-    "Helvetica Neue",
+    'Helvetica Neue',
     Arial,
     sans-serif
   );
@@ -184,16 +184,12 @@
  * Clone typography: conversation copy and composer text are regular weight;
  * controls and headings keep their component-level medium/semibold utilities.
  */
-.aui-theme-root:is(
-    [data-preset="claude"],
-    [data-preset="chatgpt"],
-    [data-preset="gemini"]
-  )
+.aui-theme-root:is([data-preset='claude'], [data-preset='chatgpt'], [data-preset='gemini'])
   :is(
     .aui-markdown,
-    [data-slot="aui_user-message-content"],
-    [data-slot="aui_composer-input"],
-    [data-slot="aui_user-edit-input"]
+    [data-slot='aui_user-message-content'],
+    [data-slot='aui_composer-input'],
+    [data-slot='aui_user-edit-input']
   ) {
   font-weight: 400;
 }
@@ -299,7 +295,7 @@
 }
 
 /* ChatGPT dark: transparent composer border + inset white edge */
-.aui-theme-root[data-preset="chatgpt"][data-theme="dark"] [data-slot="aui_composer-shell"] {
+.aui-theme-root[data-preset='chatgpt'][data-theme='dark'] [data-slot='aui_composer-shell'] {
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
 }
 
