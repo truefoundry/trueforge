@@ -46,7 +46,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     expect(await store.getAgent({ tenant_id: TENANT, name: 'missing' })).toBeUndefined();
   });
 
-  it('updateAgent replaces manifest, preserves id, name, and created_at', async () => {
+  it('updateAgent by name replaces manifest but keeps id, name, and created_at', async () => {
     const store = getStore();
     const created = await store.createAgent({
       tenant_id: TENANT,

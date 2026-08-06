@@ -7,7 +7,7 @@ import { makeAgentSpec, makeTestResolver, mintTestTurnId } from './testHelpers';
 describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
   const tenant = 'tenant-1';
 
-  it('create/get persists a value agent', async () => {
+  it('create/get persists an inline value-agent session', async () => {
     const store = new InMemorySessionStore<{ tag: string }>();
     const sessions = new Sessions<{ tag: string }>({ sessionStore: store });
     const created = await sessions.create({

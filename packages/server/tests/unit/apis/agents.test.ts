@@ -64,7 +64,7 @@ describe('agents router', () => {
     });
   });
 
-  it('POST creates a flattened agent; PUT by name preserves id', async () => {
+  it('POST returns a flattened Agent; PUT by immutable name keeps the same id', async () => {
     const created = await router.request('/', jsonInit('POST', writeBody));
     expect(created.status).toBe(200);
     const createdJson = (await created.json()) as {

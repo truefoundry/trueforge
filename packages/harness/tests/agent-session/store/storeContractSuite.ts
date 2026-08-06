@@ -174,7 +174,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(mustGet(session).title).toBeNull();
     });
 
-    it('createSession accepts ref agents and listSessions filters by agent_id', async () => {
+    it('persists ref agents and listSessions filters by agent_id', async () => {
       const store = createStore();
       await store.createSession({
         tenant_id: tenant,
@@ -197,6 +197,16 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         end_timestamp: undefined,
       });
       expect(filtered.data.map(row => row.session_id)).toEqual(['named-1']);
+    });
+
+    it('rejects agent updates on sessions bound by agent_id', async () => {
+      const store = createStore();
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'named-1',
+        agent: { type: 'ref', agent_id: 'agent-abc' },
+        custom: null,
+      });
 
       await expect(
         store.updateSession({

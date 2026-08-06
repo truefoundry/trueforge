@@ -26,7 +26,7 @@ function jsonInit(method: string, body: unknown): RequestInit {
   };
 }
 
-describe('sessions HTTP (SessionAgent ref | value)', () => {
+describe('sessions HTTP agent binding', () => {
   let app: OpenAPIHono;
   let agentStore: SqliteAgentStore;
 
@@ -85,7 +85,12 @@ describe('sessions HTTP (SessionAgent ref | value)', () => {
     expect(json.data.agent.agent_spec?.instructions).toBe('draft');
   });
 
-  it('creates a named session from a ref agent and rejects unknown agents', async () => {
+  it('returns 404 when creating a session for an unknown agent_id', async () => {
+    const missing = await app.request('/', jsonInit('POST', { agent: { type: 'ref', agent_id: 'does-not-exist' } }));
+    expect(missing.status).toBe(404);
+  });
+
+  it('creates a named ref session and filters list by agent_id', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: TENANT_ID,
       name: 'named-agent',
@@ -94,9 +99,6 @@ describe('sessions HTTP (SessionAgent ref | value)', () => {
         instructions: 'from-registry',
       }),
     });
-
-    const missing = await app.request('/', jsonInit('POST', { agent: { type: 'ref', agent_id: 'does-not-exist' } }));
-    expect(missing.status).toBe(404);
 
     const created = await app.request('/', jsonInit('POST', { agent: { type: 'ref', agent_id: agent.id } }));
     expect(created.status).toBe(201);
@@ -112,6 +114,21 @@ describe('sessions HTTP (SessionAgent ref | value)', () => {
     };
     expect(listJson.data.every(row => row.agent.type === 'ref' && row.agent.agent_id === agent.id)).toBe(true);
     expect(listJson.data.some(row => row.id === json.data.id)).toBe(true);
+  });
+
+  it('rejects PATCH agent on a session bound by agent_id', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: TENANT_ID,
+      name: 'named-agent',
+      manifest: AgentSpecSchema.parse({
+        model: { name: 'anthropic/claude-sonnet-4-6' },
+        instructions: 'from-registry',
+      }),
+    });
+
+    const created = await app.request('/', jsonInit('POST', { agent: { type: 'ref', agent_id: agent.id } }));
+    expect(created.status).toBe(201);
+    const json = (await created.json()) as { data: { id: string } };
 
     const patchNamed = await app.request(
       `/${json.data.id}`,
@@ -120,7 +137,7 @@ describe('sessions HTTP (SessionAgent ref | value)', () => {
     expect(patchNamed.status).toBe(400);
   });
 
-  it('updates draft agent_spec and rejects invalid create bodies', async () => {
+  it('allows PATCH agent_spec on draft sessions', async () => {
     const created = await app.request('/', jsonInit('POST', { agent: { type: 'value', agent_spec: draftSpec } }));
     expect(created.status).toBe(201);
     const { data } = (await created.json()) as { data: { id: string } };
@@ -134,7 +151,9 @@ describe('sessions HTTP (SessionAgent ref | value)', () => {
       data: { agent: { type: string; agent_spec?: { instructions?: string } } };
     };
     expect(patchedJson.data.agent.agent_spec?.instructions).toBe('updated');
+  });
 
+  it('rejects create bodies that mix ref and value agent fields', async () => {
     const both = await app.request(
       '/',
       jsonInit('POST', { agent: { type: 'ref', agent_id: 'x', agent_spec: draftSpec } }),

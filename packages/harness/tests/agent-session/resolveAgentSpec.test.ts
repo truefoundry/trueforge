@@ -5,7 +5,7 @@ import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolv
 import { makeAgentSpec, makeMockILLM, makeSilentLogger, makeTestResolver, mintTestTurnId } from './testHelpers';
 
 describe('TurnResourceResolver.resolveAgentSpec', () => {
-  it('throws when named resolve has no agent lookup configured', async () => {
+  it('fails closed when deps.agent is not wired for a named lookup', async () => {
     const resolver = new TurnResourceResolver({
       llm: () => Promise.resolve(makeMockILLM()),
       mcp: () => Promise.reject(new Error('unused')),
@@ -19,7 +19,7 @@ describe('TurnResourceResolver.resolveAgentSpec', () => {
 });
 
 describe('SessionHandle.createTurn named resolve', () => {
-  it('resolves a named session via resolver.agent and runs createTurn', async () => {
+  it('loads the live AgentSpec through resolver.agent for ref sessions', async () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
