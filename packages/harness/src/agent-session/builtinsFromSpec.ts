@@ -27,21 +27,20 @@ export function builtinsFromSpec(input: {
   const config = spec.config;
   const capabilities: AgentCapability[] = [currentDateTime({ tracing })];
 
-  const compaction = config?.context_management.compaction;
-  if (!compaction || compaction.enabled) {
+  if (config.context_management.compaction.enabled) {
     capabilities.push(
       contextCompaction({
         definition,
-        compactionThresholdTokens: compaction?.compaction_threshold_tokens,
+        compactionThresholdTokens: config.context_management.compaction.compaction_threshold_tokens,
       }),
     );
   }
 
-  if (!isChild && (config?.ask_user_questions === undefined || config.ask_user_questions.enabled)) {
+  if (!isChild && config.ask_user_questions.enabled) {
     capabilities.push(askUserQuestion());
   }
 
-  const dynamicSubAgentsEnabled = config?.dynamic_sub_agents === undefined || config.dynamic_sub_agents.enabled;
+  const dynamicSubAgentsEnabled = config.dynamic_sub_agents.enabled;
   if (!isChild && dynamicSubAgentsEnabled) {
     capabilities.push(
       dynamicSubAgents({
@@ -51,8 +50,7 @@ export function builtinsFromSpec(input: {
     );
   }
 
-  const large = config?.context_management.large_tool_response;
-  if (!large || large.enabled) {
+  if (config.context_management.large_tool_response.enabled) {
     capabilities.push(
       largeToolResponse({
         dynamicSubAgentsPresent: !isChild && dynamicSubAgentsEnabled,
@@ -61,8 +59,8 @@ export function builtinsFromSpec(input: {
     );
   }
 
-  if (!isChild && config?.generative_ui?.enabled) {
-    capabilities.push(openUI());
+  if (!isChild && config.generative_ui.enabled) {
+    capabilities.push(openUI({ preload: false, tracing }));
   }
 
   return capabilities;

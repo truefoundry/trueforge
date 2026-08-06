@@ -1,5 +1,5 @@
 /**
- * Maps agent-ui-sdk model-settings calls onto Harness
+ * Maps trueforge-ui model-settings calls onto Harness
  * `/api/v1/settings/model-providers` (name-keyed upsert, no delete).
  *
  * UI: flat `apiKey` / model `id`. Harness: `auth.apiKey` / `modelId`.
@@ -12,8 +12,9 @@ import type {
   ModelProviderBase,
   ModelProviderCatalogEntry,
   UpdateModelProviderRequest,
-} from '@truefoundry/agent-ui-sdk';
-import { TrueHarnessApi as Harness, TrueHarness } from 'trueharness';
+} from '@truefoundry/trueforge-ui';
+import { TrueForgeApi as Harness } from 'trueforge';
+import { harnessClient as client } from './harnessClient';
 /** Custom-form rows omit properties; catalog rows round-trip them. */
 export type UiModelEntry = ModelEntry & {
   properties?: Harness.ModelProperties;
@@ -26,8 +27,6 @@ const DEFAULT_MODEL_PROPERTIES: Harness.ModelProperties = {
   contextLength: 128_000,
   maxOutputTokens: 16_384,
 };
-
-const client = new TrueHarness({ baseUrl: '/' });
 
 export function toUiModelEntry(model: Harness.ModelEntry): UiModelEntry {
   return {
@@ -46,6 +45,7 @@ export function toHarnessModelEntry(model: UiModelEntry): Harness.ModelEntry {
 }
 
 export function toUiModelProvider(provider: Harness.ModelProvider): UiModelProvider {
+  // Every type but `custom` is named after itself, so the wire leaves `name` optional.
   const name = provider.name ?? provider.type;
   return {
     id: name,

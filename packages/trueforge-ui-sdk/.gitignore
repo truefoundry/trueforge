@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+
+# tsup build output
+dist/
+
+# vitest
+coverage/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# typescript
+*.tsbuildinfo
+
+# pack artifacts
+*.tgz
+
+# misc
+.DS_Store

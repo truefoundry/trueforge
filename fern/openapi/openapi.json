@@ -143,86 +143,6 @@
         ],
         "type": "object"
       },
-      "AlibabaModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "default": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-            "description": "Override of the provider's default API base URL.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "default": "alibaba",
-            "enum": [
-              "alibaba"
-            ],
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "alibaba"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type"
-        ],
-        "type": "object"
-      },
-      "AnthropicModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "default": "https://api.anthropic.com/v1",
-            "description": "Override of the provider's default API base URL.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "default": "anthropic",
-            "enum": [
-              "anthropic"
-            ],
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "anthropic"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type"
-        ],
-        "type": "object"
-      },
       "ApprovalAllow": {
         "properties": {
           "status": {
@@ -272,6 +192,9 @@
         "type": "object"
       },
       "AskUserQuestionsConfig": {
+        "default": {
+          "enabled": true
+        },
         "properties": {
           "enabled": {
             "default": true,
@@ -279,6 +202,28 @@
           }
         },
         "type": "object"
+      },
+      "AuthMeResponse": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/AuthRole"
+          },
+          "user_ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_ref",
+          "role"
+        ],
+        "type": "object"
+      },
+      "AuthRole": {
+        "enum": [
+          "admin",
+          "user"
+        ],
+        "type": "string"
       },
       "BaseMCPAuthRequiredEvent": {
         "properties": {
@@ -318,6 +263,44 @@
         "required": [
           "thread_id",
           "title"
+        ],
+        "type": "object"
+      },
+      "CallerSuppliedModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "description": "Base URL of the provider's API.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "type": {
+            "enum": [
+              "alibaba",
+              "custom"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type",
+          "base_url",
+          "name"
         ],
         "type": "object"
       },
@@ -427,8 +410,8 @@
               "fireworks",
               "zai",
               "moonshot",
-              "alibaba",
-              "together"
+              "together",
+              "alibaba"
             ],
             "type": "string"
           }
@@ -687,43 +670,6 @@
         },
         "type": "object"
       },
-      "CustomModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "description": "Base URL of the provider's API.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "enum": [
-              "custom"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type",
-          "name",
-          "base_url"
-        ],
-        "type": "object"
-      },
       "DaytonaSandboxProvider": {
         "additionalProperties": false,
         "properties": {
@@ -784,6 +730,9 @@
         "type": "object"
       },
       "DynamicSubAgentsConfig": {
+        "default": {
+          "enabled": true
+        },
         "properties": {
           "enabled": {
             "default": true,
@@ -844,47 +793,10 @@
         ],
         "type": "string"
       },
-      "FireworksModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "default": "https://api.fireworks.ai/inference/v1",
-            "description": "Override of the provider's default API base URL.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "default": "fireworks",
-            "enum": [
-              "fireworks"
-            ],
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "fireworks"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type"
-        ],
-        "type": "object"
-      },
       "GenerativeUIConfig": {
+        "default": {
+          "enabled": true
+        },
         "properties": {
           "enabled": {
             "default": true,
@@ -941,6 +853,17 @@
               "$ref": "#/components/schemas/CatalogMcpServer"
             },
             "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetMcpServerResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ConfiguredMcpServer"
           }
         },
         "required": [
@@ -1023,46 +946,6 @@
         ],
         "type": "object"
       },
-      "GoogleGeminiModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "default": "https://generativelanguage.googleapis.com/v1beta",
-            "description": "Override of the provider's default API base URL.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "default": "google-gemini",
-            "enum": [
-              "google-gemini"
-            ],
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "google-gemini"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type"
-        ],
-        "type": "object"
-      },
       "LargeToolResponseConfig": {
         "default": {
           "enabled": true
@@ -1103,20 +986,6 @@
         ],
         "type": "object"
       },
-      "ListConfiguredMcpServersResponse": {
-        "properties": {
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/ConfiguredMcpServer"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "type": "object"
-      },
       "ListConfiguredSkillsResponse": {
         "properties": {
           "data": {
@@ -1138,6 +1007,20 @@
             "items": {
               "additionalProperties": {},
               "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListMcpServersResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredMcpServer"
             },
             "type": "array"
           }
@@ -1514,20 +1397,6 @@
         },
         "required": [
           "status"
-        ],
-        "type": "object"
-      },
-      "McpOAuthCallbackSuccess": {
-        "properties": {
-          "success": {
-            "enum": [
-              true
-            ],
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "success"
         ],
         "type": "object"
       },
@@ -1915,47 +1784,12 @@
         "type": "object"
       },
       "ModelProvider": {
-        "discriminator": {
-          "mapping": {
-            "alibaba": "#/components/schemas/AlibabaModelProvider",
-            "anthropic": "#/components/schemas/AnthropicModelProvider",
-            "custom": "#/components/schemas/CustomModelProvider",
-            "fireworks": "#/components/schemas/FireworksModelProvider",
-            "google-gemini": "#/components/schemas/GoogleGeminiModelProvider",
-            "moonshot": "#/components/schemas/MoonshotModelProvider",
-            "openai": "#/components/schemas/OpenAiModelProvider",
-            "together": "#/components/schemas/TogetherModelProvider",
-            "zai": "#/components/schemas/ZaiModelProvider"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
+        "anyOf": [
           {
-            "$ref": "#/components/schemas/OpenAiModelProvider"
+            "$ref": "#/components/schemas/WellKnownModelProvider"
           },
           {
-            "$ref": "#/components/schemas/AnthropicModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/GoogleGeminiModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/FireworksModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/ZaiModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/MoonshotModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/TogetherModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/AlibabaModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/CustomModelProvider"
+            "$ref": "#/components/schemas/CallerSuppliedModelProvider"
           }
         ]
       },
@@ -1969,86 +1803,6 @@
         },
         "required": [
           "api_key"
-        ],
-        "type": "object"
-      },
-      "MoonshotModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "default": "https://api.moonshot.ai/v1",
-            "description": "Override of the provider's default API base URL.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "default": "moonshot",
-            "enum": [
-              "moonshot"
-            ],
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "moonshot"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type"
-        ],
-        "type": "object"
-      },
-      "OpenAiModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "default": "https://api.openai.com/v1",
-            "description": "Override of the provider's default API base URL.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "default": "openai",
-            "enum": [
-              "openai"
-            ],
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "openai"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type"
         ],
         "type": "object"
       },
@@ -2265,6 +2019,30 @@
         "type": "object"
       },
       "RuntimeConfig": {
+        "default": {
+          "ask_user_questions": {
+            "enabled": true
+          },
+          "context_management": {
+            "compaction": {
+              "enabled": true
+            },
+            "large_tool_response": {
+              "enabled": true
+            }
+          },
+          "dynamic_sub_agents": {
+            "enabled": true
+          },
+          "generative_ui": {
+            "enabled": true
+          },
+          "iteration_limit": 100,
+          "sandbox": {
+            "enabled": false,
+            "file_downloads": true
+          }
+        },
         "properties": {
           "ask_user_questions": {
             "$ref": "#/components/schemas/AskUserQuestionsConfig"
@@ -2291,6 +2069,10 @@
         "type": "object"
       },
       "SandboxConfig": {
+        "default": {
+          "enabled": false,
+          "file_downloads": true
+        },
         "properties": {
           "enabled": {
             "type": "boolean"
@@ -2731,46 +2513,6 @@
         "required": [
           "status",
           "error"
-        ],
-        "type": "object"
-      },
-      "TogetherModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "default": "https://api.together.xyz/v1",
-            "description": "Override of the provider's default API base URL.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "default": "together",
-            "enum": [
-              "together"
-            ],
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "together"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type"
         ],
         "type": "object"
       },
@@ -3461,15 +3203,14 @@
         ],
         "type": "object"
       },
-      "ZaiModelProvider": {
+      "WellKnownModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
             "$ref": "#/components/schemas/ModelProviderAuth"
           },
           "base_url": {
-            "default": "https://api.z.ai/api/paas/v4",
-            "description": "Override of the provider's default API base URL.",
+            "description": "Optional override of the provider's default API base URL.",
             "format": "uri",
             "type": "string"
           },
@@ -3481,15 +3222,17 @@
             "type": "array"
           },
           "name": {
-            "default": "zai",
-            "enum": [
-              "zai"
-            ],
-            "type": "string"
+            "$ref": "#/components/schemas/ResourceName"
           },
           "type": {
             "enum": [
-              "zai"
+              "openai",
+              "anthropic",
+              "google-gemini",
+              "fireworks",
+              "zai",
+              "moonshot",
+              "together"
             ],
             "type": "string"
           }
@@ -3497,7 +3240,8 @@
         "required": [
           "auth",
           "models",
-          "type"
+          "type",
+          "name"
         ],
         "type": "object"
       }
@@ -3510,6 +3254,143 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/auth/callback": {
+      "get": {
+        "description": "Browser-redirect target hit by the identity provider after login, never called directly by SDK consumers. In local/single-binary mode, redirects straight back into the app.",
+        "parameters": [
+          {
+            "description": "Authorization code, present when the user granted consent.",
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "description": "Authorization code, present when the user granted consent.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque token; correlates this callback to its pending login. Always present, success or error.",
+            "in": "query",
+            "name": "state",
+            "required": true,
+            "schema": {
+              "description": "Opaque token; correlates this callback to its pending login. Always present, success or error.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Error code from the identity provider, present instead of `code` if the user denied consent.",
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "description": "Error code from the identity provider, present instead of `code` if the user denied consent.",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error_description",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect back into the app on success, or to /login?error=... on failure."
+          }
+        },
+        "summary": "Login callback",
+        "tags": [
+          "Auth"
+        ],
+        "x-fern-ignore": true
+      }
+    },
+    "/api/v1/auth/login": {
+      "get": {
+        "description": "Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight back into the app — there is nothing to log into.",
+        "parameters": [
+          {
+            "description": "Path to return to after login. Must be a same-origin relative path; anything else falls back to \"/\".",
+            "in": "query",
+            "name": "return_to",
+            "required": false,
+            "schema": {
+              "description": "Path to return to after login. Must be a same-origin relative path; anything else falls back to \"/\".",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to the IdP authorization endpoint."
+          }
+        },
+        "summary": "Start the login flow",
+        "tags": [
+          "Auth"
+        ],
+        "x-fern-ignore": true
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "description": "Ends the local harness session only — does not hit the IdP end-session endpoint. A no-op in local/single-binary mode, since there is no real session to clear.",
+        "responses": {
+          "204": {
+            "description": "Session cookie cleared."
+          }
+        },
+        "summary": "Clear the local session",
+        "tags": [
+          "Auth"
+        ],
+        "x-fern-sdk-group-name": [
+          "auth"
+        ],
+        "x-fern-sdk-method-name": "logout"
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "description": "Returns the fixed local identity in local/single-binary mode; otherwise the caller's verified identity.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthMeResponse"
+                }
+              }
+            },
+            "description": "The caller's identity."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not authenticated."
+          }
+        },
+        "summary": "Get the current identity",
+        "tags": [
+          "Auth"
+        ],
+        "x-fern-sdk-group-name": [
+          "auth"
+        ],
+        "x-fern-sdk-method-name": "me"
+      }
+    },
     "/api/v1/capabilities": {
       "get": {
         "description": "Report optional runtime capabilities available for this tenant.",
@@ -3537,7 +3418,7 @@
     },
     "/api/v1/mcp-servers": {
       "get": {
-        "description": "Configured MCP servers as a slim name/url list for the composer. No auth or auth_status.",
+        "description": "MCP servers as a slim name/url list for the composer. No auth or auth_status.",
         "responses": {
           "200": {
             "content": {
@@ -3547,7 +3428,7 @@
                 }
               }
             },
-            "description": "All configured MCP servers (chat projection)."
+            "description": "All MCP servers (chat projection)."
           }
         },
         "summary": "List MCP servers for chat",
@@ -3564,17 +3445,6 @@
       "get": {
         "parameters": [
           {
-            "description": "Opaque token; correlates this callback to its pending authorization.",
-            "in": "query",
-            "name": "state",
-            "required": true,
-            "schema": {
-              "description": "Opaque token; correlates this callback to its pending authorization.",
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
             "description": "Authorization code, present when the user granted consent.",
             "in": "query",
             "name": "code",
@@ -3586,12 +3456,23 @@
             }
           },
           {
-            "description": "OAuth error code, present instead of `code` if the user denied consent or the IdP errored.",
+            "description": "Opaque token; correlates this callback to its pending login. Always present, success or error.",
+            "in": "query",
+            "name": "state",
+            "required": true,
+            "schema": {
+              "description": "Opaque token; correlates this callback to its pending login. Always present, success or error.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Error code from the identity provider, present instead of `code` if the user denied consent.",
             "in": "query",
             "name": "error",
             "required": false,
             "schema": {
-              "description": "OAuth error code, present instead of `code` if the user denied consent or the IdP errored.",
+              "description": "Error code from the identity provider, present instead of `code` if the user denied consent.",
               "type": "string"
             }
           },
@@ -3609,7 +3490,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/McpOAuthCallbackSuccess"
+                  "properties": {
+                    "success": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ],
+                  "type": "object"
                 }
               }
             },
@@ -3651,12 +3543,12 @@
         "description": "For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. No-op for header or no-auth servers (returns the server unchanged).",
         "parameters": [
           {
-            "description": "Configured MCP server name.",
+            "description": "MCP server name.",
             "in": "path",
             "name": "name",
             "required": true,
             "schema": {
-              "description": "Configured MCP server name.",
+              "description": "MCP server name.",
               "minLength": 1,
               "type": "string"
             }
@@ -3684,7 +3576,7 @@
             "description": "MCP server not found."
           }
         },
-        "summary": "Disconnect OAuth for a configured MCP server",
+        "summary": "Disconnect OAuth for an MCP server",
         "tags": [
           "MCP Servers"
         ],
@@ -3697,12 +3589,12 @@
         "description": "For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is where the OAuth callback then redirects the browser; without it the callback returns JSON.",
         "parameters": [
           {
-            "description": "Configured MCP server name.",
+            "description": "MCP server name.",
             "in": "path",
             "name": "name",
             "required": true,
             "schema": {
-              "description": "Configured MCP server name.",
+              "description": "MCP server name.",
               "minLength": 1,
               "type": "string"
             }
@@ -3761,7 +3653,7 @@
             "description": "Server misconfiguration (e.g. PUBLIC_BASE_URL unset)."
           }
         },
-        "summary": "Start (or short-circuit) the auth flow for a configured MCP server",
+        "summary": "Start (or short-circuit) the auth flow for an MCP server",
         "tags": [
           "MCP Servers"
         ],
@@ -4710,20 +4602,20 @@
     },
     "/api/v1/settings/mcp-servers": {
       "get": {
-        "description": "All configured MCP servers with nested auth_status (settings / admin projection).",
+        "description": "All MCP servers with nested auth_status (settings / admin projection).",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListConfiguredMcpServersResponse"
+                  "$ref": "#/components/schemas/ListMcpServersResponse"
                 }
               }
             },
-            "description": "All configured MCP servers."
+            "description": "All MCP servers."
           }
         },
-        "summary": "List configured MCP servers",
+        "summary": "List MCP servers",
         "tags": [
           "MCP Servers"
         ],
@@ -4804,17 +4696,66 @@
         "x-fern-sdk-method-name": "catalog"
       }
     },
-    "/api/v1/settings/mcp-servers/{name}/tools": {
+    "/api/v1/settings/mcp-servers/{name}": {
       "get": {
-        "description": "All tools exposed by the given configured MCP server (non-paginated), as returned by the MCP `tools/list` call.",
+        "description": "A single MCP server by name, with nested auth_status (settings / admin projection).",
         "parameters": [
           {
-            "description": "Configured MCP server name.",
+            "description": "MCP server name.",
             "in": "path",
             "name": "name",
             "required": true,
             "schema": {
-              "description": "Configured MCP server name.",
+              "description": "MCP server name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMcpServerResponse"
+                }
+              }
+            },
+            "description": "The MCP server."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not found."
+          }
+        },
+        "summary": "Get a single MCP server by name",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "get"
+      }
+    },
+    "/api/v1/settings/mcp-servers/{name}/tools": {
+      "get": {
+        "description": "All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call.",
+        "parameters": [
+          {
+            "description": "MCP server name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "MCP server name.",
               "minLength": 1,
               "type": "string"
             }
@@ -4862,7 +4803,7 @@
             "description": "The MCP server could not be reached or returned an error."
           }
         },
-        "summary": "List tools of a configured MCP server",
+        "summary": "List tools of an MCP server",
         "tags": [
           "MCP Servers"
         ],
@@ -4899,7 +4840,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "put": {
-        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Every type but `custom` is named after itself, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named, and numbered, by the caller.",
+        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).",
         "requestBody": {
           "content": {
             "application/json": {
