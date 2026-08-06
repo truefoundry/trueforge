@@ -173,41 +173,17 @@ function toHarnessPreviousTurnId(previousTurnId: string): Harness.PreviousTurnId
   return previousTurnId === 'none' ? null : previousTurnId;
 }
 
-export interface HarnessChatServer extends AgentChatServer<HarnessAgentSpec> {
-  /**
-   * Downloads a sandbox artifact and hands it to the browser. The artifact block is
-   * rendered by a slot with no session in scope, so the session is tracked here:
-   * every session-scoped operation records the session the UI is showing.
-   */
-  downloadSandboxArtifact({ path, fileName }: { path: string; fileName: string }): Promise<void>;
-}
-
-/** Triggers a browser save for an already-fetched artifact. */
-function saveBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  link.click();
-  // Not all browsers have started reading the blob when click() returns; revoking
-  // synchronously cancels the save in those, so release on the next macrotask.
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 0);
-}
+export type HarnessChatServer = AgentChatServer<HarnessAgentSpec>;
 
 export function createHarnessChatServer(options: CreateHarnessServerOptions = {}): HarnessChatServer {
   const client =
     options.baseUrl === undefined && options.fetch === undefined ? harnessClient : createHarnessClient(options);
-  let openSessionId: string | undefined;
-
   return {
-    async downloadSandboxArtifact({ path, fileName }) {
-      if (openSessionId === undefined) {
-        throw new Error('Cannot download a sandbox artifact before a session is open');
-      }
-      const response = await client.sessions.downloadSandboxFile(openSessionId, { path });
-      saveBlob(await response.blob(), fileName);
+    // The sandbox is resolved server-side from the turn, so `sandboxId` is accepted for parity
+    // with hosts that address sandboxes directly and deliberately not forwarded.
+    async downloadSandboxFile({ sessionId, turnId, path }) {
+      const response = await client.sessions.downloadTurnFile(sessionId, turnId, { path });
+      return response.blob();
     },
 
     async createSession(request) {
@@ -215,7 +191,6 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
         throw new Error('Harness sessions require an agentSpec');
       }
       const created = await client.sessions.create({ agentSpec: toHarnessAgentSpec(request.agentSpec) });
-      openSessionId = created.data.id;
       return toUiSession(created.data);
     },
 
@@ -229,7 +204,6 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
     },
 
     async getSession({ sessionId }) {
-      openSessionId = sessionId;
       const response = await client.sessions.get(sessionId);
       return toUiSession(response.data);
     },
@@ -250,7 +224,6 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
       input?: TurnInputItem[];
       previousTurnId?: string;
     }) {
-      openSessionId = sessionId;
       const stream = await client.sessions.createTurn(sessionId, {
         ...(input === undefined ? {} : { input: toHarnessInput(input) }),
         ...(previousTurnId === undefined ? {} : { previousTurnId: toHarnessPreviousTurnId(previousTurnId) }),
@@ -270,7 +243,6 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
     },
 
     async listTurns({ sessionId, limit, pageToken }) {
-      openSessionId = sessionId;
       const page = await client.sessions.listTurns(sessionId, {
         ...(limit === undefined ? {} : { limit }),
         ...(pageToken === undefined ? {} : { pageToken }),
@@ -279,13 +251,11 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
     },
 
     async getTurn({ sessionId, turnId }) {
-      openSessionId = sessionId;
       const response = await client.sessions.getTurn(sessionId, turnId);
       return toUiTurn(response.data);
     },
 
     async listEvents({ sessionId, pageToken, lastTurnId, limit }) {
-      openSessionId = sessionId;
       const page = await client.sessions.listEvents(sessionId, {
         ...(pageToken === undefined ? {} : { pageToken }),
         ...(lastTurnId === undefined ? {} : { lastTurnId }),

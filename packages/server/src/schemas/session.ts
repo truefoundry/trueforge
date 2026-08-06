@@ -58,13 +58,3 @@ export const ListSessionsResponseSchema = z
   })
   .openapi('ListSessionsResponse');
 
-export const DownloadSandboxFileRequestQuerySchema = z
-  .object({
-    path: z
-      .string()
-      .min(1)
-      .describe(
-        "Absolute path of the file inside the sandbox, as listed in the assistant's `sandbox_artifacts` block.",
-      ),
-  })
-  .openapi('DownloadSandboxFileRequestQuery');

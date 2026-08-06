@@ -2,18 +2,12 @@
  * DB-backed sessions API (mounted at /api/v1/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { ISessionStore, SessionHandle, SessionRecord, Sessions } from '@truefoundry/utils-core/agent-session';
+import type { ISessionStore, SessionRecord, Sessions } from '@truefoundry/utils-core/agent-session';
 import {
   CancellationReason,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
 } from '@truefoundry/utils-core/agent-session';
-import {
-  extractErrorLogFields,
-  SandboxError,
-  validateSandboxFilePath,
-  validateSandboxOwnedByTenant,
-} from '@truefoundry/utils-core/core';
 import type {
   RouteHandler as RequestReplyRouteHandler,
   RequestReplyRouter,
@@ -33,7 +27,6 @@ import {
   cancelSessionRoute,
   createSessionRoute,
   deleteSessionRoute,
-  downloadSandboxFileRoute,
   getSessionRoute,
   listSessionEventsRoute,
   listSessionsRoute,
@@ -41,7 +34,7 @@ import {
 } from '../routes/sessionRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { executorFromTurnId } from '../runtime/peeringIds';
-import { resolveSandboxProvider, validateAgentSpec } from '../runtime/sessionResources';
+import { validateAgentSpec } from '../runtime/sessionResources';
 import type { Session } from '../schemas/session';
 
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
@@ -79,50 +72,6 @@ export interface SessionsRouterDeps {
   redis?: RedisClientType | undefined;
   requestReplyRouter: RequestReplyRouter;
   logger: Logger;
-}
-
-/**
- * The live sandbox for a session is whichever one the newest turn is attached to;
- * snapshots carry `sandbox_info` forward across turns, so the tip is authoritative.
- */
-async function resolveSessionSandboxId(session: SessionHandle): Promise<string | undefined> {
-  const lastTurnId = session.record.last_turn_id;
-  if (lastTurnId === null) {
-    return undefined;
-  }
-  const turn = await session.getTurn(lastTurnId);
-  return turn?.record.snapshot.sandbox_info?.sandbox_id;
-}
-
-/**
- * Copies into a standalone ArrayBuffer for the response body: a pooled Buffer's
- * backing store is shared and typed as ArrayBufferLike, which is not a body.
- * Bounded by SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD.
- */
-function toArrayBuffer(content: Buffer): ArrayBuffer {
-  const buffer = new ArrayBuffer(content.byteLength);
-  new Uint8Array(buffer).set(content);
-  return buffer;
-}
-
-/**
- * Builds the Content-Disposition telling the browser to save the file under its sandbox name.
- *
- * A sandbox file can be named in any script, but an HTTP header can only carry bytes, so a name
- * like `中文.csv` cannot be written into the header as-is — doing so throws when the response is
- * constructed. RFC 6266's `filename*` exists for this: percent-encode the UTF-8 name so the value
- * stays plain ASCII, and the client decodes it back. Encoding also defuses quotes and newlines,
- * which could otherwise close the value or inject another header.
- */
-export function toContentDisposition(path: string): string {
-  // Trailing separators are dropped so a path ending in `/` still yields its last real segment.
-  const fileName = path.split('/').filter(Boolean).pop() ?? 'download';
-  // encodeURIComponent covers everything except these four, which RFC 5987 also disallows here.
-  const encoded = encodeURIComponent(fileName).replace(
-    /['()*]/g,
-    char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
-  );
-  return `attachment; filename*=UTF-8''${encoded}`;
 }
 
 function cancelTurnOnThisExecutor(
@@ -361,58 +310,8 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
   };
 
-  const downloadSandboxFileHandler: RouteHandler<typeof downloadSandboxFileRoute> = async c => {
-    const { session_id: sessionId } = c.req.valid('param');
-    const { path } = c.req.valid('query');
-
-    let sandboxId: string | undefined;
-    try {
-      // Cheapest first: a malformed path costs no session lookup and no provider round-trip.
-      validateSandboxFilePath(path);
-
-      const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
-      if (!session) {
-        return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
-      }
-      if (session.agent_spec.config?.sandbox?.file_downloads !== true) {
-        return c.json({ error: { message: 'File downloads are not enabled for this session' } }, 422);
-      }
-
-      sandboxId = await resolveSessionSandboxId(session);
-      if (sandboxId === undefined) {
-        return c.json({ error: { message: `Session has no sandbox: ${sessionId}` } }, 404);
-      }
-
-      const provider = await resolveSandboxProvider({
-        tenant_id: TENANT_ID,
-        store: deps.sandboxProviderStore,
-        logger: deps.logger,
-      });
-      if (provider === undefined) {
-        return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
-      }
-
-      validateSandboxOwnedByTenant(sandboxId, TENANT_ID);
-      const content = await provider.downloadFile({ sandboxId, path });
-      return c.body(toArrayBuffer(content), 200, {
-        'Content-Type': 'application/octet-stream',
-        'Content-Length': String(content.byteLength),
-        'Content-Disposition': toContentDisposition(path),
-        'Cache-Control': 'private, no-store',
-      });
-    } catch (error) {
-      // Every guard and the provider itself raise SandboxError, whose statusCode is the contract.
-      if (error instanceof SandboxError) {
-        return c.json({ error: { message: error.message } }, error.statusCode);
-      }
-      deps.logger.error('Sandbox file download failed', { ...extractErrorLogFields(error), sandboxId, path });
-      return c.json({ error: { message: 'Failed to download file from sandbox' } }, 502);
-    }
-  };
-
   const router = new OpenAPIHono();
   router.openapi(createSessionRoute, createSessionHandler);
-  router.openapi(downloadSandboxFileRoute, downloadSandboxFileHandler);
   router.openapi(getSessionRoute, getSessionHandler);
   router.openapi(deleteSessionRoute, deleteSessionHandler);
   router.openapi(updateSessionRoute, updateSessionHandler);

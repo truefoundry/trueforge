@@ -204,6 +204,7 @@ export {
   useTrueFoundryMcpAuth,
   useTrueFoundryRespondToToolApproval,
   useTrueFoundryToolResponses,
+  useTrueFoundryTurnId,
   useTrueFoundryUpdateAgentSpec,
 } from '@truefoundry/assistant-ui-runtime';
 export type {

@@ -1,9 +1,9 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
 import { AgentSpecSchema, Sessions } from '@truefoundry/utils-core/agent-session';
-import { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import { createLogger } from 'winston';
-import { createSessionsRouter, TENANT_ID, toContentDisposition } from '../../../src/apis/sessions';
+import { TENANT_ID } from '../../../src/apis/sessions';
+import { createTurnsRouter, toContentDisposition } from '../../../src/apis/turns';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -11,7 +11,9 @@ import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription';
 
 /** Parsed rather than built literally, so config defaults match what the create route stores. */
 function agentSpec(fileDownloads: boolean): AgentSpec {
@@ -30,15 +32,16 @@ async function buildApp() {
 
   app.route(
     '/',
-    createSessionsRouter({
+    createTurnsRouter({
       sessions,
       sessionStore,
       activeTurns: new ActiveTurnRegistry(),
       modelProviderStore: new SqliteModelProviderStore(db),
       mcpServerStore: new SqliteMcpServerStore(db),
+      tokenStore: new SqliteOAuthTokenStore(db),
       skillStore: new SqliteSkillStore(db),
+      eventSubscriptions: new EventSubscriptionRegistry(undefined),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
-      requestReplyRouter: new RequestReplyRouter(),
       logger: createLogger({ silent: true }),
     }),
   );
@@ -46,11 +49,19 @@ async function buildApp() {
   return { app, sessions };
 }
 
-function downloadUrl(sessionId: string, path: string): string {
-  return `http://localhost/${sessionId}/sandbox/file?path=${encodeURIComponent(path)}`;
+function downloadUrl({
+  sessionId,
+  turnId = 'turn-1',
+  path,
+}: {
+  sessionId: string;
+  turnId?: string;
+  path: string;
+}): string {
+  return `http://localhost/${sessionId}/turns/${turnId}/download?path=${encodeURIComponent(path)}`;
 }
 
-describe('GET /{session_id}/sandbox/file', () => {
+describe('GET /{session_id}/turns/{turn_id}/download', () => {
   it('rejects a malformed path before touching the session', async () => {
     const { app } = await buildApp();
 
@@ -61,7 +72,7 @@ describe('GET /{session_id}/sandbox/file', () => {
       `/tmp/${'a'.repeat(300)}`,
       `/${'a/'.repeat(3000)}b`,
     ]) {
-      const response = await app.request(downloadUrl('missing', path));
+      const response = await app.request(downloadUrl({ sessionId: 'missing', path }));
 
       expect(response.status).toBe(400);
     }
@@ -78,15 +89,15 @@ describe('GET /{session_id}/sandbox/file', () => {
       return path.slice(0, length);
     };
 
-    expect((await app.request(downloadUrl('missing', pathOfLength(4096)))).status).toBe(400);
+    expect((await app.request(downloadUrl({ sessionId: 'missing', path: pathOfLength(4096) }))).status).toBe(400);
     // Not 400: the shape is fine, so it fails later on the session lookup instead.
-    expect((await app.request(downloadUrl('missing', pathOfLength(4095)))).status).toBe(404);
+    expect((await app.request(downloadUrl({ sessionId: 'missing', path: pathOfLength(4095) }))).status).toBe(404);
   });
 
   it('returns 404 for an unknown session', async () => {
     const { app } = await buildApp();
 
-    const response = await app.request(downloadUrl('missing', '/workspace/report.pdf'));
+    const response = await app.request(downloadUrl({ sessionId: 'missing', path: '/workspace/report.pdf' }));
 
     expect(response.status).toBe(404);
   });
@@ -99,20 +110,24 @@ describe('GET /{session_id}/sandbox/file', () => {
       agent_spec: agentSpec(false),
     });
 
-    const response = await app.request(downloadUrl(session.session_id, '/workspace/report.pdf'));
+    const response = await app.request(
+      downloadUrl({ sessionId: session.session_id, path: '/workspace/report.pdf' }),
+    );
 
     expect(response.status).toBe(422);
   });
 
-  it('returns 404 when the session has no sandbox yet', async () => {
+  it('returns 404 for a turn that does not exist in the session', async () => {
     const { app, sessions } = await buildApp();
     const session = await sessions.create({
       tenant_id: TENANT_ID,
-      session_id: 'no-sandbox',
+      session_id: 'no-turn',
       agent_spec: agentSpec(true),
     });
 
-    const response = await app.request(downloadUrl(session.session_id, '/workspace/report.pdf'));
+    const response = await app.request(
+      downloadUrl({ sessionId: session.session_id, path: '/workspace/report.pdf' }),
+    );
 
     expect(response.status).toBe(404);
   });

@@ -13,7 +13,6 @@ import { createConnectorCatalog } from './connectorCatalog';
 import { createHarnessBuilderServer } from './harnessBuilderServer';
 import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';
 import { createModelProviderCatalog } from './modelProviderCatalog';
-import { createSandboxArtifactDownload } from './SandboxArtifacts';
 import { createSandboxProviderCatalog } from './sandboxProviderCatalog';
 import { createSkillCatalog } from './skillCatalog';
 
@@ -32,8 +31,6 @@ function OpenSettingsWelcomeScreen(props: WelcomeScreenProps) {
 }
 
 const chatServer = createHarnessChatServer();
-
-const SandboxArtifactDownloadSlot = createSandboxArtifactDownload(chatServer);
 
 const server = createTrueFoundryServer<HarnessAgentSpec>({
   chatServer,
@@ -103,7 +100,6 @@ export function App() {
 
   const overrides: SlotOverrides = useMemo(
     () => ({
-      SandboxArtifactDownload: SandboxArtifactDownloadSlot,
       ...(boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
     }),
     [boot],

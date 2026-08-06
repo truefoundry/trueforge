@@ -6,7 +6,7 @@
  *         path: "x"
  *     }
  */
-export interface DownloadSandboxFileSessionsRequest {
+export interface DownloadTurnFileSessionsRequest {
     /** Absolute path of the file inside the sandbox, as listed in the assistant's `sandbox_artifacts` block. */
     path: string;
 }
