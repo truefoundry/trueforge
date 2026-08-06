@@ -23,12 +23,7 @@ export async function initOidc(oidc: OIDCConfig | undefined): Promise<Configurat
     return undefined;
   }
 
-  const issuer = new URL(oidc.OIDC_ISSUER_URL);
-  const discoveryUrl = new URL(
-    `${issuer.origin}${issuer.pathname.replace(/\/$/, '')}/.well-known/openid-configuration`,
-  );
-  discoveryUrl.searchParams.set('client_id', oidc.OIDC_CLIENT_ID);
-  return discovery(discoveryUrl, oidc.OIDC_CLIENT_ID, oidc.OIDC_CLIENT_SECRET);
+  return discovery(new URL(oidc.OIDC_ISSUER_URL), oidc.OIDC_CLIENT_ID, oidc.OIDC_CLIENT_SECRET);
 }
 
 function authCallbackUrl(): string {

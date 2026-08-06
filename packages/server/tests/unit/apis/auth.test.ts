@@ -136,7 +136,7 @@ describe('auth router (OIDC configured)', () => {
     const fetchStub: typeof fetch = async (input, init) => {
       const url = String(input);
 
-      if (url === `${ISSUER}/.well-known/openid-configuration?client_id=${CLIENT_ID}`) {
+      if (url === `${ISSUER}/.well-known/openid-configuration`) {
         return json({
           issuer: ISSUER,
           authorization_endpoint: `${ISSUER}/authorize`,
