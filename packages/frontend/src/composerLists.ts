@@ -1,4 +1,7 @@
-/** DB-backed catalog list helpers for the composer pickers and boot. */
+/**
+ * Configured-resource list helpers for composer pickers and app boot.
+ * Not the settings catalog ports (`*Catalog.ts`).
+ */
 import type { TrueForgeApi as Harness } from 'trueforge';
 import { harnessClient as client } from './harnessClient';
 
