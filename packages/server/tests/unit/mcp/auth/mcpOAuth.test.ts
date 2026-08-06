@@ -4,6 +4,7 @@
  */
 import { resourceUrlFromServerUrl } from '@modelcontextprotocol/sdk/shared/auth-utils.js';
 import { McpConnectionError } from '@truefoundry/utils-core/core';
+import configuration from '../../../../src/config';
 import { InMemoryOAuthClientStore, InMemoryOAuthTokenStore } from '../../../../src/mcp/auth/inMemoryStores';
 import {
   buildMcpAuthorizationUrl,
@@ -38,23 +39,19 @@ const SERVER_ID = 'mcp-server-id-1';
 const SERVER_NAME = 'svc';
 
 const realFetch = globalThis.fetch;
-const previousPublicBaseUrl = process.env['PUBLIC_BASE_URL'];
+const previousPublicBaseUrl = configuration.PUBLIC_BASE_URL;
 
 beforeAll(() => {
-  process.env['PUBLIC_BASE_URL'] = PUBLIC_BASE_URL;
+  configuration.PUBLIC_BASE_URL = PUBLIC_BASE_URL;
 });
 
 afterAll(() => {
-  if (previousPublicBaseUrl === undefined) {
-    delete process.env['PUBLIC_BASE_URL'];
-  } else {
-    process.env['PUBLIC_BASE_URL'] = previousPublicBaseUrl;
-  }
+  configuration.PUBLIC_BASE_URL = previousPublicBaseUrl;
 });
 
 afterEach(() => {
   globalThis.fetch = realFetch;
-  process.env['PUBLIC_BASE_URL'] = PUBLIC_BASE_URL;
+  configuration.PUBLIC_BASE_URL = PUBLIC_BASE_URL;
 });
 
 function json(body: unknown, status = 200): Response {
@@ -300,7 +297,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
   });
 
   it('throws when PUBLIC_BASE_URL is empty (no trimming)', async () => {
-    process.env['PUBLIC_BASE_URL'] = '';
+    configuration.PUBLIC_BASE_URL = '';
     await expect(
       ensureMcpClientRegistered({
         mcpServerStore: new InMemoryOAuthClientStore(),
