@@ -3,7 +3,6 @@
 import { Icon } from '../icons/Icon.js';
 import { useOptionalCatalogServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { useSlot } from '../theme/SlotsProvider.js';
 import { useTheme } from '../theme/ThemeProvider.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
@@ -12,7 +11,6 @@ export function ShellActions({ className }: { className?: string }) {
   const shell = useOptionalShellMode();
   const catalog = useOptionalCatalogServer();
   const { mode, setTheme } = useTheme();
-  const LogoutButtonSlot = useSlot('LogoutButton');
 
   return (
     <div className={cn('flex shrink-0 items-center gap-1 text-foreground', className)}>
@@ -37,7 +35,6 @@ export function ShellActions({ className }: { className?: string }) {
           <Icon name="settings" />
         </button>
       ) : null}
-      <LogoutButtonSlot />
     </div>
   );
 }

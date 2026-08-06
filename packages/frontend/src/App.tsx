@@ -8,14 +8,11 @@ import {
 } from '@truefoundry/trueforge-ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './agentUiSlots';
-import { fetchAuthConfig, fetchCurrentIdentity } from './auth';
-import { OidcLogoutButton } from './components/OidcLogoutButton';
 import { getCapabilities, listModels } from './composerLists';
 import { createConnectorCatalog } from './connectorCatalog';
 import { createHarnessBuilderServer } from './harnessBuilderServer';
 import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';
 import { createModelProviderCatalog } from './modelProviderCatalog';
-import { LoginPage } from './pages/LoginPage';
 import { createSandboxProviderCatalog } from './sandboxProviderCatalog';
 import { createSkillCatalog } from './skillCatalog';
 
@@ -48,36 +45,18 @@ const server = createTrueFoundryServer<HarnessAgentSpec>({
 
 type BootState =
   | { status: 'loading' }
-  | { status: 'login' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; oidcEnabled: boolean; defaultAgentSpec: HarnessAgentSpec; openSettings: boolean };
+  | { status: 'ready'; defaultAgentSpec: HarnessAgentSpec; openSettings: boolean };
 
 export function App() {
   const [boot, setBoot] = useState<BootState>({ status: 'loading' });
 
   useEffect(() => {
     const state = { cancelled: false };
-    // Read via a call so control-flow analysis does not narrow the flag away after the first check.
-    const cancelled = () => state.cancelled;
     void (async () => {
       try {
-        const authConfig = await fetchAuthConfig();
-        if (cancelled()) {
-          return;
-        }
-        if (authConfig.oidc_enabled) {
-          const identity = await fetchCurrentIdentity();
-          if (cancelled()) {
-            return;
-          }
-          if (!identity) {
-            setBoot({ status: 'login' });
-            return;
-          }
-        }
-
         const [models, capabilities] = await Promise.all([listModels(), getCapabilities()]);
-        if (cancelled()) {
+        if (state.cancelled) {
           return;
         }
         const first = models[0];
@@ -85,7 +64,6 @@ export function App() {
         if (first === undefined) {
           setBoot({
             status: 'ready',
-            oidcEnabled: authConfig.oidc_enabled,
             openSettings: true,
             defaultAgentSpec: {
               model: { name: '' },
@@ -97,7 +75,6 @@ export function App() {
         const defaultReasoningEffort = first.properties.reasoningEfforts?.[0];
         setBoot({
           status: 'ready',
-          oidcEnabled: authConfig.oidc_enabled,
           openSettings: false,
           defaultAgentSpec: {
             model: {
@@ -108,7 +85,7 @@ export function App() {
           },
         });
       } catch (err) {
-        if (!cancelled()) {
+        if (!state.cancelled) {
           setBoot({
             status: 'error',
             message: err instanceof Error ? err.message : 'Failed to boot',
@@ -121,19 +98,10 @@ export function App() {
     };
   }, []);
 
-  const overrides: SlotOverrides = useMemo(() => {
-    if (boot.status !== 'ready') {
-      return {};
-    }
-    return {
-      ...(boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
-      ...(boot.oidcEnabled ? { LogoutButton: OidcLogoutButton } : {}),
-    };
-  }, [boot]);
-
-  if (boot.status === 'login') {
-    return <LoginPage />;
-  }
+  const overrides: SlotOverrides = useMemo(
+    () => (boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
+    [boot],
+  );
 
   if (boot.status === 'error') {
     return (

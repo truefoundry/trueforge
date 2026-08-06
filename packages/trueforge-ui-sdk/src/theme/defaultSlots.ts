@@ -14,7 +14,6 @@ import { ClearChatButton } from '../atoms/ClearChatButton.js';
 import { ComposerLeftSection, ComposerRightSection, ComposerSendButton } from '../atoms/ComposerSections.js';
 import { ComposerShell } from '../atoms/ComposerShell.js';
 import { HistoryLoader } from '../atoms/HistoryLoader.js';
-import { LogoutButton } from '../atoms/LogoutButton.js';
 import { Markdown } from '../atoms/Markdown.js';
 import { MessageActionBar } from '../atoms/MessageActionBar.js';
 import { MessageErrorBanner } from '../atoms/MessageErrorBanner.js';
@@ -92,7 +91,6 @@ export const defaultSlots: AtomSlots = {
   ThreadListNewButton,
   AgentsLibraryButton,
   ClearChatButton,
-  LogoutButton,
   ThreadListRowSkeleton,
   ThreadListEmptyState,
   ThreadListShell,
