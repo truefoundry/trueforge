@@ -445,15 +445,11 @@ export class SessionHandle<
         signal: params.signal,
         tracing: input.tracing,
       });
+      // Model override (request.model) is resolved inside resolveAgentDefinition
+      // into modelClient — do not re-label a stale client here.
       const childDefinition: AgentDefinition = {
         ...definition,
         toolSets: params.parentDefinition.toolSets ?? definition.toolSets,
-        ...(params.request.model !== undefined
-          ? {
-              model: params.request.model,
-              modelClient: definition.modelClient,
-            }
-          : {}),
         // The delegated task goes in as the initial user message; the sub-agent
         // system prompt is SUB_AGENT_IDENTITY (added by AgentThread.buildInstruction).
         instruction: undefined,
