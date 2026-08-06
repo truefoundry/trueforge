@@ -282,10 +282,11 @@ export interface SharedServerConfiguration {
    */
   PUBLIC_BASE_URL: string;
   /**
-   * RFC 7591 client_name shown on authorization-server consent screens.
-   * Env: `OAUTH_CLIENT_NAME`. Default: "truefoundry-harness".
+   * Client name used for Dynamic Client Registration (DCR) of MCP servers.
+   * This is the client name shown on authorization-server consent screens.
+   * Env: `MCP_DCR_OAUTH_CLIENT_NAME`. Default: "truefoundry-harness".
    */
-  OAUTH_CLIENT_NAME: string;
+  MCP_DCR_OAUTH_CLIENT_NAME: string;
   /**
    * Max bytes for a single file download out of the sandbox.
    * Env: `SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD`. Default 20 MB (same as gateway).
@@ -428,7 +429,8 @@ const shared: SharedServerConfiguration = {
     raw: getEnv('MCP_CONNECT_TIMEOUT_MS'),
     defaultValue: 30 * 1000,
   }),
-  OAUTH_CLIENT_NAME: getEnv('OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
+  MCP_DCR_OAUTH_CLIENT_NAME:
+    getEnv('MCP_DCR_OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: parsePositiveInt({
     envKey: 'SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD',
     raw: getEnv('SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD'),

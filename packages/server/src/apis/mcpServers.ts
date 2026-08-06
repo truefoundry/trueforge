@@ -94,7 +94,7 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
         serverId: params.serverId,
         mcpServerUrl: params.mcpServerUrl,
         mcpServerName: params.mcpServerName,
-        clientName: configuration.OAUTH_CLIENT_NAME,
+        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
       }),
       MCP_DCR_REGISTRATION_TIMEOUT_MS,
       `DCR client registration for MCP server "${params.mcpServerName}"`,
@@ -175,7 +175,7 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
       name,
       store: deps.mcpServerStore,
       tokenStore: deps.tokenStore,
-      clientName: configuration.OAUTH_CLIENT_NAME,
+      clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
     });
     if (connection === undefined) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
@@ -245,7 +245,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
         serverId: record.id,
         mcpServerUrl: record.manifest.url,
         mcpServerName: record.name,
-        clientName: configuration.OAUTH_CLIENT_NAME,
+        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
         ...(redirectUrl !== undefined ? { redirectUrl } : {}),
       });
       const authStatus: McpAuthStatus = isMcpAuthRequired(result)
