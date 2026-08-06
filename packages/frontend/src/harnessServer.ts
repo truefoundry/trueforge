@@ -1,5 +1,5 @@
 /**
- * Harness `AgentUIServer` adapter for @truefoundry/agent-ui-sdk.
+ * Harness `AgentUIServer` adapter for @truefoundry/trueforge-ui.
  *
  * The SDK still declares the pre-0.1.6 server contract — mounts carry `id`,
  * list results are `PageResult`, and absent values are `undefined` — while the
@@ -23,9 +23,9 @@ import type {
   Turn,
   TurnInputItem,
   UserMessageContent,
-} from '@truefoundry/agent-ui-sdk';
-import type { TrueHarnessApi as Harness } from 'trueharness';
-import { TrueHarness } from 'trueharness';
+} from '@truefoundry/trueforge-ui';
+import type { TrueForgeApi as Harness } from 'trueforge';
+import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 export type HarnessSkillMount = SkillMount;
 export type HarnessMcpServerMount = McpServerMount & Harness.McpServer;
 
@@ -42,10 +42,7 @@ export interface HarnessSession extends Session<HarnessAgentSpec> {
   isMutable: true;
 }
 
-export interface CreateHarnessServerOptions {
-  baseUrl?: string;
-  fetch?: typeof fetch;
-}
+export type CreateHarnessServerOptions = CreateHarnessClientOptions;
 
 /** Mount ids are derived, not stored: Harness returns MCP servers keyed by name. */
 function toUiMcpServer(server: Harness.McpServer): HarnessMcpServerMount {
@@ -200,10 +197,8 @@ function saveBlob(blob: Blob, fileName: string): void {
 }
 
 export function createHarnessChatServer(options: CreateHarnessServerOptions = {}): HarnessChatServer {
-  const client = new TrueHarness({
-    baseUrl: options.baseUrl ?? '/',
-    ...(options.fetch ? { fetch: options.fetch } : {}),
-  });
+  const client =
+    options.baseUrl === undefined && options.fetch === undefined ? harnessClient : createHarnessClient(options);
   let openSessionId: string | undefined;
 
   return {
@@ -246,31 +241,20 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
       return toUiSession(response.data);
     },
 
-    async *prepareAndExecuteTurn({
+    async *createTurn({
       sessionId,
       input,
       previousTurnId,
-      abortSignal,
-      headers,
     }: {
       sessionId: string;
       input?: TurnInputItem[];
       previousTurnId?: string;
-      abortSignal?: AbortSignal;
-      headers?: Record<string, string>;
     }) {
       openSessionId = sessionId;
-      const stream = await client.sessions.createTurn(
-        sessionId,
-        {
-          ...(input === undefined ? {} : { input: toHarnessInput(input) }),
-          ...(previousTurnId === undefined ? {} : { previousTurnId: toHarnessPreviousTurnId(previousTurnId) }),
-        },
-        {
-          ...(abortSignal === undefined ? {} : { abortSignal }),
-          ...(headers === undefined ? {} : { headers }),
-        },
-      );
+      const stream = await client.sessions.createTurn(sessionId, {
+        ...(input === undefined ? {} : { input: toHarnessInput(input) }),
+        ...(previousTurnId === undefined ? {} : { previousTurnId: toHarnessPreviousTurnId(previousTurnId) }),
+      });
       let fallbackSequence = 0;
       for await (const item of stream.withMetadata()) {
         yield {

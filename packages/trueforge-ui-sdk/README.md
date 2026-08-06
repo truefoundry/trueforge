@@ -1,0 +1,497 @@
+# @truefoundry/trueforge-ui
+
+[CI](https://github.com/truefoundry/harness/actions/workflows/ci.yml)
+[npm](https://www.npmjs.com/package/@truefoundry/trueforge-ui)
+[License](./LICENSE)
+
+A themeable, composable React SDK for building production-ready AI agent chat applications.  
+Build your own agent chat platform with a flexible UI layer that works with **TrueFoundry** (Control Plane + Gateway), **TrueForge** (harness), or any custom backend. The SDK is fully open source, giving you complete control over your architecture, components, and integrations.  
+Powered by [assistant-ui](https://www.assistant-ui.com/), it follows the familiar **shadcn/ui** and **Tailwind CSS variable** theming conventions, making it easy to customize every aspect of the experience.
+
+**Features**
+
+- **Fully themeable** — Use built-in themes inspired by **TrueFoundry**, **ChatGPT**, **Claude**, and **Gemini**, or create your own brand identity.
+- **Composable by design** — Swap layouts, components, and interaction patterns to fit your product.
+- **Backend agnostic** — Connect to **TrueFoundry**, **TrueForge**, or any custom API via `TrueforgeServerConfig`.
+- **Open source** — Extend, customize, and contribute without vendor lock-in.
+- **Built on assistant-ui** — Leverage a modern React foundation with seamless shadcn/ui and Tailwind CSS integration.
+- **Production ready** — Focus on your agents while the SDK handles the chat experience.
+
+Bring your own **brand, colors, layout, components, and server**—the Agent SDK wires up the rest.
+
+### Checkout the Demo [here](./example/)
+
+---
+
+## Table of contents
+
+- [Installation](#installation)
+- [Getting started](#getting-started)
+- [`<TrueforgeUI />` props](#trueforgeui--props)
+- [Theming](#theming)
+- [Brand / logo](#brand--logo)
+- [Agent modes](#agent-modes)
+- [Layouts](#layouts)
+- [Custom layouts](#custom-layouts)
+- [Overriding components](#overriding-components)
+- [Server](#server)
+- [Exports](#exports)
+- [Docs](#docs)
+- [License](#license)
+
+---
+
+## Installation
+
+```bash
+npm install @truefoundry/trueforge-ui
+# or
+pnpm add @truefoundry/trueforge-ui
+# or
+yarn add @truefoundry/trueforge-ui
+```
+
+`react` / `react-dom` are required peers. Import the stylesheet after Tailwind in the host:
+
+```css
+@import 'tailwindcss';
+@import '@truefoundry/trueforge-ui/styles.css';
+```
+
+See [docs/compatibility.md](./docs/compatibility.md) for version ranges.
+
+---
+
+## Getting started
+
+**TrueFoundry** (`type: "truefoundry"`) — Control Plane + Gateway
+
+Zero-config path: the SDK builds the agent UI server from your API key and
+control plane URL (optional explicit gateway URL).
+
+```tsx
+import { TrueforgeUI } from '@truefoundry/trueforge-ui';
+
+export default function App() {
+  return (
+    <div style={{ height: '100dvh' }}>
+      <TrueforgeUI
+        server={{
+          type: 'truefoundry',
+          apiKey: process.env.TFY_API_KEY!,
+          controlPlaneURL: process.env.TFY_CONTROL_PLANE_URL!,
+          // gatewayPlaneURL: process.env.TFY_GATEWAY_URL, // optional
+        }}
+        layout="sidebar"
+      />
+    </div>
+  );
+}
+```
+
+**TrueForge** (`type: "trueforge"`) — harness (coming soon)
+
+Typed for hosts adopting the harness adapter; selecting it currently surfaces a
+not-implemented error until the adapter ships.
+
+```tsx
+<TrueforgeUI
+  server={{
+    type: 'trueforge',
+    apiKey: process.env.TFY_API_KEY!,
+  }}
+  layout="sidebar"
+/>
+```
+
+**Custom** — bring your own `AgentUIServer`
+
+Use this when you compose chat + builder yourself (e.g. chat-only gateway
+adapter + stub catalog, or a full host BFF). Pass the server object directly.
+
+```tsx
+import { TrueforgeUI, createTrueFoundryServer } from '@truefoundry/trueforge-ui';
+import { createTrueFoundryChatServer } from '@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adapter';
+
+const chatServer = createTrueFoundryChatServer({
+  apiKey: process.env.TFY_API_KEY!,
+  baseUrl: process.env.TFY_GATEWAY_URL!,
+});
+
+const server = createTrueFoundryServer({
+  chatServer,
+  getModels: async () => [],
+  getSkills: async () => [],
+  getMcp: async () => [],
+  searchAgents: async () => [],
+  saveAgent: async () => ({}),
+});
+
+export default function App() {
+  return (
+    <div style={{ height: '100dvh' }}>
+      <TrueforgeUI server={server} layout="sidebar" />
+    </div>
+  );
+}
+```
+
+## `<TrueforgeUI />` props
+
+`<TrueforgeUI />` is the single entry point. Every capability is driven by a prop.
+
+```tsx
+<TrueforgeUI
+  server={{
+    type: 'truefoundry',
+    apiKey: process.env.TFY_API_KEY!,
+    controlPlaneURL: process.env.TFY_CONTROL_PLANE_URL!,
+  }} // or agentServer / { type: "trueforge", apiKey }
+  layout="sidebar" // 'sidebar' | 'drawer' | 'dock' | 'widget' | CustomLayout
+  agentConfig={{
+    mode: 'AgentLibraryWithComposer', // default when omitted
+    defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+  }}
+  theme={{
+    preset: 'claude',
+    brand: { name: 'Acme', icon: { src: '/logo.svg', alt: 'Acme' } },
+  }}
+  overrides={{/* slot overrides */}}
+  className="h-full"
+/>
+```
+
+| Prop               | Type                       | Required | Description                                                                                                        |
+| ------------------ | -------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `server`           | `TrueforgeServerConfig`    | ✅       | Built-in config (`truefoundry` / `trueforge`) **or** a ready `AgentUIServer`.                                      |
+| `layout`           | `LayoutProp`               | ✅       | Built-in layout string **or** a custom React component.                                                            |
+| `agentConfig`      | `AgentConfig`              | —        | Shell mode: SingleAgent / AgentLibrary / AgentComposer / AgentLibraryWithComposer. Defaults to library + composer. |
+| `theme`            | `ThemeConfig`              | —        | Preset, mode, tokens, brand, icons (see [Theming](#theming)).                                                      |
+| `overrides`        | `Partial<SlotOverrides>`   | —        | Map of slot overrides (see [Overriding components](#overriding-components)).                                       |
+| `className`        | `string`                   | —        | Applied to the layout root.                                                                                        |
+| `initialSessionId` | `string`                   | —        | Resume a specific session.                                                                                         |
+| `onError`          | `(error: unknown) => void` | —        | Host error hook (runtime + server init).                                                                           |
+
+Later sections use `server` as a `TrueforgeServerConfig` (usually `type: "truefoundry"`). For a host-built port, pass the `AgentUIServer` directly.
+
+---
+
+## Theming
+
+Pass a preset and/or tokens and the whole UI adapts. Under the hood values map onto shadcn-style CSS variables (`--primary`, `--background`, `--foreground`, `--muted`, `--accent`, `--radius`), so no component needs palette-specific code.
+
+```tsx
+const server = {
+  type: 'truefoundry' as const,
+  apiKey: process.env.TFY_API_KEY!,
+  controlPlaneURL: process.env.TFY_CONTROL_PLANE_URL!,
+};
+
+<TrueforgeUI
+  server={server}
+  layout="sidebar"
+  theme={{
+    preset: 'claude', // 'truefoundry' | 'claude' | 'chatgpt' | 'gemini'
+    mode: 'dark', // omit for uncontrolled (useTheme().setTheme works)
+    tokens: {
+      primary: 'oklch(0.55 0.2 275)',
+      background: 'oklch(0.14 0.02 260)',
+      foreground: 'oklch(0.97 0 0)',
+      muted: 'oklch(0.22 0.02 260)',
+      accent: 'oklch(0.8 0.12 200)',
+      radius: '0.5rem',
+    },
+  }}
+/>;
+```
+
+You can also override tokens from host CSS:
+
+```css
+:root {
+  --font-agent-ui: 'Your Font', ui-sans-serif, system-ui, sans-serif;
+  --primary: oklch(0.55 0.2 275);
+}
+```
+
+> _Screenshot: the same layout rebranded with a custom palette._
+
+See [docs/theming.md](./docs/theming.md) for presets, controlled vs uncontrolled mode, and content classNames.
+
+---
+
+## Brand / logo
+
+**Base layouts** — pass `theme.brand` and the SDK positions name + icon in the default slots:
+
+```tsx
+<TrueforgeUI
+  server={server}
+  layout="sidebar"
+  theme={{
+    brand: {
+      name: 'Acme',
+      icon: { src: '/brand/icon.svg', alt: 'Acme' },
+      logo: { src: '/brand/logo.svg', alt: 'Acme' },
+    },
+  }}
+/>
+```
+
+**Custom layouts** — import `BrandLogo` / `BrandIcon` and place them anywhere (see [Custom layouts](#custom-layouts)).
+
+> _Screenshot: external brand mark rendered in the base layout header._
+
+---
+
+## Agent modes
+
+`agentConfig` controls library chrome, draft composer, and how New Chat / Clear Chat behave.
+
+| Mode                                   | Layout chrome                   | Agent selection / New Chat                                |
+| -------------------------------------- | ------------------------------- | --------------------------------------------------------- |
+| `AgentLibraryWithComposer` _(default)_ | Agents Library + draft builder  | New Chat opens draft; library picks a named agent         |
+| `SingleAgent`                          | Named-only, plain composer      | Locked to `name`; New Chat / Clear Chat = new thread      |
+| `AgentLibrary`                         | Agents Library only (no draft)  | Empty until pick; no New Chat; Clear Chat after selection |
+| `AgentComposer`                        | Draft builder only (no library) | Always draft; New Chat / Clear Chat = fresh draft         |
+
+In library modes, picking an agent from the Agents Library switches to a named chat for that agent **and remounts the runtime** so the new agent starts from a clean conversation. Draft chats can be promoted via **Save as agent** (`server.saveAgent` on the resolved `AgentUIServer`). **Clear Chat** (thread header) resets the current named or draft session.
+
+```tsx
+{
+  /* Library + draft (default) */
+}
+<TrueforgeUI server={server} layout="sidebar" />;
+
+{
+  /* Named-only lock */
+}
+<TrueforgeUI server={server} layout="sidebar" agentConfig={{ mode: 'SingleAgent', name: 'support-agent' }} />;
+
+{
+  /* Library only — select an agent to start */
+}
+<TrueforgeUI server={server} layout="sidebar" agentConfig={{ mode: 'AgentLibrary' }} />;
+
+{
+  /* Composer only */
+}
+<TrueforgeUI
+  server={server}
+  layout="sidebar"
+  agentConfig={{
+    mode: 'AgentComposer',
+    defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+  }}
+/>;
+```
+
+> _Screenshot: Agents Library open; selecting an agent resets the thread._
+
+---
+
+## Layouts
+
+Built-in `layout` values:
+
+| Value     | Description                                              |
+| --------- | -------------------------------------------------------- |
+| `sidebar` | Left session list + main thread (ChatGPT / Claude style) |
+| `drawer`  | Full-bleed thread; sessions open in a slide-over         |
+| `dock`    | Fixed-width right panel; list XOR thread stack           |
+| `widget`  | Same stack as `dock`, opened from a bottom-right FAB     |
+
+The [example app](./example/) switches between these four modes.
+
+---
+
+## Custom layouts
+
+For full control, pass a React component as `layout`. The SDK still wires server, shell mode, slots, and runtime behind it.
+
+```tsx
+import { Thread, ThreadListContainer, BrandIcon, useTheme } from '@truefoundry/trueforge-ui';
+
+function Layout({ className }: { className?: string }) {
+  const { mode, setTheme } = useTheme();
+
+  return (
+    <div className={className} style={{ display: 'flex', height: '100%' }}>
+      <aside style={{ width: 256 }}>
+        <BrandIcon className="size-6" />
+        <ThreadListContainer />
+      </aside>
+      <main style={{ flex: 1, minWidth: 0 }}>
+        <button type="button" onClick={() => setTheme(mode === 'dark' ? 'light' : 'dark')}>
+          Theme
+        </button>
+        <Thread />
+      </main>
+    </div>
+  );
+}
+
+<TrueforgeUI server={server} layout={Layout} />;
+```
+
+For deeper composition without `TrueforgeUI`, nest `SlotsProvider` outside `TrueFoundryChatProvider` — see [docs/customization.md](./docs/customization.md).
+
+> _Screenshot: a custom layout assembled from_ `BrandIcon`_,_ `ThreadListContainer`_, and_ `Thread`_._
+
+---
+
+## Overriding components
+
+Every curated feature atom is overridable. Provide an `overrides` map to swap any single component while inheriting the rest.
+
+```tsx
+import { TrueforgeUI, type AssistantMessageBubbleProps } from '@truefoundry/trueforge-ui';
+
+function MyBubble(props: AssistantMessageBubbleProps) {
+  return <div className="mr-auto max-w-[75%] rounded-2xl bg-muted px-4 py-2">{props.children}</div>;
+}
+
+<TrueforgeUI
+  server={server}
+  layout="sidebar"
+  overrides={{
+    AssistantMessageBubble: MyBubble,
+    // WelcomeScreen, ComposerShell, ToolCallCard, … all overridable
+  }}
+/>;
+```
+
+Overridable slots include composer pieces (`ComposerShell`, `ComposerLeftSection`, `ComposerRightSection`, `ComposerSendButton`), messages (`AssistantMessageBubble`, `UserMessageBubble`, `UserMessageEdit`), `Markdown`, `WelcomeScreen`, thread-list atoms, and tool/prompt cards (`ToolCallCard`, `ToolApprovalBar`, `ToolGroupCard`, `SubAgentCard`, `SandboxToolCallCard`, `AgentStepsCard`, `ReasoningCard`, `AskUserPrompt`, `McpAuthPrompt`, and more).
+
+See [docs/customization.md](./docs/customization.md) for the full slot list.
+
+---
+
+## Server
+
+`<TrueforgeUI />` takes a **`TrueforgeServerConfig`**: built-in backends init
+inside the component, or pass a ready `AgentUIServer` directly.
+
+```ts
+type TrueforgeServerConfig =
+  | {
+      type: 'truefoundry';
+      apiKey: string;
+      controlPlaneURL: string;
+      gatewayPlaneURL?: string;
+    }
+  | { type: 'trueforge'; apiKey: string /* + open extras later */ }
+  | AgentUIServer;
+
+type AgentUIServer = AgentChatServer & AgentBuilderServer & { catalog?: CatalogServer };
+```
+
+| Port                 | Responsibility                                                      |
+| -------------------- | ------------------------------------------------------------------- |
+| `AgentChatServer`    | Sessions, turns, streaming, draft `AgentSpec` sync                  |
+| `AgentBuilderServer` | `getModels` / `getSkills` / `getMcp` / `searchAgents` / `saveAgent` |
+
+**Zero-config TrueFoundry** — see [Getting started](#getting-started). The SDK calls `createTrueFoundryAgentUIServer` for you.
+
+**Compose your own `AgentUIServer` (custom):**
+
+```tsx
+import { TrueforgeUI, createTrueFoundryServer } from '@truefoundry/trueforge-ui';
+import { createTrueFoundryChatServer } from '@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adapter';
+
+const chatServer = createTrueFoundryChatServer({ apiKey, baseUrl });
+const agentServer = createTrueFoundryServer({
+  chatServer,
+  getModels,
+  getSkills,
+  getMcp,
+  searchAgents,
+  saveAgent,
+});
+
+<TrueforgeUI server={agentServer} layout="sidebar" />;
+```
+
+**Implement `AgentUIServer` yourself:**
+
+```tsx
+import { TrueforgeUI, type AgentUIServer } from '@truefoundry/trueforge-ui';
+
+const agentServer: AgentUIServer = {
+  // AgentChatServer methods…
+  createSession,
+  listSessions,
+  getSession,
+  updateSession,
+  createTurn,
+  // …
+  // AgentBuilderServer methods…
+  getModels: async () => [],
+  getSkills: async () => [],
+  getMcp: async () => [],
+  searchAgents: async () => [],
+  saveAgent: async ({ agentName, agentSpec }) => ({ ok: true }),
+};
+
+<TrueforgeUI server={agentServer} layout="sidebar" />;
+```
+
+See [docs/server.md](./docs/server.md) for the full method list and BYO guidance.
+
+---
+
+## Exports
+
+| Export                                                       | Kind       | Purpose                                                      |
+| ------------------------------------------------------------ | ---------- | ------------------------------------------------------------ |
+| `TrueforgeUI`                                                | Component  | Root component — accepts all props above                     |
+| `TrueforgeServerConfig`                                      | Type       | `server` prop: `truefoundry` / `trueforge` / `AgentUIServer` |
+| `createTrueFoundryServer`                                    | Function   | Compose chat + builder into `AgentUIServer`                  |
+| `Thread`, `ThreadListContainer`, `BrandLogo`, `BrandIcon`    | Components | Layout primitives for custom layouts                         |
+| Composer / message / tool atoms                              | Components | Overridable, themeable building blocks                       |
+| `SlotsProvider`, `useSlot`, `useTheme`                       | API        | Overrides + theme mode                                       |
+| `AgentUIServer`, `AgentChatServer`, `AgentBuilderServer`     | Types      | Resolved server contract                                     |
+| `ThemeConfig`, `LayoutProp`, `SlotOverrides`, `AgentSpec`, … | Types      | Configuration contracts                                      |
+| `@truefoundry/trueforge-ui/styles.css`                       | CSS        | Tokens, utilities, OpenUI                                    |
+| `@truefoundry/trueforge-ui/assistant-ui`                     | Entry      | Shared `useAui` / `useAuiState` (single instance)            |
+
+Curated public API: [docs/api.md](./docs/api.md).
+
+---
+
+## Docs
+
+| Doc                                              | Topic                         |
+| ------------------------------------------------ | ----------------------------- |
+| [docs/api.md](./docs/api.md)                     | Curated public API            |
+| [docs/architecture.md](./docs/architecture.md)   | Atoms, containers, slots      |
+| [docs/customization.md](./docs/customization.md) | Theme, slots, custom layout   |
+| [docs/compatibility.md](./docs/compatibility.md) | Peer matrix                   |
+| [docs/server.md](./docs/server.md)               | Server port + BYO             |
+| [docs/theming.md](./docs/theming.md)             | Themes, brand, icons, presets |
+| [CHANGELOG.md](./CHANGELOG.md)                   | Migration notes               |
+
+### Troubleshooting: "requires an AuiProvider"
+
+Usually duplicate `@assistant-ui/core` / `@assistant-ui/store` instances. Diagnose with `pnpm why`, align `react` across the workspace, and import chrome hooks from `@truefoundry/trueforge-ui` (or `/assistant-ui`) so you share the SDK’s copy.
+
+### Development
+
+From the monorepo root:
+
+```bash
+pnpm install
+pnpm --filter @truefoundry/trueforge-ui typecheck
+pnpm --filter @truefoundry/trueforge-ui test
+pnpm --filter @truefoundry/trueforge-ui build
+```
+
+Local demo: see [example/](./example/). Publishing: see [RELEASING.md](../../RELEASING.md#releasing-truefoundrytrueforge-ui).
+
+---
+
+## License
+
+Apache-2.0. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE).
+
+Security: [SECURITY.md](./SECURITY.md) · Conduct: [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) · Changes: [CHANGELOG.md](./CHANGELOG.md)

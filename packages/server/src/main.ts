@@ -1,58 +1,172 @@
 /**
- * Server entry point: validates config, migrates Postgres, wires DB stores
- * and starts the HTTP server. Any config, migration, or store error aborts startup.
- * SQLite migrations are packaged under dist/ but are not run at startup.
+ * Server entry point: validates config, migrates the selected database, wires
+ * stores, and starts the HTTP server. Any config, migration, or store error
+ * aborts startup.
+ *
+ * `STANDALONE=true` (default): SQLite, no Redis. `STANDALONE=false`: Postgres + Redis.
+ *
+ * Config is validated at import time (`./config`). Runtime startup failures
+ * (migrate, Redis, listen) are caught below and exit non-zero. SQLite vs
+ * Postgres store modules stay dynamic so only the active engine is loaded.
  */
-import { serve } from '@hono/node-server';
-import type { TurnStreamingEvent } from '@truefoundry/utils-core/agent-session';
-import type { RedisClientType } from 'redis';
-import winston from 'winston';
+import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
+
+let configuration: typeof import('./config').default;
 
 try {
+  ({ default: configuration } = await import('./config'));
+} catch (error) {
+  console.error(
+    'Failed to start server: Failed to load configuration:',
+    error instanceof Error ? error.message : error,
+  );
+  process.exit(1);
+}
+
+import { serve } from '@hono/node-server';
+import {
+  CancellationReason,
+  Sessions,
+  type ISessionStore,
+  type TurnStreamingEvent,
+} from '@truefoundry/utils-core/agent-session';
+import { RequestReplyExecutor, RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
+import type { RedisClientType } from 'redis';
+import winston, { type Logger } from 'winston';
+
+import { createServerApp } from './app';
+import { McpCatalog } from './catalog/McpCatalog';
+import { ModelCatalog } from './catalog/ModelCatalog';
+import { SandboxCatalog } from './catalog/SandboxCatalog';
+import { SkillCatalog } from './catalog/SkillCatalog';
+import { type DistributedServerConfiguration } from './config';
+import type { IMcpServerStore } from './db/mcpServerStore';
+import type { IModelProviderStore } from './db/modelProviderStore';
+import type { ISandboxProviderStore } from './db/sandboxProviderStore';
+import type { ISkillStore } from './db/skillStore';
+import { mountFrontend } from './frontend';
+import type { IOAuthTokenStore } from './mcp/auth/types';
+import { ActiveTurnRegistry } from './runtime/activeTurns';
+import { EventSubscriptionRegistry } from './runtime/event-subscription';
+
+/** Persistence + optional Redis wired for the selected topology. */
+interface ServerPersistence {
+  sessionStore: ISessionStore;
+  modelProviderStore: IModelProviderStore;
+  mcpServerStore: IMcpServerStore;
+  tokenStore: IOAuthTokenStore;
+  skillStore: ISkillStore;
+  sandboxProviderStore: ISandboxProviderStore;
+  destroyDb: () => Promise<void>;
+  redis: RedisClientType | undefined;
+}
+
+/** SQLite stores; Redis unused (executor peering disabled). */
+async function createStandalonePersistence(options: {
+  sqlitePath: string;
+  logger: Logger;
+}): Promise<ServerPersistence> {
+  const { sqlitePath, logger } = options;
+  await mkdir(path.dirname(sqlitePath), { recursive: true });
+  const [{ createSqliteDb }, { migrateSqliteToLatest }, sqliteStores] = await Promise.all([
+    import('./db/sqlite/client'),
+    import('./db/migrateSqlite'),
+    Promise.all([
+      import('./db/sqlite/session-store/SqliteSessionStore'),
+      import('./db/sqlite/model-provider-store/SqliteModelProviderStore'),
+      import('./db/sqlite/mcp-server-store/SqliteMcpServerStore'),
+      import('./db/sqlite/token-store/SqliteOAuthTokenStore'),
+      import('./db/sqlite/skill-store/SqliteSkillStore'),
+      import('./db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore'),
+    ]),
+  ]);
   const [
-    { createServerApp },
-    { mountFrontend },
-    { default: configuration },
-    { createDb },
-    { migrateToLatest },
-    { Sessions, CancellationReason },
-    { ActiveTurnRegistry },
-    { connectRedis },
-    { RequestReplyExecutor, RequestReplyRouter },
-    { PostgresSessionStore },
-    { EventSubscriptionRegistry },
-    { ModelCatalog },
-    { PostgresModelProviderStore },
-    { McpCatalog },
-    { PostgresMcpServerStore },
-    { PostgresOAuthTokenStore },
-    { SkillCatalog },
-    { PostgresSkillStore },
-    { SandboxCatalog },
-    { PostgresSandboxProviderStore },
-  ] = await Promise.all([
-    import('./app'),
-    import('./frontend'),
-    import('./config'),
+    { SqliteSessionStore },
+    { SqliteModelProviderStore },
+    { SqliteMcpServerStore },
+    { SqliteOAuthTokenStore },
+    { SqliteSkillStore },
+    { SqliteSandboxProviderStore },
+  ] = sqliteStores;
+
+  const db = createSqliteDb(sqlitePath);
+  await migrateSqliteToLatest(db);
+  logger.info(`Standalone mode: sqlite at ${sqlitePath}`);
+  logger.info('Standalone mode: executor peering disabled and Redis unused');
+
+  return {
+    sessionStore: new SqliteSessionStore(db),
+    modelProviderStore: new SqliteModelProviderStore(db),
+    mcpServerStore: new SqliteMcpServerStore(db),
+    tokenStore: new SqliteOAuthTokenStore(db),
+    skillStore: new SqliteSkillStore(db),
+    sandboxProviderStore: new SqliteSandboxProviderStore(db),
+    destroyDb: () => db.destroy(),
+    redis: undefined,
+  };
+}
+
+/** Postgres stores + Redis for executor peering. */
+async function createDistributedPersistence(options: {
+  configuration: DistributedServerConfiguration;
+  logger: Logger;
+}): Promise<ServerPersistence> {
+  const { configuration, logger } = options;
+  const {
+    DATABASE_URL: databaseUrl,
+    DATABASE_POOL_MAX: databasePoolMax,
+    POSTGRES_STATEMENT_TIMEOUT_MS: statementTimeoutMs,
+    POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: idleInTransactionSessionTimeoutMs,
+    REDIS_URL: redisUrl,
+    EXECUTOR_ID: executorId,
+  } = configuration;
+
+  const [{ createDb }, { migrateToLatest }, { connectRedis }, postgresStores] = await Promise.all([
     import('./db/postgres/client'),
     import('./db/migratePostgres'),
-    import('@truefoundry/utils-core/agent-session'),
-    import('./runtime/activeTurns'),
     import('./runtime/redis'),
-    import('@truefoundry/utils-core/request-reply'),
-    import('./db/postgres/session-store/PostgresSessionStore'),
-    import('./runtime/event-subscription'),
-    import('./catalog/ModelCatalog'),
-    import('./db/postgres/model-provider-store/PostgresModelProviderStore'),
-    import('./catalog/McpCatalog'),
-    import('./db/postgres/mcp-server-store/PostgresMcpServerStore'),
-    import('./db/postgres/token-store/PostgresOAuthTokenStore'),
-    import('./catalog/SkillCatalog'),
-    import('./db/postgres/skill-store/PostgresSkillStore'),
-    import('./catalog/SandboxCatalog'),
-    import('./db/postgres/sandbox-provider-store/PostgresSandboxProviderStore'),
+    Promise.all([
+      import('./db/postgres/session-store/PostgresSessionStore'),
+      import('./db/postgres/model-provider-store/PostgresModelProviderStore'),
+      import('./db/postgres/mcp-server-store/PostgresMcpServerStore'),
+      import('./db/postgres/token-store/PostgresOAuthTokenStore'),
+      import('./db/postgres/skill-store/PostgresSkillStore'),
+      import('./db/postgres/sandbox-provider-store/PostgresSandboxProviderStore'),
+    ]),
   ]);
+  const [
+    { PostgresSessionStore },
+    { PostgresModelProviderStore },
+    { PostgresMcpServerStore },
+    { PostgresOAuthTokenStore },
+    { PostgresSkillStore },
+    { PostgresSandboxProviderStore },
+  ] = postgresStores;
 
+  const db = createDb({
+    connectionString: databaseUrl,
+    poolMax: databasePoolMax,
+    statementTimeoutMs,
+    idleInTransactionSessionTimeoutMs,
+  });
+  await migrateToLatest(db);
+  logger.info('Distributed mode: postgres');
+  logger.info(`Executor id: ${executorId}`);
+
+  return {
+    sessionStore: new PostgresSessionStore(db),
+    modelProviderStore: new PostgresModelProviderStore(db),
+    mcpServerStore: new PostgresMcpServerStore(db),
+    tokenStore: new PostgresOAuthTokenStore(db),
+    skillStore: new PostgresSkillStore(db),
+    sandboxProviderStore: new PostgresSandboxProviderStore(db),
+    destroyDb: () => db.destroy(),
+    redis: await connectRedis({ url: redisUrl, logger }),
+  };
+}
+
+try {
   // Console logger shared by the server runtime (harness components require one).
   const logger = winston.createLogger({
     level: process.env['LOG_LEVEL'] ?? 'info',
@@ -60,38 +174,33 @@ try {
     transports: [new winston.transports.Console()],
   });
 
-  const db = createDb({
-    connectionString: configuration.DATABASE_URL,
-    poolMax: configuration.DATABASE_POOL_MAX,
-    statementTimeoutMs: configuration.POSTGRES_STATEMENT_TIMEOUT_MS,
-    idleInTransactionSessionTimeoutMs: configuration.POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS,
-  });
-  await migrateToLatest(db);
+  const {
+    sessionStore,
+    modelProviderStore,
+    mcpServerStore,
+    tokenStore,
+    skillStore,
+    sandboxProviderStore,
+    destroyDb,
+    redis,
+  } = configuration.STANDALONE
+    ? await createStandalonePersistence({ sqlitePath: configuration.SQLITE_PATH, logger })
+    : await createDistributedPersistence({ configuration, logger });
 
-  const sessionStore = new PostgresSessionStore(db);
-  const skillStore = new PostgresSkillStore(db);
   const activeTurns = new ActiveTurnRegistry();
-
-  let redis: RedisClientType | undefined;
-  if (configuration.REDIS_URL === undefined) {
-    logger.info('Single-binary mode: executor peering disabled and Redis unused');
-  } else {
-    logger.info(`Executor id: ${configuration.EXECUTOR_ID}`);
-    redis = await connectRedis({ url: configuration.REDIS_URL, logger });
-  }
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
 
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),
-    modelProviderStore: new PostgresModelProviderStore(db),
     mcpCatalog: McpCatalog.load(),
-    mcpServerStore: new PostgresMcpServerStore(db),
-    tokenStore: new PostgresOAuthTokenStore(db),
     skillCatalog: SkillCatalog.load(),
-    skillStore,
     sandboxCatalog: SandboxCatalog.load(),
-    sandboxProviderStore: new PostgresSandboxProviderStore(db),
+    modelProviderStore,
+    mcpServerStore,
+    tokenStore,
+    skillStore,
+    sandboxProviderStore,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,
@@ -106,7 +215,7 @@ try {
   } else {
     logger.warn(
       `No frontend build at ${configuration.FRONTEND_DIR}: serving the API only. ` +
-        'Run `pnpm --filter frontend build` to serve the UI from here, or `pnpm dev:frontend` for UI work.',
+        'Run `pnpm --filter frontend build` (and copy via build:frontend-assets) to serve the UI, or `pnpm standalone:dev` / `pnpm dev` for Vite.',
     );
   }
 
@@ -117,7 +226,7 @@ try {
   // the initial subscribe + heartbeat — the replica is reachable for peering
   // before the HTTP server starts.
   let requestReplySubscriber: RedisClientType | undefined;
-  let requestReplyExecutor: InstanceType<typeof RequestReplyExecutor> | undefined;
+  let requestReplyExecutor: RequestReplyExecutor | undefined;
   if (redis) {
     requestReplySubscriber = redis.duplicate();
     requestReplySubscriber.on('error', (error: Error) => {
@@ -186,7 +295,7 @@ try {
           error: error instanceof Error ? error.message : String(error),
         });
       });
-      await db.destroy();
+      await destroyDb();
       process.exit(0);
     };
     process.on('SIGTERM', signal => {

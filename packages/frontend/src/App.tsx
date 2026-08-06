@@ -1,23 +1,21 @@
 import {
   createTrueFoundryServer,
-  TrueFoundryAssistantUI,
+  TrueforgeUI,
   useShellMode,
   WelcomeScreen,
   type SlotOverrides,
   type WelcomeScreenProps,
-} from '@truefoundry/agent-ui-sdk';
+} from '@truefoundry/trueforge-ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './agentUiSlots';
-import { getCapabilities, listMcpServers, listModels, listSkills } from './catalog';
+import { getCapabilities, listModels } from './composerLists';
 import { createConnectorCatalog } from './connectorCatalog';
+import { createHarnessBuilderServer } from './harnessBuilderServer';
 import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';
 import { createModelProviderCatalog } from './modelProviderCatalog';
 import { createSandboxArtifactDownload } from './SandboxArtifacts';
-
-/** Harness model names are `provider/model`. */
-function providerOf(name: string): string {
-  return name.split('/')[0] ?? name;
-}
+import { createSandboxProviderCatalog } from './sandboxProviderCatalog';
+import { createSkillCatalog } from './skillCatalog';
 
 /** Opens settings once when the empty welcome screen mounts (no models configured). */
 function OpenSettingsWelcomeScreen(props: WelcomeScreenProps) {
@@ -39,26 +37,12 @@ const SandboxArtifactDownloadSlot = createSandboxArtifactDownload(chatServer);
 
 const server = createTrueFoundryServer<HarnessAgentSpec>({
   chatServer,
-  getModels: async () => (await listModels()).map(model => ({ name: model.name, provider: providerOf(model.name) })),
-  // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
-  getSkills: async () => {
-    const [capabilities, skills] = await Promise.all([getCapabilities(), listSkills()]);
-    return capabilities.skill.enabled
-      ? skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }))
-      : [];
-  },
-  getMcp: async () =>
-    (await listMcpServers()).map(server => ({ id: server.name, name: server.name, description: server.url })),
-  searchAgents: () => Promise.resolve([]),
-  saveAgent: () => Promise.reject(new Error('Harness has no agent registry — sessions are draft-only')),
+  ...createHarnessBuilderServer(),
   catalog: {
     modelCatalog: createModelProviderCatalog(),
     connectorCatalog: createConnectorCatalog(),
-    // Skills settings still deferred (UI create shape is repo/directory; Harness is git manifest).
-    skillCatalog: {
-      listSkills: () => Promise.resolve([]),
-      createSkill: () => Promise.reject(new Error('not implemented')),
-    },
+    skillCatalog: createSkillCatalog(),
+    sandboxCatalog: createSandboxProviderCatalog(),
   },
 });
 
@@ -139,7 +123,7 @@ export function App() {
 
   return (
     <div className="app-root">
-      <TrueFoundryAssistantUI
+      <TrueforgeUI
         server={server}
         theme={{
           brand: {
@@ -147,7 +131,10 @@ export function App() {
           },
         }}
         layout="sidebar"
-        defaultAgentSpec={boot.defaultAgentSpec}
+        agentConfig={{
+          mode: 'AgentComposer',
+          defaultAgentSpec: boot.defaultAgentSpec,
+        }}
         overrides={overrides}
         className="app-assistant"
       />

@@ -1,10 +1,18 @@
-import type { OAuthClientRecord } from '@truefoundry/utils-core/core';
 import type { ExpressionBuilder, Kysely } from 'kysely';
 import { ulid } from 'ulid';
+import type { OAuthClientRecord } from '../../../mcp/auth/types';
 import type { McpServerManifest } from '../../../schemas/mcpServer';
-import type { OAuthClient, OAuthServer } from '../../mcpOAuthTypes';
-import { fromStoredOAuthClientRecord, toStoredOAuthClientRecord } from '../../mcpOAuthTypes';
-import type { GetMcpServerInput, IMcpServerStore, McpServerRecord, UpsertMcpServerInput } from '../../mcpServerStore';
+import {
+  fromStoredOAuthClientRecord,
+  toStoredOAuthClientRecord,
+  type GetMcpServerInput,
+  type IMcpServerStore,
+  type ListMcpServersInput,
+  type McpServerRecord,
+  type OAuthClient,
+  type OAuthServer,
+  type UpsertMcpServerInput,
+} from '../../mcpServerStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
@@ -27,13 +35,15 @@ export class SqliteMcpServerStore implements IMcpServerStore {
     this.#db = db;
   }
 
-  async listServers(tenantId: string): Promise<McpServerRecord[]> {
-    return await this.#db
-      .selectFrom('mcp_server')
-      .select(recordColumns)
-      .where('tenant_id', '=', tenantId)
-      .orderBy('name')
-      .execute();
+  async listServers(input: ListMcpServersInput): Promise<McpServerRecord[]> {
+    if (input.names?.length === 0) {
+      return [];
+    }
+    let query = this.#db.selectFrom('mcp_server').select(recordColumns).where('tenant_id', '=', input.tenant_id);
+    if (input.names !== undefined) {
+      query = query.where('name', 'in', [...input.names]);
+    }
+    return await query.orderBy('name').execute();
   }
 
   async getServer(input: GetMcpServerInput): Promise<McpServerRecord | undefined> {

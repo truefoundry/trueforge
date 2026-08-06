@@ -6,7 +6,7 @@ import {
   SandboxArtifactDownload,
   useErrorToasterOptional,
   type SandboxArtifactDownloadProps,
-} from '@truefoundry/agent-ui-sdk';
+} from '@truefoundry/trueforge-ui';
 import { useCallback } from 'react';
 import type { HarnessChatServer } from './harnessServer';
 

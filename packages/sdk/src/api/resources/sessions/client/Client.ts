@@ -8,7 +8,7 @@ import { mergeAdditionalBodyParameters } from "../../../../core/requestBody.js";
 import { handleNonStatusCodeError } from "../../../../errors/handleNonStatusCodeError.js";
 import * as errors from "../../../../errors/index.js";
 import * as serializers from "../../../../serialization/index.js";
-import * as TrueHarness from "../../../index.js";
+import * as TrueForge from "../../../index.js";
 
 export declare namespace SessionsClient {
     export type Options = BaseClientOptions;
@@ -26,24 +26,24 @@ export class SessionsClient {
     /**
      * List sessions (newest first by default), token-paginated. Pass `page_token` to fetch the next page, keeping the other query params constant.
      *
-     * @param {TrueHarness.ListSessionsRequest} request
+     * @param {TrueForge.ListSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.BadRequestError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.sessions.list()
      */
     public async list(
-        request: TrueHarness.ListSessionsRequest = {},
+        request: TrueForge.ListSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
-    ): Promise<core.Page<TrueHarness.Session, TrueHarness.ListSessionsResponse>> {
+    ): Promise<core.Page<TrueForge.Session, TrueForge.ListSessionsResponse>> {
         const list = core.HttpResponsePromise.interceptFunction(
             async (
-                request: TrueHarness.ListSessionsRequest,
-            ): Promise<core.WithRawResponse<TrueHarness.ListSessionsResponse>> => {
+                request: TrueForge.ListSessionsRequest,
+            ): Promise<core.WithRawResponse<TrueForge.ListSessionsResponse>> => {
                 const { limit = 10, order, pageToken, startTimestamp, endTimestamp } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
@@ -98,7 +98,7 @@ export class SessionsClient {
                 if (_response.error.reason === "status-code") {
                     switch (_response.error.statusCode) {
                         case 400:
-                            throw new TrueHarness.BadRequestError(
+                            throw new TrueForge.BadRequestError(
                                 serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                                     unrecognizedObjectKeys: "passthrough",
                                     allowUnrecognizedUnionMembers: true,
@@ -109,7 +109,7 @@ export class SessionsClient {
                                 _response.rawResponse,
                             );
                         default:
-                            throw new errors.TrueHarnessError({
+                            throw new errors.TrueForgeError({
                                 statusCode: _response.error.statusCode,
                                 body: _response.error.body,
                                 rawResponse: _response.rawResponse,
@@ -120,7 +120,7 @@ export class SessionsClient {
             },
         );
         const dataWithRawResponse = await list(request).withRawResponse();
-        return new core.Page<TrueHarness.Session, TrueHarness.ListSessionsResponse>({
+        return new core.Page<TrueForge.Session, TrueForge.ListSessionsResponse>({
             response: dataWithRawResponse.data,
             rawResponse: dataWithRawResponse.rawResponse,
             hasNextPage: (response) =>
@@ -136,13 +136,13 @@ export class SessionsClient {
     /**
      * Create a session holding an inline agent spec. Turns are executed against this spec.
      *
-     * @param {TrueHarness.CreateSessionRequest} request
+     * @param {TrueForge.CreateSessionRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.BadRequestError}
-     * @throws {@link TrueHarness.UnprocessableEntityError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.UnprocessableEntityError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.sessions.create({
@@ -154,16 +154,16 @@ export class SessionsClient {
      *     })
      */
     public create(
-        request: TrueHarness.CreateSessionRequest,
+        request: TrueForge.CreateSessionRequest,
         requestOptions?: SessionsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.GetSessionResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetSessionResponse> {
         return core.HttpResponsePromise.fromPromise(this.__create(request, requestOptions));
     }
 
     private async __create(
-        request: TrueHarness.CreateSessionRequest,
+        request: TrueForge.CreateSessionRequest,
         requestOptions?: SessionsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.GetSessionResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetSessionResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -207,7 +207,7 @@ export class SessionsClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 400:
-                    throw new TrueHarness.BadRequestError(
+                    throw new TrueForge.BadRequestError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -218,7 +218,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 422:
-                    throw new TrueHarness.UnprocessableEntityError(
+                    throw new TrueForge.UnprocessableEntityError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -229,7 +229,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,
@@ -246,9 +246,9 @@ export class SessionsClient {
      * @param {string} session_id - Session identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.NotFoundError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.sessions.get("session_id")
@@ -256,14 +256,14 @@ export class SessionsClient {
     public get(
         session_id: string,
         requestOptions?: SessionsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.GetSessionResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetSessionResponse> {
         return core.HttpResponsePromise.fromPromise(this.__get(session_id, requestOptions));
     }
 
     private async __get(
         session_id: string,
         requestOptions?: SessionsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.GetSessionResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetSessionResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -296,7 +296,7 @@ export class SessionsClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 404:
-                    throw new TrueHarness.NotFoundError(
+                    throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -307,7 +307,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,
@@ -324,8 +324,8 @@ export class SessionsClient {
      * @param {string} session_id - Session identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.sessions.delete("session_id")
@@ -359,7 +359,7 @@ export class SessionsClient {
         }
 
         if (_response.error.reason === "status-code") {
-            throw new errors.TrueHarnessError({
+            throw new errors.TrueForgeError({
                 statusCode: _response.error.statusCode,
                 body: _response.error.body,
                 rawResponse: _response.rawResponse,
@@ -378,31 +378,31 @@ export class SessionsClient {
      * Update a session's inline agent spec. An empty body is a valid no-op that refreshes `updated_at`.
      *
      * @param {string} session_id - Session identifier.
-     * @param {TrueHarness.UpdateSessionRequest} request
+     * @param {TrueForge.UpdateSessionRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.BadRequestError}
-     * @throws {@link TrueHarness.NotFoundError}
-     * @throws {@link TrueHarness.UnprocessableEntityError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link TrueForge.UnprocessableEntityError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.sessions.update("session_id")
      */
     public update(
         session_id: string,
-        request: TrueHarness.UpdateSessionRequest = {},
+        request: TrueForge.UpdateSessionRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.GetSessionResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetSessionResponse> {
         return core.HttpResponsePromise.fromPromise(this.__update(session_id, request, requestOptions));
     }
 
     private async __update(
         session_id: string,
-        request: TrueHarness.UpdateSessionRequest = {},
+        request: TrueForge.UpdateSessionRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.GetSessionResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetSessionResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -446,7 +446,7 @@ export class SessionsClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 400:
-                    throw new TrueHarness.BadRequestError(
+                    throw new TrueForge.BadRequestError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -457,7 +457,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 404:
-                    throw new TrueHarness.NotFoundError(
+                    throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -468,7 +468,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 422:
-                    throw new TrueHarness.UnprocessableEntityError(
+                    throw new TrueForge.UnprocessableEntityError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -479,7 +479,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,
@@ -499,30 +499,30 @@ export class SessionsClient {
      * Cancel the running last turn for a session.
      *
      * @param {string} session_id - Session identifier.
-     * @param {TrueHarness.CancelSessionRequest} request
+     * @param {TrueForge.CancelSessionRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.NotFoundError}
-     * @throws {@link TrueHarness.PreconditionFailedError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link TrueForge.PreconditionFailedError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.sessions.cancel("session_id")
      */
     public cancel(
         session_id: string,
-        request: TrueHarness.CancelSessionRequest = {},
+        request: TrueForge.CancelSessionRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.CancelSessionResponse> {
+    ): core.HttpResponsePromise<TrueForge.CancelSessionResponse> {
         return core.HttpResponsePromise.fromPromise(this.__cancel(session_id, request, requestOptions));
     }
 
     private async __cancel(
         session_id: string,
-        request: TrueHarness.CancelSessionRequest = {},
+        request: TrueForge.CancelSessionRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.CancelSessionResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.CancelSessionResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -566,7 +566,7 @@ export class SessionsClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 404:
-                    throw new TrueHarness.NotFoundError(
+                    throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -577,7 +577,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 412:
-                    throw new TrueHarness.PreconditionFailedError(
+                    throw new TrueForge.PreconditionFailedError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -588,7 +588,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,
@@ -608,26 +608,26 @@ export class SessionsClient {
      * List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor.
      *
      * @param {string} session_id - Session identifier.
-     * @param {TrueHarness.ListEventsSessionsRequest} request
+     * @param {TrueForge.ListEventsSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.BadRequestError}
-     * @throws {@link TrueHarness.NotFoundError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.sessions.listEvents("session_id")
      */
     public async listEvents(
         session_id: string,
-        request: TrueHarness.ListEventsSessionsRequest = {},
+        request: TrueForge.ListEventsSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
-    ): Promise<core.Page<TrueHarness.SessionEventItem, TrueHarness.ListSessionEventsResponse>> {
+    ): Promise<core.Page<TrueForge.SessionEventItem, TrueForge.ListSessionEventsResponse>> {
         const list = core.HttpResponsePromise.interceptFunction(
             async (
-                request: TrueHarness.ListEventsSessionsRequest,
-            ): Promise<core.WithRawResponse<TrueHarness.ListSessionEventsResponse>> => {
+                request: TrueForge.ListEventsSessionsRequest,
+            ): Promise<core.WithRawResponse<TrueForge.ListSessionEventsResponse>> => {
                 const { pageToken, lastTurnId, limit = 100 } = request;
                 const _queryParams: Record<string, unknown> = {
                     page_token: pageToken,
@@ -672,7 +672,7 @@ export class SessionsClient {
                 if (_response.error.reason === "status-code") {
                     switch (_response.error.statusCode) {
                         case 400:
-                            throw new TrueHarness.BadRequestError(
+                            throw new TrueForge.BadRequestError(
                                 serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                                     unrecognizedObjectKeys: "passthrough",
                                     allowUnrecognizedUnionMembers: true,
@@ -683,7 +683,7 @@ export class SessionsClient {
                                 _response.rawResponse,
                             );
                         case 404:
-                            throw new TrueHarness.NotFoundError(
+                            throw new TrueForge.NotFoundError(
                                 serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                                     unrecognizedObjectKeys: "passthrough",
                                     allowUnrecognizedUnionMembers: true,
@@ -694,7 +694,7 @@ export class SessionsClient {
                                 _response.rawResponse,
                             );
                         default:
-                            throw new errors.TrueHarnessError({
+                            throw new errors.TrueForgeError({
                                 statusCode: _response.error.statusCode,
                                 body: _response.error.body,
                                 rawResponse: _response.rawResponse,
@@ -710,7 +710,7 @@ export class SessionsClient {
             },
         );
         const dataWithRawResponse = await list(request).withRawResponse();
-        return new core.Page<TrueHarness.SessionEventItem, TrueHarness.ListSessionEventsResponse>({
+        return new core.Page<TrueForge.SessionEventItem, TrueForge.ListSessionEventsResponse>({
             response: dataWithRawResponse.data,
             rawResponse: dataWithRawResponse.rawResponse,
             hasNextPage: (response) =>
@@ -726,19 +726,19 @@ export class SessionsClient {
     /**
      * Download a file from this session's sandbox. Paths come from the assistant's `sandbox_artifacts` block. Requires `config.sandbox.file_downloads`.
      *
-     * @throws {@link TrueHarness.BadRequestError}
-     * @throws {@link TrueHarness.ForbiddenError}
-     * @throws {@link TrueHarness.NotFoundError}
-     * @throws {@link TrueHarness.GoneError}
-     * @throws {@link TrueHarness.ContentTooLargeError}
-     * @throws {@link TrueHarness.UnprocessableEntityError}
-     * @throws {@link TrueHarness.BadGatewayError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.ForbiddenError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link TrueForge.GoneError}
+     * @throws {@link TrueForge.ContentTooLargeError}
+     * @throws {@link TrueForge.UnprocessableEntityError}
+     * @throws {@link TrueForge.BadGatewayError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      */
     public downloadSandboxFile(
         session_id: string,
-        request: TrueHarness.DownloadSandboxFileSessionsRequest,
+        request: TrueForge.DownloadSandboxFileSessionsRequest,
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<core.BinaryResponse> {
         return core.HttpResponsePromise.fromPromise(this.__downloadSandboxFile(session_id, request, requestOptions));
@@ -746,7 +746,7 @@ export class SessionsClient {
 
     private async __downloadSandboxFile(
         session_id: string,
-        request: TrueHarness.DownloadSandboxFileSessionsRequest,
+        request: TrueForge.DownloadSandboxFileSessionsRequest,
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<core.BinaryResponse>> {
         const { path } = request;
@@ -781,7 +781,7 @@ export class SessionsClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 400:
-                    throw new TrueHarness.BadRequestError(
+                    throw new TrueForge.BadRequestError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -792,7 +792,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 403:
-                    throw new TrueHarness.ForbiddenError(
+                    throw new TrueForge.ForbiddenError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -803,7 +803,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 404:
-                    throw new TrueHarness.NotFoundError(
+                    throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -814,7 +814,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 410:
-                    throw new TrueHarness.GoneError(
+                    throw new TrueForge.GoneError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -825,7 +825,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 413:
-                    throw new TrueHarness.ContentTooLargeError(
+                    throw new TrueForge.ContentTooLargeError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -836,7 +836,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 422:
-                    throw new TrueHarness.UnprocessableEntityError(
+                    throw new TrueForge.UnprocessableEntityError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -847,7 +847,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 502:
-                    throw new TrueHarness.BadGatewayError(
+                    throw new TrueForge.BadGatewayError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -858,7 +858,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,
@@ -878,26 +878,26 @@ export class SessionsClient {
      * List turns for a session (newest first by default), token-paginated.
      *
      * @param {string} session_id - Session identifier.
-     * @param {TrueHarness.ListTurnsSessionsRequest} request
+     * @param {TrueForge.ListTurnsSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.BadRequestError}
-     * @throws {@link TrueHarness.NotFoundError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.sessions.listTurns("session_id")
      */
     public async listTurns(
         session_id: string,
-        request: TrueHarness.ListTurnsSessionsRequest = {},
+        request: TrueForge.ListTurnsSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
-    ): Promise<core.Page<TrueHarness.Turn, TrueHarness.ListTurnsResponse>> {
+    ): Promise<core.Page<TrueForge.Turn, TrueForge.ListTurnsResponse>> {
         const list = core.HttpResponsePromise.interceptFunction(
             async (
-                request: TrueHarness.ListTurnsSessionsRequest,
-            ): Promise<core.WithRawResponse<TrueHarness.ListTurnsResponse>> => {
+                request: TrueForge.ListTurnsSessionsRequest,
+            ): Promise<core.WithRawResponse<TrueForge.ListTurnsResponse>> => {
                 const { limit = 10, pageToken } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
@@ -941,7 +941,7 @@ export class SessionsClient {
                 if (_response.error.reason === "status-code") {
                     switch (_response.error.statusCode) {
                         case 400:
-                            throw new TrueHarness.BadRequestError(
+                            throw new TrueForge.BadRequestError(
                                 serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                                     unrecognizedObjectKeys: "passthrough",
                                     allowUnrecognizedUnionMembers: true,
@@ -952,7 +952,7 @@ export class SessionsClient {
                                 _response.rawResponse,
                             );
                         case 404:
-                            throw new TrueHarness.NotFoundError(
+                            throw new TrueForge.NotFoundError(
                                 serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                                     unrecognizedObjectKeys: "passthrough",
                                     allowUnrecognizedUnionMembers: true,
@@ -963,7 +963,7 @@ export class SessionsClient {
                                 _response.rawResponse,
                             );
                         default:
-                            throw new errors.TrueHarnessError({
+                            throw new errors.TrueForgeError({
                                 statusCode: _response.error.statusCode,
                                 body: _response.error.body,
                                 rawResponse: _response.rawResponse,
@@ -979,7 +979,7 @@ export class SessionsClient {
             },
         );
         const dataWithRawResponse = await list(request).withRawResponse();
-        return new core.Page<TrueHarness.Turn, TrueHarness.ListTurnsResponse>({
+        return new core.Page<TrueForge.Turn, TrueForge.ListTurnsResponse>({
             response: dataWithRawResponse.data,
             rawResponse: dataWithRawResponse.rawResponse,
             hasNextPage: (response) =>
@@ -998,17 +998,17 @@ export class SessionsClient {
      */
     public createTurn(
         session_id: string,
-        request: TrueHarness.CreateTurnRequest = {},
+        request: TrueForge.CreateTurnRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
-    ): core.HttpResponsePromise<core.Stream<TrueHarness.TurnStreamingEvent>> {
+    ): core.HttpResponsePromise<core.Stream<TrueForge.TurnStreamingEvent>> {
         return core.HttpResponsePromise.fromPromise(this.__createTurn(session_id, request, requestOptions));
     }
 
     private async __createTurn(
         session_id: string,
-        request: TrueHarness.CreateTurnRequest = {},
+        request: TrueForge.CreateTurnRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<core.Stream<TrueHarness.TurnStreamingEvent>>> {
+    ): Promise<core.WithRawResponse<core.Stream<TrueForge.TurnStreamingEvent>>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)<ReadableStream>({
             url: core.url.join(
@@ -1062,7 +1062,7 @@ export class SessionsClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 400:
-                    throw new TrueHarness.BadRequestError(
+                    throw new TrueForge.BadRequestError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -1073,7 +1073,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 404:
-                    throw new TrueHarness.NotFoundError(
+                    throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -1084,7 +1084,18 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 412:
-                    throw new TrueHarness.PreconditionFailedError(
+                    throw new TrueForge.PreconditionFailedError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 422:
+                    throw new TrueForge.UnprocessableEntityError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -1095,7 +1106,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,
@@ -1118,9 +1129,9 @@ export class SessionsClient {
      * @param {string} turn_id - Turn identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.NotFoundError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.sessions.getTurn("session_id", "turn_id")
@@ -1129,7 +1140,7 @@ export class SessionsClient {
         session_id: string,
         turn_id: string,
         requestOptions?: SessionsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueHarness.GetTurnResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetTurnResponse> {
         return core.HttpResponsePromise.fromPromise(this.__getTurn(session_id, turn_id, requestOptions));
     }
 
@@ -1137,7 +1148,7 @@ export class SessionsClient {
         session_id: string,
         turn_id: string,
         requestOptions?: SessionsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueHarness.GetTurnResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetTurnResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
         const _response = await (this._options.fetcher ?? core.fetcher)({
             url: core.url.join(
@@ -1170,7 +1181,7 @@ export class SessionsClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 404:
-                    throw new TrueHarness.NotFoundError(
+                    throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -1181,7 +1192,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,
@@ -1202,13 +1213,13 @@ export class SessionsClient {
      *
      * @param {string} session_id - Session identifier.
      * @param {string} turn_id - Turn identifier.
-     * @param {TrueHarness.ListTurnEventsSessionsRequest} request
+     * @param {TrueForge.ListTurnEventsSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueHarness.BadRequestError}
-     * @throws {@link TrueHarness.NotFoundError}
-     * @throws {@link errors.TrueHarnessError}
-     * @throws {@link errors.TrueHarnessTimeoutError}
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.sessions.listTurnEvents("session_id", "turn_id")
@@ -1216,13 +1227,13 @@ export class SessionsClient {
     public async listTurnEvents(
         session_id: string,
         turn_id: string,
-        request: TrueHarness.ListTurnEventsSessionsRequest = {},
+        request: TrueForge.ListTurnEventsSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
-    ): Promise<core.Page<TrueHarness.SessionEvent, TrueHarness.ListTurnEventsResponse>> {
+    ): Promise<core.Page<TrueForge.SessionEvent, TrueForge.ListTurnEventsResponse>> {
         const list = core.HttpResponsePromise.interceptFunction(
             async (
-                request: TrueHarness.ListTurnEventsSessionsRequest,
-            ): Promise<core.WithRawResponse<TrueHarness.ListTurnEventsResponse>> => {
+                request: TrueForge.ListTurnEventsSessionsRequest,
+            ): Promise<core.WithRawResponse<TrueForge.ListTurnEventsResponse>> => {
                 const { limit = 25, pageToken, order } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
@@ -1275,7 +1286,7 @@ export class SessionsClient {
                 if (_response.error.reason === "status-code") {
                     switch (_response.error.statusCode) {
                         case 400:
-                            throw new TrueHarness.BadRequestError(
+                            throw new TrueForge.BadRequestError(
                                 serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                                     unrecognizedObjectKeys: "passthrough",
                                     allowUnrecognizedUnionMembers: true,
@@ -1286,7 +1297,7 @@ export class SessionsClient {
                                 _response.rawResponse,
                             );
                         case 404:
-                            throw new TrueHarness.NotFoundError(
+                            throw new TrueForge.NotFoundError(
                                 serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                                     unrecognizedObjectKeys: "passthrough",
                                     allowUnrecognizedUnionMembers: true,
@@ -1297,7 +1308,7 @@ export class SessionsClient {
                                 _response.rawResponse,
                             );
                         default:
-                            throw new errors.TrueHarnessError({
+                            throw new errors.TrueForgeError({
                                 statusCode: _response.error.statusCode,
                                 body: _response.error.body,
                                 rawResponse: _response.rawResponse,
@@ -1313,7 +1324,7 @@ export class SessionsClient {
             },
         );
         const dataWithRawResponse = await list(request).withRawResponse();
-        return new core.Page<TrueHarness.SessionEvent, TrueHarness.ListTurnEventsResponse>({
+        return new core.Page<TrueForge.SessionEvent, TrueForge.ListTurnEventsResponse>({
             response: dataWithRawResponse.data,
             rawResponse: dataWithRawResponse.rawResponse,
             hasNextPage: (response) =>
@@ -1332,9 +1343,9 @@ export class SessionsClient {
     public subscribeToTurn(
         session_id: string,
         turn_id: string,
-        request: TrueHarness.SubscribeToTurnSessionsRequest = {},
+        request: TrueForge.SubscribeToTurnSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
-    ): core.HttpResponsePromise<core.Stream<TrueHarness.TurnStreamingEvent>> {
+    ): core.HttpResponsePromise<core.Stream<TrueForge.TurnStreamingEvent>> {
         return core.HttpResponsePromise.fromPromise(
             this.__subscribeToTurn(session_id, turn_id, request, requestOptions),
         );
@@ -1343,9 +1354,9 @@ export class SessionsClient {
     private async __subscribeToTurn(
         session_id: string,
         turn_id: string,
-        request: TrueHarness.SubscribeToTurnSessionsRequest = {},
+        request: TrueForge.SubscribeToTurnSessionsRequest = {},
         requestOptions?: SessionsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<core.Stream<TrueHarness.TurnStreamingEvent>>> {
+    ): Promise<core.WithRawResponse<core.Stream<TrueForge.TurnStreamingEvent>>> {
         const { afterSequenceNumber } = request;
         const _queryParams: Record<string, unknown> = {
             after_sequence_number: afterSequenceNumber,
@@ -1432,7 +1443,7 @@ export class SessionsClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 400:
-                    throw new TrueHarness.BadRequestError(
+                    throw new TrueForge.BadRequestError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -1443,7 +1454,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 404:
-                    throw new TrueHarness.NotFoundError(
+                    throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -1454,7 +1465,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 case 412:
-                    throw new TrueHarness.PreconditionFailedError(
+                    throw new TrueForge.PreconditionFailedError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -1465,7 +1476,7 @@ export class SessionsClient {
                         _response.rawResponse,
                     );
                 default:
-                    throw new errors.TrueHarnessError({
+                    throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
                         body: _response.error.body,
                         rawResponse: _response.rawResponse,

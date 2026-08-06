@@ -2,15 +2,15 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/utils-core/agent-session';
-import type { IOAuthTokenStore } from '@truefoundry/utils-core/core';
 import type { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
+import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
-import { createAvailableMcpServersRouter } from './apis/mcpServers';
+import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
@@ -24,6 +24,7 @@ import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { ISkillStore } from './db/skillStore';
+import type { IOAuthTokenStore } from './mcp/auth/types';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 
@@ -47,18 +48,18 @@ function routeNotFound(c: Context) {
 
 export interface ServerDeps {
   modelCatalog: ModelCatalog;
-  modelProviderStore: IModelProviderStore;
   mcpCatalog: McpCatalog;
+  skillCatalog: SkillCatalog;
+  sandboxCatalog: SandboxCatalog;
+  modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
-  skillCatalog: SkillCatalog;
   skillStore: ISkillStore;
-  sandboxCatalog: SandboxCatalog;
   sandboxProviderStore: ISandboxProviderStore;
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
-  /** Primary Redis client (server-owned); undefined in single-binary mode. */
+  /** Primary Redis client (server-owned); undefined in standalone mode. */
   redis?: RedisClientType | undefined;
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;
@@ -72,10 +73,18 @@ export function createServerApp(deps: ServerDeps) {
 
   app.get('/healthz', c => c.text('OK!'));
 
+  app.route('/api/v1/auth', createAuthRouter());
   app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore }));
   app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
-  app.route('/api/v1/mcp-servers', createAvailableMcpServersRouter(deps.mcpServerStore));
-  // Shared OAuth callback — path must match MCP_OAUTH_CALLBACK_PATH in the harness package.
+  app.route(
+    '/api/v1/mcp-servers',
+    createMcpServersRouter({
+      mcpServerStore: deps.mcpServerStore,
+      tokenStore: deps.tokenStore,
+      logger: deps.logger,
+    }),
+  );
+  // Shared OAuth callback — path must match the server-owned MCP_OAUTH_CALLBACK_PATH.
   app.route(
     '/api/v1/mcp-servers/oauth',
     createMcpOAuthRouter({

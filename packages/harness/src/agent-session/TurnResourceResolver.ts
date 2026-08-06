@@ -28,7 +28,7 @@ export type TurnSandboxFactory = (input: {
 }) => Promise<Sandbox>;
 
 function specWantsSandbox(spec: AgentSpec): boolean {
-  return spec.config?.sandbox?.enabled === true;
+  return spec.config.sandbox.enabled;
 }
 
 function toSelectors(entry: {
@@ -192,7 +192,7 @@ export class TurnResourceResolver<
         modelParams: spec.model.params,
         // Sub-agents should return free-form summaries to the parent, not the user-facing structured response.
         responseFormat: agentInfo ? undefined : spec.response_format,
-        iterationLimit: spec.config?.iteration_limit,
+        iterationLimit: spec.config.iteration_limit,
         toolSets,
       },
     };
