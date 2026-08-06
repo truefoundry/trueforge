@@ -43,6 +43,15 @@ server:
   extraEnv: []
   extraEnvFrom: []
 
+# Bitnami relocated its versioned container images to docker.io/bitnamilegacy and
+# left only rolling `latest` tags under docker.io/bitnami, so the subchart image
+# defaults no longer pull. We source pinned legacy images from the TrueFoundry
+# JFrog mirror instead. Overriding the registry trips Bitnami's image guardrail,
+# so allowInsecureImages must be set for the subcharts to render.
+global:
+  security:
+    allowInsecureImages: true
+
 # --- Bundled Postgres (Bitnami subchart) ---------------------------------------
 # Rendered only when postgresql.enabled is true. The server's POSTGRES_* env is
 # wired to this release automatically. See the Bitnami postgresql chart for the
@@ -50,6 +59,12 @@ server:
 postgresql:
   enabled: true
   architecture: standalone
+  # Pinned legacy image mirrored to JFrog (upstream docker.io/bitnami no longer
+  # serves this tag). Bump alongside the postgresql subchart version.
+  image:
+    registry: tfy.jfrog.io
+    repository: tfy-mirror/bitnamilegacy/postgresql
+    tag: 17.6.0-debian-12-r4
   auth:
     username: trueforge
     database: trueforge
@@ -68,6 +83,12 @@ postgresql:
 redis:
   enabled: true
   architecture: standalone
+  # The redis 24.0.0 subchart floats `latest`; pin a legacy tag mirrored to JFrog
+  # for reproducibility (bitnamilegacy has no 8.4.x, so we track 8.2.x here).
+  image:
+    registry: tfy.jfrog.io
+    repository: tfy-mirror/bitnamilegacy/redis
+    tag: 8.2.1-debian-12-r0
   auth:
     enabled: false
   master:

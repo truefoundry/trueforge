@@ -3,7 +3,7 @@ dist/
 # Fern-generated: formatted by the generator, not by this repo's config.
 packages/sdk/
 fern/openapi/
-# Vendored third-party Helm subcharts (Bitnami); not ours to reformat.
+# Downloaded third-party Helm subcharts (Bitnami); not ours to reformat.
 charts/trueforge/charts/
 coverage/
 .turbo/

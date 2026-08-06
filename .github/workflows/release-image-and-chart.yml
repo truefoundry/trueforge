@@ -67,15 +67,13 @@ jobs:
       image_context: .
       dockerfile_path: Dockerfile
       platforms: linux/amd64,linux/arm64
+      # The chart pulls the server image from JFrog (values.yaml image.repository),
+      # so JFrog is the only publish target; public ECR stays off.
       enable_jfrog: true
       enable_public_ecr: false
-      ecr_repository_url: public.ecr.aws/truefoundrycloud
-      # Provenance publicly attests the source repo/commit; keep it off while the
-      # repo is private (mirrors the npm publish stance in RELEASING.md).
     secrets:
       artifactory_username: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME }}
       artifactory_password: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD }}
-      ecr_role_arn: ${{ secrets.PUBLIC_ECR_IAM_ROLE_ARN }}
 
   # Stamp the version into the chart, publish it, and attach the package to the release.
   release-chart:
@@ -124,8 +122,12 @@ jobs:
         run: |
           helm registry login -u "$HELM_REGISTRY_USERNAME" -p "$HELM_REGISTRY_PASSWORD" "$HELM_REGISTRY_URL"
 
-      # The postgresql/redis subcharts are vendored under charts/trueforge/charts/,
-      # so no `helm dependency update` (and no mirror access) is needed here.
+      # Fetch the postgresql/redis subcharts from the public Bitnami OCI archive,
+      # pinned by Chart.lock. The archive is public (no auth); the images those
+      # subcharts run are separately mirrored to JFrog via values.yaml.
+      - name: Build chart dependencies
+        run: helm dependency build "$CHART_DIR"
+
       - name: Package and push chart
         id: package
         run: |

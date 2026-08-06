@@ -17,3 +17,6 @@ packages/server/src/catalog/skillCatalog.gen.ts
 packages/server/src/catalog/sandboxCatalog.gen.ts
 ui-shots/*.png
 data/
+# Helm subchart deps are fetched via `helm dependency build` (pinned by the
+# committed Chart.lock); the downloaded .tgz/dirs are not committed.
+charts/*/charts/

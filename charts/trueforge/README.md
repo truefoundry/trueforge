@@ -11,9 +11,17 @@ release.
 ## Dependencies
 
 Postgres and Redis ship as **bundled** dependencies (the Bitnami `postgresql`
-and `redis` charts, vendored under `charts/`). They are enabled by default, so a
-basic install only needs `server.publicBaseUrl`. The chart wires the server's
-`POSTGRES_*` and `REDIS_URL` env to the bundled services automatically.
+and `redis` charts, pulled from the public Bitnami OCI archive and pinned by
+`Chart.lock`). They are enabled by default, so a basic install only needs
+`server.publicBaseUrl`. The chart wires the server's `POSTGRES_*` and
+`REDIS_URL` env to the bundled services automatically.
+
+The Bitnami **charts** are still public, but the **container images** they
+reference were moved to `docker.io/bitnamilegacy`, so `values.yaml` overrides the
+subchart images to pinned tags mirrored to the TrueFoundry JFrog registry
+(`tfy.jfrog.io/tfy-mirror/bitnamilegacy/...`). This trips Bitnami's registry
+guardrail, so `global.security.allowInsecureImages: true` is set for the
+subcharts to render.
 
 Disable either dependency to point at an external service instead (see below).
 

@@ -117,9 +117,9 @@ triggers when a **GitHub Release** is published (tag `vX.Y.Z`).
 The tag is the single source of truth. On `vX.Y.Z` the workflow:
 
 1. **Builds and pushes the image** via the shared reusable workflow
-   `truefoundry/github-workflows-public/.github/workflows/build.yml@main` to
-   JFrog public Artifactory and public ECR (`public.ecr.aws/truefoundrycloud`),
-   tagged `X.Y.Z`.
+   `truefoundry/github-workflows-public/.github/workflows/build.yml@main` to the
+   JFrog public Artifactory repo, tagged `X.Y.Z`. The chart pulls the image from
+   JFrog, so JFrog is the only publish target (public ECR is disabled).
 2. **Stamps the chart** — sets `version`, `appVersion`, and `image.tag` in
    `charts/trueforge` to `X.Y.Z` and commits the bump back to `main`.
 3. **Publishes the chart** — packages `charts/trueforge` and pushes it to the
@@ -133,9 +133,8 @@ The tag is the single source of truth. On `vX.Y.Z` the workflow:
    gh release create vX.Y.Z --target main --generate-notes
    ```
 
-2. Watch the run under the repo's Actions tab. The image lands in JFrog + public
-   ECR, the chart lands in the OCI Helm repo, and the `.tgz` is attached to the
-   release.
+2. Watch the run under the repo's Actions tab. The image lands in JFrog, the
+   chart lands in the OCI Helm repo, and the `.tgz` is attached to the release.
 
 > Publishing a `vX.Y.Z` tag also triggers `release.yml` (the npm publish of
 > `@truefoundry/utils-core`), which requires the tag to match
@@ -148,31 +147,45 @@ Org/repo **variables**: `TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL`,
 `TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY`.
 
 Org/repo **secrets**: `TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME`,
-`TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD`, `PUBLIC_ECR_IAM_ROLE_ARN` (OIDC role
-for public ECR push).
+`TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD`.
 
 ## Bundled dependencies
 
-The chart bundles Postgres and Redis as optional Bitnami subcharts, **vendored**
-under `charts/trueforge/charts/` (declared without a `repository`), matching the
-convention in [truefoundry/helm-charts](https://github.com/truefoundry/helm-charts).
-Because they are committed to the repo, packaging needs no registry access and no
-`helm dependency update` step. Disable them with `postgresql.enabled=false` /
-`redis.enabled=false` to target external services.
+The chart bundles Postgres and Redis as optional Bitnami subcharts, declared in
+`charts/trueforge/Chart.yaml` against the public Bitnami OCI archive
+(`oci://registry-1.docker.io/bitnamicharts`) and pinned by the committed
+`Chart.lock`. The workflow fetches them with `helm dependency build` before
+packaging (the archive is public, no auth). Disable them with
+`postgresql.enabled=false` / `redis.enabled=false` to target external services.
 
-To bump a bundled version, pull the new chart and re-vendor it, e.g.:
+**Images vs charts.** Bitnami left the charts public but relocated their
+container images to `docker.io/bitnamilegacy` (frozen, no security updates). So
+`charts/trueforge/values.yaml` overrides the subchart images to pinned legacy
+tags mirrored to the TrueFoundry JFrog registry, and sets
+`global.security.allowInsecureImages: true` (required once the registry differs
+from Bitnami's default). Mirror the images once per pinned tag:
 
 ```bash
-helm pull oci://registry-1.docker.io/bitnamicharts/redis --version <x.y.z> -d /tmp/v
-tar -xzf /tmp/v/redis-<x.y.z>.tgz -C charts/trueforge/charts
-# then update the version under `dependencies:` in charts/trueforge/Chart.yaml
+for img in \
+  postgresql:17.6.0-debian-12-r4 \
+  redis:8.2.1-debian-12-r0; do
+  crane copy "docker.io/bitnamilegacy/${img}" "tfy.jfrog.io/tfy-mirror/bitnamilegacy/${img}"
+done
+# If you enable metrics/volumePermissions, also mirror:
+#   postgres-exporter:0.17.1-debian-12-r16  os-shell:12-debian-12-r51
+#   redis-exporter:1.76.0-debian-12-r0
 ```
+
+To bump a bundled version: change the version under `dependencies:` in
+`Chart.yaml`, run `pnpm chart:deps` to refresh `Chart.lock`, then update the
+matching `image.tag` in `values.yaml` and mirror that new legacy tag to JFrog.
 
 ## Validating the chart locally
 
-The subcharts are vendored, so this works offline with no registry access:
+Fetch the subchart deps first (public archive, no auth), then lint/template:
 
 ```bash
+pnpm chart:deps       # helm dependency build (writes charts/, uses Chart.lock)
 pnpm chart:lint       # helm lint with charts/trueforge/ci/lint-values.yaml
 pnpm chart:template   # render the manifests
 pnpm chart:package    # package to dist/ (gitignored)
