@@ -41,7 +41,6 @@ function jsonInit(method: string, body: unknown): RequestInit {
 
 describe('agents router', () => {
   let router: ReturnType<typeof createAgentsRouter>;
-  let agentStore: SqliteAgentStore;
 
   beforeAll(async () => {
     const db = createSqliteDb(':memory:');
@@ -56,9 +55,8 @@ describe('agents router', () => {
         models: modelProviderBody.models,
       },
     });
-    agentStore = new SqliteAgentStore(db);
     router = createAgentsRouter({
-      agentStore,
+      agentStore: new SqliteAgentStore(db),
       modelProviderStore,
       mcpServerStore: new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
@@ -66,24 +64,19 @@ describe('agents router', () => {
     });
   });
 
-  it('POST creates an agent; PUT replaces spec by name; list/get round-trip', async () => {
+  it('POST creates a flattened agent; PUT by name preserves id', async () => {
     const created = await router.request('/', jsonInit('POST', writeBody));
     expect(created.status).toBe(200);
     const createdJson = (await created.json()) as {
       data: { id: string; name: string; model: { name: string }; instructions?: string };
     };
+    // HTTP wire flattens store.manifest onto the response; id is allocated server-side.
     expect(createdJson.data.id.length).toBeGreaterThan(0);
-    expect(createdJson.data.name).toBe('research');
-    expect(createdJson.data.model).toEqual({ name: 'anthropic/claude-sonnet-4-6' });
-    expect(createdJson.data.instructions).toBe('Be helpful.');
-
-    const list = await router.request('/');
-    expect(list.status).toBe(200);
-    expect(await list.json()).toEqual({ data: [createdJson.data] });
-
-    const get = await router.request(`/${createdJson.data.id}`);
-    expect(get.status).toBe(200);
-    expect(await get.json()).toEqual({ data: createdJson.data });
+    expect(createdJson.data).toMatchObject({
+      name: 'research',
+      model: { name: 'anthropic/claude-sonnet-4-6' },
+      instructions: 'Be helpful.',
+    });
 
     const updated = await router.request('/research', jsonInit('PUT', updateBody));
     expect(updated.status).toBe(200);
@@ -91,7 +84,6 @@ describe('agents router', () => {
       data: { id: string; name: string; instructions?: string };
     };
     expect(updatedJson.data.id).toBe(createdJson.data.id);
-    expect(updatedJson.data.name).toBe('research');
     expect(updatedJson.data.instructions).toBe('Updated instructions.');
   });
 

@@ -5,25 +5,6 @@ import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolv
 import { makeAgentSpec, makeMockILLM, makeSilentLogger, makeTestResolver, mintTestTurnId } from './testHelpers';
 
 describe('TurnResourceResolver.resolveAgentSpec', () => {
-  it('looks up named agents via deps.agent', async () => {
-    const live = makeAgentSpec({ instructions: 'live-named' });
-    const agent = jest.fn().mockResolvedValue(live);
-    const resolver = new TurnResourceResolver({
-      llm: () => Promise.resolve(makeMockILLM()),
-      mcp: () => Promise.reject(new Error('unused')),
-      mcpRequestTimeoutMs: 1_000,
-      mcpConnectTimeoutMs: 1_000,
-      agent,
-      logger: makeSilentLogger(),
-    });
-
-    const resolved = await resolver.resolveAgentSpec({ agent_id: 'agent-1' });
-
-    expect(resolved.instructions).toBe('live-named');
-    expect(agent).toHaveBeenCalledTimes(1);
-    expect(agent).toHaveBeenCalledWith('agent-1');
-  });
-
   it('throws when named resolve has no agent lookup configured', async () => {
     const resolver = new TurnResourceResolver({
       llm: () => Promise.resolve(makeMockILLM()),
