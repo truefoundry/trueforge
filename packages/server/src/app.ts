@@ -7,6 +7,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
+import { createAgentsRouter } from './apis/agents';
 import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
@@ -20,6 +21,7 @@ import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
+import type { IAgentStore } from './db/agentStore';
 import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
@@ -32,7 +34,8 @@ const openApiDocConfig = {
   openapi: '3.1.0',
   info: {
     title: 'Agent Server',
-    description: 'Agent server with DB-backed sessions, settings catalogs, and model/MCP/skill providers.',
+    description:
+      'Agent server with DB-backed sessions, agent registry, settings catalogs, and model/MCP/skill providers.',
     version: '0.1.0',
   },
 };
@@ -56,6 +59,7 @@ export interface ServerDeps {
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
+  agentStore: IAgentStore;
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
@@ -95,6 +99,16 @@ export function createServerApp(deps: ServerDeps) {
   );
   app.route('/api/v1/skills', createAvailableSkillsRouter(deps.skillStore));
   app.route(
+    '/api/v1/agents',
+    createAgentsRouter({
+      agentStore: deps.agentStore,
+      modelProviderStore: deps.modelProviderStore,
+      mcpServerStore: deps.mcpServerStore,
+      skillStore: deps.skillStore,
+      sandboxProviderStore: deps.sandboxProviderStore,
+    }),
+  );
+  app.route(
     '/api/v1/settings',
     createSettingsRouter({
       modelCatalog: deps.modelCatalog,
@@ -118,6 +132,7 @@ export function createServerApp(deps: ServerDeps) {
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
       skillStore: deps.skillStore,
+      agentStore: deps.agentStore,
       sandboxProviderStore: deps.sandboxProviderStore,
       redis: deps.redis,
       requestReplyRouter: deps.requestReplyRouter,
@@ -133,6 +148,7 @@ export function createServerApp(deps: ServerDeps) {
       mcpServerStore: deps.mcpServerStore,
       tokenStore: deps.tokenStore,
       skillStore: deps.skillStore,
+      agentStore: deps.agentStore,
       eventSubscriptions: deps.eventSubscriptions,
       sandboxProviderStore: deps.sandboxProviderStore,
       logger: deps.logger,

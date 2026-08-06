@@ -62,7 +62,7 @@ following namespace:
 ```typescript
 import { TrueForge } from "trueforge";
 
-const request: TrueForge.AuthorizeMcpServersRequest = {
+const request: TrueForge.AgentWriteRequest = {
     ...
 };
 ```
@@ -109,9 +109,9 @@ for await (const item of response) {
 This SDK supports direct imports of subpackage clients, which allows JavaScript bundlers to tree-shake and include only the imported subpackage code. This results in much smaller bundle sizes.
 
 ```typescript
-import { AuthClient } from 'trueforge/auth';
+import { AgentsClient } from 'trueforge/agents';
 
-const client = new AuthClient({...});
+const client = new AgentsClient({...});
 ```
 
 ### Additional Headers

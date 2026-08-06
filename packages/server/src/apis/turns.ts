@@ -20,13 +20,13 @@ import {
   isFileContentPart,
   McpConnectionError,
   VercelAILLM,
-  type VercelAIProviderConfig,
 } from '@truefoundry/utils-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import configuration from '../config';
+import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -70,6 +70,7 @@ export interface TurnsRouterDeps {
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
+  agentStore: IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   sandboxProviderStore: ISandboxProviderStore;
@@ -77,26 +78,36 @@ export interface TurnsRouterDeps {
 }
 
 /**
- * TurnResourceResolver requires a sync llm factory; preload the session model
- * config so the factory stays sync while the store read stays async.
+ * Builds the per-turn resolver. Agent / MCP / sandbox / LLM lookups are wired
+ * the same way: async factories over the corresponding stores.
  */
 function createTurnResolver(deps: {
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
+  agentStore: IAgentStore;
+  modelProviderStore: IModelProviderStore;
   logger: Logger;
   signal: AbortSignal;
-  modelName: string;
-  providerConfig: VercelAIProviderConfig;
 }): TurnResourceResolver {
-  const { mcpServerStore, tokenStore, skillStore, sandboxProviderStore, logger, signal, modelName, providerConfig } =
-    deps;
+  const {
+    mcpServerStore,
+    tokenStore,
+    skillStore,
+    sandboxProviderStore,
+    agentStore,
+    modelProviderStore,
+    logger,
+    signal,
+  } = deps;
   return new TurnResourceResolver({
-    llm: name => {
-      if (name !== modelName) {
-        throw new Error(`Model not registered: ${name}`);
-      }
+    llm: async name => {
+      const providerConfig = await getModelProviderConfig({
+        tenant_id: TENANT_ID,
+        name,
+        store: modelProviderStore,
+      });
       return new VercelAILLM({
         providerConfig,
         logger,
@@ -145,6 +156,13 @@ function createTurnResolver(deps: {
         tracing,
         tenantName: TENANT_ID,
       });
+    },
+    agent: async agentId => {
+      const record = await agentStore.getAgent({ tenant_id: TENANT_ID, id: agentId });
+      if (record === undefined) {
+        throw new HTTPException(422, { message: `Agent not found: ${agentId}` });
+      }
+      return record.manifest;
     },
     logger,
   });
@@ -299,21 +317,15 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }
 
     const abortController = new AbortController();
-    const modelName = session.agent_spec.model.name;
-    const providerConfig = await getModelProviderConfig({
-      tenant_id: TENANT_ID,
-      name: modelName,
-      store: deps.modelProviderStore,
-    });
     const resolver = createTurnResolver({
       mcpServerStore: deps.mcpServerStore,
       tokenStore: deps.tokenStore,
       skillStore: deps.skillStore,
       sandboxProviderStore: deps.sandboxProviderStore,
+      agentStore: deps.agentStore,
+      modelProviderStore: deps.modelProviderStore,
       logger: deps.logger,
       signal: abortController.signal,
-      modelName,
-      providerConfig,
     });
 
     // First turn only: derive the title from the first user message. The store

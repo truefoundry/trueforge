@@ -38,8 +38,8 @@ export interface HarnessAgentSpec extends AgentSpec<Harness.AgentSpecModel, Harn
 }
 
 export interface HarnessSession extends Session<HarnessAgentSpec> {
-  agentSpec: HarnessAgentSpec;
-  isMutable: true;
+  agentSpec?: HarnessAgentSpec;
+  isMutable: boolean;
 }
 
 export type CreateHarnessServerOptions = CreateHarnessClientOptions;
@@ -82,12 +82,15 @@ function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
 }
 
 function toUiSession(session: Harness.Session): HarnessSession {
-  const { title, agentSpec, ...rest } = session;
+  // Value agents are draft/mutable; ref agents are named/immutable.
+  const isMutable = session.agent.type === 'value';
   return {
-    ...rest,
-    agentSpec: toUiAgentSpec(agentSpec),
-    isMutable: true,
-    ...(title === null ? {} : { title }),
+    id: session.id,
+    isMutable,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+    ...(session.title === null ? {} : { title: session.title }),
+    ...(session.agent.type === 'value' ? { agentSpec: toUiAgentSpec(session.agent.agentSpec) } : {}),
   };
 }
 
@@ -182,7 +185,9 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
       if (!request.agentSpec) {
         throw new Error('Harness sessions require an agentSpec');
       }
-      const created = await client.sessions.create({ agentSpec: toHarnessAgentSpec(request.agentSpec) });
+      const created = await client.sessions.create({
+        agent: { type: 'value', agentSpec: toHarnessAgentSpec(request.agentSpec) },
+      });
       return toUiSession(created.data);
     },
 
@@ -202,7 +207,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
 
     async updateSession({ sessionId, agentSpec }) {
       const response = await client.sessions.update(sessionId, {
-        ...(agentSpec === undefined ? {} : { agentSpec: toHarnessAgentSpec(agentSpec) }),
+        ...(agentSpec === undefined ? {} : { agent: { type: 'value', agentSpec: toHarnessAgentSpec(agentSpec) } }),
       });
       return toUiSession(response.data);
     },

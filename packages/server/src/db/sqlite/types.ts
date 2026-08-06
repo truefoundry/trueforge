@@ -48,7 +48,10 @@ type JsonbColumn<T extends object | null> = JSONColumnType<T, T | string, T | st
 export interface SessionTable {
   tenant_id: string;
   session_id: string;
-  agent_spec: JsonbColumn<AgentSpec>;
+  /** Named registry binding; XOR with `agent_spec`. */
+  agent_id: string | null;
+  /** Inline draft binding; XOR with `agent_id`. */
+  agent_spec: JsonbColumn<AgentSpec> | null;
   title: string | null;
   last_turn_id: string | null;
   custom: JsonbColumn<Record<string, unknown>> | null;
@@ -182,6 +185,22 @@ export interface SandboxProviderTable {
 }
 
 /**
+ * Configured agents — mirrors the Postgres `agent` table.
+ * PRIMARY KEY (id); UNIQUE (tenant_id, name).
+ */
+export interface AgentTable {
+  /** application-generated (ulid); never re-derived from tenant_id/name */
+  id: string;
+  tenant_id: string;
+  /** natural uniqueness target within a tenant */
+  name: string;
+  /** AgentSpec document; replaced whole on every upsert */
+  manifest: JsonbColumn<AgentSpec>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * PRIMARY KEY (id)
  * UNIQUE (tenant_id, name) — the natural lookup key;
  */
@@ -240,6 +259,7 @@ export interface Database {
   model_provider: ModelProviderTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
+  agent: AgentTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;

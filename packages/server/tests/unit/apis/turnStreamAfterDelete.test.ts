@@ -4,6 +4,7 @@ import { AgentSpecSchema, TurnNotFoundError } from '@truefoundry/utils-core/agen
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
@@ -42,11 +43,16 @@ describe('turn SSE after session deletion', () => {
       },
     });
 
+    const agentSpec = AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } });
     const sessions = {
       get: () =>
         Promise.resolve({
-          agent_spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
-          record: { last_turn_id: null },
+          agent_spec: agentSpec,
+          record: {
+            session_id: 's1',
+            last_turn_id: null,
+            agent: { type: 'value', agent_spec: agentSpec },
+          },
           createTurn: () =>
             Promise.resolve({
               id: 'turn-gone',
@@ -68,6 +74,7 @@ describe('turn SSE after session deletion', () => {
         mcpServerStore: new SqliteMcpServerStore(db),
         tokenStore: new SqliteOAuthTokenStore(db),
         skillStore: new SqliteSkillStore(db),
+        agentStore: new SqliteAgentStore(db),
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         sandboxProviderStore: new SqliteSandboxProviderStore(db),
         logger,

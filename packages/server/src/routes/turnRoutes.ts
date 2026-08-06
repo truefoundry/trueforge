@@ -146,7 +146,7 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description:
-        'The session is valid but a required resource is no longer available (e.g. model, MCP server, skill, or sandbox provider).',
+        'The session is valid but a required resource is no longer available (e.g. named agent, model, MCP server, skill, or sandbox provider).',
     },
   },
 });

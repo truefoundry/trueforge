@@ -23,6 +23,38 @@
           }
         ]
       },
+      "Agent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AgentSpec"
+          },
+          {
+            "properties": {
+              "id": {
+                "description": "Immutable server-generated agent identifier.",
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ResourceName"
+                  },
+                  {
+                    "description": "Immutable unique agent name within the tenant."
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "type": "object"
+          }
+        ],
+        "description": "Agent Definition"
+      },
       "AgentInfo": {
         "properties": {
           "input": {
@@ -142,6 +174,25 @@
           "content"
         ],
         "type": "object"
+      },
+      "AgentWriteRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AgentSpec"
+          },
+          {
+            "properties": {
+              "name": {
+                "$ref": "#/components/schemas/ResourceName"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          }
+        ],
+        "description": "Agent Definition"
       },
       "ApprovalAllow": {
         "properties": {
@@ -645,14 +696,26 @@
         },
         "type": "object"
       },
-      "CreateSessionRequest": {
+      "CreateAgentResponse": {
         "properties": {
-          "agent_spec": {
-            "$ref": "#/components/schemas/AgentSpec"
+          "data": {
+            "$ref": "#/components/schemas/Agent"
           }
         },
         "required": [
-          "agent_spec"
+          "data"
+        ],
+        "type": "object"
+      },
+      "CreateSessionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/SessionAgent"
+          }
+        },
+        "required": [
+          "agent"
         ],
         "type": "object"
       },
@@ -803,6 +866,17 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "GetAgentResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Agent"
+          }
+        },
+        "required": [
+          "data"
+        ],
         "type": "object"
       },
       "GetCapabilitiesResponse": {
@@ -956,6 +1030,20 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "ListAgentsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Agent"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
         "type": "object"
       },
       "ListAvailableMcpServersResponse": {
@@ -1825,6 +1913,17 @@
         "default": "auto",
         "description": "Defaults to 'auto' (chain to session last turn). Use 'null' for the session's first turn."
       },
+      "PutAgentResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Agent"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "PutMcpServerResponse": {
         "properties": {
           "data": {
@@ -2191,8 +2290,8 @@
       },
       "Session": {
         "properties": {
-          "agent_spec": {
-            "$ref": "#/components/schemas/AgentSpec"
+          "agent": {
+            "$ref": "#/components/schemas/SessionAgent"
           },
           "created_at": {
             "type": "string"
@@ -2212,10 +2311,66 @@
         },
         "required": [
           "id",
-          "agent_spec",
+          "agent",
           "title",
           "created_at",
           "updated_at"
+        ],
+        "type": "object"
+      },
+      "SessionAgent": {
+        "discriminator": {
+          "mapping": {
+            "ref": "#/components/schemas/SessionAgentRef",
+            "value": "#/components/schemas/SessionAgentValue"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SessionAgentRef"
+          },
+          {
+            "$ref": "#/components/schemas/SessionAgentValue"
+          }
+        ]
+      },
+      "SessionAgentRef": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "ref"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "agent_id"
+        ],
+        "type": "object"
+      },
+      "SessionAgentValue": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_spec": {
+            "$ref": "#/components/schemas/AgentSpec"
+          },
+          "type": {
+            "enum": [
+              "value"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "agent_spec"
         ],
         "type": "object"
       },
@@ -3093,10 +3248,55 @@
           }
         ]
       },
+      "UpdateAgentRequest": {
+        "description": "Agent Definition",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/RuntimeConfig"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "mcp_servers": {
+            "items": {
+              "$ref": "#/components/schemas/MCPServer"
+            },
+            "type": "array"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AgentSpecUserMessage"
+            },
+            "type": "array"
+          },
+          "model": {
+            "$ref": "#/components/schemas/AgentSpecModel"
+          },
+          "response_format": {
+            "$ref": "#/components/schemas/ResponseFormat"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillNameRef"
+            },
+            "type": "array"
+          },
+          "variables": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "model"
+        ],
+        "type": "object"
+      },
       "UpdateSessionRequest": {
         "properties": {
-          "agent_spec": {
-            "$ref": "#/components/schemas/AgentSpec"
+          "agent": {
+            "$ref": "#/components/schemas/SessionAgentValue"
           }
         },
         "type": "object"
@@ -3248,12 +3448,232 @@
     }
   },
   "info": {
-    "description": "Agent server with DB-backed sessions, settings catalogs, and model/MCP/skill providers.",
+    "description": "Agent server with DB-backed sessions, agent registry, settings catalogs, and model/MCP/skill providers.",
     "title": "Agent Server",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/agents": {
+      "get": {
+        "description": "All configured agents for the tenant.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAgentsResponse"
+                }
+              }
+            },
+            "description": "All configured agents."
+          }
+        },
+        "summary": "List agents",
+        "tags": [
+          "Agents"
+        ],
+        "x-fern-sdk-group-name": [
+          "agents"
+        ],
+        "x-fern-sdk-method-name": "list"
+      },
+      "post": {
+        "description": "Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateAgentResponse"
+                }
+              }
+            },
+            "description": "The created agent."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body or unknown model/MCP/skill refs."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "An agent with this name already exists."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The agent spec is valid but requires a capability this server does not provide (e.g. sandbox or skills)."
+          }
+        },
+        "summary": "Create an agent",
+        "tags": [
+          "Agents"
+        ],
+        "x-fern-sdk-group-name": [
+          "agents"
+        ],
+        "x-fern-sdk-method-name": "create"
+      }
+    },
+    "/api/v1/agents/{agent_id}": {
+      "get": {
+        "description": "Fetch a configured agent by immutable id.",
+        "parameters": [
+          {
+            "description": "Immutable agent identifier.",
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetAgentResponse"
+                }
+              }
+            },
+            "description": "The agent."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Agent not found."
+          }
+        },
+        "summary": "Get an agent",
+        "tags": [
+          "Agents"
+        ],
+        "x-fern-sdk-group-name": [
+          "agents"
+        ],
+        "x-fern-sdk-method-name": "get"
+      }
+    },
+    "/api/v1/agents/{name}": {
+      "put": {
+        "description": "Replaces the AgentSpec for an existing agent keyed by immutable `name`.",
+        "parameters": [
+          {
+            "description": "Immutable unique agent name within the tenant.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ResourceName"
+                },
+                {
+                  "description": "Immutable unique agent name within the tenant."
+                }
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAgentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutAgentResponse"
+                }
+              }
+            },
+            "description": "The saved agent."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body or unknown model/MCP/skill refs."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Agent not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The agent spec is valid but requires a capability this server does not provide (e.g. sandbox or skills)."
+          }
+        },
+        "summary": "Update an agent",
+        "tags": [
+          "Agents"
+        ],
+        "x-fern-sdk-group-name": [
+          "agents"
+        ],
+        "x-fern-sdk-method-name": "update"
+      }
+    },
     "/api/v1/auth/callback": {
       "get": {
         "description": "Browser-redirect target hit by the identity provider after login, never called directly by SDK consumers. In local/single-binary mode, redirects straight back into the app.",
@@ -3690,7 +4110,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List sessions (newest first by default), token-paginated. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "description": "List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
         "parameters": [
           {
             "description": "Page size. Defaults to 10, max 100.",
@@ -3745,6 +4165,17 @@
               "format": "date-time",
               "type": "string"
             }
+          },
+          {
+            "description": "When set, only sessions bound to this agent id are returned.",
+            "in": "query",
+            "name": "agent_id",
+            "required": false,
+            "schema": {
+              "description": "When set, only sessions bound to this agent id are returned.",
+              "minLength": 1,
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -3784,7 +4215,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "post": {
-        "description": "Create a session holding an inline agent spec. Turns are executed against this spec.",
+        "description": "Create a session with `agent` as either `{ type: \"value\", agent_spec }` (draft) or `{ type: \"ref\", agent_id }` (named). Named sessions resolve the live agent on each turn.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3815,6 +4246,16 @@
               }
             },
             "description": "Invalid request body."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Named `agent_id` not found."
           },
           "422": {
             "content": {
@@ -3916,7 +4357,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a session's inline agent spec. An empty body is a valid no-op that refreshes `updated_at`.",
+        "description": "Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -3960,7 +4401,7 @@
                 }
               }
             },
-            "description": "Invalid request body."
+            "description": "Invalid request body, or named session rejected an agent update."
           },
           "404": {
             "content": {
@@ -4320,7 +4761,7 @@
                 }
               }
             },
-            "description": "The session is valid but a required resource is no longer available (e.g. model, MCP server, skill, or sandbox provider)."
+            "description": "The session is valid but a required resource is no longer available (e.g. named agent, model, MCP server, skill, or sandbox provider)."
           }
         },
         "summary": "Create and execute a turn in a session",
