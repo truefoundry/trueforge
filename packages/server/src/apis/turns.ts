@@ -160,7 +160,7 @@ function createTurnResolver(deps: {
     agent: async agentId => {
       const record = await agentStore.getAgent({ tenant_id: TENANT_ID, id: agentId });
       if (record === undefined) {
-        throw new HTTPException(404, { message: `Agent not found: ${agentId}` });
+        throw new HTTPException(422, { message: `Agent not found: ${agentId}` });
       }
       return record.manifest;
     },
