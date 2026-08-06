@@ -503,6 +503,7 @@ export interface ConnectorCatalogServer<
   TUpdate extends UpdateConnectorRequest<TAuthWrite> = UpdateConnectorRequest<TAuthWrite>,
 > {
   getConnectorCatalog(): Promise<TCatalogEntry[]>;
+  getConnector(req: { id: string }): Promise<TConnector>;
   listConnectors(req?: { query?: string }): Promise<TConnector[]>;
   getToolsByConnectorId(req: { id: string }): Promise<TTool[]>;
   createConnector(req: TCreate): Promise<TConnector>;

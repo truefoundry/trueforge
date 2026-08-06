@@ -18,14 +18,23 @@ const AUTH_TYPE_LABELS: Record<string, string> = {
   none: 'No Auth',
 };
 
+type ConnectorListItem =
+  { connector: ConnectorBase; isConfigured: true } | { connector: ConnectorCatalogEntry; isConfigured: false };
+
+type ConnectorsState = {
+  ordered: ConnectorListItem[];
+  authStatusById: Map<string, boolean>;
+};
+
 const ConnectorSettings = () => {
   const { connectorCatalog } = useCatalogServer();
   const { handleAuthorize, isOAuthLoading } = useMCPAuth();
 
   const [query, setQuery] = useState('');
-  const [addedMcpServers, setAddedMcpServers] = useState<ConnectorBase[]>([]);
-  const [connected, setConnected] = useState<ConnectorBase[]>([]);
-  const [catalog, setCatalog] = useState<ConnectorCatalogEntry[]>([]);
+  const [connectors, setConnectors] = useState<ConnectorsState>({
+    ordered: [],
+    authStatusById: new Map(),
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -43,9 +52,20 @@ const ConnectorSettings = () => {
         connectorCatalog.listConnectors(),
         connectorCatalog.getConnectorCatalog(),
       ]);
-      setAddedMcpServers(listed ?? []);
-      setConnected((listed ?? []).filter(connector => connector.authenticated || !connector.requiresAuth));
-      setCatalog(available);
+      const configured = listed ?? [];
+      const seenIds = new Set(configured.map(connector => connector.id));
+      const ordered: ConnectorListItem[] = [
+        ...configured.map<ConnectorListItem>(connector => ({ connector, isConfigured: true })),
+        ...available
+          .filter(connector => !seenIds.has(connector.id))
+          .map<ConnectorListItem>(connector => ({ connector, isConfigured: false })),
+      ];
+      setConnectors({
+        ordered,
+        authStatusById: new Map(
+          ordered.map(item => [item.connector.id, item.isConfigured ? item.connector.authenticated : false]),
+        ),
+      });
       setSelectedConnector(current => (current ? (listed.find(item => item.id === current.id) ?? null) : null));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load connectors');
@@ -60,46 +80,38 @@ const ConnectorSettings = () => {
 
   const normalizedQuery = query.trim().toLowerCase();
 
-  const matchingConnected = useMemo(() => {
-    if (!normalizedQuery) return connected;
-    return connected.filter(
-      connector =>
-        connector.name.toLowerCase().includes(normalizedQuery) ||
-        connector.description.toLowerCase().includes(normalizedQuery) ||
-        connector.url.toLowerCase().includes(normalizedQuery),
-    );
-  }, [connected, normalizedQuery]);
-
-  const availableConnectors = useMemo(() => {
-    const eligibleAddedServers = addedMcpServers.filter(
-      connector => !connector.authenticated && connector.requiresAuth,
-    );
-    const addedServerNames = new Set(eligibleAddedServers.map(connector => connector.name));
-    const seenNames = new Set<string>();
-    const uniqueConnectors = [
-      ...catalog.filter(entry => {
-        const alreadyConnected = connected.some(connector => connector.id === entry.id || connector.url === entry.url);
-        if (alreadyConnected || addedServerNames.has(entry.name) || seenNames.has(entry.name)) {
-          return false;
-        }
-        seenNames.add(entry.name);
-        return true;
-      }),
-      ...eligibleAddedServers.filter(connector => {
-        if (seenNames.has(connector.name)) return false;
-        seenNames.add(connector.name);
-        return true;
-      }),
-    ];
-
-    if (!normalizedQuery) return uniqueConnectors;
-    return uniqueConnectors.filter(
-      connector =>
+  const matchingConnectors = useMemo(() => {
+    if (!normalizedQuery) return connectors.ordered;
+    return connectors.ordered.filter(({ connector }) => {
+      return (
         connector.name.toLowerCase().includes(normalizedQuery) ||
         (connector.description?.toLowerCase().includes(normalizedQuery) ?? false) ||
-        connector.url.toLowerCase().includes(normalizedQuery),
-    );
-  }, [catalog, connected, addedMcpServers, normalizedQuery]);
+        connector.url.toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [connectors.ordered, normalizedQuery]);
+
+  const matchingConnected = useMemo(() => {
+    const result: ConnectorBase[] = [];
+    for (const item of matchingConnectors) {
+      if (item.isConfigured) {
+        const authenticated = connectors.authStatusById.get(item.connector.id) ?? item.connector.authenticated;
+        if (authenticated || !item.connector.requiresAuth) {
+          result.push(
+            authenticated === item.connector.authenticated ? item.connector : { ...item.connector, authenticated },
+          );
+        }
+      }
+    }
+    return result;
+  }, [connectors.authStatusById, matchingConnectors]);
+
+  const availableConnectors = useMemo(() => {
+    const connectedIds = new Set(matchingConnected.map(connector => connector.id));
+    return matchingConnectors
+      .filter(({ connector }) => !connectedIds.has(connector.id))
+      .map(({ connector }) => connector);
+  }, [matchingConnected, matchingConnectors]);
 
   const runMutation = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -122,7 +134,20 @@ const ConnectorSettings = () => {
 
   const authorizeOAuthConnector = async (integrationId: string) => {
     await handleAuthorize(integrationId, isSuccess => {
-      if (isSuccess) void refresh();
+      if (isSuccess) {
+        void connectorCatalog
+          .getConnector({ id: integrationId })
+          .then(connector => {
+            setConnectors(current => {
+              const updated = new Map(current.authStatusById);
+              updated.set(connector.id, connector.authenticated);
+              return { ...current, authStatusById: updated };
+            });
+          })
+          .catch(err => {
+            setError(err instanceof Error ? err.message : 'Failed to load connector');
+          });
+      }
     });
   };
 
@@ -155,7 +180,8 @@ const ConnectorSettings = () => {
     }
 
     void runMutation(async () => {
-      const existingConnector = addedMcpServers.find(connector => connector.id === entry.id);
+      const existing = connectors.ordered.find(({ connector }) => connector.id === entry.id);
+      const existingConnector = existing?.isConfigured ? existing.connector : undefined;
       if (existingConnector) {
         await authorizeOAuthConnector(existingConnector.id);
       } else {
@@ -175,7 +201,8 @@ const ConnectorSettings = () => {
         apiKey: apiKey.trim(),
         ...(entry.auth.type === 'apiKey' && entry.auth.headerName ? { headerName: entry.auth.headerName } : {}),
       };
-      const existingConnector = addedMcpServers.find(connector => connector.id === entry.id);
+      const existing = connectors.ordered.find(({ connector }) => connector.id === entry.id);
+      const existingConnector = existing?.isConfigured ? existing.connector : undefined;
       if (existingConnector) {
         await connectorCatalog.updateConnector({
           id: existingConnector.id,
