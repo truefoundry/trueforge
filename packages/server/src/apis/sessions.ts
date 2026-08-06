@@ -190,7 +190,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const sessionId = ulid().toLowerCase();
 
     if (body.agent.type === 'ref') {
-      const agent = await deps.agentStore.getAgentById({ tenant_id: TENANT_ID, id: body.agent.agent_id });
+      const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: body.agent.agent_id });
       if (agent === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.agent_id}` } }, 404);
       }

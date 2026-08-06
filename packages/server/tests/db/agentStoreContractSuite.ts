@@ -33,17 +33,17 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     expect(created.created_at).toMatch(ISO_UTC);
     expect(created.updated_at).toBe(created.created_at);
 
-    const byName = await store.getAgentByName({ tenant_id: TENANT, name: 'research' });
+    const byName = await store.getAgent({ tenant_id: TENANT, name: 'research' });
     expect(byName).toEqual(created);
 
-    const byId = await store.getAgentById({ tenant_id: TENANT, id: created.id });
+    const byId = await store.getAgent({ tenant_id: TENANT, id: created.id });
     expect(byId).toEqual(created);
   });
 
-  it('getAgentById and getAgentByName return undefined for unknown agents', async () => {
+  it('getAgent returns undefined for unknown id or name', async () => {
     const store = getStore();
-    expect(await store.getAgentById({ tenant_id: TENANT, id: 'missing' })).toBeUndefined();
-    expect(await store.getAgentByName({ tenant_id: TENANT, name: 'missing' })).toBeUndefined();
+    expect(await store.getAgent({ tenant_id: TENANT, id: 'missing' })).toBeUndefined();
+    expect(await store.getAgent({ tenant_id: TENANT, name: 'missing' })).toBeUndefined();
   });
 
   it('updateAgent replaces name and manifest, preserves id and created_at', async () => {
@@ -76,8 +76,8 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     }
     expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
 
-    expect(await store.getAgentByName({ tenant_id: TENANT, name: 'research' })).toBeUndefined();
-    expect(await store.getAgentByName({ tenant_id: TENANT, name: 'research-v2' })).toEqual(updated);
+    expect(await store.getAgent({ tenant_id: TENANT, name: 'research' })).toBeUndefined();
+    expect(await store.getAgent({ tenant_id: TENANT, name: 'research-v2' })).toEqual(updated);
   });
 
   it('updateAgent returns undefined for unknown ids', async () => {
@@ -130,7 +130,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     expect(agents.every(agent => agent.tenant_id === TENANT)).toBe(true);
   });
 
-  it('getAgentById is tenant-scoped', async () => {
+  it('getAgent by id is tenant-scoped', async () => {
     const store = getStore();
     const created = await store.createAgent({
       tenant_id: TENANT,
@@ -138,6 +138,6 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       manifest: manifest(),
     });
 
-    expect(await store.getAgentById({ tenant_id: 'other-tenant', id: created.id })).toBeUndefined();
+    expect(await store.getAgent({ tenant_id: 'other-tenant', id: created.id })).toBeUndefined();
   });
 }

@@ -4,8 +4,7 @@ import {
   AgentNameConflictError,
   type AgentRecord,
   type CreateAgentInput,
-  type GetAgentByIdInput,
-  type GetAgentByNameInput,
+  type GetAgentInput,
   type IAgentStore,
   type UpdateAgentInput,
 } from '../../agentStore';
@@ -41,23 +40,14 @@ export class PostgresAgentStore implements IAgentStore {
     return rows.map(toRecord);
   }
 
-  async getAgentById(input: GetAgentByIdInput): Promise<AgentRecord | undefined> {
-    const row = await this.#db
-      .selectFrom('agent')
-      .selectAll()
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
-      .executeTakeFirst();
-    return row === undefined ? undefined : toRecord(row);
-  }
-
-  async getAgentByName(input: GetAgentByNameInput): Promise<AgentRecord | undefined> {
-    const row = await this.#db
-      .selectFrom('agent')
-      .selectAll()
-      .where('tenant_id', '=', input.tenant_id)
-      .where('name', '=', input.name)
-      .executeTakeFirst();
+  async getAgent(input: GetAgentInput): Promise<AgentRecord | undefined> {
+    let query = this.#db.selectFrom('agent').selectAll().where('tenant_id', '=', input.tenant_id);
+    if ('id' in input) {
+      query = query.where('id', '=', input.id);
+    } else {
+      query = query.where('name', '=', input.name);
+    }
+    const row = await query.executeTakeFirst();
     return row === undefined ? undefined : toRecord(row);
   }
 

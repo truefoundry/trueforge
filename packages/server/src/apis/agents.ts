@@ -75,7 +75,7 @@ export function createAgentsRouter(deps: AgentsRouterDeps) {
 
   const getHandler: RouteHandler<typeof getAgentRoute> = async c => {
     const { agent_id: agentId } = c.req.valid('param');
-    const record = await deps.agentStore.getAgentById({ tenant_id: TENANT_ID, id: agentId });
+    const record = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: agentId });
     if (record === undefined) {
       return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
     }

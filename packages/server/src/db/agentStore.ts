@@ -18,15 +18,8 @@ export interface AgentRecord {
   updated_at: string;
 }
 
-export interface GetAgentByIdInput {
-  tenant_id: string;
-  id: string;
-}
-
-export interface GetAgentByNameInput {
-  tenant_id: string;
-  name: string;
-}
+/** Look up by immutable id or unique name within a tenant. */
+export type GetAgentInput = { tenant_id: string } & ({ id: string } | { name: string });
 
 export interface CreateAgentInput {
   tenant_id: string;
@@ -56,8 +49,7 @@ export class AgentNameConflictError extends Error {
 
 export interface IAgentStore {
   listAgents(tenantId: string): Promise<AgentRecord[]>;
-  getAgentById(input: GetAgentByIdInput): Promise<AgentRecord | undefined>;
-  getAgentByName(input: GetAgentByNameInput): Promise<AgentRecord | undefined>;
+  getAgent(input: GetAgentInput): Promise<AgentRecord | undefined>;
   /** Inserts a new agent with a generated ULID. Throws AgentNameConflictError on name clash. */
   createAgent(input: CreateAgentInput): Promise<AgentRecord>;
   /**

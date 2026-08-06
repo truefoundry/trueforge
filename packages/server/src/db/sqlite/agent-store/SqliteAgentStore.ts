@@ -5,8 +5,7 @@ import {
   AgentNameConflictError,
   type AgentRecord,
   type CreateAgentInput,
-  type GetAgentByIdInput,
-  type GetAgentByNameInput,
+  type GetAgentInput,
   type IAgentStore,
   type UpdateAgentInput,
 } from '../../agentStore';
@@ -42,22 +41,14 @@ export class SqliteAgentStore implements IAgentStore {
       .execute();
   }
 
-  async getAgentById(input: GetAgentByIdInput): Promise<AgentRecord | undefined> {
-    return await this.#db
-      .selectFrom('agent')
-      .select(recordColumns)
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
-      .executeTakeFirst();
-  }
-
-  async getAgentByName(input: GetAgentByNameInput): Promise<AgentRecord | undefined> {
-    return await this.#db
-      .selectFrom('agent')
-      .select(recordColumns)
-      .where('tenant_id', '=', input.tenant_id)
-      .where('name', '=', input.name)
-      .executeTakeFirst();
+  async getAgent(input: GetAgentInput): Promise<AgentRecord | undefined> {
+    let query = this.#db.selectFrom('agent').select(recordColumns).where('tenant_id', '=', input.tenant_id);
+    if ('id' in input) {
+      query = query.where('id', '=', input.id);
+    } else {
+      query = query.where('name', '=', input.name);
+    }
+    return await query.executeTakeFirst();
   }
 
   async createAgent(input: CreateAgentInput): Promise<AgentRecord> {
