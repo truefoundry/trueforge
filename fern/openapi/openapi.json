@@ -4764,7 +4764,7 @@
                 }
               }
             },
-            "description": "The session is valid but a required resource is no longer available (e.g. model, MCP server, skill, or sandbox provider)."
+            "description": "The session is valid but a required resource is no longer available (e.g. named agent, model, MCP server, skill, or sandbox provider)."
           }
         },
         "summary": "Create and execute a turn in a session",
