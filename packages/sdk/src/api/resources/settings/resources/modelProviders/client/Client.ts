@@ -89,7 +89,7 @@ export class ModelProvidersClient {
     }
 
     /**
-     * Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).
+     * Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Every type but `custom` is named after itself, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named, and numbered, by the caller.
      *
      * @param {TrueForge.ModelProvider} request
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -108,8 +108,7 @@ export class ModelProvidersClient {
      *                 name: "name",
      *                 properties: {}
      *             }],
-     *         name: "name",
-     *         type: "openai"
+     *         type: "alibaba"
      *     })
      */
     public upsert(
