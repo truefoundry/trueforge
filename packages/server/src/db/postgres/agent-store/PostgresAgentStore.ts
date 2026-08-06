@@ -75,24 +75,16 @@ export class PostgresAgentStore implements IAgentStore {
   }
 
   async updateAgent(input: UpdateAgentInput): Promise<AgentRecord | undefined> {
-    try {
-      const row = await this.#db
-        .updateTable('agent')
-        .set({
-          name: input.name,
-          manifest: json(input.manifest),
-          updated_at: now(),
-        })
-        .where('tenant_id', '=', input.tenant_id)
-        .where('id', '=', input.id)
-        .returningAll()
-        .executeTakeFirst();
-      return row === undefined ? undefined : toRecord(row);
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        throw new AgentNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
-      }
-      throw error;
-    }
+    const row = await this.#db
+      .updateTable('agent')
+      .set({
+        manifest: json(input.manifest),
+        updated_at: now(),
+      })
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
+      .returningAll()
+      .executeTakeFirst();
+    return row === undefined ? undefined : toRecord(row);
   }
 }

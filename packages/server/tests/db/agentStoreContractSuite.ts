@@ -46,7 +46,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     expect(await store.getAgent({ tenant_id: TENANT, name: 'missing' })).toBeUndefined();
   });
 
-  it('updateAgent replaces name and manifest, preserves id and created_at', async () => {
+  it('updateAgent replaces manifest, preserves id, name, and created_at', async () => {
     const store = getStore();
     const created = await store.createAgent({
       tenant_id: TENANT,
@@ -57,15 +57,14 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     const replacement = manifest({ instructions: 'Updated instructions.' });
     const updated = await store.updateAgent({
       tenant_id: TENANT,
-      id: created.id,
-      name: 'research-v2',
+      name: 'research',
       manifest: replacement,
     });
 
     expect(updated).toEqual(
       expect.objectContaining({
         id: created.id,
-        name: 'research-v2',
+        name: 'research',
         manifest: replacement,
         created_at: created.created_at,
       }),
@@ -76,42 +75,26 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     }
     expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
 
-    expect(await store.getAgent({ tenant_id: TENANT, name: 'research' })).toBeUndefined();
-    expect(await store.getAgent({ tenant_id: TENANT, name: 'research-v2' })).toEqual(updated);
+    expect(await store.getAgent({ tenant_id: TENANT, name: 'research' })).toEqual(updated);
   });
 
-  it('updateAgent returns undefined for unknown ids', async () => {
+  it('updateAgent returns undefined for unknown names', async () => {
     const store = getStore();
     expect(
       await store.updateAgent({
         tenant_id: TENANT,
-        id: 'missing',
-        name: 'research',
+        name: 'missing',
         manifest: manifest(),
       }),
     ).toBeUndefined();
   });
 
-  it('createAgent and updateAgent throw AgentNameConflictError on name clash', async () => {
+  it('createAgent throws AgentNameConflictError on name clash', async () => {
     const store = getStore();
     await store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest() });
-    const other = await store.createAgent({
-      tenant_id: TENANT,
-      name: 'other',
-      manifest: manifest({ instructions: 'Other agent.' }),
-    });
 
     await expect(
       store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest() }),
-    ).rejects.toBeInstanceOf(AgentNameConflictError);
-
-    await expect(
-      store.updateAgent({
-        tenant_id: TENANT,
-        id: other.id,
-        name: 'research',
-        manifest: manifest(),
-      }),
     ).rejects.toBeInstanceOf(AgentNameConflictError);
   });
 

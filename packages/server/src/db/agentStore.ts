@@ -1,6 +1,6 @@
 /**
  * DB-backed configured agents: one row per agent per tenant,
- * immutable ULID `id`, unique mutable `name` within a tenant, plus a Zod-validated
+ * immutable ULID `id`, unique immutable `name` within a tenant, plus a Zod-validated
  * `AgentSpec` jsonb document.
  * Implementations: PostgresAgentStore and SqliteAgentStore.
  */
@@ -27,14 +27,14 @@ export interface CreateAgentInput {
   manifest: AgentSpec;
 }
 
+/** Replace manifest for an existing agent keyed by immutable name. */
 export interface UpdateAgentInput {
   tenant_id: string;
-  id: string;
   name: ResourceName;
   manifest: AgentSpec;
 }
 
-/** Unique `(tenant_id, name)` violation on create or rename. */
+/** Unique `(tenant_id, name)` violation on create. */
 export class AgentNameConflictError extends Error {
   readonly tenant_id: string;
   readonly agent_name: string;
@@ -52,9 +52,6 @@ export interface IAgentStore {
   getAgent(input: GetAgentInput): Promise<AgentRecord | undefined>;
   /** Inserts a new agent with a generated ULID. Throws AgentNameConflictError on name clash. */
   createAgent(input: CreateAgentInput): Promise<AgentRecord>;
-  /**
-   * Replaces `name` + `manifest` for an existing id. Returns undefined if missing.
-   * Throws AgentNameConflictError if the new name is taken by another agent.
-   */
+  /** Replaces `manifest` for an existing name. Returns undefined if missing. */
   updateAgent(input: UpdateAgentInput): Promise<AgentRecord | undefined>;
 }

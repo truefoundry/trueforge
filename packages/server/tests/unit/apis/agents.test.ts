@@ -26,6 +26,11 @@ const writeBody = {
   instructions: 'Be helpful.',
 };
 
+const updateBody = {
+  model: { name: 'anthropic/claude-sonnet-4-6' },
+  instructions: 'Updated instructions.',
+};
+
 function jsonInit(method: string, body: unknown): RequestInit {
   return {
     method,
@@ -61,7 +66,7 @@ describe('agents router', () => {
     });
   });
 
-  it('POST creates an agent; PUT replaces name+spec by id; list/get round-trip', async () => {
+  it('POST creates an agent; PUT replaces spec by name; list/get round-trip', async () => {
     const created = await router.request('/', jsonInit('POST', writeBody));
     expect(created.status).toBe(200);
     const createdJson = (await created.json()) as {
@@ -80,32 +85,25 @@ describe('agents router', () => {
     expect(get.status).toBe(200);
     expect(await get.json()).toEqual({ data: createdJson.data });
 
-    const updated = await router.request(
-      `/${createdJson.data.id}`,
-      jsonInit('PUT', {
-        ...writeBody,
-        name: 'research-v2',
-        instructions: 'Updated instructions.',
-      }),
-    );
+    const updated = await router.request('/research', jsonInit('PUT', updateBody));
     expect(updated.status).toBe(200);
     const updatedJson = (await updated.json()) as {
       data: { id: string; name: string; instructions?: string };
     };
     expect(updatedJson.data.id).toBe(createdJson.data.id);
-    expect(updatedJson.data.name).toBe('research-v2');
+    expect(updatedJson.data.name).toBe('research');
     expect(updatedJson.data.instructions).toBe('Updated instructions.');
   });
 
-  it('GET and PUT return 404 for unknown agent ids', async () => {
+  it('GET returns 404 for unknown ids; PUT returns 404 for unknown names', async () => {
     const get = await router.request('/missing-agent-id');
     expect(get.status).toBe(404);
 
-    const put = await router.request('/missing-agent-id', jsonInit('PUT', writeBody));
+    const put = await router.request('/missing-agent', jsonInit('PUT', updateBody));
     expect(put.status).toBe(404);
   });
 
-  it('POST/PUT reject invalid bodies, unknown models, and duplicate names', async () => {
+  it('POST rejects invalid bodies, unknown models, and duplicate names', async () => {
     const badName = await router.request('/', jsonInit('POST', { ...writeBody, name: 'Not A Name' }));
     expect(badName.status).toBe(400);
 
@@ -120,15 +118,5 @@ describe('agents router', () => {
 
     const clash = await router.request('/', jsonInit('POST', { ...writeBody, name: 'alpha' }));
     expect(clash.status).toBe(409);
-
-    const second = await router.request('/', jsonInit('POST', { ...writeBody, name: 'beta' }));
-    expect(second.status).toBe(200);
-    const secondJson = (await second.json()) as { data: { id: string } };
-
-    const renameClash = await router.request(
-      `/${secondJson.data.id}`,
-      jsonInit('PUT', { ...writeBody, name: 'alpha' }),
-    );
-    expect(renameClash.status).toBe(409);
   });
 });

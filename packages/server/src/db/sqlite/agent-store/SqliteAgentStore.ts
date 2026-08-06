@@ -75,23 +75,15 @@ export class SqliteAgentStore implements IAgentStore {
   }
 
   async updateAgent(input: UpdateAgentInput): Promise<AgentRecord | undefined> {
-    try {
-      return await this.#db
-        .updateTable('agent')
-        .set({
-          name: input.name,
-          manifest: jsonbBind(input.manifest),
-          updated_at: nowIso(),
-        })
-        .where('tenant_id', '=', input.tenant_id)
-        .where('id', '=', input.id)
-        .returning(recordColumns)
-        .executeTakeFirst();
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        throw new AgentNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
-      }
-      throw error;
-    }
+    return await this.#db
+      .updateTable('agent')
+      .set({
+        manifest: jsonbBind(input.manifest),
+        updated_at: nowIso(),
+      })
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
+      .returning(recordColumns)
+      .executeTakeFirst();
   }
 }

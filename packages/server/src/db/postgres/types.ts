@@ -335,14 +335,14 @@ export interface SandboxProviderTable {
 }
 
 /**
- * Configured agents — immutable ULID `id` PK; UNIQUE (tenant_id, name).
+ * Configured agents — immutable ULID `id` PK; UNIQUE immutable (tenant_id, name).
  * PRIMARY KEY (id)
  */
 export interface AgentTable {
   /** application-generated (ulid); never re-derived from tenant_id/name */
   id: string;
   tenant_id: string;
-  /** natural uniqueness target within a tenant */
+  /** immutable natural uniqueness target within a tenant */
   name: string;
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JSONColumnType<AgentSpec, AgentSpec, AgentSpec>;

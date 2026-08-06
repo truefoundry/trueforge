@@ -30,23 +30,16 @@ function toWireAgent(record: AgentRecord): Agent {
   };
 }
 
-async function validateWriteBody({
-  body,
-  deps,
-}: {
-  body: AgentWriteRequest;
-  deps: AgentsRouterDeps;
-}): Promise<AgentSpec> {
-  const manifest = toAgentManifest(body);
+async function validateManifest({ spec, deps }: { spec: AgentSpec; deps: AgentsRouterDeps }): Promise<AgentSpec> {
   await validateAgentSpec({
-    spec: manifest,
+    spec,
     tenant_id: TENANT_ID,
     modelProviderStore: deps.modelProviderStore,
     mcpServerStore: deps.mcpServerStore,
     skillStore: deps.skillStore,
     sandboxProviderStore: deps.sandboxProviderStore,
   });
-  return manifest;
+  return spec;
 }
 
 export function createAgentsRouter(deps: AgentsRouterDeps) {
@@ -56,8 +49,8 @@ export function createAgentsRouter(deps: AgentsRouterDeps) {
   };
 
   const createHandler: RouteHandler<typeof createAgentRoute> = async c => {
-    const body = c.req.valid('json');
-    const manifest = await validateWriteBody({ body, deps });
+    const body: AgentWriteRequest = c.req.valid('json');
+    const manifest = await validateManifest({ spec: toAgentManifest(body), deps });
     try {
       const record = await deps.agentStore.createAgent({
         tenant_id: TENANT_ID,
@@ -83,30 +76,21 @@ export function createAgentsRouter(deps: AgentsRouterDeps) {
   };
 
   const putHandler: RouteHandler<typeof putAgentRoute> = async c => {
-    const { agent_id: agentId } = c.req.valid('param');
+    const { name } = c.req.valid('param');
     const body = c.req.valid('json');
-    const manifest = await validateWriteBody({ body, deps });
-    try {
-      const record = await deps.agentStore.updateAgent({
-        tenant_id: TENANT_ID,
-        id: agentId,
-        name: body.name,
-        manifest,
-      });
-      if (record === undefined) {
-        return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
-      }
-      return c.json({ data: toWireAgent(record) }, 200);
-    } catch (error) {
-      if (error instanceof AgentNameConflictError) {
-        return c.json({ error: { message: error.message } }, 409);
-      }
-      throw error;
+    const manifest = await validateManifest({ spec: body, deps });
+    const record = await deps.agentStore.updateAgent({
+      tenant_id: TENANT_ID,
+      name,
+      manifest,
+    });
+    if (record === undefined) {
+      return c.json({ error: { message: `Agent not found: ${name}` } }, 404);
     }
+    return c.json({ data: toWireAgent(record) }, 200);
   };
 
   const router = new OpenAPIHono();
-  // Static `/` before `/{agent_id}` so list/create are not captured as an id.
   router.openapi(listAgentsRoute, listHandler);
   router.openapi(createAgentRoute, createHandler);
   router.openapi(getAgentRoute, getHandler);

@@ -9,13 +9,19 @@ import {
   GetAgentResponseSchema,
   ListAgentsResponseSchema,
   PutAgentResponseSchema,
+  UpdateAgentRequestSchema,
 } from '../schemas/agent';
+import { NameSchema } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 
 const AGENTS_TAG = 'Agents';
 
 export const AgentIdParamsSchema = z.object({
   agent_id: z.string().min(1).max(64).describe('Immutable agent identifier.'),
+});
+
+export const AgentNameParamsSchema = z.object({
+  name: NameSchema.describe('Immutable unique agent name within the tenant.'),
 });
 
 export const listAgentsRoute = createRoute({
@@ -39,7 +45,8 @@ export const createAgentRoute = createRoute({
   path: '/',
   tags: [AGENTS_TAG],
   summary: 'Create an agent',
-  description: 'Creates an agent and allocates an immutable id. Fails if `name` is already taken.',
+  description:
+    'Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.',
   'x-fern-sdk-group-name': ['agents'],
   'x-fern-sdk-method-name': 'create',
   request: {
@@ -94,17 +101,16 @@ export const getAgentRoute = createRoute({
 
 export const putAgentRoute = createRoute({
   method: 'put',
-  path: '/{agent_id}',
+  path: '/{name}',
   tags: [AGENTS_TAG],
   summary: 'Update an agent',
-  description:
-    'Replaces `name` and AgentSpec for an existing agent by id. The id is never changed; renames are allowed via a new `name`.',
+  description: 'Replaces the AgentSpec for an existing agent keyed by immutable `name`.',
   'x-fern-sdk-group-name': ['agents'],
   'x-fern-sdk-method-name': 'update',
   request: {
-    params: AgentIdParamsSchema,
+    params: AgentNameParamsSchema,
     body: {
-      content: { 'application/json': { schema: AgentWriteRequestSchema } },
+      content: { 'application/json': { schema: UpdateAgentRequestSchema } },
       required: true,
     },
   },
@@ -120,10 +126,6 @@ export const putAgentRoute = createRoute({
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Agent not found.',
-    },
-    409: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Another agent already uses this name.',
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
