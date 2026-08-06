@@ -28,7 +28,7 @@ import type {
   TurnInputItem,
   UserMessageContent,
 } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi as Harness } from 'trueforge';
+import type { TrueForgeApi as Harness, TrueForge } from 'trueforge';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 export type HarnessSkillMount = SkillMount;
 export type HarnessMcpServerMount = McpServerMount & Harness.McpServer;
@@ -99,6 +99,15 @@ function toUiSession(
     ...(agentName === undefined ? {} : { agentName }),
     ...(agent.type === 'value' ? { agentSpec: toUiAgentSpec(agent.agentSpec) } : {}),
   };
+}
+
+/** Only ref sessions need the registry; drafts already carry their spec inline. */
+async function toUiSessionResolvingAgent(
+  client: TrueForge,
+  session: Harness.Session,
+): Promise<Session<HarnessAgentSpec>> {
+  const agents = session.agent.type === 'ref' ? (await client.agents.list()).data : [];
+  return toUiSession(session, agents);
 }
 
 /** There is no get-by-name endpoint; the UI keys agents by unique name. */
@@ -200,14 +209,13 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
         const created = await client.sessions.create({
           agent: { name: request.agentName },
         });
-        const { agent } = created.data;
-        return toUiSession(created.data, agent.type === 'ref' ? [{ id: agent.agentId, name: request.agentName }] : []);
+        return toUiSessionResolvingAgent(client, created.data);
       }
       if (request.agentSpec !== undefined) {
         const created = await client.sessions.create({
           agent: toHarnessAgentSpec(request.agentSpec),
         });
-        return toUiSession(created.data);
+        return toUiSessionResolvingAgent(client, created.data);
       }
       throw new Error('createSession requires agentName or agentSpec');
     },
@@ -230,8 +238,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
 
     async getSession({ sessionId }) {
       const response = await client.sessions.get(sessionId);
-      const agents = response.data.agent.type === 'ref' ? (await client.agents.list()).data : [];
-      return toUiSession(response.data, agents);
+      return toUiSessionResolvingAgent(client, response.data);
     },
 
     async updateSession({ sessionId, agentSpec }) {
@@ -244,7 +251,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
       const response = await client.sessions.update(sessionId, {
         ...(agentSpec === undefined ? {} : { agent: toHarnessAgentSpec(agentSpec) }),
       });
-      return toUiSession(response.data);
+      return toUiSessionResolvingAgent(client, response.data);
     },
 
     async *createTurn({
