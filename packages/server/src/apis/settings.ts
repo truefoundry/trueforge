@@ -14,7 +14,7 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
-import { createMcpServersRouter } from './mcpServers';
+import { createSettingsMcpServersRouter } from './mcpServers';
 import { createModelProvidersRouter } from './modelProviders';
 import { createSandboxProvidersRouter } from './sandboxProviders';
 import { createSkillsRouter } from './skills';
@@ -43,7 +43,7 @@ export function createSettingsRouter(deps: SettingsRouterDeps) {
   );
   router.route(
     '/mcp-servers',
-    createMcpServersRouter({
+    createSettingsMcpServersRouter({
       mcpCatalog: deps.mcpCatalog,
       mcpServerStore: deps.mcpServerStore,
       tokenStore: deps.tokenStore,

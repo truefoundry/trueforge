@@ -1,0 +1,19 @@
+# Models reachable through the OpenAI-compatible gateway at base_url.
+#
+# Auth headers are configured via env vars, never in this file:
+#   MODEL_API_KEY         - default API key for base_url (required)
+#   MODEL_{NAME}_API_KEY  - per-model API key override
+#   MODEL_HEADERS         - extra default headers for every model
+#   MODEL_{NAME}_HEADERS  - per-model overrides ({NAME} = model name,
+#                           uppercased, non-alphanumerics replaced by "_")
+
+models:
+  - name: claude-sonnet-4-6
+    model_id: anthropic/claude-sonnet-4-6
+    provider: generic
+    base_url: https://internal.devtest.truefoundry.tech/api/llm
+    max_output_tokens: 32768
+    reasoning_efforts:
+      - low
+      - medium
+      - high

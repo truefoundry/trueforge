@@ -11,28 +11,28 @@ export function handleNonStatusCodeError(
 ): never {
     switch (error.reason) {
         case "non-json":
-            throw new errors.TrueHarnessError({
+            throw new errors.TrueForgeError({
                 statusCode: error.statusCode,
                 body: error.rawBody,
                 rawResponse: rawResponse,
             });
         case "body-is-null":
-            throw new errors.TrueHarnessError({
+            throw new errors.TrueForgeError({
                 statusCode: error.statusCode,
                 rawResponse: rawResponse,
             });
         case "timeout":
-            throw new errors.TrueHarnessTimeoutError(`Timeout exceeded when calling ${method} ${path}.`, {
+            throw new errors.TrueForgeTimeoutError(`Timeout exceeded when calling ${method} ${path}.`, {
                 cause: error.cause,
             });
         case "unknown":
-            throw new errors.TrueHarnessError({
+            throw new errors.TrueForgeError({
                 message: error.errorMessage,
                 rawResponse: rawResponse,
                 cause: error.cause,
             });
         default:
-            throw new errors.TrueHarnessError({
+            throw new errors.TrueForgeError({
                 message: "Unknown error",
                 rawResponse: rawResponse,
             });

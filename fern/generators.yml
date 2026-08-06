@@ -41,7 +41,7 @@ groups:
           path: ../packages/sdk
         config:
           packageJson:
-            name: trueharness
+            name: trueforge
           allowExtraFields: true
           allowCustomFetcher: true
           enableInlineTypes: false
@@ -52,8 +52,8 @@ groups:
           inlineFileProperties: true
           inlinePathParameters: true
           naming:
-            namespace: TrueHarness
-            client: TrueHarness
+            namespace: TrueForge
+            client: TrueForge
           noSerdeLayer: false
           omitUndefined: true
           requireBaseUrl: true

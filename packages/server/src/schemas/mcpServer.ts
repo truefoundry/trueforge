@@ -69,9 +69,10 @@ export const ConfiguredMcpServerSchema = McpServerManifestObjectSchema.extend({
 
 export const PutMcpServerRequestSchema = McpServerManifestSchema;
 export const PutMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('PutMcpServerResponse');
-export const ListConfiguredMcpServersResponseSchema = z
+export const GetMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('GetMcpServerResponse');
+export const ListMcpServersResponseSchema = z
   .object({ data: z.array(ConfiguredMcpServerSchema) })
-  .openapi('ListConfiguredMcpServersResponse');
+  .openapi('ListMcpServersResponse');
 
 /** Chat/composer read view — no auth or auth_status. */
 export const McpServerReadEntrySchema = z

@@ -1,11 +1,11 @@
 import {
   createTrueFoundryServer,
-  TrueFoundryAssistantUI,
+  TrueforgeUI,
   useShellMode,
   WelcomeScreen,
   type SlotOverrides,
   type WelcomeScreenProps,
-} from '@truefoundry/agent-ui-sdk';
+} from '@truefoundry/trueforge-ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './agentUiSlots';
 import { getCapabilities, listMcpServers, listModels, listSkills } from './catalog';
@@ -51,6 +51,7 @@ const server = createTrueFoundryServer<HarnessAgentSpec>({
     connectorCatalog: createConnectorCatalog(),
     // Skills settings still deferred (UI create shape is repo/directory; Harness is git manifest).
     skillCatalog: {
+      getSkillCatalog: () => Promise.resolve([]),
       listSkills: () => Promise.resolve([]),
       createSkill: () => Promise.reject(new Error('not implemented')),
     },
@@ -131,7 +132,7 @@ export function App() {
 
   return (
     <div className="app-root">
-      <TrueFoundryAssistantUI
+      <TrueforgeUI
         server={server}
         theme={{
           brand: {
@@ -139,7 +140,10 @@ export function App() {
           },
         }}
         layout="sidebar"
-        defaultAgentSpec={boot.defaultAgentSpec}
+        agentConfig={{
+          mode: 'AgentComposer',
+          defaultAgentSpec: boot.defaultAgentSpec,
+        }}
         overrides={overrides}
         className="app-assistant"
       />

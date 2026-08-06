@@ -10,14 +10,14 @@ import type { BaseClientOptions, BaseRequestOptions } from "./BaseClient.js";
 import { type NormalizedClientOptions, normalizeClientOptions } from "./BaseClient.js";
 import * as core from "./core/index.js";
 
-export declare namespace TrueHarness {
+export declare namespace TrueForge {
     export type Options = BaseClientOptions;
 
     export interface RequestOptions extends BaseRequestOptions {}
 }
 
-export class TrueHarness {
-    protected readonly _options: NormalizedClientOptions<TrueHarness.Options>;
+export class TrueForge {
+    protected readonly _options: NormalizedClientOptions<TrueForge.Options>;
     protected _server: ServerClient | undefined;
     protected _mcpServers: McpServersClient | undefined;
     protected _models: ModelsClient | undefined;
@@ -25,7 +25,7 @@ export class TrueHarness {
     protected _skills: SkillsClient | undefined;
     protected _settings: SettingsClient | undefined;
 
-    constructor(options: TrueHarness.Options) {
+    constructor(options: TrueForge.Options) {
         this._options = normalizeClientOptions(options);
     }
 
