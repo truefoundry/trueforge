@@ -24,9 +24,11 @@ describe('create turn non-streaming', () => {
     const modelProviderStore = new SqliteModelProviderStore(db);
     await modelProviderStore.upsertProvider({
       tenant_id: 'default',
-      name: 'test-provider',
       manifest: {
-        type: 'openai',
+        // Caller-named, so `custom` is the only type it can be.
+        type: 'custom',
+        name: 'test-provider',
+        base_url: 'https://llm.test.example.com/v1',
         auth: { api_key: 'sk-test' },
         models: [
           {

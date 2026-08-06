@@ -7,9 +7,10 @@ import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 
-const modelProviderBody = {
+const modelProvider = {
   type: 'anthropic' as const,
-  name: 'anthropic',
+  name: 'anthropic' as const,
+  base_url: 'https://api.anthropic.com/v1',
   auth: { api_key: 'sk-ant-secret' },
   models: [
     {
@@ -46,15 +47,7 @@ describe('agents router', () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
-    await modelProviderStore.upsertProvider({
-      tenant_id: 'default',
-      name: modelProviderBody.name,
-      manifest: {
-        type: modelProviderBody.type,
-        auth: modelProviderBody.auth,
-        models: modelProviderBody.models,
-      },
-    });
+    await modelProviderStore.upsertProvider({ tenant_id: 'default', manifest: modelProvider });
     router = createAgentsRouter({
       agentStore: new SqliteAgentStore(db),
       modelProviderStore,
