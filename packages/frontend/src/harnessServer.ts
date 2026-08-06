@@ -230,6 +230,29 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
       }
     },
 
+    /** Resume a live turn; omitted/0 `afterSequenceNumber` replays from the start. */
+    async *subscribeToTurn({
+      sessionId,
+      turnId,
+      afterSequenceNumber,
+    }: {
+      sessionId: string;
+      turnId: string;
+      afterSequenceNumber?: number;
+    }) {
+      const stream = await client.sessions.subscribeToTurn(sessionId, turnId, {
+        ...(afterSequenceNumber === undefined ? {} : { afterSequenceNumber }),
+      });
+      let fallbackSequence = 0;
+      for await (const item of stream.withMetadata()) {
+        yield {
+          sequenceNumber: sequenceNumber(item.id, fallbackSequence),
+          event: toUiEvent(item.data),
+        };
+        fallbackSequence += 1;
+      }
+    },
+
     async cancelSession({ sessionId }) {
       await client.sessions.cancel(sessionId);
     },

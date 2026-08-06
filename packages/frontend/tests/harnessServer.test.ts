@@ -16,6 +16,7 @@ const session = {
 
 const turnRequests: unknown[] = [];
 const sessionRequests: unknown[] = [];
+const subscribeRequests: (string | null)[] = [];
 
 const fetchMock: typeof fetch = async (input, init) => {
   const url = input instanceof Request ? input.url : String(input);
@@ -36,6 +37,15 @@ const fetchMock: typeof fetch = async (input, init) => {
   if (url.endsWith('/api/v1/sessions/ses_1/turns')) {
     return new Response(
       'id: 7\ndata: {"type":"model.message.delta","id":"evt_1","thread_id":"main","content":"hello"}\n\n',
+      { headers: { 'content-type': 'text/event-stream' } },
+    );
+  }
+  if (url.includes('/api/v1/sessions/ses_1/turns/trn_1/subscribe')) {
+    // SDK join can yield a relative path; base is only for URL parsing.
+    const after = new URL(url, 'http://test.local').searchParams.get('after_sequence_number');
+    subscribeRequests.push(after);
+    return new Response(
+      'id: 8\ndata: {"type":"model.message.delta","id":"evt_2","thread_id":"main","content":"world"}\n\n',
       { headers: { 'content-type': 'text/event-stream' } },
     );
   }
@@ -111,6 +121,33 @@ describe('createHarnessChatServer', () => {
           id: 'evt_1',
           threadId: 'main',
           content: 'hello',
+        },
+      },
+    ]);
+  });
+
+  it('subscribes to a turn and forwards afterSequenceNumber', async () => {
+    const server = createHarnessChatServer({ fetch: fetchMock });
+    assert.ok(server.subscribeToTurn);
+
+    const events = [];
+    for await (const event of server.subscribeToTurn({
+      sessionId: 'ses_1',
+      turnId: 'trn_1',
+      afterSequenceNumber: 7,
+    })) {
+      events.push(event);
+    }
+
+    assert.equal(subscribeRequests.at(-1), '7');
+    assert.deepEqual(events, [
+      {
+        sequenceNumber: 8,
+        event: {
+          type: 'model.message.delta',
+          id: 'evt_2',
+          threadId: 'main',
+          content: 'world',
         },
       },
     ]);
