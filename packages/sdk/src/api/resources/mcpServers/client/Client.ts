@@ -23,7 +23,7 @@ export class McpServersClient {
     }
 
     /**
-     * Configured MCP servers as a slim name/url list for the composer. No auth or auth_status.
+     * MCP servers as a slim name/url list for the composer. No auth or auth_status.
      *
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -85,7 +85,7 @@ export class McpServersClient {
     /**
      * For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is where the OAuth callback then redirects the browser; without it the callback returns JSON.
      *
-     * @param {string} name - Configured MCP server name.
+     * @param {string} name - MCP server name.
      * @param {TrueForge.AuthorizeMcpServersRequest} request
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -203,7 +203,7 @@ export class McpServersClient {
     /**
      * For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. No-op for header or no-auth servers (returns the server unchanged).
      *
-     * @param {string} name - Configured MCP server name.
+     * @param {string} name - MCP server name.
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.NotFoundError}
