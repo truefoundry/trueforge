@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { parseArgs } from 'node:util';
 import { Daytona } from '@daytona/sdk';
+import { parseArgs } from 'node:util';
 
 function printUsage() {
   console.log(`Usage:
@@ -42,12 +42,12 @@ console.log(`image=${image}`);
 console.log(`name=${name}`);
 
 const daytona = new Daytona({
-    apiKey: process.env.DAYTONA_API_KEY,
+  apiKey: process.env.DAYTONA_API_KEY,
 });
 
 const snapshot = await daytona.snapshot.create({
-    name,
-    image,
+  name,
+  image,
 });
 
 console.log(`Snapshot created: ${snapshot.id}`);
