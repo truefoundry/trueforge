@@ -2,12 +2,12 @@
 
 import type * as core from "../../core/index.js";
 import * as errors from "../../errors/index.js";
-import type * as TrueHarness from "../index.js";
+import type * as TrueForge from "../index.js";
 
-export class PreconditionFailedError extends errors.TrueHarnessError {
-    public declare readonly body: TrueHarness.RequestErrorResponse;
+export class PreconditionFailedError extends errors.TrueForgeError {
+    public declare readonly body: TrueForge.RequestErrorResponse;
 
-    constructor(body: TrueHarness.RequestErrorResponse, rawResponse?: core.RawResponse) {
+    constructor(body: TrueForge.RequestErrorResponse, rawResponse?: core.RawResponse) {
         super({
             message: "PreconditionFailedError",
             statusCode: 412,

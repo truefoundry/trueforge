@@ -19,14 +19,16 @@ import {
   isAgentInputUserMessage,
   isFileContentPart,
   McpConnectionError,
+  SandboxError,
+  validateSandboxOwnedByTenant,
   VercelAILLM,
-  type VercelAIProviderConfig,
 } from '@truefoundry/utils-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import configuration from '../config';
+import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -34,14 +36,16 @@ import type { ISkillStore } from '../db/skillStore';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
 import {
   createAndExecuteTurnRoute,
+  downloadSandboxFileRoute,
   getTurnRoute,
   listTurnEventsRoute,
   listTurnsRoute,
   subscribeTurnRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { StreamGoneError, type EventSubscriptionRegistry } from '../runtime/event-subscription';
+import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry } from '../runtime/event-subscription';
 import { mintPeeredTurnId } from '../runtime/peeringIds';
+import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
   getMcpConnection,
@@ -62,6 +66,37 @@ export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
   };
 }
 
+/**
+ * Copies into a standalone ArrayBuffer for the response body: a pooled Buffer's
+ * backing store is shared and typed as ArrayBufferLike, which is not a body.
+ * Bounded by SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD.
+ */
+function toArrayBuffer(content: Buffer): ArrayBuffer {
+  const buffer = new ArrayBuffer(content.byteLength);
+  new Uint8Array(buffer).set(content);
+  return buffer;
+}
+
+/**
+ * Builds the Content-Disposition telling the browser to save the file under its sandbox name.
+ *
+ * A sandbox file can be named in any script, but an HTTP header can only carry bytes, so a name
+ * like `中文.csv` cannot be written into the header as-is — doing so throws when the response is
+ * constructed. RFC 6266's `filename*` exists for this: percent-encode the UTF-8 name so the value
+ * stays plain ASCII, and the client decodes it back. Encoding also defuses quotes and newlines,
+ * which could otherwise close the value or inject another header.
+ */
+export function toContentDisposition(path: string): string {
+  // Trailing separators are dropped so a path ending in `/` still yields its last real segment.
+  const fileName = path.split('/').filter(Boolean).pop() ?? 'download';
+  // encodeURIComponent covers everything except these four, which RFC 5987 also disallows here.
+  const encoded = encodeURIComponent(fileName).replace(
+    /['()*]/g,
+    char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `attachment; filename*=UTF-8''${encoded}`;
+}
+
 export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
@@ -70,6 +105,7 @@ export interface TurnsRouterDeps {
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
+  agentStore: IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   sandboxProviderStore: ISandboxProviderStore;
@@ -77,26 +113,36 @@ export interface TurnsRouterDeps {
 }
 
 /**
- * TurnResourceResolver requires a sync llm factory; preload the session model
- * config so the factory stays sync while the store read stays async.
+ * Builds the per-turn resolver. Agent / MCP / sandbox / LLM lookups are wired
+ * the same way: async factories over the corresponding stores.
  */
 function createTurnResolver(deps: {
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
+  agentStore: IAgentStore;
+  modelProviderStore: IModelProviderStore;
   logger: Logger;
   signal: AbortSignal;
-  modelName: string;
-  providerConfig: VercelAIProviderConfig;
 }): TurnResourceResolver {
-  const { mcpServerStore, tokenStore, skillStore, sandboxProviderStore, logger, signal, modelName, providerConfig } =
-    deps;
+  const {
+    mcpServerStore,
+    tokenStore,
+    skillStore,
+    sandboxProviderStore,
+    agentStore,
+    modelProviderStore,
+    logger,
+    signal,
+  } = deps;
   return new TurnResourceResolver({
-    llm: name => {
-      if (name !== modelName) {
-        throw new Error(`Model not registered: ${name}`);
-      }
+    llm: async name => {
+      const providerConfig = await getModelProviderConfig({
+        tenant_id: TENANT_ID,
+        name,
+        store: modelProviderStore,
+      });
       return new VercelAILLM({
         providerConfig,
         logger,
@@ -109,7 +155,7 @@ function createTurnResolver(deps: {
         name,
         store: mcpServerStore,
         tokenStore,
-        clientName: configuration.OAUTH_CLIENT_NAME,
+        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
       });
       if (connection === undefined) {
         throw new HTTPException(422, {
@@ -140,11 +186,18 @@ function createTurnResolver(deps: {
         provider,
         logger,
         gitSkills,
-        fileDownloadEnabled: spec.config?.sandbox?.file_downloads ?? false,
+        fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId,
         tracing,
         tenantName: TENANT_ID,
       });
+    },
+    agent: async agentId => {
+      const record = await agentStore.getAgent({ tenant_id: TENANT_ID, id: agentId });
+      if (record === undefined) {
+        throw new HTTPException(422, { message: `Agent not found: ${agentId}` });
+      }
+      return record.manifest;
     },
     logger,
   });
@@ -210,6 +263,48 @@ export function turnStreamId(tenantId: string, sessionId: string, turnId: string
 }
 
 /**
+ * Dual-write turn events to the resumable subscription registry, then optionally
+ * forward each sequenced event (SSE path). Shared by streaming and non-streaming
+ * create-turn; the HTTP response lifecycle does not own execution.
+ */
+export async function drainTurnEvents(input: {
+  trackedStream: AsyncIterable<TurnStreamingEvent>;
+  turnEventStream: EventSubscription<TurnStreamingEvent>;
+  sessionId: string;
+  turnId: string;
+  maxExecutionTimer: NodeJS.Timeout;
+  logger: Logger;
+  onEvent?: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
+}): Promise<void> {
+  const { trackedStream, turnEventStream, sessionId, turnId, maxExecutionTimer, logger, onEvent } = input;
+  try {
+    for await (const event of trackedStream) {
+      // Dual-write before any client sink so subscribers can resume after disconnect.
+      const sequenceNumber = await turnEventStream.put(event, {
+        streamTTLSeconds: streamTTLSecondsFor(event),
+      });
+      await onEvent?.(event, sequenceNumber);
+    }
+  } catch (error) {
+    if (error instanceof SessionStoreNotFoundError) {
+      logger.warn('Turn stream ended after session/turn was removed', {
+        sessionId,
+        turnId,
+        ...extractErrorLogFields(error),
+      });
+    } else {
+      logger.error('Unexpected error in turn event drain', {
+        sessionId,
+        turnId,
+        ...extractErrorLogFields(error),
+      });
+    }
+  } finally {
+    clearTimeout(maxExecutionTimer);
+  }
+}
+
+/**
  * Resume cursor: `Last-Event-ID` header wins over the body value because the
  * header is updated by the SDK on every reconnect to reflect the last delivered
  * event, whereas the body is the original caller-supplied cursor and never
@@ -263,6 +358,65 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     return c.json({ data: toWireTurn(turn.record) }, 200);
   };
 
+  const downloadSandboxFileHandler: RouteHandler<typeof downloadSandboxFileRoute> = async c => {
+    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
+    const { path } = c.req.valid('query');
+
+    let sandboxId: string | undefined;
+    try {
+      // Cheapest first: a malformed path costs no store read and no provider round-trip.
+      validateSandboxFilePath(path);
+
+      const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+      if (!session) {
+        return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+      }
+
+      // Loading the turn through the session is also the ownership check: a turn id from another
+      // session cannot be used to reach this session's sandbox.
+      const turn = await session.getTurn(turnId);
+      if (!turn) {
+        return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
+      }
+      sandboxId = turn.record.snapshot.sandbox_info?.sandbox_id;
+      if (sandboxId === undefined) {
+        return c.json({ error: { message: `Turn has no sandbox: ${turnId}` } }, 412);
+      }
+
+      const provider = await resolveSandboxProvider({
+        tenant_id: TENANT_ID,
+        store: deps.sandboxProviderStore,
+        logger: deps.logger,
+      });
+      if (provider === undefined) {
+        return c.json({ error: { message: 'No sandbox provider configured' } }, 412);
+      }
+
+      validateSandboxOwnedByTenant(sandboxId, TENANT_ID);
+      // TODO: stream the body instead of buffering the whole file in memory.
+      const content = await provider.downloadFile({ sandboxId, path });
+      return c.body(toArrayBuffer(content), 200, {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': String(content.byteLength),
+        'Content-Disposition': toContentDisposition(path),
+        'Cache-Control': 'private, no-store',
+      });
+    } catch (error) {
+      // Every guard and the provider itself raise SandboxError, whose statusCode is the contract.
+      if (error instanceof SandboxError) {
+        return c.json({ error: { message: error.message } }, error.statusCode);
+      }
+      deps.logger.error('Sandbox file download failed', {
+        ...extractErrorLogFields(error),
+        sessionId,
+        turnId,
+        sandboxId,
+        path,
+      });
+      return c.json({ error: { message: 'Failed to download file from sandbox' } }, 424);
+    }
+  };
+
   const listTurnEventsHandler: RouteHandler<typeof listTurnEventsRoute> = async c => {
     const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const query = c.req.valid('query');
@@ -299,21 +453,15 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }
 
     const abortController = new AbortController();
-    const modelName = session.agent_spec.model.name;
-    const providerConfig = await getModelProviderConfig({
-      tenant_id: TENANT_ID,
-      name: modelName,
-      store: deps.modelProviderStore,
-    });
     const resolver = createTurnResolver({
       mcpServerStore: deps.mcpServerStore,
       tokenStore: deps.tokenStore,
       skillStore: deps.skillStore,
       sandboxProviderStore: deps.sandboxProviderStore,
+      agentStore: deps.agentStore,
+      modelProviderStore: deps.modelProviderStore,
       logger: deps.logger,
       signal: abortController.signal,
-      modelName,
-      providerConfig,
     });
 
     // First turn only: derive the title from the first user message. The store
@@ -354,20 +502,43 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       stream: turn.stream(),
     });
 
-    let shouldWriteToSSEStream = true;
     // Held for the whole turn; the stream's sequence counter dies with it.
     const turnEventStream = deps.eventSubscriptions.get(turnStreamId(TENANT_ID, sessionId, turn.id));
+    const drainInput = {
+      trackedStream,
+      turnEventStream,
+      sessionId,
+      turnId: turn.id,
+      maxExecutionTimer,
+      logger: deps.logger,
+    };
+
+    // Non-stream: same unawaited drain scheduling as Hono streamSSE's run(cb).
+    // Wait until the first dual-write (turn.created) so immediate subscribeToTurn
+    // cannot 412 before the resumable stream exists.
+    if (!body.stream) {
+      const { promise: firstEventDualWritten, resolve: markFirstEventDualWritten } = Promise.withResolvers<undefined>();
+      void drainTurnEvents({
+        ...drainInput,
+        onEvent: () => {
+          markFirstEventDualWritten(undefined);
+          return Promise.resolve();
+        },
+      }).finally(() => {
+        markFirstEventDualWritten(undefined);
+      });
+      await firstEventDualWritten;
+      return c.json({ data: toWireTurn(turn.record) }, 200);
+    }
+
+    let shouldWriteToSSEStream = true;
     return streamSSE(c, async stream => {
       stream.onAbort(() => {
         shouldWriteToSSEStream = false;
       });
-      try {
-        for await (const event of trackedStream) {
-          // Dual-write before SSE so subscribers can resume even after the
-          // creating client disconnects; the returned sequence is the SSE id.
-          const sequenceNumber = await turnEventStream.put(event, {
-            streamTTLSeconds: streamTTLSecondsFor(event),
-          });
+      await drainTurnEvents({
+        ...drainInput,
+        onEvent: async (event, sequenceNumber) => {
           if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
             try {
               await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
@@ -376,25 +547,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
               shouldWriteToSSEStream = false;
             }
           }
-        }
-      } catch (error) {
-        if (error instanceof SessionStoreNotFoundError) {
-          deps.logger.warn('Turn stream ended after session/turn was removed', {
-            sessionId,
-            turnId: turn.id,
-            ...extractErrorLogFields(error),
-          });
-        } else {
-          deps.logger.error('Unexpected error in turn SSE stream loop', {
-            sessionId,
-            turnId: turn.id,
-            ...extractErrorLogFields(error),
-          });
-        }
-      } finally {
-        clearTimeout(maxExecutionTimer);
-        await stream.close();
-      }
+        },
+      });
+      await stream.close();
     });
   };
 
@@ -471,6 +626,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   router.openapi(createAndExecuteTurnRoute, createAndExecuteTurnHandler);
   router.openapi(listTurnsRoute, listTurnsHandler);
   router.openapi(getTurnRoute, getTurnHandler);
+  router.openapi(downloadSandboxFileRoute, downloadSandboxFileHandler);
   router.openapi(listTurnEventsRoute, listTurnEventsHandler);
   router.openapi(subscribeTurnRoute, subscribeTurnHandler);
   return router;

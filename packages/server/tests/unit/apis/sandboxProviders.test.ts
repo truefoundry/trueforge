@@ -6,7 +6,7 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 
 const putBody = {
   type: 'daytona' as const,
-  snapshot_name: 'truefoundry-platform-dev-2d5edee',
+  snapshot_name: 'trueforge-local',
   auth: { api_key: 'dtn-test' },
   exec_timeout_ms: 60000,
   auto_stop_interval_in_minutes: 5,

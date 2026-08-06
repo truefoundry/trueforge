@@ -23,7 +23,6 @@ import type { ISkillStore } from '../db/skillStore';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
-import { PROVIDER_DEFAULT_BASE_URLS } from '../schemas/modelProvider';
 import { toDaytonaSandboxProviderInput } from '../schemas/sandboxProvider';
 
 export interface McpConnection {
@@ -75,13 +74,13 @@ export async function getModelProviderConfig({
     });
   }
   // Provider types are adapter names, so this assignment is what keeps them so: a type with no
-  // `buildLanguageModel` case fails to compile here. An explicit base_url always wins.
+  // `buildLanguageModel` case fails to compile here.
   const { type, base_url } = provider.manifest;
   return {
     provider: type,
     name,
     modelId: model.model_id,
-    baseUrl: base_url ?? PROVIDER_DEFAULT_BASE_URLS[type],
+    baseUrl: base_url,
     apiKey: provider.manifest.auth.api_key,
     headers: {},
   };
@@ -292,7 +291,7 @@ export async function validateAgentSpec({
   const reasoningEffort = spec.model.params?.reasoning_effort;
   if (reasoningEffort !== undefined) {
     const efforts = model.properties.reasoning_efforts;
-    if (!efforts?.includes(reasoningEffort)) {
+    if (!efforts?.some(effort => effort === reasoningEffort)) {
       throw new HTTPException(422, {
         message: efforts
           ? `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`
@@ -327,7 +326,7 @@ export async function validateAgentSpec({
     }
   }
 
-  const wantsSandbox = spec.config?.sandbox?.enabled === true;
+  const wantsSandbox = spec.config.sandbox.enabled;
   const hasSkills = requestedSkills.length > 0;
   if (wantsSandbox || hasSkills) {
     const record = await sandboxProviderStore.getSandboxProvider(tenant_id);
