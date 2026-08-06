@@ -99,15 +99,6 @@ export function toHarnessManifest(req: { name: string; url: string; auth: Connec
   };
 }
 
-async function listToolsSafe(name: string): Promise<ToolBase[]> {
-  try {
-    const body = await client.settings.mcpServers.listTools(name);
-    return body.data.map(toUiTool);
-  } catch {
-    return [];
-  }
-}
-
 async function getConfigured(name: string): Promise<Harness.ConfiguredMcpServer> {
   const listed = await client.settings.mcpServers.list();
   const existing = listed.data.find(server => server.name === name);

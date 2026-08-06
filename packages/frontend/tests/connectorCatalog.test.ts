@@ -71,8 +71,6 @@ describe('connectorCatalog mappers', () => {
         authenticated: true,
       },
     );
-    assert.deepEqual(toUiTool({ name: 'search' }), { id: 'search', name: 'search' });
-    assert.deepEqual(toUiTool({}), { id: 'tool', name: 'tool' });
   });
 
   it('maps auth_required vs authenticated for oauth connectors', () => {
@@ -102,6 +100,11 @@ describe('connectorCatalog mappers', () => {
       id: 'search',
       name: 'search',
       description: 'Find docs',
+    });
+    assert.deepEqual(toUiTool({ name: 'search' }), {
+      id: 'search',
+      name: 'search',
+      description: '',
     });
     assert.deepEqual(toUiTool({}), { id: 'tool', name: 'tool', description: '' });
   });
