@@ -7,7 +7,6 @@ import {
   type WelcomeScreenProps,
 } from '@truefoundry/trueforge-ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import './agentUiSlots';
 import { getCapabilities, listMcpServers, listModels, listSkills } from './catalog';
 import { createConnectorCatalog } from './connectorCatalog';
 import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';

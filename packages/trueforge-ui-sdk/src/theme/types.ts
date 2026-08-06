@@ -22,6 +22,10 @@ export type SemanticTokens = {
   accentForeground: string;
   destructive: string;
   destructiveForeground: string;
+  success: string;
+  successForeground: string;
+  warning: string;
+  warningForeground: string;
   border: string;
   input: string;
   ring: string;
@@ -57,6 +61,7 @@ export type BrandConfig = {
 
 export type ContentClassNames = {
   markdown?: string;
+  inlineCode?: string;
   syntaxHighlighter?: {
     root?: string;
     pre?: string;
@@ -65,7 +70,7 @@ export type ContentClassNames = {
   };
   openui?: {
     root?: string;
-    [key: string]: string | undefined;
+    scope?: string;
   };
   monaco?: {
     root?: string;
@@ -106,6 +111,10 @@ export const TOKEN_CSS_VARS: Record<keyof SemanticTokens, string> = {
   accentForeground: '--accent-foreground',
   destructive: '--destructive',
   destructiveForeground: '--destructive-foreground',
+  success: '--success',
+  successForeground: '--success-foreground',
+  warning: '--warning',
+  warningForeground: '--warning-foreground',
   border: '--border',
   input: '--input',
   ring: '--ring',

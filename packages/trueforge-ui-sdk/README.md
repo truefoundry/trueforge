@@ -167,7 +167,7 @@ export default function App() {
 | `layout`           | `LayoutProp`               | ✅       | Built-in layout string **or** a custom React component.                                                            |
 | `agentConfig`      | `AgentConfig`              | —        | Shell mode: SingleAgent / AgentLibrary / AgentComposer / AgentLibraryWithComposer. Defaults to library + composer. |
 | `theme`            | `ThemeConfig`              | —        | Preset, mode, tokens, brand, icons (see [Theming](#theming)).                                                      |
-| `overrides`        | `Partial<SlotOverrides>`   | —        | Map of slot overrides (see [Overriding components](#overriding-components)).                                       |
+| `overrides`        | `SlotOverrides`            | —        | Map of slot overrides (see [Overriding components](#overriding-components)).                                       |
 | `className`        | `string`                   | —        | Applied to the layout root.                                                                                        |
 | `initialSessionId` | `string`                   | —        | Resume a specific session.                                                                                         |
 | `onError`          | `(error: unknown) => void` | —        | Host error hook (runtime + server init).                                                                           |
@@ -347,8 +347,35 @@ Every curated feature atom is overridable. Provide an `overrides` map to swap an
 ```tsx
 import { TrueforgeUI, type AssistantMessageBubbleProps } from '@truefoundry/trueforge-ui';
 
-function MyBubble(props: AssistantMessageBubbleProps) {
-  return <div className="mr-auto max-w-[75%] rounded-2xl bg-muted px-4 py-2">{props.children}</div>;
+function MyBubble({ children, error, actionBar, className }: AssistantMessageBubbleProps) {
+  return (
+    <div
+      className={className}
+      style={{
+        borderLeft: '2px solid var(--openui-text-brand, currentColor)',
+        paddingLeft: 14,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
+    >
+      {error ? (
+        <div
+          style={{
+            padding: '8px 10px',
+            borderRadius: 'var(--openui-radius-m, 10px)',
+            background: 'var(--openui-danger-background)',
+            color: 'var(--openui-text-danger-primary)',
+            fontSize: 13,
+          }}
+        >
+          {error}
+        </div>
+      ) : null}
+      <div>{children}</div>
+      {actionBar}
+    </div>
+  );
 }
 
 <TrueforgeUI

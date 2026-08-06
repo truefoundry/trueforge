@@ -30,12 +30,13 @@ over hacking third-party CSS:
     mode: 'dark',
     tokens: { primary: '#e11d48' },
     brand: { name: 'Acme', icon: MyMark },
-    icons: { send: MySendSvg },
+    icons: { 'arrow-up': MySendSvg },
     classNames: {
       markdown: 'prose max-w-none',
-      syntaxHighlighter: { root: 'rounded-lg' },
-      openui: { root: 'my-openui' },
-      monaco: { root: 'h-64', monacoTheme: 'vs-dark' },
+      inlineCode: 'font-semibold',
+      syntaxHighlighter: { root: 'rounded-lg', lineNumber: 'opacity-60' },
+      openui: { root: 'my-openui', scope: 'p-2' },
+      monaco: { root: 'h-64', editor: 'rounded-lg', monacoTheme: 'vs-dark' },
     },
   }}
 />
@@ -51,15 +52,20 @@ Public override surface (primitives stay theme/CSS — not slots):
 
 - **Layout / composer:** `Accordion`, `AccordionSummary`, `AccordionDetails`,
   `ComposerShell`, `ComposerLeftSection`, `ComposerRightSection`,
-  `ComposerSendButton`, `ThreadRootShell`, `ThreadViewportShell`,
+  `ComposerSendButton`, `DraftComposerLeftSection`,
+  `DraftComposerRightSection`, `DraftCompositeSelector`, `DraftModelSelector`,
+  `ThreadRootShell`, `ThreadViewportShell`,
   `ThreadComposerAreaShell`, `MessageGroup`, `ScrollToBottomButton`,
   `MessageListSkeleton`, `WelcomeScreen`
 - **Messages / content:** `AssistantMessageBubble`, `UserMessageBubble`,
   `UserMessageEdit`, `UserMessageActionBar`, `MessageActionBar`,
   `MessageErrorBanner`, `MessageIndicator`, `MessageTimestamp`, `Markdown`,
-  `OpenUiFenceBlock`, `SandboxArtifactDownload`
+  `SyntaxHighlighter`, `OpenUiFenceBlock`, `SandboxArtifactDownload`,
+  `ChatFileDownload`, `MonacoEditorCore`, `CodeEditor`
 - **Thread list:** `ThreadListShell`, `ThreadListNewButton`, `ThreadListRow`,
-  `ThreadListRowSkeleton`, `ThreadListEmptyState`, `HistoryLoader`
+  `ThreadListRowSkeleton`, `ThreadListEmptyState`, `HistoryLoader`,
+  `AgentsLibrary`, `AgentsLibraryButton`, `SaveAgentButton`,
+  `SelectAgentEmptyState`, `ClearChatButton`
 - **Attachments / toasts:** `AttachmentCard`, `AttachmentPreviewDialog`,
   `AttachmentPickerButton`, `Toast`, `ToastStack`
 - **Tools / prompts:** `ToolCallCard`, `ToolCallContentBlock`,

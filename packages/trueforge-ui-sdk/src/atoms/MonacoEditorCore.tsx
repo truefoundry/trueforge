@@ -279,9 +279,16 @@ export function MonacoEditorCore({
 
   return (
     <div
-      ref={containerRef}
       className={cn('aui-monaco overflow-hidden', classNames.monaco?.root, className)}
       style={{ height: styleHeight }}
-    />
+    >
+      <div ref={containerRef} className={cn('h-full w-full overflow-hidden', classNames.monaco?.editor)} />
+    </div>
   );
+}
+
+declare module '../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    MonacoEditorCore: typeof MonacoEditorCore;
+  }
 }

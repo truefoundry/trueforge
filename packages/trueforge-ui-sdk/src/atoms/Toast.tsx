@@ -34,7 +34,7 @@ export function Toast({ title, description, open, onOpenChange, className }: Toa
     <div
       role="alert"
       className={cn(
-        'font-sans-flex bg-background text-foreground pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-gray-200 px-4 py-4 shadow-md dark:bg-card',
+        'font-sans-flex bg-background text-foreground pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-border px-4 py-4 shadow-md dark:bg-card',
         'animate-in fade-in-0 slide-in-from-bottom-4',
         className,
       )}
@@ -43,7 +43,7 @@ export function Toast({ title, description, open, onOpenChange, className }: Toa
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <div className="text-destructive text-sm leading-none font-semibold dark:text-red-200">{title}</div>
+          <div className="text-destructive text-sm leading-none font-semibold">{title}</div>
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"

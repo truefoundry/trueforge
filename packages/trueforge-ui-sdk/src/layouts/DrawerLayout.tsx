@@ -3,8 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useAui } from '../assistant-ui.js';
-import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
-import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
@@ -19,6 +17,8 @@ export function DrawerLayout({ className }: { className?: string }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
   const ClearChatButton = useSlot('ClearChatButton');
+  const SaveAgentButton = useSlot('SaveAgentButton');
+  const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const [threadsOpen, setThreadsOpen] = useState(false);
   const threadsBtnRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);

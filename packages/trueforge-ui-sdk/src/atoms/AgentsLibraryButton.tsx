@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { AgentsLibrary } from './AgentsLibrary.js';
+import { useSlot } from '../theme/SlotsProvider.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 
@@ -16,6 +16,7 @@ export type AgentsLibraryButtonProps = {
 };
 
 export function AgentsLibraryButton({ className, compact = false, onSelectAgent }: AgentsLibraryButtonProps) {
+  const AgentsLibrary = useSlot('AgentsLibrary');
   const server = useOptionalServer();
   const shell = useOptionalShellMode();
   const [open, setOpen] = useState(false);

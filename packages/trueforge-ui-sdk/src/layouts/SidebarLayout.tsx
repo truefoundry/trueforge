@@ -5,8 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useAui } from '../assistant-ui.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
-import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
-import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import TruefoundrySettingsBuilder from '../containers/SettingsBuilder/index.js';
 import { Thread } from '../containers/Thread.js';
@@ -26,6 +24,8 @@ export function SidebarLayout({ className }: { className?: string }) {
   const brand = useBrand();
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const ClearChatButton = useSlot('ClearChatButton');
+  const SaveAgentButton = useSlot('SaveAgentButton');
+  const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const [collapsed, setCollapsed] = useState(desktopCollapsed);
   const setDesktopCollapsed = (value: boolean | ((prev: boolean) => boolean)) => {
     setCollapsed(prev => {
