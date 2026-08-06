@@ -36,6 +36,10 @@ const DEFAULT_POSTGRES_HOST = 'localhost';
 const DEFAULT_POSTGRES_PORT = 5432;
 const DEFAULT_REDIS_URL = 'redis://localhost:6379';
 
+const DEFAULT_OIDC_USER_REFERENCE_CLAIM = 'sub';
+const DEFAULT_OIDC_USER_ROLE_CLAIM = 'groups';
+const DEFAULT_OIDC_ADMIN_ROLE_VALUE = 'admin';
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -219,7 +223,18 @@ function resolveOIDCConfig(): OIDCConfig | undefined {
         '(unset = fixed local admin identity, no IdP).',
     );
   }
-  return { OIDC_ISSUER_URL: issuerUrl, OIDC_CLIENT_ID: clientId, OIDC_CLIENT_SECRET: clientSecret };
+  return {
+    OIDC_ISSUER_URL: issuerUrl,
+    OIDC_CLIENT_ID: clientId,
+    OIDC_CLIENT_SECRET: clientSecret,
+    OIDC_USER_REFERENCE_CLAIM:
+      getEnv('OIDC_USER_REFERENCE_CLAIM', { defaultValue: DEFAULT_OIDC_USER_REFERENCE_CLAIM }) ??
+      DEFAULT_OIDC_USER_REFERENCE_CLAIM,
+    OIDC_USER_ROLE_CLAIM:
+      getEnv('OIDC_USER_ROLE_CLAIM', { defaultValue: DEFAULT_OIDC_USER_ROLE_CLAIM }) ?? DEFAULT_OIDC_USER_ROLE_CLAIM,
+    OIDC_ADMIN_ROLE_VALUE:
+      getEnv('OIDC_ADMIN_ROLE_VALUE', { defaultValue: DEFAULT_OIDC_ADMIN_ROLE_VALUE }) ?? DEFAULT_OIDC_ADMIN_ROLE_VALUE,
+  };
 }
 
 // ============================================================================
@@ -229,10 +244,22 @@ function resolveOIDCConfig(): OIDCConfig | undefined {
 export interface OIDCConfig {
   /** e.g. an Okta custom authorization server, or an Azure AD tenant's v2.0 endpoint. Env: `OIDC_ISSUER_URL`. */
   OIDC_ISSUER_URL: string;
-  /** Env: `OIDC_CLIENT_ID`. */
+  /** Client ID for the OIDC client;*/
   OIDC_CLIENT_ID: string;
-  /** Env: `OIDC_CLIENT_SECRET`. */
+  /** Client secret for the OIDC client*/
   OIDC_CLIENT_SECRET: string;
+  /** Claim to be used as the user reference; e.g. "sub" or "email"
+   * Optional; defaults to "sub"
+   */
+  OIDC_USER_REFERENCE_CLAIM: string;
+  /** Claim to be used as the user role; e.g. "role" or "groups"
+   * Optional; defaults to "groups"
+   */
+  OIDC_USER_ROLE_CLAIM: string;
+  /** Value of the user role claim that will be used to grant admin access to the server
+   * Case sensitive. Optional; defaults to "admin"
+   */
+  OIDC_ADMIN_ROLE_VALUE: string;
 }
 
 export interface SharedServerConfiguration {
