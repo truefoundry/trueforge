@@ -224,13 +224,7 @@ const VERCEL_AI_REASONING_LEVELS = [
 ] as const satisfies readonly ReasoningLevel[];
 
 // Fails if any union member is missing.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _assertAllReasoningLevelsCovered: Exclude<
-  ReasoningLevel,
-  (typeof VERCEL_AI_REASONING_LEVELS)[number]
-> extends never
-  ? true
-  : never = true;
+true satisfies Exclude<ReasoningLevel, (typeof VERCEL_AI_REASONING_LEVELS)[number]> extends never ? true : never;
 
 function isReasoningLevel(v: string): v is ReasoningLevel {
   return VERCEL_AI_REASONING_LEVELS.some(level => level === v);
