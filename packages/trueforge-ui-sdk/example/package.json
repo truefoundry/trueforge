@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "yarn@1.22.22",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -27,8 +28,8 @@
     "vite": "^6.3.5"
   },
   "resolutions": {
-    "@assistant-ui/core": "0.2.22",
-    "@assistant-ui/store": "0.2.21",
-    "@assistant-ui/tap": "0.9.5"
+    "@assistant-ui/core": "^0.2.23",
+    "@assistant-ui/store": "^0.2.22",
+    "@assistant-ui/tap": "^0.9.6"
   }
 }

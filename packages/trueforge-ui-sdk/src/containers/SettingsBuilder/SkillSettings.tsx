@@ -107,13 +107,11 @@ const SkillSettings = () => {
     key,
     name,
     description,
-    source,
     action,
   }: {
     key: string;
     name: string;
     description: string;
-    source: 'registry' | 'github';
     action: ReactNode;
   }) => (
     <article key={key} className="flex min-h-16 items-center gap-3 border-b border-border p-3 last:border-b-0">
@@ -125,19 +123,7 @@ const SkillSettings = () => {
       </span>
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <h5 className="truncate text-sm font-medium text-foreground">{name}</h5>
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            {source === 'github' ? (
-              <>
-                <Icon name="github" className="size-3" />
-                GitHub
-              </>
-            ) : (
-              'Registry'
-            )}
-          </span>
-        </div>
+        <h5 className="truncate text-sm font-medium text-foreground">{name}</h5>
         {description ? <p className="mt-0.5 truncate text-sm text-muted-foreground">{description}</p> : null}
       </div>
 
@@ -194,7 +180,6 @@ const SkillSettings = () => {
                     key: skill.id,
                     name: skill.name,
                     description: skill.description,
-                    source: isRegistrySkill(skill) ? 'registry' : 'github',
                     action: skillCatalog.deleteSkill ? (
                       <Button
                         variant="outline"
@@ -229,7 +214,6 @@ const SkillSettings = () => {
                     key: entry.id,
                     name: entry.name,
                     description: entry.description,
-                    source: 'registry',
                     action: (
                       <Button
                         variant="outline"

@@ -43,6 +43,10 @@ yarn
 yarn dev
 ```
 
+This app installs with yarn even though the surrounding repo uses pnpm. Its
+`packageManager` field pins yarn so corepack stops here instead of walking up to
+the pnpm workspace root.
+
 Open the URL Vite prints (usually `http://localhost:5173`).
 
 The demo uses `server={{ type: "truefoundry", … }}` so `<TrueforgeUI />` builds

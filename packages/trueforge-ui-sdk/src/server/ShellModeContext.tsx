@@ -100,6 +100,8 @@ export function ShellModeProvider({
   const selectAgent = useCallback(
     (name: string) => {
       if (!isLibraryEnabled) return;
+      // Leaving Settings so the main pane shows the selected agent chat.
+      setSettingsOpen(false);
       setMode({ type: 'named', agentName: name, locked: false });
       // Re-picking the current agent must still remount the runtime.
       setClearEpoch(n => n + 1);
@@ -109,6 +111,8 @@ export function ShellModeProvider({
 
   const openDraft = useCallback(() => {
     if (!isComposerEnabled) return;
+    // New Chat while Settings is open must reveal the draft composer.
+    setSettingsOpen(false);
     setMode({ type: 'draft', defaultAgentSpec: draftSeedRef.current });
     setDraftEpoch(n => n + 1);
   }, [isComposerEnabled]);
