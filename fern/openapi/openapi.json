@@ -194,6 +194,86 @@
         ],
         "description": "Agent Definition"
       },
+      "AlibabaModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "alibaba",
+            "enum": [
+              "alibaba"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "alibaba"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
+        ],
+        "type": "object"
+      },
+      "AnthropicModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://api.anthropic.com/v1",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "anthropic",
+            "enum": [
+              "anthropic"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "anthropic"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
+        ],
+        "type": "object"
+      },
       "ApprovalAllow": {
         "properties": {
           "status": {
@@ -317,44 +397,6 @@
         ],
         "type": "object"
       },
-      "CallerSuppliedModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "description": "Base URL of the provider's API.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "enum": [
-              "alibaba",
-              "custom"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type",
-          "base_url",
-          "name"
-        ],
-        "type": "object"
-      },
       "CancelSessionRequest": {
         "properties": {},
         "type": "object"
@@ -461,8 +503,8 @@
               "fireworks",
               "zai",
               "moonshot",
-              "together",
-              "alibaba"
+              "alibaba",
+              "together"
             ],
             "type": "string"
           }
@@ -738,6 +780,43 @@
         },
         "type": "object"
       },
+      "CustomModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "description": "Base URL of the provider's API.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "type": {
+            "enum": [
+              "custom"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type",
+          "name",
+          "base_url"
+        ],
+        "type": "object"
+      },
       "DaytonaSandboxProvider": {
         "additionalProperties": false,
         "properties": {
@@ -860,6 +939,46 @@
           "function_call"
         ],
         "type": "string"
+      },
+      "FireworksModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://api.fireworks.ai/inference/v1",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "fireworks",
+            "enum": [
+              "fireworks"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "fireworks"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
+        ],
+        "type": "object"
       },
       "GenerativeUIConfig": {
         "default": {
@@ -1022,6 +1141,46 @@
         },
         "required": [
           "data"
+        ],
+        "type": "object"
+      },
+      "GoogleGeminiModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://generativelanguage.googleapis.com/v1beta",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "google-gemini",
+            "enum": [
+              "google-gemini"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "google-gemini"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
         ],
         "type": "object"
       },
@@ -1877,12 +2036,47 @@
         "type": "object"
       },
       "ModelProvider": {
-        "anyOf": [
+        "discriminator": {
+          "mapping": {
+            "alibaba": "#/components/schemas/AlibabaModelProvider",
+            "anthropic": "#/components/schemas/AnthropicModelProvider",
+            "custom": "#/components/schemas/CustomModelProvider",
+            "fireworks": "#/components/schemas/FireworksModelProvider",
+            "google-gemini": "#/components/schemas/GoogleGeminiModelProvider",
+            "moonshot": "#/components/schemas/MoonshotModelProvider",
+            "openai": "#/components/schemas/OpenAiModelProvider",
+            "together": "#/components/schemas/TogetherModelProvider",
+            "zai": "#/components/schemas/ZaiModelProvider"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
           {
-            "$ref": "#/components/schemas/WellKnownModelProvider"
+            "$ref": "#/components/schemas/OpenAiModelProvider"
           },
           {
-            "$ref": "#/components/schemas/CallerSuppliedModelProvider"
+            "$ref": "#/components/schemas/AnthropicModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/GoogleGeminiModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/FireworksModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/ZaiModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/MoonshotModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/TogetherModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/AlibabaModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/CustomModelProvider"
           }
         ]
       },
@@ -1896,6 +2090,86 @@
         },
         "required": [
           "api_key"
+        ],
+        "type": "object"
+      },
+      "MoonshotModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://api.moonshot.ai/v1",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "moonshot",
+            "enum": [
+              "moonshot"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "moonshot"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
+        ],
+        "type": "object"
+      },
+      "OpenAiModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://api.openai.com/v1",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "openai",
+            "enum": [
+              "openai"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "openai"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
         ],
         "type": "object"
       },
@@ -2679,6 +2953,46 @@
         ],
         "type": "object"
       },
+      "TogetherModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://api.together.xyz/v1",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "together",
+            "enum": [
+              "together"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "together"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
+        ],
+        "type": "object"
+      },
       "TokenPagination": {
         "properties": {
           "limit": {
@@ -3411,14 +3725,15 @@
         ],
         "type": "object"
       },
-      "WellKnownModelProvider": {
+      "ZaiModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
             "$ref": "#/components/schemas/ModelProviderAuth"
           },
           "base_url": {
-            "description": "Optional override of the provider's default API base URL.",
+            "default": "https://api.z.ai/api/paas/v4",
+            "description": "Override of the provider's default API base URL.",
             "format": "uri",
             "type": "string"
           },
@@ -3430,17 +3745,15 @@
             "type": "array"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "default": "zai",
+            "enum": [
+              "zai"
+            ],
+            "type": "string"
           },
           "type": {
             "enum": [
-              "openai",
-              "anthropic",
-              "google-gemini",
-              "fireworks",
-              "zai",
-              "moonshot",
-              "together"
+              "zai"
             ],
             "type": "string"
           }
@@ -3448,8 +3761,7 @@
         "required": [
           "auth",
           "models",
-          "type",
-          "name"
+          "type"
         ],
         "type": "object"
       }
@@ -5301,7 +5613,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "put": {
-        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).",
+        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Every type but `custom` is named after itself, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named, and numbered, by the caller.",
         "requestBody": {
           "content": {
             "application/json": {

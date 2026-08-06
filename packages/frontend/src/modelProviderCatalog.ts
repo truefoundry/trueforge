@@ -45,10 +45,12 @@ export function toHarnessModelEntry(model: UiModelEntry): Harness.ModelEntry {
 }
 
 export function toUiModelProvider(provider: Harness.ModelProvider): UiModelProvider {
+  // Every type but `custom` is named after itself, so the wire leaves `name` optional.
+  const name = provider.name ?? provider.type;
   return {
-    id: provider.name,
+    id: name,
     type: provider.type,
-    name: provider.name,
+    name,
     ...(provider.baseUrl === undefined ? {} : { baseUrl: provider.baseUrl }),
     models: provider.models.map(toUiModelEntry),
   };
@@ -62,15 +64,11 @@ export function toUiCatalogEntry(provider: Harness.CatalogProvider): UiModelProv
   };
 }
 
-const WELL_KNOWN_TYPES: readonly string[] = Object.values(Harness.WellKnownModelProviderType);
-const CALLER_SUPPLIED_TYPES: readonly string[] = Object.values(Harness.CallerSuppliedModelProviderType);
+/** The catalog lists every type but `custom`, which only exists as tenant configuration. */
+const PROVIDER_TYPES: readonly string[] = [...Object.values(Harness.CatalogProviderType), 'custom'];
 
-function isWellKnownType(type: string): type is Harness.WellKnownModelProviderType {
-  return WELL_KNOWN_TYPES.includes(type);
-}
-
-function isCallerSuppliedType(type: string): type is Harness.CallerSuppliedModelProviderType {
-  return CALLER_SUPPLIED_TYPES.includes(type);
+function isProviderType(type: string): type is Harness.ModelProvider['type'] {
+  return PROVIDER_TYPES.includes(type);
 }
 
 export function toHarnessModelProvider(req: {
@@ -82,28 +80,21 @@ export function toHarnessModelProvider(req: {
 }): Harness.ModelProvider {
   const models = req.models.map(toHarnessModelEntry);
   const auth = { apiKey: req.apiKey };
-  if (isWellKnownType(req.type)) {
-    return {
-      type: req.type,
-      name: req.name,
-      auth,
-      models,
-      ...(req.baseUrl === undefined ? {} : { baseUrl: req.baseUrl }),
-    };
+  if (!isProviderType(req.type)) {
+    throw new Error(`Unsupported model provider type: ${req.type}`);
   }
-  if (isCallerSuppliedType(req.type)) {
-    if (req.baseUrl === undefined || req.baseUrl.trim() === '') {
+  const baseUrl = req.baseUrl?.trim() === '' ? undefined : req.baseUrl;
+  // Only `custom` is named by its caller; the API names the rest after their type.
+  if (req.type === 'custom') {
+    if (baseUrl === undefined) {
       throw new Error(`Model providers of type "${req.type}" require a base URL`);
     }
-    return {
-      type: req.type,
-      name: req.name,
-      auth,
-      models,
-      baseUrl: req.baseUrl,
-    };
+    return { type: req.type, name: req.name, auth, models, baseUrl };
   }
-  throw new Error(`Unsupported model provider type: ${req.type}`);
+  if (baseUrl !== undefined) {
+    return { type: req.type, auth, models, baseUrl };
+  }
+  return { type: req.type, auth, models };
 }
 
 async function resolveApiKey(req: { id?: string; apiKey: string }): Promise<string> {
@@ -115,7 +106,7 @@ async function resolveApiKey(req: { id?: string; apiKey: string }): Promise<stri
     throw new Error('API key is required');
   }
   const listed = await client.settings.modelProviders.list();
-  const existing = listed.data.find(provider => provider.name === req.id);
+  const existing = listed.data.find(provider => toUiModelProvider(provider).id === req.id);
   if (existing === undefined) {
     throw new Error(`Model provider "${req.id}" not found`);
   }
