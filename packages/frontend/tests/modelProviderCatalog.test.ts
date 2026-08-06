@@ -109,9 +109,9 @@ describe('modelProviderCatalog mappers', () => {
           },
         ],
       }),
+      // No name: a well-known provider is named after its type by the API.
       {
         type: 'openai',
-        name: 'openai',
         auth: { apiKey: 'sk-test' },
         models: [
           {
@@ -163,10 +163,7 @@ describe('modelProviderCatalog mappers', () => {
   // Catalog presets are copied straight into this form, so a type the API accepts but this mapper
   // does not is a preset the user cannot save.
   it('builds a body for every provider type the API accepts', () => {
-    const types = [
-      ...Object.values(TrueForgeApi.WellKnownModelProviderType),
-      ...Object.values(TrueForgeApi.CallerSuppliedModelProviderType),
-    ];
+    const types = [...Object.values(TrueForgeApi.CatalogProviderType), 'custom'];
     for (const type of types) {
       const body = toHarnessModelProvider({
         type,
