@@ -8,9 +8,10 @@ import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { validateAgentSpec } from '../../../src/runtime/sessionResources';
+import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
 
 describe('validateAgentSpec', () => {
-  async function setup(options?: { reasoningEfforts?: string[] | undefined }) {
+  async function setup(options?: { reasoningEfforts?: ReasoningEffort[] | undefined }) {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const modelProviderStore = new SqliteModelProviderStore(db);

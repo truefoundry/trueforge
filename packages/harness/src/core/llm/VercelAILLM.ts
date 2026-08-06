@@ -219,7 +219,7 @@ export function normalizeUsage(usage: {
  */
 type ReasoningLevel = NonNullable<LanguageModelCallOptions['reasoning']>;
 
-const REASONING_LEVELS: readonly ReasoningLevel[] = [
+const REASONING_LEVELS = [
   'provider-default',
   'none',
   'minimal',
@@ -227,20 +227,21 @@ const REASONING_LEVELS: readonly ReasoningLevel[] = [
   'medium',
   'high',
   'xhigh',
-];
+] as const satisfies readonly ReasoningLevel[];
 
 function isReasoningLevel(v: string): v is ReasoningLevel {
-  return (REASONING_LEVELS as readonly string[]).includes(v);
+  return REASONING_LEVELS.some(level => level === v);
 }
 
 /**
  * Efforts the SDK's union cannot express. `xhigh` is its ceiling, so `max` rides in as `xhigh`;
  * Anthropic's adapter raises that back, and {@link maxEffortOption} covers the rest.
+ * Keys here must also appear in {@link SUPPORTED_REASONING_EFFORTS}.
  */
 const EFFORT_ALIASES: Readonly<Record<string, ReasoningLevel>> = { max: 'xhigh' };
 
 /** What a model may advertise in `reasoning_efforts`; anything else resolves to the provider default. */
-export const SUPPORTED_REASONING_EFFORTS: readonly string[] = [...REASONING_LEVELS, ...Object.keys(EFFORT_ALIASES)];
+export const SUPPORTED_REASONING_EFFORTS = [...REASONING_LEVELS, 'max'] as const;
 
 /**
  * The effort travels on the top-level `reasoning` setting, which each adapter translates per model:

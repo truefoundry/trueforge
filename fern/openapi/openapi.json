@@ -2071,8 +2071,7 @@
           },
           "reasoning_efforts": {
             "items": {
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/components/schemas/ReasoningEffort"
             },
             "minItems": 1,
             "type": "array"
@@ -2310,6 +2309,19 @@
             "type": "object"
           }
         ]
+      },
+      "ReasoningEffort": {
+        "enum": [
+          "provider-default",
+          "none",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "type": "string"
       },
       "RequestErrorResponse": {
         "properties": {

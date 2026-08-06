@@ -12,21 +12,15 @@ export const ProviderTypeSchema = z.enum(VERCEL_AI_PROVIDER_NAMES).openapi('Prov
 
 export type ProviderType = z.infer<typeof ProviderTypeSchema>;
 
+export const ReasoningEffortSchema = z.enum(SUPPORTED_REASONING_EFFORTS).openapi('ReasoningEffort');
+
+export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
+
 export const ModelPropertiesSchema = z
   .object({
     context_length: z.number().int().positive().optional(),
     max_output_tokens: z.number().int().positive().optional(),
-    reasoning_efforts: z
-      .array(
-        z
-          .string()
-          .min(1)
-          .refine(effort => SUPPORTED_REASONING_EFFORTS.includes(effort), {
-            message: `Reasoning effort must be one of: ${SUPPORTED_REASONING_EFFORTS.join(', ')}`,
-          }),
-      )
-      .min(1)
-      .optional(),
+    reasoning_efforts: z.array(ReasoningEffortSchema).min(1).optional(),
   })
   .strict()
   .openapi('ModelProperties');
