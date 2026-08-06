@@ -59,6 +59,7 @@ export function toUiCatalogEntry(provider: Harness.CatalogProvider): UiModelProv
   return {
     type: provider.type,
     name: provider.name,
+    logo: provider.logo,
     models: provider.models.map(toUiModelEntry),
   };
 }

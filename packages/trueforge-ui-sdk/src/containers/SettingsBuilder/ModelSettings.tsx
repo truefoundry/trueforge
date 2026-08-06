@@ -260,7 +260,11 @@ const ModelSettings = () => {
                               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
                               aria-hidden
                             >
-                              <Icon name="cpu" className="size-4.5" />
+                              {provider.logo ? (
+                                <img src={provider.logo} alt={provider.name} className="size-4.5" />
+                              ) : (
+                                <Icon name="cpu" className="size-4.5" />
+                              )}
                             </div>
                             <h5 className="truncate text-base font-medium text-foreground">{provider.name}</h5>
                           </div>
@@ -388,7 +392,11 @@ const ModelSettings = () => {
                             className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
                             aria-hidden
                           >
-                            <Icon name="cpu" className="size-4.5" />
+                            {provider.logo ? (
+                              <img src={provider.logo} alt={provider.name} className="size-4.5" />
+                            ) : (
+                              <Icon name="cpu" className="size-4.5" />
+                            )}
                           </span>
                           <div className="min-w-0">
                             <h5 className="truncate text-base font-medium text-foreground">{provider.name}</h5>
