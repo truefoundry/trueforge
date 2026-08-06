@@ -4,15 +4,15 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const SessionAgentAgentId: core.serialization.ObjectSchema<
-    serializers.SessionAgentAgentId.Raw,
-    TrueForge.SessionAgentAgentId
+export const SessionAgentRef: core.serialization.ObjectSchema<
+    serializers.SessionAgentRef.Raw,
+    TrueForge.SessionAgentRef
 > = core.serialization.object({
     agentId: core.serialization.property("agent_id", core.serialization.string()),
     type: core.serialization.stringLiteral("ref"),
 });
 
-export declare namespace SessionAgentAgentId {
+export declare namespace SessionAgentRef {
     export interface Raw {
         agent_id: string;
         type: "ref";

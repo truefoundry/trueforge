@@ -2319,47 +2319,60 @@
         "type": "object"
       },
       "SessionAgent": {
+        "discriminator": {
+          "mapping": {
+            "ref": "#/components/schemas/SessionAgentRef",
+            "value": "#/components/schemas/SessionAgentValue"
+          },
+          "propertyName": "type"
+        },
         "oneOf": [
           {
-            "additionalProperties": false,
-            "properties": {
-              "agent_id": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "type": {
-                "enum": [
-                  "ref"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "agent_id"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/SessionAgentRef"
           },
           {
-            "additionalProperties": false,
-            "properties": {
-              "agent_spec": {
-                "$ref": "#/components/schemas/AgentSpec"
-              },
-              "type": {
-                "enum": [
-                  "value"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "agent_spec"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/SessionAgentValue"
           }
         ]
+      },
+      "SessionAgentRef": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "ref"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "agent_id"
+        ],
+        "type": "object"
+      },
+      "SessionAgentValue": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_spec": {
+            "$ref": "#/components/schemas/AgentSpec"
+          },
+          "type": {
+            "enum": [
+              "value"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "agent_spec"
+        ],
+        "type": "object"
       },
       "SessionEvent": {
         "discriminator": {
@@ -3283,23 +3296,7 @@
       "UpdateSessionRequest": {
         "properties": {
           "agent": {
-            "additionalProperties": false,
-            "properties": {
-              "agent_spec": {
-                "$ref": "#/components/schemas/AgentSpec"
-              },
-              "type": {
-                "enum": [
-                  "value"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "agent_spec"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/SessionAgentValue"
           }
         },
         "type": "object"
