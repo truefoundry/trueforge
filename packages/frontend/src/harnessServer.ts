@@ -25,7 +25,7 @@ import type {
   UserMessageContent,
 } from '@truefoundry/trueforge-ui';
 import type { TrueForgeApi as Harness } from 'trueforge';
-import { TrueForge } from 'trueforge';
+import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 export type HarnessSkillMount = SkillMount;
 export type HarnessMcpServerMount = McpServerMount & Harness.McpServer;
 
@@ -38,14 +38,11 @@ export interface HarnessAgentSpec extends AgentSpec<Harness.AgentSpecModel, Harn
 }
 
 export interface HarnessSession extends Session<HarnessAgentSpec> {
-  agentSpec: HarnessAgentSpec;
-  isMutable: true;
+  agentSpec?: HarnessAgentSpec;
+  isMutable: boolean;
 }
 
-export interface CreateHarnessServerOptions {
-  baseUrl?: string;
-  fetch?: typeof fetch;
-}
+export type CreateHarnessServerOptions = CreateHarnessClientOptions;
 
 /** Mount ids are derived, not stored: Harness returns MCP servers keyed by name. */
 function toUiMcpServer(server: Harness.McpServer): HarnessMcpServerMount {
@@ -85,12 +82,15 @@ function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
 }
 
 function toUiSession(session: Harness.Session): HarnessSession {
-  const { title, agentSpec, ...rest } = session;
+  // Value agents are draft/mutable; ref agents are named/immutable.
+  const isMutable = session.agent.type === 'value';
   return {
-    ...rest,
-    agentSpec: toUiAgentSpec(agentSpec),
-    isMutable: true,
-    ...(title === null ? {} : { title }),
+    id: session.id,
+    isMutable,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+    ...(session.title === null ? {} : { title: session.title }),
+    ...(session.agent.type === 'value' ? { agentSpec: toUiAgentSpec(session.agent.agentSpec) } : {}),
   };
 }
 
@@ -168,26 +168,18 @@ function toHarnessInput(input: TurnInputItem[]): Harness.TurnInputItem[] {
   );
 }
 
-/**
- * The runtime marks a chain root with the gateway's `"none"` sentinel; Harness
- * spells that `null` and would otherwise look `"none"` up as a turn id (404).
- */
-function toHarnessPreviousTurnId(previousTurnId: string): Harness.PreviousTurnIdInput | null {
-  return previousTurnId === 'none' ? null : previousTurnId;
-}
-
 export function createHarnessChatServer(options: CreateHarnessServerOptions = {}): AgentChatServer<HarnessAgentSpec> {
-  const client = new TrueForge({
-    baseUrl: options.baseUrl ?? '/',
-    ...(options.fetch ? { fetch: options.fetch } : {}),
-  });
+  const client =
+    options.baseUrl === undefined && options.fetch === undefined ? harnessClient : createHarnessClient(options);
 
   return {
     async createSession(request) {
       if (!request.agentSpec) {
         throw new Error('Harness sessions require an agentSpec');
       }
-      const created = await client.sessions.create({ agentSpec: toHarnessAgentSpec(request.agentSpec) });
+      const created = await client.sessions.create({
+        agent: { type: 'value', agentSpec: toHarnessAgentSpec(request.agentSpec) },
+      });
       return toUiSession(created.data);
     },
 
@@ -207,7 +199,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
 
     async updateSession({ sessionId, agentSpec }) {
       const response = await client.sessions.update(sessionId, {
-        ...(agentSpec === undefined ? {} : { agentSpec: toHarnessAgentSpec(agentSpec) }),
+        ...(agentSpec === undefined ? {} : { agent: { type: 'value', agentSpec: toHarnessAgentSpec(agentSpec) } }),
       });
       return toUiSession(response.data);
     },
@@ -221,9 +213,32 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
       input?: TurnInputItem[];
       previousTurnId?: string;
     }) {
-      const stream = await client.sessions.createTurn(sessionId, {
+      const stream = await client.sessions.createTurnStream(sessionId, {
         ...(input === undefined ? {} : { input: toHarnessInput(input) }),
-        ...(previousTurnId === undefined ? {} : { previousTurnId: toHarnessPreviousTurnId(previousTurnId) }),
+        ...(previousTurnId === undefined ? {} : { previousTurnId }),
+      });
+      let fallbackSequence = 0;
+      for await (const item of stream.withMetadata()) {
+        yield {
+          sequenceNumber: sequenceNumber(item.id, fallbackSequence),
+          event: toUiEvent(item.data),
+        };
+        fallbackSequence += 1;
+      }
+    },
+
+    /** Resume a live turn; omitted/0 `afterSequenceNumber` replays from the start. */
+    async *subscribeToTurn({
+      sessionId,
+      turnId,
+      afterSequenceNumber,
+    }: {
+      sessionId: string;
+      turnId: string;
+      afterSequenceNumber?: number;
+    }) {
+      const stream = await client.sessions.subscribeToTurn(sessionId, turnId, {
+        ...(afterSequenceNumber === undefined ? {} : { afterSequenceNumber }),
       });
       let fallbackSequence = 0;
       for await (const item of stream.withMetadata()) {

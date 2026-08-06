@@ -55,6 +55,7 @@ export function DrawerLayout({ className }: { className?: string }) {
     if (shell?.isComposerEnabled) {
       shell.openDraft();
     } else {
+      shell?.setSettingsOpen(false);
       aui.threads().switchToNewThread();
     }
     setThreadsOpen(false);

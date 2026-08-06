@@ -17,6 +17,11 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
   /** Called exactly once per run, before any other method. */
   createTracing(): AgentTracing;
   /**
+   * Look up the live AgentSpec for a named (ref) session agent.
+   * Draft (value) sessions use the stored spec and never call this.
+   */
+  resolveAgentSpec(input: { agent_id: string }): Promise<AgentSpec>;
+  /**
    * Called exactly once per run, before any thread is built; the harness holds
    * the result and shares the same reference across all threads. Return
    * undefined when the run needs no sandbox. `existing` carries the previous

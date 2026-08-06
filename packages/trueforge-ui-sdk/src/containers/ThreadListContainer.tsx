@@ -106,6 +106,7 @@ function ThreadListItemDeleteMenu() {
 
 function ThreadListItemRow({ onThreadOpen, showDelete }: { onThreadOpen?: () => void; showDelete: boolean }) {
   const aui = useAui();
+  const shell = useOptionalShellMode();
   const ThreadListRow = useSlot('ThreadListRow');
   const id = useAuiState(s => s.threadListItem.id);
   const title = useAuiState(s => s.threadListItem.title);
@@ -118,6 +119,7 @@ function ThreadListItemRow({ onThreadOpen, showDelete }: { onThreadOpen?: () => 
         active={id === mainThreadId}
         onSelect={() => {
           onThreadOpen?.();
+          shell?.setSettingsOpen(false);
           void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
         }}
         actions={showDelete ? <ThreadListItemDeleteMenu /> : undefined}
@@ -165,6 +167,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
       shell.openDraft();
       return;
     }
+    shell?.setSettingsOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
