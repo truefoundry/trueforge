@@ -124,26 +124,26 @@ const ConnectorSettings = () => {
   const createFromCatalog = async (entry: ConnectorCatalogEntry, authOverride?: ConnectorAuth) => {
     const auth: ConnectorAuth =
       authOverride ??
-      (entry.auth.type === 'apiKey'
+      (entry.auth.type === 'header'
         ? {
-            type: 'apiKey',
+            type: 'header',
             ...(entry.auth.headerName ? { headerName: entry.auth.headerName } : {}),
           }
-        : entry.auth.type === 'oauth'
-          ? { type: 'oauth' }
+        : entry.auth.type === 'dcr'
+          ? { type: 'dcr' }
           : { type: 'none' });
     const created = await connectorCatalog.createConnector({
       name: entry.name,
       url: entry.url,
       auth,
     });
-    if (auth.type === 'oauth') {
+    if (auth.type === 'dcr') {
       await authorizeOAuthConnector(created.id);
     }
   };
 
   const handleConnect = (entry: ConnectorCatalogEntry) => {
-    if (entry.auth.type === 'apiKey') {
+    if (entry.auth.type === 'header') {
       setApiKey('');
       setConnectorAwaitingKey(entry);
       return;
@@ -166,9 +166,9 @@ const ConnectorSettings = () => {
     const entry = connectorAwaitingKey;
     void runMutation(async () => {
       const auth: ConnectorAuth = {
-        type: 'apiKey',
+        type: 'header',
         apiKey: apiKey.trim(),
-        ...(entry.auth.type === 'apiKey' && entry.auth.headerName ? { headerName: entry.auth.headerName } : {}),
+        ...(entry.auth.type === 'header' && entry.auth.headerName ? { headerName: entry.auth.headerName } : {}),
       };
       const existingConnector = addedMcpServers.find(connector => connector.id === entry.id);
       if (existingConnector) {
@@ -192,7 +192,7 @@ const ConnectorSettings = () => {
         url: draft.url,
         auth: draft.auth,
       });
-      if (draft.auth.type === 'oauth') {
+      if (draft.auth.type === 'dcr') {
         await authorizeOAuthConnector(created.id);
       }
     });

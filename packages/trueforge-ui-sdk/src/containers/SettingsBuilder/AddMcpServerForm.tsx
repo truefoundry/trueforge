@@ -23,9 +23,9 @@ type AddMcpServerFormProps = {
 };
 
 const AUTH_OPTIONS: Array<{ value: McpAuthType; label: string }> = [
-  { value: 'oauth', label: 'OAuth' },
+  { value: 'dcr', label: 'OAuth' },
   { value: 'none', label: 'None' },
-  { value: 'apiKey', label: 'API Key' },
+  { value: 'header', label: 'API Key' },
 ];
 
 const inputClassName =
@@ -40,14 +40,14 @@ const RequiredMark = () => (
 const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false }: AddMcpServerFormProps) => {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
-  const [authType, setAuthType] = useState<McpAuthType>('oauth');
+  const [authType, setAuthType] = useState<McpAuthType>('dcr');
   const [apiKey, setApiKey] = useState('');
   const [headerName, setHeaderName] = useState('');
 
   const resetForm = () => {
     setName('');
     setUrl('');
-    setAuthType('oauth');
+    setAuthType('dcr');
     setApiKey('');
     setHeaderName('');
   };
@@ -57,16 +57,16 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false }: AddMcpSer
     onOpenChange(nextOpen);
   };
 
-  const isValid = !!name.trim() && !!url.trim() && (authType !== 'apiKey' || !!apiKey.trim());
+  const isValid = !!name.trim() && !!url.trim() && (authType !== 'header' || !!apiKey.trim());
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!isValid || busy) return;
 
     const auth: ConnectorAuth =
-      authType === 'apiKey'
+      authType === 'header'
         ? {
-            type: 'apiKey',
+            type: 'header',
             apiKey: apiKey.trim(),
             ...(headerName.trim() ? { headerName: headerName.trim() } : {}),
           }
@@ -171,13 +171,13 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false }: AddMcpSer
             </div>
           </fieldset>
 
-          {authType === 'oauth' ? (
+          {authType === 'dcr' ? (
             <p className="text-sm leading-6 text-muted-foreground">
               You&apos;ll be sent to the provider to authorise this server after adding it.
             </p>
           ) : null}
 
-          {authType === 'apiKey' ? (
+          {authType === 'header' ? (
             <>
               <div>
                 <label htmlFor="mcp-server-api-key" className="mb-1.5 block text-sm font-medium text-foreground">

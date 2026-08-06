@@ -33,12 +33,12 @@ const catalog: CatalogServer = {
       description: '',
       url: req.url,
       auth:
-        req.auth.type === 'oauth'
-          ? { type: 'oauth' as const, authUrl: 'https://example.com/oauth' }
-          : req.auth.type === 'apiKey'
-            ? { type: 'apiKey' as const }
+        req.auth.type === 'dcr'
+          ? { type: 'dcr' as const, authUrl: 'https://example.com/oauth' }
+          : req.auth.type === 'header'
+            ? { type: 'header' as const }
             : { type: 'none' as const },
-      requiresAuth: req.auth.type === 'oauth',
+      requiresAuth: req.auth.type === 'dcr',
       authenticated: false,
     })),
     updateConnector: vi.fn(async req => ({
@@ -47,12 +47,12 @@ const catalog: CatalogServer = {
       description: '',
       url: req.url,
       auth:
-        req.auth.type === 'oauth'
-          ? { type: 'oauth' as const, authUrl: 'https://example.com/oauth' }
-          : req.auth.type === 'apiKey'
-            ? { type: 'apiKey' as const }
+        req.auth.type === 'dcr'
+          ? { type: 'dcr' as const, authUrl: 'https://example.com/oauth' }
+          : req.auth.type === 'header'
+            ? { type: 'header' as const }
             : { type: 'none' as const },
-      requiresAuth: req.auth.type === 'oauth',
+      requiresAuth: req.auth.type === 'dcr',
       authenticated: false,
     })),
     authenticateConnector: vi.fn(async ({ id }) => ({
@@ -60,7 +60,7 @@ const catalog: CatalogServer = {
       name: '',
       description: '',
       url: '',
-      auth: { type: 'oauth' as const, authUrl: 'https://example.com/oauth' },
+      auth: { type: 'dcr' as const, authUrl: 'https://example.com/oauth' },
       requiresAuth: false,
       authenticated: true,
     })),
