@@ -3,9 +3,9 @@ import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema, SessionSchema, TokenPaginationSchema } from '@truefoundry/utils-core/agent-session';
 import { NameSchema } from './common';
 
-export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('SessionAgentNameRef');
+export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('AgentRef');
 
-const InlineSessionAgentSchema = AgentSpecSchema.strict().openapi('InlineSessionAgent');
+const InlineSessionAgentSchema = AgentSpecSchema.strict().openapi('Agent');
 
 /** Create accepts either a unique agent name or an inline AgentSpec. */
 export const CreateSessionAgentSchema = z
