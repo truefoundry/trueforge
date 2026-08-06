@@ -129,9 +129,12 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  // Offer only usable connectors: authenticated, or ones that need no auth.
+  // Keep unavailable selections visible so users can remove them.
   // Hosts that omit auth info keep their connectors selectable.
-  const selectableConnectors = useMemo(() => connectors.filter(c => c.authenticated || !c.requiresAuth), [connectors]);
+  const selectableConnectors = useMemo(
+    () => connectors.filter(c => selectedMcpIds.has(c.id) || c.authenticated || !c.requiresAuth),
+    [connectors, selectedMcpIds],
+  );
 
   const filteredConnectors = useMemo(() => {
     const needle = query.trim().toLowerCase();
