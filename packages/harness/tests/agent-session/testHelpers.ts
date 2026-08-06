@@ -83,18 +83,21 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
   sandbox?: Sandbox;
   close?: () => Promise<void>;
   usage?: CompletionUsage;
+  /** Named-agent lookup for sessions bound by agent_id. */
+  agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
 }): ITurnResourceResolver<TTurnCustom> {
   const llm = makeMockILLM({
     create: jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),
   });
   const base = new TurnResourceResolver<TTurnCustom>({
-    llm: () => llm,
+    llm: () => Promise.resolve(llm),
     mcp: name => {
       return Promise.reject(new Error(`unexpected mcp lookup: ${name}`));
     },
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
     logger: makeSilentLogger(),
+    ...(options?.agent !== undefined ? { agent: options.agent } : {}),
     ...(options?.sandbox
       ? {
           sandboxProvider: () => {
@@ -116,6 +119,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
       return base.logger;
     },
     createTracing: () => base.createTracing(),
+    resolveAgentSpec: input => base.resolveAgentSpec(input),
     resolveSandbox: input => base.resolveSandbox(input),
     resolveAgentDefinition: async input => {
       const resolved = await base.resolveAgentDefinition(input);

@@ -112,6 +112,11 @@ export const CreateTurnRequestSchema = z
       .default('auto')
       .describe(`Defaults to 'auto' (chain to session last turn). Use 'null' for the session's first turn.`)
       .openapi('PreviousTurnIdInput'),
+    stream: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe('When true (default), stream turn events as SSE. When false, return the running turn immediately.'),
   })
   .superRefine((data, ctx) => {
     if (!data.input) return;

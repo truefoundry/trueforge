@@ -58,8 +58,8 @@ export class TurnResourceResolver<
 
   constructor(
     protected readonly deps: {
-      /** Model name → client. Called once per resolved definition. */
-      llm: (model: string) => ILLM;
+      /** Model name → client. Called once per resolved definition; may load provider config. */
+      llm: (model: string) => Promise<ILLM>;
       /**
        * MCP server name → connection details. Required to use spec.mcp_servers:
        * the AgentSpec carries names only (no url/headers on the wire) — the
@@ -71,6 +71,11 @@ export class TurnResourceResolver<
       mcpConnectTimeoutMs: number;
       /** One sandbox type per runtime. Omit = no sandbox support. */
       sandboxProvider?: TurnSandboxFactory | undefined;
+      /**
+       * Named-agent lookup (registry id → live AgentSpec). Required when a
+       * session is bound by ref; omit only if all sessions use value agents.
+       */
+      agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
@@ -83,6 +88,18 @@ export class TurnResourceResolver<
   /** Default: no-op tracing. Override to plug in a real tracer. */
   createTracing(): AgentTracing {
     return NOOP_AGENT_TRACING;
+  }
+
+  /** Named (ref) session agent → live registry lookup via deps.agent. */
+  async resolveAgentSpec(input: { agent_id: string }): Promise<AgentSpec> {
+    if (this.deps.agent === undefined) {
+      // Host forgot to wire deps.agent — not "agent id missing from the registry"
+      // (that failure belongs in the lookup callback, e.g. HTTP 422 on the server).
+      throw new Error(
+        `Named agent '${input.agent_id}' cannot be resolved: no agent lookup configured on the turn resolver`,
+      );
+    }
+    return await this.deps.agent(input.agent_id);
   }
 
   /**
@@ -179,7 +196,7 @@ export class TurnResourceResolver<
     return {
       definition: {
         model: spec.model.name,
-        modelClient: this.deps.llm(spec.model.name),
+        modelClient: await this.deps.llm(spec.model.name),
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.
         instruction: agentInfo ? undefined : spec.instructions,

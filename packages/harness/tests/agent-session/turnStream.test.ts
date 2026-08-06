@@ -23,11 +23,14 @@ describe('TurnHandle.stream()', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      agent_spec: makeAgentSpec({
-        config: {
-          sandbox: { enabled: true, file_downloads: true },
-        },
-      }),
+      agent: {
+        type: 'value',
+        agent_spec: makeAgentSpec({
+          config: {
+            sandbox: { enabled: true, file_downloads: true },
+          },
+        }),
+      },
     });
     return { store, session };
   }
@@ -387,7 +390,7 @@ describe('TurnHandle.stream()', () => {
     const closeSpy = jest.spyOn(sandbox, 'close').mockResolvedValue(undefined);
     const logger = makeSilentLogger();
     const resolver = new TurnResourceResolver({
-      llm: () => makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
+      llm: () => Promise.resolve(makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) })),
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
@@ -441,7 +444,7 @@ describe('TurnResourceResolver caches', () => {
         expect(a).toBe(b);
       }
     })({
-      llm: () => makeMockILLM(),
+      llm: () => Promise.resolve(makeMockILLM()),
       mcp: () => Promise.resolve({ url: 'http://example.invalid' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
@@ -457,7 +460,7 @@ describe('TurnResourceResolver caches', () => {
     let sandboxCreates = 0;
     const logger = makeSilentLogger();
     const resolver = new TurnResourceResolver({
-      llm: () => makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
+      llm: () => Promise.resolve(makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) })),
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
@@ -472,11 +475,14 @@ describe('TurnResourceResolver caches', () => {
     const session = await sessions.create({
       tenant_id: 't',
       session_id: 's',
-      agent_spec: makeAgentSpec({
-        config: {
-          sandbox: { enabled: true, file_downloads: true },
-        },
-      }),
+      agent: {
+        type: 'value',
+        agent_spec: makeAgentSpec({
+          config: {
+            sandbox: { enabled: true, file_downloads: true },
+          },
+        }),
+      },
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),

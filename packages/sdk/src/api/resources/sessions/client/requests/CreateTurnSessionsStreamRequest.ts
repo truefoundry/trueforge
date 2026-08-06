@@ -6,7 +6,7 @@ import type * as TrueForge from "../../../../index.js";
  * @example
  *     {}
  */
-export interface CreateTurnRequest {
+export interface CreateTurnSessionsStreamRequest {
     input?: TrueForge.TurnInputItem[];
     previousTurnId?: TrueForge.PreviousTurnIdInput | null;
 }
