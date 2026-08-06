@@ -34,10 +34,25 @@ type ShellModeContextValue = {
   setSettingsOpen: (open: boolean) => void;
   selectAgent: (agentName: string) => void;
   openDraft: () => void;
+  /**
+   * Open a history session, remounting into the correct agent mode when needed.
+   * Named sessions pass `agentName`; draft sessions omit it.
+   */
+  openHistorySession: (req: { sessionId: string; agentName?: string }) => void;
   /** Reset current named or draft chat; no-op when idle. */
   clearChat: () => void;
   /** Remount key for the chat runtime when mode/agent changes. */
   runtimeKey: string;
+  /**
+   * History list filter forwarded as `listSessions({ agentId })`.
+   * `null` = All chats. Only meaningful when `isLibraryEnabled`.
+   */
+  historyAgentFilter: string | null;
+  setHistoryAgentFilter: (agentId: string | null) => void;
+  /** Effective `listSessionsAgentId` for the runtime (SingleAgent locks to name). */
+  listSessionsAgentId: string | undefined;
+  /** Session to open after a mode remount (history click across modes). */
+  pendingSessionId: string | undefined;
 };
 
 const ShellModeContext = createContext<ShellModeContextValue | null>(null);
@@ -90,6 +105,8 @@ export function ShellModeProvider({
   const [draftEpoch, setDraftEpoch] = useState(0);
   const [clearEpoch, setClearEpoch] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyAgentFilter, setHistoryAgentFilter] = useState<string | null>(null);
+  const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
 
   const lockedAgentName = agentConfig.mode === 'SingleAgent' ? agentConfig.name : '';
   const effectiveMode: ShellMode = useMemo(
@@ -97,11 +114,18 @@ export function ShellModeProvider({
     [locked, lockedAgentName, mode],
   );
 
+  const listSessionsAgentId = useMemo(() => {
+    if (locked) return lockedAgentName;
+    if (!isLibraryEnabled) return undefined;
+    return historyAgentFilter ?? undefined;
+  }, [locked, lockedAgentName, isLibraryEnabled, historyAgentFilter]);
+
   const selectAgent = useCallback(
     (name: string) => {
       if (!isLibraryEnabled) return;
       // Leaving Settings so the main pane shows the selected agent chat.
       setSettingsOpen(false);
+      setPendingSessionId(undefined);
       setMode({ type: 'named', agentName: name, locked: false });
       // Re-picking the current agent must still remount the runtime.
       setClearEpoch(n => n + 1);
@@ -113,12 +137,31 @@ export function ShellModeProvider({
     if (!isComposerEnabled) return;
     // New Chat while Settings is open must reveal the draft composer.
     setSettingsOpen(false);
+    setPendingSessionId(undefined);
     setMode({ type: 'draft', defaultAgentSpec: draftSeedRef.current });
     setDraftEpoch(n => n + 1);
   }, [isComposerEnabled]);
 
+  const openHistorySession = useCallback(
+    ({ sessionId, agentName }: { sessionId: string; agentName?: string }) => {
+      setSettingsOpen(false);
+      setPendingSessionId(sessionId);
+      if (agentName != null) {
+        if (!isLibraryEnabled && !(locked && lockedAgentName === agentName)) return;
+        setMode({ type: 'named', agentName, locked: false });
+        setClearEpoch(n => n + 1);
+        return;
+      }
+      if (!isComposerEnabled) return;
+      setMode({ type: 'draft', defaultAgentSpec: draftSeedRef.current });
+      setDraftEpoch(n => n + 1);
+    },
+    [isLibraryEnabled, isComposerEnabled, locked, lockedAgentName],
+  );
+
   const clearChat = useCallback(() => {
     if (effectiveMode.type === 'idle') return;
+    setPendingSessionId(undefined);
     if (effectiveMode.type === 'draft') {
       setMode({ type: 'draft', defaultAgentSpec: draftSeedRef.current });
       setDraftEpoch(n => n + 1);
@@ -131,8 +174,8 @@ export function ShellModeProvider({
     effectiveMode.type === 'idle'
       ? 'idle'
       : effectiveMode.type === 'named'
-        ? `named:${effectiveMode.agentName}:${clearEpoch}`
-        : `draft:${effectiveMode.defaultAgentSpec.model.name}:${draftEpoch}`;
+        ? `named:${effectiveMode.agentName}:${pendingSessionId ?? ''}:${clearEpoch}`
+        : `draft:${effectiveMode.defaultAgentSpec.model.name}:${pendingSessionId ?? ''}:${draftEpoch}`;
 
   const value = useMemo<ShellModeContextValue>(
     () => ({
@@ -145,8 +188,13 @@ export function ShellModeProvider({
       setSettingsOpen,
       selectAgent,
       openDraft,
+      openHistorySession,
       clearChat,
       runtimeKey,
+      historyAgentFilter,
+      setHistoryAgentFilter,
+      listSessionsAgentId,
+      pendingSessionId,
     }),
     [
       effectiveMode,
@@ -157,8 +205,12 @@ export function ShellModeProvider({
       settingsOpen,
       selectAgent,
       openDraft,
+      openHistorySession,
       clearChat,
       runtimeKey,
+      historyAgentFilter,
+      listSessionsAgentId,
+      pendingSessionId,
     ],
   );
 

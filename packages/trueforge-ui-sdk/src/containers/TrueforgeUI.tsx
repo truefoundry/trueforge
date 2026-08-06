@@ -123,11 +123,12 @@ function LayoutChildren({ layout, className }: { layout: LayoutProp; className?:
 
 function ChatProviderFromShell({
   children,
+  initialSessionId: hostInitialSessionId,
   ...providerRest
 }: {
   children: ReactNode;
-} & Omit<TrueFoundryChatProviderProps, 'agent' | 'agentName' | 'children'>) {
-  const { mode, runtimeKey } = useShellMode();
+} & Omit<TrueFoundryChatProviderProps, 'agent' | 'agentName' | 'listSessionsAgentId' | 'children'>) {
+  const { mode, runtimeKey, listSessionsAgentId, pendingSessionId } = useShellMode();
 
   const agent: TrueFoundryAgentConfig = useMemo(() => {
     if (mode.type === 'named') {
@@ -145,7 +146,13 @@ function ChatProviderFromShell({
   }, [mode]);
 
   return (
-    <TrueFoundryChatProvider key={runtimeKey} {...providerRest} agent={agent}>
+    <TrueFoundryChatProvider
+      key={runtimeKey}
+      {...providerRest}
+      agent={agent}
+      listSessionsAgentId={listSessionsAgentId}
+      initialSessionId={pendingSessionId ?? hostInitialSessionId}
+    >
       {children}
     </TrueFoundryChatProvider>
   );

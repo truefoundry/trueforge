@@ -1,0 +1,22 @@
+/** Compact relative age for sidebar session rows (e.g. 30m, 22h, 1d). */
+export function formatRelativeShort(date: Date, now: Date = new Date()): string {
+  const diffMs = Math.max(0, now.getTime() - date.getTime());
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) return `${Math.max(1, minutes)}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo`;
+  return `${Math.floor(days / 365)}y`;
+}
+
+export function readThreadAgentName(custom: unknown): string | undefined {
+  if (custom == null || typeof custom !== 'object') return undefined;
+  if (!('agentName' in custom)) return undefined;
+  const value = Reflect.get(custom, 'agentName');
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}

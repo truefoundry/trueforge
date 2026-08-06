@@ -7,11 +7,13 @@ import {
   useAui,
   useAuiState,
 } from '@assistant-ui/react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
 
+import { AgentHistoryFilterButton } from '../atoms/AgentHistoryFilterButton.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
+import { readThreadAgentName } from '../atoms/lib/threadListMeta.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
 import { Icon } from '../icons/Icon.js';
@@ -43,12 +45,7 @@ function ThreadListItemDeleteMenu() {
   const moreButtonClass = auiButtonClass({
     variant: 'ghost',
     size: 'icon',
-    className: cn(
-      'size-7 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground',
-      'opacity-100 transition-opacity',
-      !compact && 'md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100',
-      'focus-visible:opacity-100 data-[state=open]:opacity-100',
-    ),
+    className: 'size-7 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground',
   });
 
   if (useSheet) {
@@ -109,17 +106,40 @@ function ThreadListItemRow({ onThreadOpen, showDelete }: { onThreadOpen?: () => 
   const shell = useOptionalShellMode();
   const ThreadListRow = useSlot('ThreadListRow');
   const id = useAuiState(s => s.threadListItem.id);
+  const remoteId = useAuiState(s => s.threadListItem.remoteId);
   const title = useAuiState(s => s.threadListItem.title);
+  const lastMessageAt = useAuiState(s => s.threadListItem.lastMessageAt);
+  const custom = useAuiState(s => s.threadListItem.custom);
   const mainThreadId = useAuiState(s => s.threads.mainThreadId);
+  const agentName = readThreadAgentName(custom);
 
   return (
     <ThreadListItemPrimitive.Root className="min-w-0">
       <ThreadListRow
         title={title ?? 'New Chat'}
         active={id === mainThreadId}
+        agentName={agentName}
+        lastMessageAt={lastMessageAt}
         onSelect={() => {
           onThreadOpen?.();
           shell?.setSettingsOpen(false);
+
+          const sameNamed = agentName != null && shell?.mode.type === 'named' && shell.mode.agentName === agentName;
+          const sameDraft = agentName == null && shell?.mode.type === 'draft';
+
+          // Same runtime mode: switch in-place. Crossing named ↔ draft requires a remount
+          // so draft mode does not try to load agentSpec from an immutable named session.
+          if ((sameNamed || sameDraft) && remoteId != null) {
+            void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
+            return;
+          }
+          if (remoteId != null) {
+            shell?.openHistorySession({
+              sessionId: remoteId,
+              ...(agentName != null ? { agentName } : {}),
+            });
+            return;
+          }
           void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
         }}
         actions={showDelete ? <ThreadListItemDeleteMenu /> : undefined}
@@ -128,11 +148,49 @@ function ThreadListItemRow({ onThreadOpen, showDelete }: { onThreadOpen?: () => 
   );
 }
 
+const THREAD_LIST_VIEWPORT_SLOT = 'aui_thread-list-viewport';
+/** How close to the bottom (px) before the next sessions page is fetched. */
+const LOAD_MORE_BOTTOM_PX = 80;
+
+function ChatHistorySection({ children, viewportRef }: { children: ReactNode; viewportRef: Ref<HTMLDivElement> }) {
+  const [expanded, setExpanded] = useState(true);
+  const shell = useOptionalShellMode();
+  const showFilter = shell?.isLibraryEnabled === true;
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center gap-1 px-1 py-1">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-1.5 py-1 text-left text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          onClick={() => setExpanded(v => !v)}
+        >
+          <span className="truncate">Chat History</span>
+          <Icon
+            name="chevron-down"
+            className={cn('size-3.5 shrink-0 transition-transform', !expanded && '-rotate-90')}
+          />
+        </button>
+        {showFilter ? <AgentHistoryFilterButton /> : null}
+      </div>
+      {expanded ? (
+        <div
+          ref={viewportRef}
+          data-slot={THREAD_LIST_VIEWPORT_SLOT}
+          className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto"
+        >
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps = {}) {
   const aui = useAui();
   const server = useOptionalServer();
   const isLoading = useAuiState(s => s.threads.isLoading);
-  const isLoadingMore = useAuiState(s => s.threads.isLoadingMore);
   const hasMore = useAuiState(s => s.threads.hasMore);
   const threadIds = useAuiState(s => s.threads.threadIds);
   const shell = useOptionalShellMode();
@@ -143,23 +201,42 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   const ThreadListRowSkeleton = useSlot('ThreadListRowSkeleton');
   const ThreadListEmptyState = useSlot('ThreadListEmptyState');
 
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const loadMoreInflightRef = useRef(false);
+  const hasMoreRef = useRef(hasMore);
+  const auiRef = useRef(aui);
+  hasMoreRef.current = hasMore;
+  auiRef.current = aui;
+
   const showNewChat = shell?.isNewChatEnabled !== false;
   const isIdle = shell?.mode.type === 'idle';
   const canDeleteSession = typeof server?.deleteSession === 'function';
 
+  // Scroll-driven pagination only — never auto-chain pages while the sentinel
+  // is visible on mount (that drained every listSessions page).
   useEffect(() => {
-    const node = sentinelRef.current;
-    if (!node || !hasMore || isIdle) return;
+    if (isIdle) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
 
-    const observer = new IntersectionObserver(entries => {
-      if (entries.some(e => e.isIntersecting) && hasMore && !isLoadingMore) {
-        void aui.threads().loadMore();
-      }
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [aui, hasMore, isLoadingMore, isIdle]);
+    const tryLoadMore = () => {
+      if (!hasMoreRef.current || loadMoreInflightRef.current) return;
+      // Require a real scroll so a short first page does not fill-drain the cursor.
+      if (viewport.scrollTop <= 0) return;
+      const remaining = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+      if (remaining > LOAD_MORE_BOTTOM_PX) return;
+
+      loadMoreInflightRef.current = true;
+      void Promise.resolve(auiRef.current.threads().loadMore()).finally(() => {
+        loadMoreInflightRef.current = false;
+        // Still glued to the bottom after append → fetch the next page.
+        requestAnimationFrame(() => tryLoadMore());
+      });
+    };
+
+    viewport.addEventListener('scroll', tryLoadMore, { passive: true });
+    return () => viewport.removeEventListener('scroll', tryLoadMore);
+  }, [isIdle]);
 
   const handleNewChat = () => {
     onThreadOpen?.();
@@ -206,8 +283,10 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
         </div>
       }
     >
-      {listBody}
-      {!isIdle && hasMore ? <div ref={sentinelRef} className="h-4 shrink-0" aria-hidden /> : null}
+      <ChatHistorySection viewportRef={viewportRef}>
+        {listBody}
+        {!isIdle && hasMore ? <div className="h-4 shrink-0" aria-hidden /> : null}
+      </ChatHistorySection>
     </ThreadListShell>
   );
 }

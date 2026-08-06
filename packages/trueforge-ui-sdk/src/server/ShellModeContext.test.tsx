@@ -131,4 +131,44 @@ describe('ShellModeProvider', () => {
       locked: false,
     });
   });
+
+  it('listSessionsAgentId follows history filter when library is enabled', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+    expect(result.current.listSessionsAgentId).toBeUndefined();
+    expect(result.current.historyAgentFilter).toBeNull();
+
+    act(() => result.current.setHistoryAgentFilter('from-sdk'));
+    expect(result.current.historyAgentFilter).toBe('from-sdk');
+    expect(result.current.listSessionsAgentId).toBe('from-sdk');
+
+    act(() => result.current.setHistoryAgentFilter(null));
+    expect(result.current.listSessionsAgentId).toBeUndefined();
+  });
+
+  it('SingleAgent locks listSessionsAgentId to the agent name', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'SingleAgent', name: 'locked' }),
+    });
+    expect(result.current.listSessionsAgentId).toBe('locked');
+    act(() => result.current.setHistoryAgentFilter('ignored'));
+    expect(result.current.listSessionsAgentId).toBe('locked');
+  });
+
+  it('openHistorySession remounts into named mode with pendingSessionId', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+    expect(result.current.mode.type).toBe('draft');
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-1', agentName: 'from-sdk' }));
+    expect(result.current.mode).toEqual({
+      type: 'named',
+      agentName: 'from-sdk',
+      locked: false,
+    });
+    expect(result.current.pendingSessionId).toBe('sess-1');
+    expect(result.current.runtimeKey).toContain('sess-1');
+  });
 });

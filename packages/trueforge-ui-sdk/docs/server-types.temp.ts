@@ -273,7 +273,8 @@ export interface CreateSessionRequest {
 
 /** List filter + pagination. Hosts extend via `TList extends ListSessionsParams`. */
 export interface ListSessionsParams extends PageParams {
-  agentName?: string;
+  /** Host-owned agent identity filter. Hosts that key agents by name pass that name here. */
+  agentId?: string;
 }
 
 /**
