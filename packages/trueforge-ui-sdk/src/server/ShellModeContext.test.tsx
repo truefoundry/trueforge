@@ -109,4 +109,26 @@ describe('ShellModeProvider', () => {
     expect(result.current.runtimeKey).toBe(key);
     expect(result.current.mode.type).toBe('idle');
   });
+
+  it('openDraft and selectAgent close Settings', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+
+    act(() => result.current.setSettingsOpen(true));
+    expect(result.current.settingsOpen).toBe(true);
+
+    act(() => result.current.openDraft());
+    expect(result.current.settingsOpen).toBe(false);
+    expect(result.current.mode.type).toBe('draft');
+
+    act(() => result.current.setSettingsOpen(true));
+    act(() => result.current.selectAgent('alpha'));
+    expect(result.current.settingsOpen).toBe(false);
+    expect(result.current.mode).toEqual({
+      type: 'named',
+      agentName: 'alpha',
+      locked: false,
+    });
+  });
 });
