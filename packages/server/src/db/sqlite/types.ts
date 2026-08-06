@@ -18,10 +18,10 @@ import type {
 import type { CurrentContextUsage } from '@truefoundry/utils-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
-import type { ModelProviderManifest } from '../../schemas/modelProvider';
+import type { ModelProvider } from '../../schemas/modelProvider';
 import type { SandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { SkillManifest } from '../../schemas/skill';
-import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpOAuthTypes';
+import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -48,7 +48,10 @@ type JsonbColumn<T extends object | null> = JSONColumnType<T, T | string, T | st
 export interface SessionTable {
   tenant_id: string;
   session_id: string;
-  agent_spec: JsonbColumn<AgentSpec>;
+  /** Named registry binding; XOR with `agent_spec`. */
+  agent_id: string | null;
+  /** Inline draft binding; XOR with `agent_id`. */
+  agent_spec: JsonbColumn<AgentSpec> | null;
   title: string | null;
   last_turn_id: string | null;
   custom: JsonbColumn<Record<string, unknown>> | null;
@@ -149,8 +152,8 @@ export interface ThreadCapabilityStateTable {
 export interface ModelProviderTable {
   tenant_id: string;
   name: string;
-  /** ModelProviderManifest document; replaced whole on every upsert */
-  manifest: JsonbColumn<ModelProviderManifest>;
+  /** ModelProvider document; replaced whole on every upsert */
+  manifest: JsonbColumn<ModelProvider>;
   created_at: string;
   updated_at: string;
 }
@@ -177,6 +180,22 @@ export interface SandboxProviderTable {
   tenant_id: string;
   /** SandboxProviderManifest document; replaced whole on every upsert */
   manifest: JsonbColumn<SandboxProviderManifest>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Configured agents — mirrors the Postgres `agent` table.
+ * PRIMARY KEY (id); UNIQUE (tenant_id, name).
+ */
+export interface AgentTable {
+  /** application-generated (ulid); never re-derived from tenant_id/name */
+  id: string;
+  tenant_id: string;
+  /** natural uniqueness target within a tenant */
+  name: string;
+  /** AgentSpec document; replaced whole on every upsert */
+  manifest: JsonbColumn<AgentSpec>;
   created_at: string;
   updated_at: string;
 }
@@ -240,6 +259,7 @@ export interface Database {
   model_provider: ModelProviderTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
+  agent: AgentTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;

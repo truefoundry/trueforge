@@ -30,7 +30,7 @@ export function createSkillsRouter(deps: SkillsRouterDeps) {
   };
 
   const listConfiguredHandler: RouteHandler<typeof listConfiguredSkillsRoute> = async c => {
-    const records = await deps.skillStore.listSkills(TENANT_ID);
+    const records = await deps.skillStore.listSkills({ tenant_id: TENANT_ID, names: undefined });
     return c.json({ data: records.map(toConfiguredSkill) }, 200);
   };
 
@@ -56,7 +56,7 @@ export function createSkillsRouter(deps: SkillsRouterDeps) {
 export function createAvailableSkillsRouter(store: ISkillStore) {
   const router = new OpenAPIHono();
   router.openapi(listAvailableSkillsRoute, async c => {
-    const records = await store.listSkills(TENANT_ID);
+    const records = await store.listSkills({ tenant_id: TENANT_ID, names: undefined });
     return c.json(
       {
         data: records.map(record => ({

@@ -1,28 +1,26 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import {
-  ensureMcpClientRegistered,
   extractErrorLogFields,
-  type IOAuthTokenStore,
   isAuthRequired,
-  isMcpAuthRequired,
   McpConnectionError,
   McpDcrConfigurationError,
-  type OAuthToken,
   RemoteMCP,
-  resolveMcpAuth,
-  validateRedirectUris,
   withTimeout,
 } from '@truefoundry/utils-core/core';
-import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { McpCatalog } from '../catalog/McpCatalog';
 import configuration from '../config';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
+import { ensureMcpClientRegistered, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
+import { validateRedirectUris } from '../mcp/auth/mcpOAuthHelpers';
+import type { IOAuthTokenStore, OAuthToken } from '../mcp/auth/types';
 import {
-  authorizeConfiguredMcpServerRoute,
+  authorizeMcpServerRoute,
+  deleteMcpServerAuthRoute,
   getMcpServerCatalogRoute,
+  getMcpServerRoute,
   listAvailableMcpServersRoute,
-  listConfiguredMcpServersRoute,
+  listMcpServersRoute,
   listMcpServerToolsRoute,
   putMcpServerRoute,
 } from '../routes/mcpServerRoutes';
@@ -34,8 +32,14 @@ import { TENANT_ID } from './sessions';
 /** Registering a DCR OAuth client hits the MCP server's authorization server, so bound that call. */
 export const MCP_DCR_REGISTRATION_TIMEOUT_MS = 10_000;
 
-export interface McpServersRouterDeps {
+export interface SettingsMcpServersRouterDeps {
   mcpCatalog: McpCatalog;
+  mcpServerStore: IMcpServerStore;
+  tokenStore: IOAuthTokenStore;
+  logger: Logger;
+}
+
+export interface McpServersRouterDeps {
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   logger: Logger;
@@ -78,7 +82,7 @@ function toConfiguredMcpServer({
 /** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers).
  *  TODO: Remove the server via txn if DCR fails to register
  */
-export function createMcpServersRouter(deps: McpServersRouterDeps) {
+export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDeps) {
   const registerDcrClient = async (params: {
     serverId: string;
     mcpServerUrl: string;
@@ -90,7 +94,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
         serverId: params.serverId,
         mcpServerUrl: params.mcpServerUrl,
         mcpServerName: params.mcpServerName,
-        clientName: configuration.OAUTH_CLIENT_NAME,
+        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
       }),
       MCP_DCR_REGISTRATION_TIMEOUT_MS,
       `DCR client registration for MCP server "${params.mcpServerName}"`,
@@ -101,8 +105,8 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     return c.json({ data: [...deps.mcpCatalog.list()] }, 200);
   };
 
-  const listConfiguredHandler: RouteHandler<typeof listConfiguredMcpServersRoute> = async c => {
-    const records = await deps.mcpServerStore.listServers(TENANT_ID);
+  const listHandler: RouteHandler<typeof listMcpServersRoute> = async c => {
+    const records = await deps.mcpServerStore.listServers({ tenant_id: TENANT_ID, names: undefined });
     const nowMs = Date.now();
     // Only DCR servers have tokens; batch the lookup.
     const dcrIds = records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
@@ -111,6 +115,19 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
       { data: records.map(record => toConfiguredMcpServer({ record, token: tokens.get(record.id), nowMs })) },
       200,
     );
+  };
+
+  const getHandler: RouteHandler<typeof getMcpServerRoute> = async c => {
+    const { name } = c.req.valid('param');
+    const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
+    if (!record) {
+      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
+    }
+    let token: OAuthToken | undefined;
+    if (record.manifest.auth?.type === 'dcr') {
+      token = await deps.tokenStore.getToken({ id: record.id });
+    }
+    return c.json({ data: toConfiguredMcpServer({ record, token }) }, 200);
   };
 
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
@@ -153,21 +170,15 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
   const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {
     const { name } = c.req.valid('param');
     // Same url + header resolution as turn execution (DCR via resolveMcpAuth, header/no-auth static).
-    let connection;
-    try {
-      connection = await getMcpConnection({
-        tenant_id: TENANT_ID,
-        name,
-        store: deps.mcpServerStore,
-        tokenStore: deps.tokenStore,
-        clientName: configuration.OAUTH_CLIENT_NAME,
-      });
-    } catch (error) {
-      // getMcpConnection throws HTTPException(400) for unknown names; settings wire uses 404.
-      if (error instanceof HTTPException && error.status === 400) {
-        return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
-      }
-      throw error;
+    const connection = await getMcpConnection({
+      tenant_id: TENANT_ID,
+      name,
+      store: deps.mcpServerStore,
+      tokenStore: deps.tokenStore,
+      clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+    });
+    if (connection === undefined) {
+      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }
     const remote = new RemoteMCP({
       id: name,
@@ -198,7 +209,20 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     }
   };
 
-  const authorizeHandler: RouteHandler<typeof authorizeConfiguredMcpServerRoute> = async c => {
+  const router = new OpenAPIHono();
+  // Static `/catalog` before `/{name}/…` so "catalog" is not captured as a name.
+  router.openapi(getMcpServerCatalogRoute, catalogHandler);
+  router.openapi(listMcpServersRoute, listHandler);
+  router.openapi(putMcpServerRoute, putHandler);
+  // `/{name}/tools` before `/{name}` so the tools suffix is not swallowed.
+  router.openapi(listMcpServerToolsRoute, listToolsHandler);
+  router.openapi(getMcpServerRoute, getHandler);
+  return router;
+}
+
+/** List + authorize (mounted at /api/v1/mcp-servers). */
+export function createMcpServersRouter(deps: McpServersRouterDeps) {
+  const authorizeHandler: RouteHandler<typeof authorizeMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const { redirect_url: redirectUrl } = c.req.valid('query');
     const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
@@ -221,7 +245,7 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
         serverId: record.id,
         mcpServerUrl: record.manifest.url,
         mcpServerName: record.name,
-        clientName: configuration.OAUTH_CLIENT_NAME,
+        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
         ...(redirectUrl !== undefined ? { redirectUrl } : {}),
       });
       const authStatus: McpAuthStatus = isMcpAuthRequired(result)
@@ -241,21 +265,23 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
     }
   };
 
-  const router = new OpenAPIHono();
-  // Static `/catalog` before `/{name}/…` so "catalog" is not captured as a name.
-  router.openapi(getMcpServerCatalogRoute, catalogHandler);
-  router.openapi(listConfiguredMcpServersRoute, listConfiguredHandler);
-  router.openapi(putMcpServerRoute, putHandler);
-  router.openapi(listMcpServerToolsRoute, listToolsHandler);
-  router.openapi(authorizeConfiguredMcpServerRoute, authorizeHandler);
-  return router;
-}
+  const deleteAuthHandler: RouteHandler<typeof deleteMcpServerAuthRoute> = async c => {
+    const { name } = c.req.valid('param');
+    const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
+    if (!record) {
+      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
+    }
+    // DCR: drop the user token only — keep oauth_server / oauth_client so re-authorize can skip DCR.
+    // Header / no-auth: no-op.
+    if (record.manifest.auth?.type === 'dcr') {
+      await deps.tokenStore.deleteToken({ id: record.id });
+    }
+    return c.json({ data: toConfiguredMcpServer({ record, token: undefined }) }, 200);
+  };
 
-/** Chat slim list (mounted at /api/v1/mcp-servers) — mirrors GET /api/v1/models. */
-export function createAvailableMcpServersRouter(store: IMcpServerStore) {
   const router = new OpenAPIHono();
   router.openapi(listAvailableMcpServersRoute, async c => {
-    const records = await store.listServers(TENANT_ID);
+    const records = await deps.mcpServerStore.listServers({ tenant_id: TENANT_ID, names: undefined });
     return c.json(
       {
         data: records.map(record => ({ name: record.name, url: record.manifest.url })),
@@ -263,5 +289,7 @@ export function createAvailableMcpServersRouter(store: IMcpServerStore) {
       200,
     );
   });
+  router.openapi(authorizeMcpServerRoute, authorizeHandler);
+  router.openapi(deleteMcpServerAuthRoute, deleteAuthHandler);
   return router;
 }

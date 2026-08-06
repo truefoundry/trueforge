@@ -7,7 +7,8 @@
  * turn execution resolves DCR tokens via resolveMcpAuth.
  */
 import { z } from '@hono/zod-openapi';
-import { isOAuthAccessTokenUsable, type OAuthToken } from '@truefoundry/utils-core/core';
+import { isOAuthAccessTokenUsable } from '../mcp/auth/mcpOAuthHelpers';
+import type { OAuthToken } from '../mcp/auth/types';
 import { NameSchema } from './common';
 
 /** Transport/kind of MCP server. Extend when non-remote kinds ship. */
@@ -68,9 +69,10 @@ export const ConfiguredMcpServerSchema = McpServerManifestObjectSchema.extend({
 
 export const PutMcpServerRequestSchema = McpServerManifestSchema;
 export const PutMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('PutMcpServerResponse');
-export const ListConfiguredMcpServersResponseSchema = z
+export const GetMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('GetMcpServerResponse');
+export const ListMcpServersResponseSchema = z
   .object({ data: z.array(ConfiguredMcpServerSchema) })
-  .openapi('ListConfiguredMcpServersResponse');
+  .openapi('ListMcpServersResponse');
 
 /** Chat/composer read view — no auth or auth_status. */
 export const McpServerReadEntrySchema = z

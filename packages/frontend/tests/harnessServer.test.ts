@@ -4,10 +4,13 @@ import { createHarnessChatServer, type HarnessAgentSpec } from '../src/harnessSe
 
 const session = {
   id: 'ses_1',
-  agent_spec: {
-    model: { name: 'test/model' },
-    mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
-    skills: [{ name: 'review' }],
+  agent: {
+    type: 'value',
+    agent_spec: {
+      model: { name: 'test/model' },
+      mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
+      skills: [{ name: 'review' }],
+    },
   },
   title: null,
   created_at: '2026-08-03T00:00:00.000Z',
@@ -16,6 +19,7 @@ const session = {
 
 const turnRequests: unknown[] = [];
 const sessionRequests: unknown[] = [];
+const subscribeRequests: (string | null)[] = [];
 
 const fetchMock: typeof fetch = async (input, init) => {
   const url = input instanceof Request ? input.url : String(input);
@@ -36,6 +40,15 @@ const fetchMock: typeof fetch = async (input, init) => {
   if (url.endsWith('/api/v1/sessions/ses_1/turns')) {
     return new Response(
       'id: 7\ndata: {"type":"model.message.delta","id":"evt_1","thread_id":"main","content":"hello"}\n\n',
+      { headers: { 'content-type': 'text/event-stream' } },
+    );
+  }
+  if (url.includes('/api/v1/sessions/ses_1/turns/trn_1/subscribe')) {
+    // SDK join can yield a relative path; base is only for URL parsing.
+    const after = new URL(url, 'http://test.local').searchParams.get('after_sequence_number');
+    subscribeRequests.push(after);
+    return new Response(
+      'id: 8\ndata: {"type":"model.message.delta","id":"evt_2","thread_id":"main","content":"world"}\n\n',
       { headers: { 'content-type': 'text/event-stream' } },
     );
   }
@@ -68,11 +81,14 @@ describe('createHarnessChatServer', () => {
     });
 
     const sent = sessionRequests.at(-1);
-    assert.ok(sent !== null && typeof sent === 'object' && 'agent_spec' in sent);
-    assert.deepEqual(sent.agent_spec, {
-      model: { name: 'test/model' },
-      mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
-      skills: [{ name: 'review' }],
+    assert.ok(sent !== null && typeof sent === 'object' && 'agent' in sent);
+    assert.deepEqual(sent.agent, {
+      type: 'value',
+      agent_spec: {
+        model: { name: 'test/model' },
+        mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
+        skills: [{ name: 'review' }],
+      },
     });
   });
 
@@ -90,18 +106,18 @@ describe('createHarnessChatServer', () => {
     const server = createHarnessChatServer({ fetch: fetchMock });
 
     const events = [];
-    for await (const event of server.prepareAndExecuteTurn({
+    for await (const event of server.createTurn({
       sessionId: 'ses_1',
       input: [{ type: 'user.message', content: 'hello' }],
-      // The runtime's root sentinel; Harness 404s unless it becomes `null`.
       previousTurnId: 'none',
     })) {
       events.push(event);
     }
 
     const sent = turnRequests.at(-1);
-    assert.ok(sent !== null && typeof sent === 'object' && 'previous_turn_id' in sent);
-    assert.equal(sent.previous_turn_id, null);
+    assert.ok(sent !== null && typeof sent === 'object' && 'previous_turn_id' in sent && 'stream' in sent);
+    assert.equal(sent.previous_turn_id, 'none');
+    assert.equal(sent.stream, true);
 
     assert.deepEqual(events, [
       {
@@ -111,6 +127,33 @@ describe('createHarnessChatServer', () => {
           id: 'evt_1',
           threadId: 'main',
           content: 'hello',
+        },
+      },
+    ]);
+  });
+
+  it('subscribes to a turn and forwards afterSequenceNumber', async () => {
+    const server = createHarnessChatServer({ fetch: fetchMock });
+    assert.ok(server.subscribeToTurn);
+
+    const events = [];
+    for await (const event of server.subscribeToTurn({
+      sessionId: 'ses_1',
+      turnId: 'trn_1',
+      afterSequenceNumber: 7,
+    })) {
+      events.push(event);
+    }
+
+    assert.equal(subscribeRequests.at(-1), '7');
+    assert.deepEqual(events, [
+      {
+        sequenceNumber: 8,
+        event: {
+          type: 'model.message.delta',
+          id: 'evt_2',
+          threadId: 'main',
+          content: 'world',
         },
       },
     ]);

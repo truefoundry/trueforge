@@ -47,18 +47,6 @@ export {
 } from './capabilities/builtins/LargeToolResponse';
 export { openUI } from './capabilities/builtins/OpenUI';
 
-// Auth contracts
-export { InMemoryOAuthClientStore } from './auth/InMemoryOAuthClientStore';
-export { InMemoryOAuthTokenStore } from './auth/InMemoryOAuthTokenStore';
-export type {
-  IOAuthClientStore,
-  OAuthClientCredentials,
-  OAuthClientRecord,
-  OAuthServerMetadata,
-} from './auth/IOAuthClientStore';
-export type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken } from './auth/IOAuthTokenStore';
-export { isOAuthAccessTokenUsable } from './auth/oauthToken';
-
 // MCP contracts
 export type { ApprovalDecision } from './events/schema';
 export { ClientSideTool } from './mcp/ClientSideTool';
@@ -147,24 +135,6 @@ export type {
 export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
 export { extractErrorLogFields } from './util/errorLogFields';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
-
-// MCP OAuth
-export {
-  DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
-  MCP_OAUTH_CALLBACK_PATH,
-  buildMcpAuthorizationUrl,
-  completeMcpAuthorization,
-  createMcpOAuthClient,
-  ensureMcpClientRegistered,
-  isMcpAuthRequired,
-  mcpAuthorizationServerMetadata,
-  mcpAuthorizationServerOrigin,
-  mcpClientInformation,
-  mcpOAuthCallbackUrl,
-  resolveMcpAuth,
-  validateRedirectUris,
-} from './mcp/auth';
-export type { McpAuthRequiredResult, McpAuthResolvedResult, ResolveMcpAuthResult } from './mcp/auth';
 
 // Sandbox (concrete implementation; provider details exported for composition)
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
