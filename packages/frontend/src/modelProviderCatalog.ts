@@ -1,5 +1,5 @@
 /**
- * Maps agent-ui-sdk model-settings calls onto Harness
+ * Maps trueforge-ui model-settings calls onto Harness
  * `/api/v1/settings/model-providers` (name-keyed upsert, no delete).
  *
  * UI: flat `apiKey` / model `id`. Harness: `auth.apiKey` / `modelId`.
@@ -12,7 +12,7 @@ import type {
   ModelProviderBase,
   ModelProviderCatalogEntry,
   UpdateModelProviderRequest,
-} from '@truefoundry/agent-ui-sdk';
+} from '@truefoundry/trueforge-ui';
 import { TrueForgeApi as Harness, TrueForge } from 'trueforge';
 /** Custom-form rows omit properties; catalog rows round-trip them. */
 export type UiModelEntry = ModelEntry & {

@@ -6,7 +6,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "build": "pnpm --filter @truefoundry/utils-core build && pnpm --filter frontend build && pnpm --filter @truefoundry/utils build",
+    "build": "pnpm --filter @truefoundry/utils-core build && pnpm --filter @truefoundry/trueforge-ui build && pnpm --filter frontend build && pnpm --filter @truefoundry/utils build",
     "clean:all": "node scripts/clean.mjs --dependencies",
     "clean": "node scripts/clean.mjs",
     "dev": "STANDALONE=false NODE_ENV=development pnpm --parallel --filter @truefoundry/utils-core --filter @truefoundry/utils --filter frontend dev",
@@ -30,8 +30,8 @@
     "smoke:down": "docker compose down",
     "smoke": "docker compose up --build --wait && node -e \"Promise.all([fetch('http://127.0.0.1:8791/healthz'), fetch('http://127.0.0.1:8791/')]).then(async ([health, ui]) => { if (!health.ok) throw new Error('healthz returned ' + health.status); const html = await ui.text(); if (!ui.ok || !html.includes('id=\\\"root\\\"')) throw new Error('UI did not return its app shell'); console.log('healthz and UI OK'); })\"",
     "test:store:local": "bash scripts/test-store-local.sh",
-    "test": "pnpm --filter @truefoundry/utils-core test && pnpm --filter @truefoundry/utils test && pnpm --filter frontend test",
-    "typecheck": "pnpm --filter @truefoundry/utils-core typecheck && pnpm --filter @truefoundry/utils typecheck && pnpm --filter frontend typecheck",
+    "test": "pnpm --filter @truefoundry/utils-core test && pnpm --filter @truefoundry/trueforge-ui test && pnpm --filter @truefoundry/utils test && pnpm --filter frontend test",
+    "typecheck": "pnpm --filter @truefoundry/utils-core typecheck && pnpm --filter @truefoundry/trueforge-ui typecheck && pnpm --filter @truefoundry/utils typecheck && pnpm --filter frontend typecheck",
     "ui:clean": "node ui-shots/clean.mjs",
     "ui:shot": "node ui-shots/shot.mjs"
   },

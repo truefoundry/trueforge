@@ -7,12 +7,13 @@ minimumReleaseAge: 0
 trustLockfile: true
 confirmModulesPurge: false
 allowBuilds:
+  '@parcel/watcher': true
   '@swc/core': true
   better-sqlite3: true
   esbuild: true
   protobufjs: true
 
-# Silence peer mismatches between agent-ui-sdk peers and the versions we pin.
+# Silence peer mismatches between trueforge-ui peers and the versions we pin.
 peerDependencyRules:
   allowedVersions:
     '@truefoundry/assistant-ui-runtime': '0.1.6-rc.2'
@@ -21,5 +22,7 @@ peerDependencyRules:
 overrides:
   '@assistant-ui/store': '0.2.21'
   '@assistant-ui/core': '0.2.22'
+  '@assistant-ui/tap': '0.9.5'
+  zustand: '^5.0.14'
   # resolve@1.22.12 ships accidental .claude/ files that break installs under macOS sandbox.
   resolve: '1.22.11'

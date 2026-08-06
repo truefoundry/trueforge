@@ -8,7 +8,7 @@ Built on:
 trueforge (local Harness SDK)
   → Harness AgentChatServer adapter
     → createTrueFoundryServer (chat port + catalog callbacks)
-      → @truefoundry/agent-ui-sdk (TrueFoundryAssistantUI, layout="sidebar")
+      → @truefoundry/trueforge-ui (TrueforgeUI, layout="sidebar")
 ```
 
 The SDK owns the shell: sidebar, thread list, composer, model and connector pickers, and the
@@ -40,7 +40,7 @@ moves Vite off `:3000`. That proxy is the only dev-specific wiring and lives ent
 contract. It maps mutable session DTOs, pagination, turns, event history, cancellation, and SSE
 metadata while keeping the browser pointed directly at `/api/v1/sessions`.
 
-`agent-ui-sdk` still declares the pre-0.1.6 contract (mounts carry `id`, list results are
+`trueforge-ui` still declares the pre-0.1.6 contract (mounts carry `id`, list results are
 `PageResult`, absent values are `undefined`) while the runtime it delegates to reads `nextPageToken`
 and tolerates `null`. The adapter emits values valid under both — derived mount ids, pages carrying
 `nextPageToken` _and_ `hasNextPage()`, `null` normalised to absent — so no layer needs a cast.

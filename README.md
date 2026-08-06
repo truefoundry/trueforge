@@ -6,12 +6,13 @@ Out of the box you get multi-turn sessions with streaming, MCP tool servers (inc
 
 > Note: Package and folder names will be renamed soon to match the release names below. They have been intentionally named "utils" to not leak before announcement.
 
-| Package                   | Release Name                  | Path                                     | What it is                                                  |
-| ------------------------- | ----------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
-| `@truefoundry/utils`      | `@truefoundry/trueforge`      | `[packages/server](packages/server)`     | Agent server + bundled UI                                   |
-| `@truefoundry/utils-core` | `@truefoundry/trueforge-core` | `[packages/harness](packages/harness)`   | Library: agent core, sessions, and streaming                |
-| `trueforge`               | `@truefoundry/trueforge-sdk`  | `[packages/sdk](packages/sdk)`           | Generated TypeScript SDK                                    |
-| `frontend`                | —                             | `[packages/frontend](packages/frontend)` | Chat UI (bundled into the server; not published on its own) |
+| Package                     | Release Name                  | Path                                                     | What it is                                           |
+| --------------------------- | ----------------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
+| `@truefoundry/utils`        | `@truefoundry/trueforge`      | [`packages/server`](packages/server)                     | Agent server + bundled UI                            |
+| `@truefoundry/utils-core`   | `@truefoundry/trueforge-core` | [`packages/harness`](packages/harness)                   | Library: agent core, sessions, and streaming         |
+| `@truefoundry/trueforge-ui` | —                             | [`packages/trueforge-ui-sdk`](packages/trueforge-ui-sdk) | Published agent chat UI SDK                          |
+| `trueforge`                 | `@truefoundry/trueforge-sdk`  | [`packages/sdk`](packages/sdk)                           | Generated TypeScript SDK                             |
+| `frontend`                  | —                             | [`packages/frontend`](packages/frontend)                 | Chat UI (bundled into the server; uses trueforge-ui) |
 
 Requires **Node.js 22.13+** and **pnpm**.
 
@@ -142,7 +143,7 @@ The published package supports both CommonJS and ESM. Server-only dependencies (
 | `pnpm smoke` / `pnpm smoke:down`                     | Full Docker Compose stack                             |
 | `pnpm clean` / `pnpm clean:all`                      | Remove build outputs (+ `node_modules` for `:all`)    |
 
-Local server scripts resolve `@truefoundry/utils-core` from source, so you do not need a utils-core `dist/` build for `pnpm dev` / `standalone:dev`.
+Local server scripts resolve `@truefoundry/utils-core` from source, so you do not need a utils-core `dist/` build for `pnpm dev` / `standalone:dev`. Frontend scripts build `@truefoundry/trueforge-ui` `dist/` before Vite starts (workspace package exports point at `dist/`).
 
 ### Smoke test (Docker)
 

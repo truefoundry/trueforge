@@ -1,0 +1,321 @@
+/**
+ * Tailwind authoring source for @truefoundry/trueforge-ui.
+ *
+ * The package build compiles this file through `build-styles.css` into the
+ * public `dist/styles.css` artifact. Consumers must import that artifact,
+ * rather than compiling this source in their own Tailwind pipeline.
+ *
+ * ── Quick start ──────────────────────────────────────────────────────
+ *
+ *   @import "@truefoundry/trueforge-ui/styles.css";
+ *
+ * That's the entire styling setup. Everything below is pulled in for you:
+ *
+ *  1. OpenUI stylesheet + Tailwind `@source` scanning for this SDK's own
+ *     compiled components.
+ *
+ *  2. GitHub Markdown styles (`github-markdown-css`) for `.markdown-body`.
+ *
+ *  3. Owned palette + shadcn-style semantic tokens (`--background`,
+ *     `--muted`, `--primary`, …) in light and dark.
+ *
+ * ── Overriding colours ───────────────────────────────────────────────
+ *
+ * Palette colours:
+ *
+ *     :root { --color-indigo-500: #000; }
+ *
+ * Semantic tokens (used by this SDK's atoms):
+ *
+ *     :root { --background: #fff; --primary: #e11d48; }
+ *
+ * Or via the theme object: `theme={{ tokens: { primary: "#e11d48" } }}`.
+ *
+ * Both work because the `@layer` block below has the lowest precedence —
+ * any plain `:root` / `.aui-root` declaration in the consumer's CSS wins.
+ */
+@import "./openui.css";
+
+/*
+ * GitHub Markdown styles (https://github.com/sindresorhus/github-markdown-css).
+ * Applied via `.markdown-body` on the Markdown atom. The bridge remaps light/dark
+ * CSS variables to the SDK ThemeProvider mode (class + data-theme).
+ */
+@import "github-markdown-css/github-markdown.css";
+@import "./github-markdown-bridge.css";
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Owned palette (minimal set used by semantic tokens + gray utilities).
+ * Light values on :root; dark mode flips the same var names under .dark
+ * (matches prior tfy ThemeProvider injectThemes behaviour).
+ * ──────────────────────────────────────────────────────────────────── */
+@layer tfy-agent-ui-base {
+  :root {
+    --color-white: #ffffff;
+    --color-black: #09090b;
+    --color-gray-100: #f4f4f5;
+    --color-gray-125: #f1f1f2;
+    --color-gray-150: #eeeef0;
+    --color-gray-200: #e4e4e7;
+    --color-gray-250: #e4e4e7;
+    --color-gray-275: #f4f4f5;
+    --color-gray-300: #d4d4d8;
+    --color-gray-400: #a1a1aa;
+    --color-gray-500: #71717a;
+    --color-gray-550: #62626a;
+    --color-gray-600: #52525b;
+    --color-gray-650: #494950;
+    --color-gray-700: #3f3f46;
+    --color-gray-750: #303036;
+    --color-gray-800: #27272a;
+    --color-gray-1000: #09090b;
+    --color-indigo-500: #6366f1;
+    --color-red-500: #ef4444;
+
+    --background: var(--color-white);
+    --foreground: var(--color-gray-1000);
+    --card: var(--color-white);
+    --card-foreground: var(--color-gray-1000);
+    --popover: var(--color-white);
+    --popover-foreground: var(--color-gray-1000);
+    --primary: var(--color-black);
+    --primary-foreground: var(--color-white);
+    --secondary: var(--color-gray-100);
+    --secondary-foreground: var(--color-gray-1000);
+    --muted: var(--color-gray-100);
+    --muted-foreground: var(--color-gray-550);
+    --accent: var(--color-gray-125);
+    --accent-foreground: var(--color-gray-1000);
+    --destructive: var(--color-red-500);
+    --destructive-foreground: var(--color-white);
+    --border: var(--color-gray-250);
+    --input: var(--color-gray-250);
+    --ring: var(--color-black);
+    --radius: 0.5rem;
+    --composer-radius: 1.5rem;
+    --user-bubble: var(--color-black);
+    --user-bubble-foreground: var(--color-white);
+    --assistant-bubble: transparent;
+    --assistant-bubble-foreground: var(--foreground);
+  }
+
+  .dark {
+    --color-gray-100: #101013;
+    --color-gray-125: #141417;
+    --color-gray-150: #18181b;
+    --color-gray-200: #1f1f22;
+    --color-gray-250: #27272a;
+    --color-gray-275: #343439;
+    --color-gray-300: #3f3f46;
+    --color-gray-400: #52525b;
+    --color-gray-500: #71717a;
+    --color-gray-550: #8c8c92;
+    --color-gray-600: #a1a1aa;
+    --color-gray-650: #b8b8be;
+    --color-gray-700: #d4d4d8;
+    --color-gray-750: #dfdfe2;
+    --color-gray-800: #ececee;
+    --color-gray-1000: #fdfdfd;
+
+    --background: var(--color-gray-200);
+    --foreground: var(--color-gray-1000);
+    --card: var(--color-gray-150);
+    --card-foreground: var(--color-gray-1000);
+    --popover: var(--color-gray-150);
+    --popover-foreground: var(--color-gray-1000);
+    --primary: var(--color-indigo-500);
+    --primary-foreground: var(--color-white);
+    --secondary: var(--color-gray-250);
+    --secondary-foreground: var(--color-gray-1000);
+    --muted: var(--color-gray-250);
+    --muted-foreground: var(--color-gray-600);
+    --accent: var(--color-gray-275);
+    --accent-foreground: var(--color-gray-1000);
+    --destructive: var(--color-red-500);
+    --destructive-foreground: var(--color-white);
+    --border: var(--color-gray-275);
+    --input: var(--color-gray-275);
+    --ring: var(--color-indigo-500);
+    --user-bubble: var(--color-indigo-500);
+    --user-bubble-foreground: var(--color-white);
+    --assistant-bubble: transparent;
+    --assistant-bubble-foreground: var(--foreground);
+  }
+}
+
+/*
+ * Unlayered so it beats any @layer utilities rule (e.g. Tailwind's
+ * `.font-sans`) that might otherwise override the inherited font on
+ * descendant elements. `.aui-theme-root` covers all SDK chrome (including
+ * brand names and sidebars), while `.aui-root` covers standalone thread
+ * shells and consumer slot overrides. `.font-sans-flex` remains available
+ * for explicitly portaled surfaces. All three override `--font-sans`.
+ * Override `--font-agent-ui` in host CSS to brand the font (the SDK
+ * stylesheet does not load webfonts from a CDN).
+ */
+.aui-theme-root,
+.aui-root,
+.font-sans-flex {
+  --font-sans: var(
+    --font-agent-ui,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif
+  );
+  font-family: var(
+    --font-agent-ui,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif
+  );
+}
+
+/*
+ * Clone typography: conversation copy and composer text are regular weight;
+ * controls and headings keep their component-level medium/semibold utilities.
+ */
+.aui-theme-root:is(
+    [data-preset="claude"],
+    [data-preset="chatgpt"],
+    [data-preset="gemini"]
+  )
+  :is(
+    .aui-markdown,
+    [data-slot="aui_user-message-content"],
+    [data-slot="aui_composer-input"],
+    [data-slot="aui_user-edit-input"]
+  ) {
+  font-weight: 400;
+}
+
+/*
+ * Token-driven default color for every SDK surface, not just thread shells.
+ * Without this, chrome outside `.aui-root` (sidebar, headers, footers, icon
+ * buttons) inherits the host page color and goes unreadable in dark mode.
+ */
+.aui-theme-root {
+  --thread-list-item-radius: 0.5rem;
+  color: var(--foreground);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Slim scrollbars.
+ * ──────────────────────────────────────────────────────────────────── */
+.aui-root {
+  color: var(--foreground);
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) transparent;
+}
+
+.aui-root ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.aui-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aui-root ::-webkit-scrollbar-thumb {
+  background-color: var(--muted-foreground);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.aui-root ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Tailwind v4 `@theme inline` registrations.
+ * ──────────────────────────────────────────────────────────────────── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-white: var(--color-white);
+  --color-black: var(--color-black);
+  --color-gray-100: var(--color-gray-100);
+  --color-gray-125: var(--color-gray-125);
+  --color-gray-150: var(--color-gray-150);
+  --color-gray-200: var(--color-gray-200);
+  --color-gray-250: var(--color-gray-250);
+  --color-gray-275: var(--color-gray-275);
+  --color-gray-300: var(--color-gray-300);
+  --color-gray-400: var(--color-gray-400);
+  --color-gray-500: var(--color-gray-500);
+  --color-gray-550: var(--color-gray-550);
+  --color-gray-600: var(--color-gray-600);
+  --color-gray-650: var(--color-gray-650);
+  --color-gray-700: var(--color-gray-700);
+  --color-gray-750: var(--color-gray-750);
+  --color-gray-800: var(--color-gray-800);
+  --color-gray-1000: var(--color-gray-1000);
+  --color-indigo-500: var(--color-indigo-500);
+  --color-red-500: var(--color-red-500);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* Monaco embeds: blend into surrounding cards (transparent editor chrome). */
+.aui-monaco .monaco-editor,
+.aui-monaco .monaco-editor-background,
+.aui-monaco .margin,
+.aui-monaco .monaco-editor .inputarea.ime-input {
+  background-color: transparent !important;
+}
+
+.aui-monaco .monaco-editor .overflow-guard {
+  border-radius: inherit;
+}
+
+/* ChatGPT dark: transparent composer border + inset white edge */
+.aui-theme-root[data-preset="chatgpt"][data-theme="dark"] [data-slot="aui_composer-shell"] {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .aui-bottom-sheet[open] {
+    animation: aui-bottom-sheet-enter 180ms ease-out;
+  }
+}
+
+.aui-bottom-sheet {
+  height: min(70dvh, 30rem);
+  max-height: 85dvh;
+}
+
+@keyframes aui-bottom-sheet-enter {
+  from {
+    transform: translateY(100%);
+  }
+}
