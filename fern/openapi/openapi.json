@@ -2021,15 +2021,15 @@
             "fireworks": "#/components/schemas/FireworksModelProvider",
             "google-gemini": "#/components/schemas/GoogleGeminiModelProvider",
             "moonshot": "#/components/schemas/MoonshotModelProvider",
-            "openai": "#/components/schemas/OpenAiModelProvider",
-            "together": "#/components/schemas/TogetherModelProvider",
+            "openai": "#/components/schemas/OpenAIModelProvider",
+            "together": "#/components/schemas/TogetherAIModelProvider",
             "zai": "#/components/schemas/ZaiModelProvider"
           },
           "propertyName": "type"
         },
         "oneOf": [
           {
-            "$ref": "#/components/schemas/OpenAiModelProvider"
+            "$ref": "#/components/schemas/OpenAIModelProvider"
           },
           {
             "$ref": "#/components/schemas/AnthropicModelProvider"
@@ -2047,7 +2047,7 @@
             "$ref": "#/components/schemas/MoonshotModelProvider"
           },
           {
-            "$ref": "#/components/schemas/TogetherModelProvider"
+            "$ref": "#/components/schemas/TogetherAIModelProvider"
           },
           {
             "$ref": "#/components/schemas/AlibabaModelProvider"
@@ -2110,7 +2110,7 @@
         ],
         "type": "object"
       },
-      "OpenAiModelProvider": {
+      "OpenAIModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -2245,7 +2245,6 @@
       },
       "ReasoningEffort": {
         "enum": [
-          "provider-default",
           "none",
           "minimal",
           "low",
@@ -2943,7 +2942,7 @@
         ],
         "type": "object"
       },
-      "TogetherModelProvider": {
+      "TogetherAIModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {

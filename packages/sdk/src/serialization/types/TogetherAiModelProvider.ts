@@ -6,9 +6,9 @@ import type * as serializers from "../index.js";
 import { ModelEntry } from "./ModelEntry.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
 
-export const TogetherModelProvider: core.serialization.ObjectSchema<
-    serializers.TogetherModelProvider.Raw,
-    TrueForge.TogetherModelProvider
+export const TogetherAiModelProvider: core.serialization.ObjectSchema<
+    serializers.TogetherAiModelProvider.Raw,
+    TrueForge.TogetherAiModelProvider
 > = core.serialization.object({
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
@@ -17,7 +17,7 @@ export const TogetherModelProvider: core.serialization.ObjectSchema<
     type: core.serialization.stringLiteral("together"),
 });
 
-export declare namespace TogetherModelProvider {
+export declare namespace TogetherAiModelProvider {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;

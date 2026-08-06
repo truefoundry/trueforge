@@ -179,7 +179,7 @@ async function createDistributedPersistence(options: {
 try {
   // Console logger shared by the server runtime (harness components require one).
   const logger = winston.createLogger({
-    level: process.env['LOG_LEVEL'] ?? 'info',
+    level: configuration.LOG_LEVEL,
     format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
     transports: [new winston.transports.Console()],
   });
@@ -279,7 +279,7 @@ try {
 
   // Graceful drain is the safe default for built and direct execution.
   // Development watch mode opts out so tsx can restart without waiting for a drain.
-  if (process.env['NODE_ENV'] !== 'development') {
+  if (configuration.NODE_ENV !== 'development') {
     let shuttingDown = false;
     const shutdown = async (signal: NodeJS.Signals) => {
       if (shuttingDown) return;

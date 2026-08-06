@@ -263,6 +263,10 @@ export interface OIDCConfig {
 }
 
 export interface SharedServerConfiguration {
+  /** Log level. Env: `LOG_LEVEL`. */
+  LOG_LEVEL: string;
+  /** Node environment. Env: `NODE_ENV`. */
+  NODE_ENV: string | undefined;
   /** HTTP port the server listens on. Env: `PORT`. */
   PORT: number;
   /** Peering identity embedded in the turn ids this process mints; `local` in standalone mode. */
@@ -435,6 +439,8 @@ const standalone = parseBoolean({
 const port = parsePort(getEnv('PORT'));
 
 const shared: SharedServerConfiguration = {
+  LOG_LEVEL: getEnv('LOG_LEVEL', { defaultValue: 'info' }) ?? 'info',
+  NODE_ENV: getEnv('NODE_ENV'),
   PORT: port,
   EXECUTOR_ID: standalone ? LOCAL_EXECUTOR_ID : randomAlphanumeric(6),
   MODEL_CATALOG_PATH: resolveOptionalPathEnv('MODEL_CATALOG_PATH'),

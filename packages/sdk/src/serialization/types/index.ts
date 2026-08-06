@@ -138,7 +138,7 @@ export * from "./ThreadDoneEvent.js";
 export * from "./ThreadState.js";
 export * from "./ThreadStateDone.js";
 export * from "./ThreadStateError.js";
-export * from "./TogetherModelProvider.js";
+export * from "./TogetherAiModelProvider.js";
 export * from "./TokenPagination.js";
 export * from "./ToolApprovalRequiredEvent.js";
 export * from "./ToolCall.js";
