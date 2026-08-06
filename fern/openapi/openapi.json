@@ -192,6 +192,9 @@
         "type": "object"
       },
       "AskUserQuestionsConfig": {
+        "default": {
+          "enabled": true
+        },
         "properties": {
           "enabled": {
             "default": true,
@@ -705,6 +708,9 @@
         "type": "object"
       },
       "DynamicSubAgentsConfig": {
+        "default": {
+          "enabled": true
+        },
         "properties": {
           "enabled": {
             "default": true,
@@ -766,6 +772,9 @@
         "type": "string"
       },
       "GenerativeUIConfig": {
+        "default": {
+          "enabled": true
+        },
         "properties": {
           "enabled": {
             "default": true,
@@ -2002,6 +2011,30 @@
         "type": "object"
       },
       "RuntimeConfig": {
+        "default": {
+          "ask_user_questions": {
+            "enabled": true
+          },
+          "context_management": {
+            "compaction": {
+              "enabled": true
+            },
+            "large_tool_response": {
+              "enabled": true
+            }
+          },
+          "dynamic_sub_agents": {
+            "enabled": true
+          },
+          "generative_ui": {
+            "enabled": true
+          },
+          "iteration_limit": 100,
+          "sandbox": {
+            "enabled": false,
+            "file_downloads": true
+          }
+        },
         "properties": {
           "ask_user_questions": {
             "$ref": "#/components/schemas/AskUserQuestionsConfig"
@@ -2028,6 +2061,10 @@
         "type": "object"
       },
       "SandboxConfig": {
+        "default": {
+          "enabled": false,
+          "file_downloads": true
+        },
         "properties": {
           "enabled": {
             "type": "boolean"
