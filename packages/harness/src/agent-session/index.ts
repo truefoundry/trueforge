@@ -21,13 +21,8 @@ export {
 } from './schemas/turn';
 export type { TerminalTurnState, Turn, TurnInputItem, TurnMetrics, TurnState } from './schemas/turn';
 
-export {
-  CreateSessionRequestSchema,
-  SessionAgentSchema,
-  SessionSchema,
-  UpdateSessionRequestSchema,
-} from './schemas/session';
-export type { CreateSessionRequest, Session, SessionAgent } from './schemas/session';
+export { CreateSessionRequestSchema, SessionSchema, UpdateSessionRequestSchema } from './schemas/session';
+export type { Session, SessionAgent } from './schemas/session';
 
 export {
   EventType,

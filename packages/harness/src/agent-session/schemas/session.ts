@@ -56,4 +56,3 @@ export const UpdateSessionRequestSchema = z
 
 export type SessionAgent = z.infer<typeof SessionAgentSchema>;
 export type Session = z.infer<typeof SessionSchema>;
-export type CreateSessionRequest = z.infer<typeof CreateSessionRequestSchema>;
