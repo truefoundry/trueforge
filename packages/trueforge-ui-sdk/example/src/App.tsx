@@ -138,6 +138,11 @@ const emptyCatalog: CatalogServer = {
   },
   connectorCatalog: {
     getConnectorCatalog: async () => exampleConnectorCatalog,
+    getConnector: async ({ id }) => {
+      const connector = definedConnectors.find(item => item.id === id);
+      if (!connector) throw new Error(`Connector ${id} was not found.`);
+      return connector;
+    },
     listConnectors: async () => definedConnectors,
     getToolsByConnectorId: async () => [],
     createConnector: async req => {

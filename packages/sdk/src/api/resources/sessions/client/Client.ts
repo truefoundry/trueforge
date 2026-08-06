@@ -24,7 +24,7 @@ export class SessionsClient {
     }
 
     /**
-     * List sessions (newest first by default), token-paginated. Pass `page_token` to fetch the next page, keeping the other query params constant.
+     * List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
      *
      * @param {TrueForge.ListSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -44,7 +44,7 @@ export class SessionsClient {
             async (
                 request: TrueForge.ListSessionsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListSessionsResponse>> => {
-                const { limit = 10, order, pageToken, startTimestamp, endTimestamp } = request;
+                const { limit = 10, order, pageToken, startTimestamp, endTimestamp, agentId } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     order:
@@ -59,6 +59,7 @@ export class SessionsClient {
                     page_token: pageToken,
                     start_timestamp: startTimestamp != null ? startTimestamp?.toISOString() : undefined,
                     end_timestamp: endTimestamp != null ? endTimestamp?.toISOString() : undefined,
+                    agent_id: agentId,
                 };
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
                     this._options?.headers,
@@ -134,22 +135,22 @@ export class SessionsClient {
     }
 
     /**
-     * Create a session holding an inline agent spec. Turns are executed against this spec.
+     * Create a session with `agent` as either `{ type: "value", agent_spec }` (draft) or `{ type: "ref", agent_id }` (named). Named sessions resolve the live agent on each turn.
      *
      * @param {TrueForge.CreateSessionRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.NotFoundError}
      * @throws {@link TrueForge.UnprocessableEntityError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
      *     await client.sessions.create({
-     *         agentSpec: {
-     *             model: {
-     *                 name: "name"
-     *             }
+     *         agent: {
+     *             agentId: "agent_id",
+     *             type: "ref"
      *         }
      *     })
      */
@@ -208,6 +209,17 @@ export class SessionsClient {
             switch (_response.error.statusCode) {
                 case 400:
                     throw new TrueForge.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -375,7 +387,7 @@ export class SessionsClient {
     }
 
     /**
-     * Update a session's inline agent spec. An empty body is a valid no-op that refreshes `updated_at`.
+     * Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.UpdateSessionRequest} request
@@ -842,20 +854,22 @@ export class SessionsClient {
     }
 
     /**
-     * Create a turn within a session and stream its execution as Server-Sent Events.
-     * Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`).
+     * Create a turn within a session and execute it.
+     * When `stream` is true (default), respond with a Server-Sent Events stream of turn events.
+     * When `stream` is false, return the turn immediately with `state.status: "running"` while execution continues in the background; use get turn or subscribe to observe completion.
+     * Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.
      */
-    public createTurn(
+    public createTurnStream(
         session_id: string,
-        request: TrueForge.CreateTurnRequest = {},
+        request: TrueForge.CreateTurnSessionsStreamRequest,
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<core.Stream<TrueForge.TurnStreamingEvent>> {
-        return core.HttpResponsePromise.fromPromise(this.__createTurn(session_id, request, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__createTurnStream(session_id, request, requestOptions));
     }
 
-    private async __createTurn(
+    private async __createTurnStream(
         session_id: string,
-        request: TrueForge.CreateTurnRequest = {},
+        request: TrueForge.CreateTurnSessionsStreamRequest,
         requestOptions?: SessionsClient.RequestOptions,
     ): Promise<core.WithRawResponse<core.Stream<TrueForge.TurnStreamingEvent>>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
@@ -871,12 +885,15 @@ export class SessionsClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.CreateTurnRequest.jsonOrThrow(request, {
-                    unrecognizedObjectKeys: "passthrough",
-                    allowUnrecognizedUnionMembers: true,
-                    allowUnrecognizedEnumValues: true,
-                    omitUndefined: true,
-                }),
+                {
+                    ...serializers.CreateTurnSessionsStreamRequest.jsonOrThrow(request, {
+                        unrecognizedObjectKeys: "passthrough",
+                        allowUnrecognizedUnionMembers: true,
+                        allowUnrecognizedEnumValues: true,
+                        omitUndefined: true,
+                    }),
+                    stream: true,
+                },
                 requestOptions?.additionalBodyParameters,
             ),
             responseType: "sse",
@@ -903,6 +920,145 @@ export class SessionsClient {
                     eventShape: {
                         type: "sse",
                     },
+                }),
+                rawResponse: _response.rawResponse,
+            };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 400:
+                    throw new TrueForge.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueForge.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 412:
+                    throw new TrueForge.PreconditionFailedError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 422:
+                    throw new TrueForge.UnprocessableEntityError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueForgeError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "POST",
+            "/api/v1/sessions/{session_id}/turns",
+        );
+    }
+
+    /**
+     * Create a turn within a session and execute it.
+     * When `stream` is true (default), respond with a Server-Sent Events stream of turn events.
+     * When `stream` is false, return the turn immediately with `state.status: "running"` while execution continues in the background; use get turn or subscribe to observe completion.
+     * Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.
+     *
+     * @param {string} session_id - Session identifier.
+     * @param {TrueForge.CreateTurnSessionsRequest} request
+     * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link TrueForge.PreconditionFailedError}
+     * @throws {@link TrueForge.UnprocessableEntityError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
+     *
+     * @example
+     *     await client.sessions.createTurn("session_id", {})
+     */
+    public createTurn(
+        session_id: string,
+        request: TrueForge.CreateTurnSessionsRequest,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueForge.GetTurnResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__createTurn(session_id, request, requestOptions));
+    }
+
+    private async __createTurn(
+        session_id: string,
+        request: TrueForge.CreateTurnSessionsRequest,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueForge.GetTurnResponse>> {
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns`,
+            ),
+            method: "POST",
+            headers: _headers,
+            contentType: "application/json",
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            requestType: "json",
+            body: mergeAdditionalBodyParameters(
+                {
+                    ...serializers.CreateTurnSessionsRequest.jsonOrThrow(request, {
+                        unrecognizedObjectKeys: "passthrough",
+                        allowUnrecognizedUnionMembers: true,
+                        allowUnrecognizedEnumValues: true,
+                        omitUndefined: true,
+                    }),
+                    stream: false,
+                },
+                requestOptions?.additionalBodyParameters,
+            ),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return {
+                data: serializers.GetTurnResponse.parseOrThrow(_response.body, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    skipValidation: true,
+                    breadcrumbsPrefix: ["response"],
                 }),
                 rawResponse: _response.rawResponse,
             };
@@ -1054,6 +1210,161 @@ export class SessionsClient {
             _response.rawResponse,
             "GET",
             "/api/v1/sessions/{session_id}/turns/{turn_id}",
+        );
+    }
+
+    /**
+     * Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block.
+     *
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.ForbiddenError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link TrueForge.GoneError}
+     * @throws {@link TrueForge.PreconditionFailedError}
+     * @throws {@link TrueForge.ContentTooLargeError}
+     * @throws {@link TrueForge.FailedDependencyError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
+     */
+    public downloadSandboxFile(
+        session_id: string,
+        turn_id: string,
+        request: TrueForge.DownloadSandboxFileSessionsRequest,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): core.HttpResponsePromise<core.BinaryResponse> {
+        return core.HttpResponsePromise.fromPromise(
+            this.__downloadSandboxFile(session_id, turn_id, request, requestOptions),
+        );
+    }
+
+    private async __downloadSandboxFile(
+        session_id: string,
+        turn_id: string,
+        request: TrueForge.DownloadSandboxFileSessionsRequest,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<core.BinaryResponse>> {
+        const { path } = request;
+        const _queryParams: Record<string, unknown> = {
+            path,
+        };
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
+        const _response = await (this._options.fetcher ?? core.fetcher)<core.BinaryResponse>({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/download`,
+            ),
+            method: "GET",
+            headers: _headers,
+            queryString: core.url
+                .queryBuilder()
+                .addMany(_queryParams)
+                .mergeAdditional(requestOptions?.queryParams)
+                .build(),
+            responseType: "binary-response",
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return { data: _response.body, rawResponse: _response.rawResponse };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 400:
+                    throw new TrueForge.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueForge.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 410:
+                    throw new TrueForge.GoneError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 412:
+                    throw new TrueForge.PreconditionFailedError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 413:
+                    throw new TrueForge.ContentTooLargeError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 424:
+                    throw new TrueForge.FailedDependencyError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueForgeError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "GET",
+            "/api/v1/sessions/{session_id}/turns/{turn_id}/download",
         );
     }
 

@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
-import { ThreadPrimitive, type ThreadMessageLike } from '@assistant-ui/react';
-import { render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import {
+  AssistantRuntimeProvider,
+  ThreadPrimitive,
+  useExternalStoreRuntime,
+  type ThreadMessageLike,
+} from '@assistant-ui/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { trueFoundryExtras } from '@truefoundry/assistant-ui-runtime';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { MarkdownProps } from '../atoms/Markdown.js';
 import { SlotsProvider } from '../theme/SlotsProvider.js';
@@ -57,5 +63,55 @@ describe('AssistantTextContainer', () => {
     );
 
     expect(screen.getByTestId('artifact-download-handler')).toHaveTextContent('function');
+  });
+
+  it('downloads an artifact through the turn that produced the message', async () => {
+    const downloadSandboxFile = vi.fn(async () => new Blob(['hello harness']));
+
+    function ExtrasHarness() {
+      const runtime = useExternalStoreRuntime({
+        messages: [
+          {
+            role: 'assistant',
+            content: ['Files ready:', '', '```sandbox_artifacts', '[report.txt](/tmp/report.txt)', '```'].join('\n'),
+            metadata: { custom: { turnId: 'turn-42', sandboxId: 'sbx-1' } },
+          } satisfies ThreadMessageLike,
+        ],
+        isRunning: false,
+        convertMessage: (m: ThreadMessageLike) => m,
+        onNew: async () => {},
+        extras: trueFoundryExtras.provide({
+          pendingApprovals: [],
+          pendingToolResponses: [],
+          pendingMcpAuth: null,
+          sandboxId: 'sbx-1',
+          respondToToolApproval: () => {},
+          respondToToolResponse: () => {},
+          resumeMcpAuth: async () => {},
+          downloadSandboxFile,
+          cancel: async () => {},
+          resetFromTurn: async () => {},
+          reload: () => {},
+          hasOlderHistory: false,
+          isLoadingOlderHistory: false,
+          loadOlderHistory: async () => {},
+          draft: null,
+        }),
+      });
+
+      return (
+        <AssistantRuntimeProvider runtime={runtime}>
+          <ThreadPrimitive.Messages>{() => <AssistantMessageContainer />}</ThreadPrimitive.Messages>
+        </AssistantRuntimeProvider>
+      );
+    }
+
+    render(<ExtrasHarness />);
+
+    fireEvent.click(await screen.findByText('report.txt'));
+
+    await waitFor(() => {
+      expect(downloadSandboxFile).toHaveBeenCalledWith({ turnId: 'turn-42', path: '/tmp/report.txt' });
+    });
   });
 });

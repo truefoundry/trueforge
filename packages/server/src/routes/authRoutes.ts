@@ -3,12 +3,10 @@
  *
  * `login`/`callback` are browser-redirect targets, never called by SDK
  * consumers — both carry `x-fern-ignore`, the same convention used for the
- * MCP OAuth callback in mcpOAuthRoutes.ts. `me`/`logout` are real JSON
- * endpoints and generate normally.
+ * MCP OAuth callback in mcpOAuthRoutes.ts. `logout` generates normally.
  */
 import { createRoute } from '@hono/zod-openapi';
-import { AuthLoginQuerySchema, AuthMeResponseSchema, OAuthCallbackQuerySchema } from '../schemas/auth';
-import { RequestErrorResponseSchema } from '../schemas/errors';
+import { AuthLoginQuerySchema, OAuthCallbackQuerySchema } from '../schemas/auth';
 
 const AUTH_TAG = 'Auth';
 
@@ -38,7 +36,7 @@ export const oAuthCallbackRoute = createRoute({
   'x-fern-ignore': true,
   request: { query: OAuthCallbackQuerySchema },
   responses: {
-    302: { description: 'Redirect back into the app on success, or to /login?error=... on failure.' },
+    302: { description: 'Redirect back into the app on success, or to /?error=login_failed on failure.' },
   },
 });
 
@@ -54,26 +52,5 @@ export const authLogoutRoute = createRoute({
   'x-fern-sdk-method-name': 'logout',
   responses: {
     204: { description: 'Session cookie cleared.' },
-  },
-});
-
-export const authMeRoute = createRoute({
-  method: 'get',
-  path: '/me',
-  tags: [AUTH_TAG],
-  summary: 'Get the current identity',
-  description:
-    "Returns the fixed local identity in local/single-binary mode; otherwise the caller's verified identity.",
-  'x-fern-sdk-group-name': ['auth'],
-  'x-fern-sdk-method-name': 'me',
-  responses: {
-    200: {
-      content: { 'application/json': { schema: AuthMeResponseSchema } },
-      description: "The caller's identity.",
-    },
-    401: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Not authenticated.',
-    },
   },
 });

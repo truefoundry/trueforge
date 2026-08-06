@@ -13,9 +13,10 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
 let configuration: typeof import('./config').default;
+let isOidcConfigured: typeof import('./config').isOidcConfigured;
 
 try {
-  ({ default: configuration } = await import('./config'));
+  ({ default: configuration, isOidcConfigured } = await import('./config'));
 } catch (error) {
   console.error(
     'Failed to start server: Failed to load configuration:',
@@ -36,11 +37,13 @@ import type { RedisClientType } from 'redis';
 import winston, { type Logger } from 'winston';
 
 import { createServerApp } from './app';
+import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
 import { SandboxCatalog } from './catalog/SandboxCatalog';
 import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
+import type { IAgentStore } from './db/agentStore';
 import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
@@ -58,6 +61,7 @@ interface ServerPersistence {
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
+  agentStore: IAgentStore;
   destroyDb: () => Promise<void>;
   redis: RedisClientType | undefined;
 }
@@ -79,6 +83,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/token-store/SqliteOAuthTokenStore'),
       import('./db/sqlite/skill-store/SqliteSkillStore'),
       import('./db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore'),
+      import('./db/sqlite/agent-store/SqliteAgentStore'),
     ]),
   ]);
   const [
@@ -88,6 +93,7 @@ async function createStandalonePersistence(options: {
     { SqliteOAuthTokenStore },
     { SqliteSkillStore },
     { SqliteSandboxProviderStore },
+    { SqliteAgentStore },
   ] = sqliteStores;
 
   const db = createSqliteDb(sqlitePath);
@@ -102,6 +108,7 @@ async function createStandalonePersistence(options: {
     tokenStore: new SqliteOAuthTokenStore(db),
     skillStore: new SqliteSkillStore(db),
     sandboxProviderStore: new SqliteSandboxProviderStore(db),
+    agentStore: new SqliteAgentStore(db),
     destroyDb: () => db.destroy(),
     redis: undefined,
   };
@@ -133,6 +140,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/token-store/PostgresOAuthTokenStore'),
       import('./db/postgres/skill-store/PostgresSkillStore'),
       import('./db/postgres/sandbox-provider-store/PostgresSandboxProviderStore'),
+      import('./db/postgres/agent-store/PostgresAgentStore'),
     ]),
   ]);
   const [
@@ -142,6 +150,7 @@ async function createDistributedPersistence(options: {
     { PostgresOAuthTokenStore },
     { PostgresSkillStore },
     { PostgresSandboxProviderStore },
+    { PostgresAgentStore },
   ] = postgresStores;
 
   const db = createDb({
@@ -161,6 +170,7 @@ async function createDistributedPersistence(options: {
     tokenStore: new PostgresOAuthTokenStore(db),
     skillStore: new PostgresSkillStore(db),
     sandboxProviderStore: new PostgresSandboxProviderStore(db),
+    agentStore: new PostgresAgentStore(db),
     destroyDb: () => db.destroy(),
     redis: await connectRedis({ url: redisUrl, logger }),
   };
@@ -169,7 +179,7 @@ async function createDistributedPersistence(options: {
 try {
   // Console logger shared by the server runtime (harness components require one).
   const logger = winston.createLogger({
-    level: process.env['LOG_LEVEL'] ?? 'info',
+    level: configuration.LOG_LEVEL,
     format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
     transports: [new winston.transports.Console()],
   });
@@ -181,6 +191,7 @@ try {
     tokenStore,
     skillStore,
     sandboxProviderStore,
+    agentStore,
     destroyDb,
     redis,
   } = configuration.STANDALONE
@@ -190,6 +201,14 @@ try {
   const activeTurns = new ActiveTurnRegistry();
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
+
+  const oidc = isOidcConfigured(configuration) ? configuration.OIDC : undefined;
+  if (oidc) {
+    logger.info('OIDC is configured', { issuer: oidc.OIDC_ISSUER_URL });
+  } else {
+    logger.warn('OIDC is not configured; browser login is disabled');
+  }
+  const oidcClient = await initOidc(oidc);
 
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),
@@ -201,6 +220,7 @@ try {
     tokenStore,
     skillStore,
     sandboxProviderStore,
+    agentStore,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,
@@ -208,6 +228,7 @@ try {
     requestReplyRouter,
     eventSubscriptions,
     logger,
+    oidcClient,
   });
 
   if (mountFrontend(app, configuration.FRONTEND_DIR)) {
@@ -258,7 +279,7 @@ try {
 
   // Graceful drain is the safe default for built and direct execution.
   // Development watch mode opts out so tsx can restart without waiting for a drain.
-  if (process.env['NODE_ENV'] !== 'development') {
+  if (configuration.NODE_ENV !== 'development') {
     let shuttingDown = false;
     const shutdown = async (signal: NodeJS.Signals) => {
       if (shuttingDown) return;

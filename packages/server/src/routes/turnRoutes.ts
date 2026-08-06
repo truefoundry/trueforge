@@ -8,6 +8,7 @@ import { RequestErrorResponseSchema } from '../schemas/errors';
 import { TurnStreamingEventSchema } from '../schemas/events';
 import {
   CreateTurnRequestSchema,
+  DownloadSandboxFileRequestQuerySchema,
   GetTurnResponseSchema,
   ListTurnEventsRequestQuerySchema,
   ListTurnEventsResponseSchema,
@@ -76,6 +77,55 @@ export const getTurnRoute = createRoute({
   },
 });
 
+export const downloadSandboxFileRoute = createRoute({
+  method: 'get',
+  path: '/{session_id}/turns/{turn_id}/download',
+  tags: [SESSIONS_TAG],
+  summary: 'Download a file from the turn sandbox',
+  description:
+    "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block.",
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'download_sandbox_file',
+  request: {
+    params: TurnIdParamsSchema,
+    query: DownloadSandboxFileRequestQuerySchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/octet-stream': { schema: z.string().openapi({ format: 'binary' }) } },
+      description: 'File contents.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid path, or the path is a directory.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox belongs to another tenant.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session, turn, or file not found.',
+    },
+    410: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox no longer exists.',
+    },
+    412: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Turn has no sandbox, or no sandbox provider is configured.',
+    },
+    413: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'File exceeds the maximum download size.',
+    },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox infrastructure error.',
+    },
+  },
+});
+
 export const listTurnEventsRoute = createRoute({
   method: 'get',
   path: '/{session_id}/turns/{turn_id}/events',
@@ -110,11 +160,19 @@ export const createAndExecuteTurnRoute = createRoute({
   path: '/{session_id}/turns',
   tags: [SESSIONS_TAG],
   summary: 'Create and execute a turn in a session',
-  description: `Create a turn within a session and stream its execution as Server-Sent Events.
-Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`).`,
+  description: `Create a turn within a session and execute it.
+When \`stream\` is true (default), respond with a Server-Sent Events stream of turn events.
+When \`stream\` is false, return the turn immediately with \`state.status: "running"\` while execution continues in the background; use get turn or subscribe to observe completion.
+Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`); use \`none\` for a new root.`,
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create_turn',
-  'x-fern-streaming': { format: 'sse', resumable: false },
+  'x-fern-streaming': {
+    format: 'sse',
+    resumable: false,
+    'stream-condition': '$request.stream',
+    response: { $ref: '#/components/schemas/GetTurnResponse' },
+    'response-stream': { $ref: '#/components/schemas/TurnStreamingEvent' },
+  },
   request: {
     params: SessionIdParamsSchema,
     body: {
@@ -125,11 +183,15 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
   responses: {
     200: {
       content: {
+        'application/json': {
+          schema: GetTurnResponseSchema,
+        },
         'text/event-stream': {
           schema: TurnStreamingEventSchema,
         },
       },
-      description: 'Server-Sent Events stream of turn events.',
+      description:
+        'When stream is false: the running turn. When stream is true: Server-Sent Events stream of turn events.',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -146,7 +208,7 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description:
-        'The session is valid but a required resource is no longer available (e.g. model, MCP server, skill, or sandbox provider).',
+        'The session is valid but a required resource is no longer available (e.g. named agent, model, MCP server, skill, or sandbox provider).',
     },
   },
 });

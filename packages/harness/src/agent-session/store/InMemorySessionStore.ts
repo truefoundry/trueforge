@@ -165,7 +165,7 @@ export class InMemorySessionStore<
     const record: SessionRecord<TSessionCustom> = {
       tenant_id: input.tenant_id,
       session_id: input.session_id,
-      agent_spec: deepCopy(input.agent_spec),
+      agent: deepCopy(input.agent),
       title: null,
       last_turn_id: null,
       created_at: now,
@@ -202,8 +202,11 @@ export class InMemorySessionStore<
     if (stored?.record.tenant_id !== input.tenant_id) {
       throw new SessionNotFoundError(input.session_id);
     }
-    if (input.agent_spec !== undefined) {
-      stored.record.agent_spec = deepCopy(input.agent_spec);
+    if (input.agent !== undefined) {
+      if (stored.record.agent.type === 'ref') {
+        throw new SessionStoreInvariantError(`Session ${input.session_id} is named; agent cannot be updated`);
+      }
+      stored.record.agent = deepCopy(input.agent);
     }
     if (input.title !== undefined) {
       stored.record.title = input.title;
@@ -220,6 +223,12 @@ export class InMemorySessionStore<
     const records: SessionRecord<TSessionCustom>[] = [];
     for (const stored of this.sessions.values()) {
       if (stored.record.tenant_id !== input.tenant_id) continue;
+      if (
+        input.agent_id !== undefined &&
+        (stored.record.agent.type !== 'ref' || stored.record.agent.agent_id !== input.agent_id)
+      ) {
+        continue;
+      }
       const createdAt = stored.record.created_at.getTime();
       if (input.start_timestamp !== undefined && createdAt < input.start_timestamp.getTime()) continue;
       if (input.end_timestamp !== undefined && createdAt > input.end_timestamp.getTime()) continue;
