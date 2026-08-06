@@ -59,7 +59,7 @@ describe('connectorCatalog mappers', () => {
         type: 'remote',
         name: 'deepwiki',
         url: 'https://mcp.deepwiki.com/mcp',
-        authStatus: { status: 'authenticated' },
+        authStatus: { status: 'not_required' },
       }),
       {
         id: 'deepwiki',
@@ -71,6 +71,28 @@ describe('connectorCatalog mappers', () => {
         authenticated: true,
       },
     );
+  });
+
+  it('maps auth_required vs authenticated for oauth connectors', () => {
+    const pending = toUiConnector({
+      type: 'remote',
+      name: 'linear',
+      url: 'https://mcp.linear.app/mcp',
+      auth: { type: 'dcr' },
+      authStatus: { status: 'auth_required' },
+    });
+    assert.equal(pending.authenticated, false);
+    assert.equal(pending.requiresAuth, true);
+
+    const connected = toUiConnector({
+      type: 'remote',
+      name: 'linear',
+      url: 'https://mcp.linear.app/mcp',
+      auth: { type: 'dcr' },
+      authStatus: { status: 'authenticated' },
+    });
+    assert.equal(connected.authenticated, true);
+    assert.equal(connected.requiresAuth, false);
   });
 
   it('maps tool rows with description for getToolsByConnectorId', () => {
