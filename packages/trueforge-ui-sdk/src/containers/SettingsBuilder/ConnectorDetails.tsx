@@ -81,7 +81,7 @@ const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: Con
             </span>
           </div>
 
-          {connector.auth.type !== 'none' && !connector.requiresAuth ? (
+          {connector.auth.type === 'oauth' && !connector.requiresAuth ? (
             <Button variant="outline" size="sm" type="button" disabled={busy} onClick={onDisconnect}>
               Disconnect
             </Button>

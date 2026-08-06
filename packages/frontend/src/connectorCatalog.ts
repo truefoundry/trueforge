@@ -198,11 +198,10 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
     },
     disconnectConnector: async req => {
       const existing = await getConfigured(req.id);
-      if (existing.auth?.type === 'dcr') {
-        const body = await client.mcpServers.deleteAuthorize(req.id);
-        return toUiConnector(body.data);
+      if (existing.auth?.type !== 'dcr') {
+        throw new Error(`Disconnect is only supported for OAuth MCP servers`);
       }
-      const body = await client.settings.mcpServers.upsert({ name: existing.name, url: existing.url });
+      const body = await client.mcpServers.deleteAuthorize(req.id);
       return toUiConnector(body.data);
     },
   };
