@@ -177,7 +177,7 @@ async function createDistributedPersistence(options: {
 try {
   // Console logger shared by the server runtime (harness components require one).
   const logger = winston.createLogger({
-    level: configuration.LOG_LEVEL ?? 'info',
+    level: configuration.LOG_LEVEL,
     format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
     transports: [new winston.transports.Console()],
   });
