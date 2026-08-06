@@ -81,7 +81,7 @@ export const ListTurnEventsResponseSchema = z
   })
   .openapi('ListTurnEventsResponse');
 
-export const DownloadTurnFileRequestQuerySchema = z
+export const DownloadSandboxFileRequestQuerySchema = z
   .object({
     path: z
       .string()
@@ -90,4 +90,4 @@ export const DownloadTurnFileRequestQuerySchema = z
         "Absolute path of the file inside the sandbox, as listed in the assistant's `sandbox_artifacts` block.",
       ),
   })
-  .openapi('DownloadTurnFileRequestQuery');
+  .openapi('DownloadSandboxFileRequestQuery');

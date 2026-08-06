@@ -13,20 +13,26 @@ import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import type { TerminalTurnState } from '../schemas/turn';
 
-/** Caller-supplied fields for creating a session; the store owns timestamps and tip state. */
+/**
+ * Caller-supplied fields for creating a session; the store owns timestamps and tip state.
+ * `agent` is a discriminated ref | value binding.
+ */
 export type CreateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
-  'tenant_id' | 'session_id' | 'agent_spec'
+  'tenant_id' | 'session_id' | 'agent'
 > & {
   custom: TSessionCustom | null;
 };
 
-/** PATCH fields for an existing session; `undefined` fields are left unchanged. */
+/**
+ * PATCH fields for an existing session; `undefined` fields are left unchanged.
+ * `agent` may be set only on draft (value) sessions, and only as a value arm.
+ */
 export type UpdateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
   'tenant_id' | 'session_id'
 > & {
-  agent_spec: SessionRecord<TSessionCustom>['agent_spec'] | undefined;
+  agent: Extract<SessionRecord<TSessionCustom>['agent'], { type: 'value' }> | undefined;
   title: SessionRecord<TSessionCustom>['title'] | undefined;
 };
 
@@ -49,6 +55,8 @@ export interface ListSessionsInput {
   start_timestamp: Date | undefined;
   /** Inclusive upper bound on `created_at` (instant). */
   end_timestamp: Date | undefined;
+  /** When set, only sessions bound to this named agent id. */
+  agent_id: string | undefined;
 }
 
 /** Turn row fields without assembled snapshot (create input / listTurns). */
@@ -193,16 +201,15 @@ export interface ListSessionEventsInput {
  * subscription members. Callers authorize the parent session before using
  * turn-scoped operations, which rely on globally unique session_id values.
  * Capability maps are initialized atomically by createTurn and subsequently
- * updated through patchThreadCapabilityState. Agent binding is session-scoped:
- * reads always return a hydrated agent_spec even if the backend persists a uri/id.
+ * updated through patchThreadCapabilityState. Agent binding is session-scoped
+ * as a discriminated `agent` (ref | value); named agents are not hydrated on read.
  */
 export interface ISessionStore<
   TSessionCustom extends object = Record<string, never>,
   TTurnCustom extends object = Record<string, never>,
 > {
   /**
-   * Accepts a hydrated AgentSpec. Impl may persist the blob and/or a uri/id derived
-   * from it — callers do not pass a bare pointer through this API.
+   * Persists a discriminated `agent` (ref | value). SQL backends may flatten to columns.
    * `session_id` is globally unique across tenants.
    * Sets `last_activity_timestamp_ms` (= now) on create.
    */
@@ -212,16 +219,14 @@ export interface ISessionStore<
   deleteSession(input: DeleteSessionInput): Promise<void>;
 
   /**
-   * MUST return SessionRecord with `agent_spec` fully hydrated, even if the backend
-   * only stores a uri/id (or named-agent ref). Hydration is the store's job — harness
-   * and SessionHandle.createTurn never resolve agents themselves.
+   * Returns the session as stored (ref agents are not hydrated to a value).
    * Does **not** bump `last_activity_timestamp_ms` (read path).
    */
   getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined>;
 
   /**
    * PATCH semantics — update only the provided fields:
-   * - agent_spec: rewrite binding (full spec and/or backing uri/id). Next getSession hydrates.
+   * - agent: replace value binding (draft sessions only; ref → invariant error).
    * - title: set/replace the session title.
    * Bumps `last_activity_timestamp_ms` (= now) in the same update.
    */
@@ -230,7 +235,8 @@ export interface ISessionStore<
   /**
    * Paginated list of the tenant's sessions ordered by `created_at`
    * (`order` defaults to `desc`). `start_timestamp` / `end_timestamp` are
-   * inclusive instant bounds on `created_at`.
+   * inclusive instant bounds on `created_at`. Optional `agent_id` filters
+   * ref-bound sessions.
    * Does **not** bump `last_activity_timestamp_ms` (read path).
    */
   listSessions(

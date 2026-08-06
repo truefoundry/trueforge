@@ -29,6 +29,17 @@
             },
             "default": "./dist/cjs/serialization/index.js"
         },
+        "./agents": {
+            "import": {
+                "types": "./dist/esm/api/resources/agents/exports.d.mts",
+                "default": "./dist/esm/api/resources/agents/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/agents/exports.d.ts",
+                "default": "./dist/cjs/api/resources/agents/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/agents/exports.js"
+        },
         "./auth": {
             "import": {
                 "types": "./dist/esm/api/resources/auth/exports.d.mts",

@@ -1,3 +1,5 @@
+export * from "./agents/client/requests/index.js";
+export * as agents from "./agents/index.js";
 export * as auth from "./auth/index.js";
 export * from "./mcpServers/client/requests/index.js";
 export * as mcpServers from "./mcpServers/index.js";

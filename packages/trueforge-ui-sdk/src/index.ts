@@ -290,6 +290,7 @@ export type {
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
   SandboxProviderConfig,
+  SaveAgentRequest,
   SearchAgentsParams,
   SelectRegistrySkillRequest,
   Session,

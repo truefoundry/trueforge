@@ -5,6 +5,7 @@ import { createLogger } from 'winston';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, toContentDisposition } from '../../../src/apis/turns';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
@@ -16,10 +17,10 @@ import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription';
 
 /** Parsed rather than built literally, so config defaults match what the create route stores. */
-function agentSpec(fileDownloads: boolean): AgentSpec {
+function agentSpec(): AgentSpec {
   return AgentSpecSchema.parse({
     model: { name: 'openai/gpt-4o' },
-    config: { sandbox: { enabled: true, file_downloads: fileDownloads } },
+    config: { sandbox: { enabled: true } },
   });
 }
 
@@ -40,6 +41,7 @@ async function buildApp() {
       mcpServerStore: new SqliteMcpServerStore(db),
       tokenStore: new SqliteOAuthTokenStore(db),
       skillStore: new SqliteSkillStore(db),
+      agentStore: new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: createLogger({ silent: true }),
@@ -102,32 +104,15 @@ describe('GET /{session_id}/turns/{turn_id}/download', () => {
     expect(response.status).toBe(404);
   });
 
-  it('returns 422 when the session did not enable file downloads', async () => {
-    const { app, sessions } = await buildApp();
-    const session = await sessions.create({
-      tenant_id: TENANT_ID,
-      session_id: 'no-downloads',
-      agent_spec: agentSpec(false),
-    });
-
-    const response = await app.request(
-      downloadUrl({ sessionId: session.session_id, path: '/workspace/report.pdf' }),
-    );
-
-    expect(response.status).toBe(422);
-  });
-
   it('returns 404 for a turn that does not exist in the session', async () => {
     const { app, sessions } = await buildApp();
     const session = await sessions.create({
       tenant_id: TENANT_ID,
       session_id: 'no-turn',
-      agent_spec: agentSpec(true),
+      agent: { type: 'value', agent_spec: agentSpec() },
     });
 
-    const response = await app.request(
-      downloadUrl({ sessionId: session.session_id, path: '/workspace/report.pdf' }),
-    );
+    const response = await app.request(downloadUrl({ sessionId: session.session_id, path: '/workspace/report.pdf' }));
 
     expect(response.status).toBe(404);
   });
