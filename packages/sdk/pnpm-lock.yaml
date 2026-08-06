@@ -694,8 +694,8 @@ packages:
   neo-async@2.6.2:
     resolution: {integrity: sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==}
 
-  node-releases@2.0.52:
-    resolution: {integrity: sha512-MRlTqhAfoMx/4mhEbPo3Hi02g9LJZaJkka69V6h67Cb1gjrAG0jsTE4CZX1eptNx+VCAwJmfpnDIF4P0Nh1A7A==}
+  node-releases@2.0.53:
+    resolution: {integrity: sha512-D9UOmYG3UH1V+ENW56t5QXBwJw1YEY18ruVeus89Rw+SyIgjPkCO84bRzO3uNIYosJbNwiabWVn48o3uJLjxFQ==}
     engines: {node: '>=18'}
 
   obug@2.1.4:
@@ -1320,7 +1320,7 @@ snapshots:
       baseline-browser-mapping: 2.11.12
       caniuse-lite: 1.0.30001806
       electron-to-chromium: 1.5.402
-      node-releases: 2.0.52
+      node-releases: 2.0.53
       update-browserslist-db: 1.2.3(browserslist@4.28.7)
 
   buffer-from@1.1.2: {}
@@ -1522,7 +1522,7 @@ snapshots:
 
   neo-async@2.6.2: {}
 
-  node-releases@2.0.52: {}
+  node-releases@2.0.53: {}
 
   obug@2.1.4: {}
 

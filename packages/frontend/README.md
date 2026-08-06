@@ -31,7 +31,8 @@ pnpm dev              # Postgres + Redis, Vite :3000 + API :8790
 
 Open `http://localhost:3000`: Vite serves the UI from source (edits hot-reload, no rebuild or server
 restart) and proxies `/api/*` to `VITE_SERVER_URL`, default `http://localhost:8790`. `FRONTEND_PORT`
-moves Vite off `:3000`. That proxy is the only dev-specific wiring and lives entirely in
+moves Vite off `:3000`. Vite uses `strictPort` — if that port is already bound, dev exits instead of
+picking another. That proxy is the only dev-specific wiring and lives entirely in
 [`vite.config.ts`](vite.config.ts); the server needs no build to answer the API.
 
 ### Server adapter

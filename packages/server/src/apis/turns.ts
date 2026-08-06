@@ -140,7 +140,7 @@ function createTurnResolver(deps: {
         provider,
         logger,
         gitSkills,
-        fileDownloadEnabled: spec.config?.sandbox?.file_downloads ?? false,
+        fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId,
         tracing,
         tenantName: TENANT_ID,

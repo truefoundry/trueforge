@@ -1,6 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Sessions } from '@truefoundry/utils-core/agent-session';
-import { TurnNotFoundError } from '@truefoundry/utils-core/agent-session';
+import { AgentSpecSchema, TurnNotFoundError } from '@truefoundry/utils-core/agent-session';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -45,7 +45,7 @@ describe('turn SSE after session deletion', () => {
     const sessions = {
       get: () =>
         Promise.resolve({
-          agent_spec: { model: { name: 'test-provider/test-model' } },
+          agent_spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
           record: { last_turn_id: null },
           createTurn: () =>
             Promise.resolve({
