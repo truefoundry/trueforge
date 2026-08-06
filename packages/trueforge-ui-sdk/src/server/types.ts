@@ -397,6 +397,7 @@ export interface ModelProviderCatalogEntry<TModel extends ModelEntry = ModelEntr
   type: ProviderType;
   name: string;
   models: TModel[];
+  logo?: string;
 }
 
 /** Create — no `id`; server assigns it. Catalog path = entry + apiKey. */
@@ -483,6 +484,7 @@ export interface ConnectorCatalogEntry<TAuth extends ConnectorAuthPublic = Conne
   description?: string;
   url: string;
   auth: TAuth;
+  logo?: string;
 }
 
 /** Create connector — no `id`; server assigns it. Host extends. */
@@ -515,6 +517,7 @@ export interface ConnectorCatalogServer<
   TUpdate extends UpdateConnectorRequest<TAuthWrite> = UpdateConnectorRequest<TAuthWrite>,
 > {
   getConnectorCatalog(): Promise<TCatalogEntry[]>;
+  getConnector(req: { id: string }): Promise<TConnector>;
   listConnectors(req?: { query?: string }): Promise<TConnector[]>;
   getToolsByConnectorId(req: { id: string }): Promise<TTool[]>;
   createConnector(req: TCreate): Promise<TConnector>;
