@@ -145,6 +145,64 @@ describe("McpServersClient", () => {
         });
     });
 
+    test("get (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = {
+            data: {
+                auth: { type: "dcr" },
+                auth_status: { authorization_url: "authorization_url", status: "authenticated" },
+                name: "name",
+                type: "remote",
+                url: "url",
+            },
+        };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/settings/mcp-servers/name")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.settings.mcpServers.get("name");
+        expect(response).toEqual({
+            data: {
+                auth: {
+                    type: "dcr",
+                },
+                authStatus: {
+                    authorizationUrl: "authorization_url",
+                    status: "authenticated",
+                },
+                name: "name",
+                type: "remote",
+                url: "url",
+            },
+        });
+    });
+
+    test("get (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/settings/mcp-servers/name")
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.mcpServers.get("name");
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
     test("list_tools (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });

@@ -5,15 +5,15 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ConfiguredMcpServer } from "./ConfiguredMcpServer.js";
 
-export const ListConfiguredMcpServersResponse: core.serialization.ObjectSchema<
-    serializers.ListConfiguredMcpServersResponse.Raw,
-    TrueForge.ListConfiguredMcpServersResponse
+export const GetMcpServerResponse: core.serialization.ObjectSchema<
+    serializers.GetMcpServerResponse.Raw,
+    TrueForge.GetMcpServerResponse
 > = core.serialization.object({
-    data: core.serialization.list(ConfiguredMcpServer),
+    data: ConfiguredMcpServer,
 });
 
-export declare namespace ListConfiguredMcpServersResponse {
+export declare namespace GetMcpServerResponse {
     export interface Raw {
-        data: ConfiguredMcpServer.Raw[];
+        data: ConfiguredMcpServer.Raw;
     }
 }

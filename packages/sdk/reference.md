@@ -68,7 +68,7 @@ await client.server.getCapabilities();
 <dl>
 <dd>
 
-Configured MCP servers as a slim name/url list for the composer. No auth or auth_status.
+MCP servers as a slim name/url list for the composer. No auth or auth_status.
 </dd>
 </dl>
 </dd>
@@ -154,7 +154,7 @@ await client.mcpServers.authorize("name");
 <dl>
 <dd>
 
-**name:** `string` — Configured MCP server name.
+**name:** `string` — MCP server name.
     
 </dd>
 </dl>
@@ -225,7 +225,7 @@ await client.mcpServers.deleteAuthorize("name");
 <dl>
 <dd>
 
-**name:** `string` — Configured MCP server name.
+**name:** `string` — MCP server name.
     
 </dd>
 </dl>
@@ -1208,7 +1208,7 @@ await client.skills.list();
 </details>
 
 ## Settings McpServers
-<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">list</a>() -> TrueForge.ListConfiguredMcpServersResponse</code></summary>
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">list</a>() -> TrueForge.ListMcpServersResponse</code></summary>
 <dl>
 <dd>
 
@@ -1220,7 +1220,7 @@ await client.skills.list();
 <dl>
 <dd>
 
-All configured MCP servers with nested auth_status (settings / admin projection).
+All MCP servers with nested auth_status (settings / admin projection).
 </dd>
 </dl>
 </dd>
@@ -1384,6 +1384,69 @@ await client.settings.mcpServers.catalog();
 </dl>
 </details>
 
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">get</a>(name) -> TrueForge.GetMcpServerResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+A single MCP server by name, with nested auth_status (settings / admin projection).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.settings.mcpServers.get("name");
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**name:** `string` — MCP server name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `McpServersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">listTools</a>(name) -> TrueForge.ListMcpServerToolsResponse</code></summary>
 <dl>
 <dd>
@@ -1396,7 +1459,7 @@ await client.settings.mcpServers.catalog();
 <dl>
 <dd>
 
-All tools exposed by the given configured MCP server (non-paginated), as returned by the MCP `tools/list` call.
+All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call.
 </dd>
 </dl>
 </dd>
@@ -1427,7 +1490,7 @@ await client.settings.mcpServers.listTools("name");
 <dl>
 <dd>
 
-**name:** `string` — Configured MCP server name.
+**name:** `string` — MCP server name.
     
 </dd>
 </dl>
