@@ -208,7 +208,10 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description:
-        'The session is valid but a required resource is no longer available (e.g. named agent, model, MCP server, skill, or sandbox provider).',
+        'The request is well-formed but cannot be processed: a referenced resource is missing ' +
+        '(named agent, model, MCP server, skill, or sandbox provider), sandbox is required but ' +
+        'unavailable (e.g. file uploads), or the turn input conflicts with current state ' +
+        '(e.g. unresolved tool calls or approvals, tool name collision).',
     },
   },
 });

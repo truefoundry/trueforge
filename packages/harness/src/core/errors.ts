@@ -47,8 +47,8 @@ export class ToolNameCollisionError extends AgentHarnessError {
 
 /**
  * A remote MCP connection or tool call failed. Harness code can't throw the gateway's HTTPException,
- * so it throws this instead and carries `statusCode` (401 auth, 403 tool, 400 selector, 502 transport)
- * that the gateway boundary turns back into the right HTTP status.
+ * so it throws this instead and carries `statusCode` (401 auth, 403 tool, 400 malformed value,
+ * 422 well-formed but unprocessable, 502 transport) that the boundary turns back into an HTTP status.
  */
 export class McpConnectionError extends AgentHarnessError {
   constructor(
@@ -66,7 +66,7 @@ export class McpConnectionError extends AgentHarnessError {
  */
 export class McpDcrConfigurationError extends McpConnectionError {
   constructor(message: string, options?: ErrorOptions) {
-    super(message, 400, options);
+    super(message, 422, options);
     this.name = 'McpDcrConfigurationError';
   }
 }
