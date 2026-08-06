@@ -204,6 +204,124 @@ describe('mapStreamToChunks', () => {
     });
   });
 
+  // OpenAI's real wire shape once summaries are on: one reasoning item arrives as several summary
+  // parts, each closed with the item's single token. A block per part would replay that one item
+  // once per part, all copies carrying the same token with the summary divided between them.
+  it('keeps the summary parts of one OpenAI reasoning item in a single block', async () => {
+    const itemId = 'rs_abc';
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: `${itemId}:0`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-delta', id: `${itemId}:0`, text: 'first summary' },
+          {
+            type: 'reasoning-end',
+            id: `${itemId}:0`,
+            providerMetadata: { openai: { itemId, reasoningEncryptedContent: 'enc-item' } },
+          },
+          { type: 'reasoning-start', id: `${itemId}:1`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-delta', id: `${itemId}:1`, text: 'second summary' },
+          {
+            type: 'reasoning-end',
+            id: `${itemId}:1`,
+            providerMetadata: { openai: { itemId, reasoningEncryptedContent: 'enc-item' } },
+          },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.thinking_blocks).toEqual([
+      { type: 'thinking', thinking: 'first summary\n\nsecond summary', signature: 'enc-item' },
+    ]);
+  });
+
+  // The same grouping has to hold when only the closing part carries the token, which is how the
+  // provider behaved before it began repeating it, and all a stream is contractually promised.
+  it('signs the whole item when only its closing part carries the token', async () => {
+    const itemId = 'rs_abc';
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: `${itemId}:0`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-delta', id: `${itemId}:0`, text: 'first summary' },
+          { type: 'reasoning-end', id: `${itemId}:0`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-start', id: `${itemId}:1`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-delta', id: `${itemId}:1`, text: 'second summary' },
+          {
+            type: 'reasoning-end',
+            id: `${itemId}:1`,
+            providerMetadata: { openai: { itemId, reasoningEncryptedContent: 'enc-sig' } },
+          },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.thinking_blocks).toEqual([
+      { type: 'thinking', thinking: 'first summary\n\nsecond summary', signature: 'enc-sig' },
+    ]);
+  });
+
+  // An item can open a summary part it never writes to, which must not push the reasoning that
+  // follows behind a blank line.
+  it('does not indent the text of an item whose first part is empty', async () => {
+    const itemId = 'rs_abc';
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: `${itemId}:0`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-end', id: `${itemId}:0`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-start', id: `${itemId}:1`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-delta', id: `${itemId}:1`, text: 'the only summary' },
+          {
+            type: 'reasoning-end',
+            id: `${itemId}:1`,
+            providerMetadata: { openai: { itemId, reasoningEncryptedContent: 'enc-item' } },
+          },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.thinking_blocks).toEqual([
+      { type: 'thinking', thinking: 'the only summary', signature: 'enc-item' },
+    ]);
+  });
+
+  it('keeps separate reasoning items in separate blocks, each with its own token', async () => {
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: 'rs_1:0', providerMetadata: { openai: { itemId: 'rs_1' } } },
+          { type: 'reasoning-delta', id: 'rs_1:0', text: 'before the tool call' },
+          {
+            type: 'reasoning-end',
+            id: 'rs_1:0',
+            providerMetadata: { openai: { itemId: 'rs_1', reasoningEncryptedContent: 'enc-1' } },
+          },
+          { type: 'reasoning-start', id: 'rs_2:0', providerMetadata: { openai: { itemId: 'rs_2' } } },
+          { type: 'reasoning-delta', id: 'rs_2:0', text: 'after the tool call' },
+          {
+            type: 'reasoning-end',
+            id: 'rs_2:0',
+            providerMetadata: { openai: { itemId: 'rs_2', reasoningEncryptedContent: 'enc-2' } },
+          },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.thinking_blocks).toEqual([
+      { type: 'thinking', thinking: 'before the tool call', signature: 'enc-1' },
+      { type: 'thinking', thinking: 'after the tool call', signature: 'enc-2' },
+    ]);
+  });
+
   // Anthropic's real wire shape: signature_delta surfaces as a text-less reasoning-delta, not on
   // reasoning-end. Missing it leaves the block unsigned, and Anthropic drops unsigned thinking
   // blocks when they are replayed, silently losing the reasoning chain.
