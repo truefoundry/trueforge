@@ -25,6 +25,15 @@ const catalog: CatalogServer = {
   },
   connectorCatalog: {
     getConnectorCatalog: vi.fn(async () => []),
+    getConnector: vi.fn(async ({ id }) => ({
+      id,
+      name: '',
+      description: '',
+      url: '',
+      auth: { type: 'none' as const },
+      requiresAuth: false,
+      authenticated: false,
+    })),
     listConnectors: vi.fn(async () => []),
     getToolsByConnectorId: vi.fn(async () => []),
     createConnector: vi.fn(async req => ({
