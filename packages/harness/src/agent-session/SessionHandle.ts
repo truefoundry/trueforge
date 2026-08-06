@@ -204,8 +204,6 @@ export class SessionHandle<
       const tracing = input.resolver.createTracing();
       const spec = await input.resolver.resolveAgentSpec({
         source: sessionAgentSource(this.session),
-        signal: input.signal,
-        tracing,
       });
       const sandbox = await input.resolver.resolveSandbox({
         spec,

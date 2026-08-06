@@ -2,13 +2,9 @@ import { EventType } from '../../src/agent-session/schemas/events';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
-import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeAgentSpec, makeMockILLM, makeSilentLogger, makeTestResolver, mintTestTurnId } from './testHelpers';
 
 describe('TurnResourceResolver.resolveAgentSpec', () => {
-  const signal = new AbortController().signal;
-  const tracing = NOOP_AGENT_TRACING;
-
   it('returns the inline agent_spec and caches it', async () => {
     const spec = makeAgentSpec({ instructions: 'inline' });
     const resolver = new TurnResourceResolver({
@@ -21,13 +17,9 @@ describe('TurnResourceResolver.resolveAgentSpec', () => {
 
     const first = await resolver.resolveAgentSpec({
       source: { type: 'inline', agent_spec: spec },
-      signal,
-      tracing,
     });
     const second = await resolver.resolveAgentSpec({
       source: { type: 'inline', agent_spec: makeAgentSpec({ instructions: 'other' }) },
-      signal,
-      tracing,
     });
 
     expect(first.instructions).toBe('inline');
@@ -48,13 +40,9 @@ describe('TurnResourceResolver.resolveAgentSpec', () => {
 
     const first = await resolver.resolveAgentSpec({
       source: { type: 'named', agent_id: 'agent-1' },
-      signal,
-      tracing,
     });
     const second = await resolver.resolveAgentSpec({
       source: { type: 'named', agent_id: 'agent-1' },
-      signal,
-      tracing,
     });
 
     expect(first.instructions).toBe('live-named');
@@ -75,8 +63,6 @@ describe('TurnResourceResolver.resolveAgentSpec', () => {
     await expect(
       resolver.resolveAgentSpec({
         source: { type: 'named', agent_id: 'missing' },
-        signal,
-        tracing,
       }),
     ).rejects.toThrow(/no agent lookup configured/);
   });

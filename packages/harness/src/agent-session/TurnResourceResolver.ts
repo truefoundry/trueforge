@@ -97,11 +97,7 @@ export class TurnResourceResolver<
    * Inline → stored blob; named → deps.agent live lookup. Cached for this
    * resolver instance (one turn).
    */
-  async resolveAgentSpec(input: {
-    source: SessionAgentSource;
-    signal: AbortSignal;
-    tracing: AgentTracing;
-  }): Promise<AgentSpec> {
+  async resolveAgentSpec(input: { source: SessionAgentSource }): Promise<AgentSpec> {
     if (this.#resolvedAgentSpec !== undefined) {
       return this.#resolvedAgentSpec;
     }

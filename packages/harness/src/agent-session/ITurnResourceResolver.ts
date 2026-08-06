@@ -22,11 +22,7 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
    * Inline sources return the stored blob; named sources look up live registry state.
    * Implementations may cache the result for the lifetime of the resolver (one turn).
    */
-  resolveAgentSpec(input: {
-    source: SessionAgentSource;
-    signal: AbortSignal;
-    tracing: AgentTracing;
-  }): Promise<AgentSpec>;
+  resolveAgentSpec(input: { source: SessionAgentSource }): Promise<AgentSpec>;
   /**
    * Called exactly once per run, before any thread is built; the harness holds
    * the result and shares the same reference across all threads. Return
