@@ -5,6 +5,26 @@ import { TrueForge } from "../../src/Client";
 import { mockServerPool } from "../mock-server/MockServerPool";
 
 describe("AuthClient", () => {
+    test("config", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = { oidc_enabled: true };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/auth/config")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.auth.config();
+        expect(response).toEqual({
+            oidcEnabled: true,
+        });
+    });
+
     test("logout", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });

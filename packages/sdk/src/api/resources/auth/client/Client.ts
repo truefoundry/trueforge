@@ -23,6 +23,64 @@ export class AuthClient {
     }
 
     /**
+     * Returns whether OIDC login is enabled. Public; no session required.
+     *
+     * @param {AuthClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
+     *
+     * @example
+     *     await client.auth.config()
+     */
+    public config(requestOptions?: AuthClient.RequestOptions): core.HttpResponsePromise<TrueForge.AuthConfigResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__config(requestOptions));
+    }
+
+    private async __config(
+        requestOptions?: AuthClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueForge.AuthConfigResponse>> {
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                "api/v1/auth/config",
+            ),
+            method: "GET",
+            headers: _headers,
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return {
+                data: serializers.AuthConfigResponse.parseOrThrow(_response.body, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    skipValidation: true,
+                    breadcrumbsPrefix: ["response"],
+                }),
+                rawResponse: _response.rawResponse,
+            };
+        }
+
+        if (_response.error.reason === "status-code") {
+            throw new errors.TrueForgeError({
+                statusCode: _response.error.statusCode,
+                body: _response.error.body,
+                rawResponse: _response.rawResponse,
+            });
+        }
+
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/auth/config");
+    }
+
+    /**
      * Ends the local harness session only — does not hit the IdP end-session endpoint. A no-op in local/single-binary mode, since there is no real session to clear.
      *
      * @param {AuthClient.RequestOptions} requestOptions - Request-specific configuration.

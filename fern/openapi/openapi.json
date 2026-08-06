@@ -334,6 +334,17 @@
         },
         "type": "object"
       },
+      "AuthConfigResponse": {
+        "properties": {
+          "oidc_enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "oidc_enabled"
+        ],
+        "type": "object"
+      },
       "AuthMeResponse": {
         "properties": {
           "role": {
@@ -4061,6 +4072,31 @@
           "Auth"
         ],
         "x-fern-ignore": true
+      }
+    },
+    "/api/v1/auth/config": {
+      "get": {
+        "description": "Returns whether OIDC login is enabled. Public; no session required.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthConfigResponse"
+                }
+              }
+            },
+            "description": "Whether OIDC is enabled."
+          }
+        },
+        "summary": "Auth configuration for the UI",
+        "tags": [
+          "Auth"
+        ],
+        "x-fern-sdk-group-name": [
+          "auth"
+        ],
+        "x-fern-sdk-method-name": "config"
       }
     },
     "/api/v1/auth/login": {
