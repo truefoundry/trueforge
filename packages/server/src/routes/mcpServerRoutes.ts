@@ -76,7 +76,7 @@ export const getConfiguredMcpServerRoute = createRoute({
   method: 'get',
   path: '/{name}',
   tags: [MCP_SERVERS_TAG],
-  summary: 'Get a configured MCP server',
+  summary: 'Get a single configured MCP server by name',
   description: 'A single configured MCP server by name, with nested auth_status (settings / admin projection).',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'get',
