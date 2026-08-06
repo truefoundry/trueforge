@@ -61,6 +61,7 @@ export function toUiCatalogEntry(server: Harness.CatalogMcpServer): UiConnectorC
     id: server.name,
     name: server.name,
     url: server.url,
+    ...(server.logo === undefined ? {} : { logo: server.logo }),
     auth: toUiAuthPublic(server.auth),
   };
 }
