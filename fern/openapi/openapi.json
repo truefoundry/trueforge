@@ -4134,7 +4134,7 @@
     },
     "/api/v1/auth/me": {
       "get": {
-        "description": "Returns the caller identity when a valid OIDC session cookie is present, otherwise default/anonymous fields. Never requires authentication.",
+        "description": "Returns the authenticated caller identity. When OIDC is configured this requires a valid session cookie (401 otherwise). Without OIDC, returns the default anonymous identity.",
         "responses": {
           "200": {
             "content": {
@@ -4145,6 +4145,9 @@
               }
             },
             "description": "Session type and identity for the current request."
+          },
+          "401": {
+            "description": "OIDC is configured and the request has no valid session cookie."
           }
         },
         "summary": "Current session",

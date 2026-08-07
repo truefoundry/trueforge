@@ -231,7 +231,7 @@ describe("McpServersClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
 
-        const rawResponseBody = { error: { message: "message" } };
+        const rawResponseBody = { key: "value" };
 
         server
             .mockEndpoint()

@@ -329,7 +329,7 @@ await client.auth.logout();
 <dl>
 <dd>
 
-Returns the caller identity when a valid OIDC session cookie is present, otherwise default/anonymous fields. Never requires authentication.
+Returns the authenticated caller identity. When OIDC is configured this requires a valid session cookie (401 otherwise). Without OIDC, returns the default anonymous identity.
 </dd>
 </dl>
 </dd>
