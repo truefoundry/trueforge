@@ -6,6 +6,7 @@ export interface UserContext {
   userRef: string;
   role: Role;
 }
+
 /**
  * Fixed identity when no identity provider is configured (standalone / auth disabled).
  * Stamped onto sessions as `created_by` and used for ownership checks.
@@ -20,9 +21,12 @@ export type ResolveUserContext = (c: Context) => UserContext;
 
 /**
  * Caller {@link UserContext} for the current request.
+ * Requires auth middleware to have set `c.var.user`.
  */
-export function resolveUserContext(_c: Context): UserContext {
-  // TODO: extract UserContext from `c` once auth middleware sets it (e.g. c.get('user')).
-  void _c;
-  return LOCAL_USER_CONTEXT;
+export function resolveUserContext(c: Context): UserContext {
+  const user = c.get('user');
+  if (user === undefined) {
+    throw new Error('UserContext missing; auth middleware did not run');
+  }
+  return user;
 }

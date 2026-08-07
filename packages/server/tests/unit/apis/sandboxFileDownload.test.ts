@@ -4,7 +4,7 @@ import { AgentSpecSchema, Sessions } from '@truefoundry/utils-core/agent-session
 import { createLogger } from 'winston';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, toContentDisposition } from '../../../src/apis/turns';
-import { LOCAL_USER_CONTEXT, resolveUserContext } from '../../../src/auth/identity';
+import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -46,7 +46,7 @@ async function buildApp() {
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: createLogger({ silent: true }),
-      resolveUserContext,
+      resolveUserContext: () => LOCAL_USER_CONTEXT,
     }),
   );
 

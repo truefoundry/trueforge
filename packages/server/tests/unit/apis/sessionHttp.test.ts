@@ -3,7 +3,7 @@ import { AgentSpecSchema, Sessions } from '@truefoundry/utils-core/agent-session
 import { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import { createClient } from 'redis';
 import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
-import { LOCAL_USER_CONTEXT, resolveUserContext } from '../../../src/auth/identity';
+import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -74,7 +74,7 @@ describe('sessions HTTP agent binding', () => {
         sandboxProviderStore,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
-        resolveUserContext,
+        resolveUserContext: () => LOCAL_USER_CONTEXT,
       }),
     );
   });
