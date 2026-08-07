@@ -12,7 +12,7 @@
  *
  * Session create takes `{ name }` or `{ def }`; reads carry the `ref`/`value`
  * discriminator, with ref rows already naming their agent. The UI filters with
- * `agentId` (registry id from the library, or a display name for SingleAgent).
+ * registry `agentId`.
  */
 import type {
   AgentChatServer,
@@ -28,7 +28,7 @@ import type {
   TurnInputItem,
   UserMessageContent,
 } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi as Harness, TrueForge } from 'trueforge';
+import type { TrueForgeApi as Harness } from 'trueforge';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 export type HarnessSkillMount = SkillMount;
 export type HarnessMcpServerMount = McpServerMount & Harness.McpServer;
@@ -100,15 +100,6 @@ function toUiSession(session: Harness.Session): Session<HarnessAgentSpec> {
     ...(session.agent.type === 'ref' && session.agent.name !== null ? { agentName: session.agent.name } : {}),
     ...(session.agent.type === 'value' ? { agentSpec: toUiAgentSpec(session.agent.def) } : {}),
   };
-}
-
-/**
- * The list filter is by registry id, but UI `agentId` may be a display name
- * (SingleAgent locks to the configured name), so it is matched on either.
- */
-async function findAgent(client: TrueForge, agentIdOrName: string): Promise<Harness.Agent | undefined> {
-  const { data } = await client.agents.list();
-  return data.find(candidate => candidate.id === agentIdOrName || candidate.name === agentIdOrName);
 }
 
 /** Spread drops the interface identity, which is what makes the SDK's index-signature part type accept it. */
@@ -213,27 +204,11 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
     },
 
     async listSessions(request = {}) {
-      const filterKey = request.agentId !== undefined && request.agentId.length > 0 ? request.agentId : undefined;
-      // Soft lookup: stale history filter / deleted agent / SingleAgent mismatch → empty page.
-      const agentFilter = filterKey === undefined ? undefined : await findAgent(client, filterKey);
-      if (filterKey !== undefined && agentFilter === undefined) {
-        const limit = request.limit ?? 20;
-        const data: Session<HarnessAgentSpec>[] = [];
-        const pagination = { limit };
-        const empty = (): HarnessPage<Session<HarnessAgentSpec>> => ({
-          data,
-          response: { data, pagination },
-          hasNextPage: () => false,
-          getNextPage: () => Promise.resolve(empty()),
-        });
-        return empty();
-      }
-
       const page = await client.sessions.list({
         ...(request.limit === undefined ? {} : { limit: request.limit }),
         ...(request.order === undefined ? {} : { order: request.order }),
         ...(request.pageToken === undefined ? {} : { pageToken: request.pageToken }),
-        ...(agentFilter === undefined ? {} : { agentId: agentFilter.id }),
+        ...(request.agentId === undefined || request.agentId.length === 0 ? {} : { agentId: request.agentId }),
       });
       return toPage(page, toUiSession);
     },

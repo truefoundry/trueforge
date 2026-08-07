@@ -80,8 +80,8 @@ Skills stay empty in the picker when the skill capability is off (no sandbox pro
 
 The Agents Library lists the registry, so sessions bind either to a registry agent (`{ name }`) or
 to an inline spec (`{ def }`). Reads name their agent on the `ref` arm, so the adapter never resolves
-display names through the registry; only the `agentId` list filter does, since the UI may pass a
-display name where the API expects a registry id.
+display names through the registry. History filtering forwards the library `agentId` straight to
+`GET /sessions?agent_id=`.
 
 ## Gaps
 
