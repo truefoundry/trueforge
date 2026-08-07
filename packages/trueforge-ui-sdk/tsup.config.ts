@@ -11,7 +11,7 @@ export default defineConfig({
   format: ['esm'],
   dts: true,
   sourcemap: true,
-  clean: tr,
+  clean: true,
   target: 'es2022',
   esbuildPlugins: [
     svgr({
