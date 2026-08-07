@@ -2,7 +2,7 @@
  * Maps trueforge-ui connector-settings calls onto Harness
  * `/api/v1/settings/mcp-servers` (upsert/list/tools) and `/api/v1/mcp-servers` (authorize).
  *
- * UI: `oauth` / `apiKey` / `none`, connector `id`.
+ * UI: `dcr` / `header` / `none`, connector `id`.
  * Harness: `dcr` / `header` / omitted auth, resource `name`.
  */
 import type {
@@ -30,12 +30,11 @@ export function toUiAuthPublic(auth: Harness.ConfiguredMcpServerAuth | undefined
     return { type: 'none' };
   }
   if (auth.type === 'dcr') {
-    // Public oauth rows require authUrl; Harness only has a URL after authorize.
-    return { type: 'oauth', authUrl: '' };
+    return { type: 'dcr' };
   }
   const headerName = Object.keys(auth.headers)[0];
   return {
-    type: 'apiKey',
+    type: 'header',
     ...(headerName === undefined ? {} : { headerName }),
   };
 }
@@ -44,7 +43,7 @@ export function toHarnessAuth(auth: ConnectorAuth): Harness.ConfiguredMcpServerA
   if (auth.type === 'none') {
     return undefined;
   }
-  if (auth.type === 'oauth') {
+  if (auth.type === 'dcr') {
     return { type: 'dcr' };
   }
   const apiKey = auth.apiKey?.trim();
@@ -61,6 +60,7 @@ export function toUiCatalogEntry(server: Harness.CatalogMcpServer): UiConnectorC
     id: server.name,
     name: server.name,
     url: server.url,
+    ...(server.logo === undefined ? {} : { logo: server.logo }),
     auth: toUiAuthPublic(server.auth),
   };
 }
@@ -99,15 +99,6 @@ export function toHarnessManifest(req: { name: string; url: string; auth: Connec
   };
 }
 
-async function listToolsSafe(name: string): Promise<ToolBase[]> {
-  try {
-    const body = await client.settings.mcpServers.listTools(name);
-    return body.data.map(toUiTool);
-  } catch {
-    return [];
-  }
-}
-
 async function getConfigured(name: string): Promise<Harness.ConfiguredMcpServer> {
   const listed = await client.settings.mcpServers.list();
   const existing = listed.data.find(server => server.name === name);
@@ -118,7 +109,7 @@ async function getConfigured(name: string): Promise<Harness.ConfiguredMcpServer>
 }
 
 async function resolveWriteAuth(req: { id?: string; auth: ConnectorAuth }): Promise<ConnectorAuth> {
-  if (req.auth.type !== 'apiKey') {
+  if (req.auth.type !== 'header') {
     return req.auth;
   }
   const apiKey = req.auth.apiKey?.trim();
@@ -142,9 +133,10 @@ async function resolveWriteAuth(req: { id?: string; auth: ConnectorAuth }): Prom
   if (stored === undefined) {
     throw new Error(`MCP server "${req.id}" has no stored header credentials to reuse`);
   }
-  return { type: 'apiKey', apiKey: stored, headerName };
+  return { type: 'header', apiKey: stored, headerName };
 }
 
+/** Settings connector port for `createTrueFoundryServer`. Delete omitted; disconnect unsupported. */
 export function createConnectorCatalog(): ConnectorCatalogServer<
   ToolBase,
   UiConnectorAuth,
@@ -158,6 +150,10 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
     getConnectorCatalog: async () => {
       const body = await client.settings.mcpServers.catalog();
       return body.data.map(toUiCatalogEntry);
+    },
+    getConnector: async req => {
+      const body = await client.settings.mcpServers.get(req.id);
+      return toUiConnector(body.data);
     },
     listConnectors: async req => {
       const body = await client.settings.mcpServers.list();
@@ -173,7 +169,10 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
           connector.url.toLowerCase().includes(query),
       );
     },
-    getToolsByConnectorId: async ({ id }) => listToolsSafe(id),
+    getToolsByConnectorId: async ({ id }) => {
+      const body = await client.settings.mcpServers.listTools(id);
+      return body.data.map(toUiTool);
+    },
     createConnector: async req => {
       const auth = await resolveWriteAuth({ auth: req.auth });
       const body = await client.settings.mcpServers.upsert(toHarnessManifest({ name: req.name, url: req.url, auth }));
@@ -185,16 +184,11 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
       return toUiConnector(body.data);
     },
     authenticateConnector: async req => {
-      const redirectUrl = req.redirectURL ?? `${globalThis.location.origin}${globalThis.location.pathname}`;
-      const result = await client.mcpServers.authorize(req.id, { redirectUrl });
-      if (result.status === 'auth_required') {
-        if (result.authorizationUrl === undefined) {
-          throw new Error(`Authorization URL missing for MCP server "${req.id}"`);
-        }
-        return { authorization_endpoint: result.authorizationUrl };
-      }
-      const server = await getConfigured(req.id);
-      return toUiConnector(server);
+      const result = await client.mcpServers.authorize(
+        req.id,
+        req.redirectURL === undefined ? {} : { redirectUrl: req.redirectURL },
+      );
+      return { status: result.status, authorization_endpoint: result.authorizationUrl };
     },
     disconnectConnector: async req => {
       const existing = await getConfigured(req.id);

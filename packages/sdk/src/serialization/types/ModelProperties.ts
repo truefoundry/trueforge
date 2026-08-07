@@ -3,6 +3,7 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { ReasoningEffort } from "./ReasoningEffort.js";
 
 export const ModelProperties: core.serialization.ObjectSchema<
     serializers.ModelProperties.Raw,
@@ -12,7 +13,7 @@ export const ModelProperties: core.serialization.ObjectSchema<
     maxOutputTokens: core.serialization.property("max_output_tokens", core.serialization.number().optional()),
     reasoningEfforts: core.serialization.property(
         "reasoning_efforts",
-        core.serialization.list(core.serialization.string()).optional(),
+        core.serialization.list(ReasoningEffort).optional(),
     ),
 });
 
@@ -20,6 +21,6 @@ export declare namespace ModelProperties {
     export interface Raw {
         context_length?: number | null;
         max_output_tokens?: number | null;
-        reasoning_efforts?: string[] | null;
+        reasoning_efforts?: ReasoningEffort.Raw[] | null;
     }
 }

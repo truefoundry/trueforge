@@ -29,13 +29,12 @@ function triggerBrowserDownload(blob: Blob, filename: string) {
 
 export function AssistantTextContainer() {
   const Markdown = useSlot('Markdown');
-  // Runtime download fn is unstable; refs keep onDownloadArtifact stable so OpenUI doesn't remount.
-  const downloadSandboxFile = useTrueFoundryDownloadSandboxFile();
   const errorToaster = useErrorToasterOptional();
-  const downloadSandboxFileRef = useRef(downloadSandboxFile);
-  const errorToasterRef = useRef(errorToaster);
-  downloadSandboxFileRef.current = downloadSandboxFile;
-  errorToasterRef.current = errorToaster;
+  const downloadSandboxFile = useTrueFoundryDownloadSandboxFile();
+  // The download closure changes as the turn streams; a ref keeps onDownloadArtifact stable so
+  // OpenUI does not remount.
+  const downloadRef = useRef({ downloadSandboxFile, errorToaster });
+  downloadRef.current = { downloadSandboxFile, errorToaster };
   const partState = useAuiState(s => s.part as MessagePartState & (TextMessagePart | ReasoningMessagePart));
   const smoothedPart = useSmooth(partState, {
     drainMs: 300,
@@ -46,21 +45,18 @@ export function AssistantTextContainer() {
   const text = smoothedPart.text;
   // true while network stream is active OR while reveal is still catching up
   const isStreaming = smoothedPart.status?.type === 'running';
-  const handleDownloadArtifact = useCallback(
-    (path: string) =>
-      downloadSandboxFileRef
-        .current(path)
-        .then(blob => triggerBrowserDownload(blob, filenameFromPath(path)))
-        .catch(error => {
-          const toaster = errorToasterRef.current;
-          if (toaster != null) {
-            toaster.showError(error);
-          } else {
-            console.error('Failed to download sandbox artifact', error);
-          }
-        }),
-    [],
-  );
+  const handleDownloadArtifact = useCallback(async (path: string) => {
+    const { downloadSandboxFile, errorToaster } = downloadRef.current;
+    try {
+      triggerBrowserDownload(await downloadSandboxFile(path), filenameFromPath(path));
+    } catch (error) {
+      if (errorToaster != null) {
+        errorToaster.showError(error);
+      } else {
+        console.error('Failed to download sandbox artifact', error);
+      }
+    }
+  }, []);
 
   return <Markdown content={text} isStreaming={isStreaming} onDownloadArtifact={handleDownloadArtifact} />;
 }

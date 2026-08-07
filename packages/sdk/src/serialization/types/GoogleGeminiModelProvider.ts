@@ -5,26 +5,24 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ModelEntry } from "./ModelEntry.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
-import { ResourceName } from "./ResourceName.js";
-import { WellKnownModelProviderType } from "./WellKnownModelProviderType.js";
 
-export const WellKnownModelProvider: core.serialization.ObjectSchema<
-    serializers.WellKnownModelProvider.Raw,
-    TrueForge.WellKnownModelProvider
+export const GoogleGeminiModelProvider: core.serialization.ObjectSchema<
+    serializers.GoogleGeminiModelProvider.Raw,
+    TrueForge.GoogleGeminiModelProvider
 > = core.serialization.object({
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    name: ResourceName,
-    type: WellKnownModelProviderType,
+    name: core.serialization.stringLiteral("google-gemini").optional(),
+    type: core.serialization.stringLiteral("google-gemini"),
 });
 
-export declare namespace WellKnownModelProvider {
+export declare namespace GoogleGeminiModelProvider {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
-        name: ResourceName.Raw;
-        type: WellKnownModelProviderType.Raw;
+        name?: "google-gemini" | null;
+        type: "google-gemini";
     }
 }
