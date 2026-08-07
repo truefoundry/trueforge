@@ -3,8 +3,8 @@ dist/
 # Fern-generated: formatted by the generator, not by this repo's config.
 packages/sdk/
 fern/openapi/
-# Downloaded third-party Helm subcharts (Bitnami); not ours to reformat.
-charts/trueforge/charts/
+# Helm chart sources and downloaded Bitnami subcharts; not ours to reformat.
+charts/
 coverage/
 # Prettier's markdown parser escapes `*` inside MDX `{/* */}` comments, breaking MDX parsing.
 *.mdx
