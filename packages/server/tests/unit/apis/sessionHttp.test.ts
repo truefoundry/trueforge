@@ -125,7 +125,7 @@ describe('sessions HTTP agent binding', () => {
     expect(listJson.data.some(row => row.id === json.data.id)).toBe(true);
   });
 
-  it("lists only the caller's sessions and rejects get of another user's session", async () => {
+  it("rejects access to another user's session on get/update/delete/cancel/events and scopes list", async () => {
     await sessionStore.createSession({
       tenant_id: TENANT_ID,
       session_id: 'other-user-session',
@@ -145,11 +145,27 @@ describe('sessions HTTP agent binding', () => {
     expect(listedJson.data.map(row => row.id)).toEqual([json.data.id]);
     expect(listedJson.data.every(row => row.created_by === LOCAL_USER_CONTEXT.userRef)).toBe(true);
 
-    const forbidden = await app.request('/other-user-session');
-    expect(forbidden.status).toBe(403);
-    expect(await forbidden.json()).toEqual({
-      error: { message: 'Only the session creator can get this session' },
-    });
+    const forbiddenBody = { error: { message: 'Only the session creator can access this session' } };
+
+    const getForbidden = await app.request('/other-user-session');
+    expect(getForbidden.status).toBe(403);
+    expect(await getForbidden.json()).toEqual(forbiddenBody);
+
+    const patchForbidden = await app.request('/other-user-session', jsonInit('PATCH', {}));
+    expect(patchForbidden.status).toBe(403);
+    expect(await patchForbidden.json()).toEqual(forbiddenBody);
+
+    const deleteForbidden = await app.request('/other-user-session', { method: 'DELETE' });
+    expect(deleteForbidden.status).toBe(403);
+    expect(await deleteForbidden.json()).toEqual(forbiddenBody);
+
+    const cancelForbidden = await app.request('/other-user-session/cancel', { method: 'POST' });
+    expect(cancelForbidden.status).toBe(403);
+    expect(await cancelForbidden.json()).toEqual(forbiddenBody);
+
+    const eventsForbidden = await app.request('/other-user-session/events');
+    expect(eventsForbidden.status).toBe(403);
+    expect(await eventsForbidden.json()).toEqual(forbiddenBody);
 
     const allowed = await app.request(`/${json.data.id}`);
     expect(allowed.status).toBe(200);

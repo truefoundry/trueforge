@@ -186,6 +186,12 @@ export async function cancelSessionTurn(
   cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
 }
 
+const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this session';
+
+function checkSessionAccess(userRef: string, createdBy: string): boolean {
+  return createdBy === userRef;
+}
+
 /** DB-backed sessions (mounted at /api/v1/sessions). */
 export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
@@ -231,15 +237,22 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    const user = deps.resolveUserContext(c);
-    if (record.created_by !== user.userRef) {
-      return c.json({ error: { message: 'Only the session creator can get this session' } }, 403);
+    if (!checkSessionAccess(deps.resolveUserContext(c).userRef, record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     return c.json({ data: toWireSession(record) }, 200);
   };
 
   const deleteSessionHandler: RouteHandler<typeof deleteSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
+    const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!record) {
+      // Idempotent delete when already gone.
+      return c.body(null, 204);
+    }
+    if (!checkSessionAccess(deps.resolveUserContext(c).userRef, record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
     await deps.sessionStore.deleteSession({ tenant_id: TENANT_ID, session_id: sessionId });
     return c.body(null, 204);
   };
@@ -247,6 +260,13 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   const updateSessionHandler: RouteHandler<typeof updateSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
+    const existing = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!existing) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (!checkSessionAccess(deps.resolveUserContext(c).userRef, existing.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
     // Draft (value) sessions may replace their inline agent; named (ref) sessions
     // cannot — the store rejects that with SessionStoreInvariantError → 422 below.
     if (body.agent !== undefined) {
@@ -311,6 +331,9 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
+    if (!checkSessionAccess(deps.resolveUserContext(c).userRef, record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
     const turnId = record.last_turn_id;
     if (!turnId) {
       return c.json({}, 200);
@@ -326,6 +349,9 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (!checkSessionAccess(deps.resolveUserContext(c).userRef, session.record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     try {
       const { data, pagination } = await session.listEvents({

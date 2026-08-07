@@ -23,7 +23,7 @@ import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscripti
 
 describe('turns', () => {
   describe('turn ownership', () => {
-    it('returns 403 for create/get/list when the caller is not the session creator', async () => {
+    it('returns 403 for all turn routes when the caller is not the session creator', async () => {
       const db = createSqliteDb(':memory:');
       await migrateSqliteToLatest(db);
       const sessionStore = new SqliteSessionStore(db);
@@ -62,6 +62,8 @@ describe('turns', () => {
         }),
       );
 
+      const forbiddenAccess = { error: { message: 'Only the session creator can access this session' } };
+
       const createResponse = await app.request('/s1/turns', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -74,15 +76,25 @@ describe('turns', () => {
 
       const listResponse = await app.request('/s1/turns');
       expect(listResponse.status).toBe(403);
-      expect(await listResponse.json()).toEqual({
-        error: { message: 'Only the session creator can access this session' },
-      });
+      expect(await listResponse.json()).toEqual(forbiddenAccess);
 
       const getResponse = await app.request('/s1/turns/any-turn');
       expect(getResponse.status).toBe(403);
-      expect(await getResponse.json()).toEqual({
-        error: { message: 'Only the session creator can access this session' },
-      });
+      expect(await getResponse.json()).toEqual(forbiddenAccess);
+
+      const eventsResponse = await app.request('/s1/turns/any-turn/events');
+      expect(eventsResponse.status).toBe(403);
+      expect(await eventsResponse.json()).toEqual(forbiddenAccess);
+
+      const subscribeResponse = await app.request('/s1/turns/any-turn/subscribe');
+      expect(subscribeResponse.status).toBe(403);
+      expect(await subscribeResponse.json()).toEqual(forbiddenAccess);
+
+      const downloadResponse = await app.request(
+        `/s1/turns/any-turn/download?path=${encodeURIComponent('/workspace/report.pdf')}`,
+      );
+      expect(downloadResponse.status).toBe(403);
+      expect(await downloadResponse.json()).toEqual(forbiddenAccess);
     });
   });
 
