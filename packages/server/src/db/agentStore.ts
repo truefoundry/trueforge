@@ -4,7 +4,7 @@
  * `AgentSpec` jsonb document.
  * Implementations: PostgresAgentStore and SqliteAgentStore.
  */
-import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
+import { AgentSpecSchema, type AgentSpec } from '@truefoundry/utils-core/agent-session';
 import type { ResourceName } from '../schemas/common';
 
 export interface AgentRecord {
@@ -16,6 +16,14 @@ export interface AgentRecord {
   created_at: string;
   /** ISO-8601 UTC instant. */
   updated_at: string;
+}
+
+/**
+ * Re-parse persisted manifest JSON so schema defaults (e.g. nested `config`) materialize.
+ * Rows written before a config field existed omit it on disk; readers must not assume presence.
+ */
+export function parseStoredAgentSpec(manifest: unknown): AgentSpec {
+  return AgentSpecSchema.parse(manifest);
 }
 
 /** Look up by immutable id or unique name within a tenant. */
@@ -32,6 +40,11 @@ export interface UpdateAgentInput {
   tenant_id: string;
   name: ResourceName;
   manifest: AgentSpec;
+}
+
+export interface DeleteAgentInput {
+  tenant_id: string;
+  id: string;
 }
 
 /** Unique `(tenant_id, name)` violation on create. */
@@ -54,4 +67,6 @@ export interface IAgentStore {
   createAgent(input: CreateAgentInput): Promise<AgentRecord>;
   /** Replaces `manifest` for an existing name. Returns undefined if missing. */
   updateAgent(input: UpdateAgentInput): Promise<AgentRecord | undefined>;
+  /** Deletes by immutable id. Idempotent if already missing. */
+  deleteAgent(input: DeleteAgentInput): Promise<void>;
 }

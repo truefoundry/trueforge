@@ -26,7 +26,7 @@ describe('SessionHandle.createTurn named resolve', () => {
       tenant_id: 'tenant-1',
       session_id: 's-named',
       created_by: 'user-1',
-      agent: { type: 'ref', agent_id: 'agent-abc' },
+      agent: { type: 'reference', id: 'agent-abc', name: null },
     });
 
     const live = makeAgentSpec({ instructions: 'from-registry' });

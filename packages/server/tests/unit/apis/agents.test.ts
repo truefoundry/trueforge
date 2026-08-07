@@ -88,6 +88,16 @@ describe('agents router', () => {
     expect(put.status).toBe(404);
   });
 
+  it('DELETE removes an agent by id and is idempotent', async () => {
+    const created = await router.request('/', jsonInit('POST', { ...writeBody, name: 'deletable' }));
+    expect(created.status).toBe(200);
+    const { data } = (await created.json()) as { data: { id: string } };
+
+    expect((await router.request(`/${data.id}`, { method: 'DELETE' })).status).toBe(204);
+    expect((await router.request(`/${data.id}`)).status).toBe(404);
+    expect((await router.request(`/${data.id}`, { method: 'DELETE' })).status).toBe(204);
+  });
+
   it('POST rejects invalid bodies, unknown models, and duplicate names', async () => {
     const badName = await router.request('/', jsonInit('POST', { ...writeBody, name: 'Not A Name' }));
     expect(badName.status).toBe(400);

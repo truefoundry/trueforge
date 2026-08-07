@@ -1,9 +1,9 @@
 {
   "name": "frontend",
   "version": "0.0.0",
-  "description": "TrueFoundry agent chat frontend (draft-only). Private app — not published to npm.",
+  "description": "TrueFoundry agent chat frontend. Private app — not published to npm.",
   "author": "Truefoundry",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {

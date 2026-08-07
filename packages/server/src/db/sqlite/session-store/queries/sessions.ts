@@ -41,6 +41,7 @@ function mapRowToSessionRecord(row: {
   session_id: string;
   created_by: string;
   agent_id: string | null;
+  agent_name: string | null;
   agent_spec: AgentSpec | null;
   title: string | null;
   last_turn_id: string | null;
@@ -56,6 +57,7 @@ function mapRowToSessionRecord(row: {
     agent: sessionAgentFromColumns({
       session_id: row.session_id,
       agent_id: row.agent_id,
+      agent_name: row.agent_name,
       agent_spec: row.agent_spec,
     }),
     title: row.title,
@@ -73,6 +75,7 @@ function sessionSelectColumns() {
     'session_id' as const,
     'created_by' as const,
     'agent_id' as const,
+    'agent_name' as const,
     jsonText<AgentSpec | null>(sql.ref('agent_spec')).as('agent_spec'),
     'title' as const,
     'last_turn_id' as const,
@@ -95,6 +98,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         session_id: input.session_id,
         created_by: input.created_by,
         agent_id: columns.agent_id,
+        agent_name: columns.agent_name,
         agent_spec: columns.agent_spec !== null ? jsonbBind(columns.agent_spec) : null,
         title: null,
         custom: input.custom !== null ? jsonbBind(input.custom) : null,
@@ -146,7 +150,7 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
     if (existing === undefined) {
       throw new SessionNotFoundError(input.session_id);
     }
-    if (existing.agent.type === 'ref') {
+    if (existing.agent.type === 'reference') {
       throw new SessionStoreInvariantError(`Session ${input.session_id} is named; agent cannot be updated`);
     }
   }
@@ -161,7 +165,7 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
     .where('session_id', '=', input.session_id);
 
   if (agent !== undefined) {
-    qb = qb.set({ agent_spec: jsonbBind(agent.agent_spec) });
+    qb = qb.set({ agent_spec: jsonbBind(agent.spec) });
   }
   if (title !== undefined) {
     qb = qb.set({ title });
