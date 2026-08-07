@@ -57,6 +57,7 @@ export function toWireSession(record: SessionRecord): Session {
     id: record.session_id,
     agent: record.agent,
     title: record.title,
+    created_by: record.created_by,
     created_at: record.created_at.toISOString(),
     updated_at: record.updated_at.toISOString(),
   };
@@ -197,6 +198,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       const session = await deps.sessions.create({
         tenant_id: TENANT_ID,
         session_id: sessionId,
+        created_by: 'trueforge-default',
         agent: body.agent,
       });
       return c.json({ data: toWireSession(session.record) }, 201);
@@ -213,6 +215,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const session = await deps.sessions.create({
       tenant_id: TENANT_ID,
       session_id: sessionId,
+      created_by: 'trueforge-default',
       agent: body.agent,
     });
     return c.json({ data: toWireSession(session.record) }, 201);
@@ -276,6 +279,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     try {
       const { data, pagination } = await deps.sessionStore.listSessions({
         agent_id: query.agent_id,
+        created_by: query.created_by,
         tenant_id: TENANT_ID,
         limit: query.limit,
         order: query.order,

@@ -165,6 +165,7 @@ export class InMemorySessionStore<
     const record: SessionRecord<TSessionCustom> = {
       tenant_id: input.tenant_id,
       session_id: input.session_id,
+      created_by: input.created_by,
       agent: deepCopy(input.agent),
       title: null,
       last_turn_id: null,
@@ -227,6 +228,9 @@ export class InMemorySessionStore<
         input.agent_id !== undefined &&
         (stored.record.agent.type !== 'ref' || stored.record.agent.agent_id !== input.agent_id)
       ) {
+        continue;
+      }
+      if (input.created_by !== undefined && stored.record.created_by !== input.created_by) {
         continue;
       }
       const createdAt = stored.record.created_at.getTime();

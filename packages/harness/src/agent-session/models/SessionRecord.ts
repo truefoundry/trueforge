@@ -7,6 +7,8 @@ import type { SessionAgent } from '../schemas/session';
 export interface SessionRecord<TCustom extends object = Record<string, never>> {
   tenant_id: string;
   session_id: string;
+  /** Caller identity that created the session (immutable after create). */
+  created_by: string;
   agent: SessionAgent;
   /**
    * Wire SessionSchema.title (nullable). Written via updateSession patch or
