@@ -3,17 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { SessionAgentDefBodyDef } from "./SessionAgentDefBodyDef.js";
+import { AgentSpec } from "./AgentSpec.js";
 
 export const SessionAgentDefBody: core.serialization.ObjectSchema<
     serializers.SessionAgentDefBody.Raw,
     TrueForge.SessionAgentDefBody
 > = core.serialization.object({
-    def: SessionAgentDefBodyDef,
+    def: AgentSpec,
 });
 
 export declare namespace SessionAgentDefBody {
     export interface Raw {
-        def: SessionAgentDefBodyDef.Raw;
+        def: AgentSpec.Raw;
     }
 }

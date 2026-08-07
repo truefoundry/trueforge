@@ -2667,49 +2667,7 @@
         "additionalProperties": false,
         "properties": {
           "def": {
-            "additionalProperties": false,
-            "properties": {
-              "config": {
-                "$ref": "#/components/schemas/RuntimeConfig"
-              },
-              "instructions": {
-                "type": "string"
-              },
-              "mcp_servers": {
-                "items": {
-                  "$ref": "#/components/schemas/MCPServer"
-                },
-                "type": "array"
-              },
-              "messages": {
-                "items": {
-                  "$ref": "#/components/schemas/AgentSpecUserMessage"
-                },
-                "type": "array"
-              },
-              "model": {
-                "$ref": "#/components/schemas/AgentSpecModel"
-              },
-              "response_format": {
-                "$ref": "#/components/schemas/ResponseFormat"
-              },
-              "skills": {
-                "items": {
-                  "$ref": "#/components/schemas/SkillNameRef"
-                },
-                "type": "array"
-              },
-              "variables": {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              }
-            },
-            "required": [
-              "model"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/AgentSpec"
           }
         },
         "required": [

@@ -129,7 +129,6 @@ export * from "./SandboxNetworkPolicyAuthInjectItemMatch.js";
 export * from "./Session.js";
 export * from "./SessionAgent.js";
 export * from "./SessionAgentDefBody.js";
-export * from "./SessionAgentDefBodyDef.js";
 export * from "./SessionAgentNameRef.js";
 export * from "./SessionAgentRef.js";
 export * from "./SessionAgentValue.js";

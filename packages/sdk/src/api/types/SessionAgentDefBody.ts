@@ -3,5 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface SessionAgentDefBody {
-    def: TrueForge.SessionAgentDefBodyDef;
+    def: TrueForge.AgentSpec;
 }
