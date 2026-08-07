@@ -25,8 +25,8 @@ describe('TurnHandle.stream()', () => {
       session_id: 's1',
       created_by: 'user-1',
       agent: {
-        type: 'value',
-        agent_spec: makeAgentSpec({
+        type: 'inline',
+        spec: makeAgentSpec({
           config: {
             sandbox: { enabled: true, file_downloads: true },
           },
@@ -478,8 +478,8 @@ describe('TurnResourceResolver caches', () => {
       session_id: 's',
       created_by: 'user-1',
       agent: {
-        type: 'value',
-        agent_spec: makeAgentSpec({
+        type: 'inline',
+        spec: makeAgentSpec({
           config: {
             sandbox: { enabled: true, file_downloads: true },
           },

@@ -27,13 +27,13 @@ export interface UpsertProviderInput {
   manifest: ModelProvider;
 }
 
-export interface IModelProviderStore {
-  listProviders(tenantId: string): Promise<ModelProviderRecord[]>;
-  getProvider(input: GetProviderInput): Promise<ModelProviderRecord | undefined>;
+export interface IModelProviderStore<TTransaction = never> {
+  listProviders(tenantId: string, transaction?: TTransaction): Promise<ModelProviderRecord[]>;
+  getProvider(input: GetProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord | undefined>;
   /** Single-row write: creates the provider or replaces the whole manifest (models included). */
-  upsertProvider(input: UpsertProviderInput): Promise<ModelProviderRecord>;
+  upsertProvider(input: UpsertProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Flattens manifests into the FQN read view for GET /models. */
-  listModels(tenantId: string): Promise<Model[]>;
+  listModels(tenantId: string, transaction?: TTransaction): Promise<Model[]>;
 }
 
 /** Application-side flatten shared by both store implementations. */

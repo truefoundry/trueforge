@@ -291,6 +291,41 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
     expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(2);
+    const [settingsButton] = screen.getAllByRole('button', { name: 'Settings' });
+    if (settingsButton === undefined) {
+      throw new Error('Expected settings button');
+    }
+    fireEvent.click(settingsButton);
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+
+    rerender(
+      <SlotsProvider theme={{ brand: { name: 'Acme' } }}>
+        <ServerProvider
+          server={createMockAgentUIServer({
+            catalog: stubCatalog,
+            getCapabilities: async () => ({
+              data: {
+                sandbox: { enabled: true },
+                skill: { enabled: true },
+                settings: { enabled: false },
+              },
+            }),
+          })}
+        >
+          <ShellModeProvider>
+            <RuntimeHarness messages={[]}>
+              <div className="h-96">
+                <SidebarLayout />
+              </div>
+            </RuntimeHarness>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
+    });
 
     // No catalog → no Settings button.
     rerender(

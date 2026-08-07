@@ -204,7 +204,7 @@ export class InMemorySessionStore<
       throw new SessionNotFoundError(input.session_id);
     }
     if (input.agent !== undefined) {
-      if (stored.record.agent.type === 'ref') {
+      if (stored.record.agent.type === 'reference') {
         throw new SessionStoreInvariantError(`Session ${input.session_id} is named; agent cannot be updated`);
       }
       stored.record.agent = deepCopy(input.agent);
@@ -226,7 +226,7 @@ export class InMemorySessionStore<
       if (stored.record.tenant_id !== input.tenant_id) continue;
       if (
         input.agent_id !== undefined &&
-        (stored.record.agent.type !== 'ref' || stored.record.agent.agent_id !== input.agent_id)
+        (stored.record.agent.type !== 'reference' || stored.record.agent.id !== input.agent_id)
       ) {
         continue;
       }

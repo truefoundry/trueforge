@@ -6,11 +6,10 @@ import type * as TrueForge from "../../../../index.js";
  * @example
  *     {
  *         agent: {
- *             agentId: "agent_id",
- *             type: "ref"
+ *             name: "name"
  *         }
  *     }
  */
 export interface CreateSessionRequest {
-    agent: TrueForge.SessionAgent;
+    agent: TrueForge.CreateSessionAgent;
 }

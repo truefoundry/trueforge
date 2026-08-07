@@ -30,7 +30,8 @@ export const listTurnsRoute = createRoute({
   path: '/{session_id}/turns',
   tags: [SESSIONS_TAG],
   summary: 'List turns in a session',
-  description: 'List turns for a session (newest first by default), token-paginated.',
+  description:
+    'List turns for a session (newest first by default), token-paginated. Only the session creator (`created_by`) may list turns.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_turns',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -47,6 +48,10 @@ export const listTurnsRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid page token.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
+    },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Session not found.',
@@ -59,7 +64,7 @@ export const getTurnRoute = createRoute({
   path: '/{session_id}/turns/{turn_id}',
   tags: [SESSIONS_TAG],
   summary: 'Get a turn',
-  description: 'Fetch a single turn by ID.',
+  description: 'Fetch a single turn by ID. Only the session creator (`created_by`) may fetch it.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'get_turn',
   request: {
@@ -69,6 +74,10 @@ export const getTurnRoute = createRoute({
     200: {
       content: { 'application/json': { schema: GetTurnResponseSchema } },
       description: 'Turn data.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -83,7 +92,7 @@ export const downloadSandboxFileRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Download a file from the turn sandbox',
   description:
-    "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block.",
+    "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator (`created_by`) may download.",
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'download_sandbox_file',
   request: {
@@ -101,7 +110,7 @@ export const downloadSandboxFileRoute = createRoute({
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Sandbox belongs to another tenant.',
+      description: 'Caller is not the session creator, or sandbox belongs to another tenant.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -131,7 +140,8 @@ export const listTurnEventsRoute = createRoute({
   path: '/{session_id}/turns/{turn_id}/events',
   tags: [SESSIONS_TAG],
   summary: 'List turn events',
-  description: 'Paginated persisted events for a turn (insertion order by default).',
+  description:
+    'Paginated persisted events for a turn (insertion order by default). Only the session creator (`created_by`) may list events.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_turn_events',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -148,6 +158,10 @@ export const listTurnEventsRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid page token.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
+    },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Session or turn not found.',
@@ -161,6 +175,7 @@ export const createAndExecuteTurnRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Create and execute a turn in a session',
   description: `Create a turn within a session and execute it.
+Only the session creator (\`created_by\`) may create turns.
 When \`stream\` is true (default), respond with a Server-Sent Events stream of turn events.
 When \`stream\` is false, return the turn immediately with \`state.status: "running"\` while execution continues in the background; use get turn or subscribe to observe completion.
 Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`); use \`none\` for a new root.`,
@@ -197,6 +212,10 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
+    },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Session or prior turn not found.',
@@ -222,7 +241,7 @@ export const subscribeTurnRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Subscribe to a running turn',
   description:
-    'Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).',
+    'Subscribe to the live SSE stream for a turn. Only the session creator (`created_by`) may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'subscribe_to_turn',
   'x-fern-streaming': { format: 'sse', resumable: true },
@@ -242,6 +261,10 @@ export const subscribeTurnRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

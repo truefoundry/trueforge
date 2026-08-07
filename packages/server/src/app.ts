@@ -18,6 +18,7 @@ import { createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
+import { resolveUserContext } from './auth/identity';
 import { authMiddleware } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
@@ -28,6 +29,7 @@ import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { ISkillStore } from './db/skillStore';
+import type { WithTransaction } from './db/transaction';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
@@ -59,17 +61,18 @@ function withAuth(router: OpenAPIHono): OpenAPIHono {
   return shell;
 }
 
-export interface ServerDeps {
+export interface ServerDeps<TTransaction> {
   modelCatalog: ModelCatalog;
   mcpCatalog: McpCatalog;
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
-  modelProviderStore: IModelProviderStore;
-  mcpServerStore: IMcpServerStore;
-  tokenStore: IOAuthTokenStore;
-  skillStore: ISkillStore;
-  sandboxProviderStore: ISandboxProviderStore;
-  agentStore: IAgentStore;
+  modelProviderStore: IModelProviderStore<TTransaction>;
+  withTransaction: WithTransaction<TTransaction>;
+  mcpServerStore: IMcpServerStore<TTransaction>;
+  tokenStore: IOAuthTokenStore<TTransaction>;
+  skillStore: ISkillStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  agentStore: IAgentStore<TTransaction>;
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
@@ -84,7 +87,7 @@ export interface ServerDeps {
   oidcClient: Configuration | undefined;
 }
 
-export function createServerApp(deps: ServerDeps) {
+export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono();
 
   app.get('/healthz', c => c.text('OK!'));
@@ -92,9 +95,22 @@ export function createServerApp(deps: ServerDeps) {
   app.route('/api/v1/auth', createAuthRouter({ oidcClient: deps.oidcClient, logger: deps.logger }));
   app.route(
     '/api/v1/capabilities',
-    withAuth(createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore })),
+    withAuth(
+      createCapabilitiesRouter({
+        sandboxProviderStore: deps.sandboxProviderStore,
+        withTransaction: deps.withTransaction,
+      }),
+    ),
   );
-  app.route('/api/v1/models', withAuth(createModelsRouter(deps.modelProviderStore)));
+  app.route(
+    '/api/v1/models',
+    withAuth(
+      createModelsRouter({
+        modelProviderStore: deps.modelProviderStore,
+        withTransaction: deps.withTransaction,
+      }),
+    ),
+  );
   // Public MCP OAuth callback must be registered before the gated `/mcp-servers` mount so
   // `withAuth` cannot intercept IdP redirects to `/api/v1/mcp-servers/oauth/*`.
   app.route(
@@ -102,6 +118,7 @@ export function createServerApp(deps: ServerDeps) {
     createMcpOAuthRouter({
       tokenStore: deps.tokenStore,
       mcpServerStore: deps.mcpServerStore,
+      withTransaction: deps.withTransaction,
       logger: deps.logger,
     }),
   );
@@ -111,11 +128,20 @@ export function createServerApp(deps: ServerDeps) {
       createMcpServersRouter({
         mcpServerStore: deps.mcpServerStore,
         tokenStore: deps.tokenStore,
+        withTransaction: deps.withTransaction,
         logger: deps.logger,
       }),
     ),
   );
-  app.route('/api/v1/skills', withAuth(createAvailableSkillsRouter(deps.skillStore)));
+  app.route(
+    '/api/v1/skills',
+    withAuth(
+      createAvailableSkillsRouter({
+        skillStore: deps.skillStore,
+        withTransaction: deps.withTransaction,
+      }),
+    ),
+  );
   app.route(
     '/api/v1/agents',
     withAuth(
@@ -125,6 +151,7 @@ export function createServerApp(deps: ServerDeps) {
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
+        withTransaction: deps.withTransaction,
       }),
     ),
   );
@@ -141,6 +168,7 @@ export function createServerApp(deps: ServerDeps) {
         skillStore: deps.skillStore,
         sandboxCatalog: deps.sandboxCatalog,
         sandboxProviderStore: deps.sandboxProviderStore,
+        withTransaction: deps.withTransaction,
         logger: deps.logger,
       }),
     ),
@@ -159,6 +187,7 @@ export function createServerApp(deps: ServerDeps) {
         sandboxProviderStore: deps.sandboxProviderStore,
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
+        resolveUserContext: resolveUserContext,
       }),
     ),
   );
@@ -177,6 +206,7 @@ export function createServerApp(deps: ServerDeps) {
         eventSubscriptions: deps.eventSubscriptions,
         sandboxProviderStore: deps.sandboxProviderStore,
         logger: deps.logger,
+        resolveUserContext: resolveUserContext,
       }),
     ),
   );

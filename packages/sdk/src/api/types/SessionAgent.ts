@@ -2,4 +2,4 @@
 
 import type * as TrueForge from "../index.js";
 
-export type SessionAgent = TrueForge.SessionAgentRef | TrueForge.SessionAgentValue;
+export type SessionAgent = TrueForge.SessionAgentInline | TrueForge.SessionAgentReference;

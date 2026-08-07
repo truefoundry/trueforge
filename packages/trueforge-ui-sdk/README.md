@@ -500,6 +500,6 @@ Local demo: see [example/](./example/). Publishing: see [RELEASING.md](../../REL
 
 ## License
 
-Apache-2.0. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE).
+MIT. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE).
 
 Security: [SECURITY.md](./SECURITY.md) · Conduct: [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) · Changes: [CHANGELOG.md](./CHANGELOG.md)

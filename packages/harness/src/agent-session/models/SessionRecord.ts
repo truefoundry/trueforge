@@ -2,7 +2,8 @@ import type { SessionAgent } from '../schemas/session';
 
 /**
  * Session persistence record. Agent binding is a single discriminated `agent`
- * (`ref` | `value`). Named agents are not hydrated on read.
+ * (`reference` | `inline`). Reference rows carry create-time `name` snapshot
+ * (nullable for legacy/orphan). Named agents are not hydrated to inline on read.
  */
 export interface SessionRecord<TCustom extends object = Record<string, never>> {
   tenant_id: string;
@@ -11,8 +12,8 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
   created_by: string;
   agent: SessionAgent;
   /**
-   * Wire SessionSchema.title (nullable). Written via updateSession patch or
-   * createTurn's update_session_title_if_not_exist (first write wins; caller derives).
+   * Public session title (nullable). Written via updateSession patch or createTurn's
+   * update_session_title_if_not_exist (first write wins; caller derives).
    */
   title: string | null;
   /**

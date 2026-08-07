@@ -73,7 +73,7 @@ export class TurnResourceResolver<
       sandboxProvider?: TurnSandboxFactory | undefined;
       /**
        * Named-agent lookup (registry id → live AgentSpec). Required when a
-       * session is bound by ref; omit only if all sessions use value agents.
+       * session is bound by reference; omit only if all sessions use inline agents.
        */
       agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */

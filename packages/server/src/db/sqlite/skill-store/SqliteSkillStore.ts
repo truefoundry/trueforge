@@ -1,4 +1,4 @@
-import type { ExpressionBuilder, Kysely } from 'kysely';
+import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { SkillManifest } from '../../../schemas/skill';
 import {
   type GetSkillInput,
@@ -21,26 +21,28 @@ function recordColumns(eb: ExpressionBuilder<Database, 'skill'>) {
   ];
 }
 
-export class SqliteSkillStore implements ISkillStore {
+export class SqliteSkillStore implements ISkillStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
   }
 
-  async listSkills(input: ListSkillsInput): Promise<SkillRecord[]> {
+  async listSkills(input: ListSkillsInput, transaction?: Transaction<Database>): Promise<SkillRecord[]> {
     if (input.names?.length === 0) {
       return [];
     }
-    let query = this.#db.selectFrom('skill').select(recordColumns).where('tenant_id', '=', input.tenant_id);
+    const db = transaction ?? this.#db;
+    let query = db.selectFrom('skill').select(recordColumns).where('tenant_id', '=', input.tenant_id);
     if (input.names !== undefined) {
       query = query.where('name', 'in', [...input.names]);
     }
     return await query.orderBy('name').execute();
   }
 
-  async getSkill(input: GetSkillInput): Promise<SkillRecord | undefined> {
-    return await this.#db
+  async getSkill(input: GetSkillInput, transaction?: Transaction<Database>): Promise<SkillRecord | undefined> {
+    const db = transaction ?? this.#db;
+    return await db
       .selectFrom('skill')
       .select(recordColumns)
       .where('tenant_id', '=', input.tenant_id)
@@ -48,9 +50,10 @@ export class SqliteSkillStore implements ISkillStore {
       .executeTakeFirst();
   }
 
-  async upsertSkill(input: UpsertSkillInput): Promise<SkillRecord> {
+  async upsertSkill(input: UpsertSkillInput, transaction?: Transaction<Database>): Promise<SkillRecord> {
+    const db = transaction ?? this.#db;
     const timestamp = nowIso();
-    return await this.#db
+    return await db
       .insertInto('skill')
       .values({
         tenant_id: input.tenant_id,

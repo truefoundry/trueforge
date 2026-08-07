@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type { Configuration } from 'openid-client';
 import winston from 'winston';
 import { createAuthRouter } from '../../../src/apis/auth';
+import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { disableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import configuration from '../../../src/config';
 
@@ -76,7 +77,11 @@ describe('auth router (no identity provider configured)', () => {
     const res = await router.request('/me');
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ type: 'default', email: 'default', role: 'user' });
+    expect(await res.json()).toEqual({
+      type: 'default',
+      email: LOCAL_USER_CONTEXT.userRef,
+      role: LOCAL_USER_CONTEXT.role,
+    });
   });
 });
 

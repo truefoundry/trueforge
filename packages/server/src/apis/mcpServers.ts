@@ -11,6 +11,7 @@ import type { Logger } from 'winston';
 import type { McpCatalog } from '../catalog/McpCatalog';
 import configuration from '../config';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
+import type { WithTransaction } from '../db/transaction';
 import { ensureMcpClientRegistered, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import { validateRedirectUris } from '../mcp/auth/mcpOAuthHelpers';
 import type { IOAuthTokenStore, OAuthToken } from '../mcp/auth/types';
@@ -32,16 +33,18 @@ import { TENANT_ID } from './sessions';
 /** Registering a DCR OAuth client hits the MCP server's authorization server, so bound that call. */
 export const MCP_DCR_REGISTRATION_TIMEOUT_MS = 10_000;
 
-export interface SettingsMcpServersRouterDeps {
+export interface SettingsMcpServersRouterDeps<TTransaction> {
   mcpCatalog: McpCatalog;
-  mcpServerStore: IMcpServerStore;
-  tokenStore: IOAuthTokenStore;
+  mcpServerStore: IMcpServerStore<TTransaction>;
+  tokenStore: IOAuthTokenStore<TTransaction>;
+  withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
 }
 
-export interface McpServersRouterDeps {
-  mcpServerStore: IMcpServerStore;
-  tokenStore: IOAuthTokenStore;
+export interface McpServersRouterDeps<TTransaction> {
+  mcpServerStore: IMcpServerStore<TTransaction>;
+  tokenStore: IOAuthTokenStore<TTransaction>;
+  withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
 }
 
@@ -82,7 +85,7 @@ function toConfiguredMcpServer({
 /** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers).
  *  TODO: Remove the server via txn if DCR fails to register
  */
-export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDeps) {
+export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpServersRouterDeps<TTransaction>) {
   const registerDcrClient = async (params: {
     serverId: string;
     mcpServerUrl: string;
@@ -221,7 +224,7 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
 }
 
 /** List + authorize (mounted at /api/v1/mcp-servers). */
-export function createMcpServersRouter(deps: McpServersRouterDeps) {
+export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
   const authorizeHandler: RouteHandler<typeof authorizeMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const { redirect_url: redirectUrl } = c.req.valid('query');

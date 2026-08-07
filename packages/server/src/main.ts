@@ -33,6 +33,7 @@ import {
   type TurnStreamingEvent,
 } from '@truefoundry/utils-core/agent-session';
 import { RequestReplyExecutor, RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
+import type { Transaction } from 'kysely';
 import type { RedisClientType } from 'redis';
 import winston, { type Logger } from 'winston';
 
@@ -46,22 +47,26 @@ import { type DistributedServerConfiguration } from './config';
 import type { IAgentStore } from './db/agentStore';
 import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
+import type { Database as PostgresDatabase } from './db/postgres/types';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { ISkillStore } from './db/skillStore';
+import type { Database as SqliteDatabase } from './db/sqlite/types';
+import type { WithTransaction } from './db/transaction';
 import { mountFrontend } from './frontend';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 
 /** Persistence + optional Redis wired for the selected topology. */
-interface ServerPersistence {
+interface ServerPersistence<TTransaction> {
   sessionStore: ISessionStore;
-  modelProviderStore: IModelProviderStore;
-  mcpServerStore: IMcpServerStore;
-  tokenStore: IOAuthTokenStore;
-  skillStore: ISkillStore;
-  sandboxProviderStore: ISandboxProviderStore;
-  agentStore: IAgentStore;
+  modelProviderStore: IModelProviderStore<TTransaction>;
+  withTransaction: WithTransaction<TTransaction>;
+  mcpServerStore: IMcpServerStore<TTransaction>;
+  tokenStore: IOAuthTokenStore<TTransaction>;
+  skillStore: ISkillStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  agentStore: IAgentStore<TTransaction>;
   destroyDb: () => Promise<void>;
   redis: RedisClientType | undefined;
 }
@@ -70,7 +75,7 @@ interface ServerPersistence {
 async function createStandalonePersistence(options: {
   sqlitePath: string;
   logger: Logger;
-}): Promise<ServerPersistence> {
+}): Promise<ServerPersistence<Transaction<SqliteDatabase>>> {
   const { sqlitePath, logger } = options;
   await mkdir(path.dirname(sqlitePath), { recursive: true });
   const [{ createSqliteDb }, { migrateSqliteToLatest }, sqliteStores] = await Promise.all([
@@ -104,6 +109,7 @@ async function createStandalonePersistence(options: {
   return {
     sessionStore: new SqliteSessionStore(db),
     modelProviderStore: new SqliteModelProviderStore(db),
+    withTransaction: callback => db.transaction().execute(callback),
     mcpServerStore: new SqliteMcpServerStore(db),
     tokenStore: new SqliteOAuthTokenStore(db),
     skillStore: new SqliteSkillStore(db),
@@ -118,7 +124,7 @@ async function createStandalonePersistence(options: {
 async function createDistributedPersistence(options: {
   configuration: DistributedServerConfiguration;
   logger: Logger;
-}): Promise<ServerPersistence> {
+}): Promise<ServerPersistence<Transaction<PostgresDatabase>>> {
   const { configuration, logger } = options;
   const {
     DATABASE_URL: databaseUrl,
@@ -166,6 +172,7 @@ async function createDistributedPersistence(options: {
   return {
     sessionStore: new PostgresSessionStore(db),
     modelProviderStore: new PostgresModelProviderStore(db),
+    withTransaction: callback => db.transaction().execute(callback),
     mcpServerStore: new PostgresMcpServerStore(db),
     tokenStore: new PostgresOAuthTokenStore(db),
     skillStore: new PostgresSkillStore(db),
@@ -176,17 +183,12 @@ async function createDistributedPersistence(options: {
   };
 }
 
-try {
-  // Console logger shared by the server runtime (harness components require one).
-  const logger = winston.createLogger({
-    level: configuration.LOG_LEVEL,
-    format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-    transports: [new winston.transports.Console()],
-  });
-
+/** Keeps `TTransaction` concrete when wiring a single persistence topology into the app. */
+async function createServerRuntime<TTransaction>(persistence: ServerPersistence<TTransaction>, logger: Logger) {
   const {
     sessionStore,
     modelProviderStore,
+    withTransaction,
     mcpServerStore,
     tokenStore,
     skillStore,
@@ -194,9 +196,7 @@ try {
     agentStore,
     destroyDb,
     redis,
-  } = configuration.STANDALONE
-    ? await createStandalonePersistence({ sqlitePath: configuration.SQLITE_PATH, logger })
-    : await createDistributedPersistence({ configuration, logger });
+  } = persistence;
 
   const activeTurns = new ActiveTurnRegistry();
   const requestReplyRouter = new RequestReplyRouter();
@@ -216,6 +216,7 @@ try {
     skillCatalog: SkillCatalog.load(),
     sandboxCatalog: SandboxCatalog.load(),
     modelProviderStore,
+    withTransaction,
     mcpServerStore,
     tokenStore,
     skillStore,
@@ -230,6 +231,24 @@ try {
     logger,
     oidcClient,
   });
+
+  return { activeTurns, app, destroyDb, redis, requestReplyRouter };
+}
+
+try {
+  // Console logger shared by the server runtime (harness components require one).
+  const logger = winston.createLogger({
+    level: configuration.LOG_LEVEL,
+    format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+    transports: [new winston.transports.Console()],
+  });
+
+  const { activeTurns, app, destroyDb, redis, requestReplyRouter } = configuration.STANDALONE
+    ? await createServerRuntime(
+        await createStandalonePersistence({ sqlitePath: configuration.SQLITE_PATH, logger }),
+        logger,
+      )
+    : await createServerRuntime(await createDistributedPersistence({ configuration, logger }), logger);
 
   if (mountFrontend(app, configuration.FRONTEND_DIR)) {
     logger.info(`Serving frontend from ${configuration.FRONTEND_DIR}`);

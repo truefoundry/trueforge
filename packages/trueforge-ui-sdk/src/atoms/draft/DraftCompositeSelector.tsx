@@ -4,6 +4,7 @@ import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefou
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
+import { useServerCapabilities } from '../../server/ServerContext.js';
 import type { AgentSkill, ConnectorState, McpServerMount, SkillMount } from '../../server/types.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
@@ -38,11 +39,13 @@ function CatalogRow({
   title,
   description,
   checked,
+  disabled = false,
   onToggle,
 }: {
   title: string;
   description?: string;
   checked: boolean;
+  disabled?: boolean;
   onToggle: () => void;
 }) {
   return (
@@ -50,7 +53,8 @@ function CatalogRow({
       type="button"
       role="menuitemcheckbox"
       aria-checked={checked}
-      className="hover:bg-accent flex w-full items-start gap-2 rounded-md px-2 py-2 text-left"
+      disabled={disabled}
+      className="hover:bg-accent flex w-full items-start gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
       onClick={onToggle}
     >
       <span className="bg-muted text-muted-foreground mt-0.5 flex size-7 shrink-0 items-center justify-center rounded text-xs font-semibold">
@@ -60,7 +64,7 @@ function CatalogRow({
         <span className="text-foreground block truncate text-sm font-medium">{title}</span>
         {description ? <span className="text-muted-foreground line-clamp-1 text-xs">{description}</span> : null}
       </span>
-      <Checkbox checked={checked} />
+      {disabled ? <Icon name="lock" className="text-muted-foreground mt-1 size-3" /> : <Checkbox checked={checked} />}
     </button>
   );
 }
@@ -107,6 +111,7 @@ function SectionHeading({ label, count }: { label: string; count: number }) {
 
 export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
   const { skills, connectors } = useDraftCatalog();
+  const capabilities = useServerCapabilities();
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
   const [open, setOpen] = useState(false);
@@ -119,6 +124,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const menuId = useId();
   const isMobile = useIsMobile();
   const compactLayout = useCompactLayout();
+  const skillsDisabled = capabilities?.skill.enabled !== true;
+  const skillsDisabledReason = capabilities?.skill.reason;
 
   const selectedMcp = useMemo(
     () => (agentSpec?.mcpServers as McpServerMount[] | undefined) ?? [],
@@ -252,6 +259,15 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             onChange={setQuery}
             placeholder={tab === 'connectors' ? 'Search connectors...' : 'Search skills...'}
           />
+          {tab === 'skills' && skillsDisabled && skillsDisabledReason ? (
+            <div
+              role="status"
+              className="border-primary/30 bg-primary/5 text-foreground mx-3 mb-2 flex items-center gap-2 rounded-lg border p-3"
+            >
+              <Icon name="lock" className="text-primary size-3 shrink-0" />
+              <span className="text-xs leading-none">{skillsDisabledReason}</span>
+            </div>
+          ) : null}
           <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
             {tab === 'connectors' ? (
               <>
@@ -295,6 +311,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                         title={s.name}
                         description={s.description}
                         checked={selectedSkillIds.has(s.id)}
+                        disabled={skillsDisabled && !selectedSkillIds.has(s.id)}
                         onToggle={() => toggleSkill(s)}
                       />
                     ))}
@@ -309,6 +326,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                         title={s.name}
                         description={s.description}
                         checked={selectedSkillIds.has(s.id)}
+                        disabled={skillsDisabled && !selectedSkillIds.has(s.id)}
                         onToggle={() => toggleSkill(s)}
                       />
                     ))}

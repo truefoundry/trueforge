@@ -341,6 +341,14 @@ export interface AgentChatServer<
  *
  * Generics let hosts type their catalog rows richer than SDK base.
  */
+export interface AgentBuilderCapabilitiesResponse {
+  data: {
+    sandbox: { enabled: boolean };
+    skill: { enabled: boolean; reason?: string };
+    settings?: { enabled: boolean };
+  };
+}
+
 export interface AgentBuilderServer<
   TSpec extends AgentSpec = AgentSpec,
   TModel extends ModelSelection = ModelSelection,
@@ -348,7 +356,9 @@ export interface AgentBuilderServer<
   TMcp extends ConnectorState = ConnectorState,
   TAgent extends AgentLibraryEntry = AgentLibraryEntry,
   TSave = unknown,
+  TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
 > {
+  getCapabilities(): Promise<TCapabilities>;
   getModels(): Promise<TModel[]>;
   getSkills(): Promise<TSkill[]>;
   getMcp(): Promise<TMcp[]>;
@@ -710,7 +720,8 @@ export type AgentUIServer<
   TAgent extends AgentLibraryEntry = AgentLibraryEntry,
   TSave = unknown,
   TCatalog extends CatalogServer = CatalogServer,
+  TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
 > = AgentChatServer<TSpec, TSession, TCreate, TList, TUpdate, TTurn, TEvent, TStreamEvent> &
-  AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave> & {
+  AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> & {
     catalog?: TCatalog;
   };

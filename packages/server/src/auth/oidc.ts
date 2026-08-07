@@ -26,6 +26,7 @@ export interface OidcVerify {
   oidcConfig: OIDCConfig;
 }
 
+/** Single instance of the OIDC verification. */
 let oidcVerify: OidcVerify | null = null;
 
 /** Enable cookie JWT verification using the IdP client + claim-mapping config from `initOidc`. */

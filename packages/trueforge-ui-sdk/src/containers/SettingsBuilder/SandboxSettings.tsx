@@ -136,8 +136,7 @@ const SandboxSettings = () => {
     <>
       <h3 className="text-xl font-semibold tracking-tight text-foreground">Sandbox providers</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Choose a provider that runs sandboxes for code, files, and shell commands. These are providers, not sandboxes
-        themselves. Only one sandbox provider can be configured for this workspace.
+        Choose a provider that runs sandboxes for code, files and shell commands. Only one can be active at a time.
       </p>
 
       {error ? (
@@ -222,7 +221,7 @@ const SandboxSettings = () => {
               {availableEntries.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {hasConfiguredProvider
-                    ? 'A sandbox provider is already configured. Remove it to choose a different one.'
+                    ? 'One provider is set up. Update it or remove it to switch.'
                     : catalog.length > 0
                       ? 'All catalog providers are configured.'
                       : 'No sandbox providers in the catalog.'}

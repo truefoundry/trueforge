@@ -1,20 +1,14 @@
 import type { Context, MiddlewareHandler } from 'hono';
-import { getCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
-import { toUserContext, type IdTokenClaims, type UserContext } from './claims';
-import { ID_TOKEN_COOKIE } from './cookies';
+import { toUserContext, type IdTokenClaims } from './claims';
+import { readIdTokenCookie } from './cookies';
+import { LOCAL_USER_CONTEXT, type UserContext } from './identity';
 import { getOidcVerify } from './oidc';
-
-/** Used when OIDC is not configured (standalone / no IdP). */
-export const DEFAULT_USER_CONTEXT: UserContext = {
-  userRef: 'default',
-  role: 'user',
-};
 
 declare module 'hono' {
   interface ContextVariableMap {
-    user?: UserContext;
+    user_context?: UserContext;
   }
 }
 
@@ -28,7 +22,7 @@ export async function resolveAuthUser(c: Context): Promise<UserContext | undefin
     return undefined;
   }
 
-  const token = getCookie(c, ID_TOKEN_COOKIE);
+  const token = readIdTokenCookie({ context: c });
   if (!token) {
     return undefined;
   }
@@ -47,10 +41,10 @@ export async function resolveAuthUser(c: Context): Promise<UserContext | undefin
   return toUserContext(claims, oidcVerify.oidcConfig);
 }
 
-/** Set `c.var.user` and continue, or throw 401. Without OIDC, sets {@link DEFAULT_USER_CONTEXT}. */
+/** Set `c.var.user` and continue, or throw 401. Without OIDC, sets {@link LOCAL_USER_CONTEXT}. */
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   if (!getOidcVerify()) {
-    c.set('user', DEFAULT_USER_CONTEXT);
+    c.set('user_context', LOCAL_USER_CONTEXT);
     return next();
   }
 
@@ -59,7 +53,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     if (!user) {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
-    c.set('user', user);
+    c.set('user_context', user);
   } catch (error) {
     if (error instanceof HTTPException) {
       throw error;
