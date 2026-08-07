@@ -101,7 +101,7 @@ function toUiSession(
   };
 }
 
-/** Only ref sessions need the registry; drafts already carry their spec inline. */
+/** Only ref sessions need the registry; value sessions already carry their spec. */
 async function toUiSessionResolvingAgent(
   client: TrueForge,
   session: Harness.Session,

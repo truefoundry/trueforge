@@ -28,7 +28,7 @@ export const createSessionRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Create a session',
   description:
-    'Create a session with `agent` as either an inline AgentSpec (draft) or `{ name }` (named). Named sessions resolve the live agent on each turn.',
+    'Create a session with `agent` as either an inline AgentSpec or `{ name }` (named). Named sessions resolve the live agent on each turn.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create',
   request: {
@@ -105,7 +105,7 @@ export const updateSessionRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Update a session',
   description:
-    'Update a draft session by replacing `agent` with an inline AgentSpec. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.',
+    'Update a session by replacing `agent` with an inline AgentSpec. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'update',
   request: {

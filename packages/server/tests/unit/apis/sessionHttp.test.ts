@@ -13,9 +13,9 @@ import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteS
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 
-const draftSpec = AgentSpecSchema.parse({
+const inlineSpec = AgentSpecSchema.parse({
   model: { name: 'anthropic/claude-sonnet-4-6' },
-  instructions: 'draft',
+  instructions: 'inline',
 });
 
 function jsonInit(method: string, body: unknown): RequestInit {
@@ -76,13 +76,13 @@ describe('sessions HTTP agent binding', () => {
     );
   });
 
-  it('creates a draft session from an inline AgentSpec', async () => {
-    const res = await app.request('/', jsonInit('POST', { agent: draftSpec }));
+  it('creates a session from an inline AgentSpec', async () => {
+    const res = await app.request('/', jsonInit('POST', { agent: inlineSpec }));
     expect(res.status).toBe(201);
     const json = (await res.json()) as {
       data: { id: string; agent: { type: 'value'; agent_spec: { instructions?: string } } };
     };
-    expect(json.data.agent.agent_spec.instructions).toBe('draft');
+    expect(json.data.agent.agent_spec.instructions).toBe('inline');
   });
 
   it('returns 404 when creating a session for an unknown agent name', async () => {
@@ -132,19 +132,19 @@ describe('sessions HTTP agent binding', () => {
 
     const patchNamed = await app.request(
       `/${json.data.id}`,
-      jsonInit('PATCH', { agent: { ...draftSpec, instructions: 'nope' } }),
+      jsonInit('PATCH', { agent: { ...inlineSpec, instructions: 'nope' } }),
     );
     expect(patchNamed.status).toBe(400);
   });
 
-  it('allows PATCH agent_spec on draft sessions', async () => {
-    const created = await app.request('/', jsonInit('POST', { agent: draftSpec }));
+  it('allows PATCH agent_spec on value sessions', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: inlineSpec }));
     expect(created.status).toBe(201);
     const { data } = (await created.json()) as { data: { id: string } };
 
     const patched = await app.request(
       `/${data.id}`,
-      jsonInit('PATCH', { agent: { ...draftSpec, instructions: 'updated' } }),
+      jsonInit('PATCH', { agent: { ...inlineSpec, instructions: 'updated' } }),
     );
     expect(patched.status).toBe(200);
     const patchedJson = (await patched.json()) as {
@@ -154,7 +154,7 @@ describe('sessions HTTP agent binding', () => {
   });
 
   it('rejects create bodies that mix name and AgentSpec fields', async () => {
-    const both = await app.request('/', jsonInit('POST', { agent: { name: 'named-agent', ...draftSpec } }));
+    const both = await app.request('/', jsonInit('POST', { agent: { name: 'named-agent', ...inlineSpec } }));
     expect(both.status).toBe(400);
   });
 });

@@ -239,7 +239,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   const updateSessionHandler: RouteHandler<typeof updateSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
-    // Draft (value) sessions may replace their inline agent; named (ref) sessions
+    // Value sessions may replace their inline agent; named (ref) sessions
     // cannot — the store rejects that with SessionStoreInvariantError → 400 below.
     if (body.agent !== undefined) {
       await validateAgentSpec({

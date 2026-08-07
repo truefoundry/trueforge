@@ -21,7 +21,7 @@ export const SessionAgentValueSchema = z
   .strict()
   .openapi('SessionAgentValue');
 
-/** Named registry binding or inline draft spec — exactly one arm. */
+/** Named registry binding or inline AgentSpec — exactly one arm. */
 export const SessionAgentSchema = z
   .discriminatedUnion('type', [SessionAgentRefSchema, SessionAgentValueSchema])
   .openapi('SessionAgent');

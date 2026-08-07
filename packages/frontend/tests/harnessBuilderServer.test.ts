@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { createHarnessBuilderServer, providerOf } from '../src/harnessBuilderServer';
 import type { HarnessAgentSpec } from '../src/harnessServer';
 
-const draftSpec: HarnessAgentSpec = {
+const sampleSpec: HarnessAgentSpec = {
   model: { name: 'anthropic/claude-sonnet-4-6' },
   instructions: 'Be helpful.',
   mcpServers: [{ id: 'github', name: 'github', enableTools: ['@all'] }],
@@ -56,7 +56,7 @@ describe('harnessBuilderServer', () => {
     };
 
     const server = createHarnessBuilderServer({ fetch: fetchMock });
-    const saved = await server.saveAgent({ agentName: 'research', agentSpec: draftSpec });
+    const saved = await server.saveAgent({ agentName: 'research', agentSpec: sampleSpec });
     assert.deepEqual(saved, { name: 'research' });
     assert.deepEqual(posted, {
       name: 'research',
@@ -72,7 +72,7 @@ describe('harnessBuilderServer', () => {
 
     const server = createHarnessBuilderServer({ fetch: fetchMock });
     await assert.rejects(
-      () => server.saveAgent({ agentName: 'research', agentSpec: draftSpec }),
+      () => server.saveAgent({ agentName: 'research', agentSpec: sampleSpec }),
       (error: unknown) => {
         assert.ok(error instanceof Error);
         assert.match(error.message, /already exists/);
