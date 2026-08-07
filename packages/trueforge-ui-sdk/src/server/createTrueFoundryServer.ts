@@ -1,4 +1,5 @@
 import type {
+  AgentBuilderCapabilitiesResponse,
   AgentBuilderServer,
   AgentChatServer,
   AgentLibraryEntry,
@@ -27,9 +28,11 @@ export type CreateTrueFoundryServerOptions<
   TAgent extends AgentLibraryEntry = AgentLibraryEntry,
   TSave = unknown,
   TCatalog extends CatalogServer = CatalogServer,
+  TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
 > = {
   /** Chat port — e.g. from `@truefoundry/agent-server-adapter`. */
   chatServer: AgentChatServer<TSpec>;
+  getCapabilities: () => Promise<TCapabilities>;
   getModels: () => Promise<TModel[]>;
   getSkills: () => Promise<TSkill[]>;
   getMcp: () => Promise<TMcp[]>;
@@ -48,6 +51,7 @@ export type TrueFoundryServer<
   TAgent extends AgentLibraryEntry = AgentLibraryEntry,
   TSave = unknown,
   TCatalog extends CatalogServer = CatalogServer,
+  TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
 > = AgentUIServer<
   TSpec,
   Session<TSpec>,
@@ -62,7 +66,8 @@ export type TrueFoundryServer<
   TMcp,
   TAgent,
   TSave,
-  TCatalog
+  TCatalog,
+  TCapabilities
 >;
 
 /**
@@ -78,10 +83,12 @@ export function createTrueFoundryServer<
   TAgent extends AgentLibraryEntry = AgentLibraryEntry,
   TSave = unknown,
   TCatalog extends CatalogServer = CatalogServer,
+  TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
 >(
-  opts: CreateTrueFoundryServerOptions<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCatalog>,
-): TrueFoundryServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCatalog> {
-  const builder: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave> = {
+  opts: CreateTrueFoundryServerOptions<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCatalog, TCapabilities>,
+): TrueFoundryServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCatalog, TCapabilities> {
+  const builder: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> = {
+    getCapabilities: opts.getCapabilities,
     getModels: opts.getModels,
     getSkills: opts.getSkills,
     getMcp: opts.getMcp,
@@ -96,9 +103,10 @@ export function createTrueFoundryServer<
     },
   };
 
-  return {
+  const server: TrueFoundryServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCatalog, TCapabilities> = {
     ...opts.chatServer,
     ...builder,
     ...(opts.catalog != null ? { catalog: opts.catalog } : {}),
-  } as TrueFoundryServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCatalog>;
+  };
+  return server;
 }

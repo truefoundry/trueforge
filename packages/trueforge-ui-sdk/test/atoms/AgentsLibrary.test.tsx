@@ -25,9 +25,9 @@ beforeAll(() => {
 function mockServer(
   agents: Array<{
     name: string;
-    agentId?: string;
+    agentId: string;
     agentSpec?: { model: { name: string }; skills?: Array<{ id: string; name: string }> };
-  }> = [{ name: 'alpha-agent' }],
+  }> = [{ name: 'alpha-agent', agentId: 'alpha-agent' }],
 ): AgentUIServer {
   return createMockAgentUIServer({
     searchAgents: vi.fn(async () => agents),
@@ -67,7 +67,10 @@ describe('CenteredModal', () => {
 
 describe('AgentsLibrary', () => {
   it('lists agents and selects a named agent (Try = immutable)', async () => {
-    const server = mockServer([{ name: 'alpha-agent' }, { name: 'beta-agent' }]);
+    const server = mockServer([
+      { name: 'alpha-agent', agentId: 'alpha-agent' },
+      { name: 'beta-agent', agentId: 'beta-agent' },
+    ]);
     const onSelectAgent = vi.fn();
     const onOpenChange = vi.fn();
 
@@ -98,7 +101,7 @@ describe('AgentsLibrary', () => {
         agentId: 'writer-id',
         agentSpec: { model: { name: 'openai-main/gpt-4.1' }, skills: [{ id: 's1', name: 'Skill' }] },
       },
-      { name: 'try-only' },
+      { name: 'try-only', agentId: 'try-only' },
     ]);
 
     render(
@@ -122,6 +125,7 @@ describe('AgentsLibrary', () => {
     const server = mockServer([
       {
         name: 'writer',
+        agentId: 'writer',
         agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
       },
     ]);
@@ -141,11 +145,50 @@ describe('AgentsLibrary', () => {
     });
     expect(screen.queryByRole('button', { name: 'Edit agent writer' })).not.toBeInTheDocument();
   });
+
+  it('shows create-one guidance when there are no agents yet', async () => {
+    const server = mockServer([]);
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <AgentsLibrary open onOpenChange={() => undefined} />
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('No agents yet. Build one in a chat, then save it as an agent.')).toBeInTheDocument();
+    });
+  });
+
+  it('shows a no-matches message (not the create-one guidance) when a search returns nothing', async () => {
+    const server = mockServer([]);
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <AgentsLibrary open onOpenChange={() => undefined} />
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Search agents'), { target: { value: 'zzz' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('No agents match "zzz".')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('No agents yet. Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
+  });
 });
 
 describe('AgentsLibraryButton', () => {
   it('opens the Agents Library dialog from the trigger', async () => {
-    const server = mockServer([{ name: 'alpha-agent' }]);
+    const server = mockServer([{ name: 'alpha-agent', agentId: 'alpha-agent' }]);
 
     render(
       <SlotsProvider>
@@ -169,7 +212,7 @@ describe('AgentsLibraryButton', () => {
       .fn()
       .mockResolvedValueOnce([{ name: 'alpha' }])
       .mockResolvedValueOnce([{ name: 'alpha' }, { name: 'beta' }]);
-    const server = { searchAgents } as unknown as AgentUIServer;
+    const server = createMockAgentUIServer({ searchAgents });
 
     function Invalidate() {
       const shell = useShellMode();

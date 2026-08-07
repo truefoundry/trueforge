@@ -19,6 +19,4 @@ export interface ListSessionsRequest {
     endTimestamp?: Date;
     /** When set, only sessions bound to this agent id are returned. */
     agentId?: string;
-    /** When set, only sessions created by this identity are returned. */
-    createdBy?: string;
 }

@@ -1,0 +1,86 @@
+---
+title: "MCP OAuth"
+description: "The two connector authorization flows and the callback route they need."
+---
+
+There are two separate MCP authorization flows in the SDK, and they work differently. Confusing
+them is the usual reason a callback route behaves unexpectedly.
+
+## In-chat: the agent needs a connector mid-turn
+
+When a running agent hits a connector the user has not authorized, the turn pauses and the
+composer renders an auth prompt listing the servers involved.
+
+This flow is deliberately simple. Clicking Connect opens the server's `authUrl` in a **new
+tab** — no popup channel, no callback plumbing on your side. The user authorizes there, returns
+to your app, and presses Continue, which resumes the paused turn. Nothing about this path
+requires a callback route.
+
+```ts
+import { useComposerPauseView } from "@truefoundry/trueforge-ui";
+
+const { kind } = useComposerPauseView(); // "mcp" | "ask-user" | "compose"
+```
+
+`kind === "mcp"` means the composer is blocked on connector authorization.
+`threadHasPendingMcpAuth(state)` is the standalone predicate behind it if you already hold
+thread state.
+
+Override the `McpAuthPrompt` slot to change how the prompt looks. It receives `servers`,
+`onConnect`, `onContinue`, and `readOnly`.
+
+## Settings panel: connecting a connector directly
+
+Authorizing a connector from the settings panel is the flow with the popup and the callback
+route. It runs through `catalog.connectorCatalog.authenticateConnector` and requires a
+[catalog server](/ui-sdk/reference/catalog).
+
+```ts
+import { useMCPAuth, MCP_AUTH_POPUP_CHANNEL } from "@truefoundry/trueforge-ui";
+
+const auth = useMCPAuth({ callbackPath: "/mcp-callback" });
+```
+
+The SDK builds a redirect URL against `callbackPath` — or the current URL when you omit it —
+carrying three parameters:
+
+| Parameter | Set by | Purpose |
+| --- | --- | --- |
+| `screenType=mcp-auth` | SDK | Marks the route as the OAuth completion screen. |
+| `integrationId` | SDK | Which connector is being authorized. |
+| `pUid` | SDK | Correlates the popup with the window that opened it. |
+| `isSuccess` | your provider | Read back on return to report success or failure. |
+
+That URL is passed to `authenticateConnector` as `redirectURL`. If the connector is already
+authenticated the flow short-circuits; otherwise the returned `authorization_endpoint` is opened
+in a popup. When the popup lands on your callback route it posts a message over a
+`BroadcastChannel` named by `MCP_AUTH_POPUP_CHANNEL` (`"truefoundry-mcp-auth-popup"`), and the
+opener runs your callback.
+
+## The callback route
+
+Render the completion screen on the route you named in `callbackPath`:
+
+```tsx title="routes/mcp-callback.tsx"
+import { PostMcpOauthScreen } from "@truefoundry/trueforge-ui";
+
+export default function McpCallback() {
+  return <PostMcpOauthScreen />;
+}
+```
+
+<Warning>
+  Whenever `screenType=mcp-auth` is present in the URL, `TrueforgeUI` renders **only** the OAuth
+  completion screen — no layout, no chat. This applies to any route that mounts the component,
+  so keep the callback on its own route.
+</Warning>
+
+## Server side
+
+The connectors offered to a draft come from `getMcp()` on your `AgentBuilderServer`, which
+returns `ConnectorState[]`. Each carries optional `requiresAuth` and `authenticated` flags.
+
+Managing connectors — adding, editing, authorizing, disconnecting — is the settings surface
+backed by `catalog.connectorCatalog`, where `authenticateConnector` returns either an
+authenticated connector or a result carrying `authorization_endpoint`. See
+[Settings catalog](/ui-sdk/reference/catalog).

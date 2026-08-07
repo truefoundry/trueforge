@@ -15,7 +15,7 @@ import type { TerminalTurnState } from '../schemas/turn';
 
 /**
  * Caller-supplied fields for creating a session; the store owns timestamps and tip state.
- * `agent` is a discriminated ref | value binding.
+ * `agent` is a discriminated reference | inline binding.
  */
 export type CreateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
@@ -26,13 +26,13 @@ export type CreateSessionInput<TSessionCustom extends object = Record<string, ne
 
 /**
  * PATCH fields for an existing session; `undefined` fields are left unchanged.
- * `agent` may be set only on draft (value) sessions, and only as a value arm.
+ * `agent` may be set only on inline sessions, and only as an inline arm (`{ type: 'inline', spec }`).
  */
 export type UpdateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
   'tenant_id' | 'session_id'
 > & {
-  agent: Extract<SessionRecord<TSessionCustom>['agent'], { type: 'value' }> | undefined;
+  agent: Extract<SessionRecord<TSessionCustom>['agent'], { type: 'inline' }> | undefined;
   title: SessionRecord<TSessionCustom>['title'] | undefined;
 };
 
@@ -229,7 +229,7 @@ export interface ISessionStore<
 
   /**
    * PATCH semantics — update only the provided fields:
-   * - agent: replace value binding (draft sessions only; ref → invariant error).
+   * - agent: replace inline binding (inline sessions only; reference → invariant error).
    * - title: set/replace the session title.
    * Bumps `last_activity_timestamp_ms` (= now) in the same update.
    */

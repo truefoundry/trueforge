@@ -32,6 +32,7 @@ import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
 import { ScrollToBottomButton } from '../atoms/ScrollToBottomButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
+import { ShellActionsActionSlot } from '../atoms/ShellActionsActionSlot.js';
 import { MessageListSkeleton } from '../atoms/Skeletons.js';
 import { SubAgentCard } from '../atoms/SubAgentCard.js';
 import { SyntaxHighlighter } from '../atoms/SyntaxHighlighter.js';
@@ -123,4 +124,5 @@ export const defaultSlots = {
   MessageGroup,
   Toast,
   ToastStack,
+  ShellActionsActionSlot,
 } satisfies AtomSlots;

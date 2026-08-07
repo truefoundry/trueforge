@@ -1,0 +1,102 @@
+---
+title: "Installation"
+description: "Install the SDK, import the stylesheet, and satisfy peer dependencies."
+---
+
+## Install
+
+<CodeGroup>
+
+```bash npm
+npm install @truefoundry/trueforge-ui
+```
+
+```bash pnpm
+pnpm add @truefoundry/trueforge-ui
+```
+
+```bash yarn
+yarn add @truefoundry/trueforge-ui
+```
+
+</CodeGroup>
+
+`react` and `react-dom` are required peer dependencies and must be version 18 or 19.
+`@assistant-ui/core`, `@assistant-ui/react`, and `@types/react` are optional peers — the package
+bundles working versions, so install them yourself only if you use their APIs directly or need
+to pin a version. The package is ESM-only and client-only.
+
+## Import the stylesheet
+
+The SDK ships a prebuilt stylesheet. Import it after Tailwind in your host CSS:
+
+```css title="app.css"
+@import "tailwindcss";
+@import "@truefoundry/trueforge-ui/styles.css";
+```
+
+`@truefoundry/trueforge-ui/styles.css` is the only stylesheet path you should reference. It is
+self-contained — the SDK's own components are styled without any Tailwind setup on your side.
+
+It deliberately omits Tailwind preflight so it cannot clobber your app's base styles. The
+`@import "tailwindcss"` line above is therefore for *your* styles, not the SDK's; drop it if
+your app does not use Tailwind.
+
+The stylesheet also brings in markdown styles scoped to `.markdown-body`, plus the semantic
+design tokens. Note that most tokens are applied as inline styles at runtime, so overriding them
+from your own CSS will not work — change them through `theme.tokens` instead. See
+[Theming](/ui-sdk/guides/theming#precedence).
+
+## Deduplicate the assistant-ui singletons
+
+`react`, `react-dom`, `@assistant-ui/core`, `@assistant-ui/react`, and `@assistant-ui/store`
+must each resolve to exactly one copy in your bundle. Two copies produce a runtime error
+along the lines of *"requires an AuiProvider"*.
+
+<CodeGroup>
+
+```ts vite.config.ts
+export default defineConfig({
+  resolve: {
+    dedupe: [
+      "react",
+      "react-dom",
+      "@assistant-ui/core",
+      "@assistant-ui/react",
+      "@assistant-ui/store",
+    ],
+  },
+});
+```
+
+```json package.json
+{
+  "resolutions": {
+    "@assistant-ui/core": "<version>",
+    "@assistant-ui/store": "<version>"
+  }
+}
+```
+
+</CodeGroup>
+
+The `vite.config.ts` approach is usually enough. Reach for `resolutions` (or `overrides` on
+npm, `pnpm.overrides` on pnpm) when a transitive dependency drags in a second copy.
+
+Note that `@assistant-ui/store` arrives transitively through `@assistant-ui/core` rather than
+being declared by the SDK, so there is no published version to look up — pin it to whatever your
+lockfile resolves `@assistant-ui/core` against.
+
+## Give the component a height
+
+The SDK fills its parent container and does not set its own height. A parent with no
+resolved height collapses the entire chat UI, which is the single most common cause of a
+"blank" first install.
+
+```tsx
+<div className="flex h-dvh min-h-0 w-full flex-1 flex-col">
+  <TrueforgeUI /* ... */ className="h-full min-h-0" />
+</div>
+```
+
+Next: [Quickstart](/ui-sdk/get-started/quickstart).

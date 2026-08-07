@@ -122,10 +122,10 @@ export function AgentHistoryFilterButton() {
           <p className="px-2 py-3 text-center text-xs text-muted-foreground">Loading…</p>
         ) : (
           agents.map(agent => {
-            const active = selected === agent.name;
+            const active = selected === agent.agentId;
             return (
               <button
-                key={agent.name}
+                key={agent.agentId}
                 type="button"
                 role="menuitem"
                 className={cn(
@@ -133,7 +133,7 @@ export function AgentHistoryFilterButton() {
                   'hover:bg-accent hover:text-accent-foreground',
                   active && 'bg-accent',
                 )}
-                onClick={() => pick(agent.name)}
+                onClick={() => pick(agent.agentId)}
               >
                 <span className="min-w-0 truncate">{agent.name}</span>
                 {active ? <Icon name="check" className="size-3.5 shrink-0" /> : null}
@@ -182,11 +182,11 @@ export function AgentHistoryFilterButton() {
               role="menu"
               aria-label="Filter agents"
               style={{ top: menuPos.top, left: menuPos.left }}
-              className="fixed z-50 w-56 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+              className="font-sans-flex fixed z-50 w-56 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
             >
               {filterBody}
             </div>,
-            document.body,
+            buttonRef.current?.closest('.aui-theme-root') ?? document.body,
           )
         : null}
     </div>

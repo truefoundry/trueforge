@@ -1,0 +1,134 @@
+---
+title: "Quickstart"
+description: "Render a working agent chat UI against one of three backends."
+---
+
+Make sure you have completed [Installation](/ui-sdk/get-started/installation) first — the stylesheet
+import and the height requirement both matter, and skipping either produces a blank screen.
+
+Then pick a backend. The `server` prop takes one of three shapes, and everything else about the
+component is identical between them.
+
+<CardGroup cols={3}>
+  <Card title="TrueFoundry" icon="bolt" href="#truefoundry">
+    Zero config. Point at a control plane and go.
+  </Card>
+  <Card title="TrueForge" icon="clock" href="#trueforge">
+    Harness adapter. Coming soon.
+  </Card>
+  <Card title="Custom" icon="wrench" href="#custom">
+    Compose or implement the server yourself.
+  </Card>
+</CardGroup>
+
+## TrueFoundry
+
+The zero-config path. The SDK builds the agent UI server from your API key and control plane
+URL; the gateway URL is optional and resolved from the control plane when omitted.
+
+```tsx title="App.tsx"
+import { TrueforgeUI } from "@truefoundry/trueforge-ui";
+
+export default function App() {
+  return (
+    <div style={{ height: "100dvh" }}>
+      <TrueforgeUI
+        server={{
+          type: "truefoundry",
+          apiKey: {{API_KEY}},
+          controlPlaneURL: {{CONTROL_PLANE_URL}},
+        }}
+        layout="sidebar"
+      />
+    </div>
+  );
+}
+```
+
+Add `gatewayPlaneURL` alongside `controlPlaneURL` to target a specific gateway.
+
+Because this config is resolved asynchronously, the SDK shows a brief loading indicator before
+the chat appears. The other two paths mount immediately.
+
+## TrueForge
+
+Typed for hosts adopting the harness adapter.
+
+```tsx
+<TrueforgeUI
+  server={{
+    type: "trueforge",
+    apiKey: {{API_KEY}},
+  }}
+  layout="sidebar"
+/>
+```
+
+<Warning>
+  The harness adapter has not shipped yet. Selecting this type surfaces a not-implemented error
+  and calls `onError` rather than rendering a chat, so use
+  [TrueFoundry](#truefoundry) or a [custom server](#custom) until the adapter lands.
+</Warning>
+
+## Custom
+
+Use this when you compose chat and builder yourself — a chat-only gateway adapter with a stub
+catalog, a full host BFF, or a proxy that keeps credentials server-side. Pass the server object
+directly, with no `type` wrapper.
+
+`createTrueFoundryServer` combines a chat port with the builder callbacks. The stubs below
+return empty lists, which is enough to mount; fill them in as you add agent management.
+
+```tsx title="App.tsx"
+import { TrueforgeUI, createTrueFoundryServer } from "@truefoundry/trueforge-ui";
+import { createTrueFoundryChatServer } from "@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adapter";
+
+// this structure will most likely change. Govinda to update this
+const chatServer = createTrueFoundryChatServer({
+  apiKey: import.meta.env.VITE_TFY_API_KEY,
+  baseUrl: import.meta.env.VITE_TFY_GATEWAY_URL,
+});
+
+const server = createTrueFoundryServer({
+  chatServer,
+  getModels: async () => [],
+  getSkills: async () => [],
+  getMcp: async () => [],
+  searchAgents: async () => [],
+  saveAgent: async () => ({}),
+});
+
+export default function App() {
+  return (
+    <div style={{ height: "100dvh" }}>
+      <TrueforgeUI server={server} layout="sidebar" />
+    </div>
+  );
+}
+```
+
+Two notes on this path. Empty `getModels` means the composer has no models to offer, so supply
+real ones before enabling composer mode — see [Agent modes](/ui-sdk/concepts/agent-modes). And
+`createTrueFoundryServer` attaches no `catalog`, so the settings panel stays hidden until you
+pass one.
+
+To skip `createTrueFoundryServer` entirely and implement the interface from scratch — against
+any backend, not just TrueFoundry — see
+[Bring your own server](/ui-sdk/guides/custom-server).
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Pick a layout" icon="table-columns" href="/ui-sdk/guides/layouts">
+    Sidebar, drawer, dock, widget, or a layout you write yourself.
+  </Card>
+  <Card title="Match your brand" icon="palette" href="/ui-sdk/guides/theming">
+    Presets, semantic tokens, logo, and dark mode.
+  </Card>
+  <Card title="Swap components" icon="puzzle-piece" href="/ui-sdk/guides/slot-overrides">
+    Replace any built-in component via `overrides`.
+  </Card>
+  <Card title="Server contract" icon="server" href="/ui-sdk/concepts/server-contract">
+    Every interface a backend must satisfy.
+  </Card>
+</CardGroup>

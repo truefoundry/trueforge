@@ -18,14 +18,19 @@ describe('createTrueFoundryServer', () => {
       listEvents: vi.fn(),
     });
 
+    const capabilities = {
+      data: { sandbox: { enabled: true }, skill: { enabled: true } },
+    };
+    const getCapabilities = vi.fn(async () => capabilities);
     const getModels = vi.fn(async () => [{ name: 'm', provider: 'p', apiModel: 'p/m', modelId: 'm' }]);
     const getSkills = vi.fn(async () => []);
     const getMcp = vi.fn(async () => []);
-    const searchAgents = vi.fn(async () => [{ name: 'ask-ai-agent' }]);
+    const searchAgents = vi.fn(async () => [{ name: 'ask-ai-agent', agentId: 'ask-ai-agent' }]);
     const saveAgent = vi.fn(async () => ({ ok: true }));
 
     const server = createTrueFoundryServer({
       chatServer,
+      getCapabilities,
       getModels,
       getSkills,
       getMcp,
@@ -37,8 +42,11 @@ describe('createTrueFoundryServer', () => {
     expect(server.listSessions).toBe(chatServer.listSessions);
     expect(server.catalog).toBeUndefined();
 
+    await expect(server.getCapabilities()).resolves.toEqual(capabilities);
     await expect(server.getModels()).resolves.toHaveLength(1);
-    await expect(server.searchAgents({ query: 'ask' })).resolves.toEqual([{ name: 'ask-ai-agent' }]);
+    await expect(server.searchAgents({ query: 'ask' })).resolves.toEqual([
+      { name: 'ask-ai-agent', agentId: 'ask-ai-agent' },
+    ]);
     expect(searchAgents).toHaveBeenCalledWith({ query: 'ask' });
 
     await server.saveAgent({
@@ -142,6 +150,9 @@ describe('createTrueFoundryServer', () => {
 
     const server = createTrueFoundryServer({
       chatServer,
+      getCapabilities: async () => ({
+        data: { sandbox: { enabled: false }, skill: { enabled: false } },
+      }),
       getModels: async () => [],
       getSkills: async () => [],
       getMcp: async () => [],

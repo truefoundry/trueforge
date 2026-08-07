@@ -2,12 +2,16 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
 import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCookie } from '../auth/cookies';
-import { authMiddleware, DEFAULT_USER_CONTEXT } from '../auth/middleware';
+import { resolveUserContext } from '../auth/identity';
+import { authMiddleware } from '../auth/middleware';
 import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify, safeReturnTo } from '../auth/oidc';
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
 import type { MeResponse } from '../schemas/auth';
 
-const LOGIN_ERROR_PATH = '/?error=login_failed';
+/** Login / OIDC failures land on `/?error=<reason>`. */
+function oauthErrorRedirect(reason: string): string {
+  return `/?error=${encodeURIComponent(reason)}`;
+}
 
 /**
  * Auth surfaces mounted at /api/v1/auth: login, callback, logout, me.
@@ -33,7 +37,7 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
       params.logger.error('Failed to build login authorization', {
         error: error instanceof Error ? error.message : error,
       });
-      return c.redirect(LOGIN_ERROR_PATH, 302);
+      return c.redirect(oauthErrorRedirect('login_failed'), 302);
     }
   });
 
@@ -47,8 +51,15 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
     clearAuthCookie({ context: c, name: OAUTH_STATE_COOKIE });
 
     if (pending?.state !== query.state || query.error || !query.code) {
-      // TODO: handle the error here once frontend error page is implemented
-      return c.redirect(LOGIN_ERROR_PATH, 302);
+      const description = query.error_description?.trim();
+      const errorCode = query.error?.trim();
+      let reason = 'login_failed';
+      if (description) {
+        reason = description;
+      } else if (errorCode) {
+        reason = errorCode;
+      }
+      return c.redirect(oauthErrorRedirect(reason), 302);
     }
 
     try {
@@ -64,8 +75,8 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
       params.logger.error('Failed to exchange authorization code', {
         error: error instanceof Error ? error.message : error,
       });
-      // TODO: handle the error here once frontend error page is implemented
-      return c.redirect(LOGIN_ERROR_PATH, 302);
+      const reason = error instanceof Error ? error.message : 'login_failed';
+      return c.redirect(oauthErrorRedirect(reason), 302);
     }
   });
 
@@ -78,7 +89,7 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
   const gated = new OpenAPIHono();
   gated.use('*', authMiddleware);
   gated.openapi(meRoute, c => {
-    const user = c.get('user') ?? DEFAULT_USER_CONTEXT;
+    const user = resolveUserContext(c);
     const body: MeResponse = getOidcVerify()
       ? { type: 'oidc-connected', email: user.userRef, role: user.role }
       : { type: 'default', email: user.userRef, role: user.role };

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftCompositeSelector, type DraftCompositeSelectorProps } from '@/atoms/draft/DraftCompositeSelector.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentSpec } from '@/server/types.js';
+import type { AgentBuilderCapabilitiesResponse, AgentSpec } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec;
@@ -16,8 +16,14 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   useTrueFoundryUpdateAgentSpec: () => updateAgentSpec,
 }));
 
-function renderSelector(props: DraftCompositeSelectorProps = {}) {
+type RenderSelectorOptions = {
+  props?: DraftCompositeSelectorProps;
+  getCapabilities?: () => Promise<AgentBuilderCapabilitiesResponse>;
+};
+
+function renderSelector({ props = {}, getCapabilities }: RenderSelectorOptions = {}) {
   const server = createMockAgentUIServer({
+    ...(getCapabilities === undefined ? {} : { getCapabilities }),
     getSkills: async () => [
       { id: 'research', name: 'Research', description: 'Find relevant sources' },
       { id: 'writer', name: 'Writer', description: 'Draft polished copy' },
@@ -87,7 +93,7 @@ describe('DraftCompositeSelector', () => {
 
   it('forwards attachment requests and closes the picker', async () => {
     const onAttach = vi.fn();
-    renderSelector({ onAttach });
+    renderSelector({ props: { onAttach } });
     const trigger = screen.getByRole('button', { name: 'Add connectors, skills, or attachments' });
     fireEvent.click(trigger);
     await screen.findByRole('menuitemcheckbox', { name: /GitHub/ });
@@ -97,6 +103,38 @@ describe('DraftCompositeSelector', () => {
     expect(onAttach).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('dialog', { name: 'Add to composer' })).not.toBeInTheDocument();
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('disables available skills while allowing selected skills to be removed', async () => {
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: false },
+          skill: { enabled: false, reason: 'Select Sandbox first' },
+        },
+      }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' }));
+    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Select Sandbox first');
+    const research = screen.getByRole('menuitemcheckbox', { name: /Research/ });
+    expect(research).toBeEnabled();
+    expect(screen.getByRole('menuitemcheckbox', { name: /Writer/ })).toBeDisabled();
+    fireEvent.click(research);
+
+    expect(updateAgentSpec).toHaveBeenCalledWith({ skills: [] });
+  });
+
+  it('disables available skills until capabilities load', async () => {
+    renderSelector({
+      getCapabilities: () => new Promise<AgentBuilderCapabilitiesResponse>(() => {}),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' }));
+    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: /Research/ })).toBeEnabled();
+    expect(screen.getByRole('menuitemcheckbox', { name: /Writer/ })).toBeDisabled();
   });
 
   it('cannot open while disabled or running', () => {

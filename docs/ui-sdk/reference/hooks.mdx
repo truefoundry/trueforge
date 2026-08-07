@@ -1,0 +1,64 @@
+---
+title: "Hooks"
+description: "Composer state, MCP auth, runtime hooks, and re-exports."
+---
+
+## Composer state
+
+| Hook | Returns |
+| --- | --- |
+| `useComposerBusyState()` | Whether the composer is busy. Requires `ComposerBusyProvider`. Type: `ComposerBusyState`. |
+| `useComposerPauseView()` | `{ kind: "mcp" \| "ask-user" \| "compose" }` — why input is paused. Types: `ComposerPauseView`, `ThreadPauseState`. |
+
+`threadHasPendingMcpAuth(state)` is the standalone predicate behind the `"mcp"` case.
+
+## MCP auth
+
+```ts
+const auth = useMCPAuth({ callbackPath: "/mcp-callback" });
+```
+
+`MCP_AUTH_POPUP_CHANNEL` is `"truefoundry-mcp-auth-popup"` — the `BroadcastChannel` name used
+to signal completion back to the opener. Types: `McpAuthCallback`, `McpAuthPopupMessage`,
+`UseMCPAuthOptions`. See [MCP OAuth](/ui-sdk/guides/mcp-oauth).
+
+## assistant-ui state
+
+`useAui`, `useAuiState`, and the `AssistantState` type come from `@assistant-ui/react`, which
+the SDK bundles as a dependency and also declares as an optional peer. They are re-exported from
+the package root and from a dedicated subpath:
+
+```ts
+import { useAui, useAuiState } from "@truefoundry/trueforge-ui/assistant-ui";
+```
+
+## Runtime hooks
+
+Import these from `@truefoundry/trueforge-ui` like everything else:
+
+| Export | Purpose |
+| --- | --- |
+| `useTrueFoundryAgentRuntime` | The underlying runtime hook. |
+| `useTrueFoundryAgentSpec` | Read the active agent spec. |
+| `useTrueFoundryUpdateAgentSpec` | Mutate the draft spec. |
+| `useTrueFoundryCancel` | Cancel the in-flight turn. |
+| `useTrueFoundryTurnId` | The id of the current turn. |
+| `useTrueFoundryHistoryPagination` | Page backwards through history. |
+| `useTrueFoundryMcpAuth` | Low-level MCP auth state. |
+| `useTrueFoundryRespondToToolApproval` | Approve or reject a tool call. |
+| `useTrueFoundryToolResponses` | Read tool responses. |
+| `useTrueFoundryDownloadSandboxFile` | Download a sandbox artifact. |
+| `mergeAgentSpec` | Merge partial specs. |
+| `trueFoundryAttachmentAdapter` | Default attachment adapter. |
+
+Types: `DraftAgentConfig`, `NamedAgentConfig`, `TrueFoundryAgentConfig`,
+`UseTrueFoundryAgentRuntimeOptions`.
+
+## Utilities
+
+```ts
+computeAgentStepsSplit(parts: AgentStepPart[], isRunning: boolean): AgentStepsSplitResult;
+```
+
+Splits message parts into the steps shown inline versus those collapsed into the steps card.
+Both `AgentStepPart` and `AgentStepsSplitResult` are exported.

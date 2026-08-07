@@ -31,6 +31,8 @@ function newStores(): Stores {
   return { tokenStore: new InMemoryOAuthTokenStore(), mcpServerStore: new InMemoryOAuthClientStore() };
 }
 
+const withNoTransaction = <T>(callback: (transaction: undefined) => Promise<T>) => callback(undefined);
+
 const PUBLIC_BASE_URL = 'https://harness.example.com';
 const CLIENT_NAME = 'harness';
 const SERVER_URL = 'https://mcp.example.com/sse';
@@ -635,6 +637,7 @@ describe('completeMcpAuthorization', () => {
     await completeMcpAuthorization({
       tokenStore: stores.tokenStore,
       mcpServerStore: stores.mcpServerStore,
+      withTransaction: withNoTransaction,
       pending,
       code: 'auth-code-1',
     });
@@ -662,6 +665,7 @@ describe('completeMcpAuthorization', () => {
       completeMcpAuthorization({
         tokenStore: stores.tokenStore,
         mcpServerStore: stores.mcpServerStore,
+        withTransaction: withNoTransaction,
         pending: {
           state: 'state-1',
           id: SERVER_ID,
@@ -679,6 +683,14 @@ describe('completeMcpAuthorization', () => {
 
   it('clears client state on invalid_client and surfaces a re-connect error', async () => {
     const stores = newStores();
+    const deleteToken = jest.spyOn(stores.tokenStore, 'deleteToken');
+    const deleteClient = jest.spyOn(stores.mcpServerStore, 'deleteClient');
+    const transaction = {};
+    let withTransactionCalls = 0;
+    const withTransaction = <T>(callback: (transaction: object) => Promise<T>) => {
+      withTransactionCalls += 1;
+      return callback(transaction);
+    };
     await stores.mcpServerStore.saveClient({ id: SERVER_ID, record: sampleClient });
     const authUrl = await buildMcpAuthorizationUrl({
       ...resolveParams(stores),
@@ -703,6 +715,7 @@ describe('completeMcpAuthorization', () => {
       completeMcpAuthorization({
         tokenStore: stores.tokenStore,
         mcpServerStore: stores.mcpServerStore,
+        withTransaction,
         pending,
         code: 'auth-code-1',
       }),
@@ -710,6 +723,9 @@ describe('completeMcpAuthorization', () => {
       name: 'McpConnectionError',
       message: expect.stringContaining('registration is invalid'),
     });
+    expect(withTransactionCalls).toBe(1);
+    expect(deleteToken).toHaveBeenCalledWith({ id: SERVER_ID }, transaction);
+    expect(deleteClient).toHaveBeenCalledWith({ id: SERVER_ID }, transaction);
     expect(await stores.mcpServerStore.getClient({ id: SERVER_ID })).toBeUndefined();
     expect(await stores.tokenStore.getToken({ id: SERVER_ID })).toBeUndefined();
   });

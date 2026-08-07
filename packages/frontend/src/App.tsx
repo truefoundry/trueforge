@@ -7,10 +7,14 @@ import {
   type WelcomeScreenProps,
 } from '@truefoundry/trueforge-ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AuthErrorScreen } from './AuthErrorScreen';
+import { isLoggedOutSearch, parseAuthErrorReason } from './authStatusSearch';
 import { getCapabilities, listModels } from './composerLists';
 import { createConnectorCatalog } from './connectorCatalog';
 import { createHarnessBuilderServer } from './harnessBuilderServer';
 import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';
+import { LoggedOutScreen } from './LoggedOutScreen';
+import { LogoutButton } from './LogoutButton';
 import { createModelProviderCatalog } from './modelProviderCatalog';
 import { createSandboxProviderCatalog } from './sandboxProviderCatalog';
 import { createSkillCatalog } from './skillCatalog';
@@ -48,9 +52,16 @@ type BootState =
   | { status: 'ready'; defaultAgentSpec: HarnessAgentSpec; openSettings: boolean };
 
 export function App() {
+  const search = window.location.search;
+  const loggedOut = isLoggedOutSearch(search);
+  const authError = parseAuthErrorReason(search);
+  const skipBoot = loggedOut || authError != null;
   const [boot, setBoot] = useState<BootState>({ status: 'loading' });
 
   useEffect(() => {
+    if (skipBoot) {
+      return;
+    }
     const state = { cancelled: false };
     void (async () => {
       try {
@@ -95,14 +106,23 @@ export function App() {
     return () => {
       state.cancelled = true;
     };
-  }, []);
+  }, [skipBoot]);
 
   const overrides: SlotOverrides = useMemo(
     () => ({
+      ShellActionsActionSlot: LogoutButton,
       ...(boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
     }),
     [boot],
   );
+
+  if (loggedOut) {
+    return <LoggedOutScreen />;
+  }
+
+  if (authError != null) {
+    return <AuthErrorScreen reason={authError} />;
+  }
 
   if (boot.status === 'error') {
     return (

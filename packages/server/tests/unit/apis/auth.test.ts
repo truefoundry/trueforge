@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type { Configuration } from 'openid-client';
 import winston from 'winston';
 import { createAuthRouter } from '../../../src/apis/auth';
+import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { disableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import configuration from '../../../src/config';
 
@@ -76,7 +77,11 @@ describe('auth router (no identity provider configured)', () => {
     const res = await router.request('/me');
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ type: 'default', email: 'default', role: 'user' });
+    expect(await res.json()).toEqual({
+      type: 'default',
+      email: LOCAL_USER_CONTEXT.userRef,
+      role: LOCAL_USER_CONTEXT.role,
+    });
   });
 });
 
@@ -215,6 +220,23 @@ describe('auth router (OIDC configured)', () => {
     expect(callbackRes.headers.get('location')).toBe('/sessions/abc123');
     const idTokenCookie = setCookies(callbackRes).find(cookie => cookie.startsWith(`${ID_TOKEN_COOKIE}=`));
     expect(idTokenCookie).toContain('Max-Age=86400');
+  });
+
+  it('GET /callback redirects home with error when the IdP returns an error', async () => {
+    const res = await createAuthRouter({ oidcClient, logger }).request(
+      '/callback?state=any&error=access_denied&error_description=user%20cancelled',
+      { redirect: 'manual' },
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/?error=user%20cancelled');
+  });
+
+  it('GET /callback redirects home with error when state mismatches', async () => {
+    const res = await createAuthRouter({ oidcClient, logger }).request('/callback?code=abc&state=wrong', {
+      redirect: 'manual',
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/?error=login_failed');
   });
 
   it('POST /logout clears id_token even when no cookie is present', async () => {

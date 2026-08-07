@@ -14,6 +14,7 @@ import type {
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { McpConnectionError, McpDcrConfigurationError } from '@truefoundry/utils-core/core';
 import { randomBytes } from 'node:crypto';
+import type { WithTransaction } from '../../db/transaction';
 import {
   isOAuthAccessTokenUsable,
   mcpAuthorizationServerMetadata,
@@ -243,9 +244,10 @@ export async function resolveMcpAuth(params: {
  * landing URL. Route must already reject IdP `error` params. On `invalid_client`, clears the stored
  * client and token so the next authorize re-registers.
  */
-export async function completeMcpAuthorization(params: {
-  tokenStore: IOAuthTokenStore;
-  mcpServerStore: IOAuthClientStore;
+export async function completeMcpAuthorization<TTransaction>(params: {
+  tokenStore: IOAuthTokenStore<TTransaction>;
+  mcpServerStore: IOAuthClientStore<TTransaction>;
+  withTransaction: WithTransaction<TTransaction>;
   pending: OAuthPendingAuthorization;
   code: string;
 }): Promise<void> {
@@ -274,8 +276,10 @@ export async function completeMcpAuthorization(params: {
     });
   } catch (error: unknown) {
     if (error instanceof InvalidClientError) {
-      await params.tokenStore.deleteToken({ id: pending.id });
-      await params.mcpServerStore.deleteClient({ id: pending.id });
+      await params.withTransaction(async transaction => {
+        await params.tokenStore.deleteToken({ id: pending.id }, transaction);
+        await params.mcpServerStore.deleteClient({ id: pending.id }, transaction);
+      });
       throw new McpConnectionError('OAuth client registration is invalid; please retry connecting', 400, {
         cause: error,
       });
