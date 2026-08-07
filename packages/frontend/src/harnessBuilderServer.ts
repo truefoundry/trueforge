@@ -3,7 +3,8 @@
  * Composer pickers + agent library stubs (Harness has no agent registry).
  */
 import type { AgentBuilderServer } from '@truefoundry/trueforge-ui';
-import { getCapabilities, listMcpServers, listModels, listSkills } from './composerLists';
+import { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './composerLists';
+import { toUiConnector } from './connectorCatalog';
 import type { HarnessAgentSpec } from './harnessServer';
 
 /** Harness model names are `provider/model`. */
@@ -21,8 +22,7 @@ export function createHarnessBuilderServer(): AgentBuilderServer<HarnessAgentSpe
         ? skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }))
         : [];
     },
-    getMcp: async () =>
-      (await listMcpServers()).map(server => ({ id: server.name, name: server.name, description: server.url })),
+    getMcp: async () => (await listConfiguredMcpServers()).map(toUiConnector),
     searchAgents: () => Promise.resolve([]),
     saveAgent: () => Promise.reject(new Error('Harness has no agent registry — sessions are draft-only')),
   };

@@ -997,6 +997,18 @@
                 ],
                 "type": "object"
               },
+              "settings": {
+                "properties": {
+                  "enabled": {
+                    "description": "Whether the settings UI/API is enabled.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "type": "object"
+              },
               "skill": {
                 "properties": {
                   "enabled": {
@@ -1012,7 +1024,8 @@
             },
             "required": [
               "sandbox",
-              "skill"
+              "skill",
+              "settings"
             ],
             "type": "object"
           }
