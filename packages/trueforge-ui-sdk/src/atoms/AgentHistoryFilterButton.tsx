@@ -111,12 +111,12 @@ export function AgentHistoryFilterButton() {
         ) : (
           <>
             {agents.map(agent => {
-              const active = selected === agent.name;
+              const active = selected === agent.agentId;
               return (
                 <DropdownMenuItem
-                  key={agent.name}
+                  key={agent.agentId}
                   className={cn('justify-between gap-2 text-left', active && 'bg-accent text-accent-foreground')}
-                  onClick={() => pick(agent.name)}
+                  onClick={() => pick(agent.agentId)}
                 >
                   <span className="min-w-0 truncate">{agent.name}</span>
                   {active ? <Icon name="check" className="size-3.5 shrink-0" /> : null}

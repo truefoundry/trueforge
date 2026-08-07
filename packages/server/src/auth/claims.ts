@@ -1,14 +1,8 @@
 import type { OIDCConfig } from '../config';
+import type { Role, UserContext } from './identity';
 
 /** Raw claims from a decoded ID token; values are untyped until read here. */
 export type IdTokenClaims = Record<string, unknown>;
-
-export type Role = 'admin' | 'user';
-
-export interface UserContext {
-  userRef: string;
-  role: Role;
-}
 
 /**
  * Normalizes a claim value into a string list to check membership against.

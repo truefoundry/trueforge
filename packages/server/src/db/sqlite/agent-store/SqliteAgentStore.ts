@@ -3,8 +3,10 @@ import type { ExpressionBuilder, Kysely } from 'kysely';
 import { ulid } from 'ulid';
 import {
   AgentNameConflictError,
+  parseStoredAgentSpec,
   type AgentRecord,
   type CreateAgentInput,
+  type DeleteAgentInput,
   type GetAgentInput,
   type IAgentStore,
   type UpdateAgentInput,
@@ -25,6 +27,17 @@ function recordColumns(eb: ExpressionBuilder<Database, 'agent'>) {
   ];
 }
 
+function toRecord(row: {
+  id: string;
+  tenant_id: string;
+  name: AgentRecord['name'];
+  manifest: AgentSpec;
+  created_at: string;
+  updated_at: string;
+}): AgentRecord {
+  return { ...row, manifest: parseStoredAgentSpec(row.manifest) };
+}
+
 export class SqliteAgentStore implements IAgentStore {
   readonly #db: Kysely<Database>;
 
@@ -33,12 +46,13 @@ export class SqliteAgentStore implements IAgentStore {
   }
 
   async listAgents(tenantId: string): Promise<AgentRecord[]> {
-    return await this.#db
+    const rows = await this.#db
       .selectFrom('agent')
       .select(recordColumns)
       .where('tenant_id', '=', tenantId)
       .orderBy('name')
       .execute();
+    return rows.map(toRecord);
   }
 
   async getAgent(input: GetAgentInput): Promise<AgentRecord | undefined> {
@@ -48,13 +62,14 @@ export class SqliteAgentStore implements IAgentStore {
     } else {
       query = query.where('name', '=', input.name);
     }
-    return await query.executeTakeFirst();
+    const row = await query.executeTakeFirst();
+    return row === undefined ? undefined : toRecord(row);
   }
 
   async createAgent(input: CreateAgentInput): Promise<AgentRecord> {
     const timestamp = nowIso();
     try {
-      return await this.#db
+      const row = await this.#db
         .insertInto('agent')
         .values({
           id: ulid().toLowerCase(),
@@ -66,6 +81,7 @@ export class SqliteAgentStore implements IAgentStore {
         })
         .returning(recordColumns)
         .executeTakeFirstOrThrow();
+      return toRecord(row);
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new AgentNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
@@ -75,7 +91,7 @@ export class SqliteAgentStore implements IAgentStore {
   }
 
   async updateAgent(input: UpdateAgentInput): Promise<AgentRecord | undefined> {
-    return await this.#db
+    const row = await this.#db
       .updateTable('agent')
       .set({
         manifest: jsonbBind(input.manifest),
@@ -85,5 +101,10 @@ export class SqliteAgentStore implements IAgentStore {
       .where('name', '=', input.name)
       .returning(recordColumns)
       .executeTakeFirst();
+    return row === undefined ? undefined : toRecord(row);
+  }
+
+  async deleteAgent(input: DeleteAgentInput): Promise<void> {
+    await this.#db.deleteFrom('agent').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
   }
 }

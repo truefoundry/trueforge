@@ -53,7 +53,12 @@ export interface SessionTable {
    */
   agent_id: string | null;
   /**
-   * Inline draft binding; XOR with `agent_id`.
+   * Create-time snapshot of registry agent name for ref bindings.
+   * Null for value sessions and orphan/legacy refs after a missed backfill.
+   */
+  agent_name: string | null;
+  /**
+   * Inline spec binding; XOR with `agent_id`.
    * TOAST pointer rides through per-turn tip bumps when present.
    */
   agent_spec: JSONColumnType<AgentSpec, AgentSpec | null, AgentSpec | null> | null;

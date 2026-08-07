@@ -108,23 +108,21 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
   };
 
   const handleTry = (agent: AgentLibraryEntry) => {
-    const id = libraryAgentId(agent);
     closeLibrary();
     onSelectAgent?.(agent.name);
     shell?.selectLibraryAgent({
       isMutable: false,
-      agentId: id,
+      agentId: agent.agentId,
       agentName: agent.name,
     });
   };
 
   const handleEdit = (agent: AgentLibraryEntry, agentSpec: AgentSpec) => {
-    const id = libraryAgentId(agent);
     closeLibrary();
     onSelectAgent?.(agent.name);
     shell?.selectLibraryAgent({
       isMutable: true,
-      agentId: id,
+      agentId: agent.agentId,
       agentName: agent.name,
       agentSpec,
     });

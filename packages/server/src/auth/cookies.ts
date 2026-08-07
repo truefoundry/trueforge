@@ -53,3 +53,7 @@ export function readOAuthStateCookie(params: { context: Context; logger: Logger 
 export function clearAuthCookie(params: { context: Context; name: string }): void {
   deleteCookie(params.context, params.name, AUTH_COOKIE_ATTRIBUTES);
 }
+
+export function readIdTokenCookie(params: { context: Context }): string | undefined {
+  return getCookie(params.context, ID_TOKEN_COOKIE);
+}

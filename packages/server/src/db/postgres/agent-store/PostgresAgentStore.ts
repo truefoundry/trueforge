@@ -2,8 +2,10 @@ import type { Kysely, Selectable } from 'kysely';
 import { ulid } from 'ulid';
 import {
   AgentNameConflictError,
+  parseStoredAgentSpec,
   type AgentRecord,
   type CreateAgentInput,
+  type DeleteAgentInput,
   type GetAgentInput,
   type IAgentStore,
   type UpdateAgentInput,
@@ -17,7 +19,7 @@ function toRecord(row: Selectable<AgentTable>): AgentRecord {
     id: row.id,
     tenant_id: row.tenant_id,
     name: row.name,
-    manifest: row.manifest,
+    manifest: parseStoredAgentSpec(row.manifest),
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -86,5 +88,9 @@ export class PostgresAgentStore implements IAgentStore {
       .returningAll()
       .executeTakeFirst();
     return row === undefined ? undefined : toRecord(row);
+  }
+
+  async deleteAgent(input: DeleteAgentInput): Promise<void> {
+    await this.#db.deleteFrom('agent').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
   }
 }

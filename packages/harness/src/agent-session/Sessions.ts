@@ -20,7 +20,7 @@ export class Sessions<
   }
 
   /**
-   * Creates and persists a new session with a ref or value agent binding.
+   * Creates and persists a new session with a reference or inline agent binding.
    */
   async create(input: SessionsCreateInput<TSessionCustom>): Promise<SessionHandle<TSessionCustom, TTurnCustom>> {
     await this.store.createSession({

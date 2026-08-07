@@ -21,7 +21,7 @@ describe('createTrueFoundryServer', () => {
     const getModels = vi.fn(async () => [{ name: 'm', provider: 'p', apiModel: 'p/m', modelId: 'm' }]);
     const getSkills = vi.fn(async () => []);
     const getMcp = vi.fn(async () => []);
-    const searchAgents = vi.fn(async () => [{ name: 'ask-ai-agent' }]);
+    const searchAgents = vi.fn(async () => [{ name: 'ask-ai-agent', agentId: 'ask-ai-agent' }]);
     const saveAgent = vi.fn(async () => ({ ok: true }));
 
     const server = createTrueFoundryServer({
@@ -38,7 +38,9 @@ describe('createTrueFoundryServer', () => {
     expect(server.catalog).toBeUndefined();
 
     await expect(server.getModels()).resolves.toHaveLength(1);
-    await expect(server.searchAgents({ query: 'ask' })).resolves.toEqual([{ name: 'ask-ai-agent' }]);
+    await expect(server.searchAgents({ query: 'ask' })).resolves.toEqual([
+      { name: 'ask-ai-agent', agentId: 'ask-ai-agent' },
+    ]);
     expect(searchAgents).toHaveBeenCalledWith({ query: 'ask' });
 
     await server.saveAgent({

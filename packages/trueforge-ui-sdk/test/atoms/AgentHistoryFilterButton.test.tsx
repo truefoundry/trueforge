@@ -31,7 +31,10 @@ beforeEach(() => {
 
 function mockServer(partial: Partial<AgentUIServer> = {}): AgentUIServer {
   return createMockAgentUIServer({
-    searchAgents: async () => [{ name: 'from-sdk' }, { name: 'other' }],
+    searchAgents: async () => [
+      { name: 'From SDK', agentId: 'from-sdk' },
+      { name: 'Other', agentId: 'other' },
+    ],
     ...partial,
   });
 }
@@ -85,7 +88,10 @@ describe('AgentHistoryFilterButton', () => {
   });
 
   it('opens popover and sets history filter on agent click', async () => {
-    const searchAgents = vi.fn(async () => [{ name: 'from-sdk' }, { name: 'other' }]);
+    const searchAgents = vi.fn(async () => [
+      { name: 'From SDK', agentId: 'from-sdk' },
+      { name: 'Other', agentId: 'other' },
+    ]);
     const server = mockServer({ searchAgents });
     render(<AgentHistoryFilterButton />, {
       wrapper: wrap({ agentConfig: { mode: 'AgentLibraryWithComposer' }, server }),
@@ -95,7 +101,7 @@ describe('AgentHistoryFilterButton', () => {
     expect(screen.queryByTestId('history-filter-active-dot')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Filter chat history/i }));
-    await waitFor(() => expect(screen.getByRole('menuitem', { name: /from-sdk/i })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: /From SDK/i })).toBeInTheDocument());
 
     const menu = screen.getByRole('menu', { name: /Filter agents/i });
     expect(menu.closest('.aui-theme-root')).not.toBeNull();
@@ -103,7 +109,7 @@ describe('AgentHistoryFilterButton', () => {
     expect(menu.className).toContain('bg-popover');
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('menuitem', { name: /from-sdk/i }));
+      fireEvent.click(screen.getByRole('menuitem', { name: /From SDK/i }));
     });
 
     expect(screen.getByTestId('filter-value')).toHaveTextContent('from-sdk');
@@ -133,6 +139,6 @@ describe('AgentHistoryFilterButton', () => {
     await waitFor(() => {
       expect(screen.getByRole('dialog', { name: /Filter agents/i })).toBeInTheDocument();
     });
-    await waitFor(() => expect(screen.getByRole('menuitem', { name: /from-sdk/i })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: /From SDK/i })).toBeInTheDocument());
   });
 });
