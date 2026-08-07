@@ -166,7 +166,7 @@ const CustomModelProviderForm = ({
             onChange={event => {
               setApiKey(event.target.value);
             }}
-            placeholder="sk-..."
+            placeholder="Enter API Key"
             className={inputClassName}
           />
         </div>

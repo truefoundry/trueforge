@@ -40,12 +40,12 @@ export interface ConnectorState {
 /**
  * Agents library row — SDK-minimal.
  * Hosts extend via `TAgent extends AgentLibraryEntry` for richer metadata/spec shapes.
- * `agentSpec` enables Edit (mutable); Try Agent works with `name` alone.
+ * `agentSpec` enables Edit (mutable); Try works with `name` + `agentId`.
  */
 export interface AgentLibraryEntry {
   name: string;
-  /** Stable id when distinct from display `name`. Falls back to `name` when omitted. */
-  agentId?: string;
+  /** Stable id used for selection, history filters, and session binding. */
+  agentId: string;
   /** Published agent spec — required for Edit; optional for Try-only hosts. */
   agentSpec?: AgentSpec;
 }
