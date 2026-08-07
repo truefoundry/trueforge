@@ -1,0 +1,115 @@
+---
+title: "Atoms"
+description: "Presentational components and their prop types."
+---
+
+Atoms are pure presentational components. Most publish a matching `*Props` type, and most are
+overridable slots — but neither is universal, so check
+[Slot overrides](/ui-sdk/guides/slot-overrides) for which names `overrides` accepts, and rely on your
+editor for which props types exist.
+
+## Messages and content
+
+| Export | Notable props |
+| --- | --- |
+| `AssistantMessageBubble` | `{ children, error?, actionBar?, className? }` |
+| `UserMessageBubble` | `{ text, attachments?, editAction?, className? }` |
+| `UserMessageEdit` | edit-in-place composer for a sent message |
+| `UserMessageActionBar`, `MessageActionBar` | per-message actions |
+| `MessageErrorBanner`, `MessageIndicator`, `MessageTimestamp` | status affordances |
+| `Markdown` | `{ content, isStreaming?, fileDownloadBaseUrl?, onDownloadArtifact?, readOnly?, className?, inlineCodeClassName? }` |
+| `OpenUiFenceBlock` | renders OpenUI fenced blocks |
+| `SyntaxHighlighter` | highlighted code |
+| `SandboxArtifactDownload`, `ChatFileDownload` | artifact and file download affordances |
+| `WelcomeScreen` | `{ heading?, icon?, className? }` |
+
+`preloadMarkdownOpenUI()` eagerly loads the OpenUI renderer, avoiding a hitch on the first rich
+message. `ThreadContainer` already calls it on mount, so you only need this in a custom layout
+that does not render `ThreadContainer`.
+
+## Composer
+
+| Export | Notable props |
+| --- | --- |
+| `ComposerShell` | `{ input, disabled, canSubmit, isRunning?, attachments?, modelLabel?, modelIcon?, connectorStatusLabel?, onSubmit, onCancel?, onAttach?, className? }` |
+| `ComposerLeftSection`, `ComposerRightSection` | slots flanking the input |
+| `ComposerSendButton` | submit / cancel control |
+| `AttachmentCard` | attachment chip shown in the composer and on sent messages |
+| `AttachmentPickerButton`, `AttachmentPreviewDialog` | attachment UI |
+
+## Thread shell and list
+
+`ThreadRootShell`, `ThreadViewportShell`, `ThreadComposerAreaShell`, `MessageGroup`,
+`ScrollToBottomButton`, `MessageListSkeleton`, `HistoryLoader`, `ThreadListShell`,
+`ThreadListNewButton`, `ThreadListRow` (`{ title, active, onSelect, agentName?, lastMessageAt?, actions?, className? }`
+— `agentName` renders as a sublabel and `lastMessageAt` as a relative timestamp),
+`ThreadListRowSkeleton`, `ThreadListEmptyState`.
+
+## Tools and prompts
+
+`ToolCallCard` carries the widest surface:
+
+```ts
+type ToolCallStatus = "running" | "success" | "error";
+
+type ToolCallCardProps = {
+  toolName: string;
+  icon?: string;
+  iconClassName?: string;
+  iconVariant?: "primary" | "muted";
+  expanded?: boolean;
+  onToggle?: () => void;
+  awaiting?: boolean;
+  awaitingText?: string;
+  status?: ToolCallStatus;
+  exitCode?: number | null;
+  showExpandChevron?: boolean;
+  showResponseLine?: boolean;
+  responseIcon?: ReactNode;
+  approvalSlot?: ReactNode;
+  requestSlot?: ReactNode;
+  responseSlot?: ReactNode;
+  highlightCard?: boolean;
+  mcpServerName?: string;
+  dataTestPrefix?: string;
+  className?: string;
+};
+```
+
+<Warning>
+  `icon` is an icon **name** looked up in the icon registry, not a rendered node — it defaults
+  to `"mcp-server"`. Passing an element renders nothing useful. To supply your own artwork, map
+  the name through `theme.icons`; see [Theming](/ui-sdk/guides/theming).
+</Warning>
+
+Also `ToolCallContentBlock`, `ToolApprovalBar`, `ToolGroupCard`, `SubAgentCard`,
+`SandboxToolCallCard`, `AgentStepsCard`.
+
+<Note>
+  `AskUserPrompt`, `McpAuthPrompt`, and `ReasoningCard` are override-only: supply your own
+  component for the slot, typed with the published props. The types available are
+  `AskUserPromptProps`, `AskUserQuestionCardProps`, `AskUserQuestion`,
+  `AskUserAnsweredQuestion`, `AskUserAnswerDraft`, `McpAuthPromptProps`, `McpAuthCardProps`,
+  `McpAuthServer`, and `ReasoningCardProps`.
+</Note>
+
+## Agent library and draft composer
+
+`AgentsLibrary` (`{ open, onOpenChange, onSelectAgent? }`), `AgentsLibraryButton`,
+`SaveAgentButton`, `ClearChatButton`, `SelectAgentEmptyState`, `DraftCatalogProvider`,
+`useDraftCatalog()`, `DraftComposerLeftSection`, `DraftComposerRightSection`,
+`DraftCompositeSelector`, `DraftModelSelector`.
+
+All of these except `DraftCatalogProvider` and `useDraftCatalog` are also overridable slots, so
+you can either render them yourself or replace them globally through `overrides`.
+
+## Primitives
+
+`BottomSheet`, `CenteredModal`, `Avatar` / `AvatarImage` / `AvatarFallback`, `Icon`, `Toast`,
+`ToastStack`, `CodeEditor`, `MonacoEditorCore`.
+
+<Note>
+  `ButtonProps`, `ButtonVariant`, `ButtonSize`, and `IconButtonProps` are available as types
+  for typing your own components. The buttons themselves are styled through semantic tokens
+  rather than replaced — see [Theming](/ui-sdk/guides/theming).
+</Note>

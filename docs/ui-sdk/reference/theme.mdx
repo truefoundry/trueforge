@@ -1,0 +1,53 @@
+---
+title: "Theme"
+description: "Theme provider, hooks, presets, brand, and slots."
+---
+
+## Components
+
+| Export | Purpose |
+| --- | --- |
+| `ThemeProvider` | Owns light/dark/system state and injects token CSS variables on a wrapper `div.aui-theme-root`. |
+| `SlotsProvider` | Slot override registry. Must sit outside `TrueFoundryChatProvider`. |
+| `BrandLogo` | Renders `theme.brand.logo`; falls back to a default mark plus brand name. Props: `{ className? }`. |
+| `BrandIcon` | Renders `theme.brand.icon`, falling back to the bare default mark — no name. Props: `{ className? }`. |
+| `Icon` | Renders a built-in icon by name, or your replacement when `theme.icons` maps that name. Props: `{ name: string \| readonly string[] } & IconProps`. An array resolves to its **last** element, accommodating Font Awesome-style `["far", "clone"]` tuples; it is not a fallback chain. An unresolved name renders nothing. |
+
+## Hooks
+
+| Hook | Returns |
+| --- | --- |
+| `useTheme()` | `{ preset, mode, preference, isDark, setTheme }`. `setTheme` is a no-op when `theme.mode` is controlled. |
+| `useThemeMode()` | Resolved `"light" \| "dark"`. Reads the mode published by `SlotsProvider`, so it returns `"light"` when no `SlotsProvider` is above it — even in dark mode. |
+| `useBrand()` | The active `BrandConfig`. |
+| `useThemeIcons()` | The `IconMap` from `theme.icons`. |
+| `useContentClassNames()` | `theme.classNames`; throws outside a provider. |
+| `useOptionalContentClassNames()` | Same, but returns `{}` outside a provider instead of throwing — no null check needed. |
+| `useSlot(name)` | The component currently registered for a slot. |
+
+## Values
+
+| Export | Description |
+| --- | --- |
+| `PRESETS` | `Record<ThemePreset, { light, dark }>` token maps — useful for building a preset picker. |
+| `resolvePresetTokens(preset, mode)` | Resolved tokens for one preset and mode. |
+| `defaultSlots` | The default component for every slot; read it to inspect what a slot renders by default. |
+
+## Types
+
+`ThemeConfig`, `ThemeMode`, `ThemePreset`, `SemanticTokens`, `BrandConfig`, `BrandImage`,
+`ContentClassNames`, `IconMap`, `ThemeIconProps`, `IconProps`, `LayoutProp`, `AtomSlots`,
+`SlotOverrides`.
+
+```ts
+type ThemePreset = "truefoundry" | "claude" | "chatgpt" | "gemini";
+type ThemeMode = "light" | "dark" | "system";
+type SlotOverrides = Partial<AtomSlots>;
+```
+
+`AtomSlots` is derived from the SDK's default slot table, so it enumerates exactly the
+overridable slots — your editor's autocomplete on `overrides` is authoritative. See
+[Slot overrides](/ui-sdk/guides/slot-overrides).
+
+Most token names map to a CSS variable of the same name; the exceptions are listed in
+[Theming](/ui-sdk/guides/theming).

@@ -1,0 +1,229 @@
+---
+title: "Bring your own server"
+description: "Implement AgentUIServer and pass the object straight to the component."
+---
+
+Because `server` accepts an `AgentUIServer` directly, you can front any backend — including
+your own proxy that keeps API keys server-side. The object is used immediately, so there is no
+loading indicator on mount.
+
+## Minimal implementation
+
+The shape below is the smallest thing that mounts. Optional methods are omitted; required ones
+must exist even if they only throw in paths your UI never reaches.
+
+List methods return a `PageResult`, which carries methods as well as data — so a small helper
+for the single-page case keeps the boilerplate in one place.
+
+```ts title="server.ts"
+import type { AgentUIServer, PageResult, Session } from "@truefoundry/trueforge-ui";
+
+function onePage<T>(data: T[]): PageResult<T> {
+  return {
+    data,
+    response: undefined,
+    hasNextPage: () => false,
+    getNextPage: () => Promise.reject(new Error("no more pages")),
+  };
+}
+
+const now = new Date().toISOString();
+const session: Session = {
+  id: "s1",
+  isMutable: true,
+  createdAt: now,
+  updatedAt: now,
+};
+
+export const server: AgentUIServer = {
+  // chat
+  async createSession() {
+    return session;
+  },
+  async listSessions() {
+    return onePage([session]);
+  },
+  async getSession() {
+    return session;
+  },
+  async updateSession() {
+    return session;
+  },
+  async *createTurn({ sessionId, input }) {
+    const res = await fetch(`/api/sessions/${sessionId}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ input }),
+    });
+    let seq = 0;
+    for await (const event of parseEventStream(res)) {
+      yield { sequenceNumber: seq++, event };
+    }
+  },
+  async cancelSession({ sessionId }) {
+    await fetch(`/api/sessions/${sessionId}/cancel`, { method: "POST" });
+  },
+  async listTurns() {
+    return onePage([]);
+  },
+  async getTurn({ turnId }) {
+    throw new Error(`unknown turn ${turnId}`);
+  },
+  async listEvents() {
+    return onePage([]);
+  },
+
+  // builder
+  async getModels() {
+    return [{ name: "my-model", provider: "my-provider" }];
+  },
+  async getSkills() {
+    return [];
+  },
+  async getMcp() {
+    return [];
+  },
+  async searchAgents() {
+    return [{ name: "support-agent" }];
+  },
+  async saveAgent() {
+    return {};
+  },
+};
+```
+
+```tsx title="App.tsx"
+<TrueforgeUI server={server} layout="sidebar" agentConfig={{ mode: "AgentLibrary" }} />
+```
+
+## Streaming
+
+`createTurn` yields envelopes of the form `{ sequenceNumber, event }` — not bare events. The
+number must increase monotonically within the turn, and it is what lets a reconnecting client
+resume via `subscribeToTurn({ afterSequenceNumber })`.
+
+The minimum viable stream for one assistant reply is three events:
+
+```ts
+async *createTurn({ sessionId, input }) {
+  const turnId = crypto.randomUUID();
+  const threadId = sessionId;
+  let seq = 0;
+  const at = () => new Date().toISOString();
+
+  yield {
+    sequenceNumber: seq++,
+    event: { type: "turn.created", id: crypto.randomUUID(), turnId, createdAt: at() },
+  };
+
+  // stream text as it arrives; reuse one message id across all deltas
+  const messageId = crypto.randomUUID();
+  for await (const piece of myModelStream(input)) {
+    yield {
+      sequenceNumber: seq++,
+      event: {
+        type: "model.message.delta",
+        id: messageId,
+        threadId,
+        content: piece, // the increment, not the running total
+      },
+    };
+  }
+
+  yield {
+    sequenceNumber: seq++,
+    event: {
+      type: "turn.done",
+      id: crypto.randomUUID(),
+      state: { status: "done", completedAt: at() },
+      createdAt: at(),
+    },
+  };
+}
+```
+
+Two things are easy to get wrong. Deltas carry the *increment* rather than the accumulated
+text, and every delta for one message shares a single `id`. And a stream that ends without a
+`turn.done` leaves the UI showing the turn as still running.
+
+[Streaming events](/ui-sdk/reference/events) documents the full protocol — tool calls, approval
+prompts, sub-agent threads, and sandbox artifacts.
+
+## Pagination
+
+`PageResult<T, R>` carries `data` (the rows), `response` (your raw backend payload), and the
+methods `hasNextPage()` and `getNextPage()`. Page tokens travel the other way: requests accept
+a `pageToken`, so `getNextPage()` calls your backend again with the token you kept.
+
+```ts
+async listSessions({ pageToken, limit = 20 } = {}) {
+  const res = await fetch(`/api/sessions?limit=${limit}&cursor=${pageToken ?? ""}`);
+  const body = await res.json(); // { data, pagination }
+  return {
+    data: body.data,
+    response: body,
+    hasNextPage: () => Boolean(body.pagination.nextPageToken),
+    getNextPage: () => this.listSessions({ pageToken: body.pagination.nextPageToken, limit }),
+  };
+}
+```
+
+Because the result carries methods, you cannot hand back a bare parsed JSON object — construct
+it, or reuse a helper like the `onePage` above.
+
+`listEvents` additionally accepts `lastTurnId`, used when hydrating history for an existing
+session.
+
+## Optional capabilities
+
+<AccordionGroup>
+  <Accordion title="deleteSession / deleteAgent">
+    In a hand-written `AgentUIServer` like the one above, omitting these leaves the
+    corresponding affordances unavailable rather than broken. (This differs from
+    `createTrueFoundryServer`, where an omitted `deleteAgent` throws when called.)
+  </Accordion>
+  <Accordion title="downloadSandboxFile">
+    Return a `Blob`. Required only if your agents produce sandbox artifacts users should be able
+    to download.
+  </Accordion>
+  <Accordion title="subscribeToTurn">
+    Resumes a live stream from `afterSequenceNumber`, so a reconnecting client picks up where it
+    left off instead of replaying the turn. Skip it if your backend cannot resume.
+  </Accordion>
+  <Accordion title="catalog">
+    Attach a [`CatalogServer`](/ui-sdk/reference/catalog) to enable the settings UI — models,
+    connectors, skills, and sandboxes. Without it those surfaces do not render.
+  </Accordion>
+</AccordionGroup>
+
+## Widening the types
+
+The interfaces are generic so you can carry backend-specific fields through the UI without
+casting. `AgentUIServer` takes the chat port, the builder port, and the catalog:
+
+```ts
+interface MyModel extends ModelSelection {
+  modelId: string;
+}
+
+type MySkillMount = { fqn: string; preload: boolean };
+type MySpec = AgentSpec<Model, MySkillMount>;
+
+const server: AgentUIServer<
+  AgentChatServer<MySpec>,
+  AgentBuilderServer<MySpec, MyModel>
+> = {
+  /* ... */
+};
+```
+
+See [Widening the types](/ui-sdk/concepts/server-contract#widening-the-types) for the full set of
+parameters.
+
+## Attachments
+
+Attachment handling defaults to `trueFoundryAttachmentAdapter`. Override it through the
+`adapters` prop on `TrueforgeUI` if your backend stores uploads differently.
+
+```tsx
+<TrueforgeUI server={server} layout="sidebar" adapters={{ attachments: myAdapter }} />
+```

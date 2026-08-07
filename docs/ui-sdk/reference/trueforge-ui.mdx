@@ -1,0 +1,202 @@
+---
+title: "TrueforgeUI"
+description: "The entry component and every prop it accepts."
+---
+
+```tsx
+import { TrueforgeUI } from "@truefoundry/trueforge-ui";
+```
+
+## Properties
+
+<ParamField path="server" type="TrueforgeServerConfig" required>
+  Where the chat gets its data. Either a built-in config object or a ready `AgentUIServer`.
+
+  <Expandable title="TrueforgeServerConfig">
+    <ParamField path="type" type='"truefoundry" | "trueforge"'>
+      Omit entirely to pass an `AgentUIServer` object directly — there is no `"custom"` wrapper.
+      `"trueforge"` is typed for the forthcoming harness adapter and currently resolves to a
+      not-implemented error.
+    </ParamField>
+    <ParamField path="apiKey" type="string" required>
+      Required by both built-in types. Client-side keys are for local development only.
+    </ParamField>
+    <ParamField path="controlPlaneURL" type="string" required>
+      TrueFoundry control plane URL. Required when `type` is `"truefoundry"`.
+    </ParamField>
+    <ParamField path="gatewayPlaneURL" type="string">
+      Target a specific gateway. Resolved from the control plane when omitted.
+    </ParamField>
+    <ParamField path="catalog" type="CatalogServer">
+      Attach to enable the settings panel. See [Settings catalog](/ui-sdk/reference/catalog).
+    </ParamField>
+  </Expandable>
+
+  See [Server contract](/ui-sdk/concepts/server-contract).
+</ParamField>
+
+<ParamField path="layout" type="LayoutProp" required>
+  A built-in layout name or your own component.
+
+  <Expandable title="LayoutProp">
+    <ParamField path='"sidebar"' type="BuiltInLayout">
+      Full-page chat with a persistent thread list.
+    </ParamField>
+    <ParamField path='"drawer"' type="BuiltInLayout">
+      Thread list collapses into an overlay drawer.
+    </ParamField>
+    <ParamField path='"dock"' type="BuiltInLayout">
+      Right-pinned panel, capped at 400px. Stacks list and thread.
+    </ParamField>
+    <ParamField path='"widget"' type="BuiltInLayout">
+      Floating launcher expanding into a compact panel.
+    </ParamField>
+    <ParamField path="Custom" type="ComponentType<{ className?: string }>">
+      Your own component, rendered inside the full provider stack.
+    </ParamField>
+  </Expandable>
+
+  See [Layouts](/ui-sdk/guides/layouts).
+</ParamField>
+
+<ParamField path="agentConfig" type="AgentConfig" default='{ mode: "AgentLibraryWithComposer" }'>
+  Which agent-selection surfaces the shell exposes.
+
+  <Expandable title="AgentConfig">
+    <ParamField path='{ mode: "SingleAgent"; name: string }' type="variant">
+      Pins the UI to one named agent. `name` is required; selection controls are hidden.
+    </ParamField>
+    <ParamField path='{ mode: "AgentLibrary" }' type="variant">
+      Users pick from saved agents. New chat is disabled in this mode only.
+    </ParamField>
+    <ParamField path='{ mode: "AgentComposer"; defaultAgentSpec?: AgentSpec }' type="variant">
+      Users assemble an ad-hoc agent.
+    </ParamField>
+    <ParamField path='{ mode: "AgentLibraryWithComposer"; defaultAgentSpec?: AgentSpec }' type="variant">
+      Both surfaces. The default.
+    </ParamField>
+  </Expandable>
+
+  `defaultAgentSpec` seeds a new draft and is picked up on new chat, not on clear chat. See
+  [Agent modes](/ui-sdk/concepts/agent-modes).
+</ParamField>
+
+<ParamField path="theme" type="ThemeConfig">
+  Preset, color mode, tokens, branding, and content class names.
+
+  <Expandable title="ThemeConfig">
+    <ParamField path="preset" type='"truefoundry" | "claude" | "chatgpt" | "gemini"' default='"truefoundry"'>
+      Base token palette.
+    </ParamField>
+    <ParamField path="mode" type='"light" | "dark" | "system"'>
+      Omit for uncontrolled — the SDK resolves `system` and persists the user's choice to
+      `localStorage` under `aui-theme-preference`. Passing a value makes it controlled and turns
+      `setTheme` into a no-op.
+    </ParamField>
+    <ParamField path="tokens" type="Partial<SemanticTokens>">
+      Per-token overrides, merged over the preset and applied as inline styles.
+
+      <Expandable title="SemanticTokens">
+        <ParamField path="Surfaces" type="string">
+          `background`, `foreground`, `card`, `cardForeground`, `popover`, `popoverForeground`.
+        </ParamField>
+        <ParamField path="Palette" type="string">
+          `primary`, `secondary`, `muted`, `accent`, each with a `*Foreground` pair.
+        </ParamField>
+        <ParamField path="Status" type="string">
+          `destructive`, `success`, `warning`, each with a `*Foreground` pair.
+        </ParamField>
+        <ParamField path="Chrome" type="string">
+          `border`, `input`, `ring`, `radius`, `fontFamily` (maps to `--font-agent-ui`).
+        </ParamField>
+        <ParamField path="Optional" type="string">
+          `composerRadius`, `userBubble`, `userBubbleForeground`, `assistantBubble`,
+          `assistantBubbleForeground`, `scrollbarThumb`.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+    <ParamField path="brand" type="BrandConfig">
+      <Expandable title="BrandConfig">
+        <ParamField path="logo" type="BrandImage">
+          Falls back to the default mark plus the brand name.
+        </ParamField>
+        <ParamField path="icon" type="BrandImage">
+          Falls back to the bare mark — no name.
+        </ParamField>
+        <ParamField path="name" type="string" default='"TrueFoundry"'>
+          Shown beside the default logo.
+        </ParamField>
+      </Expandable>
+
+      `BrandImage` accepts `{ src, alt? }`, a React node, or a render function.
+    </ParamField>
+    <ParamField path="icons" type="IconMap">
+      Replace registry icons by name. Values are Lucide components, React nodes, render
+      functions, or SVGR components.
+    </ParamField>
+    <ParamField path="classNames" type="ContentClassNames">
+      <Expandable title="ContentClassNames">
+        <ParamField path="markdown" type="string" />
+        <ParamField path="inlineCode" type="string" />
+        <ParamField path="syntaxHighlighter" type="{ root?, pre?, code?, lineNumber? }" />
+        <ParamField path="openui" type="{ root?, scope? }" />
+        <ParamField path="monaco" type="{ root? }" />
+      </Expandable>
+    </ParamField>
+    <ParamField path="className" type="string">
+      Applied to the theme root wrapper.
+    </ParamField>
+  </Expandable>
+
+  See [Theming](/ui-sdk/guides/theming).
+</ParamField>
+
+<ParamField path="overrides" type="SlotOverrides">
+  Replace any built-in component. `Partial<AtomSlots>`, derived from the SDK's default slot
+  table — so editor autocomplete lists exactly the 59 overridable names. See
+  [Slot overrides](/ui-sdk/guides/slot-overrides).
+</ParamField>
+
+<ParamField path="className" type="string">
+  Passed to the layout component, and to the loading and error states. Typically
+  `"h-full min-h-0"`. To style the theme wrapper instead, use `theme.className`.
+</ParamField>
+
+<ParamField path="initialSessionId" type="string">
+  Open an existing session on mount instead of starting fresh.
+</ParamField>
+
+<ParamField path="adapters" type="RuntimeAdapters">
+  Runtime adapter overrides. Attachments default to `trueFoundryAttachmentAdapter`.
+</ParamField>
+
+<ParamField path="onError" type="(error: unknown) => void">
+  Called when the server fails to resolve or the runtime raises an error.
+</ParamField>
+
+## Behavior notes
+
+The component mounts every provider it needs, so you do not have to wrap it in anything.
+
+Switching agents, starting a new draft, or clearing the chat resets the conversation — the
+current transcript is cleared so that one agent's messages do not carry into another's context.
+Persisted sessions remain available through the thread list.
+
+<Warning>
+  If `window.location.search` contains `screenType=mcp-auth`, the component renders only the
+  OAuth completion screen and no layout. See [MCP OAuth](/ui-sdk/guides/mcp-oauth).
+</Warning>
+
+## Example
+
+```tsx
+<TrueforgeUI
+  server={{ type: "truefoundry", apiKey, controlPlaneURL }}
+  layout="sidebar"
+  agentConfig={{ mode: "AgentComposer", defaultAgentSpec: { model: { name: "openai-main/gpt-4.1" } } }}
+  theme={{ preset: "claude", brand: { name: "Acme" } }}
+  overrides={{ ClearChatButton: MyClearButton }}
+  className="h-full min-h-0"
+  onError={(e) => reportError(e)}
+/>
+```

@@ -1,0 +1,84 @@
+---
+title: "Server"
+description: "Server factory, context hooks, shell mode, and contract types."
+---
+
+## Factory
+
+```ts
+createTrueFoundryServer(options: CreateTrueFoundryServerOptions): TrueFoundryServer;
+```
+
+Options: `{ chatServer, getModels, getSkills, getMcp, searchAgents, saveAgent, deleteAgent?, catalog? }`.
+Combines a chat server with your agent-management callbacks into a complete `AgentUIServer`.
+If you omit `deleteAgent`, calling it throws — supply one to support agent deletion.
+
+## Context
+
+| Export | Behavior |
+| --- | --- |
+| `ServerProvider` | Supplies the resolved server. |
+| `useServer()` | The server; throws outside a provider. |
+| `useOptionalServer()` | The server, or `null` outside a provider. |
+| `useCatalogServer()` | `server.catalog`; **throws** when absent. |
+| `useOptionalCatalogServer()` | `server.catalog`, or `null` when there is none. |
+
+## Shell mode
+
+| Export | Behavior |
+| --- | --- |
+| `ShellModeProvider` | Derives shell capabilities from `agentConfig`. |
+| `useShellMode()` | Throws outside a provider. |
+| `useOptionalShellMode()` | Returns `null` outside a provider. |
+| `DEFAULT_AGENT_CONFIG` | `{ mode: "AgentLibraryWithComposer" }`. |
+
+`useShellMode()` reports which surfaces the current `agentConfig` permits —
+`isLibraryEnabled`, `isComposerEnabled`, `isNewChatEnabled` — and returns the actions
+`selectAgent`, `openDraft`, and `clearChat`, plus `settingsOpen` / `setSettingsOpen`. Use it in
+a custom layout to render only the controls that apply. See
+[Agent modes](/ui-sdk/concepts/agent-modes).
+
+## Contract types
+
+The full server contract is re-exported from the package root. The types you are most likely
+to reference:
+
+<AccordionGroup>
+  <Accordion title="Server interfaces">
+    `AgentUIServer`, `AgentChatServer`, `AgentBuilderServer`, `CatalogServer`,
+    `TrueforgeServerConfig`, `CreateTrueFoundryServerOptions`, `TrueFoundryServer`.
+  </Accordion>
+  <Accordion title="Sessions and turns">
+    `Session`, `CreateSessionRequest`, `UpdateSessionRequest`, `Turn`, `TurnState`,
+    `PreviousTurnIdInput`.
+  </Accordion>
+  <Accordion title="Turn input">
+    `TurnInputItem`, `UserMessage`, `UserMessageContent`, `UserToolApprovalEvent`,
+    `UserToolResponseEvent`, `ApprovalDecision`.
+  </Accordion>
+  <Accordion title="Events and streaming">
+    `TurnStreamData`, `TurnStreamingEvent`, `SessionEvent`, `SessionEventItem`. These are typed
+    openly as `{ type: string; [key: string]: unknown }`; the concrete shapes are in
+    [Streaming events](/ui-sdk/reference/events).
+  </Accordion>
+  <Accordion title="Agents and models">
+    `AgentSpec`, `AgentConfig`, `ShellMode`, `Model`, `ModelParams`, `SkillMount`,
+    `McpServerMount`, `SaveAgentRequest`.
+  </Accordion>
+  <Accordion title="Picker rows">
+    `ModelSelection`, `AgentSkill`, `ConnectorState`, `AgentLibraryEntry`,
+    `SearchAgentsParams`.
+  </Accordion>
+  <Accordion title="Pagination">
+    `PageResult`, `PageParams`, `TokenPagination`, `ListSessionsParams`, `ListSessionsOrder`,
+    `ListSessionsResponse`, `ListTurnsResponse`, `ListSessionEventsResponse`.
+  </Accordion>
+  <Accordion title="Catalog">
+    `ModelCatalogServer`, `ConnectorCatalogServer`, `SkillCatalogServer`,
+    `SandboxCatalogServer`, plus the `ModelProvider*`, `Connector*`, `Skill*`, and `Sandbox*`
+    families. See [Settings catalog](/ui-sdk/reference/catalog).
+  </Accordion>
+</AccordionGroup>
+
+Full method signatures are on [Server contract](/ui-sdk/concepts/server-contract); a worked
+implementation is on [Bring your own server](/ui-sdk/guides/custom-server).
