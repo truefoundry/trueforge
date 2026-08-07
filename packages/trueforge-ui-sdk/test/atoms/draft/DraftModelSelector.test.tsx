@@ -98,6 +98,28 @@ describe('DraftModelSelector', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('clears sticky reasoningEffort when switching to a model without efforts', async () => {
+    agentSpec = {
+      model: {
+        name: 'anthropic/claude-3.7-sonnet',
+        params: { maxTokens: 512, reasoningEffort: 'high' },
+      },
+    };
+    renderSelector();
+
+    const trigger = await screen.findByTitle('Select model');
+    await waitFor(() => expect(trigger).toHaveTextContent('claude-3.7-sonnet'));
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('option', { name: /gpt-4.1/i }));
+
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      model: {
+        name: 'openai/gpt-4.1',
+        params: { maxTokens: 512, reasoningEffort: undefined },
+      },
+    });
+  });
+
   it('uses the first catalog model when the runtime has no draft spec', async () => {
     agentSpec = undefined;
     renderSelector();

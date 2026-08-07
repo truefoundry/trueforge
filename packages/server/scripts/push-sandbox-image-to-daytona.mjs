@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Daytona, DaytonaNotFoundError } from '@daytona/sdk';
-import { parseArgs } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
+import { parseArgs } from 'node:util';
 
 const POLL_INTERVAL_MS = 3_000;
 const DELETE_TIMEOUT_MS = 5 * 60 * 1_000;
@@ -22,7 +22,7 @@ Requires DAYTONA_API_KEY in the environment.
 }
 
 const { values } = parseArgs({
-  args: process.argv.slice(2).filter((arg) => arg !== '--'),
+  args: process.argv.slice(2).filter(arg => arg !== '--'),
   options: {
     image: { type: 'string' },
     name: { type: 'string' },

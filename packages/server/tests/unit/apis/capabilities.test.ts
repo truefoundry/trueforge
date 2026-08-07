@@ -159,13 +159,31 @@ describe('capabilities routers', () => {
         headers: { Cookie: `id_token=${await createIdToken(['admin'])}` },
       });
       expect(adminRes.status).toBe(200);
-      expect((await adminRes.json()).data.settings).toEqual({ enabled: true });
+      expect(await adminRes.json()).toEqual({
+        data: {
+          sandbox: { enabled: false },
+          skill: {
+            enabled: false,
+            reason: 'Skills run in a sandbox, which is not configured.',
+          },
+          settings: { enabled: true },
+        },
+      });
 
       const userRes = await router.request('/', {
         headers: { Cookie: `id_token=${await createIdToken(['everyone'])}` },
       });
       expect(userRes.status).toBe(200);
-      expect((await userRes.json()).data.settings).toEqual({ enabled: false });
+      expect(await userRes.json()).toEqual({
+        data: {
+          sandbox: { enabled: false },
+          skill: {
+            enabled: false,
+            reason: 'Skills run in a sandbox, which is not configured.',
+          },
+          settings: { enabled: false },
+        },
+      });
     });
   });
 });
