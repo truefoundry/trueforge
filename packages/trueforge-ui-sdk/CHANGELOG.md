@@ -7,8 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **History row mutability** — prefer `custom.isMutable` from the session (runtime
+  stamp) over inferring from `agentName`. Orphaned named refs (deleted agent, no
+  `agentName`) open as immutable. `openHistorySession` allows `isMutable: false`
+  without an agent name.
+- **Edit-bound draft history switch** — do not reuse the mutable shell via
+  `switchToThread` when the shell still carries an Edit `agentName`/`agentId`
+  and the row is a different session. Remount through `openHistorySession` so
+  Update Agent chrome cannot overwrite the wrong library agent.
+
 ### Breaking
 
+- **`ShellMode` shape** — replaced `type: 'idle' | 'named' | 'draft'` with
+  `status: 'idle' | 'active'` plus `isMutable` on active bindings. Composer /
+  Save Agent / welcome chrome key off `isMutable`, not draft|named.
+  Hosts that inspected `mode.type` must switch to `mode.status` /
+  `mode.isMutable` (see `shellIsMutable`).
 - **Renamed `TrueFoundryAssistantUI` → `TrueforgeUI`** (props type
   `TrueFoundryAssistantUIProps` → `TrueforgeUIProps`). Update imports and JSX.
 - **`TrueforgeUI` agent props** — replaced top-level `agentName` and
@@ -34,6 +50,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Named agent header title** — when an immutable (named) agent chat is open,
+  the thread header shows the agent name on the left (sidebar / drawer / dock /
+  widget layouts). Hidden for idle and draft/mutable chats.
+- **`AgentLibraryEntry.agentId?` / `agentSpec?`** — optional listing fields.
+  Hosts that only return `{ name }` keep working; `agentSpec` enables Edit.
+- **Agents Library Edit** — when `isComposerEnabled` and the row has
+  `agentSpec`, Edit binds a mutable session seeded from that spec
+  (`isMutable: true`). Try Agent remains immutable (`isMutable: false`).
+- **`selectLibraryAgent` / `shellIsMutable` / `libraryAgentId`** on shell
+  context. `selectAgent` / `openDraft` remain as thin wrappers.
 - **Reasoning-effort selector** beside the model picker in the draft composer.
   Shown only when the selected `ModelSelection` declares `reasoningEfforts`;
   the effort is coerced into the spec on model change or explicit pick.

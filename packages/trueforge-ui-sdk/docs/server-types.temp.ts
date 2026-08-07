@@ -273,7 +273,12 @@ export interface CreateSessionRequest {
 
 /** List filter + pagination. Hosts extend via `TList extends ListSessionsParams`. */
 export interface ListSessionsParams extends PageParams {
-  agentName?: string;
+  /**
+   * Host-owned agent identity filter. Hosts that key agents by name pass that name here.
+   * Unknown / deleted ids MUST return an empty page (stale history filter, SingleAgent
+   * mismatch) — do not throw and fail the whole thread list.
+   */
+  agentId?: string;
 }
 
 /**

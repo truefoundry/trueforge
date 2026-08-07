@@ -1,29 +1,50 @@
 /**
  * AgentBuilderServer callbacks for createTrueFoundryServer.
- * Composer pickers + agent registry (list / create-only save).
+ * Composer pickers + agent library backed by the Harness agents registry.
  */
-import type { AgentBuilderServer } from '@truefoundry/trueforge-ui';
-import { TrueForgeApi as Harness } from 'trueforge';
+import type {
+  AgentBuilderServer,
+  AgentLibraryEntry,
+  ModelSelection,
+  SearchAgentsParams,
+} from '@truefoundry/trueforge-ui';
+import type { TrueForgeApi as Harness } from 'trueforge';
 import { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './composerLists';
 import { toUiConnector } from './connectorCatalog';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
-import { toHarnessAgentSpec, type HarnessAgentSpec } from './harnessServer';
+import { agentManifest, toHarnessAgentSpec, toUiAgentSpec, type HarnessAgentSpec } from './harnessServer';
 
 /** Harness model names are `provider/model`. */
 export function providerOf(name: string): string {
   return name.split('/')[0] ?? name;
 }
 
-export type CreateHarnessBuilderServerOptions = CreateHarnessClientOptions;
+/** Map harness model rows onto the UI picker shape (incl. reasoning-effort options). */
+export function toModelSelection(model: Harness.Model): ModelSelection {
+  const efforts = model.properties.reasoningEfforts;
+  return {
+    name: model.name,
+    provider: providerOf(model.name),
+    ...(efforts !== undefined && efforts.length > 0 ? { reasoningEfforts: [...efforts] } : {}),
+  };
+}
+
+function toLibraryEntry(agent: Harness.Agent): AgentLibraryEntry {
+  return {
+    name: agent.name,
+    agentId: agent.id,
+    agentSpec: toUiAgentSpec(agentManifest(agent)),
+  };
+}
 
 export function createHarnessBuilderServer(
-  options: CreateHarnessBuilderServerOptions = {},
+  options: CreateHarnessClientOptions = {},
 ): AgentBuilderServer<HarnessAgentSpec> {
   const client =
     options.baseUrl === undefined && options.fetch === undefined ? harnessClient : createHarnessClient(options);
 
   return {
-    getModels: async () => (await listModels()).map(model => ({ name: model.name, provider: providerOf(model.name) })),
+    getModels: async () => (await listModels()).map(toModelSelection),
     // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
     getSkills: async () => {
       const [capabilities, skills] = await Promise.all([getCapabilities(), listSkills()]);
@@ -32,30 +53,27 @@ export function createHarnessBuilderServer(
         : [];
     },
     getMcp: async () => (await listConfiguredMcpServers()).map(toUiConnector),
-    async searchAgents(req = {}) {
-      const limit = req.limit ?? 50;
-      const query = req.query?.trim().toLowerCase();
+
+    async searchAgents(req?: SearchAgentsParams) {
       const { data } = await client.agents.list();
-      const names = data.map(agent => ({ name: agent.name }));
+      const query = req?.query?.trim().toLowerCase();
       const filtered =
-        query === undefined || query.length === 0
-          ? names
-          : names.filter(agent => agent.name.toLowerCase().includes(query));
-      return filtered.slice(0, limit);
+        query === undefined || query === '' ? data : data.filter(agent => agent.name.toLowerCase().includes(query));
+      const offset = req?.offset ?? 0;
+      const limit = req?.limit ?? 50;
+      return filtered.slice(offset, offset + limit).map(toLibraryEntry);
     },
+
     async saveAgent({ agentName, agentSpec }) {
-      try {
-        const created = await client.agents.create({
-          name: agentName,
-          ...toHarnessAgentSpec(agentSpec),
-        });
-        return { name: created.data.name };
-      } catch (error: unknown) {
-        if (error instanceof Harness.ConflictError) {
-          throw new Error(`An agent named "${agentName}" already exists`, { cause: error });
-        }
-        throw error;
+      const manifest = toHarnessAgentSpec(agentSpec);
+      const { data } = await client.agents.list();
+      const existing = data.find(agent => agent.name === agentName);
+      if (existing !== undefined) {
+        await client.agents.update(agentName, manifest);
+        return { ok: true as const, updated: true as const, agentId: existing.id };
       }
+      const created = await client.agents.create({ name: agentName, ...manifest });
+      return { ok: true as const, updated: false as const, agentId: created.data.id };
     },
   };
 }

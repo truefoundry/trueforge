@@ -31,6 +31,8 @@ export const SessionSchema = z
     id: z.string(),
     agent: SessionAgentSchema,
     title: z.string().nullable(),
+    /** Caller identity that created the session (immutable). */
+    created_by: z.string(),
     created_at: z.string(),
     updated_at: z.string(),
   })

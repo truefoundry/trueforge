@@ -25,6 +25,7 @@ describe('SessionHandle.createTurn named resolve', () => {
     const session = await sessions.create({
       tenant_id: 'tenant-1',
       session_id: 's-named',
+      created_by: 'user-1',
       agent: { type: 'ref', agent_id: 'agent-abc' },
     });
 

@@ -109,6 +109,7 @@ describe('GET /{session_id}/turns/{turn_id}/download', () => {
     const session = await sessions.create({
       tenant_id: TENANT_ID,
       session_id: 'no-turn',
+      created_by: 'trueforge-default',
       agent: { type: 'value', agent_spec: agentSpec() },
     });
 
