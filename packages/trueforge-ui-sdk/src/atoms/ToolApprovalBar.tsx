@@ -100,7 +100,7 @@ export function ToolApprovalBar({
                 <Icon
                   name={isDenied ? 'circle-xmark' : 'circle-check'}
                   size="0.875em"
-                  className={cn('shrink-0', isDenied ? 'text-destructive' : 'text-green-600')}
+                  className={cn('shrink-0', isDenied ? 'text-destructive' : 'text-success')}
                 />
               )}
             </div>

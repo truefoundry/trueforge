@@ -196,3 +196,9 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     </div>
   );
 }
+
+declare module '../../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    DraftModelSelector: typeof DraftModelSelector;
+  }
+}

@@ -5,26 +5,36 @@ import { AskUserPrompt } from '../atoms/adapters/AskUserPromptAdapter.js';
 import { McpAuthPrompt } from '../atoms/adapters/McpAuthPromptAdapter.js';
 import { ReasoningCard } from '../atoms/adapters/ReasoningCardAdapter.js';
 
+import { AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
 import { AssistantMessageBubble } from '../atoms/AssistantMessageBubble.js';
 import { AttachmentCard } from '../atoms/AttachmentCard.js';
 import { AttachmentPickerButton } from '../atoms/AttachmentPickerButton.js';
 import { AttachmentPreviewDialog } from '../atoms/AttachmentPreviewDialog.js';
+import { ChatFileDownload } from '../atoms/ChatFileDownload.js';
 import { ClearChatButton } from '../atoms/ClearChatButton.js';
+import { CodeEditor } from '../atoms/CodeEditor.js';
 import { ComposerLeftSection, ComposerRightSection, ComposerSendButton } from '../atoms/ComposerSections.js';
 import { ComposerShell } from '../atoms/ComposerShell.js';
+import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
+import { DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
+import { DraftModelSelector } from '../atoms/draft/DraftModelSelector.js';
 import { HistoryLoader } from '../atoms/HistoryLoader.js';
 import { Markdown } from '../atoms/Markdown.js';
 import { MessageActionBar } from '../atoms/MessageActionBar.js';
 import { MessageErrorBanner } from '../atoms/MessageErrorBanner.js';
 import { MessageIndicator } from '../atoms/MessageIndicator.js';
 import { MessageTimestamp } from '../atoms/MessageTimestamp.js';
+import { MonacoEditorCore } from '../atoms/MonacoEditorCore.js';
 import { OpenUiFenceBlock } from '../atoms/OpenUiFenceBlock.js';
 import { SandboxArtifactDownload } from '../atoms/SandboxArtifactDownload.js';
 import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
+import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
 import { ScrollToBottomButton } from '../atoms/ScrollToBottomButton.js';
+import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { MessageListSkeleton } from '../atoms/Skeletons.js';
 import { SubAgentCard } from '../atoms/SubAgentCard.js';
+import { SyntaxHighlighter } from '../atoms/SyntaxHighlighter.js';
 import {
   ThreadListEmptyState,
   ThreadListNewButton,
@@ -53,7 +63,7 @@ import type { AtomSlots } from './SlotsProvider.js';
 // import { Avatar, AvatarFallback, AvatarImage } from "../atoms/primitives/Avatar.js";
 
 /** Default slot implementations. Feature atoms + chrome; primitives via theme/CSS. */
-export const defaultSlots: AtomSlots = {
+export const defaultSlots = {
   Accordion,
   AccordionSummary,
   AccordionDetails,
@@ -61,6 +71,10 @@ export const defaultSlots: AtomSlots = {
   ComposerLeftSection,
   ComposerRightSection,
   ComposerSendButton,
+  DraftComposerLeftSection,
+  DraftComposerRightSection,
+  DraftCompositeSelector,
+  DraftModelSelector,
   AssistantMessageBubble,
   UserMessageBubble,
   UserMessageEdit,
@@ -70,8 +84,12 @@ export const defaultSlots: AtomSlots = {
   MessageIndicator,
   MessageTimestamp,
   Markdown,
+  SyntaxHighlighter,
   OpenUiFenceBlock,
   SandboxArtifactDownload,
+  ChatFileDownload,
+  MonacoEditorCore,
+  CodeEditor,
   WelcomeScreen,
   ToolCallCard,
   ToolCallContentBlock,
@@ -89,7 +107,10 @@ export const defaultSlots: AtomSlots = {
   ScrollToBottomButton,
   ThreadListRow,
   ThreadListNewButton,
+  AgentsLibrary,
   AgentsLibraryButton,
+  SaveAgentButton,
+  SelectAgentEmptyState,
   ClearChatButton,
   ThreadListRowSkeleton,
   ThreadListEmptyState,
@@ -102,13 +123,4 @@ export const defaultSlots: AtomSlots = {
   MessageGroup,
   Toast,
   ToastStack,
-};
-
-declare module './SlotsProvider.js' {
-  interface AtomSlots {
-    Accordion: typeof Accordion;
-    AccordionSummary: typeof AccordionSummary;
-    AccordionDetails: typeof AccordionDetails;
-    OpenUiFenceBlock: typeof OpenUiFenceBlock;
-  }
-}
+} satisfies AtomSlots;

@@ -149,3 +149,9 @@ export function SaveAgentButton() {
     </>
   );
 }
+
+declare module '../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    SaveAgentButton: typeof SaveAgentButton;
+  }
+}

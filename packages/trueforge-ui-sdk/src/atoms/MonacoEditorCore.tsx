@@ -164,6 +164,7 @@ export function MonacoEditorCore({
 }: MonacoEditorCoreProps) {
   const mode = useOptionalThemeMode();
   const classNames = useOptionalContentClassNames();
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MonacoEditor | null>(null);
   const monacoRef = useRef<MonacoModule | null>(null);
@@ -185,12 +186,12 @@ export function MonacoEditorCore({
 
   const syncAutoHeight = () => {
     const editor = editorRef.current;
-    const el = containerRef.current;
+    const wrapper = wrapperRef.current;
     const { minPx: min, maxPx: max, autoHeight: enabled } = clampRef.current;
-    if (!editor || !el || !enabled) return;
+    if (!editor || !wrapper || !enabled) return;
     const next = Math.min(max, Math.max(min, editor.getContentHeight()));
     setAutoPx(next);
-    el.style.height = `${next}px`;
+    wrapper.style.height = `${next}px`;
     editor.layout();
   };
 
@@ -210,8 +211,6 @@ export function MonacoEditorCore({
       defineAuiThemes(monaco);
       beforeMountRef.current?.(monaco);
 
-      const initialHeight = autoHeight ? estimateHeightFromValue(value, minPx, maxPx) : height;
-
       editor = monaco.editor.create(containerRef.current, {
         value,
         language,
@@ -221,10 +220,6 @@ export function MonacoEditorCore({
       });
 
       editorRef.current = editor;
-      if (autoHeight) {
-        containerRef.current.style.height =
-          typeof initialHeight === 'number' ? `${initialHeight}px` : String(initialHeight);
-      }
 
       changeDisposable = editor.onDidChangeModelContent(() => {
         onChangeRef.current?.(editor!.getValue());
@@ -279,9 +274,17 @@ export function MonacoEditorCore({
 
   return (
     <div
-      ref={containerRef}
+      ref={wrapperRef}
       className={cn('aui-monaco overflow-hidden', classNames.monaco?.root, className)}
       style={{ height: styleHeight }}
-    />
+    >
+      <div ref={containerRef} className={cn('h-full w-full overflow-hidden', classNames.monaco?.editor)} />
+    </div>
   );
+}
+
+declare module '../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    MonacoEditorCore: typeof MonacoEditorCore;
+  }
 }
