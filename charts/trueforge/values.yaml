@@ -1,0 +1,167 @@
+# Default values for the trueforge chart.
+
+replicaCount: 1
+
+image:
+  repository: tfy.jfrog.io/tfy-images/trueforge
+  # Tag defaults to the chart appVersion when empty; the release workflow stamps
+  # the released version here.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  # If empty and create is true, a name is generated from the fullname.
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 8790
+
+# Server runtime configuration. Keys map to environment variables read in
+# packages/server/src/config.ts.
+server:
+  # Container port the server listens on (PORT).
+  port: 8790
+  # Public origin used for MCP OAuth callbacks (PUBLIC_BASE_URL). Required.
+  publicBaseUrl: ""
+  # Seconds the server is given to drain turns on SIGTERM (GRACEFUL_TIMEOUT_SECONDS).
+  gracefulTimeoutSeconds: 30
+  # The server always runs peered (SINGLE_BINARY=false) against Postgres + Redis.
+  # extraEnv/extraEnvFrom are escape hatches; extraEnv accepts
+  # {name, value} or {name, valueFrom: {secretKeyRef: ...}}.
+  extraEnv: []
+  extraEnvFrom: []
+
+# Bitnami relocated its versioned container images to docker.io/bitnamilegacy and
+# left only rolling `latest` tags under docker.io/bitnami, so the subchart image
+# defaults no longer pull. We source pinned legacy images from the TrueFoundry
+# JFrog mirror instead. Overriding the registry trips Bitnami's image guardrail,
+# so allowInsecureImages must be set for the subcharts to render.
+global:
+  security:
+    allowInsecureImages: true
+
+# --- Bundled Postgres (Bitnami subchart) ---------------------------------------
+# Rendered only when postgresql.enabled is true. The server's POSTGRES_* env is
+# wired to this release automatically. See the Bitnami postgresql chart for the
+# full set of tunables.
+postgresql:
+  enabled: true
+  architecture: standalone
+  # Pinned legacy image mirrored to JFrog (upstream docker.io/bitnami no longer
+  # serves this tag). Bump alongside the postgresql subchart version.
+  image:
+    registry: tfy.jfrog.io
+    repository: tfy-mirror/bitnamilegacy/postgresql
+    tag: 17.6.0-debian-12-r4
+  auth:
+    username: trueforge
+    database: trueforge
+    # Dev default. In production set a strong password or reference a Secret via
+    # `existingSecret` (Bitnami reads the user password from key `password`).
+    password: trueforge
+    existingSecret: ""
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# --- Bundled Redis (Bitnami subchart) ------------------------------------------
+# Rendered only when redis.enabled is true. Auth is disabled so REDIS_URL is a
+# plain redis://host:6379 the server can consume directly.
+redis:
+  enabled: true
+  architecture: standalone
+  # The redis 24.0.0 subchart floats `latest`; pin a legacy tag mirrored to JFrog
+  # for reproducibility (bitnamilegacy has no 8.4.x, so we track 8.2.x here).
+  image:
+    registry: tfy.jfrog.io
+    repository: tfy-mirror/bitnamilegacy/redis
+    tag: 8.2.1-debian-12-r0
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+
+# --- External services (used when the matching bundled dependency is disabled) -
+externalPostgres:
+  host: ""
+  port: 5432
+  database: trueforge
+  user: trueforge
+  # Provide the password one of two ways:
+  #  - set `password` and the chart renders a Secret, or
+  #  - set `existingSecret` (+ `passwordKey`) to reference an existing Secret.
+  password: ""
+  existingSecret: ""
+  passwordKey: password
+
+externalRedis:
+  # Full connection URL, e.g. redis://redis-master.databases.svc:6379.
+  # Required when redis.enabled is false (the server always needs Redis).
+  url: ""
+
+# Extra raw manifests deployed alongside the server, e.g. an Istio
+# VirtualService, a Gateway, an Ingress, or a NetworkPolicy. Each entry is a
+# full Kubernetes object rendered through `tpl`, so Helm templating works and
+# helpers like `{{ include "trueforge.fullname" . }}` resolve. Example:
+#
+# extraObjects:
+#   - apiVersion: networking.istio.io/v1
+#     kind: VirtualService
+#     metadata:
+#       name: '{{ include "trueforge.fullname" . }}'
+#     spec:
+#       hosts:
+#         - trueforge.example.com
+#       gateways:
+#         - istio-system/public-gateway
+#       http:
+#         - route:
+#             - destination:
+#                 host: '{{ include "trueforge.fullname" . }}'
+#                 port:
+#                   number: '{{ .Values.service.port }}'
+extraObjects: []
+
+resources: {}
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

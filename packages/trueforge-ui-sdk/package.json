@@ -52,11 +52,12 @@
     "build": "tsup && tailwindcss --input src/build-styles.css --output dist/styles.css --minify",
     "dev:watch": "tsup --watch",
     "pack:tgz": "pnpm build && pnpm pack",
-    "test": "vitest run",
+    "test": "vitest run && pnpm test:package",
+    "test:package": "pnpm build && node test/packageExports.smoke.mjs",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts,.tsx",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css,md}\" \"*.md\" \"docs/**/*.md\""
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test/tsconfig.json",
+    "lint": "eslint src test --ext .ts,.tsx",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css,md}\" \"test/**/*.{ts,tsx}\" \"*.md\" \"docs/**/*.md\" --config ../../.prettierrc"
   },
   "peerDependencies": {
     "@assistant-ui/core": "^0.2.22",
