@@ -26,7 +26,7 @@ describe('TurnHandle.stream()', () => {
       created_by: 'user-1',
       agent: {
         type: 'value',
-        agent_spec: makeAgentSpec({
+        def: makeAgentSpec({
           config: {
             sandbox: { enabled: true, file_downloads: true },
           },
@@ -479,7 +479,7 @@ describe('TurnResourceResolver caches', () => {
       created_by: 'user-1',
       agent: {
         type: 'value',
-        agent_spec: makeAgentSpec({
+        def: makeAgentSpec({
           config: {
             sandbox: { enabled: true, file_downloads: true },
           },

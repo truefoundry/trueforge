@@ -49,11 +49,11 @@ describe('turn SSE after session deletion', () => {
     const sessions = {
       get: () =>
         Promise.resolve({
-          agent_spec: agentSpec,
+          def: agentSpec,
           record: {
             session_id: 's1',
             last_turn_id: null,
-            agent: { type: 'value', agent_spec: agentSpec },
+            agent: { type: 'value', def: agentSpec },
           },
           createTurn: () =>
             Promise.resolve({

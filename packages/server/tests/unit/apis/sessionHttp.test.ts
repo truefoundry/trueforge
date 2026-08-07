@@ -77,16 +77,16 @@ describe('sessions HTTP agent binding', () => {
   });
 
   it('creates a session from an inline AgentSpec', async () => {
-    const res = await app.request('/', jsonInit('POST', { agent: inlineSpec }));
+    const res = await app.request('/', jsonInit('POST', { agent: { def: inlineSpec } }));
     expect(res.status).toBe(201);
     const json = (await res.json()) as {
       data: {
         id: string;
         created_by: string;
-        agent: { type: 'value'; agent_spec: { instructions?: string } };
+        agent: { type: 'value'; def: { instructions?: string } };
       };
     };
-    expect(json.data.agent.agent_spec.instructions).toBe('inline');
+    expect(json.data.agent.def.instructions).toBe('inline');
     expect(json.data.created_by).toBe('trueforge-default');
   });
 
@@ -108,21 +108,21 @@ describe('sessions HTTP agent binding', () => {
     const created = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
     expect(created.status).toBe(201);
     const json = (await created.json()) as {
-      data: { id: string; agent: { type: 'ref'; agent_id: string } };
+      data: { id: string; agent: { type: 'ref'; id: string; name: string | null } };
     };
-    expect(json.data.agent).toEqual({ type: 'ref', agent_id: agent.id });
+    expect(json.data.agent).toEqual({ type: 'ref', id: agent.id, name: agent.name });
 
     const listed = await app.request(`/?agent_id=${encodeURIComponent(agent.id)}`);
     expect(listed.status).toBe(200);
     const listJson = (await listed.json()) as {
-      data: Array<{ id: string; agent: { type: 'ref'; agent_id: string } }>;
+      data: Array<{ id: string; agent: { type: 'ref'; id: string; name: string | null } }>;
     };
-    expect(listJson.data.every(row => row.agent.agent_id === agent.id)).toBe(true);
+    expect(listJson.data.every(row => row.agent.id === agent.id)).toBe(true);
     expect(listJson.data.some(row => row.id === json.data.id)).toBe(true);
   });
 
   it('filters list by created_by', async () => {
-    const created = await app.request('/', jsonInit('POST', { agent: inlineSpec }));
+    const created = await app.request('/', jsonInit('POST', { agent: { def: inlineSpec } }));
     expect(created.status).toBe(201);
     const json = (await created.json()) as { data: { id: string; created_by: string } };
     expect(json.data.created_by).toBe('trueforge-default');
@@ -155,25 +155,25 @@ describe('sessions HTTP agent binding', () => {
 
     const patchNamed = await app.request(
       `/${json.data.id}`,
-      jsonInit('PATCH', { agent: { ...inlineSpec, instructions: 'nope' } }),
+      jsonInit('PATCH', { agent: { def: { ...inlineSpec, instructions: 'nope' } } }),
     );
     expect(patchNamed.status).toBe(400);
   });
 
   it('allows PATCH agent_spec on value sessions', async () => {
-    const created = await app.request('/', jsonInit('POST', { agent: inlineSpec }));
+    const created = await app.request('/', jsonInit('POST', { agent: { def: inlineSpec } }));
     expect(created.status).toBe(201);
     const { data } = (await created.json()) as { data: { id: string } };
 
     const patched = await app.request(
       `/${data.id}`,
-      jsonInit('PATCH', { agent: { ...inlineSpec, instructions: 'updated' } }),
+      jsonInit('PATCH', { agent: { def: { ...inlineSpec, instructions: 'updated' } } }),
     );
     expect(patched.status).toBe(200);
     const patchedJson = (await patched.json()) as {
-      data: { agent: { type: 'value'; agent_spec: { instructions?: string } } };
+      data: { agent: { type: 'value'; def: { instructions?: string } } };
     };
-    expect(patchedJson.data.agent.agent_spec.instructions).toBe('updated');
+    expect(patchedJson.data.agent.def.instructions).toBe('updated');
   });
 
   it('rejects create bodies that mix name and AgentSpec fields', async () => {

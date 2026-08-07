@@ -14,19 +14,19 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       tenant_id: tenant,
       session_id: 's1',
       created_by: 'user-1',
-      agent: { type: 'value', agent_spec: makeAgentSpec({ instructions: 'hydrate-me' }) },
+      agent: { type: 'value', def: makeAgentSpec({ instructions: 'hydrate-me' }) },
       custom: { tag: 'a' },
     });
     expect(created.agent).toEqual({
       type: 'value',
-      agent_spec: expect.objectContaining({ instructions: 'hydrate-me' }),
+      def: expect.objectContaining({ instructions: 'hydrate-me' }),
     });
     expect(created.custom).toEqual({ tag: 'a' });
 
     const loaded = await sessions.get({ tenant_id: tenant, session_id: 's1' });
     expect(loaded?.agent).toEqual({
       type: 'value',
-      agent_spec: expect.objectContaining({ instructions: 'hydrate-me' }),
+      def: expect.objectContaining({ instructions: 'hydrate-me' }),
     });
     expect(loaded?.session_id).toBe('s1');
   });
@@ -38,7 +38,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       tenant_id: tenant,
       session_id: 's1',
       created_by: 'user-1',
-      agent: { type: 'value', agent_spec: makeAgentSpec() },
+      agent: { type: 'value', def: makeAgentSpec() },
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -68,7 +68,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       tenant_id: tenant,
       session_id: 's1',
       created_by: 'user-1',
-      agent: { type: 'value', agent_spec: makeAgentSpec() },
+      agent: { type: 'value', def: makeAgentSpec() },
     });
     const created = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -105,7 +105,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       tenant_id: tenant,
       session_id: 's1',
       created_by: 'user-1',
-      agent: { type: 'value', agent_spec: makeAgentSpec() },
+      agent: { type: 'value', def: makeAgentSpec() },
     });
     const t1 = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -135,7 +135,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       tenant_id: tenant,
       session_id: 's1',
       created_by: 'user-1',
-      agent: { type: 'value', agent_spec: makeAgentSpec() },
+      agent: { type: 'value', def: makeAgentSpec() },
     });
     const first = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -167,7 +167,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       tenant_id: tenant,
       session_id: 's1',
       created_by: 'user-1',
-      agent: { type: 'value', agent_spec: makeAgentSpec() },
+      agent: { type: 'value', def: makeAgentSpec() },
     });
     await expect(
       session.createTurn({
@@ -204,7 +204,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       tenant_id: tenant,
       session_id: 's1',
       created_by: 'user-1',
-      agent: { type: 'value', agent_spec: makeAgentSpec() },
+      agent: { type: 'value', def: makeAgentSpec() },
     });
 
     // Failure path: resources acquired before the throw must be released.
