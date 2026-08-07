@@ -1,7 +1,7 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
-import { errors, jwtVerify } from 'jose';
+import { jwtVerify } from 'jose';
 import { toUserContext, type IdTokenClaims, type UserContext } from './claims';
 import { ID_TOKEN_COOKIE } from './cookies';
 import { getOidcVerify } from './oidc';
@@ -39,10 +39,7 @@ export async function resolveAuthUser(c: Context): Promise<UserContext | undefin
       issuer: oidcVerify.issuer,
       audience: oidcVerify.audience,
     }));
-  } catch (error) {
-    if (!(error instanceof errors.JOSEError)) {
-      console.error('Unexpected error verifying OIDC id_token', error);
-    }
+  } catch {
     return undefined;
   }
 
