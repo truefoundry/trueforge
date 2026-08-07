@@ -83,8 +83,9 @@ Every environment variable is documented in [`packages/server/.env.example`](pac
 
 The [`charts/truefoundry-utils`](charts/truefoundry-utils) Helm chart deploys the server in distributed mode (`STANDALONE=false`) with bundled Postgres and Redis (or point it at your own). No values are required for a basic install:
 
+<!-- TODO: replace <HELM_REPO> with the published Helm repo URL -->
+
 ```bash
-# TODO: replace <HELM_REPO> with the published Helm repo URL
 helm install truefoundry-utils oci://<HELM_REPO>/truefoundry-utils \
   --version <x.y.z>
 ```
@@ -101,31 +102,32 @@ See the [chart README](charts/truefoundry-utils/README.md) for Secrets, external
 
 ## Getting Started Walkthrough
 
-1. **Add a model provider** - open **Settings → Models**, pick a provider from the catalog, and paste your API key.
+1. **Add a model provider** - Open **Settings → Models**, pick a provider from the catalog, and paste your API key.
 
    ![Configure a model provider](./docs/assets/getting-started-provider.png)
 
-2. **(Optional) Connect tools** - add MCP servers, skills, and a sandbox provider under **Settings**.
+2. **(Optional) Connect tools** - Add MCP servers, skills, and a sandbox provider under **Settings**.
 
    ![Connectors](./docs/assets/getting-started-connectors.png)
 
-3. **(Optional) Configure Sandbox** - open **Settings → Sandbox Providers** and configure Daytona.
+3. **(Optional) Configure Sandbox** - Open **Settings → Sandbox Providers** and configure Daytona.
 
-Sign up with [Daytona](https://app.daytona.io/) and create an API Key with permissions to write snapshots and sandboxes
-![Daytona API Key](./docs/assets/daytona-api-key.png)
+   Sign up with [Daytona](https://app.daytona.io/) and create an API Key with permissions to write, delete snapshots and write sandboxes
 
-Sync the sandbox image to Daytona
+   ![Daytona API Key](./docs/assets/daytona-api-key.png)
 
-```bash
-export DAYTONA_API_KEY=<your-daytona-api-key>
-pnpm sync-sandbox-image-to-daytona --image docker.io/truefoundrycloud/truefoundry-utils-core-sandbox:029ea5ff6438cf86b79282e087bfc17528067946 --name trueforge-local
-```
+   Sync the sandbox image to Daytona
 
-On UI, select the Daytona sandbox provider and enter your Daytona API Key and the name of the snapshot you created above
+   ```bash
+   export DAYTONA_API_KEY="dtn_your-daytona-api-key-..."
+   pnpm push-sandbox-image-to-daytona --image docker.io/truefoundrycloud/truefoundry-utils-core-sandbox:029ea5ff6438cf86b79282e087bfc17528067946 --name trueforge-sandbox-image
+   ```
 
-![Daytona Sandbox Provider](./docs/assets/daytona-sandbox-provider.png)
+   On UI, select the Daytona sandbox provider and enter your Daytona API Key and the name of the snapshot you created above
 
-1. **Start a session** - create a chat and talk to your agent. Streaming, tool calls, and approvals all show up live in the UI.
+   ![Daytona Sandbox Provider](./docs/assets/getting-started-sandbox-provider.png)
+
+4. **Start a session** - Create a chat and talk to your agent. Streaming, tool calls, and approvals all show up live in the UI.
 
    ![Chat with the agent](./docs/assets/getting-started-chat.png)
 

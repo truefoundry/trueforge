@@ -66,7 +66,7 @@ describe('capabilities routers', () => {
       tenant_id: 'default',
       manifest: {
         type: 'daytona',
-        snapshot_name: 'trueforge-local',
+        snapshot_name: 'trueforge-sandbox-image',
         auth: { api_key: 'dtn-test' },
         exec_timeout_ms: 60000,
         auto_stop_interval_in_minutes: 5,
