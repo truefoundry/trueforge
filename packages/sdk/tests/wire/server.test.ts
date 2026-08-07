@@ -9,7 +9,11 @@ describe("ServerClient", () => {
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody = {
-            data: { sandbox: { enabled: true }, settings: { enabled: true }, skill: { enabled: true } },
+            data: {
+                sandbox: { enabled: true },
+                settings: { enabled: true },
+                skill: { enabled: true, reason: "reason" },
+            },
         };
 
         server
@@ -31,6 +35,7 @@ describe("ServerClient", () => {
                 },
                 skill: {
                     enabled: true,
+                    reason: "reason",
                 },
             },
         });
