@@ -232,7 +232,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
           data,
           response: { data, pagination },
           hasNextPage: () => false,
-          getNextPage: async () => empty(),
+          getNextPage: () => Promise.resolve(empty()),
         });
         return empty();
       }

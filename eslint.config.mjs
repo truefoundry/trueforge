@@ -45,6 +45,9 @@ export default defineConfig(
     ignores: [
       '**/node_modules/**',
       '**/dist/**',
+      // Nested package ESLint config scopes `dist/**` to that package root only;
+      // example build output sits one level deeper and needs an explicit ignore.
+      'packages/trueforge-ui-sdk/example/dist/**',
       '**/coverage/**',
       '**/.pnpm-store/**',
       '**/.eslintcache',
