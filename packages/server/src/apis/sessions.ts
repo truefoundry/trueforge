@@ -4,7 +4,6 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ISessionStore, SessionRecord, Sessions } from '@truefoundry/utils-core/agent-session';
 import {
-  AgentSpecSchema,
   CancellationReason,
   SessionStoreConflictError,
   SessionStoreInvariantError,
@@ -37,7 +36,7 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { executorFromTurnId } from '../runtime/peeringIds';
 import { validateAgentSpec } from '../runtime/sessionResources';
-import { SessionAgentNameRefSchema, type Session } from '../schemas/session';
+import { isSessionAgentNameRef, type Session } from '../schemas/session';
 
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
 export const TENANT_ID = 'default';
@@ -191,11 +190,10 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const body = c.req.valid('json');
     const sessionId = ulid().toLowerCase();
 
-    const namedAgent = SessionAgentNameRefSchema.safeParse(body.agent);
-    if (namedAgent.success) {
-      const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: namedAgent.data.name });
+    if (isSessionAgentNameRef(body.agent)) {
+      const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: body.agent.name });
       if (agent === undefined) {
-        return c.json({ error: { message: `Agent not found: ${namedAgent.data.name}` } }, 404);
+        return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
       }
       const session = await deps.sessions.create({
         tenant_id: TENANT_ID,
@@ -206,9 +204,8 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ data: toWireSession(session.record) }, 201);
     }
 
-    const agentSpec = AgentSpecSchema.parse(body.agent);
     await validateAgentSpec({
-      spec: agentSpec,
+      spec: body.agent,
       tenant_id: TENANT_ID,
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
@@ -219,7 +216,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       tenant_id: TENANT_ID,
       session_id: sessionId,
       created_by: 'trueforge-default',
-      agent: { type: 'value', agent_spec: agentSpec },
+      agent: { type: 'value', agent_spec: body.agent },
     });
     return c.json({ data: toWireSession(session.record) }, 201);
   };

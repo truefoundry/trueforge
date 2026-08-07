@@ -5,12 +5,21 @@ import { NameSchema } from './common';
 
 export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('AgentRef');
 
-const SessionAgentSpecSchema = AgentSpecSchema.strict().openapi('AgentSpec');
+export const SessionAgentSpecSchema = AgentSpecSchema.strict().openapi('AgentSpec');
 
 /** Create accepts either a unique agent name or an AgentSpec. */
 export const CreateSessionAgentSchema = z
   .union([SessionAgentNameRefSchema, SessionAgentSpecSchema])
   .openapi('CreateSessionAgent');
+
+export type CreateSessionAgent = z.infer<typeof CreateSessionAgentSchema>;
+export type SessionAgentNameRef = z.infer<typeof SessionAgentNameRefSchema>;
+export type SessionAgentSpec = z.infer<typeof SessionAgentSpecSchema>;
+
+/** Narrows the create-body union after OpenAPI already accepted either arm. */
+export function isSessionAgentNameRef(agent: CreateSessionAgent): agent is SessionAgentNameRef {
+  return SessionAgentNameRefSchema.safeParse(agent).success;
+}
 
 export const CreateSessionRequestSchema = z
   .object({ agent: CreateSessionAgentSchema })
