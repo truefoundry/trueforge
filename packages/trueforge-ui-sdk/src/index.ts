@@ -323,7 +323,7 @@ export type {
 
 // Utils
 export { computeAgentStepsSplit } from './utils/computeAgentStepsSplit.js';
-export type { AgentStepsSplitResult } from './utils/computeAgentStepsSplit.js';
+export type { AgentStepPart, AgentStepsSplitResult } from './utils/computeAgentStepsSplit.js';
 
 export { AgentsLibrary } from './atoms/AgentsLibrary.js';
 export type { AgentsLibraryProps } from './atoms/AgentsLibrary.js';

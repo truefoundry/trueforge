@@ -1,5 +1,10 @@
 import type { PartState } from '@assistant-ui/core/react';
 
+export type AgentStepPart = {
+  type: PartState['type'];
+  text?: string;
+};
+
 export interface AgentStepsSplitResult {
   cutIndex: number;
   hasFinal: boolean;
@@ -7,7 +12,7 @@ export interface AgentStepsSplitResult {
   thinkingCount: number;
 }
 
-export function computeAgentStepsSplit(parts: readonly PartState[], isRunning: boolean): AgentStepsSplitResult {
+export function computeAgentStepsSplit(parts: readonly AgentStepPart[], isRunning: boolean): AgentStepsSplitResult {
   const finalTexts: Array<{ index: number; content: string }> = [];
   let cutIdx = parts.length;
 
@@ -16,7 +21,7 @@ export function computeAgentStepsSplit(parts: readonly PartState[], isRunning: b
     if (!part) continue;
 
     if (part.type === 'text') {
-      const text = (part as { text?: string }).text ?? '';
+      const text = part.text ?? '';
       const trimmed = text.trim();
 
       if (trimmed) {
