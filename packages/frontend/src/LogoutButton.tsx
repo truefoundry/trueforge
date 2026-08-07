@@ -69,12 +69,7 @@ export function LogoutButton() {
         contentSized
       >
         <div className="harness-logout-confirm">
-          <button
-            type="button"
-            className="harness-logout-cancel"
-            disabled={busy}
-            onClick={() => setConfirmOpen(false)}
-          >
+          <button type="button" className="harness-logout-cancel" disabled={busy} onClick={() => setConfirmOpen(false)}>
             Cancel
           </button>
           <button type="button" className="harness-logout-submit" disabled={busy} onClick={handleConfirm}>
