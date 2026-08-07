@@ -1,0 +1,9 @@
+{{- /*
+Arbitrary extra manifests (e.g. an Istio VirtualService). Each entry in
+.Values.extraObjects is a full Kubernetes object, rendered through `tpl` so
+Helm templating and chart helpers work inside them.
+*/ -}}
+{{- range .Values.extraObjects }}
+---
+{{ tpl (toYaml .) $ }}
+{{- end }}
