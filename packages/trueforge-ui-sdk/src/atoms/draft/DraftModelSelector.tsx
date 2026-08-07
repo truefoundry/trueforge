@@ -176,7 +176,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
                 <ProviderMark
                   logo={model.providerLogo}
                   label={model.provider || model.name}
-                  className="size-6 text-[11px]"
+                  className="size-5 text-xs"
                 />
                 <span className="truncate font-medium">{displayModelLabel(value)}</span>
               </button>

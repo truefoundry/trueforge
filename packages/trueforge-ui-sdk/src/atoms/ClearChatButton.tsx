@@ -17,7 +17,7 @@ export function ClearChatButton() {
       className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
       onClick={() => shell.clearChat()}
     >
-      <Icon name="broom" size="0.875em" />
+      <Icon name="broom" size="0.875rem" />
       Clear chat
     </button>
   );

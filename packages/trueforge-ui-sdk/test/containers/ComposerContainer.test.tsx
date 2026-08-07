@@ -78,9 +78,10 @@ describe('ComposerContainer', () => {
     expect(onNew).toHaveBeenCalledTimes(1);
   });
 
-  it('disables send when no model is selected', async () => {
+  it('disables send when no model is selected in mutable draft', async () => {
     agentSpecState.agentSpec = { model: { name: '' } };
     const onNew = vi.fn(async () => {});
+    // No ShellModeProvider → treated as requiring a client-side model (draft path).
     renderComposer(onNew);
     const input = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message input' });
 
@@ -90,6 +91,28 @@ describe('ComposerContainer', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(input.value).toBe('hi'));
     expect(onNew).not.toHaveBeenCalled();
+  });
+
+  it('allows send on named agents without a client-side model', async () => {
+    agentSpecState.agentSpec = undefined;
+    const onNew = vi.fn(async () => {});
+    render(
+      <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'support' }}>
+        <RuntimeHarness messages={[]} onNew={onNew}>
+          <ComposerBusyProvider>
+            <ComposerContainer />
+          </ComposerBusyProvider>
+        </RuntimeHarness>
+      </ShellModeProvider>,
+    );
+    const input = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message input' });
+
+    fireEvent.change(input, { target: { value: 'hi' } });
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled();
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(input.value).toBe(''));
+    expect(onNew).toHaveBeenCalledTimes(1);
   });
 
   it('preserves consumer section overrides in draft mode', () => {

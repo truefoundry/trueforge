@@ -64,6 +64,7 @@ function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProp
             })}
             onClick={onEdit}
           >
+            <Icon name="pencil" className="size-3.5" />
             Edit
           </button>
         ) : null}
@@ -77,7 +78,8 @@ function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProp
           })}
           onClick={onTry}
         >
-          Try Agent
+          <Icon name="play" className="size-3.5" />
+          Try
         </button>
       </span>
     </div>

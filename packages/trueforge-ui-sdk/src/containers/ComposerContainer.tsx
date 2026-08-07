@@ -20,13 +20,16 @@ export type ComposerContainerProps = {
 function ComposerBody({ placeholder }: { placeholder: string }) {
   const ComposerShell = useSlot('ComposerShell');
   const aui = useAui();
+  const shell = useOptionalShellMode();
   const hasText = useAuiState(s => s.composer.text.trim().length > 0);
   const { agentSpec } = useTrueFoundryAgentSpec();
+  // Named (immutable) agents use a server-side model; only draft/mutable composers pick one here.
+  const requiresModel = shell == null || (shell.mode.status === 'active' && shell.mode.isMutable);
   const hasModel = Boolean(agentSpec?.model?.name?.trim());
   const { isBusy, send, resetBusy } = useComposerBusyState();
   const cancel = useTrueFoundryCancel();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const canSubmit = !isBusy && hasText && hasModel;
+  const canSubmit = !isBusy && hasText && (!requiresModel || hasModel);
   const submit = () => {
     if (!canSubmit) return;
     send(() => aui.composer().send());

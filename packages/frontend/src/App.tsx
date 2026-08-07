@@ -93,6 +93,7 @@ export function App() {
       <TrueforgeUI
         server={server}
         theme={{
+          preset: 'gemini',
           brand: {
             name: 'TrueForge',
           },

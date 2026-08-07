@@ -14,6 +14,29 @@ export function formatRelativeShort(date: Date, now: Date = new Date()): string 
   return `${Math.floor(days / 365)}y`;
 }
 
+/**
+ * Indices into `threadIds` ordered newest-first by `lastMessageAt`.
+ * Stabilizes UI when assistant-ui appends a switched-to thread at the end.
+ */
+export function threadListIndicesByRecency({
+  threadIds,
+  threadItems,
+}: {
+  threadIds: readonly string[];
+  threadItems: readonly { id: string; remoteId?: string | null; lastMessageAt?: Date | null }[];
+}): number[] {
+  const timeByKey = new Map<string, number>();
+  for (const item of threadItems) {
+    const t = item.lastMessageAt?.getTime() ?? 0;
+    timeByKey.set(item.id, t);
+    if (item.remoteId != null) timeByKey.set(item.remoteId, t);
+  }
+  return threadIds
+    .map((id, index) => ({ index, t: timeByKey.get(id) ?? 0 }))
+    .sort((a, b) => b.t - a.t || a.index - b.index)
+    .map(row => row.index);
+}
+
 export function readThreadAgentName(custom: unknown): string | undefined {
   if (custom == null || typeof custom !== 'object') return undefined;
   if (!('agentName' in custom)) return undefined;
