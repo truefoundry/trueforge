@@ -2,8 +2,9 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
-import { toUserContext, type IdTokenClaims, type UserContext } from './claims';
+import { toUserContext, type IdTokenClaims } from './claims';
 import { ID_TOKEN_COOKIE } from './cookies';
+import type { UserContext } from './identity';
 import { getOidcVerify } from './oidc';
 
 /** Used when OIDC is not configured (standalone / no IdP). */
