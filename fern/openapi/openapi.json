@@ -733,7 +733,7 @@
             "$ref": "#/components/schemas/SessionAgentNameRef"
           },
           {
-            "$ref": "#/components/schemas/SessionAgentDefBody"
+            "$ref": "#/components/schemas/SessionAgentSpecBody"
           }
         ]
       },
@@ -2649,29 +2649,36 @@
       "SessionAgent": {
         "discriminator": {
           "mapping": {
-            "ref": "#/components/schemas/SessionAgentRef",
-            "value": "#/components/schemas/SessionAgentValue"
+            "inline": "#/components/schemas/SessionAgentInline",
+            "reference": "#/components/schemas/SessionAgentReference"
           },
           "propertyName": "type"
         },
         "oneOf": [
           {
-            "$ref": "#/components/schemas/SessionAgentRef"
+            "$ref": "#/components/schemas/SessionAgentReference"
           },
           {
-            "$ref": "#/components/schemas/SessionAgentValue"
+            "$ref": "#/components/schemas/SessionAgentInline"
           }
         ]
       },
-      "SessionAgentDefBody": {
+      "SessionAgentInline": {
         "additionalProperties": false,
         "properties": {
-          "def": {
+          "spec": {
             "$ref": "#/components/schemas/AgentSpec"
+          },
+          "type": {
+            "enum": [
+              "inline"
+            ],
+            "type": "string"
           }
         },
         "required": [
-          "def"
+          "type",
+          "spec"
         ],
         "type": "object"
       },
@@ -2687,7 +2694,7 @@
         ],
         "type": "object"
       },
-      "SessionAgentRef": {
+      "SessionAgentReference": {
         "additionalProperties": false,
         "properties": {
           "id": {
@@ -2702,7 +2709,7 @@
           },
           "type": {
             "enum": [
-              "ref"
+              "reference"
             ],
             "type": "string"
           }
@@ -2714,22 +2721,15 @@
         ],
         "type": "object"
       },
-      "SessionAgentValue": {
+      "SessionAgentSpecBody": {
         "additionalProperties": false,
         "properties": {
-          "def": {
+          "spec": {
             "$ref": "#/components/schemas/AgentSpec"
-          },
-          "type": {
-            "enum": [
-              "value"
-            ],
-            "type": "string"
           }
         },
         "required": [
-          "type",
-          "def"
+          "spec"
         ],
         "type": "object"
       },
@@ -3696,7 +3696,7 @@
         "additionalProperties": false,
         "properties": {
           "agent": {
-            "$ref": "#/components/schemas/SessionAgentDefBody"
+            "$ref": "#/components/schemas/SessionAgentSpecBody"
           }
         },
         "type": "object"
@@ -4667,7 +4667,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "post": {
-        "description": "Create a session with `agent` as either `{ name }` (named registry binding) or `{ def: AgentSpec }` (inline). Named sessions snapshot the agent name at create and resolve the live agent on each turn. Responses use `{ type: \"ref\", name, id }` or `{ type: \"value\", def }`.",
+        "description": "Create a session with `agent` as either `{ name }` (named registry binding) or `{ spec: AgentSpec }` (inline). Named sessions snapshot the agent name at create and resolve the live agent on each turn. Responses use `{ type: \"reference\", name, id }` or `{ type: \"inline\", spec }`.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4809,7 +4809,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a session by replacing `agent` with `{ def: AgentSpec }`. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.",
+        "description": "Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.",
         "parameters": [
           {
             "description": "Session identifier.",

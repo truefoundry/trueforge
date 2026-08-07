@@ -3,14 +3,14 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { SessionAgentDefBody } from "./SessionAgentDefBody.js";
 import { SessionAgentNameRef } from "./SessionAgentNameRef.js";
+import { SessionAgentSpecBody } from "./SessionAgentSpecBody.js";
 
 export const CreateSessionAgent: core.serialization.Schema<
     serializers.CreateSessionAgent.Raw,
     TrueForge.CreateSessionAgent
-> = core.serialization.undiscriminatedUnion([SessionAgentNameRef, SessionAgentDefBody]);
+> = core.serialization.undiscriminatedUnion([SessionAgentNameRef, SessionAgentSpecBody]);
 
 export declare namespace CreateSessionAgent {
-    export type Raw = SessionAgentNameRef.Raw | SessionAgentDefBody.Raw;
+    export type Raw = SessionAgentNameRef.Raw | SessionAgentSpecBody.Raw;
 }

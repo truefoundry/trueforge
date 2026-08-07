@@ -5,17 +5,17 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { AgentSpec } from "./AgentSpec.js";
 
-export const SessionAgentValue: core.serialization.ObjectSchema<
-    serializers.SessionAgentValue.Raw,
-    TrueForge.SessionAgentValue
+export const SessionAgentInline: core.serialization.ObjectSchema<
+    serializers.SessionAgentInline.Raw,
+    TrueForge.SessionAgentInline
 > = core.serialization.object({
-    def: AgentSpec,
-    type: core.serialization.stringLiteral("value"),
+    spec: AgentSpec,
+    type: core.serialization.stringLiteral("inline"),
 });
 
-export declare namespace SessionAgentValue {
+export declare namespace SessionAgentInline {
     export interface Raw {
-        def: AgentSpec.Raw;
-        type: "value";
+        spec: AgentSpec.Raw;
+        type: "inline";
     }
 }

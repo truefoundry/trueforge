@@ -12,7 +12,7 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    agent: { id: "id", name: null, type: "ref" },
+                    agent: { spec: { model: { name: "name" } }, type: "inline" },
                     created_at: "created_at",
                     created_by: "created_by",
                     id: "id",
@@ -35,9 +35,12 @@ describe("SessionsClient", () => {
             data: [
                 {
                     agent: {
-                        id: "id",
-                        name: null,
-                        type: "ref",
+                        spec: {
+                            model: {
+                                name: "name",
+                            },
+                        },
+                        type: "inline",
                     },
                     createdAt: "created_at",
                     createdBy: "created_by",
@@ -79,7 +82,7 @@ describe("SessionsClient", () => {
         const rawRequestBody = { agent: { name: "name" } };
         const rawResponseBody = {
             data: {
-                agent: { id: "id", name: "name", type: "ref" },
+                agent: { spec: { model: { name: "name" } }, type: "inline" },
                 created_at: "created_at",
                 created_by: "created_by",
                 id: "id",
@@ -105,9 +108,12 @@ describe("SessionsClient", () => {
         expect(response).toEqual({
             data: {
                 agent: {
-                    id: "id",
-                    name: "name",
-                    type: "ref",
+                    spec: {
+                        model: {
+                            name: "name",
+                        },
+                    },
+                    type: "inline",
                 },
                 createdAt: "created_at",
                 createdBy: "created_by",
@@ -196,7 +202,7 @@ describe("SessionsClient", () => {
 
         const rawResponseBody = {
             data: {
-                agent: { id: "id", name: "name", type: "ref" },
+                agent: { spec: { model: { name: "name" } }, type: "inline" },
                 created_at: "created_at",
                 created_by: "created_by",
                 id: "id",
@@ -217,9 +223,12 @@ describe("SessionsClient", () => {
         expect(response).toEqual({
             data: {
                 agent: {
-                    id: "id",
-                    name: "name",
-                    type: "ref",
+                    spec: {
+                        model: {
+                            name: "name",
+                        },
+                    },
+                    type: "inline",
                 },
                 createdAt: "created_at",
                 createdBy: "created_by",
@@ -265,7 +274,7 @@ describe("SessionsClient", () => {
         const rawRequestBody = {};
         const rawResponseBody = {
             data: {
-                agent: { id: "id", name: "name", type: "ref" },
+                agent: { spec: { model: { name: "name" } }, type: "inline" },
                 created_at: "created_at",
                 created_by: "created_by",
                 id: "id",
@@ -287,9 +296,12 @@ describe("SessionsClient", () => {
         expect(response).toEqual({
             data: {
                 agent: {
-                    id: "id",
-                    name: "name",
-                    type: "ref",
+                    spec: {
+                        model: {
+                            name: "name",
+                        },
+                    },
+                    type: "inline",
                 },
                 createdAt: "created_at",
                 createdBy: "created_by",
