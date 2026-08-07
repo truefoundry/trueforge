@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import type { Configuration } from 'openid-client';
 import winston from 'winston';
 import { createAuthRouter } from '../../../src/apis/auth';
-import { initOidc } from '../../../src/auth/oidc';
+import { disableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import configuration from '../../../src/config';
 
 jest.mock('../../../src/config', () => {
@@ -40,7 +40,11 @@ const logger = winston.createLogger({ silent: true });
 const ACCESS_TOKEN = 'access-1';
 
 describe('auth router (no identity provider configured)', () => {
-  it('GET /login redirects home — there is nothing to log into', async () => {
+  beforeEach(() => {
+    disableOidcAuth();
+  });
+
+  it('GET /auth/login redirects home — there is nothing to log into', async () => {
     const router = createAuthRouter({ oidcClient: undefined, logger });
 
     const res = await router.request('/login', { redirect: 'manual' });
@@ -49,7 +53,7 @@ describe('auth router (no identity provider configured)', () => {
     expect(res.headers.get('location')).toBe('/');
   });
 
-  it('GET /callback redirects home — there is nothing to complete', async () => {
+  it('GET /auth/callback redirects home — there is nothing to complete', async () => {
     const router = createAuthRouter({ oidcClient: undefined, logger });
 
     const res = await router.request('/callback?state=abc', { redirect: 'manual' });
@@ -58,12 +62,21 @@ describe('auth router (no identity provider configured)', () => {
     expect(res.headers.get('location')).toBe('/');
   });
 
-  it('POST /logout is a no-op 204 — there is no real session to clear', async () => {
+  it('POST /auth/logout is a no-op 204 — there is no real session to clear', async () => {
     const router = createAuthRouter({ oidcClient: undefined, logger });
 
     const res = await router.request('/logout', { method: 'POST' });
 
     expect(res.status).toBe(204);
+  });
+
+  it('GET /auth/me returns the default identity when OIDC is off', async () => {
+    const router = createAuthRouter({ oidcClient: undefined, logger });
+
+    const res = await router.request('/me');
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ type: 'default', email: 'default', role: 'user' });
   });
 });
 
@@ -213,5 +226,19 @@ describe('auth router (OIDC configured)', () => {
     expect(
       setCookies(res).some(cookie => cookie.startsWith(`${ID_TOKEN_COOKIE}=`) && cookie.includes('Max-Age=0')),
     ).toBe(true);
+  });
+
+  it('GET /me returns 401 when the id_token cookie is missing', async () => {
+    const res = await createAuthRouter({ oidcClient, logger }).request('/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('GET /me returns oidc-connected identity when authenticated', async () => {
+    const token = await createIdToken();
+    const res = await createAuthRouter({ oidcClient, logger }).request('/me', {
+      headers: { Cookie: `${ID_TOKEN_COOKIE}=${token}` },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ type: 'oidc-connected', email: 'user-1', role: 'user' });
   });
 });

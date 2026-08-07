@@ -2,11 +2,17 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
 import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCookie } from '../auth/cookies';
-import { buildLoginAuthorization, exchangeAuthorizationCode, safeReturnTo } from '../auth/oidc';
-import { authLoginRoute, authLogoutRoute, oAuthCallbackRoute } from '../routes/authRoutes';
+import { authMiddleware, DEFAULT_USER_CONTEXT } from '../auth/middleware';
+import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify, safeReturnTo } from '../auth/oidc';
+import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
+import type { MeResponse } from '../schemas/auth';
 
 const LOGIN_ERROR_PATH = '/?error=login_failed';
 
+/**
+ * Auth surfaces mounted at /api/v1/auth: login, callback, logout, me.
+ * Login, callback, and logout stay public; me requires {@link authMiddleware}.
+ */
 export function createAuthRouter(params: { oidcClient: Configuration | undefined; logger: Logger }) {
   const router = new OpenAPIHono();
 
@@ -68,6 +74,17 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
     clearAuthCookie({ context: c, name: ID_TOKEN_COOKIE });
     return c.body(null, 204);
   });
+
+  const gated = new OpenAPIHono();
+  gated.use('*', authMiddleware);
+  gated.openapi(meRoute, c => {
+    const user = c.get('user') ?? DEFAULT_USER_CONTEXT;
+    const body: MeResponse = getOidcVerify()
+      ? { type: 'oidc-connected', email: user.userRef, role: user.role }
+      : { type: 'default', email: user.userRef, role: user.role };
+    return c.json(body, 200);
+  });
+  router.route('/', gated);
 
   return router;
 }
