@@ -40,13 +40,6 @@ function isHttpLikeError(error: unknown): error is Error & { statusCode?: number
   return error instanceof Error && ('statusCode' in error || 'body' in error);
 }
 
-/**
- * LLM turn errors arrive as plain `Error(message)` — `APICallError.statusCode` is lost on rethrow.
- * `describeStreamError` embeds status as `Request failed (N): …`; parse that so the toast title shows
- * the 4xx/5xx instead of burying it under "Something went wrong".
- */
-const REQUEST_FAILED_MESSAGE = /^Request failed \((\d+)\):\s*([\s\S]*)$/;
-
 function normalizeError(error: unknown): ErrorToastContent {
   if (isHttpLikeError(error)) {
     const statusCode = error.statusCode;
@@ -58,13 +51,6 @@ function normalizeError(error: unknown): ErrorToastContent {
   }
 
   if (error instanceof Error) {
-    const [, status, detail] = REQUEST_FAILED_MESSAGE.exec(error.message) ?? [];
-    if (status != null) {
-      return {
-        title: `Request failed (${status})`,
-        description: truncateDescription(detail?.trim() || 'The server returned an error.'),
-      };
-    }
     return {
       title: 'Something went wrong',
       description: truncateDescription(error.message || 'An unexpected error occurred.'),
