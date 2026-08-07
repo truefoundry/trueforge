@@ -46,12 +46,14 @@ export type IconProps = {
   size?: string | number;
   'aria-hidden'?: boolean | 'true' | 'false';
   'aria-label'?: string;
+  'data-testid'?: string;
 };
 
-export type IconMap = Record<
-  string,
-  LucideIcon | ReactNode | ((props: IconProps) => ReactNode) | FC<SVGProps<SVGSVGElement>>
->;
+export type IconComponent = LucideIcon | ((props: IconProps) => ReactNode) | FC<SVGProps<SVGSVGElement>>;
+
+export type IconEntry = IconComponent | ReactNode;
+
+export type IconMap = Record<string, IconEntry>;
 
 export type BrandImage = { src: string; alt?: string } | ReactNode | ((props: { className?: string }) => ReactNode);
 

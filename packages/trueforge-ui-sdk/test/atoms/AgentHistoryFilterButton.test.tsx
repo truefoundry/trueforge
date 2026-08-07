@@ -1,0 +1,131 @@
+// @vitest-environment jsdom
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { AgentHistoryFilterButton } from '@/atoms/AgentHistoryFilterButton.js';
+import { ServerProvider } from '@/server/ServerContext.js';
+import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
+import type { AgentUIServer } from '@/server/types.js';
+import { SlotsProvider } from '@/theme/SlotsProvider.js';
+import { createMockAgentUIServer } from '../server/mockServer.js';
+
+const originalShowModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'showModal');
+const originalClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'close');
+
+beforeEach(() => {
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.open = true;
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.open = false;
+      this.dispatchEvent(new Event('close'));
+    },
+  });
+});
+
+function mockServer(partial: Partial<AgentUIServer> = {}): AgentUIServer {
+  return createMockAgentUIServer({
+    searchAgents: async () => [{ name: 'from-sdk' }, { name: 'other' }],
+    ...partial,
+  });
+}
+
+function FilterProbe() {
+  const shell = useShellMode();
+  return <span data-testid="filter-value">{shell.historyAgentFilter ?? 'all'}</span>;
+}
+
+function wrap({
+  agentConfig,
+  server,
+}: {
+  agentConfig?: Parameters<typeof ShellModeProvider>[0]['agentConfig'];
+  server?: AgentUIServer | null;
+}) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    const tree = (
+      <SlotsProvider>
+        <ShellModeProvider agentConfig={agentConfig}>
+          {children}
+          <FilterProbe />
+        </ShellModeProvider>
+      </SlotsProvider>
+    );
+    if (server == null) return tree;
+    return <ServerProvider server={server}>{tree}</ServerProvider>;
+  };
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  if (originalShowModal === undefined) {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+  } else {
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', originalShowModal);
+  }
+  if (originalClose === undefined) {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'close');
+  } else {
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', originalClose);
+  }
+});
+
+describe('AgentHistoryFilterButton', () => {
+  it('renders nothing when library is disabled', () => {
+    render(<AgentHistoryFilterButton />, {
+      wrapper: wrap({ agentConfig: { mode: 'SingleAgent', name: 'locked' }, server: mockServer() }),
+    });
+    expect(screen.queryByRole('button', { name: /Filter chat history/i })).not.toBeInTheDocument();
+  });
+
+  it('opens popover and sets history filter on agent click', async () => {
+    const searchAgents = vi.fn(async () => [{ name: 'from-sdk' }, { name: 'other' }]);
+    const server = mockServer({ searchAgents });
+    render(<AgentHistoryFilterButton />, {
+      wrapper: wrap({ agentConfig: { mode: 'AgentLibraryWithComposer' }, server }),
+    });
+
+    expect(screen.getByTestId('filter-value')).toHaveTextContent('all');
+
+    fireEvent.click(screen.getByRole('button', { name: /Filter chat history/i }));
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: /from-sdk/i })).toBeInTheDocument());
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('menuitem', { name: /from-sdk/i }));
+    });
+
+    expect(screen.getByTestId('filter-value')).toHaveTextContent('from-sdk');
+    expect(searchAgents).toHaveBeenCalled();
+  });
+
+  it('opens a bottom sheet on mobile', async () => {
+    const matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query === '(max-width: 767px)',
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      onchange: null,
+    }));
+    vi.stubGlobal('matchMedia', matchMedia);
+
+    const server = mockServer();
+    render(<AgentHistoryFilterButton />, {
+      wrapper: wrap({ agentConfig: { mode: 'AgentLibraryWithComposer' }, server }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Filter chat history/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: /Filter agents/i })).toBeInTheDocument();
+    });
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: /from-sdk/i })).toBeInTheDocument());
+  });
+});

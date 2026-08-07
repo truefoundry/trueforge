@@ -12,18 +12,18 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['test/**/*.test.{ts,tsx}'],
     globals: true,
-    setupFiles: ['./src/testSetup.ts'],
+    setupFiles: ['./test/testSetup.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.test.{ts,tsx}', 'src/testSetup.ts', 'src/svg.d.ts'],
+      exclude: ['test/**', 'src/svg.d.ts'],
       thresholds: {
-        // Floor just under measured baseline (~70/67/56) so CI stays green.
-        lines: 65,
-        functions: 60,
-        branches: 50,
+        // Floors stay below the measured baseline (~82/76/75) while preventing large regressions.
+        lines: 78,
+        functions: 73,
+        branches: 72,
       },
     },
   },
