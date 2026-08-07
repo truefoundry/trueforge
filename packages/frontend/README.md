@@ -1,6 +1,6 @@
 # frontend
 
-Private draft-only agent chat UI for the harness server. **Not published to npm** (`"private": true`).
+Private agent chat UI for the harness server (registry + inline sessions). **Not published to npm** (`"private": true`).
 
 Built on:
 
@@ -89,7 +89,7 @@ display name where the API expects a registry id.
 | ------------------------------------- | ---------------------------------------- |
 | Subscribe turn SSE                    | Deferred (route defined, not registered) |
 | Attachments / sandbox download        | Off                                      |
-| Session `type` / `created_by_subject` | Soft — not required for draft FE         |
+| Session `type` / `created_by_subject` | Soft — not required for this FE          |
 | `turn.created.created_by`             | Soft — stream adopt tolerates missing    |
 
 ## Scripts
