@@ -9,7 +9,7 @@ import { useOptionalContentClassNames } from '../theme/ThemeProvider.js';
 import { cn } from './lib/cn.js';
 import type { OpenUiFenceBlockProps } from './OpenUiFenceBlock.js';
 import type { SandboxArtifactDownloadProps } from './SandboxArtifactDownload.js';
-import { SyntaxHighlighter } from './SyntaxHighlighter.js';
+import type { SyntaxHighlighterProps } from './SyntaxHighlighter.js';
 
 /** Preloads OpenUiFenceBlock so it's ready before the user sees openui content. */
 export function preloadMarkdownOpenUI(): Promise<unknown> {
@@ -36,6 +36,8 @@ function makeComponents(opts: {
   readOnly?: boolean;
   OpenUiFenceBlock: ComponentType<OpenUiFenceBlockProps>;
   SandboxArtifactDownload: ComponentType<SandboxArtifactDownloadProps>;
+  SyntaxHighlighter: ComponentType<SyntaxHighlighterProps>;
+  inlineCodeClassName?: string;
 }): Components {
   const {
     isStreaming,
@@ -45,6 +47,8 @@ function makeComponents(opts: {
     readOnly,
     OpenUiFenceBlock,
     SandboxArtifactDownload,
+    SyntaxHighlighter,
+    inlineCodeClassName,
   } = opts;
 
   return {
@@ -58,7 +62,11 @@ function makeComponents(opts: {
 
       // Inline code: no language class
       if (!className) {
-        return <code className="aui-inline-code rounded px-1 py-0.5 font-mono text-sm bg-muted">{children}</code>;
+        return (
+          <code className={cn('aui-inline-code rounded bg-muted px-1 py-0.5 font-mono text-sm', inlineCodeClassName)}>
+            {children}
+          </code>
+        );
       }
 
       if (language === 'openui') {
@@ -94,6 +102,7 @@ export function Markdown({
   const darkTheme = mode === 'dark';
   const OpenUiFenceBlock = useSlot('OpenUiFenceBlock');
   const SandboxArtifactDownload = useSlot('SandboxArtifactDownload');
+  const SyntaxHighlighter = useSlot('SyntaxHighlighter');
 
   const components = makeComponents({
     isStreaming,
@@ -103,6 +112,8 @@ export function Markdown({
     readOnly,
     OpenUiFenceBlock,
     SandboxArtifactDownload,
+    SyntaxHighlighter,
+    inlineCodeClassName: classNames.inlineCode,
   });
 
   return (

@@ -5,7 +5,7 @@ export type StatusDotProps = {
   colorClassName?: string;
 };
 
-export function StatusDot({ className, colorClassName = 'bg-orange-500' }: StatusDotProps) {
+export function StatusDot({ className, colorClassName = 'bg-warning' }: StatusDotProps) {
   return (
     <span aria-hidden className={cn('relative inline-flex h-2 w-2 shrink-0', className)}>
       <span

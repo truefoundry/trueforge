@@ -4,6 +4,7 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { GetCapabilitiesResponseDataSandbox } from "./GetCapabilitiesResponseDataSandbox.js";
+import { GetCapabilitiesResponseDataSettings } from "./GetCapabilitiesResponseDataSettings.js";
 import { GetCapabilitiesResponseDataSkill } from "./GetCapabilitiesResponseDataSkill.js";
 
 export const GetCapabilitiesResponseData: core.serialization.ObjectSchema<
@@ -11,12 +12,14 @@ export const GetCapabilitiesResponseData: core.serialization.ObjectSchema<
     TrueForge.GetCapabilitiesResponseData
 > = core.serialization.object({
     sandbox: GetCapabilitiesResponseDataSandbox,
+    settings: GetCapabilitiesResponseDataSettings,
     skill: GetCapabilitiesResponseDataSkill,
 });
 
 export declare namespace GetCapabilitiesResponseData {
     export interface Raw {
         sandbox: GetCapabilitiesResponseDataSandbox.Raw;
+        settings: GetCapabilitiesResponseDataSettings.Raw;
         skill: GetCapabilitiesResponseDataSkill.Raw;
     }
 }

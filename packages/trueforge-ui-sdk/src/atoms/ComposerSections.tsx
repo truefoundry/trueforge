@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { Icon } from '../icons/Icon.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
@@ -23,6 +25,10 @@ export type ComposerSendButtonProps = {
   onCancel?: () => void;
 };
 
+export type ComposerLeftSectionSlot = (props: ComposerLeftSectionProps) => ReactNode;
+export type ComposerRightSectionSlot = (props: ComposerRightSectionProps) => ReactNode;
+export type ComposerSendButtonSlot = (props: ComposerSendButtonProps) => ReactNode;
+
 export function ComposerLeftSection({ onAttach }: ComposerLeftSectionProps) {
   if (!onAttach) return null;
 
@@ -39,7 +45,7 @@ export function ComposerLeftSection({ onAttach }: ComposerLeftSectionProps) {
   );
 }
 
-export function ComposerRightSection(_: ComposerRightSectionProps) {
+export function ComposerRightSection(_: ComposerRightSectionProps): ReactNode {
   return null;
 }
 
@@ -71,4 +77,12 @@ export function ComposerSendButton({ canSubmit, isRunning, onSubmit, onCancel }:
       <Icon name="arrow-up" />
     </button>
   );
+}
+
+declare module '../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    ComposerLeftSection: ComposerLeftSectionSlot;
+    ComposerRightSection: ComposerRightSectionSlot;
+    ComposerSendButton: ComposerSendButtonSlot;
+  }
 }

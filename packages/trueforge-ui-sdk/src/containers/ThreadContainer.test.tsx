@@ -1,21 +1,45 @@
 // @vitest-environment jsdom
 import type { AssistantState, ThreadMessageLike } from '@assistant-ui/react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { ShellModeProvider } from '../server/ShellModeContext.js';
+import { ShellModeProvider, useShellMode } from '../server/ShellModeContext.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 import { isNewChatView, ThreadContainer } from './ThreadContainer.js';
 
+function EditAgentBootstrap({ children }: { children: ReactNode }) {
+  const shell = useShellMode();
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current) return;
+    seeded.current = true;
+    shell.selectLibraryAgent({
+      isMutable: true,
+      agentId: 'writer',
+      agentName: 'writer',
+      agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+    });
+  }, [shell]);
+  return children;
+}
+
 function renderThread(
   messages: ThreadMessageLike[],
-  options?: { isLoading?: boolean; composer?: React.ReactNode; agentName?: string },
+  options?: { isLoading?: boolean; composer?: React.ReactNode; agentName?: string; editAgent?: boolean },
 ) {
   const thread = (
     <RuntimeHarness messages={messages} isLoading={options?.isLoading}>
       <ThreadContainer composer={options?.composer} />
     </RuntimeHarness>
   );
+  if (options?.editAgent) {
+    return render(
+      <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+        <EditAgentBootstrap>{thread}</EditAgentBootstrap>
+      </ShellModeProvider>,
+    );
+  }
   return render(
     options?.agentName != null ? (
       <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: options.agentName }}>{thread}</ShellModeProvider>
@@ -69,6 +93,14 @@ describe('ThreadContainer', () => {
   it('shows the agent name on the empty named-agent welcome screen', () => {
     renderThread([], { agentName: 'support-agent' });
     expect(screen.getByText('support-agent')).toBeInTheDocument();
+    expect(screen.queryByText('How can I help you today?')).not.toBeInTheDocument();
+  });
+
+  it('shows the agent name on the empty Edit-agent welcome screen', async () => {
+    renderThread([], { editAgent: true });
+    await waitFor(() => {
+      expect(screen.getByText('writer')).toBeInTheDocument();
+    });
     expect(screen.queryByText('How can I help you today?')).not.toBeInTheDocument();
   });
 

@@ -7,7 +7,6 @@ import {
   type WelcomeScreenProps,
 } from '@truefoundry/trueforge-ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import './agentUiSlots';
 import { getCapabilities, listModels } from './composerLists';
 import { createConnectorCatalog } from './connectorCatalog';
 import { createHarnessBuilderServer } from './harnessBuilderServer';
@@ -30,8 +29,10 @@ function OpenSettingsWelcomeScreen(props: WelcomeScreenProps) {
   return <WelcomeScreen {...props} />;
 }
 
+const chatServer = createHarnessChatServer();
+
 const server = createTrueFoundryServer<HarnessAgentSpec>({
-  chatServer: createHarnessChatServer(),
+  chatServer,
   ...createHarnessBuilderServer(),
   catalog: {
     modelCatalog: createModelProviderCatalog(),
@@ -97,7 +98,9 @@ export function App() {
   }, []);
 
   const overrides: SlotOverrides = useMemo(
-    () => (boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
+    () => ({
+      ...(boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
+    }),
     [boot],
   );
 
@@ -124,7 +127,7 @@ export function App() {
         }}
         layout="sidebar"
         agentConfig={{
-          mode: 'AgentComposer',
+          mode: 'AgentLibraryWithComposer',
           defaultAgentSpec: boot.defaultAgentSpec,
         }}
         overrides={overrides}

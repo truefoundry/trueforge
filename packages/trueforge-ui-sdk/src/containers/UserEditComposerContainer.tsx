@@ -34,10 +34,10 @@ export function UserEditComposerContainer() {
         className="fade-in slide-in-from-bottom-1 animate-in flex w-full justify-end px-2 duration-150"
       >
         <UserMessageEdit
-          timestamp={<MessageTimestamp createdAt={createdAt} className="text-gray-500" />}
+          timestamp={<MessageTimestamp createdAt={createdAt} />}
           attachments={<ReadOnlyMessageAttachments />}
           input={
-            <div className="mt-1 rounded border border-gray-250 bg-gray-100 p-2 text-gray-750 dark:border-gray-275 dark:bg-gray-275">
+            <div className="mt-1 rounded border border-border bg-muted p-2 text-foreground">
               <ComposerPrimitive.Input
                 data-slot="aui_user-edit-input"
                 disabled={isRunning}

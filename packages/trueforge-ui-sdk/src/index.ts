@@ -5,8 +5,9 @@ import './icons/registerAgentIcons.js';
 export { BrandIcon, BrandLogo } from './theme/brand.js';
 export { defaultSlots } from './theme/defaultSlots.js';
 export { PRESETS, resolvePresetTokens } from './theme/presets/index.js';
+export type { PublicAtomSlots as AtomSlots, SlotOverrides } from './theme/publicSlots.js';
 export { SlotsProvider, useSlot, useThemeMode } from './theme/SlotsProvider.js';
-export type { AtomSlots, SlotOverrides, ThemeMode } from './theme/SlotsProvider.js';
+export type { ThemeMode } from './theme/SlotsProvider.js';
 export {
   ThemeProvider,
   useBrand,
@@ -204,6 +205,7 @@ export {
   useTrueFoundryMcpAuth,
   useTrueFoundryRespondToToolApproval,
   useTrueFoundryToolResponses,
+  useTrueFoundryTurnId,
   useTrueFoundryUpdateAgentSpec,
 } from '@truefoundry/assistant-ui-runtime';
 export type {
@@ -228,10 +230,12 @@ export {
 export {
   DEFAULT_AGENT_CONFIG,
   ShellModeProvider,
+  libraryAgentId,
+  shellIsMutable,
   useOptionalShellMode,
   useShellMode,
 } from './server/ShellModeContext.js';
-export type { AgentConfig, ShellMode } from './server/ShellModeContext.js';
+export type { AgentConfig, SelectLibraryAgentRequest, ShellMode } from './server/ShellModeContext.js';
 export type {
   AgentBuilderServer,
   AgentChatServer,
@@ -289,6 +293,7 @@ export type {
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
   SandboxProviderConfig,
+  SaveAgentRequest,
   SearchAgentsParams,
   SelectRegistrySkillRequest,
   Session,

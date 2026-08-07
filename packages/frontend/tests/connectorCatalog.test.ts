@@ -12,28 +12,28 @@ import {
 describe('connectorCatalog mappers', () => {
   it('maps harness auth to UI public auth without secrets', () => {
     assert.deepEqual(toUiAuthPublic(undefined), { type: 'none' });
-    assert.deepEqual(toUiAuthPublic({ type: 'dcr' }), { type: 'oauth', authUrl: '' });
+    assert.deepEqual(toUiAuthPublic({ type: 'dcr' }), { type: 'dcr' });
     assert.deepEqual(toUiAuthPublic({ type: 'header', headers: { Authorization: 'Bearer secret' } }), {
-      type: 'apiKey',
+      type: 'header',
       headerName: 'Authorization',
     });
   });
 
   it('maps UI write auth onto harness dcr/header/omit', () => {
     assert.equal(toHarnessAuth({ type: 'none' }), undefined);
-    assert.deepEqual(toHarnessAuth({ type: 'oauth' }), { type: 'dcr' });
-    assert.deepEqual(toHarnessAuth({ type: 'apiKey', apiKey: 'sk-test' }), {
+    assert.deepEqual(toHarnessAuth({ type: 'dcr' }), { type: 'dcr' });
+    assert.deepEqual(toHarnessAuth({ type: 'header', apiKey: 'sk-test' }), {
       type: 'header',
       headers: { Authorization: 'sk-test' },
     });
-    assert.deepEqual(toHarnessAuth({ type: 'apiKey', apiKey: 'tok', headerName: 'X-Api-Key' }), {
+    assert.deepEqual(toHarnessAuth({ type: 'header', apiKey: 'tok', headerName: 'X-Api-Key' }), {
       type: 'header',
       headers: { 'X-Api-Key': 'tok' },
     });
   });
 
-  it('rejects apiKey auth without a key', () => {
-    assert.throws(() => toHarnessAuth({ type: 'apiKey' }), /API key is required/i);
+  it('rejects header auth without a key', () => {
+    assert.throws(() => toHarnessAuth({ type: 'header' }), /API key is required/i);
   });
 
   it('maps catalog presets using name as id', () => {
@@ -48,7 +48,7 @@ describe('connectorCatalog mappers', () => {
         id: 'linear',
         name: 'linear',
         url: 'https://mcp.linear.app/mcp',
-        auth: { type: 'oauth', authUrl: '' },
+        auth: { type: 'dcr' },
       },
     );
   });
@@ -59,7 +59,7 @@ describe('connectorCatalog mappers', () => {
         type: 'remote',
         name: 'deepwiki',
         url: 'https://mcp.deepwiki.com/mcp',
-        authStatus: { status: 'authenticated' },
+        authStatus: { status: 'not_required' },
       }),
       {
         id: 'deepwiki',
@@ -73,11 +73,38 @@ describe('connectorCatalog mappers', () => {
     );
   });
 
+  it('maps auth_required vs authenticated for oauth connectors', () => {
+    const pending = toUiConnector({
+      type: 'remote',
+      name: 'linear',
+      url: 'https://mcp.linear.app/mcp',
+      auth: { type: 'dcr' },
+      authStatus: { status: 'auth_required' },
+    });
+    assert.equal(pending.authenticated, false);
+    assert.equal(pending.requiresAuth, true);
+
+    const connected = toUiConnector({
+      type: 'remote',
+      name: 'linear',
+      url: 'https://mcp.linear.app/mcp',
+      auth: { type: 'dcr' },
+      authStatus: { status: 'authenticated' },
+    });
+    assert.equal(connected.authenticated, true);
+    assert.equal(connected.requiresAuth, false);
+  });
+
   it('maps tool rows with description for getToolsByConnectorId', () => {
     assert.deepEqual(toUiTool({ name: 'search', description: 'Find docs' }), {
       id: 'search',
       name: 'search',
       description: 'Find docs',
+    });
+    assert.deepEqual(toUiTool({ name: 'search' }), {
+      id: 'search',
+      name: 'search',
+      description: '',
     });
     assert.deepEqual(toUiTool({}), { id: 'tool', name: 'tool', description: '' });
   });
@@ -87,7 +114,7 @@ describe('connectorCatalog mappers', () => {
       toHarnessManifest({
         name: 'linear',
         url: 'https://mcp.linear.app/mcp',
-        auth: { type: 'oauth' },
+        auth: { type: 'dcr' },
       }),
       {
         name: 'linear',

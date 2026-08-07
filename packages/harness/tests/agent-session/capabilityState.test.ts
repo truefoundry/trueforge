@@ -62,7 +62,8 @@ describe('capability_state (tfy.plan fixture)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      agent_spec: makeAgentSpec(),
+      created_by: 'user-1',
+      agent: { type: 'value', agent_spec: makeAgentSpec() },
     });
 
     const planV1: JsonValue = {
@@ -73,7 +74,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         extraCapabilities: [
@@ -133,7 +134,8 @@ describe('capability_state (tfy.plan fixture)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      agent_spec: makeAgentSpec(),
+      created_by: 'user-1',
+      agent: { type: 'value', agent_spec: makeAgentSpec() },
     });
     const planV1: JsonValue = {
       todo: [{ title: 'step', description: 'do it', status: 'done' }],
@@ -142,7 +144,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         extraCapabilities: [makePlanShapedCapability({ enabled: true, emitState: planV1 })],
@@ -165,6 +167,7 @@ describe('capability_state (tfy.plan fixture)', () => {
         return logger;
       },
       createTracing: () => resolver.createTracing(),
+      resolveAgentSpec: (input: Parameters<typeof resolver.resolveAgentSpec>[0]) => resolver.resolveAgentSpec(input),
       resolveSandbox: (input: Parameters<typeof resolver.resolveSandbox>[0]) => resolver.resolveSandbox(input),
       resolveAgentDefinition: (input: Parameters<typeof resolver.resolveAgentDefinition>[0]) =>
         resolver.resolveAgentDefinition(input),
@@ -224,12 +227,13 @@ describe('capability_state (tfy.plan fixture)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      agent_spec: makeAgentSpec(),
+      created_by: 'user-1',
+      agent: { type: 'value', agent_spec: makeAgentSpec() },
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'x' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({ extraCapabilities: [undefinedStateCapability] }),
     });
@@ -267,7 +271,6 @@ describe('capability_state (tfy.plan fixture)', () => {
     };
     const thread = new AgentThread({
       definition: {
-        model: 'test-model',
         modelClient: makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
       },
       threadId: MAIN_THREAD_ID,

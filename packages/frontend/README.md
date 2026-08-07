@@ -38,8 +38,8 @@ picking another. That proxy is the only dev-specific wiring and lives entirely i
 ### Server adapter
 
 [`src/harnessServer.ts`](src/harnessServer.ts) wraps the Harness SDK with the flat `AgentChatServer`
-contract. It maps mutable session DTOs, pagination, turns, event history, cancellation, and SSE
-metadata while keeping the browser pointed directly at `/api/v1/sessions`.
+contract. It maps mutable session DTOs, pagination, turns, event history, turn subscribe/resume,
+cancellation, and SSE metadata while keeping the browser pointed directly at `/api/v1/sessions`.
 
 `trueforge-ui` still declares the pre-0.1.6 contract (mounts carry `id`, list results are
 `PageResult`, absent values are `undefined`) while the runtime it delegates to reads `nextPageToken`
@@ -69,7 +69,7 @@ callbacks; `App.tsx` spreads them into `createTrueFoundryServer` (settings CRUD 
 | Callback       | Source                                                            |
 | -------------- | ----------------------------------------------------------------- |
 | `getModels`    | `GET /api/v1/models` (also seeds `defaultAgentSpec.model`)        |
-| `getMcp`       | `GET /api/v1/mcp-servers`                                         |
+| `getMcp`       | `GET /api/v1/settings/mcp-servers` (carries auth status)          |
 | `getSkills`    | `GET /api/v1/skills` when `GET /api/v1/capabilities` has skill on |
 | `searchAgents` | Empty — Harness has no agent registry                             |
 | `saveAgent`    | Rejects — sessions are draft-only                                 |

@@ -2,7 +2,8 @@
 
 import { useMemo } from 'react';
 
-import { ChatFileDownload, type ChatFileDownloadFile } from './ChatFileDownload.js';
+import { useSlot } from '../theme/SlotsProvider.js';
+import type { ChatFileDownloadFile } from './ChatFileDownload.js';
 
 export type SandboxArtifactDownloadProps = {
   code: string;
@@ -56,6 +57,7 @@ export function SandboxArtifactDownload({
   onDownloadArtifact,
   readOnly,
 }: SandboxArtifactDownloadProps) {
+  const ChatFileDownload = useSlot('ChatFileDownload');
   const artifacts = useMemo(() => parseSandboxArtifacts(code), [code]);
   if (artifacts.length === 0) return null;
 

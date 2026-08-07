@@ -1,6 +1,5 @@
-import type { ChatCompletionCreateParams } from 'openai/resources/chat';
 import { EventType, newEventId } from '../../events/schema';
-import type { ILLM } from '../../llm/ILLM';
+import type { ILLM, LLMCreateParams } from '../../llm/ILLM';
 import type { AgentDefinition } from '../../runtime/AgentDefinition';
 import type { ContextMessage } from '../../runtime/AgentThread.types';
 import { internalSystemMessage, isInternalSystemMessage, isLLMContextMessage } from '../../runtime/contextUtils';
@@ -170,12 +169,10 @@ function createSummarizationCandidate(context: ContextMessage[]) {
 }
 
 export class ContextCompaction implements PreLLMAgentContextProcessor {
-  private model: string;
   private modelClient: ILLM;
   private compactionThresholdTokens: number;
 
-  constructor(input: { model: string; modelClient: ILLM; compactionThresholdTokens: number }) {
-    this.model = input.model;
+  constructor(input: { modelClient: ILLM; compactionThresholdTokens: number }) {
     this.modelClient = input.modelClient;
     this.compactionThresholdTokens = input.compactionThresholdTokens;
   }
@@ -188,8 +185,8 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
       return;
     }
 
-    const body: ChatCompletionCreateParams = {
-      model: this.model,
+    // Model identity is owned by modelClient — omit OpenAI's required `model` field.
+    const body: LLMCreateParams = {
       messages: [
         { role: 'user', content: createSummarizationCandidate(execution.context) },
         { role: 'user', content: PROMPT },
@@ -235,7 +232,6 @@ export function contextCompaction(options: {
   return {
     preLLMProcessors: [
       new ContextCompaction({
-        model: options.definition.model,
         modelClient: options.definition.modelClient,
         compactionThresholdTokens: threshold,
       }),

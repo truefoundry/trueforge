@@ -81,7 +81,7 @@ export {
 export { ToolSet } from './mcp/ToolSet';
 
 // LLM contracts
-export type { AgentMetadata, ILLM } from './llm/ILLM';
+export type { AgentMetadata, ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './llm/ILLM';
 export { ResponseFormatSchema, toOpenAIResponseFormat } from './llm/responseFormat';
 export type { ResponseFormat } from './llm/responseFormat';
 export { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES, VercelAILLM } from './llm/VercelAILLM';
@@ -143,7 +143,7 @@ export type { SandboxExecParams, SandboxInit, SandboxProvider } from './sandbox/
 export { TFYSandboxProvider } from './sandbox/provider/TFYSandboxProvider';
 export { SKILL_DOWNLOAD_TIMEOUT_SECONDS, Sandbox, buildWriteAndRunScriptCommand } from './sandbox/Sandbox';
 export type { SandboxInfo } from './sandbox/Sandbox';
-export { SandboxError } from './sandbox/SandboxErrors';
+export { SandboxError, validateNoPathTraversal, validateSandboxOwnedByTenant } from './sandbox/SandboxErrors';
 
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources
 export { InstructionBuilder } from './InstructionBuilder';

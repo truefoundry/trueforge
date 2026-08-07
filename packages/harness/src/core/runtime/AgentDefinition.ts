@@ -8,9 +8,11 @@ export type ModelParams = Record<string, unknown>;
 /**
  * Static definition of an agent. Represents the authored configuration,
  * not the execution state. Inherited by sub-agent definitions.
+ *
+ * Model identity lives on `modelClient` (e.g. VercelAILLM providerConfig),
+ * not as a parallel string on this definition.
  */
 export interface AgentDefinition {
-  model: string;
   modelClient: ILLM;
   instruction?: string | undefined;
   messages?: readonly LLMUserMessage[] | undefined;

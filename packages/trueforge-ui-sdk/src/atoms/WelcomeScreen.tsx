@@ -1,6 +1,6 @@
-import { Sparkle } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { Icon } from '../icons/Icon.js';
 import { BrandIcon } from '../theme/brand.js';
 import { useOptionalThemePreset } from '../theme/ThemeProvider.js';
 import { cn } from './lib/cn.js';
@@ -17,7 +17,7 @@ export function WelcomeScreen({ heading = 'How can I help you today?', icon, cla
     icon !== undefined ? (
       icon
     ) : preset === 'chatgpt' ? null : preset === 'claude' ? (
-      <Sparkle aria-hidden className="size-5 fill-current text-primary" />
+      <Icon name="welcome-sparkle" className="size-5 fill-current text-primary" />
     ) : (
       <BrandIcon className={preset === 'gemini' ? 'size-5' : 'size-10'} />
     );

@@ -114,7 +114,7 @@ export type PageParams = {
   endTimestamp?: string;
 };
 
-export type PreviousTurnIdInput = 'auto' | string;
+export type PreviousTurnIdInput = 'auto' | 'none' | string;
 
 // ---------------------------------------------------------------------------
 // AgentSpec (+ nested) — base; hosts extend via TSpec extends AgentSpec
@@ -273,7 +273,12 @@ export interface CreateSessionRequest {
 
 /** List filter + pagination. Hosts extend via `TList extends ListSessionsParams`. */
 export interface ListSessionsParams extends PageParams {
-  agentName?: string;
+  /**
+   * Host-owned agent identity filter. Hosts that key agents by name pass that name here.
+   * Unknown / deleted ids MUST return an empty page (stale history filter, SingleAgent
+   * mismatch) — do not throw and fail the whole thread list.
+   */
+  agentId?: string;
 }
 
 /**

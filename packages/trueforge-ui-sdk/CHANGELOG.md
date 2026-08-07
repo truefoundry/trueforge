@@ -7,8 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **History row mutability** — prefer `custom.isMutable` from the session (runtime
+  stamp) over inferring from `agentName`. Orphaned named refs (deleted agent, no
+  `agentName`) open as immutable. `openHistorySession` allows `isMutable: false`
+  without an agent name.
+- **Edit-bound draft history switch** — do not reuse the mutable shell via
+  `switchToThread` when the shell still carries an Edit `agentName`/`agentId`
+  and the row is a different session. Remount through `openHistorySession` so
+  Update Agent chrome cannot overwrite the wrong library agent.
+
 ### Breaking
 
+- **`ShellMode` shape** — replaced `type: 'idle' | 'named' | 'draft'` with
+  `status: 'idle' | 'active'` plus `isMutable` on active bindings. Composer /
+  Save Agent / welcome chrome key off `isMutable`, not draft|named.
+  Hosts that inspected `mode.type` must switch to `mode.status` /
+  `mode.isMutable` (see `shellIsMutable`).
 - **Renamed `TrueFoundryAssistantUI` → `TrueforgeUI`** (props type
   `TrueFoundryAssistantUIProps` → `TrueforgeUIProps`). Update imports and JSX.
 - **`TrueforgeUI` agent props** — replaced top-level `agentName` and
@@ -22,8 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   theme, Markdown, and agent-chat molecules are owned by this SDK.
 - `theme` prop is now `ThemeConfig` (object), not `"light" | "dark"`. Mode
   lives at `theme.mode`. Example: `theme={{ mode: "dark", preset: "claude" }}`.
-- Slot `Button` / `IconButton` use shadcn-aligned props (`variant`, `size`,
-  children). Compound APIs (`Button.Primary`, `icon=` string props) are gone.
+- `AtomSlots` and `SlotOverrides` are derived from `defaultSlots`; consumer
+  module augmentation of `AtomSlots` no longer adds override keys.
+- `theme.classNames.openui` accepts only `root` and `scope`; arbitrary extra
+  keys are no longer supported.
+- Complete `SemanticTokens` objects must include `success`,
+  `successForeground`, `warning`, and `warningForeground`.
+- `Button`, `IconButton`, dialogs, sheets, avatars, and other low-level
+  primitives are customized through tokens/CSS rather than slots. Compound
+  APIs (`Button.Primary`, `icon=` string props) are gone.
 - Import styles with only `@import "@truefoundry/trueforge-ui/styles.css"`
   (no `tfy-web-components/theme.css`).
 - `layout` accepts a built-in string **or** a host `React.ComponentType`.
@@ -34,6 +57,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Named agent header title** — when an immutable (named) agent chat is open,
+  the thread header shows the agent name on the left (sidebar / drawer / dock /
+  widget layouts). Hidden for idle and draft/mutable chats.
+- **`AgentLibraryEntry.agentId?` / `agentSpec?`** — optional listing fields.
+  Hosts that only return `{ name }` keep working; `agentSpec` enables Edit.
+- **Agents Library Edit** — when `isComposerEnabled` and the row has
+  `agentSpec`, Edit binds a mutable session seeded from that spec
+  (`isMutable: true`). Try Agent remains immutable (`isMutable: false`).
+- **`selectLibraryAgent` / `shellIsMutable` / `libraryAgentId`** on shell
+  context. `selectAgent` / `openDraft` remain as thin wrappers.
 - **Reasoning-effort selector** beside the model picker in the draft composer.
   Shown only when the selected `ModelSelection` declares `reasoningEfforts`;
   the effort is coerced into the spec on model change or explicit pick.
@@ -63,10 +96,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `DEFAULT_AGENT_CONFIG` exported from the main barrel.
 - Owned `ThemeProvider` with light / dark / system, CSS token injection,
   `theme.brand`, `theme.icons`, `theme.classNames`, `theme.className`.
+- Semantic success/warning and assistant-bubble tokens, plus complete Markdown,
+  syntax-highlighter, OpenUI, and Monaco class-name hooks.
 - Presets: `truefoundry`, `claude`, `chatgpt`, `gemini`.
 - `BrandLogo` / `BrandIcon` / `useBrand`; `Icon` / `IconRegistry`.
+- Registry-backed robot brand fallback and overridable welcome/OAuth state
+  icons. The standalone OAuth callback now inherits the shell theme and slots.
 - In-repo Markdown (OpenUI fences + syntax-highlighter), `MonacoEditorCore`,
   `CodeEditor`.
+- Public slots for agent-library/save/select controls, draft composer
+  selectors, code/content renderers, and file-download UI; nested SDK
+  composition now honors those overrides.
 - Example app: preset switcher + custom layout demo; `VITE_TFY_AGENT_MODE` to
   try shell modes.
 
@@ -132,6 +172,11 @@ import { TrueforgeUI } from '@truefoundry/trueforge-ui';
 5. Optionally set `layout={MyLayout}` and style content via
    `theme.classNames` or `.aui-markdown` / `.aui-syntax-highlighter` /
    `.aui-openui` / `.aui-monaco`.
+6. Remove consumer `AtomSlots` module augmentations and use the documented
+   `SlotOverrides` keys.
+7. Replace custom `theme.classNames.openui` keys with `root`, `scope`, or host
+   CSS targeting `.aui-openui`.
+8. Add success/warning pairs to any complete custom `SemanticTokens` maps.
 
 ## [0.1.0]
 

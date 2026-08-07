@@ -31,11 +31,23 @@ export interface ConnectorState {
   id: string;
   name: string;
   description?: string;
+  /** When true, the connector must be authenticated before use. Omitted when the host does not report auth. */
+  requiresAuth?: boolean;
+  /** When true, the connector is already authenticated. Omitted when the host does not report auth. */
+  authenticated?: boolean;
 }
 
-/** Agents library row — UI shows name only. Host extends for metadata. */
+/**
+ * Agents library row — SDK-minimal.
+ * Hosts extend via `TAgent extends AgentLibraryEntry` for richer metadata/spec shapes.
+ * `agentSpec` enables Edit (mutable); Try Agent works with `name` alone.
+ */
 export interface AgentLibraryEntry {
   name: string;
+  /** Stable id when distinct from display `name`. Falls back to `name` when omitted. */
+  agentId?: string;
+  /** Published agent spec — required for Edit; optional for Try-only hosts. */
+  agentSpec?: AgentSpec;
 }
 
 export type SearchAgentsParams = {
@@ -79,7 +91,7 @@ export interface Model<TParams extends ModelParams = ModelParams> {
  * SDK-owned agent definition — fields the FE reads/writes.
  *
  * - Nested slots are generic: host widens `Model` / `SkillMount` / `McpServerMount`.
- * - The spec itself is extendable: `interface TfySpec extends AgentSpec<...> { instructions?: string }`.
+ * - The spec itself is extendable: `interface TfySpec extends AgentSpec<...> { config?: RuntimeConfig }`.
  *
  * @example
  * ```ts
@@ -89,7 +101,6 @@ export interface Model<TParams extends ModelParams = ModelParams> {
  * interface TfyMcpMount extends McpServerMount { type: string; enableTools: string[] }
  *
  * interface TfySpec extends AgentSpec<TfyModel, TfySkillMount, TfyMcpMount> {
- *   instructions?: string;
  *   config?: RuntimeConfig;
  * }
  * ```
@@ -100,8 +111,16 @@ export interface AgentSpec<
   TMcp extends McpServerMount = McpServerMount,
 > {
   model: TModel;
+  /** System prompt / instructions for the agent. */
+  instructions?: string;
   skills?: TSkill[];
   mcpServers?: TMcp[];
+}
+
+/** Request body for `AgentBuilderServer.saveAgent`. */
+export interface SaveAgentRequest<TSpec extends AgentSpec = AgentSpec> {
+  agentName: string;
+  agentSpec: TSpec;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,7 +175,12 @@ export type PageParams = {
 };
 
 export interface ListSessionsParams extends PageParams {
-  agentName?: string;
+  /**
+   * Host-owned agent identity filter. Hosts that key agents by name pass that name here.
+   * Unknown / deleted ids MUST return an empty page (stale history filter, SingleAgent
+   * mismatch) — do not throw and fail the whole thread list.
+   */
+  agentId?: string;
 }
 
 export interface ListSessionsResponse<
@@ -167,7 +191,7 @@ export interface ListSessionsResponse<
   pagination: TokenPagination;
 }
 
-export type PreviousTurnIdInput = 'auto' | string;
+export type PreviousTurnIdInput = 'auto' | 'none' | string;
 
 // ---------------------------------------------------------------------------
 // Turn input / state — what runtime sends and reads
@@ -304,7 +328,12 @@ export interface AgentChatServer<
     afterSequenceNumber?: number;
   }): AsyncIterable<TurnStreamData<TStreamEvent>>;
 
-  downloadSandboxFile?(sandboxId: string, req: { path: string }): Promise<unknown>;
+  /**
+   * Reads a file the agent wrote inside its sandbox. Hosts whose download route is scoped to a
+   * turn resolve the sandbox from `turnId` and ignore `sandboxId`; hosts addressing sandboxes
+   * directly use `sandboxId`.
+   */
+  downloadSandboxFile?(req: { sessionId: string; turnId: string; sandboxId: string; path: string }): Promise<Blob>;
 }
 
 /**
@@ -324,7 +353,7 @@ export interface AgentBuilderServer<
   getSkills(): Promise<TSkill[]>;
   getMcp(): Promise<TMcp[]>;
   searchAgents(req?: SearchAgentsParams): Promise<TAgent[]>;
-  saveAgent(req: { agentName: string; agentSpec: TSpec }): Promise<TSave>;
+  saveAgent(req: SaveAgentRequest<TSpec>): Promise<TSave>;
   deleteAgent?(req: { agentName: string }): Promise<void>;
 }
 
@@ -385,6 +414,7 @@ export interface ModelProviderCatalogEntry<TModel extends ModelEntry = ModelEntr
   type: ProviderType;
   name: string;
   models: TModel[];
+  logo?: string;
 }
 
 /** Create — no `id`; server assigns it. Catalog path = entry + apiKey. */
@@ -418,22 +448,21 @@ export interface ToolBase {
 }
 
 /** Strict auth type id. Hosts widen branches via intersection + re-union. */
-export type ConnectorAuthType = 'oauth' | 'apiKey' | 'none';
+export type ConnectorAuthType = 'dcr' | 'header' | 'none';
 
 // Write (create/update) — export branches so hosts can intersect extras
-export type ConnectorAuthOAuth = { type: 'oauth'; authUrl?: string };
+export type ConnectorAuthOAuth = { type: 'dcr'; authUrl?: string };
 export type ConnectorAuthApiKey = {
-  type: 'apiKey';
+  type: 'header';
   apiKey?: string;
   headerName?: string;
 };
 export type ConnectorAuthNone = { type: 'none' };
 export type ConnectorAuth = ConnectorAuthOAuth | ConnectorAuthApiKey | ConnectorAuthNone;
 
-// Public (list/detail) — no secrets; oauth requires authUrl
-export type ConnectorAuthPublicOAuth = { type: 'oauth'; authUrl: string };
+export type ConnectorAuthPublicOAuth = { type: 'dcr'; authUrl?: string };
 export type ConnectorAuthPublicApiKey = {
-  type: 'apiKey';
+  type: 'header';
   headerName?: string;
 };
 export type ConnectorAuthPublicNone = { type: 'none' };
@@ -471,6 +500,7 @@ export interface ConnectorCatalogEntry<TAuth extends ConnectorAuthPublic = Conne
   description?: string;
   url: string;
   auth: TAuth;
+  logo?: string;
 }
 
 /** Create connector — no `id`; server assigns it. Host extends. */
@@ -490,7 +520,7 @@ export interface AuthenticateConnectorRequest {
 export interface ConnectorAuthenticationResult<TConnector extends ConnectorBase = ConnectorBase> {
   connector?: TConnector;
   status?: string;
-  authorization_endpoint?: string;
+  authorization_endpoint?: string | undefined;
 }
 
 export interface ConnectorCatalogServer<
@@ -503,6 +533,7 @@ export interface ConnectorCatalogServer<
   TUpdate extends UpdateConnectorRequest<TAuthWrite> = UpdateConnectorRequest<TAuthWrite>,
 > {
   getConnectorCatalog(): Promise<TCatalogEntry[]>;
+  getConnector(req: { id: string }): Promise<TConnector>;
   listConnectors(req?: { query?: string }): Promise<TConnector[]>;
   getToolsByConnectorId(req: { id: string }): Promise<TTool[]>;
   createConnector(req: TCreate): Promise<TConnector>;

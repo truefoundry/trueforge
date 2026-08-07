@@ -79,6 +79,15 @@ describe('createTrueFoundryServer', () => {
       },
       connectorCatalog: {
         getConnectorCatalog: vi.fn(async () => []),
+        getConnector: vi.fn(async ({ id }) => ({
+          id,
+          name: '',
+          description: '',
+          url: '',
+          auth: { type: 'none' as const },
+          requiresAuth: false,
+          authenticated: false,
+        })),
         listConnectors: vi.fn(async () => []),
         getToolsByConnectorId: vi.fn(async () => []),
         createConnector: vi.fn(async req => ({
@@ -87,12 +96,12 @@ describe('createTrueFoundryServer', () => {
           description: '',
           url: req.url,
           auth:
-            req.auth.type === 'oauth'
-              ? { type: 'oauth' as const, authUrl: 'https://example.com/oauth' }
-              : req.auth.type === 'apiKey'
-                ? { type: 'apiKey' as const }
+            req.auth.type === 'dcr'
+              ? { type: 'dcr' as const, authUrl: 'https://example.com/oauth' }
+              : req.auth.type === 'header'
+                ? { type: 'header' as const }
                 : { type: 'none' as const },
-          requiresAuth: req.auth.type === 'oauth',
+          requiresAuth: req.auth.type === 'dcr',
           authenticated: false,
         })),
         updateConnector: vi.fn(async req => ({
@@ -101,12 +110,12 @@ describe('createTrueFoundryServer', () => {
           description: '',
           url: req.url,
           auth:
-            req.auth.type === 'oauth'
-              ? { type: 'oauth' as const, authUrl: 'https://example.com/oauth' }
-              : req.auth.type === 'apiKey'
-                ? { type: 'apiKey' as const }
+            req.auth.type === 'dcr'
+              ? { type: 'dcr' as const, authUrl: 'https://example.com/oauth' }
+              : req.auth.type === 'header'
+                ? { type: 'header' as const }
                 : { type: 'none' as const },
-          requiresAuth: req.auth.type === 'oauth',
+          requiresAuth: req.auth.type === 'dcr',
           authenticated: false,
         })),
         authenticateConnector: vi.fn(async ({ id }) => ({
@@ -114,8 +123,8 @@ describe('createTrueFoundryServer', () => {
           name: '',
           description: '',
           url: '',
-          auth: { type: 'oauth' as const, authUrl: 'https://example.com/oauth' },
-          requiresAuth: true,
+          auth: { type: 'dcr' as const, authUrl: 'https://example.com/oauth' },
+          requiresAuth: false,
           authenticated: true,
         })),
         disconnectConnector: vi.fn(async ({ id }) => ({
