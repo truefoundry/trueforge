@@ -7,8 +7,12 @@ import type * as serializers from "../index.js";
 export const PreviousTurnIdInput: core.serialization.Schema<
     serializers.PreviousTurnIdInput.Raw,
     TrueForge.PreviousTurnIdInput
-> = core.serialization.undiscriminatedUnion([core.serialization.stringLiteral("auto"), core.serialization.string()]);
+> = core.serialization.undiscriminatedUnion([
+    core.serialization.stringLiteral("auto"),
+    core.serialization.stringLiteral("none"),
+    core.serialization.string(),
+]);
 
 export declare namespace PreviousTurnIdInput {
-    export type Raw = "auto" | string;
+    export type Raw = "auto" | "none" | string;
 }

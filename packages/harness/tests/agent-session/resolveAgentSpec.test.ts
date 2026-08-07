@@ -25,6 +25,7 @@ describe('SessionHandle.createTurn named resolve', () => {
     const session = await sessions.create({
       tenant_id: 'tenant-1',
       session_id: 's-named',
+      created_by: 'user-1',
       agent: { type: 'ref', agent_id: 'agent-abc' },
     });
 
@@ -33,7 +34,7 @@ describe('SessionHandle.createTurn named resolve', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({ agent }),
     });

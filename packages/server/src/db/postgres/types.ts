@@ -15,7 +15,7 @@ import type {
 import type { CurrentContextUsage } from '@truefoundry/utils-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
-import type { ModelProviderManifest } from '../../schemas/modelProvider';
+import type { ModelProvider } from '../../schemas/modelProvider';
 import type { SandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
@@ -45,6 +45,8 @@ export interface SessionTable {
   tenant_id: string;
   /** key */
   session_id: string;
+  /** Caller identity that created the session (immutable after create). */
+  created_by: string;
   /**
    * Named registry binding; XOR with `agent_spec`
    * (CHECK session_agent_xor_check).
@@ -300,8 +302,8 @@ export interface ModelProviderTable {
   tenant_id: string;
   /** key: natural key within tenant; first segment of fully qualified model names */
   name: string;
-  /** ModelProviderManifest document; replaced whole on every upsert */
-  manifest: JSONColumnType<ModelProviderManifest, ModelProviderManifest, ModelProviderManifest>;
+  /** ModelProvider document; replaced whole on every upsert */
+  manifest: JSONColumnType<ModelProvider, ModelProvider, ModelProvider>;
   created_at: Date;
   updated_at: Date;
 }

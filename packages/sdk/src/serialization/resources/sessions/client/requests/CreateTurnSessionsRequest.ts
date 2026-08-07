@@ -11,12 +11,12 @@ export const CreateTurnSessionsRequest: core.serialization.Schema<
     TrueForge.CreateTurnSessionsRequest
 > = core.serialization.object({
     input: core.serialization.list(TurnInputItem).optional(),
-    previousTurnId: core.serialization.property("previous_turn_id", PreviousTurnIdInput.optionalNullable()),
+    previousTurnId: core.serialization.property("previous_turn_id", PreviousTurnIdInput.optional()),
 });
 
 export declare namespace CreateTurnSessionsRequest {
     export interface Raw {
         input?: TurnInputItem.Raw[] | null;
-        previous_turn_id?: (PreviousTurnIdInput.Raw | null | undefined) | null;
+        previous_turn_id?: PreviousTurnIdInput.Raw | null;
     }
 }

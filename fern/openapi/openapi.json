@@ -194,6 +194,86 @@
         ],
         "description": "Agent Definition"
       },
+      "AlibabaModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "alibaba",
+            "enum": [
+              "alibaba"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "alibaba"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
+        ],
+        "type": "object"
+      },
+      "AnthropicModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://api.anthropic.com/v1",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "anthropic",
+            "enum": [
+              "anthropic"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "anthropic"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
+        ],
+        "type": "object"
+      },
       "ApprovalAllow": {
         "properties": {
           "status": {
@@ -254,28 +334,6 @@
         },
         "type": "object"
       },
-      "AuthMeResponse": {
-        "properties": {
-          "role": {
-            "$ref": "#/components/schemas/AuthRole"
-          },
-          "user_ref": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "user_ref",
-          "role"
-        ],
-        "type": "object"
-      },
-      "AuthRole": {
-        "enum": [
-          "admin",
-          "user"
-        ],
-        "type": "string"
-      },
       "BaseMCPAuthRequiredEvent": {
         "properties": {
           "created_at": {
@@ -314,44 +372,6 @@
         "required": [
           "thread_id",
           "title"
-        ],
-        "type": "object"
-      },
-      "CallerSuppliedModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "description": "Base URL of the provider's API.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "enum": [
-              "alibaba",
-              "custom"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type",
-          "base_url",
-          "name"
         ],
         "type": "object"
       },
@@ -461,8 +481,8 @@
               "fireworks",
               "zai",
               "moonshot",
-              "together",
-              "alibaba"
+              "alibaba",
+              "together"
             ],
             "type": "string"
           }
@@ -738,6 +758,43 @@
         },
         "type": "object"
       },
+      "CustomModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "description": "Base URL of the provider's API.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "type": {
+            "enum": [
+              "custom"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type",
+          "name",
+          "base_url"
+        ],
+        "type": "object"
+      },
       "DaytonaSandboxProvider": {
         "additionalProperties": false,
         "properties": {
@@ -861,6 +918,46 @@
         ],
         "type": "string"
       },
+      "FireworksModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://api.fireworks.ai/inference/v1",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "fireworks",
+            "enum": [
+              "fireworks"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "fireworks"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
+        ],
+        "type": "object"
+      },
       "GenerativeUIConfig": {
         "default": {
           "enabled": true
@@ -900,6 +997,18 @@
                 ],
                 "type": "object"
               },
+              "settings": {
+                "properties": {
+                  "enabled": {
+                    "description": "Whether the settings UI/API is enabled.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "type": "object"
+              },
               "skill": {
                 "properties": {
                   "enabled": {
@@ -915,7 +1024,8 @@
             },
             "required": [
               "sandbox",
-              "skill"
+              "skill",
+              "settings"
             ],
             "type": "object"
           }
@@ -1022,6 +1132,46 @@
         },
         "required": [
           "data"
+        ],
+        "type": "object"
+      },
+      "GoogleGeminiModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://generativelanguage.googleapis.com/v1beta",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "google-gemini",
+            "enum": [
+              "google-gemini"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "google-gemini"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
         ],
         "type": "object"
       },
@@ -1867,8 +2017,7 @@
           },
           "reasoning_efforts": {
             "items": {
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/components/schemas/ReasoningEffort"
             },
             "minItems": 1,
             "type": "array"
@@ -1877,12 +2026,47 @@
         "type": "object"
       },
       "ModelProvider": {
-        "anyOf": [
+        "discriminator": {
+          "mapping": {
+            "alibaba": "#/components/schemas/AlibabaModelProvider",
+            "anthropic": "#/components/schemas/AnthropicModelProvider",
+            "custom": "#/components/schemas/CustomModelProvider",
+            "fireworks": "#/components/schemas/FireworksModelProvider",
+            "google-gemini": "#/components/schemas/GoogleGeminiModelProvider",
+            "moonshot": "#/components/schemas/MoonshotModelProvider",
+            "openai": "#/components/schemas/OpenAIModelProvider",
+            "together": "#/components/schemas/TogetherAIModelProvider",
+            "zai": "#/components/schemas/ZaiModelProvider"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
           {
-            "$ref": "#/components/schemas/WellKnownModelProvider"
+            "$ref": "#/components/schemas/OpenAIModelProvider"
           },
           {
-            "$ref": "#/components/schemas/CallerSuppliedModelProvider"
+            "$ref": "#/components/schemas/AnthropicModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/GoogleGeminiModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/FireworksModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/ZaiModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/MoonshotModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/TogetherAIModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/AlibabaModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/CustomModelProvider"
           }
         ]
       },
@@ -1899,6 +2083,86 @@
         ],
         "type": "object"
       },
+      "MoonshotModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://api.moonshot.ai/v1",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "moonshot",
+            "enum": [
+              "moonshot"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "moonshot"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
+        ],
+        "type": "object"
+      },
+      "OpenAIModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://api.openai.com/v1",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "openai",
+            "enum": [
+              "openai"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "openai"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
+        ],
+        "type": "object"
+      },
       "PreviousTurnIdInput": {
         "anyOf": [
           {
@@ -1908,15 +2172,18 @@
             "type": "string"
           },
           {
-            "minLength": 1,
+            "enum": [
+              "none"
+            ],
             "type": "string"
           },
           {
-            "type": "null"
+            "minLength": 1,
+            "type": "string"
           }
         ],
         "default": "auto",
-        "description": "Defaults to 'auto' (chain to session last turn). Use 'null' for the session's first turn."
+        "description": "Defaults to 'auto' (chain to session last turn). Use 'none' for a new root turn."
       },
       "PutAgentResponse": {
         "properties": {
@@ -1988,6 +2255,18 @@
             "type": "object"
           }
         ]
+      },
+      "ReasoningEffort": {
+        "enum": [
+          "none",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "type": "string"
       },
       "RequestErrorResponse": {
         "properties": {
@@ -2301,6 +2580,9 @@
           "created_at": {
             "type": "string"
           },
+          "created_by": {
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
@@ -2318,6 +2600,7 @@
           "id",
           "agent",
           "title",
+          "created_by",
           "created_at",
           "updated_at"
         ],
@@ -2673,6 +2956,46 @@
         "required": [
           "status",
           "error"
+        ],
+        "type": "object"
+      },
+      "TogetherAIModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "default": "https://api.together.xyz/v1",
+            "description": "Override of the provider's default API base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "default": "together",
+            "enum": [
+              "together"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "together"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type"
         ],
         "type": "object"
       },
@@ -3408,14 +3731,15 @@
         ],
         "type": "object"
       },
-      "WellKnownModelProvider": {
+      "ZaiModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
             "$ref": "#/components/schemas/ModelProviderAuth"
           },
           "base_url": {
-            "description": "Optional override of the provider's default API base URL.",
+            "default": "https://api.z.ai/api/paas/v4",
+            "description": "Override of the provider's default API base URL.",
             "format": "uri",
             "type": "string"
           },
@@ -3427,17 +3751,15 @@
             "type": "array"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "default": "zai",
+            "enum": [
+              "zai"
+            ],
+            "type": "string"
           },
           "type": {
             "enum": [
-              "openai",
-              "anthropic",
-              "google-gemini",
-              "fireworks",
-              "zai",
-              "moonshot",
-              "together"
+              "zai"
             ],
             "type": "string"
           }
@@ -3445,8 +3767,7 @@
         "required": [
           "auth",
           "models",
-          "type",
-          "name"
+          "type"
         ],
         "type": "object"
       }
@@ -3726,7 +4047,7 @@
         ],
         "responses": {
           "302": {
-            "description": "Redirect back into the app on success, or to /login?error=... on failure."
+            "description": "Redirect back into the app on success, or to /?error=login_failed on failure."
           }
         },
         "summary": "Login callback",
@@ -3779,41 +4100,6 @@
           "auth"
         ],
         "x-fern-sdk-method-name": "logout"
-      }
-    },
-    "/api/v1/auth/me": {
-      "get": {
-        "description": "Returns the fixed local identity in local/single-binary mode; otherwise the caller's verified identity.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthMeResponse"
-                }
-              }
-            },
-            "description": "The caller's identity."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Not authenticated."
-          }
-        },
-        "summary": "Get the current identity",
-        "tags": [
-          "Auth"
-        ],
-        "x-fern-sdk-group-name": [
-          "auth"
-        ],
-        "x-fern-sdk-method-name": "me"
       }
     },
     "/api/v1/capabilities": {
@@ -4115,7 +4401,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "description": "List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent; optional `created_by` filters by creator identity. Pass `page_token` to fetch the next page, keeping the other query params constant.",
         "parameters": [
           {
             "description": "Page size. Defaults to 10, max 100.",
@@ -4178,6 +4464,17 @@
             "required": false,
             "schema": {
               "description": "When set, only sessions bound to this agent id are returned.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "When set, only sessions created by this identity are returned.",
+            "in": "query",
+            "name": "created_by",
+            "required": false,
+            "schema": {
+              "description": "When set, only sessions created by this identity are returned.",
               "minLength": 1,
               "type": "string"
             }
@@ -4692,7 +4989,7 @@
         "x-fern-sdk-method-name": "list_turns"
       },
       "post": {
-        "description": "Create a turn within a session and execute it.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`).",
+        "description": "Create a turn within a session and execute it.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4853,6 +5150,138 @@
           "sessions"
         ],
         "x-fern-sdk-method-name": "get_turn"
+      }
+    },
+    "/api/v1/sessions/{session_id}/turns/{turn_id}/download": {
+      "get": {
+        "description": "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Turn identifier.",
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "description": "Turn identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Absolute path of the file inside the sandbox, as listed in the assistant's `sandbox_artifacts` block.",
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "description": "Absolute path of the file inside the sandbox, as listed in the assistant's `sandbox_artifacts` block.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "File contents."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid path, or the path is a directory."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox belongs to another tenant."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session, turn, or file not found."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox no longer exists."
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Turn has no sandbox, or no sandbox provider is configured."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "File exceeds the maximum download size."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox infrastructure error."
+          }
+        },
+        "summary": "Download a file from the turn sandbox",
+        "tags": [
+          "Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "download_sandbox_file"
       }
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/events": {
@@ -5298,7 +5727,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "put": {
-        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included).",
+        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Every type but `custom` is named after itself, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named, and numbered, by the caller.",
         "requestBody": {
           "content": {
             "application/json": {

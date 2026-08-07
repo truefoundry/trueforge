@@ -34,11 +34,8 @@ import { TurnHandle } from './TurnHandle';
 
 /** How many recent ancestors SessionHandle persists on each turn. Store-local. */
 const MAX_TURN_ANCESTORS = 20;
-function resolvePreviousTurnId(
-  requested: string | null | undefined,
-  lastTurnId: string | null | undefined,
-): string | null {
-  if (requested === null) {
+function resolvePreviousTurnId(requested: string | undefined, lastTurnId: string | null | undefined): string | null {
+  if (requested === 'none') {
     return null;
   }
   if (requested === undefined || requested === 'auto') {
@@ -160,15 +157,15 @@ export class SessionHandle<
    * so resources acquired here (e.g. a sandbox VM) never outlive a failed run.
    * On success, ownership of resolver.close() passes to TurnHandle.stream().
    *
-   * `previous_turn_id`: omitted/`'auto'` → session tip; `null` → new root
+   * `previous_turn_id`: omitted/`'auto'` → session tip; `'none'` → new root
    * (no parent, even on a non-empty session); string → fork from that turn
    * (must exist). Concurrent `'auto'` forks both succeed.
    */
   async createTurn(input: {
     turn_id: string;
     input?: TurnInputItem[] | undefined;
-    /** 'auto'/omitted → session.last_turn_id; null → new root; id → fork from that turn. */
-    previous_turn_id?: string | null | undefined;
+    /** 'auto'/omitted → session.last_turn_id; 'none' → new root; id → fork from that turn. */
+    previous_turn_id?: string | undefined;
     signal: AbortSignal;
     resolver: ITurnResourceResolver<TTurnCustom>;
     /** Value = stored as-is. Fn = merge over previous turn's custom. Omitted = undefined. */

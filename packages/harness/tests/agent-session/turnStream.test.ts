@@ -23,6 +23,7 @@ describe('TurnHandle.stream()', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      created_by: 'user-1',
       agent: {
         type: 'value',
         agent_spec: makeAgentSpec({
@@ -40,7 +41,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver(),
     });
@@ -82,7 +83,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: 'turn-usage',
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
@@ -117,7 +118,7 @@ describe('TurnHandle.stream()', () => {
     const turn1 = await session.createTurn({
       turn_id: 'turn-isolation-1',
       input: [{ type: EventType.USER_MESSAGE, content: 'turn one' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
@@ -182,7 +183,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: 'turn-cache-read',
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
@@ -208,7 +209,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver(),
     });
@@ -226,7 +227,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver(),
     });
@@ -250,7 +251,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         close: () => {
@@ -281,7 +282,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: controller.signal,
       resolver: makeTestResolver(),
     });
@@ -307,7 +308,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: controller.signal,
       resolver: makeTestResolver(),
     });
@@ -335,7 +336,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: controller.signal,
       resolver: makeTestResolver(),
     });
@@ -363,7 +364,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         close: () => {
@@ -402,7 +403,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver,
     });
@@ -475,6 +476,7 @@ describe('TurnResourceResolver caches', () => {
     const session = await sessions.create({
       tenant_id: 't',
       session_id: 's',
+      created_by: 'user-1',
       agent: {
         type: 'value',
         agent_spec: makeAgentSpec({
@@ -487,7 +489,7 @@ describe('TurnResourceResolver caches', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver,
     });

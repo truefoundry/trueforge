@@ -4,7 +4,7 @@ describe('toDaytonaSandboxProviderInput', () => {
   it('maps a Daytona wire/DB manifest to apiKey plus provider settings', () => {
     const manifest: SandboxProviderManifest = {
       type: 'daytona',
-      snapshot_name: 'truefoundry-platform-dev-2d5edee',
+      snapshot_name: 'trueforge-local',
       auth: { api_key: 'dtn-test' },
       exec_timeout_ms: 60_000,
       auto_stop_interval_in_minutes: 5,
@@ -14,7 +14,7 @@ describe('toDaytonaSandboxProviderInput', () => {
 
     expect(toDaytonaSandboxProviderInput(manifest)).toEqual({
       apiKey: 'dtn-test',
-      snapshotName: 'truefoundry-platform-dev-2d5edee',
+      snapshotName: 'trueforge-local',
       timeoutMs: 60_000,
       autoStopIntervalInMinutes: 5,
       autoArchiveIntervalInMinutes: 60,

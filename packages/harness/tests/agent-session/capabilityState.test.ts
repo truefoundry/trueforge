@@ -62,6 +62,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      created_by: 'user-1',
       agent: { type: 'value', agent_spec: makeAgentSpec() },
     });
 
@@ -73,7 +74,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         extraCapabilities: [
@@ -133,6 +134,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      created_by: 'user-1',
       agent: { type: 'value', agent_spec: makeAgentSpec() },
     });
     const planV1: JsonValue = {
@@ -142,7 +144,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         extraCapabilities: [makePlanShapedCapability({ enabled: true, emitState: planV1 })],
@@ -225,12 +227,13 @@ describe('capability_state (tfy.plan fixture)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      created_by: 'user-1',
       agent: { type: 'value', agent_spec: makeAgentSpec() },
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'x' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({ extraCapabilities: [undefinedStateCapability] }),
     });

@@ -168,19 +168,17 @@ function toHarnessInput(input: TurnInputItem[]): Harness.TurnInputItem[] {
   );
 }
 
-/**
- * The runtime marks a chain root with the gateway's `"none"` sentinel; Harness
- * spells that `null` and would otherwise look `"none"` up as a turn id (404).
- */
-function toHarnessPreviousTurnId(previousTurnId: string): Harness.PreviousTurnIdInput | null {
-  return previousTurnId === 'none' ? null : previousTurnId;
-}
-
 export function createHarnessChatServer(options: CreateHarnessServerOptions = {}): AgentChatServer<HarnessAgentSpec> {
   const client =
     options.baseUrl === undefined && options.fetch === undefined ? harnessClient : createHarnessClient(options);
-
   return {
+    // The sandbox is resolved server-side from the turn, so `sandboxId` is accepted for parity
+    // with hosts that address sandboxes directly and deliberately not forwarded.
+    async downloadSandboxFile({ sessionId, turnId, path }) {
+      const response = await client.sessions.downloadSandboxFile(sessionId, turnId, { path });
+      return response.blob();
+    },
+
     async createSession(request) {
       if (!request.agentSpec) {
         throw new Error('Harness sessions require an agentSpec');
@@ -223,7 +221,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
     }) {
       const stream = await client.sessions.createTurnStream(sessionId, {
         ...(input === undefined ? {} : { input: toHarnessInput(input) }),
-        ...(previousTurnId === undefined ? {} : { previousTurnId: toHarnessPreviousTurnId(previousTurnId) }),
+        ...(previousTurnId === undefined ? {} : { previousTurnId }),
       });
       let fallbackSequence = 0;
       for await (const item of stream.withMetadata()) {

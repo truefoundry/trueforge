@@ -107,10 +107,10 @@ export const CreateTurnRequestSchema = z
   .object({
     input: z.array(TurnInputItemSchema).optional(),
     previous_turn_id: z
-      .union([z.literal('auto'), z.string().min(1), z.null()])
+      .union([z.literal('auto'), z.literal('none'), z.string().min(1)])
       .optional()
       .default('auto')
-      .describe(`Defaults to 'auto' (chain to session last turn). Use 'null' for the session's first turn.`)
+      .describe(`Defaults to 'auto' (chain to session last turn). Use 'none' for a new root turn.`)
       .openapi('PreviousTurnIdInput'),
     stream: z
       .boolean()
