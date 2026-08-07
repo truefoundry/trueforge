@@ -28,10 +28,12 @@ export const OAuthCallbackSuccessSchema = z.object({
 export const MeResponseSchema = z
   .object({
     type: z
-      .enum(['default', 'passport'])
+      .enum(['default', 'oidc-connected'])
       .describe(
-        'Session kind: `default` when no OIDC id_token cookie is present; `passport` after a successful login.',
+        'Session kind: `default` when no valid OIDC session; `oidc-connected` after a successful browser login.',
       ),
+    email: z.string().describe('User email from the ID token when connected; `"default"` when anonymous.'),
+    role: z.string().describe('Caller role.'),
   })
   .openapi('MeResponse');
 

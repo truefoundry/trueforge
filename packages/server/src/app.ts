@@ -18,7 +18,7 @@ import { createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
-import { createRequireAuthMiddleware } from './auth/middleware';
+import { authMiddleware, configureAuth } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -51,6 +51,14 @@ function routeNotFound(c: Context) {
   return c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404);
 }
 
+/** Sub-app shell: `.use('*', authMiddleware)` then child routes — same as gateway routers. */
+function withAuth(router: OpenAPIHono): OpenAPIHono {
+  const shell = new OpenAPIHono();
+  shell.use('*', authMiddleware);
+  shell.route('/', router);
+  return shell;
+}
+
 export interface ServerDeps {
   modelCatalog: ModelCatalog;
   mcpCatalog: McpCatalog;
@@ -77,12 +85,28 @@ export interface ServerDeps {
 }
 
 export function createServerApp(deps: ServerDeps) {
+  configureAuth(deps.oidcClient);
   const app = new OpenAPIHono();
 
   app.get('/healthz', c => c.text('OK!'));
 
-  // Public routes mounted above the auth middleware (Hono only applies `use` to later routes).
-  app.route('/api/v1', createAuthRouter({ oidcClient: deps.oidcClient, logger: deps.logger }));
+  app.route('/api/v1/auth', createAuthRouter({ oidcClient: deps.oidcClient, logger: deps.logger }));
+  app.route(
+    '/api/v1/capabilities',
+    withAuth(createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore })),
+  );
+  app.route('/api/v1/models', withAuth(createModelsRouter(deps.modelProviderStore)));
+  app.route(
+    '/api/v1/mcp-servers',
+    withAuth(
+      createMcpServersRouter({
+        mcpServerStore: deps.mcpServerStore,
+        tokenStore: deps.tokenStore,
+        logger: deps.logger,
+      }),
+    ),
+  );
+  // Shared OAuth callback — path must match the server-owned MCP_OAUTH_CALLBACK_PATH.
   app.route(
     '/api/v1/mcp-servers/oauth',
     createMcpOAuthRouter({
@@ -91,78 +115,74 @@ export function createServerApp(deps: ServerDeps) {
       logger: deps.logger,
     }),
   );
-  app.get('/api/v1/docs', swaggerUI({ url: '/api/v1/openapi.json' }));
-  app.get('/api/v1/openapi.json', c => c.json(buildOpenApiDocument(app)));
-
-  app.use('/api/v1/*', createRequireAuthMiddleware({ oidcClient: deps.oidcClient }));
-
-  app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore }));
-  app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
-  app.route(
-    '/api/v1/mcp-servers',
-    createMcpServersRouter({
-      mcpServerStore: deps.mcpServerStore,
-      tokenStore: deps.tokenStore,
-      logger: deps.logger,
-    }),
-  );
-  app.route('/api/v1/skills', createAvailableSkillsRouter(deps.skillStore));
+  app.route('/api/v1/skills', withAuth(createAvailableSkillsRouter(deps.skillStore)));
   app.route(
     '/api/v1/agents',
-    createAgentsRouter({
-      agentStore: deps.agentStore,
-      modelProviderStore: deps.modelProviderStore,
-      mcpServerStore: deps.mcpServerStore,
-      skillStore: deps.skillStore,
-      sandboxProviderStore: deps.sandboxProviderStore,
-    }),
+    withAuth(
+      createAgentsRouter({
+        agentStore: deps.agentStore,
+        modelProviderStore: deps.modelProviderStore,
+        mcpServerStore: deps.mcpServerStore,
+        skillStore: deps.skillStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
+      }),
+    ),
   );
   app.route(
     '/api/v1/settings',
-    createSettingsRouter({
-      modelCatalog: deps.modelCatalog,
-      modelProviderStore: deps.modelProviderStore,
-      mcpCatalog: deps.mcpCatalog,
-      mcpServerStore: deps.mcpServerStore,
-      tokenStore: deps.tokenStore,
-      skillCatalog: deps.skillCatalog,
-      skillStore: deps.skillStore,
-      sandboxCatalog: deps.sandboxCatalog,
-      sandboxProviderStore: deps.sandboxProviderStore,
-      logger: deps.logger,
-    }),
+    withAuth(
+      createSettingsRouter({
+        modelCatalog: deps.modelCatalog,
+        modelProviderStore: deps.modelProviderStore,
+        mcpCatalog: deps.mcpCatalog,
+        mcpServerStore: deps.mcpServerStore,
+        tokenStore: deps.tokenStore,
+        skillCatalog: deps.skillCatalog,
+        skillStore: deps.skillStore,
+        sandboxCatalog: deps.sandboxCatalog,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        logger: deps.logger,
+      }),
+    ),
   );
   app.route(
     '/api/v1/sessions',
-    createSessionsRouter({
-      sessions: deps.sessions,
-      sessionStore: deps.sessionStore,
-      activeTurns: deps.activeTurns,
-      modelProviderStore: deps.modelProviderStore,
-      mcpServerStore: deps.mcpServerStore,
-      skillStore: deps.skillStore,
-      agentStore: deps.agentStore,
-      sandboxProviderStore: deps.sandboxProviderStore,
-      redis: deps.redis,
-      requestReplyRouter: deps.requestReplyRouter,
-    }),
+    withAuth(
+      createSessionsRouter({
+        sessions: deps.sessions,
+        sessionStore: deps.sessionStore,
+        activeTurns: deps.activeTurns,
+        modelProviderStore: deps.modelProviderStore,
+        mcpServerStore: deps.mcpServerStore,
+        skillStore: deps.skillStore,
+        agentStore: deps.agentStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        redis: deps.redis,
+        requestReplyRouter: deps.requestReplyRouter,
+      }),
+    ),
   );
   app.route(
     '/api/v1/sessions',
-    createTurnsRouter({
-      sessions: deps.sessions,
-      sessionStore: deps.sessionStore,
-      activeTurns: deps.activeTurns,
-      modelProviderStore: deps.modelProviderStore,
-      mcpServerStore: deps.mcpServerStore,
-      tokenStore: deps.tokenStore,
-      skillStore: deps.skillStore,
-      agentStore: deps.agentStore,
-      eventSubscriptions: deps.eventSubscriptions,
-      sandboxProviderStore: deps.sandboxProviderStore,
-      logger: deps.logger,
-    }),
+    withAuth(
+      createTurnsRouter({
+        sessions: deps.sessions,
+        sessionStore: deps.sessionStore,
+        activeTurns: deps.activeTurns,
+        modelProviderStore: deps.modelProviderStore,
+        mcpServerStore: deps.mcpServerStore,
+        tokenStore: deps.tokenStore,
+        skillStore: deps.skillStore,
+        agentStore: deps.agentStore,
+        eventSubscriptions: deps.eventSubscriptions,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        logger: deps.logger,
+      }),
+    ),
   );
+
+  app.get('/api/v1/docs', swaggerUI({ url: '/api/v1/openapi.json' }));
+  app.get('/api/v1/openapi.json', c => c.json(buildOpenApiDocument(app)));
 
   app.notFound(routeNotFound);
 

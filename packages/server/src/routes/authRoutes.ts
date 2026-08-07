@@ -1,6 +1,5 @@
 /**
- * Auth route definitions. Mounted under `/api/v1`: login/callback/logout live
- * under `/auth/*` (see createAuthRouter), while `me` is `/me`.
+ * Auth route definitions (mounted at /api/v1/auth). Handlers in apis/auth.ts.
  *
  * `login`/`callback` are browser-redirect targets, never called by SDK
  * consumers — both carry `x-fern-ignore`, the same convention used for the
@@ -56,21 +55,20 @@ export const authLogoutRoute = createRoute({
   },
 });
 
-/** Absolute path is `/api/v1/me` when createAuthRouter is mounted at `/api/v1`. */
 export const meRoute = createRoute({
   method: 'get',
   path: '/me',
   tags: [AUTH_TAG],
-  summary: 'Current session type',
+  summary: 'Current session',
   description:
-    'Returns whether the browser has an OIDC session cookie. Does not require authentication — ' +
-    'anonymous callers get `type: "default"`.',
+    'Returns the caller identity when a valid OIDC session cookie is present, otherwise default/anonymous fields. ' +
+    'Never requires authentication.',
   'x-fern-sdk-group-name': ['auth'],
   'x-fern-sdk-method-name': 'me',
   responses: {
     200: {
       content: { 'application/json': { schema: MeResponseSchema } },
-      description: 'Session type for the current request.',
+      description: 'Session type and identity for the current request.',
     },
   },
 });

@@ -1,22 +1,28 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { getCookie } from 'hono/cookie';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
 import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCookie } from '../auth/cookies';
+import { DEFAULT_AUTH_USER, resolveAuthUser } from '../auth/middleware';
 import { buildLoginAuthorization, exchangeAuthorizationCode, safeReturnTo } from '../auth/oidc';
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
+import type { MeResponse } from '../schemas/auth';
 
 const LOGIN_ERROR_PATH = '/?error=login_failed';
 
+const DEFAULT_ME: MeResponse = {
+  type: 'default',
+  email: DEFAULT_AUTH_USER.email,
+  role: DEFAULT_AUTH_USER.role,
+};
+
 /**
- * Public auth surfaces: `/auth/*` (login/callback/logout) and `/me`.
- * Mount at `/api/v1` so paths resolve to `/api/v1/auth/...` and `/api/v1/me`.
+ * Auth surfaces mounted at /api/v1/auth: login, callback, logout, me.
+ * Public — no auth middleware on this router.
  */
 export function createAuthRouter(params: { oidcClient: Configuration | undefined; logger: Logger }) {
   const router = new OpenAPIHono();
-  const auth = new OpenAPIHono();
 
-  auth.openapi(authLoginRoute, async c => {
+  router.openapi(authLoginRoute, async c => {
     // TODO: remove this checks once the middleware is implemented
     if (!params.oidcClient) {
       return c.redirect('/', 302);
@@ -37,7 +43,7 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
     }
   });
 
-  auth.openapi(oAuthCallbackRoute, async c => {
+  router.openapi(oAuthCallbackRoute, async c => {
     if (!params.oidcClient) {
       return c.redirect('/', 302);
     }
@@ -69,20 +75,20 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
     }
   });
 
-  auth.openapi(authLogoutRoute, c => {
+  router.openapi(authLogoutRoute, c => {
     // Cookie deletion is idempotent, so logout also succeeds when no cookie exists.
     clearAuthCookie({ context: c, name: ID_TOKEN_COOKIE });
     return c.body(null, 204);
   });
 
-  router.route('/auth', auth);
-
-  router.openapi(meRoute, c => {
-    const token = getCookie(c, ID_TOKEN_COOKIE);
-    if (token) {
-      return c.json({ type: 'passport' }, 200);
+  // Public — never 401. Soft-resolves identity when a valid id_token cookie is present.
+  router.openapi(meRoute, async c => {
+    const user = await resolveAuthUser(c);
+    if (!user) {
+      return c.json(DEFAULT_ME, 200);
     }
-    return c.json({ type: 'default' }, 200);
+    const body: MeResponse = { type: 'oidc-connected', email: user.email, role: user.role };
+    return c.json(body, 200);
   });
 
   return router;

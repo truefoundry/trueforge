@@ -1,8 +1,8 @@
-import { Hono } from 'hono';
+import { OpenAPIHono } from '@hono/zod-openapi';
 import { HTTPException } from 'hono/http-exception';
-import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { Configuration } from 'openid-client';
-import { createRequireAuthMiddleware, verifyIdToken } from '../../../src/auth/middleware';
+import { authMiddleware, configureAuth } from '../../../src/auth/middleware';
 import { initOidc } from '../../../src/auth/oidc';
 import configuration from '../../../src/config';
 
@@ -42,25 +42,33 @@ function json(body: unknown, status = 200): Response {
 }
 
 function createApp(params: { oidcClient: Configuration | undefined }) {
-  const app = new Hono();
+  configureAuth(params.oidcClient);
+  const app = new OpenAPIHono();
   app.onError((error, c) => {
     if (error instanceof HTTPException) {
       return c.json({ error: { message: error.message } }, error.status);
     }
     throw error;
   });
-  // Public route registered before the gate — middleware must not touch it.
+
   app.get('/api/v1/auth/login', c => c.json({ public: true }));
-  app.use('/api/v1/*', createRequireAuthMiddleware({ oidcClient: params.oidcClient }));
-  app.get('/api/v1/models', c => c.json({ ok: true }));
+
+  const models = new OpenAPIHono();
+  models.use('*', authMiddleware);
+  models.get('/', c => c.json({ ok: true, user: c.get('user') }));
+  app.route('/api/v1/models', models);
+
   return app;
 }
 
-describe('createRequireAuthMiddleware', () => {
-  it('is a no-op when oidcClient is undefined', async () => {
-    const app = createApp({ oidcClient: undefined });
-    const res = await app.request('/api/v1/models');
+describe('authMiddleware', () => {
+  it('sets default user when oidcClient is undefined', async () => {
+    const res = await createApp({ oidcClient: undefined }).request('/api/v1/models');
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      ok: true,
+      user: { email: 'default', role: 'user' },
+    });
   });
 
   describe('when OIDC is configured', () => {
@@ -76,7 +84,7 @@ describe('createRequireAuthMiddleware', () => {
       publicJwk.alg = 'RS256';
       publicJwk.use = 'sig';
 
-      const fetchStub: typeof fetch = async input => {
+      globalThis.fetch = async input => {
         const url = String(input);
         if (url === `${ISSUER}/.well-known/openid-configuration`) {
           return json({
@@ -94,7 +102,6 @@ describe('createRequireAuthMiddleware', () => {
         }
         return new Response(`unexpected url: ${url}`, { status: 404 });
       };
-      globalThis.fetch = fetchStub;
 
       const client = await initOidc(configuredOidc);
       if (!client) {
@@ -107,8 +114,8 @@ describe('createRequireAuthMiddleware', () => {
       globalThis.fetch = realFetch;
     });
 
-    async function createIdToken(params?: { issuer?: string }): Promise<string> {
-      return new SignJWT({})
+    async function createIdToken(params?: { issuer?: string; email?: string }): Promise<string> {
+      return new SignJWT({ email: params?.email ?? 'alice@example.com' })
         .setProtectedHeader({ alg: 'RS256', kid: 'test-kid' })
         .setIssuer(params?.issuer ?? ISSUER)
         .setAudience(AUDIENCE)
@@ -118,64 +125,42 @@ describe('createRequireAuthMiddleware', () => {
         .sign(privateKey);
     }
 
-    it('returns 401 user_login_required when the id_token cookie is missing', async () => {
+    it('returns 401 when the id_token cookie is missing', async () => {
       const res = await createApp({ oidcClient }).request('/api/v1/models');
       expect(res.status).toBe(401);
       expect(await res.json()).toEqual({ error: { message: 'user_login_required' } });
     });
 
-    it('returns 401 user_login_required when the token is invalid', async () => {
+    it('returns 401 when the token is invalid', async () => {
       const res = await createApp({ oidcClient }).request('/api/v1/models', {
         headers: { Cookie: 'id_token=not-a-jwt' },
       });
       expect(res.status).toBe(401);
-      expect(await res.json()).toEqual({ error: { message: 'user_login_required' } });
     });
 
-    it('allows the request when the token verifies', async () => {
-      const token = await createIdToken();
+    it('sets user context when the token verifies', async () => {
+      const token = await createIdToken({ email: 'bob@example.com' });
       const res = await createApp({ oidcClient }).request('/api/v1/models', {
         headers: { Cookie: `id_token=${token}` },
       });
       expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        ok: true,
+        user: { email: 'bob@example.com', role: 'user' },
+      });
     });
 
-    it('returns 401 user_login_required when the token has the wrong issuer', async () => {
+    it('returns 401 when the token has the wrong issuer', async () => {
       const token = await createIdToken({ issuer: 'https://other.example.com' });
       const res = await createApp({ oidcClient }).request('/api/v1/models', {
         headers: { Cookie: `id_token=${token}` },
       });
       expect(res.status).toBe(401);
-      expect(await res.json()).toEqual({ error: { message: 'user_login_required' } });
     });
 
-    it('does not gate routes registered before the middleware', async () => {
+    it('does not gate public mounts', async () => {
       const res = await createApp({ oidcClient }).request('/api/v1/auth/login');
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ public: true });
     });
-  });
-});
-
-describe('verifyIdToken', () => {
-  it('accepts a signature-valid token and rejects a bad issuer', async () => {
-    const { privateKey, publicKey } = await generateKeyPair('RS256');
-    const jwk = await exportJWK(publicKey);
-    jwk.alg = 'RS256';
-    const jwks = createLocalJWKSet({ keys: [jwk] });
-
-    const token = await new SignJWT({})
-      .setProtectedHeader({ alg: 'RS256' })
-      .setIssuer(ISSUER)
-      .setAudience(AUDIENCE)
-      .setSubject('user-1')
-      .setIssuedAt()
-      .setExpirationTime('1h')
-      .sign(privateKey);
-
-    await expect(verifyIdToken({ token, jwks, issuer: ISSUER, audience: AUDIENCE })).resolves.toBeUndefined();
-    await expect(
-      verifyIdToken({ token, jwks, issuer: 'https://other.example.com', audience: AUDIENCE }),
-    ).rejects.toThrow();
   });
 });

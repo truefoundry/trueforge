@@ -1,61 +1,98 @@
-import type { MiddlewareHandler } from 'hono';
+import type { Context, MiddlewareHandler } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import type { Configuration } from 'openid-client';
 import { ID_TOKEN_COOKIE } from './cookies';
 
-/**
- * Session auth failure message. Browser clients redirect to OIDC login only when
- * a 401 body carries this exact `error.message` (not other 401s, e.g. MCP tools).
- */
+/** Exact message the browser client uses to trigger OIDC login redirect. */
 export const USER_LOGIN_REQUIRED_MESSAGE = 'user_login_required';
 
-/** Signature / exp / iss / aud checks for the OIDC id_token cookie. */
-export async function verifyIdToken(params: {
-  token: string;
+export interface AuthUser {
+  email: string;
+  role: string;
+}
+
+/** Used when OIDC is not configured (standalone / no IdP). */
+export const DEFAULT_AUTH_USER: AuthUser = {
+  email: 'default',
+  role: 'user',
+};
+
+declare module 'hono' {
+  interface ContextVariableMap {
+    user?: AuthUser;
+  }
+}
+
+type OidcVerify = {
   jwks: JWTVerifyGetKey;
   issuer: string;
   audience: string;
-}): Promise<void> {
-  await jwtVerify(params.token, params.jwks, {
-    issuer: params.issuer,
-    audience: params.audience,
-  });
-}
+};
 
-/**
- * When OIDC is configured, require a cryptographically valid `id_token` cookie.
- * Register this only on protected routes (public routes are mounted above it).
- * No-op when `oidcClient` is undefined (standalone / no IdP).
- */
-export function createRequireAuthMiddleware(params: { oidcClient: Configuration | undefined }): MiddlewareHandler {
-  if (!params.oidcClient) {
-    return async (_c, next) => next();
+/** Populated by {@link configureAuth}; null when browser login is disabled. */
+let oidcVerify: OidcVerify | null = null;
+
+/** Call once at boot with the discovered OIDC client (or `undefined`). */
+export function configureAuth(oidcClient: Configuration | undefined): void {
+  if (!oidcClient) {
+    oidcVerify = null;
+    return;
   }
 
-  const metadata = params.oidcClient.serverMetadata();
-  const jwksUri = metadata.jwks_uri;
-  if (!jwksUri) {
+  const metadata = oidcClient.serverMetadata();
+  if (!metadata.jwks_uri) {
     throw new Error('OIDC discovery did not return jwks_uri; cannot verify ID tokens');
   }
 
-  const jwks = createRemoteJWKSet(new URL(jwksUri));
-  const issuer = metadata.issuer;
-  const audience = params.oidcClient.clientMetadata().client_id;
-
-  return async (c, next) => {
-    const token = getCookie(c, ID_TOKEN_COOKIE);
-    if (!token) {
-      throw new HTTPException(401, { message: USER_LOGIN_REQUIRED_MESSAGE });
-    }
-
-    try {
-      await verifyIdToken({ token, jwks, issuer, audience });
-    } catch {
-      throw new HTTPException(401, { message: USER_LOGIN_REQUIRED_MESSAGE });
-    }
-
-    return next();
+  oidcVerify = {
+    jwks: createRemoteJWKSet(new URL(metadata.jwks_uri)),
+    issuer: metadata.issuer,
+    audience: oidcClient.clientMetadata().client_id,
   };
 }
+
+/** Soft cookie → user (missing/invalid/no OIDC → undefined). For public handlers like `/me`. */
+export async function resolveAuthUser(c: Context): Promise<AuthUser | undefined> {
+  if (!oidcVerify) {
+    return undefined;
+  }
+
+  const token = getCookie(c, ID_TOKEN_COOKIE);
+  if (!token) {
+    return undefined;
+  }
+
+  try {
+    const { payload } = await jwtVerify(token, oidcVerify.jwks, {
+      issuer: oidcVerify.issuer,
+      audience: oidcVerify.audience,
+    });
+    const emailClaim = payload['email'];
+    if (typeof emailClaim === 'string' && emailClaim !== '') {
+      return { email: emailClaim, role: 'user' };
+    }
+    if (typeof payload.sub === 'string' && payload.sub !== '') {
+      return { email: payload.sub, role: 'user' };
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Set `c.var.user` and continue, or throw 401. Without OIDC, sets {@link DEFAULT_AUTH_USER}. */
+export const authMiddleware: MiddlewareHandler = async (c, next) => {
+  if (!oidcVerify) {
+    c.set('user', DEFAULT_AUTH_USER);
+    return next();
+  }
+
+  const user = await resolveAuthUser(c);
+  if (!user) {
+    throw new HTTPException(401, { message: USER_LOGIN_REQUIRED_MESSAGE });
+  }
+  c.set('user', user);
+  return next();
+};
