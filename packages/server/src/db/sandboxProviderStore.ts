@@ -19,8 +19,8 @@ export interface UpsertSandboxProviderInput {
   manifest: SandboxProviderManifest;
 }
 
-export interface ISandboxProviderStore<_TTransaction = never> {
+export interface ISandboxProviderStore<TTransaction = never> {
   getSandboxProvider(tenantId: string): Promise<SandboxProviderRecord | undefined>;
   /** Single-row write: creates the provider or replaces the whole manifest. */
-  upsertSandboxProvider(input: UpsertSandboxProviderInput): Promise<SandboxProviderRecord>;
+  upsertSandboxProvider(input: UpsertSandboxProviderInput, transaction?: TTransaction): Promise<SandboxProviderRecord>;
 }

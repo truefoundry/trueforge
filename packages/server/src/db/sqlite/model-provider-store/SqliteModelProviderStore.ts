@@ -46,9 +46,10 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
       .executeTakeFirst();
   }
 
-  async upsertProvider(input: UpsertProviderInput): Promise<ModelProviderRecord> {
+  async upsertProvider(input: UpsertProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {
+    const db = transaction ?? this.#db;
     const timestamp = nowIso();
-    return await this.#db
+    return await db
       .insertInto('model_provider')
       .values({
         tenant_id: input.tenant_id,

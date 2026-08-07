@@ -33,9 +33,13 @@ export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transac
       .executeTakeFirst();
   }
 
-  async upsertSandboxProvider(input: UpsertSandboxProviderInput): Promise<SandboxProviderRecord> {
+  async upsertSandboxProvider(
+    input: UpsertSandboxProviderInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxProviderRecord> {
+    const db = transaction ?? this.#db;
     const timestamp = nowIso();
-    return await this.#db
+    return await db
       .insertInto('sandbox_provider')
       .values({
         tenant_id: input.tenant_id,

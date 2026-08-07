@@ -51,10 +51,11 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
     return await query.executeTakeFirst();
   }
 
-  async createAgent(input: CreateAgentInput): Promise<AgentRecord> {
+  async createAgent(input: CreateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord> {
+    const db = transaction ?? this.#db;
     const timestamp = nowIso();
     try {
-      return await this.#db
+      return await db
         .insertInto('agent')
         .values({
           id: ulid().toLowerCase(),
@@ -74,8 +75,9 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
     }
   }
 
-  async updateAgent(input: UpdateAgentInput): Promise<AgentRecord | undefined> {
-    return await this.#db
+  async updateAgent(input: UpdateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
+    const db = transaction ?? this.#db;
+    return await db
       .updateTable('agent')
       .set({
         manifest: jsonbBind(input.manifest),

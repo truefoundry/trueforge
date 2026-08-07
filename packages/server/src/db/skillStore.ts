@@ -33,9 +33,9 @@ export interface UpsertSkillInput {
   manifest: SkillManifest;
 }
 
-export interface ISkillStore<_TTransaction = never> {
+export interface ISkillStore<TTransaction = never> {
   listSkills(input: ListSkillsInput): Promise<SkillRecord[]>;
   getSkill(input: GetSkillInput): Promise<SkillRecord | undefined>;
   /** Single-row write: creates the skill or replaces the whole manifest. */
-  upsertSkill(input: UpsertSkillInput): Promise<SkillRecord>;
+  upsertSkill(input: UpsertSkillInput, transaction?: TTransaction): Promise<SkillRecord>;
 }

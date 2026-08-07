@@ -48,8 +48,9 @@ export class PostgresSkillStore implements ISkillStore<Transaction<Database>> {
     return row === undefined ? undefined : toRecord(row);
   }
 
-  async upsertSkill(input: UpsertSkillInput): Promise<SkillRecord> {
-    const row = await this.#db
+  async upsertSkill(input: UpsertSkillInput, transaction?: Transaction<Database>): Promise<SkillRecord> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .insertInto('skill')
       .values({
         tenant_id: input.tenant_id,

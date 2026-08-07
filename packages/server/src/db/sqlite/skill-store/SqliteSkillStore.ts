@@ -48,9 +48,10 @@ export class SqliteSkillStore implements ISkillStore<Transaction<Database>> {
       .executeTakeFirst();
   }
 
-  async upsertSkill(input: UpsertSkillInput): Promise<SkillRecord> {
+  async upsertSkill(input: UpsertSkillInput, transaction?: Transaction<Database>): Promise<SkillRecord> {
+    const db = transaction ?? this.#db;
     const timestamp = nowIso();
-    return await this.#db
+    return await db
       .insertInto('skill')
       .values({
         tenant_id: input.tenant_id,

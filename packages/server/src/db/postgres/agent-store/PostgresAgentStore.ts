@@ -51,9 +51,10 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
     return row === undefined ? undefined : toRecord(row);
   }
 
-  async createAgent(input: CreateAgentInput): Promise<AgentRecord> {
+  async createAgent(input: CreateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord> {
+    const db = transaction ?? this.#db;
     try {
-      const row = await this.#db
+      const row = await db
         .insertInto('agent')
         .values({
           id: ulid().toLowerCase(),
@@ -74,8 +75,9 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
     }
   }
 
-  async updateAgent(input: UpdateAgentInput): Promise<AgentRecord | undefined> {
-    const row = await this.#db
+  async updateAgent(input: UpdateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .updateTable('agent')
       .set({
         manifest: json(input.manifest),
