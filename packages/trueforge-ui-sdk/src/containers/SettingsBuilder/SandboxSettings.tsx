@@ -47,7 +47,7 @@ const SandboxSettings = () => {
         setProviders(listed);
         setCatalog(available);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load sandboxes');
+        setError(err instanceof Error ? err.message : 'Failed to load sandbox providers');
       } finally {
         if (!quiet) setLoading(false);
       }
@@ -59,10 +59,13 @@ const SandboxSettings = () => {
     void refresh();
   }, [refresh]);
 
+  // Tenant/UI-wide: only one sandbox provider may be configured at a time.
+  const hasConfiguredProvider = providers.length > 0;
   const availableEntries = useMemo(() => {
+    if (hasConfiguredProvider) return [];
     const connectedCatalogIds = new Set(providers.map(provider => provider.catalogId));
     return catalog.filter(entry => !connectedCatalogIds.has(entry.id));
-  }, [catalog, providers]);
+  }, [catalog, providers, hasConfiguredProvider]);
 
   const formInitialConfig = useMemo(
     () => (updateProvider ? configFrom(updateProvider) : createEntry ? configFrom(createEntry) : null),
@@ -70,7 +73,7 @@ const SandboxSettings = () => {
   );
 
   if (!sandboxCatalog) {
-    return <p className="text-sm text-muted-foreground">Sandbox catalog is not available.</p>;
+    return <p className="text-sm text-muted-foreground">Sandbox provider catalog is not available.</p>;
   }
 
   const runMutation = async (fn: () => Promise<void>) => {
@@ -127,13 +130,14 @@ const SandboxSettings = () => {
     ? `Update ${updateProvider.name}`
     : createEntry
       ? `Configure ${createEntry.name}`
-      : 'Configure sandbox';
+      : 'Configure sandbox provider';
 
   return (
     <>
-      <h3 className="text-xl font-semibold tracking-tight text-foreground">Sandbox</h3>
+      <h3 className="text-xl font-semibold tracking-tight text-foreground">Sandbox providers</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        A secure, isolated environment for running code, files, and shell commands.
+        Choose a provider that runs sandboxes for code, files, and shell commands. These are providers, not sandboxes
+        themselves. Only one sandbox provider can be configured for this workspace.
       </p>
 
       {error ? (
@@ -144,13 +148,13 @@ const SandboxSettings = () => {
 
       <div className="mt-4 flex-1 overflow-y-auto">
         {loading ? (
-          <p className="text-sm text-muted-foreground">Loading sandboxes…</p>
+          <p className="text-sm text-muted-foreground">Loading sandbox providers…</p>
         ) : (
           <div className="space-y-6">
             {providers.length > 0 ? (
               <section>
                 <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Connected · {providers.length}
+                  Configured · {providers.length}
                 </h4>
                 <div className="overflow-hidden rounded-xl border border-border bg-card">
                   {providers.map(provider => (
@@ -217,7 +221,11 @@ const SandboxSettings = () => {
               </h4>
               {availableEntries.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  {providers.length > 0 ? 'All catalog sandboxes are configured.' : 'No sandboxes in the catalog.'}
+                  {hasConfiguredProvider
+                    ? 'A sandbox provider is already configured. Remove it to choose a different one.'
+                    : catalog.length > 0
+                      ? 'All catalog providers are configured.'
+                      : 'No sandbox providers in the catalog.'}
                 </p>
               ) : (
                 <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -273,8 +281,8 @@ const SandboxSettings = () => {
         title={formTitle}
         description={
           isUpdate
-            ? 'Update sandbox settings. Leave API key blank to keep the existing key.'
-            : 'Managed sandbox settings. API key is never stored in the catalog.'
+            ? 'Update this sandbox provider. Leave API key blank to keep the existing key.'
+            : 'Configure this sandbox provider. API key is never stored in the catalog.'
         }
         initialConfig={formInitialConfig}
         requireApiKey={!isUpdate}

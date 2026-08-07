@@ -97,6 +97,14 @@ export type DraftCompositeSelectorProps = {
   onAttach?: () => void;
 };
 
+function SectionHeading({ label, count }: { label: string; count: number }) {
+  return (
+    <div className="text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-medium tracking-wide uppercase">
+      {label} ({count})
+    </div>
+  );
+}
+
 export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
   const { skills, connectors } = useDraftCatalog();
   const { agentSpec } = useTrueFoundryAgentSpec();
@@ -104,6 +112,9 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<AttachTab>('connectors');
   const [query, setQuery] = useState('');
+  // Section membership is snapped when the picker opens, so toggles don't jump rows mid-session.
+  const [pinnedMcpIds, setPinnedMcpIds] = useState<Set<string>>(() => new Set());
+  const [pinnedSkillIds, setPinnedSkillIds] = useState<Set<string>>(() => new Set());
   const containerRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
   const isMobile = useIsMobile();
@@ -152,6 +163,23 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     );
   }, [skills, query]);
 
+  const pinnedSelectedConnectors = useMemo(
+    () => filteredConnectors.filter(c => pinnedMcpIds.has(c.id)),
+    [filteredConnectors, pinnedMcpIds],
+  );
+  const pinnedAvailableConnectors = useMemo(
+    () => filteredConnectors.filter(c => !pinnedMcpIds.has(c.id)),
+    [filteredConnectors, pinnedMcpIds],
+  );
+  const pinnedSelectedSkills = useMemo(
+    () => filteredSkills.filter(s => pinnedSkillIds.has(s.id)),
+    [filteredSkills, pinnedSkillIds],
+  );
+  const pinnedAvailableSkills = useMemo(
+    () => filteredSkills.filter(s => !pinnedSkillIds.has(s.id)),
+    [filteredSkills, pinnedSkillIds],
+  );
+
   const toggleConnector = (connector: ConnectorState) => {
     const next = selectedMcpIds.has(connector.id)
       ? selectedMcp.filter(m => m.id !== connector.id)
@@ -164,6 +192,12 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
       ? selectedSkills.filter(s => s.id !== skill.id)
       : [...selectedSkills, { id: skill.id, name: skill.name }];
     updateAgentSpec?.({ skills: next });
+  };
+
+  const openPicker = () => {
+    setPinnedMcpIds(new Set(selectedMcp.map(m => m.id)));
+    setPinnedSkillIds(new Set(selectedSkills.map(s => s.id)));
+    setOpen(true);
   };
 
   const content = (
@@ -218,29 +252,70 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             onChange={setQuery}
             placeholder={tab === 'connectors' ? 'Search connectors...' : 'Search skills...'}
           />
-          <div className="text-muted-foreground flex items-center justify-between px-3 pb-1 text-[11px] font-medium tracking-wide uppercase">
-            <span>Available ({tab === 'connectors' ? filteredConnectors.length : filteredSkills.length})</span>
-          </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
-            {tab === 'connectors'
-              ? filteredConnectors.map(c => (
-                  <CatalogRow
-                    key={c.id}
-                    title={c.name}
-                    description={c.description}
-                    checked={selectedMcpIds.has(c.id)}
-                    onToggle={() => toggleConnector(c)}
-                  />
-                ))
-              : filteredSkills.map(s => (
-                  <CatalogRow
-                    key={s.id}
-                    title={s.name}
-                    description={s.description}
-                    checked={selectedSkillIds.has(s.id)}
-                    onToggle={() => toggleSkill(s)}
-                  />
-                ))}
+            {tab === 'connectors' ? (
+              <>
+                {pinnedSelectedConnectors.length > 0 ? (
+                  <>
+                    <SectionHeading label="Selected" count={pinnedSelectedConnectors.length} />
+                    {pinnedSelectedConnectors.map(c => (
+                      <CatalogRow
+                        key={c.id}
+                        title={c.name}
+                        description={c.description}
+                        checked={selectedMcpIds.has(c.id)}
+                        onToggle={() => toggleConnector(c)}
+                      />
+                    ))}
+                  </>
+                ) : null}
+                {pinnedAvailableConnectors.length > 0 ? (
+                  <>
+                    <SectionHeading label="Available" count={pinnedAvailableConnectors.length} />
+                    {pinnedAvailableConnectors.map(c => (
+                      <CatalogRow
+                        key={c.id}
+                        title={c.name}
+                        description={c.description}
+                        checked={selectedMcpIds.has(c.id)}
+                        onToggle={() => toggleConnector(c)}
+                      />
+                    ))}
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <>
+                {pinnedSelectedSkills.length > 0 ? (
+                  <>
+                    <SectionHeading label="Selected" count={pinnedSelectedSkills.length} />
+                    {pinnedSelectedSkills.map(s => (
+                      <CatalogRow
+                        key={s.id}
+                        title={s.name}
+                        description={s.description}
+                        checked={selectedSkillIds.has(s.id)}
+                        onToggle={() => toggleSkill(s)}
+                      />
+                    ))}
+                  </>
+                ) : null}
+                {pinnedAvailableSkills.length > 0 ? (
+                  <>
+                    <SectionHeading label="Available" count={pinnedAvailableSkills.length} />
+                    {pinnedAvailableSkills.map(s => (
+                      <CatalogRow
+                        key={s.id}
+                        title={s.name}
+                        description={s.description}
+                        checked={selectedSkillIds.has(s.id)}
+                        onToggle={() => toggleSkill(s)}
+                      />
+                    ))}
+                  </>
+                ) : null}
+              </>
+            )}
           </div>
         </>
       )}
@@ -257,7 +332,13 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-        onClick={() => setOpen(v => !v)}
+        onClick={() => {
+          if (open) {
+            setOpen(false);
+            return;
+          }
+          openPicker();
+        }}
       >
         <Icon name="plus" className="text-primary" />
       </button>

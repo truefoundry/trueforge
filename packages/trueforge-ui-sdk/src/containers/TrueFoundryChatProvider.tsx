@@ -24,12 +24,15 @@ export type TrueFoundryChatProviderProps = {
   agent?: TrueFoundryAgentConfig;
   /** Legacy named-agent shorthand. Prefer `agent: { mode: "named", agentName }`. */
   agentName?: string;
+  /** Forwarded to `listSessions({ agentId })` for history filtering. */
+  listSessionsAgentId?: string;
 };
 
 function ChatRuntimeScope({
   server,
   agent,
   agentName,
+  listSessionsAgentId,
   initialSessionId,
   adapters,
   onError,
@@ -38,6 +41,7 @@ function ChatRuntimeScope({
   server: AgentUIServer;
   agent?: TrueFoundryAgentConfig;
   agentName?: string;
+  listSessionsAgentId?: string;
   initialSessionId?: string;
   adapters?: RuntimeAdapters;
   onError?: (error: unknown) => void;
@@ -50,6 +54,7 @@ function ChatRuntimeScope({
     server: server as never,
     agent,
     agentName,
+    listSessionsAgentId,
     initialSessionId,
     onError: resolvedOnError,
     adapters: {
@@ -58,7 +63,7 @@ function ChatRuntimeScope({
     },
   });
 
-  return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>;
+  return <AssistantRuntimeProvider runtime={runtime as never}>{children}</AssistantRuntimeProvider>;
 }
 
 /**
@@ -66,7 +71,7 @@ function ChatRuntimeScope({
  * assistant-ui + error toasts.
  */
 export function TrueFoundryChatProvider(props: TrueFoundryChatProviderProps) {
-  const { server, initialSessionId, adapters, onError, children, agent, agentName } = props;
+  const { server, initialSessionId, adapters, onError, children, agent, agentName, listSessionsAgentId } = props;
 
   const stableServer = useMemo(() => server, [server]);
 
@@ -76,6 +81,7 @@ export function TrueFoundryChatProvider(props: TrueFoundryChatProviderProps) {
         server={stableServer}
         agent={agent}
         agentName={agentName}
+        listSessionsAgentId={listSessionsAgentId}
         initialSessionId={initialSessionId}
         adapters={adapters}
         onError={onError}
