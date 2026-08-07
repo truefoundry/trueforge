@@ -2,37 +2,21 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { HTTPException } from 'hono/http-exception';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { Configuration } from 'openid-client';
-import { authMiddleware, configureAuth } from '../../../src/auth/middleware';
+import { authMiddleware, disableOidcAuth, enableOidcAuth } from '../../../src/auth/middleware';
 import { initOidc } from '../../../src/auth/oidc';
-import configuration from '../../../src/config';
-
-jest.mock('../../../src/config', () => {
-  const OIDC = {
-    OIDC_ISSUER_URL: 'https://issuer.example.com/',
-    OIDC_CLIENT_ID: 'harness-client',
-    OIDC_CLIENT_SECRET: 'harness-secret',
-    OIDC_USER_REFERENCE_CLAIM: 'sub',
-    OIDC_USER_ROLE_CLAIM: 'groups',
-    OIDC_ADMIN_ROLE_VALUE: 'admin',
-  };
-  return {
-    __esModule: true,
-    default: {
-      STANDALONE: false,
-      PUBLIC_BASE_URL: 'https://harness.example.com',
-      OIDC,
-      PORT: 8790,
-    },
-  };
-});
-
-if (configuration.STANDALONE || !configuration.OIDC) {
-  throw new Error('OIDC test configuration is missing');
-}
+import type { OIDCConfig } from '../../../src/config';
 
 const ISSUER = 'https://issuer.example.com';
 const AUDIENCE = 'harness-client';
-const configuredOidc = configuration.OIDC;
+
+const OIDC_CONFIG: OIDCConfig = {
+  OIDC_ISSUER_URL: `${ISSUER}/`,
+  OIDC_CLIENT_ID: AUDIENCE,
+  OIDC_CLIENT_SECRET: 'harness-secret',
+  OIDC_USER_REFERENCE_CLAIM: 'sub',
+  OIDC_USER_ROLE_CLAIM: 'groups',
+  OIDC_ADMIN_ROLE_VALUE: 'admin',
+};
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -41,8 +25,7 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-function createApp(params: { oidcClient: Configuration | undefined }) {
-  configureAuth(params.oidcClient);
+function createApp() {
   const app = new OpenAPIHono();
   app.onError((error, c) => {
     if (error instanceof HTTPException) {
@@ -62,8 +45,9 @@ function createApp(params: { oidcClient: Configuration | undefined }) {
 }
 
 describe('authMiddleware', () => {
-  it('sets default user when oidcClient is undefined', async () => {
-    const res = await createApp({ oidcClient: undefined }).request('/api/v1/models');
+  it('sets default user when OIDC is not configured', async () => {
+    disableOidcAuth();
+    const res = await createApp().request('/api/v1/models');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       ok: true,
@@ -103,7 +87,7 @@ describe('authMiddleware', () => {
         return new Response(`unexpected url: ${url}`, { status: 404 });
       };
 
-      const client = await initOidc(configuredOidc);
+      const client = await initOidc(OIDC_CONFIG);
       if (!client) {
         throw new Error('OIDC client was not initialized');
       }
@@ -112,54 +96,59 @@ describe('authMiddleware', () => {
 
     afterAll(() => {
       globalThis.fetch = realFetch;
+      disableOidcAuth();
     });
 
-    async function createIdToken(params?: { issuer?: string; email?: string }): Promise<string> {
-      return new SignJWT({ email: params?.email ?? 'alice@example.com' })
+    beforeEach(() => {
+      enableOidcAuth({ client: oidcClient, oidcConfig: OIDC_CONFIG });
+    });
+
+    async function createIdToken(params?: { issuer?: string; sub?: string; groups?: string[] }): Promise<string> {
+      return new SignJWT({ groups: params?.groups ?? [] })
         .setProtectedHeader({ alg: 'RS256', kid: 'test-kid' })
         .setIssuer(params?.issuer ?? ISSUER)
         .setAudience(AUDIENCE)
-        .setSubject('user-1')
+        .setSubject(params?.sub ?? 'user-1')
         .setIssuedAt()
         .setExpirationTime('1h')
         .sign(privateKey);
     }
 
     it('returns 401 when the id_token cookie is missing', async () => {
-      const res = await createApp({ oidcClient }).request('/api/v1/models');
+      const res = await createApp().request('/api/v1/models');
       expect(res.status).toBe(401);
       expect(await res.json()).toEqual({ error: { message: 'user_login_required' } });
     });
 
     it('returns 401 when the token is invalid', async () => {
-      const res = await createApp({ oidcClient }).request('/api/v1/models', {
+      const res = await createApp().request('/api/v1/models', {
         headers: { Cookie: 'id_token=not-a-jwt' },
       });
       expect(res.status).toBe(401);
     });
 
-    it('sets user context when the token verifies', async () => {
-      const token = await createIdToken({ email: 'bob@example.com' });
-      const res = await createApp({ oidcClient }).request('/api/v1/models', {
+    it('sets user context from claims (reference claim + role)', async () => {
+      const token = await createIdToken({ sub: 'alice', groups: ['admin'] });
+      const res = await createApp().request('/api/v1/models', {
         headers: { Cookie: `id_token=${token}` },
       });
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({
         ok: true,
-        user: { email: 'bob@example.com', role: 'user' },
+        user: { email: 'alice', role: 'admin' },
       });
     });
 
     it('returns 401 when the token has the wrong issuer', async () => {
       const token = await createIdToken({ issuer: 'https://other.example.com' });
-      const res = await createApp({ oidcClient }).request('/api/v1/models', {
+      const res = await createApp().request('/api/v1/models', {
         headers: { Cookie: `id_token=${token}` },
       });
       expect(res.status).toBe(401);
     });
 
     it('does not gate public mounts', async () => {
-      const res = await createApp({ oidcClient }).request('/api/v1/auth/login');
+      const res = await createApp().request('/api/v1/auth/login');
       expect(res.status).toBe(200);
     });
   });

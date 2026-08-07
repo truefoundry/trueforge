@@ -3,12 +3,15 @@ import { getCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import type { Configuration } from 'openid-client';
+import type { OIDCConfig } from '../config';
+import { toUserContext, type IdTokenClaims } from './claims';
 import { ID_TOKEN_COOKIE } from './cookies';
 
 /** Exact message the browser client uses to trigger OIDC login redirect. */
 export const USER_LOGIN_REQUIRED_MESSAGE = 'user_login_required';
 
 export interface AuthUser {
+  /** Stable caller identity — value of the configured OIDC_USER_REFERENCE_CLAIM. */
   email: string;
   role: string;
 }
@@ -29,19 +32,15 @@ interface OidcVerify {
   jwks: JWTVerifyGetKey;
   issuer: string;
   audience: string;
+  oidcConfig: OIDCConfig;
 }
 
-/** Populated by {@link configureAuth}; null when browser login is disabled. */
+/** Set by {@link enableOidcAuth} / cleared by {@link disableOidcAuth}. */
 let oidcVerify: OidcVerify | null = null;
 
-/** Call once at boot with the discovered OIDC client (or `undefined`). */
-export function configureAuth(oidcClient: Configuration | undefined): void {
-  if (!oidcClient) {
-    oidcVerify = null;
-    return;
-  }
-
-  const metadata = oidcClient.serverMetadata();
+/** Enable cookie JWT verification using the IdP client + claim-mapping config from `initOidc`. */
+export function enableOidcAuth(params: { client: Configuration; oidcConfig: OIDCConfig }): void {
+  const metadata = params.client.serverMetadata();
   if (!metadata.jwks_uri) {
     throw new Error('OIDC discovery did not return jwks_uri; cannot verify ID tokens');
   }
@@ -49,8 +48,14 @@ export function configureAuth(oidcClient: Configuration | undefined): void {
   oidcVerify = {
     jwks: createRemoteJWKSet(new URL(metadata.jwks_uri)),
     issuer: metadata.issuer,
-    audience: oidcClient.clientMetadata().client_id,
+    audience: params.client.clientMetadata().client_id,
+    oidcConfig: params.oidcConfig,
   };
+}
+
+/** Disable OIDC cookie auth (no IdP / standalone). Protected routes use {@link DEFAULT_AUTH_USER}. */
+export function disableOidcAuth(): void {
+  oidcVerify = null;
 }
 
 /** Soft cookie → user (missing/invalid/no OIDC → undefined). For public handlers like `/me`. */
@@ -69,14 +74,9 @@ export async function resolveAuthUser(c: Context): Promise<AuthUser | undefined>
       issuer: oidcVerify.issuer,
       audience: oidcVerify.audience,
     });
-    const emailClaim = payload['email'];
-    if (typeof emailClaim === 'string' && emailClaim !== '') {
-      return { email: emailClaim, role: 'user' };
-    }
-    if (typeof payload.sub === 'string' && payload.sub !== '') {
-      return { email: payload.sub, role: 'user' };
-    }
-    return undefined;
+    const claims: IdTokenClaims = { ...payload };
+    const { userRef, role } = toUserContext(claims, oidcVerify.oidcConfig);
+    return { email: userRef, role };
   } catch {
     return undefined;
   }

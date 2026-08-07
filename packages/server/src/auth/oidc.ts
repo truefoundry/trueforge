@@ -10,6 +10,7 @@ import {
 } from 'openid-client';
 import configuration, { type OIDCConfig } from '../config';
 import { ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, setAuthCookie } from './cookies';
+import { disableOidcAuth, enableOidcAuth } from './middleware';
 
 const CALLBACK_PATH = '/api/v1/auth/callback';
 const OAUTH_STATE_MAX_AGE_SECONDS = 10 * 60;
@@ -17,13 +18,16 @@ const ID_TOKEN_COOKIE_MAX_AGE_SECONDS = 24 * 60 * 60;
 // TODO: use dynamic claims/scopes when we add RBAC
 const OIDC_SCOPES = 'openid email profile';
 
-/** Discover the IdP once at process startup when OIDC is configured. */
+/** Discover the IdP once at process startup when OIDC is configured; wires cookie auth verification. */
 export async function initOidc(oidc: OIDCConfig | undefined): Promise<Configuration | undefined> {
   if (!oidc) {
+    disableOidcAuth();
     return undefined;
   }
 
-  return discovery(new URL(oidc.OIDC_ISSUER_URL), oidc.OIDC_CLIENT_ID, oidc.OIDC_CLIENT_SECRET);
+  const client = await discovery(new URL(oidc.OIDC_ISSUER_URL), oidc.OIDC_CLIENT_ID, oidc.OIDC_CLIENT_SECRET);
+  enableOidcAuth({ client, oidcConfig: oidc });
+  return client;
 }
 
 function authCallbackUrl(): string {

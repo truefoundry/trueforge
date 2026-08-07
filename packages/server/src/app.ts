@@ -18,7 +18,7 @@ import { createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
-import { authMiddleware, configureAuth } from './auth/middleware';
+import { authMiddleware } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -85,7 +85,6 @@ export interface ServerDeps {
 }
 
 export function createServerApp(deps: ServerDeps) {
-  configureAuth(deps.oidcClient);
   const app = new OpenAPIHono();
 
   app.get('/healthz', c => c.text('OK!'));
@@ -96,6 +95,16 @@ export function createServerApp(deps: ServerDeps) {
     withAuth(createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore })),
   );
   app.route('/api/v1/models', withAuth(createModelsRouter(deps.modelProviderStore)));
+  // Public MCP OAuth callback must be registered before the gated `/mcp-servers` mount so
+  // `withAuth` cannot intercept IdP redirects to `/api/v1/mcp-servers/oauth/*`.
+  app.route(
+    '/api/v1/mcp-servers/oauth',
+    createMcpOAuthRouter({
+      tokenStore: deps.tokenStore,
+      mcpServerStore: deps.mcpServerStore,
+      logger: deps.logger,
+    }),
+  );
   app.route(
     '/api/v1/mcp-servers',
     withAuth(
@@ -105,15 +114,6 @@ export function createServerApp(deps: ServerDeps) {
         logger: deps.logger,
       }),
     ),
-  );
-  // Shared OAuth callback — path must match the server-owned MCP_OAUTH_CALLBACK_PATH.
-  app.route(
-    '/api/v1/mcp-servers/oauth',
-    createMcpOAuthRouter({
-      tokenStore: deps.tokenStore,
-      mcpServerStore: deps.mcpServerStore,
-      logger: deps.logger,
-    }),
   );
   app.route('/api/v1/skills', withAuth(createAvailableSkillsRouter(deps.skillStore)));
   app.route(
