@@ -366,6 +366,10 @@ describe('layout slot overrides', () => {
     return <button type="button">custom clear</button>;
   }
 
+  function CustomActionSlot() {
+    return <button type="button">custom action</button>;
+  }
+
   // dock and widget render their header through StackChatPanel.
   const hosts = [
     ['sidebar', SidebarLayout],
@@ -389,6 +393,72 @@ describe('layout slot overrides', () => {
     expect(screen.getByRole('button', { name: 'custom clear' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
   });
+
+  it.each(hosts)('%s honors overrides.ShellActionsActionSlot to the right of shell actions', (_name, Layout) => {
+    render(
+      <SlotsProvider overrides={{ ShellActionsActionSlot: CustomActionSlot }}>
+        <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <Layout />
+            </div>
+          </RuntimeHarness>
+        </ShellModeProvider>
+      </SlotsProvider>,
+    );
+
+    expect(screen.getAllByRole('button', { name: 'custom action' }).length).toBeGreaterThan(0);
+  });
+
+  const settingsCatalog: CatalogServer = {
+    modelCatalog: {
+      getModelProviderCatalog: vi.fn(async () => []),
+      listModelProviders: vi.fn(async () => []),
+      createModelProvider: vi.fn(),
+      updateModelProvider: vi.fn(),
+    },
+    connectorCatalog: {
+      getConnectorCatalog: vi.fn(async () => []),
+      getConnector: vi.fn(),
+      listConnectors: vi.fn(async () => []),
+      getToolsByConnectorId: vi.fn(async () => []),
+      createConnector: vi.fn(),
+      updateConnector: vi.fn(),
+      authenticateConnector: vi.fn(),
+      disconnectConnector: vi.fn(),
+    },
+  };
+
+  it.each(hosts)(
+    '%s keeps ShellActionsActionSlot mounted when Settings opens (no remount handoff)',
+    (_name, Layout) => {
+      render(
+        <SlotsProvider overrides={{ ShellActionsActionSlot: CustomActionSlot }}>
+          <ServerProvider server={mockServer(settingsCatalog)}>
+            <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
+              <RuntimeHarness messages={[]}>
+                <div className="h-96">
+                  <Layout />
+                </div>
+              </RuntimeHarness>
+            </ShellModeProvider>
+          </ServerProvider>
+        </SlotsProvider>,
+      );
+
+      const before = screen.getAllByRole('button', { name: 'custom action' });
+      expect(before.length).toBeGreaterThan(0);
+      const beforeNode = before[0];
+
+      fireEvent.click(screen.getAllByRole('button', { name: 'Settings' })[0]!);
+      expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+
+      const after = screen.getAllByRole('button', { name: 'custom action' });
+      expect(after.length).toBeGreaterThan(0);
+      // Same DOM node — layout did not remount the host override on Settings toggle.
+      expect(after).toContain(beforeNode);
+    },
+  );
 });
 
 describe('WidgetLayout a11y', () => {

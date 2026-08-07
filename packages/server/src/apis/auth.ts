@@ -7,7 +7,10 @@ import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify, safe
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
 import type { MeResponse } from '../schemas/auth';
 
-const LOGIN_ERROR_PATH = '/?error=login_failed';
+/** Login / OIDC failures land on `/?error=<reason>`. */
+function oauthErrorRedirect(reason: string): string {
+  return `/?error=${encodeURIComponent(reason)}`;
+}
 
 /**
  * Auth surfaces mounted at /api/v1/auth: login, callback, logout, me.
@@ -33,7 +36,7 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
       params.logger.error('Failed to build login authorization', {
         error: error instanceof Error ? error.message : error,
       });
-      return c.redirect(LOGIN_ERROR_PATH, 302);
+      return c.redirect(oauthErrorRedirect('login_failed'), 302);
     }
   });
 
@@ -47,8 +50,8 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
     clearAuthCookie({ context: c, name: OAUTH_STATE_COOKIE });
 
     if (pending?.state !== query.state || query.error || !query.code) {
-      // TODO: handle the error here once frontend error page is implemented
-      return c.redirect(LOGIN_ERROR_PATH, 302);
+      const reason = query.error_description?.trim() || query.error?.trim() || 'login_failed';
+      return c.redirect(oauthErrorRedirect(reason), 302);
     }
 
     try {
@@ -64,8 +67,8 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
       params.logger.error('Failed to exchange authorization code', {
         error: error instanceof Error ? error.message : error,
       });
-      // TODO: handle the error here once frontend error page is implemented
-      return c.redirect(LOGIN_ERROR_PATH, 302);
+      const reason = error instanceof Error ? error.message : 'login_failed';
+      return c.redirect(oauthErrorRedirect(reason), 302);
     }
   });
 

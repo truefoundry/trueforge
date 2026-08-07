@@ -218,6 +218,7 @@ export type {
 // Server port types + factory
 export { ClearChatButton } from './atoms/ClearChatButton.js';
 export { SelectAgentEmptyState } from './atoms/SelectAgentEmptyState.js';
+export { ShellActionsActionSlot } from './atoms/ShellActionsActionSlot.js';
 export { createTrueFoundryServer } from './server/createTrueFoundryServer.js';
 export type { CreateTrueFoundryServerOptions, TrueFoundryServer } from './server/createTrueFoundryServer.js';
 export {
