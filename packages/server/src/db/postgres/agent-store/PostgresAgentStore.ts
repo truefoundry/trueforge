@@ -4,6 +4,7 @@ import {
   AgentNameConflictError,
   type AgentRecord,
   type CreateAgentInput,
+  type DeleteAgentInput,
   type GetAgentInput,
   type IAgentStore,
   type UpdateAgentInput,
@@ -86,5 +87,9 @@ export class PostgresAgentStore implements IAgentStore {
       .returningAll()
       .executeTakeFirst();
     return row === undefined ? undefined : toRecord(row);
+  }
+
+  async deleteAgent(input: DeleteAgentInput): Promise<void> {
+    await this.#db.deleteFrom('agent').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
   }
 }

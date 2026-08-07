@@ -34,6 +34,11 @@ export interface UpdateAgentInput {
   manifest: AgentSpec;
 }
 
+export interface DeleteAgentInput {
+  tenant_id: string;
+  id: string;
+}
+
 /** Unique `(tenant_id, name)` violation on create. */
 export class AgentNameConflictError extends Error {
   readonly tenant_id: string;
@@ -54,4 +59,6 @@ export interface IAgentStore {
   createAgent(input: CreateAgentInput): Promise<AgentRecord>;
   /** Replaces `manifest` for an existing name. Returns undefined if missing. */
   updateAgent(input: UpdateAgentInput): Promise<AgentRecord | undefined>;
+  /** Deletes by immutable id. Idempotent if already missing. */
+  deleteAgent(input: DeleteAgentInput): Promise<void>;
 }

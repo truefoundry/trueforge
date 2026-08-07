@@ -5,6 +5,7 @@ import {
   AgentNameConflictError,
   type AgentRecord,
   type CreateAgentInput,
+  type DeleteAgentInput,
   type GetAgentInput,
   type IAgentStore,
   type UpdateAgentInput,
@@ -85,5 +86,9 @@ export class SqliteAgentStore implements IAgentStore {
       .where('name', '=', input.name)
       .returning(recordColumns)
       .executeTakeFirst();
+  }
+
+  async deleteAgent(input: DeleteAgentInput): Promise<void> {
+    await this.#db.deleteFrom('agent').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
   }
 }
