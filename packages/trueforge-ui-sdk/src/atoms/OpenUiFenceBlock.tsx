@@ -18,10 +18,18 @@ export function OpenUiFenceBlock({ content, isStreaming, darkTheme }: OpenUiFenc
   return (
     <div className={cn('aui-openui mb-2 w-full min-w-0 max-w-full', classNames.openui?.root)}>
       <ThemeProvider mode={darkTheme ? 'dark' : 'light'} cssSelector=".markdown-openui-scope">
-        <div className="markdown-openui-scope min-w-0 w-full max-w-full overflow-x-auto">
+        <div
+          className={cn('markdown-openui-scope min-w-0 w-full max-w-full overflow-x-auto', classNames.openui?.scope)}
+        >
           <Renderer response={content} library={openuiLibrary} isStreaming={isStreaming} />
         </div>
       </ThemeProvider>
     </div>
   );
+}
+
+declare module '../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    OpenUiFenceBlock: typeof OpenUiFenceBlock;
+  }
 }

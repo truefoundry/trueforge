@@ -139,6 +139,14 @@ export function AccordionItem({
   );
 }
 
+declare module '../../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    Accordion: typeof Accordion;
+    AccordionSummary: typeof AccordionSummary;
+    AccordionDetails: typeof AccordionDetails;
+  }
+}
+
 export function AccordionTrigger({
   className,
   children,

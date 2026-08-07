@@ -3,8 +3,9 @@
 import { useCallback, useState } from 'react';
 
 import { Icon } from '../icons/Icon.js';
+import { useSlot } from '../theme/SlotsProvider.js';
 import { cn } from './lib/cn.js';
-import { MonacoEditorCore, type MonacoEditorCoreProps } from './MonacoEditorCore.js';
+import type { MonacoEditorCoreProps } from './MonacoEditorCore.js';
 
 export type CodeEditorProps = Omit<MonacoEditorCoreProps, 'options'> & {
   filename?: string;
@@ -51,6 +52,7 @@ export function CodeEditor({
   height,
   showToolbar = true,
 }: CodeEditorProps) {
+  const MonacoEditorCore = useSlot('MonacoEditorCore');
   const [showLineNumbers, setShowLineNumbers] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -128,4 +130,10 @@ export function CodeEditor({
       </div>
     </div>
   );
+}
+
+declare module '../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    CodeEditor: typeof CodeEditor;
+  }
 }
