@@ -43,7 +43,7 @@ function createApp() {
 
   const models = new OpenAPIHono();
   models.use('*', authMiddleware);
-  models.get('/', c => c.json({ ok: true, user: c.get('user') }));
+  models.get('/', c => c.json({ ok: true, user: c.get('user_context') }));
   app.route('/api/v1/models', models);
 
   return app;
@@ -56,7 +56,7 @@ describe('authMiddleware', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       ok: true,
-      user: { userRef: 'default', role: 'user' },
+      user: { userRef: 'trueforge-default', role: 'admin' },
     });
   });
 

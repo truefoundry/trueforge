@@ -4,6 +4,7 @@ import { AgentSpecSchema, Sessions } from '@truefoundry/utils-core/agent-session
 import { createLogger } from 'winston';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, toContentDisposition } from '../../../src/apis/turns';
+import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -45,6 +46,7 @@ async function buildApp() {
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: createLogger({ silent: true }),
+      resolveUserContext: () => LOCAL_USER_CONTEXT,
     }),
   );
 
@@ -109,6 +111,7 @@ describe('GET /{session_id}/turns/{turn_id}/download', () => {
     const session = await sessions.create({
       tenant_id: TENANT_ID,
       session_id: 'no-turn',
+      created_by: LOCAL_USER_CONTEXT.userRef,
       agent: { type: 'value', agent_spec: agentSpec() },
     });
 

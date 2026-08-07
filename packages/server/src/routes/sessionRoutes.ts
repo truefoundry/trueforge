@@ -63,7 +63,7 @@ export const getSessionRoute = createRoute({
   path: '/{session_id}',
   tags: [SESSIONS_TAG],
   summary: 'Get a session',
-  description: 'Fetch a session by ID.',
+  description: 'Fetch a session by ID. Only the session creator (`created_by`) may fetch it.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'get',
   request: {
@@ -73,6 +73,10 @@ export const getSessionRoute = createRoute({
     200: {
       content: { 'application/json': { schema: GetSessionResponseSchema } },
       description: 'Session data.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -86,7 +90,8 @@ export const deleteSessionRoute = createRoute({
   path: '/{session_id}',
   tags: [SESSIONS_TAG],
   summary: 'Delete a session',
-  description: 'Delete a session and all related turns, events, and internal state. Idempotent if already gone.',
+  description:
+    'Delete a session and all related turns, events, and internal state. Only the session creator (`created_by`) may delete it. Idempotent if already gone.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'delete',
   request: {
@@ -95,6 +100,10 @@ export const deleteSessionRoute = createRoute({
   responses: {
     204: {
       description: 'Session and all related data deleted.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
     },
   },
 });
@@ -105,7 +114,7 @@ export const updateSessionRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Update a session',
   description:
-    'Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.',
+    'Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'update',
   request: {
@@ -123,6 +132,10 @@ export const updateSessionRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -142,7 +155,7 @@ export const listSessionsRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'List sessions',
   description:
-    'List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent; optional `created_by` filters by creator identity. Pass `page_token` to fetch the next page, keeping the other query params constant.',
+    "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -166,7 +179,7 @@ export const cancelSessionRoute = createRoute({
   path: '/{session_id}/cancel',
   tags: [SESSIONS_TAG],
   summary: 'Cancel a running turn in a session',
-  description: 'Cancel the running last turn for a session.',
+  description: 'Cancel the running last turn for a session. Only the session creator (`created_by`) may cancel.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'cancel',
   request: {
@@ -180,6 +193,10 @@ export const cancelSessionRoute = createRoute({
     200: {
       content: { 'application/json': { schema: CancelSessionResponseSchema } },
       description: 'Turn cancelled.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -199,7 +216,7 @@ export const listSessionEventsRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'List session events',
   description:
-    'List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor.',
+    'List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator (`created_by`) may list events.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_events',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -215,6 +232,10 @@ export const listSessionEventsRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid page token.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

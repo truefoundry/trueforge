@@ -4479,7 +4479,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent; optional `created_by` filters by creator identity. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "description": "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
         "parameters": [
           {
             "description": "Page size. Defaults to 10, max 100.",
@@ -4542,17 +4542,6 @@
             "required": false,
             "schema": {
               "description": "When set, only sessions bound to this agent id are returned.",
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
-            "description": "When set, only sessions created by this identity are returned.",
-            "in": "query",
-            "name": "created_by",
-            "required": false,
-            "schema": {
-              "description": "When set, only sessions created by this identity are returned.",
               "minLength": 1,
               "type": "string"
             }
@@ -4660,7 +4649,7 @@
     },
     "/api/v1/sessions/{session_id}": {
       "delete": {
-        "description": "Delete a session and all related turns, events, and internal state. Idempotent if already gone.",
+        "description": "Delete a session and all related turns, events, and internal state. Only the session creator (`created_by`) may delete it. Idempotent if already gone.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4678,6 +4667,16 @@
         "responses": {
           "204": {
             "description": "Session and all related data deleted."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
           }
         },
         "summary": "Delete a session",
@@ -4690,7 +4689,7 @@
         "x-fern-sdk-method-name": "delete"
       },
       "get": {
-        "description": "Fetch a session by ID.",
+        "description": "Fetch a session by ID. Only the session creator (`created_by`) may fetch it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4716,6 +4715,16 @@
             },
             "description": "Session data."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -4737,7 +4746,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.",
+        "description": "Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4783,6 +4792,16 @@
             },
             "description": "Invalid request body."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -4816,7 +4835,7 @@
     },
     "/api/v1/sessions/{session_id}/cancel": {
       "post": {
-        "description": "Cancel the running last turn for a session.",
+        "description": "Cancel the running last turn for a session. Only the session creator (`created_by`) may cancel.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4852,6 +4871,16 @@
             },
             "description": "Turn cancelled."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -4885,7 +4914,7 @@
     },
     "/api/v1/sessions/{session_id}/events": {
       "get": {
-        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor.",
+        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator (`created_by`) may list events.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4954,6 +4983,16 @@
             },
             "description": "Invalid page token."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -4982,7 +5021,7 @@
     },
     "/api/v1/sessions/{session_id}/turns": {
       "get": {
-        "description": "List turns for a session (newest first by default), token-paginated.",
+        "description": "List turns for a session (newest first by default), token-paginated. Only the session creator (`created_by`) may list turns.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5041,6 +5080,16 @@
             },
             "description": "Invalid page token."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -5067,7 +5116,7 @@
         "x-fern-sdk-method-name": "list_turns"
       },
       "post": {
-        "description": "Create a turn within a session and execute it.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
+        "description": "Create a turn within a session and execute it.\nOnly the session creator (`created_by`) may create turns.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5117,6 +5166,16 @@
               }
             },
             "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
           },
           "404": {
             "content": {
@@ -5172,7 +5231,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}": {
       "get": {
-        "description": "Fetch a single turn by ID.",
+        "description": "Fetch a single turn by ID. Only the session creator (`created_by`) may fetch it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5209,6 +5268,16 @@
             },
             "description": "Turn data."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -5232,7 +5301,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/download": {
       "get": {
-        "description": "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block.",
+        "description": "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator (`created_by`) may download.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5299,7 +5368,7 @@
                 }
               }
             },
-            "description": "Sandbox belongs to another tenant."
+            "description": "Caller is not the session creator, or sandbox belongs to another tenant."
           },
           "404": {
             "content": {
@@ -5364,7 +5433,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/events": {
       "get": {
-        "description": "Paginated persisted events for a turn (insertion order by default).",
+        "description": "Paginated persisted events for a turn (insertion order by default). Only the session creator (`created_by`) may list events.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5443,6 +5512,16 @@
             },
             "description": "Invalid page token."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -5471,7 +5550,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {
       "get": {
-        "description": "Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
+        "description": "Subscribe to the live SSE stream for a turn. Only the session creator (`created_by`) may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5529,6 +5608,16 @@
               }
             },
             "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
           },
           "404": {
             "content": {

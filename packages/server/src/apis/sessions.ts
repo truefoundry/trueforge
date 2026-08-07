@@ -18,6 +18,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';
 import { z } from 'zod';
+import type { ResolveUserContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -74,6 +75,7 @@ export interface SessionsRouterDeps {
   sandboxProviderStore: ISandboxProviderStore;
   redis?: RedisClientType | undefined;
   requestReplyRouter: RequestReplyRouter;
+  resolveUserContext: ResolveUserContext;
 }
 
 function cancelTurnOnThisExecutor(
@@ -184,6 +186,12 @@ export async function cancelSessionTurn(
   cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
 }
 
+const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this session';
+
+function checkSessionAccess({ userRef, createdBy }: { userRef: string; createdBy: string }): boolean {
+  return userRef === createdBy;
+}
+
 /** DB-backed sessions (mounted at /api/v1/sessions). */
 export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
@@ -195,10 +203,11 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       if (agent === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.agent_id}` } }, 404);
       }
+      const user = deps.resolveUserContext(c);
       const session = await deps.sessions.create({
         tenant_id: TENANT_ID,
         session_id: sessionId,
-        created_by: 'trueforge-default',
+        created_by: user.userRef,
         agent: body.agent,
       });
       return c.json({ data: toWireSession(session.record) }, 201);
@@ -212,10 +221,11 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       skillStore: deps.skillStore,
       sandboxProviderStore: deps.sandboxProviderStore,
     });
+    const user = deps.resolveUserContext(c);
     const session = await deps.sessions.create({
       tenant_id: TENANT_ID,
       session_id: sessionId,
-      created_by: 'trueforge-default',
+      created_by: user.userRef,
       agent: body.agent,
     });
     return c.json({ data: toWireSession(session.record) }, 201);
@@ -227,11 +237,22 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
+    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: record.created_by })) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
     return c.json({ data: toWireSession(record) }, 200);
   };
 
   const deleteSessionHandler: RouteHandler<typeof deleteSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
+    const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!record) {
+      // Idempotent delete when already gone.
+      return c.body(null, 204);
+    }
+    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: record.created_by })) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
     await deps.sessionStore.deleteSession({ tenant_id: TENANT_ID, session_id: sessionId });
     return c.body(null, 204);
   };
@@ -239,6 +260,13 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   const updateSessionHandler: RouteHandler<typeof updateSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
+    const existing = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!existing) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: existing.created_by })) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
     // Draft (value) sessions may replace their inline agent; named (ref) sessions
     // cannot — the store rejects that with SessionStoreInvariantError → 422 below.
     if (body.agent !== undefined) {
@@ -276,10 +304,11 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const listSessionsHandler: RouteHandler<typeof listSessionsRoute> = async c => {
     const query = c.req.valid('query');
+    const user = deps.resolveUserContext(c);
     try {
       const { data, pagination } = await deps.sessionStore.listSessions({
         agent_id: query.agent_id,
-        created_by: query.created_by,
+        created_by: user.userRef,
         tenant_id: TENANT_ID,
         limit: query.limit,
         order: query.order,
@@ -302,6 +331,9 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
+    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: record.created_by })) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
     const turnId = record.last_turn_id;
     if (!turnId) {
       return c.json({}, 200);
@@ -317,6 +349,9 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: session.record.created_by })) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     try {
       const { data, pagination } = await session.listEvents({
