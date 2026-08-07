@@ -2,7 +2,7 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface SessionAgentSpec {
+export interface SessionAgentDefBodyDef {
     config?: TrueForge.RuntimeConfig;
     instructions?: string;
     mcpServers?: TrueForge.McpServer[];

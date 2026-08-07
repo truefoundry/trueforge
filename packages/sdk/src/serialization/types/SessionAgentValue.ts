@@ -9,13 +9,13 @@ export const SessionAgentValue: core.serialization.ObjectSchema<
     serializers.SessionAgentValue.Raw,
     TrueForge.SessionAgentValue
 > = core.serialization.object({
-    agentSpec: core.serialization.property("agent_spec", AgentSpec),
+    def: AgentSpec,
     type: core.serialization.stringLiteral("value"),
 });
 
 export declare namespace SessionAgentValue {
     export interface Raw {
-        agent_spec: AgentSpec.Raw;
+        def: AgentSpec.Raw;
         type: "value";
     }
 }

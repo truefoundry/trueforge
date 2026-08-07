@@ -730,10 +730,10 @@
       "CreateSessionAgent": {
         "anyOf": [
           {
-            "$ref": "#/components/schemas/SessionAgentRef"
+            "$ref": "#/components/schemas/SessionAgentNameRef"
           },
           {
-            "$ref": "#/components/schemas/SessionAgentSpec"
+            "$ref": "#/components/schemas/SessionAgentDefBody"
           }
         ]
       },
@@ -2637,12 +2637,84 @@
           }
         ]
       },
+      "SessionAgentDefBody": {
+        "additionalProperties": false,
+        "properties": {
+          "def": {
+            "additionalProperties": false,
+            "properties": {
+              "config": {
+                "$ref": "#/components/schemas/RuntimeConfig"
+              },
+              "instructions": {
+                "type": "string"
+              },
+              "mcp_servers": {
+                "items": {
+                  "$ref": "#/components/schemas/MCPServer"
+                },
+                "type": "array"
+              },
+              "messages": {
+                "items": {
+                  "$ref": "#/components/schemas/AgentSpecUserMessage"
+                },
+                "type": "array"
+              },
+              "model": {
+                "$ref": "#/components/schemas/AgentSpecModel"
+              },
+              "response_format": {
+                "$ref": "#/components/schemas/ResponseFormat"
+              },
+              "skills": {
+                "items": {
+                  "$ref": "#/components/schemas/SkillNameRef"
+                },
+                "type": "array"
+              },
+              "variables": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "model"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "def"
+        ],
+        "type": "object"
+      },
+      "SessionAgentNameRef": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
       "SessionAgentRef": {
         "additionalProperties": false,
         "properties": {
-          "agent_id": {
+          "id": {
             "minLength": 1,
             "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "type": {
             "enum": [
@@ -2653,59 +2725,15 @@
         },
         "required": [
           "type",
-          "agent_id"
-        ],
-        "type": "object"
-      },
-      "SessionAgentSpec": {
-        "additionalProperties": false,
-        "properties": {
-          "config": {
-            "$ref": "#/components/schemas/RuntimeConfig"
-          },
-          "instructions": {
-            "type": "string"
-          },
-          "mcp_servers": {
-            "items": {
-              "$ref": "#/components/schemas/MCPServer"
-            },
-            "type": "array"
-          },
-          "messages": {
-            "items": {
-              "$ref": "#/components/schemas/AgentSpecUserMessage"
-            },
-            "type": "array"
-          },
-          "model": {
-            "$ref": "#/components/schemas/AgentSpecModel"
-          },
-          "response_format": {
-            "$ref": "#/components/schemas/ResponseFormat"
-          },
-          "skills": {
-            "items": {
-              "$ref": "#/components/schemas/SkillNameRef"
-            },
-            "type": "array"
-          },
-          "variables": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object"
-          }
-        },
-        "required": [
-          "model"
+          "id",
+          "name"
         ],
         "type": "object"
       },
       "SessionAgentValue": {
         "additionalProperties": false,
         "properties": {
-          "agent_spec": {
+          "def": {
             "$ref": "#/components/schemas/AgentSpec"
           },
           "type": {
@@ -2717,7 +2745,7 @@
         },
         "required": [
           "type",
-          "agent_spec"
+          "def"
         ],
         "type": "object"
       },
@@ -3684,7 +3712,7 @@
         "additionalProperties": false,
         "properties": {
           "agent": {
-            "$ref": "#/components/schemas/SessionAgentSpec"
+            "$ref": "#/components/schemas/SessionAgentDefBody"
           }
         },
         "type": "object"
@@ -4607,7 +4635,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "post": {
-        "description": "Create a session with `agent` as either an inline AgentSpec or `{ name }` (named). Named sessions resolve the live agent on each turn.",
+        "description": "Create a session with `agent` as either `{ name }` (named registry binding) or `{ def: AgentSpec }` (inline). Named sessions snapshot the agent name at create and resolve the live agent on each turn. Responses use `{ type: \"ref\", name, id }` or `{ type: \"value\", def }`.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4749,7 +4777,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a session by replacing `agent` with an inline AgentSpec. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.",
+        "description": "Update a session by replacing `agent` with `{ def: AgentSpec }`. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.",
         "parameters": [
           {
             "description": "Session identifier.",

@@ -6,8 +6,7 @@ import type * as TrueForge from "../../../../index.js";
  * @example
  *     {
  *         agent: {
- *             agentId: "agent_id",
- *             type: "ref"
+ *             name: "name"
  *         }
  *     }
  */

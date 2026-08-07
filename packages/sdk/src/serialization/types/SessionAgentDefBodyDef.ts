@@ -10,9 +10,9 @@ import { ResponseFormat } from "./ResponseFormat.js";
 import { RuntimeConfig } from "./RuntimeConfig.js";
 import { SkillNameRef } from "./SkillNameRef.js";
 
-export const SessionAgentSpec: core.serialization.ObjectSchema<
-    serializers.SessionAgentSpec.Raw,
-    TrueForge.SessionAgentSpec
+export const SessionAgentDefBodyDef: core.serialization.ObjectSchema<
+    serializers.SessionAgentDefBodyDef.Raw,
+    TrueForge.SessionAgentDefBodyDef
 > = core.serialization.object({
     config: RuntimeConfig.optional(),
     instructions: core.serialization.string().optional(),
@@ -24,7 +24,7 @@ export const SessionAgentSpec: core.serialization.ObjectSchema<
     variables: core.serialization.record(core.serialization.string(), core.serialization.string()).optional(),
 });
 
-export declare namespace SessionAgentSpec {
+export declare namespace SessionAgentDefBodyDef {
     export interface Raw {
         config?: RuntimeConfig.Raw | null;
         instructions?: string | null;

@@ -3,6 +3,6 @@
 import type * as TrueForge from "../index.js";
 
 export interface SessionAgentValue {
-    agentSpec: TrueForge.AgentSpec;
+    def: TrueForge.AgentSpec;
     type: "value";
 }

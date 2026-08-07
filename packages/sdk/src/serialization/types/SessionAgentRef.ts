@@ -8,13 +8,15 @@ export const SessionAgentRef: core.serialization.ObjectSchema<
     serializers.SessionAgentRef.Raw,
     TrueForge.SessionAgentRef
 > = core.serialization.object({
-    agentId: core.serialization.property("agent_id", core.serialization.string()),
+    id: core.serialization.string(),
+    name: core.serialization.string().nullable(),
     type: core.serialization.stringLiteral("ref"),
 });
 
 export declare namespace SessionAgentRef {
     export interface Raw {
-        agent_id: string;
+        id: string;
+        name?: string | null;
         type: "ref";
     }
 }

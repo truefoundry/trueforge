@@ -12,7 +12,7 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    agent: { agent_id: "agent_id", type: "ref" },
+                    agent: { id: "id", name: null, type: "ref" },
                     created_at: "created_at",
                     created_by: "created_by",
                     id: "id",
@@ -35,7 +35,8 @@ describe("SessionsClient", () => {
             data: [
                 {
                     agent: {
-                        agentId: "agent_id",
+                        id: "id",
+                        name: null,
                         type: "ref",
                     },
                     createdAt: "created_at",
@@ -75,10 +76,10 @@ describe("SessionsClient", () => {
     test("create (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
-        const rawRequestBody = { agent: { agent_id: "agent_id", type: "ref" } };
+        const rawRequestBody = { agent: { name: "name" } };
         const rawResponseBody = {
             data: {
-                agent: { agent_id: "agent_id", type: "ref" },
+                agent: { id: "id", name: "name", type: "ref" },
                 created_at: "created_at",
                 created_by: "created_by",
                 id: "id",
@@ -98,14 +99,14 @@ describe("SessionsClient", () => {
 
         const response = await client.sessions.create({
             agent: {
-                agentId: "agent_id",
-                type: "ref",
+                name: "name",
             },
         });
         expect(response).toEqual({
             data: {
                 agent: {
-                    agentId: "agent_id",
+                    id: "id",
+                    name: "name",
                     type: "ref",
                 },
                 createdAt: "created_at",
@@ -120,7 +121,7 @@ describe("SessionsClient", () => {
     test("create (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
-        const rawRequestBody = { agent: { agent_id: "x", type: "ref" } };
+        const rawRequestBody = { agent: { name: "xy" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -135,8 +136,7 @@ describe("SessionsClient", () => {
         await expect(async () => {
             return await client.sessions.create({
                 agent: {
-                    agentId: "x",
-                    type: "ref",
+                    name: "xy",
                 },
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
@@ -145,7 +145,7 @@ describe("SessionsClient", () => {
     test("create (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
-        const rawRequestBody = { agent: { agent_id: "x", type: "ref" } };
+        const rawRequestBody = { agent: { name: "xy" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -160,8 +160,7 @@ describe("SessionsClient", () => {
         await expect(async () => {
             return await client.sessions.create({
                 agent: {
-                    agentId: "x",
-                    type: "ref",
+                    name: "xy",
                 },
             });
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
@@ -170,7 +169,7 @@ describe("SessionsClient", () => {
     test("create (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
-        const rawRequestBody = { agent: { agent_id: "x", type: "ref" } };
+        const rawRequestBody = { agent: { name: "xy" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -185,8 +184,7 @@ describe("SessionsClient", () => {
         await expect(async () => {
             return await client.sessions.create({
                 agent: {
-                    agentId: "x",
-                    type: "ref",
+                    name: "xy",
                 },
             });
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
@@ -198,7 +196,7 @@ describe("SessionsClient", () => {
 
         const rawResponseBody = {
             data: {
-                agent: { agent_id: "agent_id", type: "ref" },
+                agent: { id: "id", name: "name", type: "ref" },
                 created_at: "created_at",
                 created_by: "created_by",
                 id: "id",
@@ -219,7 +217,8 @@ describe("SessionsClient", () => {
         expect(response).toEqual({
             data: {
                 agent: {
-                    agentId: "agent_id",
+                    id: "id",
+                    name: "name",
                     type: "ref",
                 },
                 createdAt: "created_at",
@@ -266,7 +265,7 @@ describe("SessionsClient", () => {
         const rawRequestBody = {};
         const rawResponseBody = {
             data: {
-                agent: { agent_id: "agent_id", type: "ref" },
+                agent: { id: "id", name: "name", type: "ref" },
                 created_at: "created_at",
                 created_by: "created_by",
                 id: "id",
@@ -288,7 +287,8 @@ describe("SessionsClient", () => {
         expect(response).toEqual({
             data: {
                 agent: {
-                    agentId: "agent_id",
+                    id: "id",
+                    name: "name",
                     type: "ref",
                 },
                 createdAt: "created_at",
