@@ -8,7 +8,6 @@ import {
   EventType,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
-  TurnHandle,
   TurnResourceResolver,
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
@@ -27,6 +26,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
+import type { ResolveUserContext, UserContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -110,6 +110,7 @@ export interface TurnsRouterDeps {
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   sandboxProviderStore: ISandboxProviderStore;
   logger: Logger;
+  resolveUserContext: ResolveUserContext;
 }
 
 /**
@@ -322,6 +323,14 @@ export function resolveAfterSequenceNumber(c: Context, bodyAfterSequenceNumber?:
   return bodyAfterSequenceNumber;
 }
 
+/** True when `user` is the session creator (`created_by`). */
+function checkTurnAccess(user: UserContext, createdBy: string): boolean {
+  return createdBy === user.userRef;
+}
+
+const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this session';
+const FORBIDDEN_CREATE_TURN = 'Only the session creator can create turns';
+
 /** DB-backed turns (mounted at /api/v1/sessions). */
 export function createTurnsRouter(deps: TurnsRouterDeps) {
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
@@ -330,6 +339,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (!checkTurnAccess(deps.resolveUserContext(c), session.record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     try {
       const { data, pagination } = await session.listTurns({
@@ -347,11 +359,14 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
   const getTurnHandler: RouteHandler<typeof getTurnRoute> = async c => {
     const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
-    const turn = await TurnHandle.get({
-      store: deps.sessionStore,
-      session_id: sessionId,
-      turn_id: turnId,
-    });
+    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (!checkTurnAccess(deps.resolveUserContext(c), session.record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
+    const turn = await session.getTurn(turnId);
     if (!turn) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
@@ -371,8 +386,11 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       if (!session) {
         return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
       }
+      if (!checkTurnAccess(deps.resolveUserContext(c), session.record.created_by)) {
+        return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+      }
 
-      // Loading the turn through the session is also the ownership check: a turn id from another
+      // Loading the turn through the session is also a session-binding check: a turn id from another
       // session cannot be used to reach this session's sandbox.
       const turn = await session.getTurn(turnId);
       if (!turn) {
@@ -420,11 +438,14 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   const listTurnEventsHandler: RouteHandler<typeof listTurnEventsRoute> = async c => {
     const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const query = c.req.valid('query');
-    const turn = await TurnHandle.get({
-      store: deps.sessionStore,
-      session_id: sessionId,
-      turn_id: turnId,
-    });
+    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (!checkTurnAccess(deps.resolveUserContext(c), session.record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
+    const turn = await session.getTurn(turnId);
     if (!turn) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
@@ -450,6 +471,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (!checkTurnAccess(deps.resolveUserContext(c), session.record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
     }
 
     const abortController = new AbortController();
@@ -571,6 +595,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (!checkTurnAccess(deps.resolveUserContext(c), session.record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     const turn = await session.getTurn(turnId);
     if (!turn) {

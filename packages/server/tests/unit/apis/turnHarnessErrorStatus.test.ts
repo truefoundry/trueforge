@@ -3,6 +3,7 @@ import type { Sessions } from '@truefoundry/utils-core/agent-session';
 import { AgentHarnessError } from '@truefoundry/utils-core/core';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
+import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -40,7 +41,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
     get: () =>
       Promise.resolve({
         agent_spec: { model: { name: 'test-provider/test-model' } },
-        record: { last_turn_id: null },
+        record: { last_turn_id: null, created_by: LOCAL_USER_CONTEXT.userRef },
         createTurn: () => Promise.reject(error),
       }),
   } as unknown as Sessions;
@@ -61,6 +62,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: createLogger({ silent: true }),
+      resolveUserContext: () => LOCAL_USER_CONTEXT,
     }),
   );
 

@@ -2,7 +2,8 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
 import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCookie } from '../auth/cookies';
-import { authMiddleware, DEFAULT_USER_CONTEXT } from '../auth/middleware';
+import { resolveUserContext } from '../auth/identity';
+import { authMiddleware } from '../auth/middleware';
 import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify, safeReturnTo } from '../auth/oidc';
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
 import type { MeResponse } from '../schemas/auth';
@@ -78,7 +79,7 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
   const gated = new OpenAPIHono();
   gated.use('*', authMiddleware);
   gated.openapi(meRoute, c => {
-    const user = c.get('user') ?? DEFAULT_USER_CONTEXT;
+    const user = resolveUserContext(c);
     const body: MeResponse = getOidcVerify()
       ? { type: 'oidc-connected', email: user.userRef, role: user.role }
       : { type: 'default', email: user.userRef, role: user.role };
