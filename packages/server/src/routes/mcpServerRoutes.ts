@@ -149,11 +149,15 @@ export const listMcpServerToolsRoute = createRoute({
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'The MCP server requires authentication.',
+      description: 'Harness session login required.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'MCP server not found.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The MCP server requires authentication (does not trigger browser OIDC login).',
     },
     502: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

@@ -193,7 +193,7 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
     try {
       const response = await remote.listTools();
       if (isAuthRequired(response)) {
-        return c.json({ error: { message: `MCP server "${name}" requires authentication` } }, 401);
+        return c.json({ error: { message: `MCP server "${name}" requires authentication` } }, 422);
       }
       const data = response.result.tools.map(tool => omitUndefinedEntries({ ...tool }));
       return c.json({ data }, 200);
@@ -201,7 +201,7 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
       if (error instanceof McpConnectionError) {
         deps.logger.warn(`MCP tools/list failed for "${name}"`, extractErrorLogFields(error));
         if (error.statusCode === 401) {
-          return c.json({ error: { message: error.message } }, 401);
+          return c.json({ error: { message: error.message } }, 422);
         }
         return c.json({ error: { message: error.message } }, 502);
       }

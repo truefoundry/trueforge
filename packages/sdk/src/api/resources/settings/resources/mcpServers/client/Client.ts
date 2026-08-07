@@ -334,6 +334,7 @@ export class McpServersClient {
      *
      * @throws {@link TrueForge.UnauthorizedError}
      * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link TrueForge.UnprocessableEntityError}
      * @throws {@link TrueForge.BadGatewayError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
@@ -384,7 +385,9 @@ export class McpServersClient {
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
                 case 401:
-                    throw new TrueForge.UnauthorizedError(
+                    throw new TrueForge.UnauthorizedError(_response.error.body, _response.rawResponse);
+                case 404:
+                    throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -394,8 +397,8 @@ export class McpServersClient {
                         }),
                         _response.rawResponse,
                     );
-                case 404:
-                    throw new TrueForge.NotFoundError(
+                case 422:
+                    throw new TrueForge.UnprocessableEntityError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
