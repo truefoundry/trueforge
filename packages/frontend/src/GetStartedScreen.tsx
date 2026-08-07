@@ -12,7 +12,13 @@ export function GetStartedScreen() {
       <div className="auth-screen-card">
         <BrandIcon className="auth-screen-logo" />
         <h1 className="auth-screen-title">Welcome to TrueForge</h1>
-        <button type="button" className="auth-screen-button" onClick={() => window.location.assign(AUTH_LOGIN_HREF)}>
+        <button
+          type="button"
+          className="auth-screen-button"
+          onClick={() => {
+            window.location.assign(AUTH_LOGIN_HREF);
+          }}
+        >
           Let&apos;s Get Started
         </button>
       </div>

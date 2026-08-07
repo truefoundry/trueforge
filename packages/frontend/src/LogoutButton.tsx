@@ -54,7 +54,9 @@ export function LogoutButton() {
         aria-label="Log out"
         title="Log out"
         className="harness-logout"
-        onClick={() => setConfirmOpen(true)}
+        onClick={() => {
+          setConfirmOpen(true);
+        }}
       >
         <Icon name="log-out" />
       </button>
@@ -69,7 +71,14 @@ export function LogoutButton() {
         contentSized
       >
         <div className="harness-logout-confirm">
-          <button type="button" className="harness-logout-cancel" disabled={busy} onClick={() => setConfirmOpen(false)}>
+          <button
+            type="button"
+            className="harness-logout-cancel"
+            disabled={busy}
+            onClick={() => {
+              setConfirmOpen(false);
+            }}
+          >
             Cancel
           </button>
           <button type="button" className="harness-logout-submit" disabled={busy} onClick={handleConfirm}>

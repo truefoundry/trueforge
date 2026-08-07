@@ -54,7 +54,7 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
       // Only reflect the IdP's message when the IdP actually returned an error.
       // Our own validation failures (state mismatch / missing code) stay generic
       // so a crafted callback can't inject `error_description` copy on its own.
-      const reason = query.error ? query.error_description?.trim() || query.error.trim() : 'login_failed';
+      const reason = query.error ? (query.error_description?.trim() ?? query.error.trim()) : 'login_failed';
       return c.redirect(oauthErrorRedirect(reason), 302);
     }
 
