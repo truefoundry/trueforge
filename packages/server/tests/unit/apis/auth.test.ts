@@ -15,6 +15,7 @@ jest.mock('../../../src/config', () => {
     OIDC_USER_REFERENCE_CLAIM: 'sub',
     OIDC_USER_ROLE_CLAIM: 'groups',
     OIDC_ADMIN_ROLE_VALUE: 'admin',
+    OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
   };
   return {
     __esModule: true,
@@ -200,7 +201,38 @@ describe('auth router (OIDC configured)', () => {
     expect(authUrl.searchParams.get('client_id')).toBe(CLIENT_ID);
     expect(authUrl.searchParams.get('redirect_uri')).toBe('https://harness.example.com/api/v1/auth/callback');
     expect(authUrl.searchParams.get('code_challenge_method')).toBe('S256');
+    expect(authUrl.searchParams.get('scope')?.split(' ')).toEqual(
+      expect.arrayContaining(['openid', 'profile', 'email', 'groups']),
+    );
+    expect(JSON.parse(authUrl.searchParams.get('claims') ?? '{}')).toEqual({
+      id_token: { sub: { essential: true }, groups: { essential: true } },
+    });
     expect(cookieValue(setCookies(res), STATE_COOKIE)).toBeTruthy();
+  });
+
+  it('GET /login requests roles claim without groups scope when OIDC_USER_ROLE_CLAIM=roles', async () => {
+    const rolesOidcClient = await initOidc({
+      ...configuredOidc,
+      OIDC_USER_ROLE_CLAIM: 'roles',
+      OIDC_SCOPES: ['openid', 'profile', 'email'],
+    });
+    if (!rolesOidcClient) {
+      throw new Error('OIDC client was not initialized');
+    }
+
+    const res = await createAuthRouter({ oidcClient: rolesOidcClient, logger }).request('/login', {
+      redirect: 'manual',
+    });
+
+    expect(res.status).toBe(302);
+    const authUrl = new URL(res.headers.get('location') ?? '');
+    expect(authUrl.searchParams.get('scope')?.split(' ')).toEqual(
+      expect.arrayContaining(['openid', 'profile', 'email']),
+    );
+    expect(authUrl.searchParams.get('scope')?.split(' ')).not.toContain('groups');
+    expect(JSON.parse(authUrl.searchParams.get('claims') ?? '{}')).toEqual({
+      id_token: { sub: { essential: true }, roles: { essential: true } },
+    });
   });
 
   // `iss` is forwarded verbatim: IdPs advertising it reject an exchange that drops it.

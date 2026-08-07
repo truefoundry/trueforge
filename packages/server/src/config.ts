@@ -39,6 +39,7 @@ const DEFAULT_REDIS_URL = 'redis://localhost:6379';
 const DEFAULT_OIDC_USER_REFERENCE_CLAIM = 'sub';
 const DEFAULT_OIDC_USER_ROLE_CLAIM = 'groups';
 const DEFAULT_OIDC_ADMIN_ROLE_VALUE = 'admin';
+const DEFAULT_OIDC_SCOPES = 'openid,profile,email';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -80,6 +81,17 @@ function parsePort(raw: string | undefined): number {
     throw new Error(`Environment variable PORT must be an integer between 1 and 65535, got "${raw}"`);
   }
   return port;
+}
+
+export function parseOidcScopes(raw: string): string[] {
+  const scopes = raw
+    .split(',')
+    .map(part => part.trim())
+    .filter(part => part.length > 0);
+  if (scopes.length === 0) {
+    throw new Error('OIDC_SCOPES must contain at least one scope.');
+  }
+  return scopes;
 }
 
 /** Parses a positive-integer env var, falling back to `defaultValue` when unset/blank. */
@@ -234,6 +246,7 @@ function resolveOIDCConfig(): OIDCConfig | undefined {
       getEnv('OIDC_USER_ROLE_CLAIM', { defaultValue: DEFAULT_OIDC_USER_ROLE_CLAIM }) ?? DEFAULT_OIDC_USER_ROLE_CLAIM,
     OIDC_ADMIN_ROLE_VALUE:
       getEnv('OIDC_ADMIN_ROLE_VALUE', { defaultValue: DEFAULT_OIDC_ADMIN_ROLE_VALUE }) ?? DEFAULT_OIDC_ADMIN_ROLE_VALUE,
+    OIDC_SCOPES: parseOidcScopes(getEnv('OIDC_SCOPES', { defaultValue: DEFAULT_OIDC_SCOPES }) ?? DEFAULT_OIDC_SCOPES),
   };
 }
 
@@ -260,6 +273,11 @@ export interface OIDCConfig {
    * Case sensitive. Optional; defaults to "admin"
    */
   OIDC_ADMIN_ROLE_VALUE: string;
+  /** Comma-separated OAuth scopes for the authorization request. Env: `OIDC_SCOPES`.
+   * Optional; defaults to "openid,profile,email,groups". Whitespace around entries is stripped.
+   * Okta `groups` claims require the `groups` scope; Azure AD app roles typically omit it.
+   */
+  OIDC_SCOPES: string[];
 }
 
 export interface SharedServerConfiguration {
