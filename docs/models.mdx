@@ -1,0 +1,87 @@
+---
+title: 'Models'
+sidebarTitle: 'Models'
+description: 'Configure model providers once, then reference models by name in any agent — switching models is a config change, not a code change.'
+---
+
+TrueForge works with the major model providers and any OpenAI-compatible endpoint. Provider credentials are configured once — in the UI under **Settings → Model Providers** or via the settings API — and agents reference models by name. Agent definitions never contain API keys.
+
+## Supported providers
+
+| Provider type   | Notes                                                                  |
+| --------------- | ---------------------------------------------------------------------- |
+| `openai`        | OpenAI                                                                 |
+| `anthropic`     | Anthropic                                                              |
+| `google-gemini` | Google Gemini                                                          |
+| `fireworks`     | Fireworks AI                                                           |
+| `together`      | Together AI                                                            |
+| `moonshot`      | Moonshot AI (Kimi)                                                     |
+| `zai`           | Z.ai (GLM)                                                             |
+| `alibaba`       | Alibaba (Qwen)                                                         |
+| `custom`        | Any OpenAI-compatible endpoint — self-hosted models, gateways, proxies |
+
+The shipped catalog (`GET /api/v1/settings/model-providers/catalog`) contains ready-to-fill templates for each provider. Use the `custom` type to connect vLLM, Ollama, a corporate gateway, or any other OpenAI-compatible API.
+
+## Configuring a provider
+
+<Tabs>
+  <Tab title="UI">
+    Open **Settings → Model Providers**, pick a provider from the catalog, and paste your API key. Models from that provider become available immediately in the model selector.
+  </Tab>
+  <Tab title="API">
+    Fetch a template from the catalog, fill in the credentials, and upsert it:
+
+    ```bash
+    curl http://localhost:8790/api/v1/settings/model-providers/catalog
+    curl -X PUT http://localhost:8790/api/v1/settings/model-providers \
+      -H 'Content-Type: application/json' \
+      -d '<provider manifest from the catalog, with your API key>'
+    ```
+
+    List every available model across configured providers with `GET /api/v1/models`.
+
+  </Tab>
+</Tabs>
+
+## Referencing a model in an agent
+
+Models are addressed as `provider/model` in the agent spec:
+
+```json
+{
+  "model": {
+    "name": "anthropic/claude-sonnet-4-6",
+    "params": {
+      "max_tokens": 4096,
+      "temperature": 0.2
+    }
+  }
+}
+```
+
+`model.params` supports `max_tokens`, `temperature`, `top_p`, `top_k`, `parallel_tool_calls`, and `reasoning_effort` — plus any extra provider-specific parameters, which are passed through as-is. See the [agent spec reference](/api/agent-spec#model).
+
+Switching models is a one-line change to the agent spec (or one click in the UI). No code edits, no new credentials.
+
+## Why model choice matters for agents
+
+Agent workloads are different from single-turn chat. They involve multiple tool calls, retries, long context, and structured outputs. Model selection directly affects:
+
+- Reliability of tool calling and structured output
+- Latency across multi-step tasks
+- Total run cost over many turns
+- Accuracy on planning and complex reasoning
+
+| Category                   | Best for                                                        |
+| -------------------------- | --------------------------------------------------------------- |
+| Balanced general-purpose   | Most production assistants and tool-driven workflows            |
+| Cost-optimized high-volume | High request volume, triage, lightweight actions                |
+| High reasoning depth       | Complex planning, multi-step analysis, long tool chains         |
+| Open / self-hosted         | Data residency, cost control, private deployment (via `custom`) |
+
+<Tip>
+  Start with a balanced model and a tight [agent spec](/api/agent-spec), then measure. Token usage per model call is
+  reported on every `model.message` event (`usage.input_tokens`, `usage.output_tokens`, and a breakdown of where input
+  tokens went), and per-turn totals appear in `turn.done` metrics — so you can see exactly what a model choice costs
+  before switching.
+</Tip>
