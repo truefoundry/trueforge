@@ -15,6 +15,7 @@ jest.mock('../../../src/config', () => {
     OIDC_USER_REFERENCE_CLAIM: 'sub',
     OIDC_USER_ROLE_CLAIM: 'groups',
     OIDC_ADMIN_ROLE_VALUE: 'admin',
+    OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
   };
   return {
     __esModule: true,
@@ -213,6 +214,7 @@ describe('auth router (OIDC configured)', () => {
     const rolesOidcClient = await initOidc({
       ...configuredOidc,
       OIDC_USER_ROLE_CLAIM: 'roles',
+      OIDC_SCOPES: ['openid', 'profile', 'email'],
     });
     if (!rolesOidcClient) {
       throw new Error('OIDC client was not initialized');

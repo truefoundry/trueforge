@@ -16,6 +16,7 @@ const OIDC_CONFIG: OIDCConfig = {
   OIDC_USER_REFERENCE_CLAIM: 'sub',
   OIDC_USER_ROLE_CLAIM: 'groups',
   OIDC_ADMIN_ROLE_VALUE: 'admin',
+  OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
 };
 
 function json(body: unknown, status = 200): Response {
@@ -47,7 +48,6 @@ function createApp() {
   app.route('/api/v1/models', models);
 
   const settings = new OpenAPIHono();
-  settings.use('*', authMiddleware);
   settings.use('*', adminAuthMiddleware);
   settings.get('/', c => c.json({ ok: true, user: c.get('user_context') }));
   app.route('/api/v1/settings', settings);
@@ -62,7 +62,7 @@ describe('authMiddleware', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       ok: true,
-      user: { userRef: 'trueforge-default', role: 'admin' },
+      user: undefined,
     });
   });
 

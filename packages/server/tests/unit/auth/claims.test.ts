@@ -15,6 +15,7 @@ function config(overrides: Partial<OIDCConfig> = {}): OIDCConfig {
     OIDC_USER_REFERENCE_CLAIM: 'sub',
     OIDC_USER_ROLE_CLAIM: 'groups',
     OIDC_ADMIN_ROLE_VALUE: 'harness-admins',
+    OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
     ...overrides,
   };
 }
@@ -103,19 +104,16 @@ describe('toUserContext', () => {
 });
 
 describe('buildAuthorizationRequestParams', () => {
-  it('always requests openid, profile, and email', () => {
-    const { scopes } = buildAuthorizationRequestParams(config({ OIDC_USER_ROLE_CLAIM: 'roles' }));
-    expect(scopes).toEqual(expect.arrayContaining(['openid', 'profile', 'email']));
+  it('requests configured scopes', () => {
+    const { scopes } = buildAuthorizationRequestParams(
+      config({ OIDC_SCOPES: ['openid', 'profile', 'email', 'offline_access'] }),
+    );
+    expect(scopes).toEqual(['openid', 'profile', 'email', 'offline_access']);
   });
 
-  it('adds the groups scope when the role claim is "groups"', () => {
-    const { scopes } = buildAuthorizationRequestParams(config({ OIDC_USER_ROLE_CLAIM: 'groups' }));
-    expect(scopes).toContain('groups');
-  });
-
-  it('does not add a groups scope for a non-"groups" role claim', () => {
-    const { scopes } = buildAuthorizationRequestParams(config({ OIDC_USER_ROLE_CLAIM: 'roles' }));
-    expect(scopes).not.toContain('groups');
+  it('defaults to openid, profile, email, and groups', () => {
+    const { scopes } = buildAuthorizationRequestParams(config());
+    expect(scopes).toEqual(['openid', 'profile', 'email', 'groups']);
   });
 
   it('requests both the role claim and the (default) reference claim as essential in the id_token', () => {
