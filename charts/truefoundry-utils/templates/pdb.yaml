@@ -1,10 +1,11 @@
 {{- if .Values.podDisruptionBudget.enabled }}
-{{- $min := .Values.podDisruptionBudget.minAvailable }}
-{{- $max := .Values.podDisruptionBudget.maxUnavailable }}
-{{- if and $min $max }}
+{{- /* toString so integer 0 is distinct from unset ("" / nil); if/with treat 0 as falsy. */}}
+{{- $min := .Values.podDisruptionBudget.minAvailable | toString }}
+{{- $max := .Values.podDisruptionBudget.maxUnavailable | toString }}
+{{- if and (ne $min "") (ne $max "") }}
 {{- fail "podDisruptionBudget: set exactly one of minAvailable or maxUnavailable, not both" }}
 {{- end }}
-{{- if not (or $min $max) }}
+{{- if and (eq $min "") (eq $max "") }}
 {{- fail "podDisruptionBudget: set exactly one of minAvailable or maxUnavailable when enabled" }}
 {{- end }}
 apiVersion: policy/v1
@@ -14,11 +15,11 @@ metadata:
   labels:
     {{- include "truefoundry-utils.labels" . | nindent 4 }}
 spec:
-  {{- with $min }}
-  minAvailable: {{ . }}
+  {{- if ne $min "" }}
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
   {{- end }}
-  {{- with $max }}
-  maxUnavailable: {{ . }}
+  {{- if ne $max "" }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
   {{- end }}
   selector:
     matchLabels:
