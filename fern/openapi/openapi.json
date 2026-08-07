@@ -1736,17 +1736,27 @@
       },
       "MeResponse": {
         "properties": {
+          "email": {
+            "description": "User email from the ID token when connected; `\"default\"` when anonymous.",
+            "type": "string"
+          },
+          "role": {
+            "description": "Caller role.",
+            "type": "string"
+          },
           "type": {
-            "description": "Session kind: `default` when no OIDC id_token cookie is present; `passport` after a successful login.",
+            "description": "Session kind: `default` when no valid OIDC session; `oidc-connected` after a successful browser login.",
             "enum": [
               "default",
-              "passport"
+              "oidc-connected"
             ],
             "type": "string"
           }
         },
         "required": [
-          "type"
+          "type",
+          "email",
+          "role"
         ],
         "type": "object"
       },
@@ -4122,6 +4132,31 @@
         "x-fern-sdk-method-name": "logout"
       }
     },
+    "/api/v1/auth/me": {
+      "get": {
+        "description": "Returns the caller identity when a valid OIDC session cookie is present, otherwise default/anonymous fields. Never requires authentication.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Session type and identity for the current request."
+          }
+        },
+        "summary": "Current session",
+        "tags": [
+          "Auth"
+        ],
+        "x-fern-sdk-group-name": [
+          "auth"
+        ],
+        "x-fern-sdk-method-name": "me"
+      }
+    },
     "/api/v1/capabilities": {
       "get": {
         "description": "Report optional runtime capabilities available for this tenant.",
@@ -4392,31 +4427,6 @@
           "mcpServers"
         ],
         "x-fern-sdk-method-name": "authorize"
-      }
-    },
-    "/api/v1/me": {
-      "get": {
-        "description": "Returns whether the browser has an OIDC session cookie. Does not require authentication — anonymous callers get `type: \"default\"`.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MeResponse"
-                }
-              }
-            },
-            "description": "Session type for the current request."
-          }
-        },
-        "summary": "Current session type",
-        "tags": [
-          "Auth"
-        ],
-        "x-fern-sdk-group-name": [
-          "auth"
-        ],
-        "x-fern-sdk-method-name": "me"
       }
     },
     "/api/v1/models": {
@@ -5712,7 +5722,7 @@
                 }
               }
             },
-            "description": "The MCP server requires authentication."
+            "description": "Harness session login required."
           },
           "404": {
             "content": {
@@ -5723,6 +5733,16 @@
               }
             },
             "description": "MCP server not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The MCP server requires authentication (does not trigger browser OIDC login)."
           },
           "502": {
             "content": {

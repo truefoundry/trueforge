@@ -329,7 +329,7 @@ await client.auth.logout();
 <dl>
 <dd>
 
-Returns whether the browser has an OIDC session cookie. Does not require authentication — anonymous callers get `type: "default"`.
+Returns the caller identity when a valid OIDC session cookie is present, otherwise default/anonymous fields. Never requires authentication.
 </dd>
 </dl>
 </dd>

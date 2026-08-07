@@ -3,6 +3,10 @@
 import type * as TrueForge from "../index.js";
 
 export interface MeResponse {
-    /** Session kind: `default` when no OIDC id_token cookie is present; `passport` after a successful login. */
+    /** User email from the ID token when connected; `"default"` when anonymous. */
+    email: string;
+    /** Caller role. */
+    role: string;
+    /** Session kind: `default` when no valid OIDC session; `oidc-connected` after a successful browser login. */
     type: TrueForge.MeResponseType;
 }

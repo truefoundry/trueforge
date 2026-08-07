@@ -275,6 +275,25 @@ describe("McpServersClient", () => {
             .mockEndpoint()
             .get("/api/v1/settings/mcp-servers/name/tools")
             .respondWith()
+            .statusCode(422)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.mcpServers.listTools("name");
+        }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
+    });
+
+    test("list_tools (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/settings/mcp-servers/name/tools")
+            .respondWith()
             .statusCode(502)
             .jsonBody(rawResponseBody)
             .build();

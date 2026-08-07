@@ -5,8 +5,8 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
 export const MeResponseType: core.serialization.Schema<serializers.MeResponseType.Raw, TrueForge.MeResponseType> =
-    core.serialization.enum_(["default", "passport"]);
+    core.serialization.enum_(["default", "oidc-connected"]);
 
 export declare namespace MeResponseType {
-    export type Raw = "default" | "passport";
+    export type Raw = "default" | "oidc-connected";
 }

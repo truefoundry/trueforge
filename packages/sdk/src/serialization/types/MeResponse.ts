@@ -7,11 +7,15 @@ import { MeResponseType } from "./MeResponseType.js";
 
 export const MeResponse: core.serialization.ObjectSchema<serializers.MeResponse.Raw, TrueForge.MeResponse> =
     core.serialization.object({
+        email: core.serialization.string(),
+        role: core.serialization.string(),
         type: MeResponseType,
     });
 
 export declare namespace MeResponse {
     export interface Raw {
+        email: string;
+        role: string;
         type: MeResponseType.Raw;
     }
 }
