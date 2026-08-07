@@ -12,6 +12,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
   router.openapi(getCapabilitiesRoute, async c => {
     const record = await deps.sandboxProviderStore.getSandboxProvider(TENANT_ID);
     const sandboxEnabled = record !== undefined;
+    const isAdmin = c.get('user_context')?.role === 'admin';
     return c.json(
       {
         data: {
@@ -22,7 +23,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
                 enabled: false,
                 reason: 'Skills run in a sandbox, which is not configured.',
               },
-          settings: { enabled: true },
+          settings: { enabled: isAdmin },
         },
       },
       200,

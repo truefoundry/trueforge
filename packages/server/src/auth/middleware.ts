@@ -63,3 +63,17 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   }
   return next();
 };
+
+/** Require `role: admin` when OIDC is on; standalone/no IdP passes through unchanged. */
+export const adminAuthMiddleware: MiddlewareHandler = async (c, next) => {
+  if (!getOidcVerify()) {
+    return next();
+  }
+
+  const user = c.get('user_context');
+  if (user?.role !== 'admin') {
+    throw new HTTPException(403, { message: 'Admin access required' });
+  }
+
+  return next();
+};
