@@ -18,6 +18,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';
 import { z } from 'zod';
+import { resolveUserContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -195,10 +196,11 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       if (agent === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.agent_id}` } }, 404);
       }
+      const user = resolveUserContext();
       const session = await deps.sessions.create({
         tenant_id: TENANT_ID,
         session_id: sessionId,
-        created_by: 'trueforge-default',
+        created_by: user.userRef,
         agent: body.agent,
       });
       return c.json({ data: toWireSession(session.record) }, 201);
@@ -212,10 +214,11 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       skillStore: deps.skillStore,
       sandboxProviderStore: deps.sandboxProviderStore,
     });
+    const user = resolveUserContext();
     const session = await deps.sessions.create({
       tenant_id: TENANT_ID,
       session_id: sessionId,
-      created_by: 'trueforge-default',
+      created_by: user.userRef,
       agent: body.agent,
     });
     return c.json({ data: toWireSession(session.record) }, 201);
@@ -226,6 +229,10 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    const user = resolveUserContext();
+    if (record.created_by !== user.userRef) {
+      return c.json({ error: { message: 'Only the session creator can get this session' } }, 403);
     }
     return c.json({ data: toWireSession(record) }, 200);
   };
@@ -276,10 +283,11 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const listSessionsHandler: RouteHandler<typeof listSessionsRoute> = async c => {
     const query = c.req.valid('query');
+    const user = resolveUserContext();
     try {
       const { data, pagination } = await deps.sessionStore.listSessions({
         agent_id: query.agent_id,
-        created_by: query.created_by,
+        created_by: user.userRef,
         tenant_id: TENANT_ID,
         limit: query.limit,
         order: query.order,

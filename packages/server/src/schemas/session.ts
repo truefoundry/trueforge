@@ -43,7 +43,6 @@ export const ListSessionsRequestQuerySchema = z
       'Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339).',
     ),
     agent_id: z.string().min(1).optional().describe('When set, only sessions bound to this agent id are returned.'),
-    created_by: z.string().min(1).optional().describe('When set, only sessions created by this identity are returned.'),
   })
   .openapi('ListSessionsRequestQuery');
 

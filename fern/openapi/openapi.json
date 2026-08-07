@@ -4401,7 +4401,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent; optional `created_by` filters by creator identity. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "description": "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
         "parameters": [
           {
             "description": "Page size. Defaults to 10, max 100.",
@@ -4464,17 +4464,6 @@
             "required": false,
             "schema": {
               "description": "When set, only sessions bound to this agent id are returned.",
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
-            "description": "When set, only sessions created by this identity are returned.",
-            "in": "query",
-            "name": "created_by",
-            "required": false,
-            "schema": {
-              "description": "When set, only sessions created by this identity are returned.",
               "minLength": 1,
               "type": "string"
             }
@@ -4637,6 +4626,16 @@
               }
             },
             "description": "Session data."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
           },
           "404": {
             "content": {
@@ -4989,7 +4988,7 @@
         "x-fern-sdk-method-name": "list_turns"
       },
       "post": {
-        "description": "Create a turn within a session and execute it.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
+        "description": "Create a turn within a session and execute it.\nOnly the session creator (`created_by`) may create turns.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5039,6 +5038,16 @@
               }
             },
             "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
           },
           "404": {
             "content": {
