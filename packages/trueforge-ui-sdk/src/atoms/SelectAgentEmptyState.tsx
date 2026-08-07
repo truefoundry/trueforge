@@ -20,3 +20,9 @@ export function SelectAgentEmptyState() {
     </div>
   );
 }
+
+declare module '../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    SelectAgentEmptyState: typeof SelectAgentEmptyState;
+  }
+}

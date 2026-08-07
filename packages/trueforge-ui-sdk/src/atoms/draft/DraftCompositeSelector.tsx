@@ -387,3 +387,9 @@ export function DraftSelectionChips() {
     </div>
   );
 }
+
+declare module '../../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    DraftCompositeSelector: typeof DraftCompositeSelector;
+  }
+}
