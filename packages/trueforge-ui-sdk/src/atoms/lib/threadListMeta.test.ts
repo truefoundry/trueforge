@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  canReuseMutableShell,
   formatRelativeShort,
   readThreadAgentName,
   readThreadIsMutable,
@@ -39,5 +40,42 @@ describe('threadListItemIsMutable', () => {
     expect(threadListItemIsMutable({ agentName: 'from-sdk' })).toBe(false);
     expect(threadListItemIsMutable({})).toBe(true);
     expect(threadListItemIsMutable(null)).toBe(true);
+  });
+});
+
+describe('canReuseMutableShell', () => {
+  it('allows blank drafts to share the mutable shell', () => {
+    expect(
+      canReuseMutableShell({
+        sessionMutable: true,
+        shellMutable: true,
+        remoteId: 'sess-b',
+        pendingSessionId: 'sess-a',
+      }),
+    ).toBe(true);
+  });
+
+  it('blocks Edit-bound shells from reusing chrome on a different session', () => {
+    expect(
+      canReuseMutableShell({
+        sessionMutable: true,
+        shellMutable: true,
+        shellAgentName: 'writer',
+        remoteId: 'sess-b',
+        pendingSessionId: 'sess-a',
+      }),
+    ).toBe(false);
+  });
+
+  it('allows Edit-bound shells to switchToThread for their pending session', () => {
+    expect(
+      canReuseMutableShell({
+        sessionMutable: true,
+        shellMutable: true,
+        shellAgentName: 'writer',
+        remoteId: 'sess-a',
+        pendingSessionId: 'sess-a',
+      }),
+    ).toBe(true);
   });
 });

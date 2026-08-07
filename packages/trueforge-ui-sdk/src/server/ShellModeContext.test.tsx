@@ -260,6 +260,34 @@ describe('ShellModeProvider', () => {
     expect(result.current.pendingSessionId).toBe('sess-orphan');
   });
 
+  it('openHistorySession into mutable clears Edit identity', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({
+        mode: 'AgentLibraryWithComposer',
+        defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+      }),
+    });
+
+    act(() =>
+      result.current.selectLibraryAgent({
+        isMutable: true,
+        agentId: 'writer',
+        agentName: 'writer',
+        agentSpec: { model: { name: 'openai-main/gpt-4.1' }, instructions: 'Write.' },
+      }),
+    );
+    expect(result.current.mode).toMatchObject({ agentName: 'writer', isMutable: true });
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-other', isMutable: true }));
+    expect(result.current.mode).toEqual({
+      status: 'active',
+      isMutable: true,
+      agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+      locked: false,
+    });
+    expect(result.current.pendingSessionId).toBe('sess-other');
+  });
+
   it('invalidateAgentsList bumps agentsListEpoch', () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
     expect(result.current.agentsListEpoch).toBe(0);

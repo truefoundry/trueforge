@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stamp) over inferring from `agentName`. Orphaned named refs (deleted agent, no
   `agentName`) open as immutable. `openHistorySession` allows `isMutable: false`
   without an agent name.
+- **Edit-bound draft history switch** — do not reuse the mutable shell via
+  `switchToThread` when the shell still carries an Edit `agentName`/`agentId`
+  and the row is a different session. Remount through `openHistorySession` so
+  Update Agent chrome cannot overwrite the wrong library agent.
 
 ### Breaking
 

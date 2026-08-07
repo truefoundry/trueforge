@@ -36,3 +36,31 @@ export function readThreadIsMutable(custom: unknown): boolean | undefined {
 export function threadListItemIsMutable(custom: unknown): boolean {
   return readThreadIsMutable(custom) ?? readThreadAgentName(custom) == null;
 }
+
+/**
+ * Fast-path `switchToThread` for mutable history rows only when Edit chrome is
+ * safe to keep. Blank drafts (no agentName/agentId) may share one shell; an
+ * Edit-bound shell must remount via `openHistorySession` when leaving its
+ * pending session so Update does not keep the previous agentName over another
+ * draft's runtime spec.
+ */
+export function canReuseMutableShell({
+  sessionMutable,
+  shellMutable,
+  shellAgentName,
+  shellAgentId,
+  remoteId,
+  pendingSessionId,
+}: {
+  sessionMutable: boolean;
+  shellMutable: boolean;
+  shellAgentName?: string;
+  shellAgentId?: string;
+  remoteId?: string | null;
+  pendingSessionId?: string;
+}): boolean {
+  if (!sessionMutable || !shellMutable) return false;
+  const editBound = (shellAgentName != null && shellAgentName !== '') || (shellAgentId != null && shellAgentId !== '');
+  if (!editBound) return true;
+  return remoteId != null && remoteId === pendingSessionId;
+}

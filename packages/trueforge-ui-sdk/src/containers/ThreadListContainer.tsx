@@ -13,7 +13,7 @@ import { AgentHistoryFilterButton } from '../atoms/AgentHistoryFilterButton.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
-import { readThreadAgentName, threadListItemIsMutable } from '../atoms/lib/threadListMeta.js';
+import { canReuseMutableShell, readThreadAgentName, threadListItemIsMutable } from '../atoms/lib/threadListMeta.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
 import { Icon } from '../icons/Icon.js';
@@ -133,7 +133,15 @@ function ThreadListItemRow({ onThreadOpen, showDelete }: { onThreadOpen?: () => 
             (agentName == null
               ? shell.mode.agentName == null && shell.mode.agentId == null
               : shell.mode.agentName === agentName || shell.mode.agentId === agentName);
-          const sameMutable = sessionMutable && shell?.mode.status === 'active' && shell.mode.isMutable;
+          const sameMutable = canReuseMutableShell({
+            sessionMutable,
+            shellMutable: shell?.mode.status === 'active' && shell.mode.isMutable,
+            ...(shell?.mode.status === 'active' && shell.mode.isMutable
+              ? { shellAgentName: shell.mode.agentName, shellAgentId: shell.mode.agentId }
+              : {}),
+            remoteId,
+            pendingSessionId: shell?.pendingSessionId,
+          });
 
           if ((sameImmutable || sameMutable) && remoteId != null) {
             void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
