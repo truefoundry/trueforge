@@ -1,9 +1,8 @@
 import type { Context, MiddlewareHandler } from 'hono';
-import { getCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
 import { toUserContext, type IdTokenClaims } from './claims';
-import { ID_TOKEN_COOKIE } from './cookies';
+import { readIdTokenCookie } from './cookies';
 import { LOCAL_USER_CONTEXT, type UserContext } from './identity';
 import { getOidcVerify } from './oidc';
 
@@ -23,7 +22,7 @@ export async function resolveAuthUser(c: Context): Promise<UserContext | undefin
     return undefined;
   }
 
-  const token = getCookie(c, ID_TOKEN_COOKIE);
+  const token = readIdTokenCookie({ context: c });
   if (!token) {
     return undefined;
   }

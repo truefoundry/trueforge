@@ -188,8 +188,8 @@ export async function cancelSessionTurn(
 
 const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this session';
 
-function checkSessionAccess(userRef: string, createdBy: string): boolean {
-  return createdBy === userRef;
+function checkSessionAccess({ userRef, createdBy }: { userRef: string; createdBy: string }): boolean {
+  return userRef === createdBy;
 }
 
 /** DB-backed sessions (mounted at /api/v1/sessions). */
@@ -237,7 +237,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess(deps.resolveUserContext(c).userRef, record.created_by)) {
+    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: record.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     return c.json({ data: toWireSession(record) }, 200);
@@ -250,7 +250,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       // Idempotent delete when already gone.
       return c.body(null, 204);
     }
-    if (!checkSessionAccess(deps.resolveUserContext(c).userRef, record.created_by)) {
+    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: record.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     await deps.sessionStore.deleteSession({ tenant_id: TENANT_ID, session_id: sessionId });
@@ -264,7 +264,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!existing) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess(deps.resolveUserContext(c).userRef, existing.created_by)) {
+    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: existing.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     // Draft (value) sessions may replace their inline agent; named (ref) sessions
@@ -331,7 +331,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess(deps.resolveUserContext(c).userRef, record.created_by)) {
+    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: record.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     const turnId = record.last_turn_id;
@@ -350,7 +350,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess(deps.resolveUserContext(c).userRef, session.record.created_by)) {
+    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: session.record.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     try {
