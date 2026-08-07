@@ -1,0 +1,122 @@
+---
+title: 'Agent Spec Reference'
+sidebarTitle: 'Agent Spec'
+description: 'Every field on the AgentSpec — model, instructions, MCP servers, skills, and runtime config.'
+---
+
+An `AgentSpec` is the complete definition of an agent. It is used inline when creating a session (`agent.type: "value"`) or saved as a named agent (`POST /api/v1/agents`) and referenced by id (`agent.type: "ref"`). All fields are `snake_case`.
+
+```json A complete example
+{
+  "model": {
+    "name": "anthropic/claude-sonnet-4-6",
+    "params": { "max_tokens": 4096, "temperature": 0.2 }
+  },
+  "instructions": "You help customers with orders. Always confirm before processing refunds.",
+  "mcp_servers": [
+    {
+      "name": "orders-api",
+      "enable_tools": ["@all"],
+      "require_approval_for_tools": ["process_refund"],
+      "preload": false
+    }
+  ],
+  "skills": [{ "name": "customer-support" }],
+  "config": {
+    "iteration_limit": 50,
+    "sandbox": { "enabled": true },
+    "dynamic_sub_agents": { "enabled": true },
+    "ask_user_questions": { "enabled": true },
+    "generative_ui": { "enabled": true },
+    "context_management": {
+      "compaction": { "enabled": true },
+      "large_tool_response": { "enabled": true }
+    }
+  }
+}
+```
+
+## `model`
+
+The only required field.
+
+| Field    | Type   | Required | Description                                                                |
+| -------- | ------ | -------- | -------------------------------------------------------------------------- |
+| `name`   | string | Yes      | Model FQN: `provider/model`, e.g. `openai/gpt-5.2`. See [Models](/models). |
+| `params` | object | No       | Model call parameters, passed through to the provider.                     |
+
+`model.params` recognizes `max_tokens`, `temperature`, `top_p`, `top_k`, `parallel_tool_calls` (boolean), and `reasoning_effort` (string). Extra keys are allowed and forwarded to the provider as-is.
+
+## `instructions`
+
+Optional string. The agent's system prompt — its role, behavior, and constraints. The harness appends its own guidance for enabled capabilities (sandbox, subagents, etc.), so keep this focused on _your_ agent. See [context engineering best practices](/context-engineering/overview#best-practices).
+
+## `messages`
+
+Optional array of seed messages injected at the start of every session:
+
+```json
+{ "messages": [{ "type": "user.message", "content": "Introduce yourself briefly." }] }
+```
+
+## `mcp_servers`
+
+Optional array. Each entry attaches a [configured MCP server](/mcp-servers) by name:
+
+| Field                        | Default                      | Description                                                                                                    |
+| ---------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `name`                       | — (required)                 | Name of a server registered under **Settings → MCP Servers**.                                                  |
+| `enable_tools`               | `["@all"]`                   | Tools exposed to the agent: `@all`, `@read-only`, or literal tool names.                                       |
+| `disable_tools`              | `[]`                         | Tools subtracted from the enabled set.                                                                         |
+| `preload_tools`              | `[]`                         | Tools loaded eagerly into context while the rest stay deferred.                                                |
+| `require_approval_for_tools` | `["@write", "@destructive"]` | Tools that pause for [human approval](/human-in-the-loop): `@all`, `@write`, `@destructive`, or literal names. |
+| `preload`                    | `false`                      | Load all tool schemas upfront instead of [on demand](/context-engineering/deferred-tool-loading).              |
+
+The `@read-only`, `@write`, and `@destructive` selectors are resolved from the tool annotations published by the MCP server.
+
+## `response_format`
+
+Optional. Constrains the agent's final output: `{ "type": "text" }` (default), `{ "type": "json_object" }`, or `{ "type": "json_schema", "json_schema": { ... } }`.
+
+## `skills`
+
+Optional array of name-only references to [configured skills](/skills):
+
+```json
+{ "skills": [{ "name": "customer-support" }] }
+```
+
+Skill names may contain letters, numbers, `.`, `_`, and `-` (max 64 characters). Attaching skills requires `config.sandbox.enabled: true`.
+
+## `config`
+
+Runtime behavior. Every field has a default, so `config` can be omitted entirely.
+
+| Field                | Default                | Description                                                                                                                                     |
+| -------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `iteration_limit`    | `100`                  | Max agent-loop iterations per turn (1–1024). A safety stop for runaway loops.                                                                   |
+| `sandbox`            | `{ "enabled": false }` | [Sandbox](/sandbox) for code execution, files, and skills.                                                                                      |
+| `dynamic_sub_agents` | `{ "enabled": true }`  | [Subagents](/context-engineering/subagents).                                                                                                    |
+| `context_management` | all enabled            | [Compaction](/context-engineering/overview#context-compaction) and [large tool response offloading](/context-engineering/large-tool-responses). |
+| `generative_ui`      | `{ "enabled": true }`  | [Generative UI](/generative-ui) (OpenUI blocks).                                                                                                |
+| `ask_user_questions` | `{ "enabled": true }`  | The [`ask_user_question`](/ask-user-questions) tool.                                                                                            |
+
+### `config.sandbox`
+
+| Field                        | Default | Description                                                                                                                                                                                             |
+| ---------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                    | `false` | Give the agent a sandbox. Required for skills and Code Mode.                                                                                                                                            |
+| `file_downloads`             | `true`  | Allow downloading agent-produced files via the turn download endpoint.                                                                                                                                  |
+| `network_policy.auth_inject` | —       | Up to one rule injecting git basic-auth credentials for exact hosts: `{ "type": "git", "match": { "hosts": ["github.com"] }, "auth_data": { "type": "basic", "username": "...", "password": "..." } }`. |
+
+### `config.context_management`
+
+| Field                                    | Default | Description                                           |
+| ---------------------------------------- | ------- | ----------------------------------------------------- |
+| `compaction.enabled`                     | `true`  | Summarize older history when context grows too large. |
+| `compaction.compaction_threshold_tokens` | `50000` | Context size (tokens) that triggers compaction.       |
+| `large_tool_response.enabled`            | `true`  | Offload oversized tool responses to a sandbox file.   |
+
+## `variables`
+
+Optional map of string key–value pairs stored on the spec, reserved for parameterizing agent definitions.

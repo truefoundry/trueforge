@@ -21,6 +21,32 @@
     {
       "group": "Getting Started",
       "pages": ["introduction", "quickstart"]
+    },
+    {
+      "group": "Capabilities",
+      "pages": [
+        "models",
+        "mcp-servers",
+        "skills",
+        "sandbox",
+        "human-in-the-loop",
+        "ask-user-questions",
+        "generative-ui"
+      ]
+    },
+    {
+      "group": "Context Engineering",
+      "pages": [
+        "context-engineering/overview",
+        "context-engineering/subagents",
+        "context-engineering/deferred-tool-loading",
+        "context-engineering/code-mode",
+        "context-engineering/large-tool-responses"
+      ]
+    },
+    {
+      "group": "API",
+      "pages": ["api/overview", "api/agent-spec", "api/turn-events"]
     }
   ]
 }

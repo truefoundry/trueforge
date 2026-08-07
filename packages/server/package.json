@@ -3,7 +3,7 @@
   "version": "0.2.0-rc.2",
   "description": "TrueFoundry agent server + UI (npx @truefoundry/utils)",
   "author": "Truefoundry",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": false,
   "type": "module",
   "bin": "./dist/cli.js",

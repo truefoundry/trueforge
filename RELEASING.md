@@ -136,16 +136,18 @@ Publish a real version when CI or teammates need it.
 
 ## Deferred to the real OSS release — grep for `TODO(oss)`
 
+Done: root LICENSE + MIT license fields, CONTRIBUTING, SECURITY,
+CODE_OF_CONDUCT, issue/PR templates.
+
 | Item                                                                            | Where                                                   |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| License: UNLICENSED → Apache-2.0 + LICENSE file                                 | both package.jsons, repo root                           |
 | Ship README (guard lives in make-dist-package-json.mjs)                         | packages/harness/scripts                                |
 | Add repository/homepage/bugs/keywords metadata                                  | packages/harness/package.json                           |
 | Add `--provenance` to publish                                                   | .github/workflows/release.yml                           |
 | Replace `internal.devtest.truefoundry.tech` URLs                                | packages/server/src/config                              |
 | Private-repo links in shipped sandbox scripts                                   | packages/harness/src/core/sandbox/scripts/mcp_client.py |
 | Sourcemaps/declarationMap decision                                              | packages/harness/tsup.config.ts, tsconfig.build.json    |
-| CONTRIBUTING / SECURITY / CODE_OF_CONDUCT / CODEOWNERS / CI for external PRs    | .github/                                                |
+| CODEOWNERS / CI for external (fork) PRs                                         | .github/                                                |
 | Secret-scan history, enable secret scanning + push protection, flip repo public | GitHub settings                                         |
 
 ---

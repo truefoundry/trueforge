@@ -1,0 +1,139 @@
+---
+title: 'Quickstart'
+sidebarTitle: 'Quickstart'
+description: 'Run TrueForge with one command, configure a model provider, and have your first agent conversation in minutes.'
+---
+
+## Run TrueForge
+
+<Tabs>
+  <Tab title="npx">
+    Requires [Node.js](https://nodejs.org) 22.13 or newer. One command, no other infrastructure — data is stored in a local SQLite file:
+
+    ```bash
+    npx @truefoundry/trueforge
+    ```
+
+    Then open [http://localhost:8790](http://localhost:8790).
+
+    | Configuration     | Default                    | Description                                     |
+    | ----------------- | -------------------------- | ----------------------------------------------- |
+    | `--port` / `PORT` | `8790`                     | HTTP port the server (UI + API) listens on.     |
+    | `SQLITE_PATH`     | OS data dir                | Location of the SQLite database file.           |
+    | `PUBLIC_BASE_URL` | `http://localhost:${PORT}` | Public origin, used for MCP OAuth callbacks.    |
+
+  </Tab>
+  <Tab title="Docker Compose">
+    Runs the full production topology on your machine: the server (UI + API), Postgres, and Redis.
+
+    ```bash
+    git clone <REPO_URL> trueforge && cd trueforge   # TODO: repo URL
+    cp packages/server/.env.example packages/server/.env
+    docker compose up --build
+    ```
+
+    Then open [http://localhost:8791](http://localhost:8791).
+
+    | Configuration                                         | Default                 | Description                                              |
+    | ----------------------------------------------------- | ----------------------- | -------------------------------------------------------- |
+    | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env`             | Postgres credentials, read from `packages/server/.env`.  |
+    | `PUBLIC_BASE_URL`                                     | `http://localhost:8791` | Public origin, used for MCP OAuth callbacks.             |
+    | Host ports                                            | `8791`, `5433`, `6380`  | App, Postgres, and Redis.                                |
+
+  </Tab>
+  <Tab title="Kubernetes (Helm)">
+    The Helm chart deploys the server with bundled Postgres and Redis (or point it at your own):
+
+    ```bash
+    # TODO: replace <HELM_REPO> with the published Helm repo URL
+    helm install trueforge oci://<HELM_REPO>/trueforge \
+      --version <x.y.z> \
+      --set server.publicBaseUrl=https://trueforge.example.com
+    ```
+
+    | Value                  | Default      | Description                                                             |
+    | ---------------------- | ------------ | ------------------------------------------------------------------------ |
+    | `server.publicBaseUrl` | — (required) | Public origin for MCP OAuth callbacks.                                   |
+    | `replicaCount`         | `1`          | Number of server replicas (peered over Redis).                           |
+    | `postgresql.enabled`   | `true`       | Bundle Postgres; set `false` + `externalPostgres.*` to bring your own.   |
+    | `redis.enabled`        | `true`       | Bundle Redis; set `false` + `externalRedis.url` to bring your own.       |
+
+  </Tab>
+</Tabs>
+
+<Note>
+  Standalone (`npx`) uses SQLite and needs no other services. Docker Compose and Kubernetes run the multi-replica
+  topology: Postgres for storage and Redis for cross-replica peering. The agent features are identical in both.
+</Note>
+
+## Configure a model provider
+
+TrueForge ships with a catalog of model providers. Configure one before your first chat:
+
+<Steps>
+  <Step title="Open Settings">In the UI, open **Settings → Model Providers**.</Step>
+  <Step title="Pick a provider">
+    Choose a provider from the catalog — OpenAI, Anthropic, Google Gemini, or an OpenAI-compatible endpoint — and paste
+    your API key.
+  </Step>
+  <Step title="Select a model">
+    Back in the chat, pick a model. Models are addressed as `provider/model`, for example `anthropic/claude-sonnet-4-6`.
+  </Step>
+</Steps>
+
+Everything you can do in Settings is also available through the API — see `GET /api/v1/settings/model-providers/catalog` and `PUT /api/v1/settings/model-providers` in the interactive API docs at `/api/v1/docs`.
+
+## Start chatting
+
+Send your first message. Out of the box the agent supports multi-turn conversations with streaming. To give it more capabilities:
+
+- **Connect tools** — add [MCP servers](/mcp-servers) under **Settings → MCP Servers**.
+- **Enable the sandbox** — configure a [sandbox provider](/sandbox) so the agent can run code and use [skills](/skills).
+- **Add skills** — register [git-backed skills](/skills) under **Settings → Skills**.
+
+## Call the API
+
+Every conversation in the UI is a session in the API. Create one yourself:
+
+```bash
+curl -X POST http://localhost:8790/api/v1/sessions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "agent": {
+      "type": "value",
+      "agent_spec": {
+        "model": { "name": "anthropic/claude-sonnet-4-6" },
+        "instructions": "You are a helpful assistant."
+      }
+    }
+  }'
+```
+
+Then start a turn and stream events over SSE:
+
+```bash
+curl -N -X POST http://localhost:8790/api/v1/sessions/{session_id}/turns \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "input": [{ "type": "user.message", "content": "Hello!" }]
+  }'
+```
+
+See the [API overview](/api/overview) for the full lifecycle — turn chaining, approvals, and event handling.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Connect MCP servers" icon="plug" href="/mcp-servers">
+    Give your agent tools — with per-tool enablement and approval policies.
+  </Card>
+  <Card title="Enable the sandbox" icon="cube" href="/sandbox">
+    Let the agent run code, work with files, and use skills.
+  </Card>
+  <Card title="Context engineering" icon="layer-group" href="/context-engineering/overview">
+    How TrueForge keeps agent context lean on long tasks.
+  </Card>
+  <Card title="API reference" icon="code" href="/api/overview">
+    Sessions, turns, events, and the agent spec.
+  </Card>
+</CardGroup>
