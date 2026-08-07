@@ -1014,6 +1014,10 @@
                   "enabled": {
                     "description": "Whether skills are available. False when sandbox is not enabled (skills require a sandbox).",
                     "type": "boolean"
+                  },
+                  "reason": {
+                    "description": "Present when skills are disabled. Explains why.",
+                    "type": "string"
                   }
                 },
                 "required": [

@@ -10,6 +10,7 @@ const GetCapabilitiesResponseSchema = z
         enabled: z
           .boolean()
           .describe('Whether skills are available. False when sandbox is not enabled (skills require a sandbox).'),
+        reason: z.string().optional().describe('Present when skills are disabled. Explains why.'),
       }),
       settings: z.object({
         enabled: z.boolean().describe('Whether the settings UI/API is enabled.'),

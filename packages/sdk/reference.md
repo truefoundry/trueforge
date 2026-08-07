@@ -632,7 +632,7 @@ await client.models.list();
 <dl>
 <dd>
 
-List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
+List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent; optional `created_by` filters by creator identity. Pass `page_token` to fetch the next page, keeping the other query params constant.
 </dd>
 </dl>
 </dd>
