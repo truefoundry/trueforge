@@ -230,6 +230,9 @@ export class InMemorySessionStore<
       ) {
         continue;
       }
+      if (input.created_by !== undefined && stored.record.created_by !== input.created_by) {
+        continue;
+      }
       const createdAt = stored.record.created_at.getTime();
       if (input.start_timestamp !== undefined && createdAt < input.start_timestamp.getTime()) continue;
       if (input.end_timestamp !== undefined && createdAt > input.end_timestamp.getTime()) continue;

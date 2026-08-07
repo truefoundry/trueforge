@@ -57,6 +57,8 @@ export interface ListSessionsInput {
   end_timestamp: Date | undefined;
   /** When set, only sessions bound to this named agent id. */
   agent_id: string | undefined;
+  /** When set, only sessions created by this identity. */
+  created_by: string | undefined;
 }
 
 /** Turn row fields without assembled snapshot (create input / listTurns). */
@@ -237,7 +239,7 @@ export interface ISessionStore<
    * Paginated list of the tenant's sessions ordered by `created_at`
    * (`order` defaults to `desc`). `start_timestamp` / `end_timestamp` are
    * inclusive instant bounds on `created_at`. Optional `agent_id` filters
-   * ref-bound sessions.
+   * ref-bound sessions; optional `created_by` filters by creator identity.
    * Does **not** bump `last_activity_timestamp_ms` (read path).
    */
   listSessions(

@@ -116,6 +116,22 @@ describe('sessions HTTP agent binding', () => {
     expect(listJson.data.some(row => row.id === json.data.id)).toBe(true);
   });
 
+  it('filters list by created_by', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { type: 'value', agent_spec: draftSpec } }));
+    expect(created.status).toBe(201);
+    const json = (await created.json()) as { data: { id: string } };
+
+    const matched = await app.request('/?created_by=trueforge-default');
+    expect(matched.status).toBe(200);
+    const matchedJson = (await matched.json()) as { data: Array<{ id: string }> };
+    expect(matchedJson.data.some(row => row.id === json.data.id)).toBe(true);
+
+    const unmatched = await app.request('/?created_by=someone-else');
+    expect(unmatched.status).toBe(200);
+    const unmatchedJson = (await unmatched.json()) as { data: Array<{ id: string }> };
+    expect(unmatchedJson.data.some(row => row.id === json.data.id)).toBe(false);
+  });
+
   it('rejects PATCH agent on a session bound by agent_id', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: TENANT_ID,

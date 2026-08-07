@@ -278,6 +278,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     try {
       const { data, pagination } = await deps.sessionStore.listSessions({
         agent_id: query.agent_id,
+        created_by: query.created_by,
         tenant_id: TENANT_ID,
         limit: query.limit,
         order: query.order,

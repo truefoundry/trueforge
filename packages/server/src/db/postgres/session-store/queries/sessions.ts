@@ -189,6 +189,9 @@ export async function listSessions(
   if (input.agent_id !== undefined) {
     query = query.where('agent_id', '=', input.agent_id);
   }
+  if (input.created_by !== undefined) {
+    query = query.where('created_by', '=', input.created_by);
+  }
   if (input.start_timestamp !== undefined) {
     query = query.where('created_at', '>=', input.start_timestamp);
   }
