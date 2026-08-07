@@ -25,6 +25,8 @@ export function createAuthAwareFetch(baseFetch: typeof fetch = globalThis.fetch.
     }
 
     // Do not surface 401 to callers — boot would flash a config error before navigation.
-    return new Promise<Response>(() => {});
+    return new Promise<Response>(resolve => {
+      void resolve;
+    });
   };
 }

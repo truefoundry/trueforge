@@ -50,7 +50,14 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
     clearAuthCookie({ context: c, name: OAUTH_STATE_COOKIE });
 
     if (pending?.state !== query.state || query.error || !query.code) {
-      const reason = query.error_description?.trim() || query.error?.trim() || 'login_failed';
+      const description = query.error_description?.trim();
+      const errorCode = query.error?.trim();
+      let reason = 'login_failed';
+      if (description) {
+        reason = description;
+      } else if (errorCode) {
+        reason = errorCode;
+      }
       return c.redirect(oauthErrorRedirect(reason), 302);
     }
 
