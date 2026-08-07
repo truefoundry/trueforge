@@ -145,6 +145,45 @@ describe('AgentsLibrary', () => {
     });
     expect(screen.queryByRole('button', { name: 'Edit agent writer' })).not.toBeInTheDocument();
   });
+
+  it('shows create-one guidance when there are no agents yet', async () => {
+    const server = mockServer([]);
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <AgentsLibrary open onOpenChange={() => undefined} />
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('No agents yet. Build one in a chat, then save it as an agent.')).toBeInTheDocument();
+    });
+  });
+
+  it('shows a no-matches message (not the create-one guidance) when a search returns nothing', async () => {
+    const server = mockServer([]);
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <AgentsLibrary open onOpenChange={() => undefined} />
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Search agents'), { target: { value: 'zzz' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('No agents match "zzz".')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('No agents yet. Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
+  });
 });
 
 describe('AgentsLibraryButton', () => {
