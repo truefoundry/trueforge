@@ -45,6 +45,8 @@ export interface SessionTable {
   tenant_id: string;
   /** key */
   session_id: string;
+  /** Caller identity that created the session (immutable after create). */
+  created_by: string;
   /**
    * Named registry binding; XOR with `agent_spec`
    * (CHECK session_agent_xor_check).
