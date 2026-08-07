@@ -5,8 +5,8 @@ import { createHarnessChatServer, type HarnessAgentSpec } from '../src/harnessSe
 const session = {
   id: 'ses_1',
   agent: {
-    type: 'value',
-    def: {
+    type: 'inline',
+    spec: {
       model: { name: 'test/model' },
       mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
       skills: [{ name: 'review' }],
@@ -87,7 +87,7 @@ describe('createHarnessChatServer', () => {
     const sent = sessionRequests.at(-1);
     assert.ok(sent !== null && typeof sent === 'object' && 'agent' in sent);
     assert.deepEqual(sent.agent, {
-      def: {
+      spec: {
         model: { name: 'test/model' },
         mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
         skills: [{ name: 'review' }],
@@ -141,7 +141,7 @@ describe('createHarnessChatServer', () => {
       const url = input instanceof Request ? input.url : String(input);
       if (url.endsWith('/api/v1/sessions') && init?.method === 'POST' && typeof init.body === 'string') {
         requests.push({ url, body: JSON.parse(init.body) });
-        return Response.json({ data: { ...session, agent: { type: 'ref', id: 'agt_1', name: 'reviewer' } } });
+        return Response.json({ data: { ...session, agent: { type: 'reference', id: 'agt_1', name: 'reviewer' } } });
       }
       return new Response(`Unexpected request: ${url}`, { status: 500 });
     };
@@ -167,7 +167,7 @@ describe('createHarnessChatServer', () => {
       if (url.includes('/api/v1/sessions?')) {
         listUrl = url;
         return Response.json({
-          data: [{ ...session, agent: { type: 'ref', id: 'agt_1', name: 'reviewer' } }],
+          data: [{ ...session, agent: { type: 'reference', id: 'agt_1', name: 'reviewer' } }],
           pagination: { limit: 20 },
         });
       }
@@ -213,7 +213,7 @@ describe('createHarnessChatServer', () => {
         return Response.json({ data: [] });
       }
       if (url.endsWith('/api/v1/sessions/ses_1')) {
-        return Response.json({ data: { ...session, agent: { type: 'ref', id: 'agt_1', name: 'reviewer' } } });
+        return Response.json({ data: { ...session, agent: { type: 'reference', id: 'agt_1', name: 'reviewer' } } });
       }
       return new Response(`Unexpected request: ${url}`, { status: 500 });
     };
@@ -230,7 +230,7 @@ describe('createHarnessChatServer', () => {
     const fetchNamed: typeof fetch = async input => {
       const url = input instanceof Request ? input.url : String(input);
       if (url.endsWith('/api/v1/sessions/ses_1')) {
-        return Response.json({ data: { ...session, agent: { type: 'ref', id: 'agt_deleted', name: null } } });
+        return Response.json({ data: { ...session, agent: { type: 'reference', id: 'agt_deleted', name: null } } });
       }
       return new Response(`Unexpected request: ${url}`, { status: 500 });
     };

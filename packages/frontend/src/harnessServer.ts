@@ -10,9 +10,9 @@
  * Skills are name refs on the wire (`SkillNameRef`); the UI SkillMount only
  * needs `{ id, name }`, so id is derived as the skill name.
  *
- * Session create takes `{ name }` or `{ def }`; reads carry the `ref`/`value`
- * discriminator, with ref rows already naming their agent. The UI filters with
- * registry `agentId`.
+ * Session create takes `{ name }` or `{ spec }`; reads carry the
+ * `reference`/`inline` discriminator, with reference rows already naming their
+ * agent. The UI filters with registry `agentId`.
  */
 import type {
   AgentChatServer,
@@ -91,14 +91,14 @@ export function agentManifest(agent: Harness.Agent): Harness.AgentSpec {
 function toUiSession(session: Harness.Session): Session<HarnessAgentSpec> {
   return {
     id: session.id,
-    isMutable: session.agent.type === 'value',
+    isMutable: session.agent.type === 'inline',
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     ...(session.title === null ? {} : { title: session.title }),
-    // `name` is a create-time snapshot, so refs whose agent predates it stay
+    // `name` is a create-time snapshot, so references whose agent predates it stay
     // unlabelled; `isMutable` alone keeps them out of the composer.
-    ...(session.agent.type === 'ref' && session.agent.name !== null ? { agentName: session.agent.name } : {}),
-    ...(session.agent.type === 'value' ? { agentSpec: toUiAgentSpec(session.agent.def) } : {}),
+    ...(session.agent.type === 'reference' && session.agent.name !== null ? { agentName: session.agent.name } : {}),
+    ...(session.agent.type === 'inline' ? { agentSpec: toUiAgentSpec(session.agent.spec) } : {}),
   };
 }
 
@@ -196,7 +196,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
       }
       if (request.agentSpec !== undefined) {
         const created = await client.sessions.create({
-          agent: { def: toHarnessAgentSpec(request.agentSpec) },
+          agent: { spec: toHarnessAgentSpec(request.agentSpec) },
         });
         return toUiSession(created.data);
       }
@@ -219,9 +219,9 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
     },
 
     async updateSession({ sessionId, agentSpec }) {
-      // Named (ref) sessions reject agent updates server-side.
+      // Named (reference) sessions reject agent updates server-side.
       const response = await client.sessions.update(sessionId, {
-        ...(agentSpec === undefined ? {} : { agent: { def: toHarnessAgentSpec(agentSpec) } }),
+        ...(agentSpec === undefined ? {} : { agent: { spec: toHarnessAgentSpec(agentSpec) } }),
       });
       return toUiSession(response.data);
     },

@@ -79,9 +79,9 @@ The SDK's picker round-trips a skill as `{ id, name }`. Harness persists name re
 Skills stay empty in the picker when the skill capability is off (no sandbox provider configured).
 
 The Agents Library lists the registry, so sessions bind either to a registry agent (`{ name }`) or
-to an inline spec (`{ def }`). Reads name their agent on the `ref` arm, so the adapter never resolves
-display names through the registry. History filtering forwards the library `agentId` straight to
-`GET /sessions?agent_id=`.
+to an inline spec (`{ spec }`). Reads name their agent on the `reference` arm, so the adapter never
+resolves display names through the registry. History filtering forwards the library `agentId`
+straight to `GET /sessions?agent_id=`.
 
 ## Gaps
 
