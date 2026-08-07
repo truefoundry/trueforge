@@ -18,8 +18,8 @@ import type { Database as Schema } from './types';
 
 /**
  * Wraps SqliteDriver and maps Kysely access mode onto SQLite begin kinds:
- * - `read only` → deferred BEGIN (read snapshot; no writer reservation)
- * - default / `read write` → BEGIN IMMEDIATE (RESERVED write lock)
+ * - omit / `read only` → deferred BEGIN (matches Postgres default feel)
+ * - `read write` → BEGIN IMMEDIATE (RESERVED write lock)
  *
  * Stock SqliteDriver.d.ts omits `settings` on beginTransaction; compose instead of override.
  */
@@ -39,7 +39,7 @@ class ImmediateSqliteDriver implements Driver {
   }
 
   async beginTransaction(connection: DatabaseConnection, settings: TransactionSettings): Promise<void> {
-    const begin = settings.accessMode === 'read only' ? 'begin' : 'begin immediate';
+    const begin = settings.accessMode === 'read write' ? 'begin immediate' : 'begin';
     await connection.executeQuery(CompiledQuery.raw(begin));
   }
 

@@ -177,7 +177,11 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
           ) : error ? (
             <p className="text-destructive px-3 py-8 text-center text-sm">{error}</p>
           ) : agents.length === 0 ? (
-            <p className="text-muted-foreground px-3 py-8 text-center text-sm">No agents found</p>
+            <p className="text-muted-foreground px-3 py-8 text-center text-sm">
+              {query.trim()
+                ? `No agents match "${query.trim()}".`
+                : 'No agents yet. Build one in a chat, then save it as an agent.'}
+            </p>
           ) : (
             agents.map(agent => {
               const agentSpec = agent.agentSpec;

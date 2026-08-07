@@ -54,6 +54,7 @@ describe('agents router', () => {
       mcpServerStore: new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      withTransaction: callback => db.transaction().execute(callback),
     });
   });
 
@@ -86,6 +87,16 @@ describe('agents router', () => {
 
     const put = await router.request('/missing-agent', jsonInit('PUT', updateBody));
     expect(put.status).toBe(404);
+  });
+
+  it('DELETE removes an agent by id and is idempotent', async () => {
+    const created = await router.request('/', jsonInit('POST', { ...writeBody, name: 'deletable' }));
+    expect(created.status).toBe(200);
+    const { data } = (await created.json()) as { data: { id: string } };
+
+    expect((await router.request(`/${data.id}`, { method: 'DELETE' })).status).toBe(204);
+    expect((await router.request(`/${data.id}`)).status).toBe(404);
+    expect((await router.request(`/${data.id}`, { method: 'DELETE' })).status).toBe(204);
   });
 
   it('POST rejects invalid bodies, unknown models, and duplicate names', async () => {

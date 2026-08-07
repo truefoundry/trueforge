@@ -300,6 +300,16 @@ describe("AgentsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
+    test("delete", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        server.mockEndpoint().delete("/api/v1/agents/agent_id").respondWith().statusCode(200).build();
+
+        const response = await client.agents.delete("agent_id");
+        expect(response).toEqual(undefined);
+    });
+
     test("update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });

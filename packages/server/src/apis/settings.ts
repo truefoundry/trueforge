@@ -13,32 +13,35 @@ import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { WithTransaction } from '../db/transaction';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { createSettingsMcpServersRouter } from './mcpServers';
 import { createModelProvidersRouter } from './modelProviders';
 import { createSandboxProvidersRouter } from './sandboxProviders';
 import { createSkillsRouter } from './skills';
 
-export interface SettingsRouterDeps {
+export interface SettingsRouterDeps<TTransaction> {
   modelCatalog: ModelCatalog;
-  modelProviderStore: IModelProviderStore;
+  modelProviderStore: IModelProviderStore<TTransaction>;
   mcpCatalog: McpCatalog;
-  mcpServerStore: IMcpServerStore;
-  tokenStore: IOAuthTokenStore;
+  mcpServerStore: IMcpServerStore<TTransaction>;
+  tokenStore: IOAuthTokenStore<TTransaction>;
   skillCatalog: SkillCatalog;
-  skillStore: ISkillStore;
+  skillStore: ISkillStore<TTransaction>;
   sandboxCatalog: SandboxCatalog;
-  sandboxProviderStore: ISandboxProviderStore;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
 }
 
-export function createSettingsRouter(deps: SettingsRouterDeps) {
+export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTransaction>) {
   const router = new OpenAPIHono();
   router.route(
     '/model-providers',
     createModelProvidersRouter({
       modelCatalog: deps.modelCatalog,
       modelProviderStore: deps.modelProviderStore,
+      withTransaction: deps.withTransaction,
     }),
   );
   router.route(
@@ -47,6 +50,7 @@ export function createSettingsRouter(deps: SettingsRouterDeps) {
       mcpCatalog: deps.mcpCatalog,
       mcpServerStore: deps.mcpServerStore,
       tokenStore: deps.tokenStore,
+      withTransaction: deps.withTransaction,
       logger: deps.logger,
     }),
   );
@@ -55,6 +59,7 @@ export function createSettingsRouter(deps: SettingsRouterDeps) {
     createSkillsRouter({
       skillCatalog: deps.skillCatalog,
       skillStore: deps.skillStore,
+      withTransaction: deps.withTransaction,
     }),
   );
   router.route(
@@ -62,6 +67,7 @@ export function createSettingsRouter(deps: SettingsRouterDeps) {
     createSandboxProvidersRouter({
       sandboxCatalog: deps.sandboxCatalog,
       sandboxProviderStore: deps.sandboxProviderStore,
+      withTransaction: deps.withTransaction,
     }),
   );
   return router;

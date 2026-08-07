@@ -18,7 +18,7 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
   createTracing(): AgentTracing;
   /**
    * Look up the live AgentSpec for a named (ref) session agent.
-   * Draft (value) sessions use the stored spec and never call this.
+   * Value sessions use the stored spec and never call this.
    */
   resolveAgentSpec(input: { agent_id: string }): Promise<AgentSpec>;
   /**

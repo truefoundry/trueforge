@@ -52,7 +52,12 @@ export interface SessionTable {
   created_by: string;
   /** Named registry binding; XOR with `agent_spec`. */
   agent_id: string | null;
-  /** Inline draft binding; XOR with `agent_id`. */
+  /**
+   * Create-time snapshot of registry agent name for ref bindings.
+   * Null for value sessions and orphan/legacy refs after a missed backfill.
+   */
+  agent_name: string | null;
+  /** Inline spec binding; XOR with `agent_id`. */
   agent_spec: JsonbColumn<AgentSpec> | null;
   title: string | null;
   last_turn_id: string | null;

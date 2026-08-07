@@ -1,0 +1,151 @@
+---
+title: 'Context Engineering'
+sidebarTitle: 'Overview'
+description: 'How TrueForge manages, optimizes, and constrains agent context within model limits.'
+---
+
+## What is context engineering?
+
+Context engineering is the practice of providing the **right information in the right format** so an agent can reliably accomplish tasks. In TrueForge, _context_ is everything the model sees on each step — from system instructions and skills to tool definitions, conversation history, and tool results.
+
+Getting context right has a direct impact on agent quality:
+
+- **Too little context** — the agent lacks the information it needs and produces wrong or incomplete answers.
+- **Too much context** — the model overflows its context window or the signal gets buried in noise, degrading reasoning quality and increasing cost and latency.
+
+TrueForge automates the balance through a layered set of strategies. To understand them, it helps to think of context in two phases:
+
+<CardGroup cols={2}>
+  <Card title="Input context" icon="upload" href="#input-context">
+    Information loaded into the model's context at the **start** of every run. You configure this when you build the
+    agent: the instructions, skills, and which MCP servers are available.
+  </Card>
+  <Card title="Runtime context" icon="bolt" href="#runtime-context">
+    Information that accumulates **during the run** as the agent works: user messages, tool calls, tool results,
+    subagent outputs. This grows turn by turn and is what the harness actively manages.
+  </Card>
+</CardGroup>
+
+<Frame caption="Input context is set at startup; runtime context grows turn by turn as the agent loop runs">
+  <img
+    src="/images/agent-harness-context-window.png"
+    alt="Diagram of an agent's context window split into input context (system prompt, skills, MCP tool definitions) feeding the agent loop, and runtime context (user messages, tool calls and results, subagent results) flowing back into the loop"
+  />
+</Frame>
+
+## Input context
+
+Input context is everything the model receives at the **start** of a run. It is mostly static across runs of the same agent — you configure it once and the harness loads it every time. The smaller and more focused your input context, the more room the model has to reason.
+
+<AccordionGroup>
+  <Accordion title="Instructions" icon="message">
+    Your `instructions` are the system prompt — plus built-in harness guidance for using the sandbox, subagents, and other enabled capabilities. It is the single biggest lever you control:
+
+    - **Stick to this agent's role** — what it does, who it's for, how it should behave.
+    - **Don't duplicate MCP tool docs or skill content** — the harness already injects those.
+    - **Move long procedures into skills** — anything that reads like a workflow or playbook belongs in a [skill](/skills), not the instructions.
+
+  </Accordion>
+
+<Accordion title="Skills" icon="book">
+  Each attached skill contributes only its `name` and `description` to the input context. The full `SKILL.md` body is
+  read from the sandbox on demand when the agent decides the skill is relevant — this is called **progressive
+  disclosure**. See [Skills](/skills).
+</Accordion>
+
+  <Accordion title="MCP tool definitions" icon="plug">
+    Each tool definition — name, description, input schema, output schema — consumes tokens. With many MCP servers each exposing dozens of tools, the schemas alone can fill a large portion of the context window before the user types anything.
+
+    By default (`preload: false`), each attached MCP server contributes only its `name` and `description`; individual tool schemas are discovered on demand. Turn `preload` on only for small, frequently-used servers. See [Deferred tool loading](/context-engineering/deferred-tool-loading).
+
+  </Accordion>
+</AccordionGroup>
+
+## Runtime context
+
+Runtime context is everything added to the model's context **as the run progresses**:
+
+| Source                 | What it is                                                                        |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| **User messages**      | Whatever the user sends, including follow-ups in a multi-turn conversation        |
+| **Assistant messages** | The model's reasoning and replies on each step                                    |
+| **Tool calls**         | Each tool invocation made by the agent, with its arguments                        |
+| **Tool results**       | Whatever the tool returns — JSON payloads, file contents, search results, errors  |
+| **Subagent outputs**   | Final results returned from delegated [subagents](/context-engineering/subagents) |
+
+Runtime context is where most of the **context bloat problem** happens. A single tool call returning a 50,000-token JSON payload, or a long conversation with dozens of intermediate steps, can quickly approach the model's limit. This is the part the harness actively manages.
+
+## Managing runtime context
+
+<CardGroup cols={2}>
+  <Card title="Subagents" icon="diagram-project" href="/context-engineering/subagents">
+    Delegate focused subtasks to parallel subagents, each with its own clean context. Only the final result flows back —
+    the intermediate tool calls never touch the main context.
+  </Card>
+  <Card title="Large Result Offloading" icon="file-export" href="/context-engineering/large-tool-responses">
+    When a tool returns more data than fits comfortably in context, the harness writes the full output to a sandbox file
+    and replaces it with a short preview and the file path.
+  </Card>
+  <Card title="Code Mode" icon="code" href="/context-engineering/code-mode">
+    The agent calls MCP tools from a Python script in the sandbox, processing results in code. Only the printed summary
+    enters context.
+  </Card>
+  <Card title="Context Compaction" icon="compress" href="#context-compaction">
+    When context grows past a threshold, the harness replaces older history with a structured in-context summary so the
+    agent can keep working.
+  </Card>
+</CardGroup>
+
+### Context compaction
+
+When the conversation grows longer than offloading alone can manage, the harness triggers **compaction**. Compaction is enabled by default and kicks in when the active context crosses a token threshold (default **50,000 tokens**, configurable per agent).
+
+An LLM generates a structured summary of the conversation so far — the original intent, key decisions, files and artifacts, errors and fixes, and next steps — and that summary replaces the older message history in the agent's working context, freeing tokens for continued reasoning.
+
+```mermaid
+flowchart TD
+    Trigger[Active context exceeds<br/>compaction_threshold_tokens] --> Compact[Compaction]
+    Compact --> Summary[Structured summary:<br/>intent, decisions, artifacts, next steps]
+    Summary --> Working[Working context = summary<br/>+ continuation instruction]
+    Working --> Next[Agent continues the task]
+```
+
+<Note>
+  Compaction is **lossy in the working context** — fine-grained details from earlier messages are condensed into the
+  summary. The full event history of the session remains persisted and queryable via the [session events
+  API](/api/overview), but the agent works from the summary after compaction.
+</Note>
+
+Configuration:
+
+```json
+{
+  "config": {
+    "context_management": {
+      "compaction": {
+        "enabled": true,
+        "compaction_threshold_tokens": 50000
+      }
+    }
+  }
+}
+```
+
+## How the strategies compose
+
+In practice, these strategies stack. A single agent run might:
+
+1. Start with **preload off**, so only a handful of tool schemas are in input context.
+2. **Delegate** a research subtask to a subagent that makes dozens of tool calls in isolation.
+3. **Offload** a large tool result inside the subagent to a sandbox file.
+4. Use **Code Mode** to aggregate the offloaded data into a small summary.
+5. Return the summary to the root agent — keeping the root's runtime context clean.
+6. **Compact** the root agent's history later if a long conversation crosses the threshold.
+
+## Best practices
+
+1. **Start with input context discipline.** Keep instructions focused on the agent's role; move procedures into skills; leave preload off for large MCP servers.
+2. **Let progressive disclosure do the work.** Default to deferred loading for both skills and MCP servers. Override only when a server is truly needed on every run.
+3. **Delegate heavy work to subagents.** Multi-step research or tasks with large intermediate outputs belong in subagents.
+4. **Use Code Mode for aggregation.** When the model needs to count, group, filter, or join tool output, Code Mode keeps raw data out of context entirely and avoids arithmetic hallucinations.
+5. **Watch token usage.** Every `model.message` event carries `usage` with an `input_tokens_breakdown` (harness, skills, instructions, tool definitions, messages), so you can see exactly where context is going.

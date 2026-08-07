@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from 'kysely';
+import type { Kysely, Selectable, Transaction } from 'kysely';
 import {
   type GetSkillInput,
   type ISkillStore,
@@ -19,18 +19,19 @@ function toRecord(row: Selectable<SkillTable>): SkillRecord {
   };
 }
 
-export class PostgresSkillStore implements ISkillStore {
+export class PostgresSkillStore implements ISkillStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
   }
 
-  async listSkills(input: ListSkillsInput): Promise<SkillRecord[]> {
+  async listSkills(input: ListSkillsInput, transaction?: Transaction<Database>): Promise<SkillRecord[]> {
     if (input.names?.length === 0) {
       return [];
     }
-    let query = this.#db.selectFrom('skill').selectAll().where('tenant_id', '=', input.tenant_id);
+    const db = transaction ?? this.#db;
+    let query = db.selectFrom('skill').selectAll().where('tenant_id', '=', input.tenant_id);
     if (input.names !== undefined) {
       query = query.where('name', 'in', [...input.names]);
     }
@@ -38,8 +39,9 @@ export class PostgresSkillStore implements ISkillStore {
     return rows.map(toRecord);
   }
 
-  async getSkill(input: GetSkillInput): Promise<SkillRecord | undefined> {
-    const row = await this.#db
+  async getSkill(input: GetSkillInput, transaction?: Transaction<Database>): Promise<SkillRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .selectFrom('skill')
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
@@ -48,8 +50,9 @@ export class PostgresSkillStore implements ISkillStore {
     return row === undefined ? undefined : toRecord(row);
   }
 
-  async upsertSkill(input: UpsertSkillInput): Promise<SkillRecord> {
-    const row = await this.#db
+  async upsertSkill(input: UpsertSkillInput, transaction?: Transaction<Database>): Promise<SkillRecord> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .insertInto('skill')
       .values({
         tenant_id: input.tenant_id,

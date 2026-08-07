@@ -31,6 +31,7 @@ describe('sandboxProviders router', () => {
     settingsRouter = createSandboxProvidersRouter({
       sandboxCatalog: SandboxCatalog.load(),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      withTransaction: callback => db.transaction().execute(callback),
     });
   });
 
