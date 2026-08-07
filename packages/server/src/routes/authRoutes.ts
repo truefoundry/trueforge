@@ -61,8 +61,8 @@ export const meRoute = createRoute({
   tags: [AUTH_TAG],
   summary: 'Current session',
   description:
-    'Returns the caller identity when a valid OIDC session cookie is present, otherwise default/anonymous fields. ' +
-    'Never requires authentication.',
+    'Returns the authenticated caller identity. When OIDC is configured this requires a valid session cookie ' +
+    '(401 otherwise). Without OIDC, returns the default anonymous identity.',
   'x-fern-sdk-group-name': ['auth'],
   'x-fern-sdk-method-name': 'me',
   responses: {
@@ -70,5 +70,6 @@ export const meRoute = createRoute({
       content: { 'application/json': { schema: MeResponseSchema } },
       description: 'Session type and identity for the current request.',
     },
+    401: { description: 'OIDC is configured and the request has no valid session cookie.' },
   },
 });

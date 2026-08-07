@@ -2,22 +2,16 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
 import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCookie } from '../auth/cookies';
-import { DEFAULT_AUTH_USER, resolveAuthUser } from '../auth/middleware';
-import { buildLoginAuthorization, exchangeAuthorizationCode, safeReturnTo } from '../auth/oidc';
+import { authMiddleware, DEFAULT_USER_CONTEXT } from '../auth/middleware';
+import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify, safeReturnTo } from '../auth/oidc';
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
 import type { MeResponse } from '../schemas/auth';
 
 const LOGIN_ERROR_PATH = '/?error=login_failed';
 
-const DEFAULT_ME: MeResponse = {
-  type: 'default',
-  email: DEFAULT_AUTH_USER.email,
-  role: DEFAULT_AUTH_USER.role,
-};
-
 /**
  * Auth surfaces mounted at /api/v1/auth: login, callback, logout, me.
- * Public — no auth middleware on this router.
+ * Login and callback stay public; logout and me require {@link authMiddleware}.
  */
 export function createAuthRouter(params: { oidcClient: Configuration | undefined; logger: Logger }) {
   const router = new OpenAPIHono();
@@ -75,21 +69,23 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
     }
   });
 
-  router.openapi(authLogoutRoute, c => {
+  const gated = new OpenAPIHono();
+  gated.use('*', authMiddleware);
+
+  gated.openapi(authLogoutRoute, c => {
     // Cookie deletion is idempotent, so logout also succeeds when no cookie exists.
     clearAuthCookie({ context: c, name: ID_TOKEN_COOKIE });
     return c.body(null, 204);
   });
 
-  // Public — never 401. Soft-resolves identity when a valid id_token cookie is present.
-  router.openapi(meRoute, async c => {
-    const user = await resolveAuthUser(c);
-    if (!user) {
-      return c.json(DEFAULT_ME, 200);
-    }
-    const body: MeResponse = { type: 'oidc-connected', email: user.email, role: user.role };
+  gated.openapi(meRoute, c => {
+    const user = c.get('user') ?? DEFAULT_USER_CONTEXT;
+    const body: MeResponse = getOidcVerify()
+      ? { type: 'oidc-connected', email: user.userRef, role: user.role }
+      : { type: 'default', email: user.userRef, role: user.role };
     return c.json(body, 200);
   });
 
+  router.route('/', gated);
   return router;
 }

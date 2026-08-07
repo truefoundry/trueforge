@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import type { Configuration } from 'openid-client';
 import winston from 'winston';
 import { createAuthRouter } from '../../../src/apis/auth';
-import { initOidc } from '../../../src/auth/oidc';
+import { disableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import configuration from '../../../src/config';
 
 jest.mock('../../../src/config', () => {
@@ -40,6 +40,10 @@ const logger = winston.createLogger({ silent: true });
 const ACCESS_TOKEN = 'access-1';
 
 describe('auth router (no identity provider configured)', () => {
+  beforeEach(() => {
+    disableOidcAuth();
+  });
+
   it('GET /auth/login redirects home — there is nothing to log into', async () => {
     const router = createAuthRouter({ oidcClient: undefined, logger });
 
@@ -64,6 +68,15 @@ describe('auth router (no identity provider configured)', () => {
     const res = await router.request('/logout', { method: 'POST' });
 
     expect(res.status).toBe(204);
+  });
+
+  it('GET /auth/me returns the default identity when OIDC is off', async () => {
+    const router = createAuthRouter({ oidcClient: undefined, logger });
+
+    const res = await router.request('/me');
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ type: 'default', email: 'default', role: 'user' });
   });
 });
 
@@ -204,9 +217,19 @@ describe('auth router (OIDC configured)', () => {
     expect(idTokenCookie).toContain('Max-Age=86400');
   });
 
-  it('POST /logout clears id_token even when no cookie is present', async () => {
+  it('POST /logout requires auth when the id_token cookie is missing', async () => {
     const res = await createAuthRouter({ oidcClient, logger }).request('/logout', {
       method: 'POST',
+    });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('POST /logout clears id_token when authenticated', async () => {
+    const token = await createIdToken();
+    const res = await createAuthRouter({ oidcClient, logger }).request('/logout', {
+      method: 'POST',
+      headers: { Cookie: `${ID_TOKEN_COOKIE}=${token}` },
     });
 
     expect(res.status).toBe(204);
@@ -214,12 +237,18 @@ describe('auth router (OIDC configured)', () => {
       setCookies(res).some(cookie => cookie.startsWith(`${ID_TOKEN_COOKIE}=`) && cookie.includes('Max-Age=0')),
     ).toBe(true);
   });
-});
 
-describe('GET /me', () => {
-  it('returns default identity when the id_token cookie is absent', async () => {
-    const res = await createAuthRouter({ oidcClient: undefined, logger }).request('/me');
+  it('GET /me returns 401 when the id_token cookie is missing', async () => {
+    const res = await createAuthRouter({ oidcClient, logger }).request('/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('GET /me returns oidc-connected identity when authenticated', async () => {
+    const token = await createIdToken();
+    const res = await createAuthRouter({ oidcClient, logger }).request('/me', {
+      headers: { Cookie: `${ID_TOKEN_COOKIE}=${token}` },
+    });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ type: 'default', email: 'default', role: 'user' });
+    expect(await res.json()).toEqual({ type: 'oidc-connected', email: 'user-1', role: 'user' });
   });
 });

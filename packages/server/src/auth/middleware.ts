@@ -1,65 +1,29 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
-import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
-import type { Configuration } from 'openid-client';
-import type { OIDCConfig } from '../config';
-import { toUserContext, type IdTokenClaims } from './claims';
+import { errors, jwtVerify } from 'jose';
+import { toUserContext, type IdTokenClaims, type UserContext } from './claims';
 import { ID_TOKEN_COOKIE } from './cookies';
-
-/** Exact message the browser client uses to trigger OIDC login redirect. */
-export const USER_LOGIN_REQUIRED_MESSAGE = 'user_login_required';
-
-export interface AuthUser {
-  /** Stable caller identity — value of the configured OIDC_USER_REFERENCE_CLAIM. */
-  email: string;
-  role: string;
-}
+import { getOidcVerify } from './oidc';
 
 /** Used when OIDC is not configured (standalone / no IdP). */
-export const DEFAULT_AUTH_USER: AuthUser = {
-  email: 'default',
+export const DEFAULT_USER_CONTEXT: UserContext = {
+  userRef: 'default',
   role: 'user',
 };
 
 declare module 'hono' {
   interface ContextVariableMap {
-    user?: AuthUser;
+    user?: UserContext;
   }
 }
 
-interface OidcVerify {
-  jwks: JWTVerifyGetKey;
-  issuer: string;
-  audience: string;
-  oidcConfig: OIDCConfig;
-}
-
-/** Set by {@link enableOidcAuth} / cleared by {@link disableOidcAuth}. */
-let oidcVerify: OidcVerify | null = null;
-
-/** Enable cookie JWT verification using the IdP client + claim-mapping config from `initOidc`. */
-export function enableOidcAuth(params: { client: Configuration; oidcConfig: OIDCConfig }): void {
-  const metadata = params.client.serverMetadata();
-  if (!metadata.jwks_uri) {
-    throw new Error('OIDC discovery did not return jwks_uri; cannot verify ID tokens');
-  }
-
-  oidcVerify = {
-    jwks: createRemoteJWKSet(new URL(metadata.jwks_uri)),
-    issuer: metadata.issuer,
-    audience: params.client.clientMetadata().client_id,
-    oidcConfig: params.oidcConfig,
-  };
-}
-
-/** Disable OIDC cookie auth (no IdP / standalone). Protected routes use {@link DEFAULT_AUTH_USER}. */
-export function disableOidcAuth(): void {
-  oidcVerify = null;
-}
-
-/** Soft cookie → user (missing/invalid/no OIDC → undefined). For public handlers like `/me`. */
-export async function resolveAuthUser(c: Context): Promise<AuthUser | undefined> {
+/**
+ * Cookie → {@link UserContext} when OIDC is on and the token is valid.
+ * Missing/invalid JWT → `undefined`. Claim mapping failures after a successful verify rethrow.
+ */
+export async function resolveAuthUser(c: Context): Promise<UserContext | undefined> {
+  const oidcVerify = getOidcVerify();
   if (!oidcVerify) {
     return undefined;
   }
@@ -69,30 +33,42 @@ export async function resolveAuthUser(c: Context): Promise<AuthUser | undefined>
     return undefined;
   }
 
+  let payload: Awaited<ReturnType<typeof jwtVerify>>['payload'];
   try {
-    const { payload } = await jwtVerify(token, oidcVerify.jwks, {
+    ({ payload } = await jwtVerify(token, oidcVerify.jwks, {
       issuer: oidcVerify.issuer,
       audience: oidcVerify.audience,
-    });
-    const claims: IdTokenClaims = { ...payload };
-    const { userRef, role } = toUserContext(claims, oidcVerify.oidcConfig);
-    return { email: userRef, role };
-  } catch {
+    }));
+  } catch (error) {
+    if (!(error instanceof errors.JOSEError)) {
+      console.error('Unexpected error verifying OIDC id_token', error);
+    }
     return undefined;
   }
+
+  const claims: IdTokenClaims = { ...payload };
+  return toUserContext(claims, oidcVerify.oidcConfig);
 }
 
-/** Set `c.var.user` and continue, or throw 401. Without OIDC, sets {@link DEFAULT_AUTH_USER}. */
+/** Set `c.var.user` and continue, or throw 401. Without OIDC, sets {@link DEFAULT_USER_CONTEXT}. */
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
-  if (!oidcVerify) {
-    c.set('user', DEFAULT_AUTH_USER);
+  if (!getOidcVerify()) {
+    c.set('user', DEFAULT_USER_CONTEXT);
     return next();
   }
 
-  const user = await resolveAuthUser(c);
-  if (!user) {
-    throw new HTTPException(401, { message: USER_LOGIN_REQUIRED_MESSAGE });
+  try {
+    const user = await resolveAuthUser(c);
+    if (!user) {
+      throw new HTTPException(401, { message: 'Authentication required' });
+    }
+    c.set('user', user);
+  } catch (error) {
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    // Valid JWT but claim mapping failed (e.g. missing user reference claim).
+    throw new HTTPException(401, { message: 'Authentication required', cause: error });
   }
-  c.set('user', user);
   return next();
 };

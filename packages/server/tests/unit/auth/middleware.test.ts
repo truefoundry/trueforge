@@ -2,8 +2,8 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { HTTPException } from 'hono/http-exception';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { Configuration } from 'openid-client';
-import { authMiddleware, disableOidcAuth, enableOidcAuth } from '../../../src/auth/middleware';
-import { initOidc } from '../../../src/auth/oidc';
+import { authMiddleware } from '../../../src/auth/middleware';
+import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import type { OIDCConfig } from '../../../src/config';
 
 const ISSUER = 'https://issuer.example.com';
@@ -34,7 +34,12 @@ function createApp() {
     throw error;
   });
 
+  // Public mounts — no auth middleware (mirrors production allowlist shape).
+  app.get('/healthz', c => c.json({ public: true }));
   app.get('/api/v1/auth/login', c => c.json({ public: true }));
+  app.get('/api/v1/auth/callback', c => c.json({ public: true }));
+  app.get('/api/v1/mcp-servers/oauth/callback', c => c.json({ public: true }));
+  app.get('/api/v1/openapi', c => c.json({ public: true }));
 
   const models = new OpenAPIHono();
   models.use('*', authMiddleware);
@@ -51,7 +56,7 @@ describe('authMiddleware', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       ok: true,
-      user: { email: 'default', role: 'user' },
+      user: { userRef: 'default', role: 'user' },
     });
   });
 
@@ -103,21 +108,27 @@ describe('authMiddleware', () => {
       enableOidcAuth({ client: oidcClient, oidcConfig: OIDC_CONFIG });
     });
 
-    async function createIdToken(params?: { issuer?: string; sub?: string; groups?: string[] }): Promise<string> {
+    async function createIdToken(params?: {
+      issuer?: string;
+      audience?: string;
+      sub?: string;
+      groups?: string[];
+      exp?: string | number;
+    }): Promise<string> {
       return new SignJWT({ groups: params?.groups ?? [] })
         .setProtectedHeader({ alg: 'RS256', kid: 'test-kid' })
         .setIssuer(params?.issuer ?? ISSUER)
-        .setAudience(AUDIENCE)
+        .setAudience(params?.audience ?? AUDIENCE)
         .setSubject(params?.sub ?? 'user-1')
         .setIssuedAt()
-        .setExpirationTime('1h')
+        .setExpirationTime(params?.exp ?? '1h')
         .sign(privateKey);
     }
 
     it('returns 401 when the id_token cookie is missing', async () => {
       const res = await createApp().request('/api/v1/models');
       expect(res.status).toBe(401);
-      expect(await res.json()).toEqual({ error: { message: 'user_login_required' } });
+      expect(await res.json()).toEqual({ error: { message: 'Authentication required' } });
     });
 
     it('returns 401 when the token is invalid', async () => {
@@ -125,6 +136,34 @@ describe('authMiddleware', () => {
         headers: { Cookie: 'id_token=not-a-jwt' },
       });
       expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: { message: 'Authentication required' } });
+    });
+
+    it('returns 401 when the token has the wrong issuer', async () => {
+      const token = await createIdToken({ issuer: 'https://other.example.com' });
+      const res = await createApp().request('/api/v1/models', {
+        headers: { Cookie: `id_token=${token}` },
+      });
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: { message: 'Authentication required' } });
+    });
+
+    it('returns 401 when the token has the wrong audience', async () => {
+      const token = await createIdToken({ audience: 'other-client' });
+      const res = await createApp().request('/api/v1/models', {
+        headers: { Cookie: `id_token=${token}` },
+      });
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: { message: 'Authentication required' } });
+    });
+
+    it('returns 401 when the token is expired', async () => {
+      const token = await createIdToken({ exp: Math.floor(Date.now() / 1000) - 60 });
+      const res = await createApp().request('/api/v1/models', {
+        headers: { Cookie: `id_token=${token}` },
+      });
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: { message: 'Authentication required' } });
     });
 
     it('sets user context from claims (reference claim + role)', async () => {
@@ -135,21 +174,20 @@ describe('authMiddleware', () => {
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({
         ok: true,
-        user: { email: 'alice', role: 'admin' },
+        user: { userRef: 'alice', role: 'admin' },
       });
     });
 
-    it('returns 401 when the token has the wrong issuer', async () => {
-      const token = await createIdToken({ issuer: 'https://other.example.com' });
-      const res = await createApp().request('/api/v1/models', {
-        headers: { Cookie: `id_token=${token}` },
-      });
-      expect(res.status).toBe(401);
-    });
-
-    it('does not gate public mounts', async () => {
-      const res = await createApp().request('/api/v1/auth/login');
+    it.each([
+      '/healthz',
+      '/api/v1/auth/login',
+      '/api/v1/auth/callback',
+      '/api/v1/mcp-servers/oauth/callback',
+      '/api/v1/openapi',
+    ])('does not gate public mount %s', async path => {
+      const res = await createApp().request(path);
       expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ public: true });
     });
   });
 });
