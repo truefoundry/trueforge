@@ -26,7 +26,7 @@ import type {
   ToolSet,
   UserContent,
 } from 'ai';
-import { jsonSchema, Output, streamText } from 'ai';
+import { APICallError, jsonSchema, Output, streamText } from 'ai';
 import type {
   ChatCompletionContentPart,
   ChatCompletionCreateParams,
@@ -904,10 +904,19 @@ export function normalizeUsage(usage: {
 }
 
 /**
- * Providers surface stream errors as plain objects as often as Errors; `String()` on those
- * yields "[object Object]" and loses the only description of what went wrong.
+ * Prefer AI SDK `APICallError` (`message` / `statusCode`):
+ * https://ai-sdk.dev/docs/reference/ai-sdk-errors/ai-api-call-error#properties
+ * Fallback is required because stream `error` parts are typed `unknown` (not only
+ * `APICallError`) — plain objects would otherwise stringify to "[object Object]".
  */
 export function describeStreamError(raw: unknown): string {
+  if (APICallError.isInstance(raw)) {
+    if (raw.statusCode != null) {
+      return `Request failed (${String(raw.statusCode)}): ${raw.message}`;
+    }
+    return raw.message;
+  }
+
   if (typeof raw !== 'object' || raw === null) {
     return String(raw);
   }
@@ -1214,8 +1223,10 @@ export async function* mapStreamToChunks({
 
       case 'error': {
         const raw = part.error;
-        const err = raw instanceof Error ? raw : new Error(describeStreamError(raw));
-        throw new Error('LLM stream error', { cause: err });
+        const message = describeStreamError(raw);
+        // Preserve the original stream error as cause; toast/turn use .message only.
+        const cause = raw instanceof Error ? raw : new Error(message);
+        throw new Error(message, { cause });
       }
 
       case 'abort': {

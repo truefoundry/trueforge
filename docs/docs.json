@@ -1,0 +1,26 @@
+{
+  "$schema": "https://mintlify.com",
+  "name": "TrueForge",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "favicon": "/favicon.png",
+  "colors": {
+    "primary": "#0D9488",
+    "light": "#14B8A6",
+    "dark": "#0F766E"
+  },
+  "topbarLinks": [
+    {
+      "name": "Support",
+      "url": "https://example.com"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": ["introduction", "quickstart"]
+    }
+  ]
+}
