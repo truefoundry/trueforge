@@ -24,7 +24,7 @@ export class SessionsClient {
     }
 
     /**
-     * List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent; optional `created_by` filters by creator identity. Pass `page_token` to fetch the next page, keeping the other query params constant.
+     * List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
      *
      * @param {TrueForge.ListSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -44,7 +44,7 @@ export class SessionsClient {
             async (
                 request: TrueForge.ListSessionsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListSessionsResponse>> => {
-                const { limit = 10, order, pageToken, startTimestamp, endTimestamp, agentId, createdBy } = request;
+                const { limit = 10, order, pageToken, startTimestamp, endTimestamp, agentId } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     order:
@@ -60,7 +60,6 @@ export class SessionsClient {
                     start_timestamp: startTimestamp != null ? startTimestamp?.toISOString() : undefined,
                     end_timestamp: endTimestamp != null ? endTimestamp?.toISOString() : undefined,
                     agent_id: agentId,
-                    created_by: createdBy,
                 };
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
                     this._options?.headers,
@@ -253,11 +252,12 @@ export class SessionsClient {
     }
 
     /**
-     * Fetch a session by ID.
+     * Fetch a session by ID. Only the session creator (`created_by`) may fetch it.
      *
      * @param {string} session_id - Session identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
@@ -307,6 +307,17 @@ export class SessionsClient {
 
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 case 404:
                     throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -331,11 +342,12 @@ export class SessionsClient {
     }
 
     /**
-     * Delete a session and all related turns, events, and internal state. Idempotent if already gone.
+     * Delete a session and all related turns, events, and internal state. Only the session creator (`created_by`) may delete it. Idempotent if already gone.
      *
      * @param {string} session_id - Session identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -371,11 +383,25 @@ export class SessionsClient {
         }
 
         if (_response.error.reason === "status-code") {
-            throw new errors.TrueForgeError({
-                statusCode: _response.error.statusCode,
-                body: _response.error.body,
-                rawResponse: _response.rawResponse,
-            });
+            switch (_response.error.statusCode) {
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueForgeError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
         }
 
         return handleNonStatusCodeError(
@@ -387,13 +413,14 @@ export class SessionsClient {
     }
 
     /**
-     * Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.
+     * Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.UpdateSessionRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link TrueForge.UnprocessableEntityError}
      * @throws {@link errors.TrueForgeError}
@@ -468,6 +495,17 @@ export class SessionsClient {
                         }),
                         _response.rawResponse,
                     );
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 case 404:
                     throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -508,12 +546,13 @@ export class SessionsClient {
     }
 
     /**
-     * Cancel the running last turn for a session.
+     * Cancel the running last turn for a session. Only the session creator (`created_by`) may cancel.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.CancelSessionRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link TrueForge.PreconditionFailedError}
      * @throws {@link errors.TrueForgeError}
@@ -577,6 +616,17 @@ export class SessionsClient {
 
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 case 404:
                     throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -617,13 +667,14 @@ export class SessionsClient {
     }
 
     /**
-     * List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor.
+     * List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator (`created_by`) may list events.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.ListEventsSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
@@ -694,6 +745,17 @@ export class SessionsClient {
                                 }),
                                 _response.rawResponse,
                             );
+                        case 403:
+                            throw new TrueForge.ForbiddenError(
+                                serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                                    unrecognizedObjectKeys: "passthrough",
+                                    allowUnrecognizedUnionMembers: true,
+                                    allowUnrecognizedEnumValues: true,
+                                    skipValidation: true,
+                                    breadcrumbsPrefix: ["response"],
+                                }),
+                                _response.rawResponse,
+                            );
                         case 404:
                             throw new TrueForge.NotFoundError(
                                 serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -736,13 +798,14 @@ export class SessionsClient {
     }
 
     /**
-     * List turns for a session (newest first by default), token-paginated.
+     * List turns for a session (newest first by default), token-paginated. Only the session creator (`created_by`) may list turns.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.ListTurnsSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
@@ -812,6 +875,17 @@ export class SessionsClient {
                                 }),
                                 _response.rawResponse,
                             );
+                        case 403:
+                            throw new TrueForge.ForbiddenError(
+                                serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                                    unrecognizedObjectKeys: "passthrough",
+                                    allowUnrecognizedUnionMembers: true,
+                                    allowUnrecognizedEnumValues: true,
+                                    skipValidation: true,
+                                    breadcrumbsPrefix: ["response"],
+                                }),
+                                _response.rawResponse,
+                            );
                         case 404:
                             throw new TrueForge.NotFoundError(
                                 serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -855,6 +929,7 @@ export class SessionsClient {
 
     /**
      * Create a turn within a session and execute it.
+     * Only the session creator (`created_by`) may create turns.
      * When `stream` is true (default), respond with a Server-Sent Events stream of turn events.
      * When `stream` is false, return the turn immediately with `state.status: "running"` while execution continues in the background; use get turn or subscribe to observe completion.
      * Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.
@@ -938,6 +1013,17 @@ export class SessionsClient {
                         }),
                         _response.rawResponse,
                     );
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 case 404:
                     throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -990,6 +1076,7 @@ export class SessionsClient {
 
     /**
      * Create a turn within a session and execute it.
+     * Only the session creator (`created_by`) may create turns.
      * When `stream` is true (default), respond with a Server-Sent Events stream of turn events.
      * When `stream` is false, return the turn immediately with `state.status: "running"` while execution continues in the background; use get turn or subscribe to observe completion.
      * Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.
@@ -999,6 +1086,7 @@ export class SessionsClient {
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link TrueForge.PreconditionFailedError}
      * @throws {@link TrueForge.UnprocessableEntityError}
@@ -1077,6 +1165,17 @@ export class SessionsClient {
                         }),
                         _response.rawResponse,
                     );
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 case 404:
                     throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -1128,12 +1227,13 @@ export class SessionsClient {
     }
 
     /**
-     * Fetch a single turn by ID.
+     * Fetch a single turn by ID. Only the session creator (`created_by`) may fetch it.
      *
      * @param {string} session_id - Session identifier.
      * @param {string} turn_id - Turn identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
@@ -1185,6 +1285,17 @@ export class SessionsClient {
 
         if (_response.error.reason === "status-code") {
             switch (_response.error.statusCode) {
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 case 404:
                     throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -1214,7 +1325,7 @@ export class SessionsClient {
     }
 
     /**
-     * Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block.
+     * Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator (`created_by`) may download.
      *
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.ForbiddenError}
@@ -1369,7 +1480,7 @@ export class SessionsClient {
     }
 
     /**
-     * Paginated persisted events for a turn (insertion order by default).
+     * Paginated persisted events for a turn (insertion order by default). Only the session creator (`created_by`) may list events.
      *
      * @param {string} session_id - Session identifier.
      * @param {string} turn_id - Turn identifier.
@@ -1377,6 +1488,7 @@ export class SessionsClient {
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
@@ -1456,6 +1568,17 @@ export class SessionsClient {
                                 }),
                                 _response.rawResponse,
                             );
+                        case 403:
+                            throw new TrueForge.ForbiddenError(
+                                serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                                    unrecognizedObjectKeys: "passthrough",
+                                    allowUnrecognizedUnionMembers: true,
+                                    allowUnrecognizedEnumValues: true,
+                                    skipValidation: true,
+                                    breadcrumbsPrefix: ["response"],
+                                }),
+                                _response.rawResponse,
+                            );
                         case 404:
                             throw new TrueForge.NotFoundError(
                                 serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -1498,7 +1621,7 @@ export class SessionsClient {
     }
 
     /**
-     * Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
+     * Subscribe to the live SSE stream for a turn. Only the session creator (`created_by`) may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
      */
     public subscribeToTurn(
         session_id: string,
@@ -1604,6 +1727,17 @@ export class SessionsClient {
             switch (_response.error.statusCode) {
                 case 400:
                     throw new TrueForge.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 403:
+                    throw new TrueForge.ForbiddenError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
