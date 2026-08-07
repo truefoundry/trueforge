@@ -24,3 +24,17 @@ export const OAuthCallbackQuerySchema = z.object({
 export const OAuthCallbackSuccessSchema = z.object({
   success: z.literal(true),
 });
+
+export const MeResponseSchema = z
+  .object({
+    type: z
+      .enum(['default', 'oidc-connected'])
+      .describe(
+        'Session kind: `default` when no valid OIDC session; `oidc-connected` after a successful browser login.',
+      ),
+    email: z.string().describe('User email from the ID token when connected; `"default"` when anonymous.'),
+    role: z.string().describe('Caller role.'),
+  })
+  .openapi('MeResponse');
+
+export type MeResponse = z.infer<typeof MeResponseSchema>;

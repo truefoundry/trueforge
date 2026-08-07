@@ -1734,6 +1734,32 @@
         ],
         "type": "string"
       },
+      "MeResponse": {
+        "properties": {
+          "email": {
+            "description": "User email from the ID token when connected; `\"default\"` when anonymous.",
+            "type": "string"
+          },
+          "role": {
+            "description": "Caller role.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Session kind: `default` when no valid OIDC session; `oidc-connected` after a successful browser login.",
+            "enum": [
+              "default",
+              "oidc-connected"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "email",
+          "role"
+        ],
+        "type": "object"
+      },
       "Model": {
         "additionalProperties": false,
         "properties": {
@@ -4106,6 +4132,34 @@
         "x-fern-sdk-method-name": "logout"
       }
     },
+    "/api/v1/auth/me": {
+      "get": {
+        "description": "Returns the authenticated caller identity. When OIDC is configured this requires a valid session cookie (401 otherwise). Without OIDC, returns the default anonymous identity.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Session type and identity for the current request."
+          },
+          "401": {
+            "description": "OIDC is configured and the request has no valid session cookie."
+          }
+        },
+        "summary": "Current session",
+        "tags": [
+          "Auth"
+        ],
+        "x-fern-sdk-group-name": [
+          "auth"
+        ],
+        "x-fern-sdk-method-name": "me"
+      }
+    },
     "/api/v1/capabilities": {
       "get": {
         "description": "Report optional runtime capabilities available for this tenant.",
@@ -5680,7 +5734,7 @@
                 }
               }
             },
-            "description": "The MCP server requires authentication."
+            "description": "Harness session login required."
           },
           "404": {
             "content": {
@@ -5691,6 +5745,16 @@
               }
             },
             "description": "MCP server not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The MCP server requires authentication (does not trigger browser OIDC login)."
           },
           "502": {
             "content": {
