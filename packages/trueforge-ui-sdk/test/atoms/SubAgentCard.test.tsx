@@ -44,7 +44,7 @@ describe('SubAgentCard', () => {
   });
 
   it('renders instructions and nested content when expanded', () => {
-    const { container } = renderCard({
+    renderCard({
       agentName: 'Coder',
       instruction: 'Implement the fix',
       stepCount: 3,
@@ -58,7 +58,7 @@ describe('SubAgentCard', () => {
     expect(screen.getByTestId('instruction-markdown')).toHaveTextContent('Implement the fix');
     expect(screen.getByTestId('sub-instructions')).toBeInTheDocument();
     expect(screen.getByTestId('sub-nested-content')).toHaveTextContent('child tool call');
-    expect(container.querySelector('svg.text-green-600')).toBeInTheDocument();
+    expect(screen.getByTestId('sub-success-icon')).toBeInTheDocument();
   });
 
   it('uses a custom instruction renderer and maps error status', () => {

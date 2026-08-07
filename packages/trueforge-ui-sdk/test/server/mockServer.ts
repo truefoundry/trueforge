@@ -17,6 +17,7 @@ export function createMockCatalog(overrides: Partial<CatalogServer> = {}): Catal
     connectorCatalog: {
       getConnectorCatalog: async () => [],
       listConnectors: async () => [],
+      getConnector: unavailable,
       getToolsByConnectorId: async () => [],
       createConnector: unavailable,
       updateConnector: unavailable,

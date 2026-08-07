@@ -45,10 +45,10 @@ describe('ToolCallCard', () => {
       <ToolCallCard toolName="Run" awaiting awaitingText="Executing…" dataTestPrefix="run" />,
     );
     expect(screen.getByText('Executing…')).toBeInTheDocument();
-    expect(container.querySelector('svg.text-green-600')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('run-header-success-icon')).not.toBeInTheDocument();
 
     rerender(<ToolCallCard toolName="Run" exitCode={0} dataTestPrefix="run" />);
-    expect(container.querySelector('svg.text-green-600')).toBeInTheDocument();
+    expect(screen.getByTestId('run-header-success-icon')).toBeInTheDocument();
 
     rerender(<ToolCallCard toolName="Run" exitCode={2} dataTestPrefix="run" />);
     expect(container.querySelector('svg.text-destructive')).toBeInTheDocument();

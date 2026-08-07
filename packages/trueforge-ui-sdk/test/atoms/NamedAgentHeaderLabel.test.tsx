@@ -2,8 +2,8 @@
 import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { ShellModeProvider, useShellMode } from '../server/ShellModeContext.js';
-import { NamedAgentHeaderLabel } from './NamedAgentHeaderLabel.js';
+import { NamedAgentHeaderLabel } from '@/atoms/NamedAgentHeaderLabel.js';
+import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 
 function SelectNamed() {
   const shell = useShellMode();

@@ -1,27 +1,39 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ServerProvider } from '../server/ServerContext.js';
-import { ShellModeProvider, useShellMode } from '../server/ShellModeContext.js';
-import type { AgentUIServer } from '../server/types.js';
-import { SlotsProvider } from '../theme/SlotsProvider.js';
-import { AgentHistoryFilterButton } from './AgentHistoryFilterButton.js';
+import { AgentHistoryFilterButton } from '@/atoms/AgentHistoryFilterButton.js';
+import { ServerProvider } from '@/server/ServerContext.js';
+import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
+import type { AgentUIServer } from '@/server/types.js';
+import { SlotsProvider } from '@/theme/SlotsProvider.js';
+import { createMockAgentUIServer } from '../server/mockServer.js';
 
-HTMLDialogElement.prototype.showModal = function showModal() {
-  this.setAttribute('open', '');
-};
-HTMLDialogElement.prototype.close = function close() {
-  this.removeAttribute('open');
-  this.dispatchEvent(new Event('close'));
-};
+const originalShowModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'showModal');
+const originalClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'close');
+
+beforeEach(() => {
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.open = true;
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.open = false;
+      this.dispatchEvent(new Event('close'));
+    },
+  });
+});
 
 function mockServer(partial: Partial<AgentUIServer> = {}): AgentUIServer {
-  return {
-    searchAgents: vi.fn().mockResolvedValue([{ name: 'from-sdk' }, { name: 'other' }]),
+  return createMockAgentUIServer({
+    searchAgents: async () => [{ name: 'from-sdk' }, { name: 'other' }],
     ...partial,
-  } as AgentUIServer;
+  });
 }
 
 function FilterProbe() {
@@ -50,6 +62,20 @@ function wrap({
   };
 }
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+  if (originalShowModal === undefined) {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+  } else {
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', originalShowModal);
+  }
+  if (originalClose === undefined) {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'close');
+  } else {
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', originalClose);
+  }
+});
+
 describe('AgentHistoryFilterButton', () => {
   it('renders nothing when library is disabled', () => {
     render(<AgentHistoryFilterButton />, {
@@ -59,7 +85,8 @@ describe('AgentHistoryFilterButton', () => {
   });
 
   it('opens popover and sets history filter on agent click', async () => {
-    const server = mockServer();
+    const searchAgents = vi.fn(async () => [{ name: 'from-sdk' }, { name: 'other' }]);
+    const server = mockServer({ searchAgents });
     render(<AgentHistoryFilterButton />, {
       wrapper: wrap({ agentConfig: { mode: 'AgentLibraryWithComposer' }, server }),
     });
@@ -74,7 +101,7 @@ describe('AgentHistoryFilterButton', () => {
     });
 
     expect(screen.getByTestId('filter-value')).toHaveTextContent('from-sdk');
-    expect(server.searchAgents).toHaveBeenCalled();
+    expect(searchAgents).toHaveBeenCalled();
   });
 
   it('opens a bottom sheet on mobile', async () => {
@@ -100,7 +127,5 @@ describe('AgentHistoryFilterButton', () => {
       expect(screen.getByRole('dialog', { name: /Filter agents/i })).toBeInTheDocument();
     });
     await waitFor(() => expect(screen.getByRole('menuitem', { name: /from-sdk/i })).toBeInTheDocument());
-
-    vi.unstubAllGlobals();
   });
 });

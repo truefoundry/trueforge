@@ -85,11 +85,12 @@ describe('DraftCompositeSelector', () => {
     expect(updateAgentSpec).toHaveBeenCalledWith({ skills: [] });
   });
 
-  it('forwards attachment requests and closes the picker', () => {
+  it('forwards attachment requests and closes the picker', async () => {
     const onAttach = vi.fn();
     renderSelector({ onAttach });
     const trigger = screen.getByRole('button', { name: 'Add connectors, skills, or attachments' });
     fireEvent.click(trigger);
+    await screen.findByRole('menuitemcheckbox', { name: /GitHub/ });
     fireEvent.click(screen.getByRole('button', { name: 'Attachment' }));
     fireEvent.click(screen.getByRole('button', { name: /Add files or photos/ }));
 

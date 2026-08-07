@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { CatalogServer } from '@/server/types.js';
 import { useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer.js';
 
@@ -68,7 +68,9 @@ describe('TrueforgeUI', () => {
         className="h-96"
       />,
     );
-    await vi.dynamicImportSettled();
+    await act(async () => {
+      await vi.dynamicImportSettled();
+    });
     await waitFor(() => {
       switch (layout) {
         case 'sidebar':
@@ -246,7 +248,7 @@ describe('SidebarLayout', () => {
     expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
   });
 
-  it('toggles theme from the footer and shows settings only when catalog is provided', () => {
+  it('toggles theme from the footer and shows settings only when catalog is provided', async () => {
     const { rerender } = render(
       <SlotsProvider theme={{ brand: { name: 'Acme' } }}>
         <ServerProvider server={mockServer(stubCatalog)}>
@@ -262,6 +264,11 @@ describe('SidebarLayout', () => {
     );
 
     expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(2);
+    const expandButton = screen.queryByRole('button', { name: 'Expand sidebar' });
+    if (expandButton != null) {
+      fireEvent.click(expandButton);
+    }
+    expect(await screen.findAllByRole('button', { name: 'Agents Library (0)' })).not.toHaveLength(0);
     const [themeButton] = screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ });
     if (themeButton === undefined) {
       throw new Error('Expected theme toggle');

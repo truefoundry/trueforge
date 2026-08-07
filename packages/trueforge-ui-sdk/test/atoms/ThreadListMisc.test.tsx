@@ -69,7 +69,7 @@ describe('ThreadListEmptyState', () => {
 });
 
 describe('ThreadListShell', () => {
-  it('keeps header and scrollable thread content in separate regions', () => {
+  it('keeps header and history-owned overflow in separate regions', () => {
     const { container } = render(
       <ThreadListShell header={<button type="button">Create thread</button>} className="consumer-class">
         <a href="/threads/one">Thread one</a>
@@ -81,6 +81,6 @@ describe('ThreadListShell', () => {
     expect(root?.children).toHaveLength(2);
     expect(root?.children[0]).toContainElement(screen.getByRole('button', { name: 'Create thread' }));
     expect(root?.children[1]).toContainElement(screen.getByRole('link', { name: 'Thread one' }));
-    expect(root?.children[1]).toHaveClass('overflow-y-auto');
+    expect(root?.children[1]).toHaveClass('overflow-hidden');
   });
 });

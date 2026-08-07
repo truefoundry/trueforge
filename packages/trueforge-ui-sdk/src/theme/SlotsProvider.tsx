@@ -77,6 +77,12 @@ export function useSlot<K extends keyof PublicAtomSlots>(name: K): PublicAtomSlo
   return slots[name];
 }
 
+/** Whether the currently resolved slot is the SDK's stock implementation. */
+export function useSlotIsDefault<K extends keyof PublicAtomSlots>(name: K): boolean {
+  const slots = useContext(SlotsContext);
+  return slots[name] === defaultSlots[name];
+}
+
 /** Resolves the light or dark theme mode supplied by the SDK consumer. */
 export function useThemeMode(): 'light' | 'dark' {
   return useContext(ThemeModeContext) ?? 'light';

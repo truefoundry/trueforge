@@ -117,13 +117,11 @@ describe('ThreadListContainer', () => {
           {
             status: 'regular',
             id: 'thread-1',
-            remoteId: 'session-1',
             title: 'Current session',
           },
           {
             status: 'regular',
             id: 'thread-2',
-            remoteId: 'session-2',
             title: 'Previous session',
           },
         ],

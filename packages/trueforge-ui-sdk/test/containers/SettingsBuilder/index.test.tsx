@@ -105,7 +105,7 @@ describe('TruefoundrySettingsBuilder', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Skills' }));
     expect(screen.getByText('Skill settings content')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sandbox' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sandbox providers' }));
     expect(screen.getByText('Sandbox settings content')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Connectors' }));

@@ -101,9 +101,11 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'computeAgentStepsSplit',
   'createTrueFoundryServer',
   'defaultSlots',
+  'libraryAgentId',
   'mergeAgentSpec',
   'preloadMarkdownOpenUI',
   'resolvePresetTokens',
+  'shellIsMutable',
   'threadHasPendingMcpAuth',
   'trueFoundryAttachmentAdapter',
   'useAui',
@@ -135,6 +137,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'useTrueFoundryMcpAuth',
   'useTrueFoundryRespondToToolApproval',
   'useTrueFoundryToolResponses',
+  'useTrueFoundryTurnId',
   'useTrueFoundryUpdateAgentSpec',
 ];
 

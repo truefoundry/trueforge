@@ -67,6 +67,7 @@ describe('AssistantTextContainer', () => {
 
   it('downloads an artifact through the turn that produced the message', async () => {
     const downloadSandboxFile = vi.fn(async () => new Blob(['hello harness']));
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     function ExtrasHarness() {
       const runtime = useExternalStoreRuntime({
@@ -106,12 +107,16 @@ describe('AssistantTextContainer', () => {
       );
     }
 
-    render(<ExtrasHarness />);
+    try {
+      render(<ExtrasHarness />);
 
-    fireEvent.click(await screen.findByText('report.txt'));
+      fireEvent.click(await screen.findByText('report.txt'));
 
-    await waitFor(() => {
-      expect(downloadSandboxFile).toHaveBeenCalledWith({ turnId: 'turn-42', path: '/tmp/report.txt' });
-    });
+      await waitFor(() => {
+        expect(downloadSandboxFile).toHaveBeenCalledWith({ turnId: 'turn-42', path: '/tmp/report.txt' });
+      });
+    } finally {
+      anchorClick.mockRestore();
+    }
   });
 });
