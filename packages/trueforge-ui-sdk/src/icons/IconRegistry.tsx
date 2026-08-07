@@ -43,17 +43,15 @@ import {
   RotateCw,
   Search,
   Settings,
+  Sparkle,
   Sun,
   Terminal,
   Trash2,
   Wrench,
   X,
 } from 'lucide-react';
-import type { FC, ReactNode, SVGProps } from 'react';
 
-import type { IconMap, IconProps } from '../theme/types.js';
-
-export type IconEntry = LucideIcon | ReactNode | ((props: IconProps) => ReactNode) | FC<SVGProps<SVGSVGElement>>;
+import type { IconEntry, IconMap } from '../theme/types.js';
 
 const registry = new Map<string, IconEntry>();
 
@@ -61,7 +59,7 @@ export function registerIcon(name: string, icon: IconEntry): void {
   registry.set(name, icon);
 }
 
-export function registerIcons(icons: Record<string, IconEntry>): void {
+export function registerIcons(icons: IconMap): void {
   for (const [name, icon] of Object.entries(icons)) {
     registry.set(name, icon);
   }
@@ -110,6 +108,10 @@ const defaults: Record<string, LucideIcon> = {
   clock: Clock,
   'circle-check': CircleCheck,
   'circle-xmark': CircleX,
+  'oauth-success': CircleCheck,
+  'oauth-error': CircleX,
+  'oauth-loading': Loader2,
+  'welcome-sparkle': Sparkle,
   robot: Bot,
   funnel: ListFilter,
   plug: Plug,
@@ -137,7 +139,7 @@ for (const [name, icon] of Object.entries(defaults)) {
 /** Merge host `theme.icons` over the registry for a single lookup (does not mutate). */
 export function lookupIcon(name: string, themeIcons?: IconMap): IconEntry | undefined {
   if (themeIcons && name in themeIcons) {
-    return themeIcons[name] as IconEntry;
+    return themeIcons[name];
   }
   return registry.get(name);
 }

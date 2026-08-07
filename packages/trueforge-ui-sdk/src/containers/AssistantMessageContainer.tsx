@@ -89,7 +89,7 @@ export function AssistantMessageContainer() {
                 // Intermediate text inside Agent steps: muted + indented vs final answer
                 if (index >= 0 && index < cutIndex) {
                   return (
-                    <div className="mb-2 ml-[1.75rem] text-xs text-gray-600 dark:text-gray-400 [&_.markdown-body]:text-inherit">
+                    <div className="mb-2 ml-[1.75rem] text-xs text-muted-foreground [&_.markdown-body]:text-inherit">
                       <AssistantTextContainer />
                     </div>
                   );

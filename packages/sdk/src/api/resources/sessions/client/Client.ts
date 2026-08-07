@@ -24,7 +24,7 @@ export class SessionsClient {
     }
 
     /**
-     * List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
+     * List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent; optional `created_by` filters by creator identity. Pass `page_token` to fetch the next page, keeping the other query params constant.
      *
      * @param {TrueForge.ListSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -44,7 +44,7 @@ export class SessionsClient {
             async (
                 request: TrueForge.ListSessionsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListSessionsResponse>> => {
-                const { limit = 10, order, pageToken, startTimestamp, endTimestamp, agentId } = request;
+                const { limit = 10, order, pageToken, startTimestamp, endTimestamp, agentId, createdBy } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     order:
@@ -60,6 +60,7 @@ export class SessionsClient {
                     start_timestamp: startTimestamp != null ? startTimestamp?.toISOString() : undefined,
                     end_timestamp: endTimestamp != null ? endTimestamp?.toISOString() : undefined,
                     agent_id: agentId,
+                    created_by: createdBy,
                 };
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
                     this._options?.headers,

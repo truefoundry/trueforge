@@ -202,3 +202,9 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
     </CenteredModal>
   );
 }
+
+declare module '../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    AgentsLibrary: typeof AgentsLibrary;
+  }
+}

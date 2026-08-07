@@ -4,8 +4,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import { useAui } from '../assistant-ui.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
-import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
-import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
@@ -31,6 +29,8 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const aui = useAui();
   const shell = useOptionalShellMode();
   const ClearChatButton = useSlot('ClearChatButton');
+  const SaveAgentButton = useSlot('SaveAgentButton');
+  const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
 

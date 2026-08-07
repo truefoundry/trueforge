@@ -147,3 +147,91 @@ Publish a real version when CI or teammates need it.
 | Sourcemaps/declarationMap decision                                              | packages/harness/tsup.config.ts, tsconfig.build.json    |
 | CONTRIBUTING / SECURITY / CODE_OF_CONDUCT / CODEOWNERS / CI for external PRs    | .github/                                                |
 | Secret-scan history, enable secret scanning + push protection, flip repo public | GitHub settings                                         |
+
+---
+
+# Releasing the server image + Helm chart
+
+A separate pipeline ships the deployable artifacts: the server container image
+(API + UI, built from the root `Dockerfile`) and the `charts/trueforge` Helm
+chart. It is driven by `.github/workflows/release-image-and-chart.yml` and
+triggers when a **GitHub Release** is published (tag `vX.Y.Z`).
+
+## What the release tag drives
+
+The tag is the single source of truth. On `vX.Y.Z` the workflow:
+
+1. **Builds and pushes the image** via the shared reusable workflow
+   `truefoundry/github-workflows-public/.github/workflows/build.yml@main` to the
+   JFrog public Artifactory repo, tagged `X.Y.Z`. The chart pulls the image from
+   JFrog, so JFrog is the only publish target (public ECR is disabled).
+2. **Stamps the chart** — sets `version`, `appVersion`, and `image.tag` in
+   `charts/trueforge` to `X.Y.Z` and commits the bump back to `main`.
+3. **Publishes the chart** — packages `charts/trueforge` and pushes it to the
+   JFrog public OCI Helm repo, then attaches the `.tgz` to the GitHub release.
+
+## Per-release flow
+
+1. Cut the release from `main` (tag `vX.Y.Z`) via the GitHub Releases UI or:
+
+   ```bash
+   gh release create vX.Y.Z --target main --generate-notes
+   ```
+
+2. Watch the run under the repo's Actions tab. The image lands in JFrog, the
+   chart lands in the OCI Helm repo, and the `.tgz` is attached to the release.
+
+> Publishing a `vX.Y.Z` tag also triggers `release.yml` (the npm publish of
+> `@truefoundry/utils-core`), which requires the tag to match
+> `packages/harness/package.json`. Keep that version in lockstep when tagging.
+
+## Required repository configuration
+
+Org/repo **variables**: `TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL`,
+`TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY`,
+`TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY`.
+
+Org/repo **secrets**: `TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME`,
+`TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD`.
+
+## Bundled dependencies
+
+The chart bundles Postgres and Redis as optional Bitnami subcharts, declared in
+`charts/trueforge/Chart.yaml` against the public Bitnami OCI archive
+(`oci://registry-1.docker.io/bitnamicharts`) and pinned by the committed
+`Chart.lock`. The workflow fetches them with `helm dependency build` before
+packaging (the archive is public, no auth). Disable them with
+`postgresql.enabled=false` / `redis.enabled=false` to target external services.
+
+**Images vs charts.** Bitnami left the charts public but relocated their
+container images to `docker.io/bitnamilegacy` (frozen, no security updates). So
+`charts/trueforge/values.yaml` overrides the subchart images to pinned legacy
+tags mirrored to the TrueFoundry JFrog registry, and sets
+`global.security.allowInsecureImages: true` (required once the registry differs
+from Bitnami's default). Mirror the images once per pinned tag:
+
+```bash
+for img in \
+  postgresql:17.6.0-debian-12-r4 \
+  redis:8.2.1-debian-12-r0; do
+  crane copy "docker.io/bitnamilegacy/${img}" "tfy.jfrog.io/tfy-mirror/bitnamilegacy/${img}"
+done
+# If you enable metrics/volumePermissions, also mirror:
+#   postgres-exporter:0.17.1-debian-12-r16  os-shell:12-debian-12-r51
+#   redis-exporter:1.76.0-debian-12-r0
+```
+
+To bump a bundled version: change the version under `dependencies:` in
+`Chart.yaml`, run `pnpm chart:deps` to refresh `Chart.lock`, then update the
+matching `image.tag` in `values.yaml` and mirror that new legacy tag to JFrog.
+
+## Validating the chart locally
+
+Fetch the subchart deps first (public archive, no auth), then lint/template:
+
+```bash
+pnpm chart:deps       # helm dependency build (writes charts/, uses Chart.lock)
+pnpm chart:lint       # helm lint with charts/trueforge/ci/lint-values.yaml
+pnpm chart:template   # render the manifests
+pnpm chart:package    # package to dist/ (gitignored)
+```

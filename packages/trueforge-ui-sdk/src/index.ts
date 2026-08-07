@@ -5,8 +5,9 @@ import './icons/registerAgentIcons.js';
 export { BrandIcon, BrandLogo } from './theme/brand.js';
 export { defaultSlots } from './theme/defaultSlots.js';
 export { PRESETS, resolvePresetTokens } from './theme/presets/index.js';
+export type { PublicAtomSlots as AtomSlots, SlotOverrides } from './theme/publicSlots.js';
 export { SlotsProvider, useSlot, useThemeMode } from './theme/SlotsProvider.js';
-export type { AtomSlots, SlotOverrides, ThemeMode } from './theme/SlotsProvider.js';
+export type { ThemeMode } from './theme/SlotsProvider.js';
 export {
   ThemeProvider,
   useBrand,
@@ -322,7 +323,7 @@ export type {
 
 // Utils
 export { computeAgentStepsSplit } from './utils/computeAgentStepsSplit.js';
-export type { AgentStepsSplitResult } from './utils/computeAgentStepsSplit.js';
+export type { AgentStepPart, AgentStepsSplitResult } from './utils/computeAgentStepsSplit.js';
 
 export { AgentsLibrary } from './atoms/AgentsLibrary.js';
 export type { AgentsLibraryProps } from './atoms/AgentsLibrary.js';

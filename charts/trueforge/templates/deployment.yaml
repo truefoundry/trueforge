@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "trueforge.fullname" . }}
+  labels:
+    {{- include "trueforge.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "trueforge.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "trueforge.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "trueforge.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # Above the server's GRACEFUL_TIMEOUT_SECONDS so SIGKILL does not cut off turn drain.
+      terminationGracePeriodSeconds: {{ add .Values.server.gracefulTimeoutSeconds 5 }}
+      containers:
+        - name: server
+          image: {{ include "trueforge.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.server.port }}
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: {{ .Values.server.port | quote }}
+            - name: PUBLIC_BASE_URL
+              value: {{ required "server.publicBaseUrl is required" .Values.server.publicBaseUrl | quote }}
+            # The server always runs peered against Postgres + Redis.
+            - name: STANDALONE
+              value: "false"
+            - name: GRACEFUL_TIMEOUT_SECONDS
+              value: {{ .Values.server.gracefulTimeoutSeconds | quote }}
+            - name: REDIS_URL
+              value: {{ include "trueforge.redis.url" . | quote }}
+            - name: POSTGRES_HOST
+              value: {{ include "trueforge.postgres.host" . | quote }}
+            - name: POSTGRES_PORT
+              value: {{ include "trueforge.postgres.port" . | quote }}
+            - name: POSTGRES_DB
+              value: {{ include "trueforge.postgres.database" . | quote }}
+            - name: POSTGRES_USER
+              value: {{ include "trueforge.postgres.user" . | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "trueforge.postgres.secretName" . }}
+                  key: {{ include "trueforge.postgres.secretKey" . }}
+            {{- with .Values.server.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.server.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

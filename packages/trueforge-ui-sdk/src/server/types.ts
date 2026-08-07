@@ -414,6 +414,7 @@ export interface ModelProviderCatalogEntry<TModel extends ModelEntry = ModelEntr
   type: ProviderType;
   name: string;
   models: TModel[];
+  supportedReasoningEfforts?: string[];
   logo?: string;
 }
 

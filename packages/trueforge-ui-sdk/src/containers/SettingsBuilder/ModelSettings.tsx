@@ -87,6 +87,10 @@ const ModelSettings = () => {
     [catalog, configuredTypes, normalizedQuery],
   );
 
+  const supportedReasoningEfforts = useMemo(() => {
+    return catalog.find(provider => provider.type === 'custom')?.supportedReasoningEfforts;
+  }, [catalog]);
+
   const catalogModelsByType = useMemo(() => {
     const map = new Map<string, ModelEntry[]>();
     for (const entry of catalog) {
@@ -459,6 +463,7 @@ const ModelSettings = () => {
             open={customProviderOpen}
             onOpenChange={setCustomProviderOpen}
             onAdd={handleAddCustomProvider}
+            reasoningEffortOptions={supportedReasoningEfforts}
             busy={busy}
           />
         </div>

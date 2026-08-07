@@ -1,9 +1,9 @@
 'use client';
 
 import { Icon } from '../icons/Icon.js';
+import { useSlot } from '../theme/SlotsProvider.js';
 import { cn } from './lib/cn.js';
-import { MonacoEditorCore } from './MonacoEditorCore.js';
-import { ToolCallCard, type ToolCallStatus } from './ToolCallCard.js';
+import type { ToolCallStatus } from './ToolCallCard.js';
 
 export type SandboxToolCallCardProps = {
   name: string;
@@ -25,6 +25,8 @@ export type SandboxToolCallCardProps = {
 };
 
 function JsonPane({ value, className }: { value: string; className?: string }) {
+  const MonacoEditorCore = useSlot('MonacoEditorCore');
+
   return (
     <MonacoEditorCore
       language="json"
@@ -84,9 +86,7 @@ function SandboxBody({
               <span
                 className={cn(
                   'inline-flex h-6 items-center gap-1 rounded px-1.5 text-xs lowercase',
-                  exitCode === 0
-                    ? 'bg-green-500/10 text-green-700 dark:text-green-400'
-                    : 'bg-destructive/10 text-destructive',
+                  exitCode === 0 ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive',
                 )}
                 data-testid={dataTestPrefix ? `${dataTestPrefix}-exit-code` : undefined}
               >
@@ -142,7 +142,7 @@ function SandboxBody({
                   </div>
                 )}
                 {resultJson && (
-                  <div className="my-1 border-l-4 border-purple-400 px-3">
+                  <div className="my-1 border-l-4 border-primary/60 px-3">
                     <div className="mb-1 mt-2 font-sans text-xs font-medium leading-4">Result</div>
                     <JsonPane value={resultJson} className="pl-2" />
                   </div>
@@ -154,14 +154,14 @@ function SandboxBody({
                   <div className="my-1 break-all border-l-4 border-primary px-3">
                     <div className="mb-1 text-[12px] font-medium leading-4 text-muted-foreground">COMMAND</div>
                     <div>
-                      <span className="text-teal-500">$</span> {command}
+                      <span className="text-primary">$</span> {command}
                     </div>
                   </div>
                 )}
                 {resultText ? (
                   <>
                     <div className="mx-3 my-1 border-t border-border" />
-                    <div className="my-1 break-all border-l-4 border-purple-400 px-3">
+                    <div className="my-1 break-all border-l-4 border-primary/60 px-3">
                       <div className="mb-1 text-[12px] font-medium leading-4 text-muted-foreground">OUTPUT</div>
                       <div>{resultText}</div>
                     </div>
@@ -170,7 +170,7 @@ function SandboxBody({
                   resultJson && (
                     <>
                       <div className="mx-3 my-1 border-t border-border" />
-                      <div className="my-1 border-l-4 border-purple-400 px-3">
+                      <div className="my-1 border-l-4 border-primary/60 px-3">
                         <div className="mb-1 text-[12px] font-medium leading-4 text-muted-foreground">OUTPUT</div>
                         <JsonPane value={resultJson} className="pl-2" />
                       </div>
@@ -204,6 +204,7 @@ export function SandboxToolCallCard({
   dataTestPrefix,
   className,
 }: SandboxToolCallCardProps) {
+  const ToolCallCard = useSlot('ToolCallCard');
   const awaiting = status === 'running';
 
   return (

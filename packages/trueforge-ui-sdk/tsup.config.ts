@@ -22,6 +22,7 @@ export default defineConfig({
       },
     }),
   ],
+  noExternal: ['react-syntax-highlighter/dist/esm/styles/prism'],
   external: [
     'react',
     'react-dom',
@@ -36,7 +37,6 @@ export default defineConfig({
     'react-markdown',
     'remark-gfm',
     'react-syntax-highlighter',
-    'react-syntax-highlighter/dist/esm/styles/prism',
     'monaco-editor',
   ],
 });

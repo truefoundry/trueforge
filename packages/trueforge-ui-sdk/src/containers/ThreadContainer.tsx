@@ -17,7 +17,13 @@ import { UserMessageContainer } from './UserMessageContainer.js';
 // `remoteId == null` keeps welcome off during first-turn edit/retry: the
 // runtime briefly rewinds to an empty snapshot before applying pendingUser,
 // and messages.length===0 alone would flash the welcome screen.
-export const isNewChatView = (s: AssistantState) =>
+type NewChatViewState = {
+  thread: Pick<AssistantState['thread'], 'messages' | 'isLoading'>;
+  threads: Pick<AssistantState['threads'], 'isLoading'>;
+  threadListItem: Pick<AssistantState['threadListItem'], 'remoteId'>;
+};
+
+export const isNewChatView = (s: NewChatViewState) =>
   s.thread.messages.length === 0 && (!s.thread.isLoading || s.threads.isLoading) && s.threadListItem.remoteId == null;
 
 /** Mount-only lift. Keyed by message.id via ThreadPrimitive.Messages — not content (streaming). */
