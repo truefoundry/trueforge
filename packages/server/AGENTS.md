@@ -1,0 +1,1 @@
+- `withTransaction` callbacks MUST contain only local DB work. Flag any `await` inside the callback (including through helpers it calls) of `fetch`, an SDK client, Redis, or other remote I/O. Remote work MUST finish before the transaction opens so the txn only spans adjacent local writes.
