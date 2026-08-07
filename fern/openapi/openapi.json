@@ -4337,7 +4337,7 @@
                 }
               }
             },
-            "description": "DCR or authorize URL construction failed (e.g. server lacks registration_endpoint)."
+            "description": "Invalid redirect_url, or the authorization server rejected dynamic client registration."
           },
           "404": {
             "content": {
@@ -4348,6 +4348,16 @@
               }
             },
             "description": "MCP server not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "DCR could not be completed for this server (e.g. it lacks a registration_endpoint)."
           },
           "500": {
             "content": {
@@ -4688,7 +4698,7 @@
                 }
               }
             },
-            "description": "Invalid request body, or named session rejected an agent update."
+            "description": "Invalid request body."
           },
           "404": {
             "content": {
@@ -4708,7 +4718,7 @@
                 }
               }
             },
-            "description": "The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
+            "description": "Named session rejected an agent update, or the agent spec references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
           }
         },
         "summary": "Update a session",
@@ -5053,7 +5063,7 @@
                 }
               }
             },
-            "description": "The session is valid but a required resource is no longer available (e.g. named agent, model, MCP server, skill, or sandbox provider)."
+            "description": "The request is well-formed but cannot be processed: a referenced resource is missing (named agent, model, MCP server, skill, or sandbox provider), sandbox is required but unavailable (e.g. file uploads), or the turn input conflicts with current state (e.g. unresolved tool calls or approvals, tool name collision)."
           }
         },
         "summary": "Create and execute a turn in a session",
@@ -5529,6 +5539,16 @@
               }
             },
             "description": "Invalid request body."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint)."
           }
         },
         "summary": "Create or replace an MCP server",
