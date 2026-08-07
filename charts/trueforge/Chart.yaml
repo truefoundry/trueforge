@@ -1,0 +1,31 @@
+apiVersion: v2
+name: trueforge
+description: TrueForge server (API + UI) served from a single container image.
+type: application
+# version (chart) and appVersion are stamped from the release tag by
+# .github/workflows/release-image-and-chart.yml; the committed values are the
+# last release.
+version: 0.0.1
+appVersion: "0.0.1"
+kubeVersion: ">=1.25.0-0"
+home: https://github.com/truefoundry/trueforge
+sources:
+  - https://github.com/truefoundry/trueforge
+maintainers:
+  - name: TrueFoundry
+    url: https://truefoundry.com
+# Postgres and Redis ship as optional bundled dependencies, pulled from the
+# public Bitnami OCI chart archive at build time (`helm dependency build`, pinned
+# via Chart.lock). The charts are still public, but the container images they
+# reference moved to docker.io/bitnamilegacy; values.yaml points those at the
+# TrueFoundry JFrog mirror. Disable either to use an external service via
+# externalPostgres / externalRedis.
+dependencies:
+  - name: postgresql
+    version: "16.7.27"
+    repository: oci://registry-1.docker.io/bitnamicharts
+    condition: postgresql.enabled
+  - name: redis
+    version: "24.0.0"
+    repository: oci://registry-1.docker.io/bitnamicharts
+    condition: redis.enabled

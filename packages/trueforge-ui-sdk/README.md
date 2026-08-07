@@ -167,7 +167,7 @@ export default function App() {
 | `layout`           | `LayoutProp`               | ✅       | Built-in layout string **or** a custom React component.                                                            |
 | `agentConfig`      | `AgentConfig`              | —        | Shell mode: SingleAgent / AgentLibrary / AgentComposer / AgentLibraryWithComposer. Defaults to library + composer. |
 | `theme`            | `ThemeConfig`              | —        | Preset, mode, tokens, brand, icons (see [Theming](#theming)).                                                      |
-| `overrides`        | `Partial<SlotOverrides>`   | —        | Map of slot overrides (see [Overriding components](#overriding-components)).                                       |
+| `overrides`        | `SlotOverrides`            | —        | Map of slot overrides (see [Overriding components](#overriding-components)).                                       |
 | `className`        | `string`                   | —        | Applied to the layout root.                                                                                        |
 | `initialSessionId` | `string`                   | —        | Resume a specific session.                                                                                         |
 | `onError`          | `(error: unknown) => void` | —        | Host error hook (runtime + server init).                                                                           |
@@ -347,8 +347,16 @@ Every curated feature atom is overridable. Provide an `overrides` map to swap an
 ```tsx
 import { TrueforgeUI, type AssistantMessageBubbleProps } from '@truefoundry/trueforge-ui';
 
-function MyBubble(props: AssistantMessageBubbleProps) {
-  return <div className="mr-auto max-w-[75%] rounded-2xl bg-muted px-4 py-2">{props.children}</div>;
+function MyBubble({ children, error, actionBar, className }: AssistantMessageBubbleProps) {
+  return (
+    <div className={`flex flex-col gap-2 border-l-2 border-primary pl-3.5 ${className ?? ''}`}>
+      {error ? (
+        <div className="rounded-lg bg-destructive/10 px-2.5 py-2 text-[13px] text-destructive">{error}</div>
+      ) : null}
+      <div>{children}</div>
+      {actionBar}
+    </div>
+  );
 }
 
 <TrueforgeUI
