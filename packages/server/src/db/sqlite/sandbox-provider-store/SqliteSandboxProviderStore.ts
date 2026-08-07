@@ -1,4 +1,4 @@
-import type { ExpressionBuilder, Kysely } from 'kysely';
+import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { SandboxProviderManifest } from '../../../schemas/sandboxProvider';
 import {
   type ISandboxProviderStore,
@@ -18,24 +18,32 @@ function recordColumns(eb: ExpressionBuilder<Database, 'sandbox_provider'>) {
   ];
 }
 
-export class SqliteSandboxProviderStore implements ISandboxProviderStore {
+export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
   }
 
-  async getSandboxProvider(tenantId: string): Promise<SandboxProviderRecord | undefined> {
-    return await this.#db
+  async getSandboxProvider(
+    tenantId: string,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxProviderRecord | undefined> {
+    const db = transaction ?? this.#db;
+    return await db
       .selectFrom('sandbox_provider')
       .select(recordColumns)
       .where('tenant_id', '=', tenantId)
       .executeTakeFirst();
   }
 
-  async upsertSandboxProvider(input: UpsertSandboxProviderInput): Promise<SandboxProviderRecord> {
+  async upsertSandboxProvider(
+    input: UpsertSandboxProviderInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxProviderRecord> {
+    const db = transaction ?? this.#db;
     const timestamp = nowIso();
-    return await this.#db
+    return await db
       .insertInto('sandbox_provider')
       .values({
         tenant_id: input.tenant_id,

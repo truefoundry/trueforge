@@ -62,9 +62,13 @@ async function createRouters(): Promise<{
       skillStore: new SqliteSkillStore(db),
       sandboxCatalog: SandboxCatalog.load(),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),
     }),
-    modelsRouter: createModelsRouter(modelProviderStore),
+    modelsRouter: createModelsRouter({
+      modelProviderStore,
+      withTransaction: callback => db.transaction().execute(callback),
+    }),
   };
 }
 

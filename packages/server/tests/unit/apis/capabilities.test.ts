@@ -8,7 +8,10 @@ describe('capabilities routers', () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const store = new SqliteSandboxProviderStore(db);
-    const router = createCapabilitiesRouter({ sandboxProviderStore: store });
+    const router = createCapabilitiesRouter({
+      sandboxProviderStore: store,
+      withTransaction: callback => db.transaction().execute(callback),
+    });
 
     const empty = await router.request('/');
     expect(empty.status).toBe(200);

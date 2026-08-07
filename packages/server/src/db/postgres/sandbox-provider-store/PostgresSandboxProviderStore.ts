@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from 'kysely';
+import type { Kysely, Selectable, Transaction } from 'kysely';
 import {
   type ISandboxProviderStore,
   type SandboxProviderRecord,
@@ -16,15 +16,19 @@ function toRecord(row: Selectable<SandboxProviderTable>): SandboxProviderRecord 
   };
 }
 
-export class PostgresSandboxProviderStore implements ISandboxProviderStore {
+export class PostgresSandboxProviderStore implements ISandboxProviderStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
   }
 
-  async getSandboxProvider(tenantId: string): Promise<SandboxProviderRecord | undefined> {
-    const row = await this.#db
+  async getSandboxProvider(
+    tenantId: string,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxProviderRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .selectFrom('sandbox_provider')
       .selectAll()
       .where('tenant_id', '=', tenantId)
@@ -32,8 +36,12 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore {
     return row === undefined ? undefined : toRecord(row);
   }
 
-  async upsertSandboxProvider(input: UpsertSandboxProviderInput): Promise<SandboxProviderRecord> {
-    const row = await this.#db
+  async upsertSandboxProvider(
+    input: UpsertSandboxProviderInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxProviderRecord> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .insertInto('sandbox_provider')
       .values({
         tenant_id: input.tenant_id,

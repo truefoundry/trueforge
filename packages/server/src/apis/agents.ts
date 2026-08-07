@@ -8,6 +8,7 @@ import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { WithTransaction } from '../db/transaction';
 import {
   createAgentRoute,
   deleteAgentRoute,
@@ -19,12 +20,13 @@ import { validateAgentSpec } from '../runtime/sessionResources';
 import { toAgentManifest, type Agent, type AgentWriteRequest } from '../schemas/agent';
 import { TENANT_ID } from './sessions';
 
-export interface AgentsRouterDeps {
-  agentStore: IAgentStore;
-  modelProviderStore: IModelProviderStore;
-  mcpServerStore: IMcpServerStore;
-  skillStore: ISkillStore;
-  sandboxProviderStore: ISandboxProviderStore;
+export interface AgentsRouterDeps<TTransaction> {
+  agentStore: IAgentStore<TTransaction>;
+  modelProviderStore: IModelProviderStore<TTransaction>;
+  mcpServerStore: IMcpServerStore<TTransaction>;
+  skillStore: ISkillStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  withTransaction: WithTransaction<TTransaction>;
 }
 
 /** Wire view: identity columns plus AgentSpec fields flattened. */
@@ -36,7 +38,13 @@ function toWireAgent(record: AgentRecord): Agent {
   };
 }
 
-async function validateManifest({ spec, deps }: { spec: AgentSpec; deps: AgentsRouterDeps }): Promise<AgentSpec> {
+async function validateManifest<TTransaction>({
+  spec,
+  deps,
+}: {
+  spec: AgentSpec;
+  deps: AgentsRouterDeps<TTransaction>;
+}): Promise<AgentSpec> {
   await validateAgentSpec({
     spec,
     tenant_id: TENANT_ID,
@@ -48,7 +56,7 @@ async function validateManifest({ spec, deps }: { spec: AgentSpec; deps: AgentsR
   return spec;
 }
 
-export function createAgentsRouter(deps: AgentsRouterDeps) {
+export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listAgentsRoute> = async c => {
     const records = await deps.agentStore.listAgents(TENANT_ID);
     return c.json({ data: records.map(toWireAgent) }, 200);

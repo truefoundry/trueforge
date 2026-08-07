@@ -39,45 +39,39 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   }, [aui, isIdle]);
 
-  if (settingsOpen) {
-    return (
-      <div className={cn('flex h-full min-h-0 flex-col', className)}>
-        <TruefoundrySettingsBuilder />
-      </div>
-    );
-  }
-
-  if (view === 'list') {
-    return (
-      <div className={cn('flex h-full min-h-0 flex-col', className)}>
-        <ThreadListContainer onThreadOpen={() => setView('thread')} />
-        <footer className="flex shrink-0 justify-end border-t border-border px-2 py-1.5">
-          <ShellActions />
-        </footer>
-      </div>
-    );
-  }
-
   return (
     <div className={cn('flex h-full min-h-0 flex-col', className)}>
-      <header className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
-        <button
-          type="button"
-          aria-label="Sessions"
-          title="Sessions"
-          className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-          onClick={() => setView('list')}
-        >
-          <Icon name="clock-rotate-left" />
-        </button>
-        <NamedAgentHeaderLabel />
-        <span className="min-w-0 flex-1" />
-        <ClearChatButton />
-        <SaveAgentButton />
-        <ShellActions />
-        {threadHeaderEnd}
-      </header>
-      <div className="min-h-0 flex-1">{isIdle ? <SelectAgentEmptyState /> : <Thread />}</div>
+      {settingsOpen ? (
+        <div className="min-h-0 flex-1">
+          <TruefoundrySettingsBuilder />
+        </div>
+      ) : view === 'list' ? (
+        <ThreadListContainer onThreadOpen={() => setView('thread')} />
+      ) : (
+        <>
+          <header className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
+            <button
+              type="button"
+              aria-label="Sessions"
+              title="Sessions"
+              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+              onClick={() => setView('list')}
+            >
+              <Icon name="clock-rotate-left" />
+            </button>
+            <NamedAgentHeaderLabel />
+            <span className="min-w-0 flex-1" />
+            <ClearChatButton />
+            <SaveAgentButton />
+            {threadHeaderEnd}
+          </header>
+          <div className="min-h-0 flex-1">{isIdle ? <SelectAgentEmptyState /> : <Thread />}</div>
+        </>
+      )}
+      {/* Stable mount: only ShellActions needs to survive Settings / list / thread; host end chrome stays in the thread header. */}
+      <footer className="flex shrink-0 justify-end border-t border-border px-2 py-1.5">
+        <ShellActions key="shell-actions" />
+      </footer>
     </div>
   );
 }

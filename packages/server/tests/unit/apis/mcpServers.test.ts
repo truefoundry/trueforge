@@ -60,11 +60,13 @@ describe('mcp-servers routers', () => {
       mcpCatalog: McpCatalog.load(),
       mcpServerStore,
       tokenStore,
+      withTransaction: callback => db.transaction().execute(callback),
       logger,
     });
     mcpServersRouter = createMcpServersRouter({
       mcpServerStore,
       tokenStore,
+      withTransaction: callback => db.transaction().execute(callback),
       logger,
     });
   });

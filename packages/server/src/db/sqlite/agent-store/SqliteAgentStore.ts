@@ -1,5 +1,5 @@
 import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
-import type { ExpressionBuilder, Kysely } from 'kysely';
+import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import { ulid } from 'ulid';
 import {
   AgentNameConflictError,
@@ -38,15 +38,16 @@ function toRecord(row: {
   return { ...row, manifest: parseStoredAgentSpec(row.manifest) };
 }
 
-export class SqliteAgentStore implements IAgentStore {
+export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
   }
 
-  async listAgents(tenantId: string): Promise<AgentRecord[]> {
-    const rows = await this.#db
+  async listAgents(tenantId: string, transaction?: Transaction<Database>): Promise<AgentRecord[]> {
+    const db = transaction ?? this.#db;
+    const rows = await db
       .selectFrom('agent')
       .select(recordColumns)
       .where('tenant_id', '=', tenantId)
@@ -55,8 +56,9 @@ export class SqliteAgentStore implements IAgentStore {
     return rows.map(toRecord);
   }
 
-  async getAgent(input: GetAgentInput): Promise<AgentRecord | undefined> {
-    let query = this.#db.selectFrom('agent').select(recordColumns).where('tenant_id', '=', input.tenant_id);
+  async getAgent(input: GetAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
+    const db = transaction ?? this.#db;
+    let query = db.selectFrom('agent').select(recordColumns).where('tenant_id', '=', input.tenant_id);
     if ('id' in input) {
       query = query.where('id', '=', input.id);
     } else {
@@ -66,10 +68,11 @@ export class SqliteAgentStore implements IAgentStore {
     return row === undefined ? undefined : toRecord(row);
   }
 
-  async createAgent(input: CreateAgentInput): Promise<AgentRecord> {
+  async createAgent(input: CreateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord> {
+    const db = transaction ?? this.#db;
     const timestamp = nowIso();
     try {
-      const row = await this.#db
+      const row = await db
         .insertInto('agent')
         .values({
           id: ulid().toLowerCase(),
@@ -90,8 +93,9 @@ export class SqliteAgentStore implements IAgentStore {
     }
   }
 
-  async updateAgent(input: UpdateAgentInput): Promise<AgentRecord | undefined> {
-    const row = await this.#db
+  async updateAgent(input: UpdateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .updateTable('agent')
       .set({
         manifest: jsonbBind(input.manifest),
@@ -104,7 +108,8 @@ export class SqliteAgentStore implements IAgentStore {
     return row === undefined ? undefined : toRecord(row);
   }
 
-  async deleteAgent(input: DeleteAgentInput): Promise<void> {
-    await this.#db.deleteFrom('agent').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
+  async deleteAgent(input: DeleteAgentInput, transaction?: Transaction<Database>): Promise<void> {
+    const db = transaction ?? this.#db;
+    await db.deleteFrom('agent').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
   }
 }

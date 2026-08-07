@@ -102,10 +102,9 @@ describe('AgentHistoryFilterButton', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Filter chat history/i }));
     await waitFor(() => expect(screen.getByRole('menuitem', { name: /From SDK/i })).toBeInTheDocument());
-
     const menu = screen.getByRole('menu', { name: /Filter agents/i });
-    expect(menu.closest('.aui-theme-root')).not.toBeNull();
-    expect(menu.className).toContain('font-sans-flex');
+    expect(menu).toHaveClass('font-sans-flex');
+    expect(menu.parentElement).toHaveClass('aui-theme-root');
     expect(menu.className).toContain('bg-popover');
 
     await act(async () => {

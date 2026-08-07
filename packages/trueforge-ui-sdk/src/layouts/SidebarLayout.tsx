@@ -138,33 +138,39 @@ export function SidebarLayout({ className }: { className?: string }) {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Thread header: always on mobile; on desktop when Clear Chat / Save are relevant. Hidden while Settings owns the pane. */}
-        {!settingsOpen ? (
-          <header
-            className={cn(
-              'flex shrink-0 items-center gap-1 border-b border-border bg-background px-2 py-1.5',
-              isIdle && 'md:hidden',
-            )}
-          >
-            <button
-              ref={menuBtnRef}
-              type="button"
-              aria-label="Sessions"
-              aria-expanded={mobileNavOpen}
-              className={cn(auiButtonClass({ variant: 'ghost', size: 'icon' }), 'md:hidden')}
-              onClick={() => setMobileNavOpen(true)}
-            >
-              <Icon name="bars" />
-            </button>
-            <NamedAgentHeaderLabel />
+        {/* Mobile ShellActions stay mounted while Settings is open so host overrides (e.g. logout) do not remount.
+            Desktop keeps shell chrome in the aside footer (always mounted). */}
+        <header
+          className={cn(
+            'flex shrink-0 items-center gap-1 border-b border-border bg-background px-2 py-1.5',
+            // Settings / idle: desktop uses aside chrome; mobile still needs ShellActions.
+            (settingsOpen || isIdle) && 'md:hidden',
+          )}
+        >
+          {!settingsOpen ? (
+            <>
+              <button
+                ref={menuBtnRef}
+                type="button"
+                aria-label="Sessions"
+                aria-expanded={mobileNavOpen}
+                className={cn(auiButtonClass({ variant: 'ghost', size: 'icon' }), 'md:hidden')}
+                onClick={() => setMobileNavOpen(true)}
+              >
+                <Icon name="bars" />
+              </button>
+              <NamedAgentHeaderLabel />
+              <span className="min-w-0 flex-1" />
+              <ClearChatButton />
+              <SaveAgentButton />
+            </>
+          ) : (
             <span className="min-w-0 flex-1" />
-            <ClearChatButton />
-            <SaveAgentButton />
-            <div className="md:hidden">
-              <ShellActions />
-            </div>
-          </header>
-        ) : null}
+          )}
+          <div key="mobile-shell-actions" className="md:hidden">
+            <ShellActions />
+          </div>
+        </header>
 
         <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
           {settingsOpen ? <TruefoundrySettingsBuilder /> : isIdle ? <SelectAgentEmptyState /> : <Thread />}

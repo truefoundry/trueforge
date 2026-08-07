@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import { useServerCapabilities } from './ServerContext.js';
 import type { AgentLibraryEntry, AgentSpec } from './types.js';
 
 /** Host-facing shell configuration for agent / library / composer chrome. */
@@ -146,6 +147,7 @@ export function ShellModeProvider({
   initialSettingsOpen?: boolean;
   children: ReactNode;
 }) {
+  const capabilities = useServerCapabilities();
   const mutableSeedRef = useRef(mutableSeedFromConfig(agentConfig));
   if (
     (agentConfig.mode === 'AgentComposer' || agentConfig.mode === 'AgentLibraryWithComposer') &&
@@ -164,9 +166,23 @@ export function ShellModeProvider({
   const [mutableEpoch, setMutableEpoch] = useState(0);
   const [clearEpoch, setClearEpoch] = useState(0);
   const [agentsListEpoch, setAgentsListEpoch] = useState(0);
-  const [settingsOpen, setSettingsOpen] = useState(initialSettingsOpen);
+  const [settingsOpenState, setSettingsOpenState] = useState(initialSettingsOpen);
   const [historyAgentFilter, setHistoryAgentFilter] = useState<string | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
+  const settingsEnabled = capabilities?.settings?.enabled !== false;
+  const settingsOpen = settingsEnabled && settingsOpenState;
+  const setSettingsOpen = useCallback(
+    (open: boolean) => {
+      setSettingsOpenState(settingsEnabled && open);
+    },
+    [settingsEnabled],
+  );
+
+  useEffect(() => {
+    if (!settingsEnabled) {
+      setSettingsOpenState(false);
+    }
+  }, [settingsEnabled]);
 
   const invalidateAgentsList = useCallback(() => {
     setAgentsListEpoch(n => n + 1);
@@ -226,7 +242,7 @@ export function ShellModeProvider({
       });
       bumpEpoch(false);
     },
-    [isComposerEnabled, isLibraryEnabled, bumpEpoch],
+    [isComposerEnabled, isLibraryEnabled, bumpEpoch, setSettingsOpen],
   );
 
   const bindMutableAgent = useCallback(
@@ -296,7 +312,7 @@ export function ShellModeProvider({
       });
       bumpEpoch(false);
     },
-    [isLibraryEnabled, isComposerEnabled, locked, lockedAgentName, bumpEpoch],
+    [isLibraryEnabled, isComposerEnabled, locked, lockedAgentName, bumpEpoch, setSettingsOpen],
   );
 
   const clearChat = useCallback(() => {
@@ -359,6 +375,7 @@ export function ShellModeProvider({
       isComposerEnabled,
       isNewChatEnabled,
       settingsOpen,
+      setSettingsOpen,
       selectLibraryAgent,
       bindMutableAgent,
       selectAgent,

@@ -211,8 +211,6 @@ describe('SandboxSettings', () => {
       expect(screen.getByText('Sandbox providers')).toBeTruthy();
     });
     expect(screen.queryByRole('button', { name: 'Configure' })).toBeNull();
-    expect(
-      screen.getByText('A sandbox provider is already configured. Remove it to choose a different one.'),
-    ).toBeTruthy();
+    expect(screen.getByText('One provider is set up. Update it or remove it to switch.')).toBeTruthy();
   });
 });

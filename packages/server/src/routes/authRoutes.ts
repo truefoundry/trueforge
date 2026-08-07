@@ -36,7 +36,7 @@ export const oAuthCallbackRoute = createRoute({
   'x-fern-ignore': true,
   request: { query: OAuthCallbackQuerySchema },
   responses: {
-    302: { description: 'Redirect back into the app on success, or to /?error=login_failed on failure.' },
+    302: { description: 'Redirect back into the app on success, or to /?error=<reason> on failure.' },
   },
 });
 
