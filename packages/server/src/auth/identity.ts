@@ -1,6 +1,11 @@
 import type { Context } from 'hono';
-import type { UserContext } from './claims';
 
+export type Role = 'admin' | 'user';
+
+export interface UserContext {
+  userRef: string;
+  role: Role;
+}
 /**
  * Fixed identity when no identity provider is configured (standalone / auth disabled).
  * Stamped onto sessions as `created_by` and used for ownership checks.
@@ -14,7 +19,7 @@ export const LOCAL_USER_CONTEXT: UserContext = {
 export type ResolveUserContext = (c: Context) => UserContext;
 
 /**
- * Caller {@link UserContext} for the current request..
+ * Caller {@link UserContext} for the current request.
  */
 export function resolveUserContext(_c: Context): UserContext {
   // TODO: extract UserContext from `c` once auth middleware sets it (e.g. c.get('user')).
