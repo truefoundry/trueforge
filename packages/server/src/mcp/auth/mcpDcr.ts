@@ -55,7 +55,7 @@ async function registerMcpClientWithAuthMethodFallback(params: {
     if (!(firstError instanceof InvalidClientMetadataError)) {
       throw new McpConnectionError(
         `Failed to dynamically register OAuth client for MCP server '${mcpServerName}'`,
-        400,
+        424,
         { cause: firstError instanceof Error ? firstError : undefined },
       );
     }
@@ -64,7 +64,7 @@ async function registerMcpClientWithAuthMethodFallback(params: {
     } catch (secondError: unknown) {
       throw new McpConnectionError(
         `Failed to dynamically register OAuth client for MCP server '${mcpServerName}'`,
-        400,
+        424,
         { cause: secondError instanceof Error ? secondError : firstError },
       );
     }
@@ -72,7 +72,7 @@ async function registerMcpClientWithAuthMethodFallback(params: {
   if (!fullInfo.client_id) {
     throw new McpConnectionError(
       `Authorization server for MCP server '${mcpServerName}' returned a client response without client_id`,
-      400,
+      424,
     );
   }
   return {
@@ -176,7 +176,7 @@ export async function buildMcpAuthorizationUrl(params: {
       state,
     });
   } catch (error: unknown) {
-    throw new McpConnectionError(`Failed to start OAuth authorization for MCP server '${params.mcpServerName}'`, 400, {
+    throw new McpConnectionError(`Failed to start OAuth authorization for MCP server '${params.mcpServerName}'`, 424, {
       cause: error instanceof Error ? error : undefined,
     });
   }

@@ -1,4 +1,4 @@
-import { AgentSandboxRequiredError, InvalidAgentInputError } from '../../../src/core/errors';
+import { AgentSandboxRequiredError, InvalidFileInputError } from '../../../src/core/errors';
 import { EventType } from '../../../src/core/events/schema';
 import {
   isEmptyMessageContent,
@@ -52,7 +52,7 @@ describe('UserInputMessage validation', () => {
       ],
     };
 
-    await expect(processAgentUserInput(msg, sandbox)).rejects.toBeInstanceOf(InvalidAgentInputError);
+    await expect(processAgentUserInput(msg, sandbox)).rejects.toBeInstanceOf(InvalidFileInputError);
     await expect(processAgentUserInput(msg, sandbox)).rejects.toMatchObject({
       message: 'File name must not be empty',
     });
@@ -70,7 +70,7 @@ describe('UserInputMessage validation', () => {
       ],
     };
 
-    await expect(processAgentUserInput(msg, sandbox)).rejects.toBeInstanceOf(InvalidAgentInputError);
+    await expect(processAgentUserInput(msg, sandbox)).rejects.toBeInstanceOf(InvalidFileInputError);
     await expect(processAgentUserInput(msg, sandbox)).rejects.toMatchObject({
       message: 'File name contains path traversal: ../secrets.txt',
     });
@@ -88,7 +88,7 @@ describe('UserInputMessage validation', () => {
       ],
     };
 
-    await expect(processAgentUserInput(msg, sandbox)).rejects.toBeInstanceOf(InvalidAgentInputError);
+    await expect(processAgentUserInput(msg, sandbox)).rejects.toBeInstanceOf(InvalidFileInputError);
     await expect(processAgentUserInput(msg, sandbox)).rejects.toMatchObject({
       message: 'File data URI is missing or has unparseable MIME type',
     });
