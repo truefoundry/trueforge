@@ -63,6 +63,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'ScrollToBottomButton',
   'SelectAgentEmptyState',
   'ServerProvider',
+  'ShellActionsActionSlot',
   'ShellModeProvider',
   'SlotsProvider',
   'SubAgentCard',
