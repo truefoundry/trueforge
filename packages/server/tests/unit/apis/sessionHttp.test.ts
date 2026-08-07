@@ -157,7 +157,7 @@ describe('sessions HTTP agent binding', () => {
       `/${json.data.id}`,
       jsonInit('PATCH', { agent: { def: { ...inlineSpec, instructions: 'nope' } } }),
     );
-    expect(patchNamed.status).toBe(400);
+    expect(patchNamed.status).toBe(422);
   });
 
   it('allows PATCH agent_spec on value sessions', async () => {
