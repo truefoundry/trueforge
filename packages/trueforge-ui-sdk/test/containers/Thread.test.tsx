@@ -10,6 +10,7 @@ import { RuntimeHarness } from './RuntimeHarness.js';
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   useTrueFoundryCancel: () => vi.fn(),
   useTrueFoundryToolResponses: () => ({ pending: [] }),
+  useTrueFoundryAgentSpec: () => ({ agentSpec: { model: { name: 'test/model' } } }),
 }));
 
 function WelcomeOverride({ heading }: WelcomeScreenProps) {
