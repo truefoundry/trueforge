@@ -11,7 +11,7 @@ export default defineConfig({
   format: ['esm'],
   dts: true,
   sourcemap: true,
-  clean: !process.argv.includes('--watch'),
+  clean: tr,
   target: 'es2022',
   esbuildPlugins: [
     svgr({
