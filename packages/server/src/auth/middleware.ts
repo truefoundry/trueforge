@@ -5,6 +5,12 @@ import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import type { Configuration } from 'openid-client';
 import { ID_TOKEN_COOKIE } from './cookies';
 
+/**
+ * Session auth failure message. Browser clients redirect to OIDC login only when
+ * a 401 body carries this exact `error.message` (not other 401s, e.g. MCP tools).
+ */
+export const USER_LOGIN_REQUIRED_MESSAGE = 'user_login_required';
+
 /** Signature / exp / iss / aud checks for the OIDC id_token cookie. */
 export async function verifyIdToken(params: {
   token: string;
@@ -41,13 +47,13 @@ export function createRequireAuthMiddleware(params: { oidcClient: Configuration 
   return async (c, next) => {
     const token = getCookie(c, ID_TOKEN_COOKIE);
     if (!token) {
-      throw new HTTPException(401, { message: 'Authentication required' });
+      throw new HTTPException(401, { message: USER_LOGIN_REQUIRED_MESSAGE });
     }
 
     try {
       await verifyIdToken({ token, jwks, issuer, audience });
     } catch {
-      throw new HTTPException(401, { message: 'Authentication required' });
+      throw new HTTPException(401, { message: USER_LOGIN_REQUIRED_MESSAGE });
     }
 
     return next();

@@ -118,17 +118,18 @@ describe('createRequireAuthMiddleware', () => {
         .sign(privateKey);
     }
 
-    it('returns 401 when the id_token cookie is missing', async () => {
+    it('returns 401 user_login_required when the id_token cookie is missing', async () => {
       const res = await createApp({ oidcClient }).request('/api/v1/models');
       expect(res.status).toBe(401);
-      expect(await res.json()).toEqual({ error: { message: 'Authentication required' } });
+      expect(await res.json()).toEqual({ error: { message: 'user_login_required' } });
     });
 
-    it('returns 401 when the token is invalid', async () => {
+    it('returns 401 user_login_required when the token is invalid', async () => {
       const res = await createApp({ oidcClient }).request('/api/v1/models', {
         headers: { Cookie: 'id_token=not-a-jwt' },
       });
       expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: { message: 'user_login_required' } });
     });
 
     it('allows the request when the token verifies', async () => {
@@ -139,12 +140,13 @@ describe('createRequireAuthMiddleware', () => {
       expect(res.status).toBe(200);
     });
 
-    it('returns 401 when the token has the wrong issuer', async () => {
+    it('returns 401 user_login_required when the token has the wrong issuer', async () => {
       const token = await createIdToken({ issuer: 'https://other.example.com' });
       const res = await createApp({ oidcClient }).request('/api/v1/models', {
         headers: { Cookie: `id_token=${token}` },
       });
       expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: { message: 'user_login_required' } });
     });
 
     it('does not gate routes registered before the middleware', async () => {
