@@ -23,5 +23,6 @@ export type ResolveUserContext = (c: Context) => UserContext;
  */
 export function resolveUserContext(_c: Context): UserContext {
   // TODO: extract UserContext from `c` once auth middleware sets it (e.g. c.get('user')).
+  void _c;
   return LOCAL_USER_CONTEXT;
 }
