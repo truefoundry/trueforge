@@ -52,7 +52,7 @@ jobs:
       image_tag: ${{ github.sha }}
       image_context: .
       dockerfile_path: Dockerfile
-      platforms: linux/amd64,linux/arm64
+      platforms: linux/amd64
       # The chart pulls the server image from JFrog (values.yaml image.repository),
       # so JFrog is the only publish target; public ECR stays off.
       enable_jfrog: true
