@@ -207,9 +207,9 @@ describe('createHarnessChatServer', () => {
   it('getSession resolves the agentName of a ref session from the registry', async () => {
     const fetchNamed: typeof fetch = async input => {
       const url = input instanceof Request ? input.url : String(input);
-      if (url.endsWith('/api/v1/agents')) {
+      if (url.endsWith('/api/v1/agents/agt_1')) {
         return Response.json({
-          data: [{ id: 'agt_1', name: 'reviewer', model: { name: 'test/model' } }],
+          data: { id: 'agt_1', name: 'reviewer', model: { name: 'test/model' } },
         });
       }
       if (url.endsWith('/api/v1/sessions/ses_1')) {

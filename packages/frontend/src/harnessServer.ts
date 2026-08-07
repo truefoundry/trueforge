@@ -28,7 +28,7 @@ import type {
   TurnInputItem,
   UserMessageContent,
 } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi as Harness, TrueForge } from 'trueforge';
+import { TrueForgeApi as Harness, TrueForge } from 'trueforge';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 export type HarnessSkillMount = SkillMount;
 export type HarnessMcpServerMount = McpServerMount & Harness.McpServer;
@@ -106,8 +106,19 @@ async function toUiSessionResolvingAgent(
   client: TrueForge,
   session: Harness.Session,
 ): Promise<Session<HarnessAgentSpec>> {
-  const agents = session.agent.type === 'ref' ? (await client.agents.list()).data : [];
-  return toUiSession(session, agents);
+  if (session.agent.type !== 'ref') {
+    return toUiSession(session);
+  }
+  try {
+    const { data: agent } = await client.agents.get(session.agent.agentId);
+    return toUiSession(session, [agent]);
+  } catch (error: unknown) {
+    // Orphaned refs keep the session readable without a name, matching a miss on list.
+    if (error instanceof Harness.NotFoundError) {
+      return toUiSession(session);
+    }
+    throw error;
+  }
 }
 
 /** There is no get-by-name endpoint; the UI keys agents by unique name. */
