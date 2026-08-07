@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
-import { libraryAgentId, useOptionalShellMode } from '../server/ShellModeContext.js';
+import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry, AgentSpec } from '../server/types.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
@@ -128,23 +128,21 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
   };
 
   const handleTry = (agent: AgentLibraryEntry) => {
-    const id = libraryAgentId(agent);
     closeLibrary();
     onSelectAgent?.(agent.name);
     shell?.selectLibraryAgent({
       isMutable: false,
-      agentId: id,
+      agentId: agent.agentId,
       agentName: agent.name,
     });
   };
 
   const handleEdit = (agent: AgentLibraryEntry, agentSpec: AgentSpec) => {
-    const id = libraryAgentId(agent);
     closeLibrary();
     onSelectAgent?.(agent.name);
     shell?.selectLibraryAgent({
       isMutable: true,
-      agentId: id,
+      agentId: agent.agentId,
       agentName: agent.name,
       agentSpec,
     });
@@ -186,7 +184,7 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
               const showEdit = canEdit && agentSpec != null;
               return (
                 <AgentLibraryRow
-                  key={libraryAgentId(agent)}
+                  key={agent.agentId}
                   agent={agent}
                   showEdit={showEdit}
                   onTry={() => handleTry(agent)}

@@ -11,7 +11,7 @@ import { createMockAgentUIServer } from '../server/mockServer.js';
 
 function mockServer() {
   return createMockAgentUIServer({
-    searchAgents: vi.fn(async () => [{ name: 'alpha' }]),
+    searchAgents: vi.fn(async () => [{ name: 'alpha', agentId: 'alpha' }]),
   });
 }
 
