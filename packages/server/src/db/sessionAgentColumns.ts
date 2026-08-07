@@ -1,4 +1,4 @@
-import type { AgentSpec, SessionAgent } from '@truefoundry/utils-core/agent-session';
+import { AgentSpecSchema, type AgentSpec, type SessionAgent } from '@truefoundry/utils-core/agent-session';
 
 /** Flatten domain agent for SQL session columns (XOR agent_id / agent_spec; optional name snapshot). */
 export function sessionAgentToColumns(agent: SessionAgent): {
@@ -23,7 +23,8 @@ export function sessionAgentFromColumns(input: {
     return { type: 'reference', id: input.agent_id, name: input.agent_name };
   }
   if (input.agent_id === null && input.agent_spec !== null) {
-    return { type: 'inline', spec: input.agent_spec };
+    // Re-parse so schema defaults apply to inline specs persisted before a config field existed.
+    return { type: 'inline', spec: AgentSpecSchema.parse(input.agent_spec) };
   }
   throw new Error(
     `Session ${input.session_id} has invalid agent binding (exactly one of agent_id or agent_spec required)`,

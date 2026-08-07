@@ -2,6 +2,7 @@ import type { Kysely, Selectable } from 'kysely';
 import { ulid } from 'ulid';
 import {
   AgentNameConflictError,
+  parseStoredAgentSpec,
   type AgentRecord,
   type CreateAgentInput,
   type DeleteAgentInput,
@@ -18,7 +19,7 @@ function toRecord(row: Selectable<AgentTable>): AgentRecord {
     id: row.id,
     tenant_id: row.tenant_id,
     name: row.name,
-    manifest: row.manifest,
+    manifest: parseStoredAgentSpec(row.manifest),
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
