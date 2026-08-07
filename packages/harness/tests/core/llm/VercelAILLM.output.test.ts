@@ -149,6 +149,26 @@ describe('buildProviderOptions', () => {
       expect(opts['openai']).toMatchObject({ reasoningEffort: 'max' });
     });
 
+    it('asks for a reasoning summary, without which the model reasons but returns no text', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: undefined,
+        structuredOutputSpec: textSpec,
+        rawBody: {},
+      });
+      expect(opts['openai']).toMatchObject({ reasoningSummary: 'auto' });
+    });
+
+    it('lets an explicit reasoning_summary replace the default', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: undefined,
+        structuredOutputSpec: textSpec,
+        rawBody: { reasoning_summary: 'detailed' },
+      });
+      expect(opts['openai']).toMatchObject({ reasoningSummary: 'detailed' });
+    });
+
     it('includes strictJsonSchema:true when spec is json_schema with strict:true', () => {
       const opts = buildProviderOptions({
         config: config,
