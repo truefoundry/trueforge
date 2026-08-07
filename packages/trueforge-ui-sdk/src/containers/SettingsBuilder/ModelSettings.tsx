@@ -115,7 +115,7 @@ const ModelSettings = () => {
       await refresh();
       closeKeyEditor();
     } catch (err) {
-      showError(err instanceof Error ? err.message : 'Request failed');
+      showError(err);
       throw err;
     } finally {
       setBusy(false);
