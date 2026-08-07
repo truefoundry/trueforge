@@ -146,13 +146,13 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
         });
       } catch (error) {
         // Permanent config error (server advertises no DCR support): a retry can never succeed, so
-        // surface it now as a 400 for immediate feedback instead of a silently-broken server.
+        // surface it now as a 422 for immediate feedback instead of a silently-broken server.
         if (error instanceof McpDcrConfigurationError) {
           deps.logger.error(
             `DCR misconfiguration for "${record.manifest.name}"; rejecting upsert`,
             extractErrorLogFields(error),
           );
-          return c.json({ error: { message: error.message } }, 400);
+          return c.json({ error: { message: error.message } }, 422);
         }
         // Transient (network / timeout / flaky authorization server): keep the saved server and let
         // the next authorize retry, rather than failing the upsert on a temporary fault.
@@ -193,7 +193,7 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
     try {
       const response = await remote.listTools();
       if (isAuthRequired(response)) {
-        return c.json({ error: { message: `MCP server "${name}" requires authentication` } }, 401);
+        return c.json({ error: { message: `MCP server "${name}" requires authentication` } }, 422);
       }
       const data = response.result.tools.map(tool => omitUndefinedEntries({ ...tool }));
       return c.json({ data }, 200);
@@ -201,7 +201,7 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
       if (error instanceof McpConnectionError) {
         deps.logger.warn(`MCP tools/list failed for "${name}"`, extractErrorLogFields(error));
         if (error.statusCode === 401) {
-          return c.json({ error: { message: error.message } }, 401);
+          return c.json({ error: { message: error.message } }, 422);
         }
         return c.json({ error: { message: error.message } }, 502);
       }
@@ -257,6 +257,12 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
         deps.logger.warn(`MCP authorize failed for "${name}"`, extractErrorLogFields(error));
         if (error.statusCode === 400) {
           return c.json({ error: { message: error.message } }, 400);
+        }
+        if (error.statusCode === 422) {
+          return c.json({ error: { message: error.message } }, 422);
+        }
+        if (error.statusCode === 424) {
+          return c.json({ error: { message: error.message } }, 424);
         }
         return c.json({ error: { message: error.message } }, 500);
       }

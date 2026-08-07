@@ -236,6 +236,61 @@ describe('mcp-servers routers', () => {
     expect(missing.status).toBe(404);
   });
 
+  it('GET /{name}/authorize returns 424 when upstream DCR registration fails', async () => {
+    const asOrigin = 'https://auth-failure.example.com';
+    const mcpUrl = 'https://mcp-failure.example.com/sse';
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async input => {
+      const url = String(input);
+      if (url.includes('oauth-protected-resource')) {
+        return new Response(JSON.stringify({ resource: mcpUrl, authorization_servers: [asOrigin] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.includes('oauth-authorization-server') || url.includes('openid-configuration')) {
+        return new Response(
+          JSON.stringify({
+            issuer: asOrigin,
+            authorization_endpoint: `${asOrigin}/authorize`,
+            token_endpoint: `${asOrigin}/token`,
+            registration_endpoint: `${asOrigin}/register`,
+            response_types_supported: ['code'],
+            code_challenge_methods_supported: ['S256'],
+            grant_types_supported: ['authorization_code', 'refresh_token'],
+            token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.includes('/register')) {
+        return new Response('upstream unavailable', { status: 500 });
+      }
+      return new Response(`unexpected url: ${url}`, { status: 404 });
+    }) as typeof fetch;
+
+    try {
+      const put = await settingsRouter.request(
+        '/',
+        putInit({
+          type: 'remote',
+          name: 'failing-oauth-mcp',
+          url: mcpUrl,
+          auth: { type: 'dcr' },
+        }),
+      );
+      expect(put.status).toBe(200);
+
+      const authorize = await mcpServersRouter.request('/failing-oauth-mcp/authorize');
+      expect(authorize.status).toBe(424);
+      expect(await authorize.json()).toEqual({
+        error: { message: "Failed to dynamically register OAuth client for MCP server 'failing-oauth-mcp'" },
+      });
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
   it('GET /{name}/authorize for DCR returns auth_required with an authorization_url', async () => {
     const asOrigin = 'https://auth.example.com';
     const mcpUrl = 'https://mcp.example.com/sse';

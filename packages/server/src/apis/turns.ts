@@ -483,7 +483,17 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         return c.json({ error: { message: error.message } }, 404);
       }
       if (error instanceof AgentHarnessError && !(error instanceof McpConnectionError)) {
-        return c.json({ error: { message: error.message } }, 400);
+        switch (error.code) {
+          case 'invalid_file_input':
+            return c.json({ error: { message: error.message } }, 400);
+          case 'invalid_send_input':
+          case 'agent_sandbox_required':
+          case 'tool_name_collision':
+            return c.json({ error: { message: error.message } }, 422);
+          case 'capability_state_error':
+          case 'mcp_connection_failed':
+            throw error;
+        }
       }
       throw error;
     }

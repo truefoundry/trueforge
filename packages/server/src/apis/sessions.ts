@@ -240,7 +240,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
     // Draft (value) sessions may replace their inline agent; named (ref) sessions
-    // cannot — the store rejects that with SessionStoreInvariantError → 400 below.
+    // cannot — the store rejects that with SessionStoreInvariantError → 422 below.
     if (body.agent !== undefined) {
       await validateAgentSpec({
         spec: body.agent.agent_spec,
@@ -263,7 +263,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
       }
       if (error instanceof SessionStoreInvariantError) {
-        return c.json({ error: { message: error.message } }, 400);
+        return c.json({ error: { message: error.message } }, 422);
       }
       throw error;
     }

@@ -86,6 +86,8 @@ export * from "./McpServerReadEntry.js";
 export * from "./McpServerRequireApprovalForToolsItem.js";
 export * from "./McpServerType.js";
 export * from "./McpToolInfo.js";
+export * from "./MeResponse.js";
+export * from "./MeResponseType.js";
 export * from "./Model.js";
 export * from "./ModelEntry.js";
 export * from "./ModelMessageDeltaEvent.js";

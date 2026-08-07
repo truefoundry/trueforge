@@ -246,6 +246,19 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
     expect((registerBodies[1] as Record<string, unknown>)['token_endpoint_auth_method']).toBeUndefined();
   });
 
+  it('rejects registration responses without client_id as failed dependencies', async () => {
+    stubOauthFetch({ registeredClient: { client_id: '' } });
+
+    await expect(
+      createMcpOAuthClient({
+        mcpServerUrl: SERVER_URL,
+        mcpServerName: SERVER_NAME,
+        redirectUri: mcpOAuthCallbackUrl(),
+        clientName: CLIENT_NAME,
+      }),
+    ).rejects.toMatchObject({ name: 'McpConnectionError', statusCode: 424 });
+  });
+
   it('does not retry registration on non-metadata failures', async () => {
     const { mcpServerStore } = newStores();
     const { registerCallCount } = stubOauthFetch({
@@ -260,7 +273,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
         mcpServerName: SERVER_NAME,
         clientName: CLIENT_NAME,
       }),
-    ).rejects.toBeInstanceOf(McpConnectionError);
+    ).rejects.toMatchObject({ name: 'McpConnectionError', statusCode: 424 });
     expect(registerCallCount()).toBe(1);
   });
 
@@ -293,7 +306,7 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
         redirectUri: mcpOAuthCallbackUrl(),
         clientName: CLIENT_NAME,
       }),
-    ).rejects.toBeInstanceOf(McpConnectionError);
+    ).rejects.toMatchObject({ name: 'McpConnectionError', statusCode: 424 });
     expect(registerCallCount()).toBe(2);
     expect(await mcpServerStore.getClient({ id: SERVER_ID })).toBeUndefined();
   });
@@ -409,6 +422,7 @@ describe('buildMcpAuthorizationUrl', () => {
     ).rejects.toMatchObject({
       name: 'McpConnectionError',
       message: expect.stringContaining('Failed to start OAuth authorization'),
+      statusCode: 424,
     });
   });
 });

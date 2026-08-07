@@ -8,8 +8,7 @@ import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { useComposerBusyState } from '../hooks/useComposerBusyState.js';
 import { useComposerPauseView } from '../hooks/useComposerPauseView.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { defaultSlots } from '../theme/defaultSlots.js';
-import { SlotsProvider, useSlot } from '../theme/SlotsProvider.js';
+import { SlotsProvider, useSlot, useSlotIsDefault } from '../theme/SlotsProvider.js';
 import { AskUserContainer } from './AskUserContainer.js';
 import { ComposerAttachmentsContainer } from './AttachmentsContainer.js';
 import { McpAuthContainer } from './McpAuthContainer.js';
@@ -17,14 +16,6 @@ import { McpAuthContainer } from './McpAuthContainer.js';
 export type ComposerContainerProps = {
   placeholder?: string;
 };
-
-/**
- * Use draft UI only when the host did not override the slot.
- * Example: host overrides LeftSection → keep host; else → DraftComposerLeftSection.
- */
-function preferHostSlotOverride<T>(parentSlot: T, stockDefault: T, draftDefault: T): T {
-  return parentSlot === stockDefault ? draftDefault : parentSlot;
-}
 
 function ComposerBody({ placeholder }: { placeholder: string }) {
   const ComposerShell = useSlot('ComposerShell');
@@ -101,6 +92,8 @@ export function ComposerContainer({
   const shell = useOptionalShellMode();
   const parentLeftSection = useSlot('ComposerLeftSection');
   const parentRightSection = useSlot('ComposerRightSection');
+  const usesDefaultLeftSection = useSlotIsDefault('ComposerLeftSection');
+  const usesDefaultRightSection = useSlotIsDefault('ComposerRightSection');
   const DraftComposerLeftSection = useSlot('DraftComposerLeftSection');
   const DraftComposerRightSection = useSlot('DraftComposerRightSection');
   const canMutateSpec = shell?.mode.status === 'active' && shell.mode.isMutable;
@@ -117,16 +110,8 @@ export function ComposerContainer({
       <DraftCatalogProvider>
         <SlotsProvider
           overrides={{
-            ComposerLeftSection: preferHostSlotOverride(
-              parentLeftSection,
-              defaultSlots.ComposerLeftSection,
-              DraftComposerLeftSection,
-            ),
-            ComposerRightSection: preferHostSlotOverride(
-              parentRightSection,
-              defaultSlots.ComposerRightSection,
-              DraftComposerRightSection,
-            ),
+            ComposerLeftSection: usesDefaultLeftSection ? DraftComposerLeftSection : parentLeftSection,
+            ComposerRightSection: usesDefaultRightSection ? DraftComposerRightSection : parentRightSection,
           }}
         >
           <ComposerBody placeholder={placeholder} />

@@ -122,7 +122,7 @@ export const updateSessionRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body, or named session rejected an agent update.',
+      description: 'Invalid request body.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -131,7 +131,7 @@ export const updateSessionRoute = createRoute({
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description:
-        'The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox).',
+        'Named session rejected an agent update, or the agent spec references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox).',
     },
   },
 });
