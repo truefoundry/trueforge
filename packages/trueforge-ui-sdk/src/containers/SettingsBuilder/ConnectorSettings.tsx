@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
+import { Button } from '@/atoms/primitives/Button.js';
+import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
+import SearchInput from '@/atoms/primitives/SearchInput.js';
+import { useMCPAuth } from '@/hooks/useMcpAuth.js';
 import { Icon } from '@/icons/Icon.js';
-import { Button } from '../../atoms/primitives/Button.js';
-import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
-import SearchInput from '../../atoms/primitives/SearchInput.js';
-import { useMCPAuth } from '../../hooks/useMcpAuth.js';
-import { useCatalogServer } from '../../server/ServerContext.js';
-import type { ConnectorAuth, ConnectorBase, ConnectorCatalogEntry } from '../../server/types.js';
+import { useCatalogServer } from '@/server/ServerContext.js';
+import type { ConnectorAuth, ConnectorBase, ConnectorCatalogEntry } from '@/server/types.js';
 import AddMcpServerForm, { type AddMcpServerDraft } from './AddMcpServerForm.js';
 import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
 import ConnectorDetails from './ConnectorDetails.js';
@@ -34,6 +34,7 @@ const ConnectorSettings = () => {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [catalog, setCatalog] = useState<ConnectorCatalogEntry[]>([]);
   const [addMcpServerFormOpen, setAddMcpServerFormOpen] = useState(false);
   const [connectorAwaitingKey, setConnectorAwaitingKey] = useState<ConnectorCatalogEntry | null>(null);
   const [selectedConnector, setSelectedConnector] = useState<ConnectorBase | null>(null);
@@ -57,6 +58,7 @@ const ConnectorSettings = () => {
         connectorCatalog.listConnectors(),
         connectorCatalog.getConnectorCatalog(),
       ]);
+      setCatalog(available);
       const configured = listed ?? [];
       const seenIds = new Set(configured.map(connector => connector.id));
       const ordered: ConnectorListItem[] = [
@@ -159,26 +161,26 @@ const ConnectorSettings = () => {
   const createFromCatalog = async (entry: ConnectorCatalogEntry, authOverride?: ConnectorAuth) => {
     const auth: ConnectorAuth =
       authOverride ??
-      (entry.auth.type === 'apiKey'
+      (entry.auth.type === 'header'
         ? {
-            type: 'apiKey',
+            type: 'header',
             ...(entry.auth.headerName ? { headerName: entry.auth.headerName } : {}),
           }
-        : entry.auth.type === 'oauth'
-          ? { type: 'oauth' }
+        : entry.auth.type === 'dcr'
+          ? { type: 'dcr' }
           : { type: 'none' });
     const created = await connectorCatalog.createConnector({
       name: entry.name,
       url: entry.url,
       auth,
     });
-    if (auth.type === 'oauth') {
+    if (auth.type === 'dcr') {
       await authorizeOAuthConnector(created.id);
     }
   };
 
   const handleConnect = (entry: ConnectorCatalogEntry) => {
-    if (entry.auth.type === 'apiKey') {
+    if (entry.auth.type === 'header') {
       setApiKey('');
       setConnectorAwaitingKey(entry);
       return;
@@ -202,9 +204,9 @@ const ConnectorSettings = () => {
     const entry = connectorAwaitingKey;
     void runMutation(async () => {
       const auth: ConnectorAuth = {
-        type: 'apiKey',
+        type: 'header',
         apiKey: apiKey.trim(),
-        ...(entry.auth.type === 'apiKey' && entry.auth.headerName ? { headerName: entry.auth.headerName } : {}),
+        ...(entry.auth.type === 'header' && entry.auth.headerName ? { headerName: entry.auth.headerName } : {}),
       };
       const existing = connectors.ordered.find(({ connector }) => connector.id === entry.id);
       const existingConnector = existing?.isConfigured ? existing.connector : undefined;
@@ -229,7 +231,7 @@ const ConnectorSettings = () => {
         url: draft.url,
         auth: draft.auth,
       });
-      if (draft.auth.type === 'oauth') {
+      if (draft.auth.type === 'dcr') {
         await authorizeOAuthConnector(created.id);
       }
     });

@@ -346,28 +346,6 @@
         },
         "type": "object"
       },
-      "AuthMeResponse": {
-        "properties": {
-          "role": {
-            "$ref": "#/components/schemas/AuthRole"
-          },
-          "user_ref": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "user_ref",
-          "role"
-        ],
-        "type": "object"
-      },
-      "AuthRole": {
-        "enum": [
-          "admin",
-          "user"
-        ],
-        "type": "string"
-      },
       "BaseMCPAuthRequiredEvent": {
         "properties": {
           "created_at": {
@@ -1041,6 +1019,18 @@
                 ],
                 "type": "object"
               },
+              "settings": {
+                "properties": {
+                  "enabled": {
+                    "description": "Whether the settings UI/API is enabled.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "type": "object"
+              },
               "skill": {
                 "properties": {
                   "enabled": {
@@ -1056,7 +1046,8 @@
             },
             "required": [
               "sandbox",
-              "skill"
+              "skill",
+              "settings"
             ],
             "type": "object"
           }
@@ -2065,15 +2056,15 @@
             "fireworks": "#/components/schemas/FireworksModelProvider",
             "google-gemini": "#/components/schemas/GoogleGeminiModelProvider",
             "moonshot": "#/components/schemas/MoonshotModelProvider",
-            "openai": "#/components/schemas/OpenAiModelProvider",
-            "together": "#/components/schemas/TogetherModelProvider",
+            "openai": "#/components/schemas/OpenAIModelProvider",
+            "together": "#/components/schemas/TogetherAIModelProvider",
             "zai": "#/components/schemas/ZaiModelProvider"
           },
           "propertyName": "type"
         },
         "oneOf": [
           {
-            "$ref": "#/components/schemas/OpenAiModelProvider"
+            "$ref": "#/components/schemas/OpenAIModelProvider"
           },
           {
             "$ref": "#/components/schemas/AnthropicModelProvider"
@@ -2091,7 +2082,7 @@
             "$ref": "#/components/schemas/MoonshotModelProvider"
           },
           {
-            "$ref": "#/components/schemas/TogetherModelProvider"
+            "$ref": "#/components/schemas/TogetherAIModelProvider"
           },
           {
             "$ref": "#/components/schemas/AlibabaModelProvider"
@@ -2154,7 +2145,7 @@
         ],
         "type": "object"
       },
-      "OpenAiModelProvider": {
+      "OpenAIModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -2289,7 +2280,6 @@
       },
       "ReasoningEffort": {
         "enum": [
-          "provider-default",
           "none",
           "minimal",
           "low",
@@ -2987,7 +2977,7 @@
         ],
         "type": "object"
       },
-      "TogetherModelProvider": {
+      "TogetherAIModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -4076,7 +4066,7 @@
         ],
         "responses": {
           "302": {
-            "description": "Redirect back into the app on success, or to /login?error=... on failure."
+            "description": "Redirect back into the app on success, or to /?error=login_failed on failure."
           }
         },
         "summary": "Login callback",
@@ -4129,41 +4119,6 @@
           "auth"
         ],
         "x-fern-sdk-method-name": "logout"
-      }
-    },
-    "/api/v1/auth/me": {
-      "get": {
-        "description": "Returns the fixed local identity in local/single-binary mode; otherwise the caller's verified identity.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthMeResponse"
-                }
-              }
-            },
-            "description": "The caller's identity."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Not authenticated."
-          }
-        },
-        "summary": "Get the current identity",
-        "tags": [
-          "Auth"
-        ],
-        "x-fern-sdk-group-name": [
-          "auth"
-        ],
-        "x-fern-sdk-method-name": "me"
       }
     },
     "/api/v1/capabilities": {

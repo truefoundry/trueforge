@@ -4,7 +4,8 @@
  */
 import type { AgentBuilderServer } from '@truefoundry/trueforge-ui';
 import { TrueForgeApi as Harness } from 'trueforge';
-import { getCapabilities, listMcpServers, listModels, listSkills } from './composerLists';
+import { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './composerLists';
+import { toUiConnector } from './connectorCatalog';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 import { toHarnessAgentSpec, type HarnessAgentSpec } from './harnessServer';
 
@@ -30,8 +31,7 @@ export function createHarnessBuilderServer(
         ? skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }))
         : [];
     },
-    getMcp: async () =>
-      (await listMcpServers()).map(server => ({ id: server.name, name: server.name, description: server.url })),
+    getMcp: async () => (await listConfiguredMcpServers()).map(toUiConnector),
     async searchAgents(req = {}) {
       const limit = req.limit ?? 50;
       const query = req.query?.trim().toLowerCase();

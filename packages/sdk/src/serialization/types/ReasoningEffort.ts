@@ -5,8 +5,8 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
 export const ReasoningEffort: core.serialization.Schema<serializers.ReasoningEffort.Raw, TrueForge.ReasoningEffort> =
-    core.serialization.enum_(["provider-default", "none", "minimal", "low", "medium", "high", "xhigh", "max"]);
+    core.serialization.enum_(["none", "minimal", "low", "medium", "high", "xhigh", "max"]);
 
 export declare namespace ReasoningEffort {
-    export type Raw = "provider-default" | "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+    export type Raw = "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 }
