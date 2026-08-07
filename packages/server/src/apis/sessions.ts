@@ -199,13 +199,13 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         tenant_id: TENANT_ID,
         session_id: sessionId,
         created_by: 'trueforge-default',
-        agent: { type: 'ref', agent_id: agent.id },
+        agent: { type: 'ref', id: agent.id, name: agent.name },
       });
       return c.json({ data: toWireSession(session.record) }, 201);
     }
 
     await validateAgentSpec({
-      spec: body.agent,
+      spec: body.agent.def,
       tenant_id: TENANT_ID,
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
@@ -216,7 +216,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       tenant_id: TENANT_ID,
       session_id: sessionId,
       created_by: 'trueforge-default',
-      agent: { type: 'value', agent_spec: body.agent },
+      agent: { type: 'value', def: body.agent.def },
     });
     return c.json({ data: toWireSession(session.record) }, 201);
   };
@@ -243,7 +243,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     // cannot — the store rejects that with SessionStoreInvariantError → 400 below.
     if (body.agent !== undefined) {
       await validateAgentSpec({
-        spec: body.agent,
+        spec: body.agent.def,
         tenant_id: TENANT_ID,
         modelProviderStore: deps.modelProviderStore,
         mcpServerStore: deps.mcpServerStore,
@@ -255,7 +255,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       await deps.sessionStore.updateSession({
         tenant_id: TENANT_ID,
         session_id: sessionId,
-        agent: body.agent === undefined ? undefined : { type: 'value', agent_spec: body.agent },
+        agent: body.agent === undefined ? undefined : { type: 'value', def: body.agent.def },
         title: undefined,
       });
     } catch (error) {
