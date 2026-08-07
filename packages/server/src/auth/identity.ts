@@ -24,9 +24,9 @@ export type ResolveUserContext = (c: Context) => UserContext;
  * Requires auth middleware to have set `c.var.user`.
  */
 export function resolveUserContext(c: Context): UserContext {
-  const user = c.get('user');
-  if (user === undefined) {
+  const uc = c.get('user_context');
+  if (uc === undefined) {
     throw new Error('UserContext missing; auth middleware did not run');
   }
-  return user;
+  return uc;
 }

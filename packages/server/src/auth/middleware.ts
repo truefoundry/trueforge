@@ -9,7 +9,7 @@ import { getOidcVerify } from './oidc';
 
 declare module 'hono' {
   interface ContextVariableMap {
-    user?: UserContext;
+    user_context?: UserContext;
   }
 }
 
@@ -45,7 +45,7 @@ export async function resolveAuthUser(c: Context): Promise<UserContext | undefin
 /** Set `c.var.user` and continue, or throw 401. Without OIDC, sets {@link LOCAL_USER_CONTEXT}. */
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   if (!getOidcVerify()) {
-    c.set('user', LOCAL_USER_CONTEXT);
+    c.set('user_context', LOCAL_USER_CONTEXT);
     return next();
   }
 
@@ -54,7 +54,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     if (!user) {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
-    c.set('user', user);
+    c.set('user_context', user);
   } catch (error) {
     if (error instanceof HTTPException) {
       throw error;
