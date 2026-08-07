@@ -268,6 +268,23 @@ describe('createHarnessChatServer', () => {
     assert.equal(found.isMutable, false);
   });
 
+  it('getSession stamps agentId as agentName when the registry agent is gone', async () => {
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/agents')) return Response.json({ data: [] });
+      if (url.endsWith('/api/v1/sessions/ses_1')) {
+        return Response.json({ data: { ...session, agent: { type: 'ref', agent_id: 'agt_deleted' } } });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    const found = await server.getSession({ sessionId: 'ses_1' });
+
+    assert.equal(found.isMutable, false);
+    assert.equal(found.agentName, 'agt_deleted');
+  });
+
   it('refuses to update the agent of a ref session', async () => {
     const fetchNamed: typeof fetch = async input => {
       const url = input instanceof Request ? input.url : String(input);

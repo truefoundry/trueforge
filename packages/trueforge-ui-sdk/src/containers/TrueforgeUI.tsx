@@ -152,8 +152,9 @@ function ChatProviderFromShell({
     }
     // Runtime still uses named|draft; shell mutability maps onto that adapter.
     if (!mode.isMutable) {
-      const agentName = mode.agentName ?? mode.agentId;
+      const agentName = mode.agentName ?? mode.agentId ?? pendingSessionId;
       if (agentName == null) {
+        // Active immutable without identity should not happen; keep chrome mounted.
         return {
           mode: 'draft',
           defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
@@ -165,7 +166,7 @@ function ChatProviderFromShell({
       mode: 'draft',
       defaultAgentSpec: draftDefaultAgentSpec,
     };
-  }, [mode, draftDefaultAgentSpec]);
+  }, [mode, draftDefaultAgentSpec, pendingSessionId]);
 
   return (
     <TrueFoundryChatProvider

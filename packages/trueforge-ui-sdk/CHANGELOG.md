@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **History row mutability** — prefer `custom.isMutable` from the session (runtime
+  stamp) over inferring from `agentName`. Orphaned named refs (deleted agent, no
+  `agentName`) open as immutable. `openHistorySession` allows `isMutable: false`
+  without an agent name.
+
 ### Breaking
 
 - **`ShellMode` shape** — replaced `type: 'idle' | 'named' | 'draft'` with

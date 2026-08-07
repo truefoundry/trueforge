@@ -20,3 +20,19 @@ export function readThreadAgentName(custom: unknown): string | undefined {
   const value = Reflect.get(custom, 'agentName');
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
+
+/** Session mutability from thread-list custom (runtime ≥ isMutable stamp). */
+export function readThreadIsMutable(custom: unknown): boolean | undefined {
+  if (custom == null || typeof custom !== 'object') return undefined;
+  if (!('isMutable' in custom)) return undefined;
+  const value = Reflect.get(custom, 'isMutable');
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+/**
+ * Prefer `custom.isMutable`; fall back to agentName presence for older runtimes
+ * that only stamped `agentName` on named rows.
+ */
+export function threadListItemIsMutable(custom: unknown): boolean {
+  return readThreadIsMutable(custom) ?? readThreadAgentName(custom) == null;
+}

@@ -13,7 +13,7 @@ import { AgentHistoryFilterButton } from '../atoms/AgentHistoryFilterButton.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
-import { readThreadAgentName } from '../atoms/lib/threadListMeta.js';
+import { readThreadAgentName, threadListItemIsMutable } from '../atoms/lib/threadListMeta.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
 import { Icon } from '../icons/Icon.js';
@@ -124,15 +124,15 @@ function ThreadListItemRow({ onThreadOpen, showDelete }: { onThreadOpen?: () => 
           onThreadOpen?.();
           shell?.setSettingsOpen(false);
 
-          // History rows: agentName set → immutable; omitted → mutable.
-          // Same mutability + identity: switch in-place. Crossing requires remount
-          // so mutable mode does not try to load agentSpec from an immutable session.
-          const sessionMutable = agentName == null;
+          // Prefer custom.isMutable (session wire); agentName-only is a legacy fallback.
+          const sessionMutable = threadListItemIsMutable(custom);
           const sameImmutable =
             !sessionMutable &&
             shell?.mode.status === 'active' &&
             !shell.mode.isMutable &&
-            (shell.mode.agentName === agentName || shell.mode.agentId === agentName);
+            (agentName == null
+              ? shell.mode.agentName == null && shell.mode.agentId == null
+              : shell.mode.agentName === agentName || shell.mode.agentId === agentName);
           const sameMutable = sessionMutable && shell?.mode.status === 'active' && shell.mode.isMutable;
 
           if ((sameImmutable || sameMutable) && remoteId != null) {

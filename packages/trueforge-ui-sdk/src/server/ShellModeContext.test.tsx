@@ -246,6 +246,20 @@ describe('ShellModeProvider', () => {
     expect(result.current.runtimeKey).toContain('sess-1');
   });
 
+  it('openHistorySession keeps immutable binding when agentName is missing', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-orphan', isMutable: false }));
+    expect(result.current.mode).toEqual({
+      status: 'active',
+      isMutable: false,
+      locked: false,
+    });
+    expect(result.current.pendingSessionId).toBe('sess-orphan');
+  });
+
   it('invalidateAgentsList bumps agentsListEpoch', () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
     expect(result.current.agentsListEpoch).toBe(0);

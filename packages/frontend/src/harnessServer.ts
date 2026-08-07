@@ -96,7 +96,9 @@ function toUiSession(session: Harness.Session, agentName?: string): Session<Harn
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     ...(session.title === null ? {} : { title: session.title }),
-    ...(session.agent.type === 'ref' && agentName !== undefined ? { agentName } : {}),
+    // Ref sessions stay named even when the registry row is gone — stamp agentId
+    // so older runtimes that only forward custom.agentName still treat them immutable.
+    ...(session.agent.type === 'ref' ? { agentName: agentName ?? session.agent.agentId } : {}),
     ...(session.agent.type === 'value' ? { agentSpec: toUiAgentSpec(session.agent.agentSpec) } : {}),
   };
 }

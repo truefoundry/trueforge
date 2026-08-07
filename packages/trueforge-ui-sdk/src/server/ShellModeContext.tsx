@@ -69,7 +69,9 @@ type ShellModeContextValue = {
   openDraft: () => void;
   /**
    * Open a history session, remounting when mutability/identity changes.
-   * Immutable sessions pass `agentName`; mutable omit it (or set `isMutable: true`).
+   * Prefer explicit `isMutable` from the session row; when omitted, agentName
+   * present → immutable and agentName absent → mutable. Immutable rows may omit
+   * `agentName` when the registry agent was deleted.
    */
   openHistorySession: (req: { sessionId: string; agentName?: string; isMutable?: boolean }) => void;
   /** Reset current chat; no-op when idle. */
@@ -277,14 +279,17 @@ export function ShellModeProvider({
         bumpEpoch(true);
         return;
       }
-      if (agentName == null) return;
-      if (!isLibraryEnabled && !(locked && lockedAgentName === agentName)) return;
+      // Immutable: allow orphaned refs (deleted agent → no agentName).
+      if (locked) {
+        if (agentName == null || lockedAgentName !== agentName) return;
+      } else if (!isLibraryEnabled) {
+        return;
+      }
       setMode({
         status: 'active',
         isMutable: false,
-        agentId: agentName,
-        agentName,
         locked: false,
+        ...(agentName != null ? { agentId: agentName, agentName } : {}),
       });
       bumpEpoch(false);
     },
