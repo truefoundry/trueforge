@@ -76,7 +76,11 @@ export function AttachmentCard({
           type="button"
           aria-label="Remove file"
           title="Remove file"
-          className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-6 shrink-0 rounded-full' })}
+          className={auiButtonClass({
+            variant: 'ghost',
+            size: 'icon',
+            className: 'size-6 shrink-0 rounded-full',
+          })}
           onClick={onRemove}
         >
           <Icon name="xmark" />
