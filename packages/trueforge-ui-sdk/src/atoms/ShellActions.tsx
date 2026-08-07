@@ -1,7 +1,7 @@
 'use client';
 
 import { Icon } from '../icons/Icon.js';
-import { useOptionalCatalogServer } from '../server/ServerContext.js';
+import { useOptionalCatalogServer, useServerCapabilities } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useTheme } from '../theme/ThemeProvider.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
@@ -10,6 +10,7 @@ import { cn } from './lib/cn.js';
 export function ShellActions({ className }: { className?: string }) {
   const shell = useOptionalShellMode();
   const catalog = useOptionalCatalogServer();
+  const capabilities = useServerCapabilities();
   const { mode, setTheme } = useTheme();
 
   return (
@@ -23,7 +24,7 @@ export function ShellActions({ className }: { className?: string }) {
       >
         <Icon name={mode === 'dark' ? 'sun' : 'moon'} />
       </button>
-      {shell != null && catalog != null ? (
+      {shell != null && catalog != null && capabilities?.settings?.enabled !== false ? (
         <button
           type="button"
           aria-label="Settings"

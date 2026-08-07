@@ -1,13 +1,36 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-import type { AgentUIServer, CatalogServer } from './types.js';
+import type { AgentBuilderCapabilitiesResponse, AgentUIServer, CatalogServer } from './types.js';
 
 const ServerContext = createContext<AgentUIServer | null>(null);
+const ServerCapabilitiesContext = createContext<AgentBuilderCapabilitiesResponse['data'] | null>(null);
 
 export function ServerProvider({ server, children }: { server: AgentUIServer; children: ReactNode }) {
-  return <ServerContext.Provider value={server}>{children}</ServerContext.Provider>;
+  const [capabilities, setCapabilities] = useState<AgentBuilderCapabilitiesResponse['data'] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCapabilities(null);
+    void server.getCapabilities().then(
+      response => {
+        if (!cancelled) setCapabilities(response.data);
+      },
+      () => {
+        if (!cancelled) setCapabilities(null);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [server]);
+
+  return (
+    <ServerContext.Provider value={server}>
+      <ServerCapabilitiesContext.Provider value={capabilities}>{children}</ServerCapabilitiesContext.Provider>
+    </ServerContext.Provider>
+  );
 }
 
 export function useServer(): AgentUIServer {
@@ -20,6 +43,10 @@ export function useServer(): AgentUIServer {
 
 export function useOptionalServer(): AgentUIServer | null {
   return useContext(ServerContext);
+}
+
+export function useServerCapabilities(): AgentBuilderCapabilitiesResponse['data'] | null {
+  return useContext(ServerCapabilitiesContext);
 }
 
 export function useCatalogServer(): CatalogServer {

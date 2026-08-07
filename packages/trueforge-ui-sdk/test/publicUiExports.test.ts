@@ -124,6 +124,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'useOptionalServer',
   'useOptionalShellMode',
   'useServer',
+  'useServerCapabilities',
   'useShellMode',
   'useSlot',
   'useTheme',

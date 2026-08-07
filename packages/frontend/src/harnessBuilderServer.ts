@@ -9,7 +9,7 @@ import type {
   SearchAgentsParams,
 } from '@truefoundry/trueforge-ui';
 import type { TrueForgeApi as Harness } from 'trueforge';
-import { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './composerLists';
+import { listConfiguredMcpServers, listModels, listSkills } from './composerLists';
 import { toUiConnector } from './connectorCatalog';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 import { agentManifest, toHarnessAgentSpec, toUiAgentSpec, type HarnessAgentSpec } from './harnessServer';
@@ -44,13 +44,11 @@ export function createHarnessBuilderServer(
     options.baseUrl === undefined && options.fetch === undefined ? harnessClient : createHarnessClient(options);
 
   return {
+    getCapabilities: () => client.server.getCapabilities(),
     getModels: async () => (await listModels()).map(toModelSelection),
-    // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
     getSkills: async () => {
-      const [capabilities, skills] = await Promise.all([getCapabilities(), listSkills()]);
-      return capabilities.skill.enabled
-        ? skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }))
-        : [];
+      const skills = await listSkills();
+      return skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }));
     },
     getMcp: async () => (await listConfiguredMcpServers()).map(toUiConnector),
 
