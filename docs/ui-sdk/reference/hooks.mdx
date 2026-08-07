@@ -12,6 +12,20 @@ description: "Composer state, MCP auth, runtime hooks, and re-exports."
 
 `threadHasPendingMcpAuth(state)` is the standalone predicate behind the `"mcp"` case.
 
+## Server capabilities
+
+```ts
+import { useServerCapabilities } from "@truefoundry/trueforge-ui";
+
+const capabilities = useServerCapabilities();
+// { sandbox: { enabled }, skill: { enabled, reason? }, settings?: { enabled } } | null
+```
+
+Returns the resolved value from your server's `getCapabilities()`, or `null` while it is still
+loading or if the call failed. Use it to gate your own chrome the same way the SDK gates its
+sandbox, skill, and settings affordances. See
+[Server contract](/ui-sdk/concepts/server-contract#capabilities).
+
 ## MCP auth
 
 ```ts
