@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react';
 
 import { Icon } from '../icons/Icon.js';
-import { useOptionalServer } from '../server/ServerContext.js';
-import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { libraryAgentId, useOptionalShellMode } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry, AgentSpec } from '../server/types.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { useCompactLayout } from './lib/CompactLayoutContext.js';
+import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { CenteredModal } from './primitives/CenteredModal.js';
+import SearchInput from './primitives/SearchInput.js';
 import { Skeleton } from './primitives/Skeleton.js';
 
 export type AgentsLibraryProps = {
@@ -63,6 +64,7 @@ function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProp
             })}
             onClick={onEdit}
           >
+            <Icon name="pencil" className="size-3.5" />
             Edit
           </button>
         ) : null}
@@ -76,7 +78,8 @@ function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProp
           })}
           onClick={onTry}
         >
-          Try Agent
+          <Icon name="play" className="size-3.5" />
+          Try
         </button>
       </span>
     </div>
@@ -84,43 +87,22 @@ function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProp
 }
 
 export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibraryProps) {
-  const server = useOptionalServer();
   const shell = useOptionalShellMode();
   const [query, setQuery] = useState('');
-  const [agents, setAgents] = useState<AgentLibraryEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const canEdit = shell?.isComposerEnabled === true;
   const agentsListEpoch = shell?.agentsListEpoch ?? 0;
 
   useEffect(() => {
-    if (!open) {
-      setQuery('');
-      return;
-    }
-    if (!server) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    void server
-      .searchAgents({ query: query.trim() || undefined, limit: 50 })
-      .then(rows => {
-        if (!cancelled) setAgents(rows);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load agents.');
-          setAgents([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, query, server, agentsListEpoch]);
+    if (!open) setQuery('');
+  }, [open]);
+
+  const { agents, isInitialLoading, isSearching, loadingMore, error, hasMore, listRef, sentinelRef } =
+    useSearchAgentsList({
+      enabled: open,
+      query,
+      refreshKey: agentsListEpoch,
+    });
 
   const closeLibrary = () => {
     onOpenChange(false);
@@ -152,23 +134,20 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
     <CenteredModal open={open} onOpenChange={onOpenChange} title="Agents Library">
       <div className="bg-muted/40 flex min-h-0 flex-1 flex-col">
         <div className="shrink-0 border-b border-border px-4 py-3">
-          <label className="relative block">
-            <Icon
-              name="search"
-              className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2"
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Search agents"
-              className="border-input bg-background placeholder:text-muted-foreground h-9 w-full rounded-md border py-1 pr-3 pl-8 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-              autoFocus
-            />
-          </label>
+          <SearchInput query={query} setQuery={setQuery} placeholder="Search agents" />
+          {isSearching ? (
+            <p className="text-muted-foreground mt-1.5 text-xs" role="status">
+              Searching…
+            </p>
+          ) : null}
         </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2" role="menu" aria-label="Agents">
-          {loading ? (
+        <div
+          ref={listRef}
+          className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2"
+          role="menu"
+          aria-label="Agents"
+        >
+          {isInitialLoading ? (
             <div className="flex flex-col gap-2 p-1" role="status" aria-label="Loading agents">
               {Array.from({ length: 6 }, (_, i) => (
                 <Skeleton key={i} className="h-11 w-full rounded-md" />
@@ -183,21 +162,32 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
                 : 'No agents yet. Build one in a chat, then save it as an agent.'}
             </p>
           ) : (
-            agents.map(agent => {
-              const agentSpec = agent.agentSpec;
-              const showEdit = canEdit && agentSpec != null;
-              return (
-                <AgentLibraryRow
-                  key={agent.agentId}
-                  agent={agent}
-                  showEdit={showEdit}
-                  onTry={() => handleTry(agent)}
-                  onEdit={() => {
-                    if (agentSpec != null) handleEdit(agent, agentSpec);
-                  }}
-                />
-              );
-            })
+            <>
+              {agents.map(agent => {
+                const agentSpec = agent.agentSpec;
+                const showEdit = canEdit && agentSpec != null;
+                return (
+                  <AgentLibraryRow
+                    key={libraryAgentId(agent)}
+                    agent={agent}
+                    showEdit={showEdit}
+                    onTry={() => handleTry(agent)}
+                    onEdit={() => {
+                      if (agentSpec != null) handleEdit(agent, agentSpec);
+                    }}
+                  />
+                );
+              })}
+              {hasMore ? (
+                <div ref={sentinelRef} className="flex h-8 shrink-0 items-center justify-center" aria-hidden>
+                  {loadingMore ? (
+                    <span className="text-muted-foreground text-xs" role="status">
+                      Loading more…
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+            </>
           )}
         </div>
       </div>

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider, useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
@@ -12,6 +12,9 @@ function CatalogProbe() {
 
   return (
     <div>
+      <button type="button" onClick={() => catalog.ensureLoaded()}>
+        Load catalog
+      </button>
       <output data-testid="models">{catalog.models.map(model => model.name).join(',')}</output>
       <output data-testid="skills">{catalog.skills.map(skill => skill.name).join(',')}</output>
       <output data-testid="connectors">{catalog.connectors.map(connector => connector.name).join(',')}</output>
@@ -74,6 +77,11 @@ describe('DraftCatalogProvider', () => {
       </ServerProvider>,
     );
 
+    expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    expect(getModels).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load catalog' }));
+
     expect(screen.getByTestId('loading')).toHaveTextContent('true');
     expect(getModels).toHaveBeenCalledTimes(1);
     expect(getSkills).toHaveBeenCalledTimes(1);
@@ -107,6 +115,8 @@ describe('DraftCatalogProvider', () => {
         </DraftCatalogProvider>
       </ServerProvider>,
     );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load catalog' }));
 
     await waitFor(() => expect(screen.getByTestId('error')).toHaveTextContent('Catalog unavailable'));
     expect(screen.getByTestId('loading')).toHaveTextContent('false');

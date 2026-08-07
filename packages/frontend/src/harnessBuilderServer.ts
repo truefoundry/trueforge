@@ -46,6 +46,7 @@ export function createHarnessBuilderServer(
   return {
     getCapabilities: () => client.server.getCapabilities(),
     getModels: async () => (await listModels()).map(toModelSelection),
+    // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
     getSkills: async () => {
       const skills = await listSkills();
       return skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }));

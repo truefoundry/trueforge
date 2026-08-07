@@ -5,8 +5,9 @@ import {
   formatRelativeShort,
   readThreadAgentName,
   readThreadIsMutable,
+  threadListIndicesByRecency,
   threadListItemIsMutable,
-} from './threadListMeta.js';
+} from '@/atoms/lib/threadListMeta.js';
 
 describe('formatRelativeShort', () => {
   const now = new Date('2026-08-06T12:00:00.000Z');
@@ -40,6 +41,39 @@ describe('threadListItemIsMutable', () => {
     expect(threadListItemIsMutable({ agentName: 'from-sdk' })).toBe(false);
     expect(threadListItemIsMutable({})).toBe(true);
     expect(threadListItemIsMutable(null)).toBe(true);
+  });
+});
+
+describe('threadListIndicesByRecency', () => {
+  it('orders by lastMessageAt newest-first even when ids were appended', () => {
+    const older = new Date('2026-08-06T11:00:00.000Z');
+    const newer = new Date('2026-08-06T12:00:00.000Z');
+    // Selected session appended at end (assistant-ui switchToThread fetch race).
+    expect(
+      threadListIndicesByRecency({
+        threadIds: ['older', 'newer-appended'],
+        threadItems: [
+          { id: 'older', remoteId: 'older', lastMessageAt: older },
+          { id: 'newer-appended', remoteId: 'newer-appended', lastMessageAt: newer },
+        ],
+      }),
+    ).toEqual([1, 0]);
+  });
+
+  it('pins threads without lastMessageAt above dated history (empty New Chat)', () => {
+    const older = new Date('2026-08-06T11:00:00.000Z');
+    const newer = new Date('2026-08-06T12:00:00.000Z');
+    // Local new thread appended at end with no timestamp.
+    expect(
+      threadListIndicesByRecency({
+        threadIds: ['older', 'newer', 'new-chat'],
+        threadItems: [
+          { id: 'older', remoteId: 'older', lastMessageAt: older },
+          { id: 'newer', remoteId: 'newer', lastMessageAt: newer },
+          { id: 'new-chat', remoteId: null, lastMessageAt: undefined },
+        ],
+      }),
+    ).toEqual([2, 1, 0]);
   });
 });
 

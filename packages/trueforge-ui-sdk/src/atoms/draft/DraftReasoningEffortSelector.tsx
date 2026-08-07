@@ -25,7 +25,7 @@ export type DraftReasoningEffortSelectorProps = {
 };
 
 export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReasoningEffortSelectorProps) {
-  const { models: rawModels } = useDraftCatalog();
+  const { models: rawModels, ensureLoaded } = useDraftCatalog();
   const models = rawModels as RichModel[];
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
@@ -41,6 +41,11 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
   const currentEffort = agentSpec?.model?.params?.reasoningEffort;
   // Display fallback only — coerce into the spec on model change / explicit pick.
   const resolved = resolveReasoningEffort(efforts, currentEffort);
+
+  useEffect(() => {
+    // Need catalog to know whether this model exposes reasoning efforts.
+    ensureLoaded();
+  }, [ensureLoaded]);
 
   useEffect(() => {
     if (!open) return;

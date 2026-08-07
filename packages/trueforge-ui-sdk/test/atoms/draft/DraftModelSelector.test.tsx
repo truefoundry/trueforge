@@ -5,8 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftModelSelector, type DraftModelSelectorProps } from '@/atoms/draft/DraftModelSelector.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentSpec, ModelSelection } from '@/server/types.js';
-import { createMockAgentUIServer } from '../../server/mockServer.js';
+import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
+import type { AgentSpec, AgentUIServer, ModelSelection } from '@/server/types.js';
+import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec | undefined;
 const updateAgentSpec = vi.fn();
@@ -17,7 +18,7 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
 }));
 
 const models: ModelSelection[] = [
-  { name: 'openai/gpt-4.1', provider: 'OpenAI' },
+  { name: 'openai/gpt-4.1', provider: 'OpenAI', providerLogo: 'https://assets.example/openai.svg' },
   {
     name: 'anthropic/claude-3.7-sonnet',
     provider: 'Anthropic',
@@ -25,14 +26,25 @@ const models: ModelSelection[] = [
   },
 ];
 
-function renderSelector(props: DraftModelSelectorProps = {}) {
-  const server = createMockAgentUIServer({ getModels: async () => models });
+function SettingsOpenProbe() {
+  const { settingsOpen } = useShellMode();
+  return <div data-testid="settings-open">{String(settingsOpen)}</div>;
+}
+
+function renderSelector(
+  props: DraftModelSelectorProps = {},
+  serverOverrides: Partial<AgentUIServer> = { getModels: async () => models },
+) {
+  const server = createMockAgentUIServer(serverOverrides);
 
   return render(
     <ServerProvider server={server}>
-      <DraftCatalogProvider>
-        <DraftModelSelector {...props} />
-      </DraftCatalogProvider>
+      <ShellModeProvider>
+        <DraftCatalogProvider>
+          <DraftModelSelector {...props} />
+          <SettingsOpenProbe />
+        </DraftCatalogProvider>
+      </ShellModeProvider>
     </ServerProvider>,
   );
 }
@@ -53,10 +65,22 @@ describe('DraftModelSelector', () => {
 
     const trigger = await screen.findByTitle('Select model');
     await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
+    expect(trigger.querySelector('img')?.getAttribute('src')).toBe('https://assets.example/openai.svg');
     fireEvent.click(trigger);
 
     const listbox = screen.getByRole('listbox', { name: 'Select model' });
     expect(within(listbox).getAllByRole('option')).toHaveLength(2);
+    expect(
+      within(listbox)
+        .getByRole('option', { name: /gpt-4.1/i })
+        .querySelector('img')
+        ?.getAttribute('src'),
+    ).toBe('https://assets.example/openai.svg');
+    expect(
+      within(listbox)
+        .getByRole('option', { name: /claude-3.7-sonnet/i })
+        .querySelector('img'),
+    ).toBeNull();
 
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'anthropic' } });
     expect(within(listbox).getAllByRole('option')).toHaveLength(1);
@@ -88,5 +112,31 @@ describe('DraftModelSelector', () => {
 
     rerender(<DraftModelSelector isRunning />);
     expect(screen.getByTitle('Select model')).toBeDisabled();
+  });
+
+  it('shows a settings CTA when the host has a catalog and no models', async () => {
+    renderSelector(
+      {},
+      {
+        getModels: async () => [],
+        catalog: createMockCatalog(),
+      },
+    );
+
+    fireEvent.click(await screen.findByTitle('Select model'));
+    const cta = await screen.findByRole('button', { name: /Please configure Models in the settings/i });
+    expect(cta.querySelector('.underline')).toHaveTextContent('settings');
+
+    fireEvent.click(cta);
+    expect(screen.queryByRole('listbox', { name: 'Select model' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('settings-open')).toHaveTextContent('true');
+  });
+
+  it('shows No models when the catalog is not configured', async () => {
+    renderSelector({}, { getModels: async () => [] });
+
+    fireEvent.click(await screen.findByTitle('Select model'));
+    await waitFor(() => expect(screen.getByText('No models')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /Please configure Models/i })).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+import { getOidcVerify } from './oidc';
 
 export type Role = 'admin' | 'user';
 
@@ -15,6 +16,14 @@ export const LOCAL_USER_CONTEXT: UserContext = {
   userRef: 'trueforge-default',
   role: 'admin',
 };
+
+/** Standalone/no IdP: always true. With OIDC: admin role only. */
+export function isAdmin(user: UserContext): boolean {
+  if (!getOidcVerify()) {
+    return true;
+  }
+  return user.role === 'admin';
+}
 
 /** Resolves the caller identity from the request context. Injected on session/turn routers. */
 export type ResolveUserContext = (c: Context) => UserContext;

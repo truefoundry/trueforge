@@ -19,7 +19,7 @@ import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
 import { resolveUserContext } from './auth/identity';
-import { authMiddleware } from './auth/middleware';
+import { adminAuthMiddleware, authMiddleware } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -58,6 +58,14 @@ function routeNotFound(c: Context) {
 function withAuth(router: OpenAPIHono): OpenAPIHono {
   const shell = new OpenAPIHono();
   shell.use('*', authMiddleware);
+  shell.route('/', router);
+  return shell;
+}
+
+/** Admin-only routes: standalone passes through; with OIDC requires an authenticated admin. */
+function withAdminAuth(router: OpenAPIHono): OpenAPIHono {
+  const shell = new OpenAPIHono();
+  shell.use('*', adminAuthMiddleware);
   shell.route('/', router);
   return shell;
 }
@@ -158,7 +166,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   );
   app.route(
     '/api/v1/settings',
-    withAuth(
+    withAdminAuth(
       createSettingsRouter({
         modelCatalog: deps.modelCatalog,
         modelProviderStore: deps.modelProviderStore,

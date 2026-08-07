@@ -11,7 +11,8 @@ export default defineConfig({
   format: ['esm'],
   dts: true,
   sourcemap: true,
-  clean: true,
+  // Watch mode must not wipe dist/styles.css (built by a sibling tailwind watcher).
+  clean: !process.argv.includes('--watch'),
   target: 'es2022',
   esbuildPlugins: [
     svgr({
