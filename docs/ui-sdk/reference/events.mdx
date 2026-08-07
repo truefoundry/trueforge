@@ -1,0 +1,312 @@
+---
+title: "Streaming events"
+description: "The event protocol createTurn yields and the UI folds into a transcript."
+---
+
+`createTurn` is an async generator. Each value it yields is an envelope, not a bare event:
+
+```ts
+interface TurnStreamData {
+  sequenceNumber: number;
+  event: TurnStreamingEvent;
+}
+```
+
+<Note>
+  `@truefoundry/trueforge-ui` types `TurnStreamingEvent` openly as
+  `{ type: string; [key: string]: unknown }`, so TypeScript will not check the shapes on this
+  page for you — emit an event whose fields do not match and it compiles cleanly, then fails to
+  render. Treat these shapes as required regardless.
+
+  The named event interfaces below are declared in `@truefoundry/assistant-ui-runtime`. Import
+  them from there if you want compile-time checking when building a server.
+</Note>
+
+`sequenceNumber` must increase monotonically within a turn. It is what
+[`subscribeToTurn`](/ui-sdk/concepts/server-contract#agentchatserver) uses to resume — a reconnecting
+client passes the last number it saw as `afterSequenceNumber`, and you replay only what follows.
+
+```ts
+async *createTurn({ sessionId, input }) {
+  let seq = 0;
+  for await (const event of myBackendStream(sessionId, input)) {
+    yield { sequenceNumber: seq++, event };
+  }
+}
+```
+
+## Turn lifecycle
+
+Every turn is bracketed by two lifecycle events.
+
+```ts
+interface TurnCreatedEvent {
+  type: "turn.created";
+  id: string;
+  turnId: string;
+  previousTurnId?: string | null;
+  input?: TurnInputItem[];
+  state?: { status: "running" };
+  createdAt: string;
+  threadId?: string | null;
+}
+
+interface TurnDoneEvent {
+  type: "turn.done";
+  id: string;
+  state: Exclude<TurnState, { status: "running" }>;
+  createdAt: string;
+  threadId?: string | null;
+}
+```
+
+Emit `turn.created` first, then content events, then exactly one `turn.done`. Because
+`turn.done`'s `state` excludes `running`, it must carry a terminal state — `done`, `cancelled`,
+or `error` — each with a `completedAt`. A stream that ends without `turn.done` leaves the UI
+believing the turn is still running.
+
+## Content events
+
+<AccordionGroup>
+  <Accordion title="model.message — a complete assistant message" defaultOpen>
+    ```ts
+    interface ModelMessageEvent {
+      type: "model.message";
+      id: string;
+      threadId: string;
+      content?: string | ModelMessageContentPart[] | null;
+      name?: string;
+      refusal?: string | null;
+      reasoningContent?: string;
+      toolCalls?: ToolCall[];
+      finishReason?: string | null;
+      createdAt: string;
+      usage?: unknown;
+    }
+
+    type ModelMessageContentPart =
+      | { type: "text"; text: string }
+      | { type: "refusal"; refusal: string }
+      | { type: "image_url"; image_url: { url: string } };
+    ```
+
+    `content` is either a plain string or an array of parts when the message mixes text with
+    images or a refusal. `reasoningContent` populates the reasoning card. `toolCalls` carries
+    fully-formed calls — see the tool calls section below.
+  </Accordion>
+
+  <Accordion title="model.message.delta — incremental text">
+    ```ts
+    interface ModelMessageDeltaEvent {
+      type: "model.message.delta";
+      id: string;
+      threadId: string;
+      content?: string | null;
+      refusal?: string | null;
+      reasoningContent?: string;
+      toolCalls?: ChunkDeltaToolCall[];
+      finishReason?: string | null;
+      createdAt?: string;
+      usage?: unknown;
+      contentBlocks?: Array<{
+        index: number;
+        delta:
+          | { type: "text"; text?: string }
+          | { type: "image_url"; image_url?: { url?: string } };
+      }>;
+      content_blocks?: Array<{ index: number; delta: /* same as above */ }>;
+    }
+    ```
+
+    Deltas accumulate against the `id` of the message they belong to, so reuse one `id` across
+    every delta for a given message. `content` on a delta is the *increment*, not the running
+    total.
+
+    `contentBlocks` carries block-level deltas, used for streaming images alongside text, keyed
+    by `index`. Both the camelCase and `snake_case` spellings are accepted; emit
+    `contentBlocks` in new code.
+  </Accordion>
+
+  <Accordion title="tool.response — the result of a tool call">
+    ```ts
+    interface ToolResponseEvent {
+      type: "tool.response";
+      id: string;
+      threadId: string;
+      toolCallId: string;
+      content: string;
+      createdAt: string;
+    }
+    ```
+
+    `toolCallId` must match the `id` of the `ToolCall` this responds to. `content` is a string —
+    serialize structured results yourself.
+  </Accordion>
+</AccordionGroup>
+
+## Tool calls
+
+```ts
+interface ToolCall {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+  toolInfo?: ToolInfo;
+  providerSpecificFields?: Record<string, unknown>;
+}
+
+type ToolInfo =
+  | { type: "truefoundry-system"; name: string }
+  | { type: "mcp"; serverId: string; serverName: string; name: string }
+  | { type: string; name?: string; [key: string]: unknown };
+```
+
+`function.arguments` is a JSON **string**, not an object. `toolInfo` drives presentation: the
+`mcp` variant is what lets the UI label a call with the server it came from, and the open third
+variant lets you introduce your own tool categories.
+
+Streaming a call in pieces uses a delta shape keyed by position:
+
+```ts
+interface ChunkDeltaToolCall {
+  index: number;
+  id?: string;
+  type?: "function";
+  function?: { name?: string; arguments?: string };
+  toolInfo?: ToolInfo;
+  providerSpecificFields?: Record<string, unknown>;
+}
+```
+
+Every field except `index` is optional, because a call is assembled across several deltas —
+typically `id` and `function.name` first, then `function.arguments` in fragments. Accumulate by
+`index` within the message.
+
+## Pausing for the user
+
+Three events tell the UI a turn cannot proceed unattended:
+
+```ts
+type ActionRequiredEvent =
+  | ToolApprovalRequiredEvent
+  | ToolResponseRequiredEvent
+  | McpAuthRequiredEvent;
+```
+
+```ts
+interface ToolApprovalRequiredEvent {
+  type: "tool.approval_required";
+  id: string;
+  createdAt: string;
+  threadId: string;
+  toolCalls: ToolCallRef[];
+}
+
+interface ToolCallRef {
+  id: string;
+  sourceEventId: string;
+}
+```
+
+`tool.response_required` has the identical shape and asks the user to supply a result rather
+than approve one. A `ToolCallRef` needs both the tool call's `id` and `sourceEventId` — the `id`
+of the event that emitted the call — so the UI can attach the prompt to the right card.
+
+```ts
+interface McpAuthRequiredEvent {
+  type: "mcp.auth_required";
+  id: string;
+  createdAt: string;
+  threadId?: string | null;
+  mcpServers: Array<{ id: string; name: string; authUrl: string }>;
+}
+```
+
+`authUrl` is the URL the popup opens. See [MCP OAuth](/ui-sdk/guides/mcp-oauth).
+
+<Note>
+  These events also appear in `requiredActions` on a `done` turn state. That is how a turn that
+  finished *while waiting* on the user communicates what it needs — a `done` turn carrying
+  `requiredActions` is paused, not complete.
+</Note>
+
+The user's reply comes back through `createTurn` as a `user.tool_approval` or
+`user.tool_response` [input item](/ui-sdk/concepts/server-contract#turn-input), carrying the same
+`toolCallId`.
+
+## Sub-agents
+
+Sub-agents are modelled as separate threads. Nearly every event carries a `threadId`, and the
+UI groups events by it.
+
+```ts
+interface ThreadCreatedEvent {
+  type: "thread.created";
+  id: string;
+  threadId: string;
+  title: string;
+  agentInfo: { type?: string; name: string; input: string; model?: string };
+  parent: { threadId: string; toolCallId: string };
+  createdAt: string;
+}
+
+interface ThreadDoneEvent {
+  type: "thread.done";
+  id: string;
+  threadId: string;
+  title?: string;
+  createdAt: string;
+  state?: unknown;
+}
+```
+
+`parent` is what nests a sub-agent under the tool call that spawned it: the parent thread's
+`threadId` plus the `toolCallId`. `agentInfo` populates the sub-agent card — `name`, the `input`
+it was given, and optionally the `model` it runs.
+
+## Sandboxes and MCP setup
+
+```ts
+interface SandboxCreatedEvent {
+  type: "sandbox.created";
+  id: string;
+  createdAt: string;
+  sandboxId: string;
+  threadId: string | null;
+}
+```
+
+`sandboxId` is what you pass to
+[`downloadSandboxFile`](/ui-sdk/concepts/server-contract#agentchatserver) to retrieve artifacts the
+agent produced.
+
+`mcp.initialize` (`{ type, id, createdAt, threadId }`, plus any additional fields you attach)
+reports MCP server startup.
+
+## The unions
+
+| Union | Contains | Where it appears |
+| --- | --- | --- |
+| `TurnEvent` | `model.message`, `tool.response`, `thread.created`, `thread.done`, `mcp.auth_required`, `mcp.initialize`, `sandbox.created`, `tool.approval_required`, `tool.response_required` | `listTurnEvents` |
+| `TurnStreamingEvent` | `TurnEvent` plus `model.message.delta`, `turn.created`, `turn.done` | `createTurn`, `subscribeToTurn` |
+| `ActionRequiredEvent` | the three pause events | `TurnState.requiredActions` |
+
+The distinction is that `TurnEvent` holds the settled record of a turn, while
+`TurnStreamingEvent` adds the transient deltas and lifecycle markers that only matter live.
+This is why replaying a turn from history yields no deltas — the assembled `model.message` is
+stored instead.
+
+`listEvents` returns a session-level wrapper that identifies the turn rather than a position:
+
+```ts
+interface SessionEventItem {
+  turnId: string;
+  event: TurnCreatedEvent | TurnDoneEvent | TurnEvent;
+}
+```
+
+<Warning>
+  Note the asymmetry between the two envelopes: `createTurn` yields
+  `{ sequenceNumber, event }`, while `listEvents` returns `{ turnId, event }`. Streaming is
+  ordered within one turn; history spans many, so it labels each event with its turn instead.
+</Warning>

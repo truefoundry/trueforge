@@ -4,9 +4,14 @@
   "name": "TrueForge",
   "logo": {
     "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "dark": "/logo/dark.svg",
+    "href": "https://trueforge.dev"
   },
-  "favicon": "/favicon.png",
+  "favicon": {
+    "light": "/logo/favicon-light.svg",
+    "dark": "/logo/favicon-dark.svg"
+  },
+  "description": "Open-source agent harness — MCP tools, skills, sandboxing, approvals, and subagents.",
   "colors": {
     "primary": "#0D9488",
     "light": "#14B8A6",
@@ -18,38 +23,103 @@
       "url": "https://example.com"
     }
   ],
+  "appearance": {
+    "default": "system"
+  },
   "navigation": {
-    "groups": [
+    "tabs": [
       {
-        "group": "Getting Started",
-        "pages": ["introduction", "quickstart"]
-      },
-      {
-        "group": "Capabilities",
-        "pages": [
-          "models",
-          "mcp-servers",
-          "skills",
-          "sandbox",
+        "tab": "Documentation",
+        "groups": [
           {
-            "group": "Context Engineering",
+            "group": "Getting Started",
+            "pages": ["introduction", "quickstart"]
+          },
+          {
+            "group": "Capabilities",
             "pages": [
-              "context-engineering/overview",
-              "context-engineering/subagents",
-              "context-engineering/deferred-tool-loading",
-              "context-engineering/code-mode",
-              "context-engineering/large-tool-responses"
+              "models",
+              "mcp-servers",
+              "skills",
+              "sandbox",
+              {
+                "group": "Context Engineering",
+                "pages": [
+                  "context-engineering/overview",
+                  "context-engineering/subagents",
+                  "context-engineering/deferred-tool-loading",
+                  "context-engineering/code-mode",
+                  "context-engineering/large-tool-responses"
+                ]
+              },
+              "human-in-the-loop",
+              "ask-user-questions",
+              "generative-ui"
             ]
           },
-          "human-in-the-loop",
-          "ask-user-questions",
-          "generative-ui"
+          {
+            "group": "API",
+            "pages": ["api/overview", "api/agent-spec", "api/turn-events"]
+          }
         ]
       },
       {
-        "group": "API",
-        "pages": ["api/overview", "api/agent-spec", "api/turn-events"]
+        "tab": "UI SDK",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": ["ui-sdk/index", "ui-sdk/get-started/installation", "ui-sdk/get-started/quickstart"]
+          },
+          {
+            "group": "Concepts",
+            "pages": ["ui-sdk/concepts/architecture", "ui-sdk/concepts/agent-modes", "ui-sdk/concepts/server-contract"]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "ui-sdk/guides/layouts",
+              "ui-sdk/guides/theming",
+              "ui-sdk/guides/slot-overrides",
+              "ui-sdk/guides/custom-server",
+              "ui-sdk/guides/mcp-oauth",
+              "ui-sdk/guides/troubleshooting"
+            ]
+          },
+          {
+            "group": "API reference",
+            "pages": [
+              "ui-sdk/reference/trueforge-ui",
+              "ui-sdk/reference/theme",
+              "ui-sdk/reference/containers",
+              "ui-sdk/reference/atoms",
+              "ui-sdk/reference/hooks",
+              "ui-sdk/reference/server",
+              "ui-sdk/reference/events",
+              "ui-sdk/reference/catalog"
+            ]
+          }
+        ]
       }
     ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "type": "github",
+        "href": "https://github.com/truefoundry/trueforge"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "TrueFoundry",
+      "href": "https://www.truefoundry.com"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/truefoundry",
+      "x": "https://x.com/truefoundry",
+      "linkedin": "https://in.linkedin.com/company/truefoundry"
+    }
   }
 }

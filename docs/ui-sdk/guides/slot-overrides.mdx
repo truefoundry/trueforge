@@ -1,0 +1,106 @@
+---
+title: "Slot overrides"
+description: "Replace any built-in atom with your own component."
+---
+
+Pass an `overrides` object to replace a built-in component. Your version is used everywhere
+that component appears, without you having to find each place it is rendered.
+
+```tsx
+import { TrueforgeUI, type AssistantMessageBubbleProps } from "@truefoundry/trueforge-ui";
+
+function MyBubble({ children, error, actionBar, className }: AssistantMessageBubbleProps) {
+  return (
+    <div className={className} data-testid="my-bubble">
+      {error}
+      <div className="prose">{children}</div>
+      {actionBar}
+    </div>
+  );
+}
+
+<TrueforgeUI
+  server={server}
+  layout="sidebar"
+  overrides={{ AssistantMessageBubble: MyBubble }}
+/>;
+```
+
+`SlotOverrides` is `Partial<AtomSlots>`, so overrides are type-checked against the default
+component's signature. Import the exported `*Props` type for the slot you are replacing and
+honor the props you receive — several are rendered nodes (`actionBar`, `error`,
+`approvalSlot`) that the container supplies and expects you to place.
+
+## Commonly overridden slots
+
+<AccordionGroup>
+  <Accordion title="Messages and content">
+    `AssistantMessageBubble`, `UserMessageBubble`, `UserMessageEdit`,
+    `UserMessageActionBar`, `MessageActionBar`, `MessageErrorBanner`, `MessageIndicator`,
+    `MessageTimestamp`, `MessageGroup`, `Markdown`, `SyntaxHighlighter`, `OpenUiFenceBlock`,
+    `CodeEditor`, `MonacoEditorCore`, `WelcomeScreen`.
+  </Accordion>
+  <Accordion title="Composer">
+    `ComposerShell`, `ComposerLeftSection`, `ComposerRightSection`, `ComposerSendButton`,
+    `AttachmentCard`, `AttachmentPickerButton`, `AttachmentPreviewDialog`.
+
+    The draft composer has its own slots — `DraftComposerLeftSection`,
+    `DraftComposerRightSection`, `DraftModelSelector`, and `DraftCompositeSelector` — so you can
+    restyle the draft chrome without touching the standard composer.
+
+    The two sets interact. In a mutable draft the container substitutes the draft sections
+    behind `ComposerLeftSection` / `ComposerRightSection`, but only while those slots are still
+    at their defaults. Override either one and yours wins in draft mode too, which means the
+    model and composite selectors disappear unless you render them yourself.
+  </Accordion>
+  <Accordion title="Thread shell and list">
+    `ThreadRootShell`, `ThreadViewportShell`, `ThreadComposerAreaShell`,
+    `ScrollToBottomButton`, `MessageListSkeleton`, `HistoryLoader`, `ThreadListShell`,
+    `ThreadListNewButton`, `ThreadListRow`, `ThreadListRowSkeleton`,
+    `ThreadListEmptyState`.
+  </Accordion>
+  <Accordion title="Tools and prompts">
+    `ToolCallCard`, `ToolCallContentBlock`, `ToolApprovalBar`, `ToolGroupCard`,
+    `SubAgentCard`, `SandboxToolCallCard`, `SandboxArtifactDownload`, `ChatFileDownload`,
+    `AgentStepsCard`, and the prompt slots `AskUserPrompt`, `McpAuthPrompt`, `ReasoningCard`.
+  </Accordion>
+  <Accordion title="Agent library and shell">
+    `AgentsLibrary`, `AgentsLibraryButton`, `SaveAgentButton`, `SelectAgentEmptyState`,
+    `ClearChatButton`, `Toast`, `ToastStack`, `Accordion`, `AccordionSummary`,
+    `AccordionDetails`.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  `SlotOverrides` is derived directly from the SDK's default slot table, so autocomplete on the
+  `overrides` object is an exact list of what can be overridden — nothing more, nothing less.
+</Note>
+
+<Note>
+  Some slots are override-only, meaning you supply your own component rather than wrapping a
+  default: `AskUserPrompt`, `McpAuthPrompt`, and `ReasoningCard` publish their prop types but
+  not the components, and `Accordion`, `AccordionSummary`, and `AccordionDetails` publish
+  neither.
+</Note>
+
+<Note>
+  `Button` and `IconButton` publish their prop types for typing your own components. The
+  buttons themselves are restyled through semantic tokens and CSS rather than replaced — see
+  [Theming](/ui-sdk/guides/theming).
+</Note>
+
+## Discovering slot names
+
+`SlotOverrides` is a mapped type over every slot, so your editor autocompletes the available
+names as you type inside the `overrides` object, and hovering a name shows the component
+signature you need to match. That is the fastest way to find a slot. The groups above list the
+ones most applications touch.
+
+## Overriding outside TrueforgeUI
+
+If you compose providers manually, pass overrides to `SlotsProvider` and keep it outside
+`TrueFoundryChatProvider`:
+
+```tsx
+<SlotsProvider overrides={{ ThreadListRow: MyRow }}>{/* ... */}</SlotsProvider>
+```

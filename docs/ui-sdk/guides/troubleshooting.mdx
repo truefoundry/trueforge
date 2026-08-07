@@ -1,0 +1,82 @@
+---
+title: "Troubleshooting"
+description: "Common failure modes and their causes."
+---
+
+<AccordionGroup>
+  <Accordion title="Error: requires an AuiProvider">
+    Two copies of an assistant-ui package are in the bundle. Deduplicate `react`,
+    `react-dom`, `@assistant-ui/core`, `@assistant-ui/react`, and `@assistant-ui/store` — see
+    [Installation](/ui-sdk/get-started/installation).
+  </Accordion>
+
+  <Accordion title="The UI renders but is collapsed to zero height">
+    The SDK fills its parent and sets no height of its own. Give the wrapper a resolved
+    height (`h-dvh` plus `min-h-0`, or an explicit pixel height) and pass
+    `className="h-full min-h-0"`.
+  </Accordion>
+
+  <Accordion title="The SDK renders unstyled">
+    Check that `@import "@truefoundry/trueforge-ui/styles.css";` is actually reaching the
+    browser — that single import is the entire styling setup, and the stylesheet is
+    self-contained. You do not need Tailwind in your own app for the SDK to look right.
+  </Accordion>
+
+  <Accordion title="Your app's own base styles changed after installing">
+    The SDK's stylesheet deliberately omits Tailwind preflight so it cannot reset your styles,
+    so this is unlikely to come from the import itself. Look instead at whether you added
+    `@import "tailwindcss";` at the same time — that one does ship preflight, and it resets
+    host styles by design.
+  </Accordion>
+
+  <Accordion title="An error alert appears immediately on mount">
+    If you passed `type: "trueforge"`, that is expected — the harness adapter has not shipped,
+    so it resolves to a not-implemented error. Use `type: "truefoundry"` or a
+    [custom server](/ui-sdk/guides/custom-server) instead.
+
+    Otherwise the server failed to resolve: check that `apiKey` and `controlPlaneURL` are set
+    and reachable. Attach an `onError` handler to see the underlying error.
+  </Accordion>
+
+  <Accordion title="Requests fail in composer mode with an unknown model">
+    Without an explicit `defaultAgentSpec`, drafts default to `openai-main/gpt-4.1`. Pass a
+    spec naming a model your backend actually exposes:
+    `agentConfig={{ mode: "AgentComposer", defaultAgentSpec: { model: { name: "..." } } }}`.
+  </Accordion>
+
+  <Accordion title="Changing defaultAgentSpec did not affect the open conversation">
+    It seeds a new draft rather than binding to the current one, so the change lands on the next
+    **new chat**. Clear chat will not pick it up — that path preserves the spec already bound to
+    the draft. To apply it to the conversation on screen, remount the component with a new
+    `key`. It is ignored entirely in `SingleAgent` mode.
+  </Accordion>
+
+  <Accordion title="The settings button is missing">
+    Settings render only when your server exposes a `catalog`, so attach one to enable the
+    panel. If you are on a custom layout, that is the other cause — the panel ships with the
+    built-in layouts only.
+  </Accordion>
+
+  <Accordion title="Only the OAuth screen renders — no chat">
+    A `screenType=mcp-auth` query parameter is present on the URL. `TrueforgeUI` renders the
+    OAuth completion screen exclusively in that case. Keep the callback on its own route; see
+    [MCP OAuth](/ui-sdk/guides/mcp-oauth).
+  </Accordion>
+
+  <Accordion title="Dark mode fights with the host application">
+    The provider toggles the `dark` class on `document.documentElement`. Pass a controlled
+    `theme.mode` derived from your own state so the two stay aligned.
+  </Accordion>
+
+  <Accordion title="Import of Button or AskUserPrompt fails">
+    A few names are published as types only, so importing them as values fails. `Button` and
+    `IconButton` are restyled through [theme tokens](/ui-sdk/guides/theming) rather than replaced.
+    `AskUserPrompt`, `McpAuthPrompt`, and `ReasoningCard` are override-only — supply your own
+    component typed with the published props.
+  </Accordion>
+
+  <Accordion title="SSR or React Server Components errors">
+    The package is ESM-only and client-only. Mount `TrueforgeUI` from a client component — in
+    Next.js App Router, a file with `"use client"` at the top.
+  </Accordion>
+</AccordionGroup>

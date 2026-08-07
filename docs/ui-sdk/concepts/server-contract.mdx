@@ -1,0 +1,314 @@
+---
+title: "Server contract"
+description: "The interfaces a backend must implement for the SDK to talk to it."
+---
+
+The `server` prop accepts either a built-in config object or an object implementing
+`AgentUIServer`.
+
+```ts
+type TrueforgeServerConfig =
+  | {
+      type: "truefoundry";
+      apiKey: string;
+      controlPlaneURL: string;
+      gatewayPlaneURL?: string;
+      catalog?: CatalogServer;
+    }
+  | ({ type: "trueforge"; apiKey: string; catalog?: CatalogServer } & Record<string, unknown>)
+  | AgentUIServer;
+```
+
+Each form resolves differently. An `AgentUIServer` object is used immediately. A `truefoundry`
+config is resolved asynchronously, so the SDK renders a loading indicator (`role="status"`) for
+a moment first. A `trueforge` config is typed for the forthcoming harness adapter and currently
+resolves to a not-implemented error — see [Quickstart](/ui-sdk/get-started/quickstart#trueforge).
+
+`catalog` is optional on both built-in forms and is attached to the resolved server, which is
+how you enable the [settings UI](/ui-sdk/reference/catalog) without hand-building a server.
+
+## The composed contract
+
+```ts
+type AgentUIServer = AgentChatServer & AgentBuilderServer & { catalog?: CatalogServer };
+```
+
+Chat and session operations, agent-builder operations, and an optional settings catalog. Only
+the first two are required.
+
+Every interface is generic. The SDK's types constrain only the fields the UI itself reads, so
+when your backend returns richer objects you widen the type parameters rather than casting or
+stripping fields. See [widening](#widening-the-types) below.
+
+## AgentChatServer
+
+The runtime calls these. All operations are keyed by a flat `sessionId`.
+
+```ts
+interface AgentChatServer {
+  createSession(req: CreateSessionRequest): Promise<Session>;
+  listSessions(req?: ListSessionsParams): Promise<PageResult<Session, ListSessionsResponse>>;
+  getSession(req: { sessionId: string }): Promise<Session>;
+  updateSession(req: UpdateSessionRequest): Promise<Session>;
+
+  createTurn(req: {
+    sessionId: string;
+    input?: TurnInputItem[];
+    previousTurnId?: PreviousTurnIdInput;
+  }): AsyncIterable<TurnStreamData>;
+
+  cancelSession(req: { sessionId: string }): Promise<void>;
+  deleteSession?(req: { sessionId: string }): Promise<void>;
+
+  listTurns(req: {
+    sessionId: string;
+    limit?: number;
+    pageToken?: string;
+  }): Promise<PageResult<Turn, ListTurnsResponse>>;
+  getTurn(req: { sessionId: string; turnId: string }): Promise<Turn>;
+
+  listEvents(req: {
+    sessionId: string;
+    pageToken?: string;
+    lastTurnId?: string;
+    limit?: number;
+  }): Promise<PageResult<SessionEventItem, ListSessionEventsResponse>>;
+
+  subscribeToTurn?(req: {
+    sessionId: string;
+    turnId: string;
+    afterSequenceNumber?: number;
+  }): AsyncIterable<TurnStreamData>;
+
+  downloadSandboxFile?(req: {
+    sessionId: string;
+    turnId: string;
+    sandboxId: string;
+    path: string;
+  }): Promise<Blob>;
+}
+```
+
+Three methods are optional. `deleteSession` gates the delete control in the session list.
+`subscribeToTurn` lets a reconnecting client resume a stream from `afterSequenceNumber` rather
+than replaying it. `downloadSandboxFile` enables artifact downloads.
+
+<Note>
+  `downloadSandboxFile` receives both `turnId` and `sandboxId` because backends address
+  sandboxes differently. If your download route is scoped to a turn, resolve the sandbox from
+  `turnId` and ignore `sandboxId`; if you address sandboxes directly, use `sandboxId`.
+</Note>
+
+`createTurn` and `subscribeToTurn` yield `TurnStreamData`, an envelope of
+`{ sequenceNumber, event }`. The event protocol is documented in
+[Streaming events](/ui-sdk/reference/events).
+
+## Sessions
+
+```ts
+interface Session {
+  id: string;
+  title?: string;
+  agentName?: string;
+  agentSpec?: AgentSpec;
+  isMutable: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+`id`, `isMutable`, `createdAt`, and `updatedAt` are required; timestamps are ISO strings. Set
+`isMutable: true` while the agent spec may still be edited — that is what permits
+`updateSession`.
+
+`CreateSessionRequest` is `{ agentName?, agentSpec?, title? }`; `UpdateSessionRequest` is the
+same plus a required `sessionId`.
+
+## Pagination
+
+```ts
+interface PageResult<T, R = unknown> {
+  data: T[];
+  response: R;
+  hasNextPage(): boolean;
+  getNextPage(): Promise<PageResult<T, R>>;
+}
+```
+
+`PageResult` is an object with methods, not a plain DTO. `data` holds the rows, `response`
+carries your raw backend payload, and the two methods drive paging. Requests accept a
+`pageToken`, so `getNextPage()` is where you call your backend again with the token you held
+onto.
+
+The `response` type parameter is the shape your endpoint returned — `ListSessionsResponse`,
+`ListTurnsResponse`, or `ListSessionEventsResponse`, each `{ data, pagination }` where
+`pagination` is a `TokenPagination` of `{ nextPageToken?, previousPageToken?, limit }`.
+
+```ts
+async listSessions({ pageToken, limit = 20 } = {}) {
+  const res = await fetch(`/api/sessions?limit=${limit}&cursor=${pageToken ?? ""}`);
+  const body = await res.json(); // { data, pagination }
+  return {
+    data: body.data,
+    response: body,
+    hasNextPage: () => Boolean(body.pagination.nextPageToken),
+    getNextPage: () => this.listSessions({ pageToken: body.pagination.nextPageToken, limit }),
+  };
+}
+```
+
+<Note>
+  Because `PageResult` carries methods, you cannot return a bare object literal parsed from
+  JSON. Build it — or write a small helper — so `hasNextPage` and `getNextPage` are present.
+</Note>
+
+## Turn input
+
+What the UI sends into `createTurn`:
+
+```ts
+type TurnInputItem = UserMessage | UserToolApprovalEvent | UserToolResponseEvent;
+
+interface UserMessage {
+  type: "user.message";
+  content: UserMessageContent;
+}
+
+interface UserToolApprovalEvent {
+  type: "user.tool_approval";
+  threadId: string;
+  toolCallId: string;
+  approval: { status: "allow" } | { status: "deny"; reason?: string };
+}
+
+interface UserToolResponseEvent {
+  type: "user.tool_response";
+  threadId: string;
+  toolCallId: string;
+  content: string;
+}
+```
+
+A plain chat message arrives as `user.message`. Approving or rejecting a tool call, and
+answering a prompt the agent raised, arrive as the other two — all three through the same
+`createTurn` entry point, so branch on `type`.
+
+## Turn state
+
+```ts
+interface Turn {
+  id: string;
+  sessionId: string;
+  previousTurnId?: string;
+  input?: TurnInputItem[];
+  state: TurnState;
+  createdAt: string;
+}
+
+type TurnState =
+  | { status: "running" }
+  | { status: "done"; output?: unknown; requiredActions?: unknown[]; completedAt: string }
+  | { status: "cancelled"; reason: string; completedAt: string }
+  | { status: "error"; message: string; completedAt: string };
+```
+
+A turn ends in one of three terminal states, each carrying `completedAt`. A `done` turn may
+still carry `requiredActions` — that is how a turn signals it is waiting on the user, such as a
+tool approval, rather than being finished outright. The user's reply arrives on the next
+`createTurn` call as a `user.tool_approval` or `user.tool_response` input item.
+
+## AgentBuilderServer
+
+Powers the agent library and the draft composer.
+
+```ts
+interface AgentBuilderServer {
+  getModels(): Promise<ModelSelection[]>;
+  getSkills(): Promise<AgentSkill[]>;
+  getMcp(): Promise<ConnectorState[]>;
+  searchAgents(req?: SearchAgentsParams): Promise<AgentLibraryEntry[]>;
+  saveAgent(req: SaveAgentRequest): Promise<unknown>;
+  deleteAgent?(req: { agentName: string }): Promise<void>;
+}
+```
+
+These return picker rows — the minimum each selector renders:
+
+| Type | Required | Optional |
+| --- | --- | --- |
+| `ModelSelection` | `name`, `provider` | `reasoningEfforts?: string[]` |
+| `AgentSkill` | `id`, `name` | `description` |
+| `ConnectorState` | `id`, `name` | `description`, `requiresAuth`, `authenticated` |
+| `AgentLibraryEntry` | `name` | `agentId`, `agentSpec` |
+
+<Note>
+  Return a non-empty `reasoningEfforts` on a `ModelSelection` and the UI shows a
+  reasoning-effort picker beside the model selector. On `AgentLibraryEntry`, supply `agentSpec`
+  to enable Edit — omit it for try-only agents — and `agentId` when the stable id differs from
+  the display `name`, which otherwise serves as the id.
+</Note>
+
+`SearchAgentsParams` is `{ query?, limit?, offset? }` — offset paging, since it backs a search
+box rather than an infinite list. `SaveAgentRequest` is `{ agentName, agentSpec }`, and its
+return value is passed through untyped.
+
+## AgentSpec
+
+```ts
+interface AgentSpec {
+  model: Model;
+  instructions?: string;
+  skills?: SkillMount[];
+  mcpServers?: McpServerMount[];
+}
+
+interface Model {
+  name: string;
+  params?: { maxTokens?: number; reasoningEffort?: string };
+}
+```
+
+Only `model` is required. `instructions` carries the system prompt.
+
+`SkillMount` and `McpServerMount` are typed as `object`. The runtime stores and forwards mounts
+without reading any field, and your backend owns their shape — so the base constrains only that
+a mount is an object, and you intersect your concrete type over it.
+
+## Widening the types
+
+Every interface takes type parameters defaulting to the SDK-minimal shapes. Supply your own to
+carry extra fields through the UI without casting:
+
+```ts
+interface MyModel extends ModelSelection {
+  modelId: string;
+  pricePerMillionTokens: number;
+}
+
+type MySkillMount = { fqn: string; preload: boolean };
+type MySpec = AgentSpec<Model, MySkillMount>;
+
+const server: AgentUIServer<AgentChatServer<MySpec>, AgentBuilderServer<MySpec, MyModel>> = {
+  /* ... */
+};
+```
+
+The UI keeps reading only the fields it knows about; your own components — supplied through
+[slot overrides](/ui-sdk/guides/slot-overrides) — can read the rest.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Worked implementation" icon="server" href="/ui-sdk/guides/custom-server">
+    A minimal `AgentUIServer` you can copy.
+  </Card>
+  <Card title="Streaming events" icon="bolt" href="/ui-sdk/reference/events">
+    The event protocol `createTurn` yields.
+  </Card>
+  <Card title="Settings catalog" icon="sliders" href="/ui-sdk/reference/catalog">
+    The optional `catalog` port behind the settings UI.
+  </Card>
+  <Card title="Type reference" icon="code" href="/ui-sdk/reference/server">
+    Every exported server type.
+  </Card>
+</CardGroup>

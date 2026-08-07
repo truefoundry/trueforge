@@ -1,0 +1,88 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "TrueForge UI SDK",
+  "description": "React SDK for building AI agent chat applications, built on assistant-ui.",
+  "colors": {
+    "primary": "#0B5FFF",
+    "light": "#6FA8FF",
+    "dark": "#0A3FB8"
+  },
+  "favicon": "/images/favicon.svg",
+  "appearance": {
+    "default": "system"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "index",
+              "get-started/installation",
+              "get-started/quickstart"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/agent-modes",
+              "concepts/server-contract"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/layouts",
+              "guides/theming",
+              "guides/slot-overrides",
+              "guides/custom-server",
+              "guides/mcp-oauth",
+              "guides/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API reference",
+        "groups": [
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/trueforge-ui",
+              "reference/theme",
+              "reference/containers",
+              "reference/atoms",
+              "reference/hooks",
+              "reference/server",
+              "reference/events",
+              "reference/catalog"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "type": "github",
+        "href": "https://github.com/truefoundry/harness"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "TrueFoundry",
+      "href": "https://www.truefoundry.com"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/truefoundry",
+      "x": "https://x.com/truefoundry"
+    }
+  }
+}
