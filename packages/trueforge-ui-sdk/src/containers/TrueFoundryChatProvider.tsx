@@ -7,8 +7,9 @@ import {
   type TrueFoundryAgentConfig,
   type UseTrueFoundryAgentRuntimeOptions,
 } from '@truefoundry/assistant-ui-runtime';
-import { useMemo, type ReactNode } from 'react';
+import { useCallback, useMemo, type ReactNode } from 'react';
 
+import { notifyComposerBusyFailure } from '../hooks/useComposerBusyState.js';
 import type { AgentUIServer } from '../server/types.js';
 import { ErrorToasterProvider, useErrorToaster } from './ErrorToasterContainer.js';
 
@@ -48,7 +49,16 @@ function ChatRuntimeScope({
   children: ReactNode;
 }) {
   const { showError } = useErrorToaster();
-  const resolvedOnError = onError ?? showError;
+  const reportError = onError ?? showError;
+  // composer().send() is void and swallows onNew rejections; clear optimistic
+  // busy when the runtime reports a pre-stream failure (e.g. createSession).
+  const resolvedOnError = useCallback(
+    (error: unknown) => {
+      notifyComposerBusyFailure();
+      reportError(error);
+    },
+    [reportError],
+  );
 
   const runtime = useTrueFoundryAgentRuntime({
     server: server as never,

@@ -14,6 +14,20 @@ export type ComposerBusyState = {
 
 const ComposerBusyContext = createContext<ComposerBusyState | null>(null);
 
+/**
+ * `aui.composer().send()` returns void and swallows `onNew` rejections, so the
+ * optimistic submitting flag cannot clear via Promise.catch. First-message
+ * failures (e.g. createSession) also never flip `useThreadIsRunning()`. Chat
+ * runtime `onError` calls this so the Cancel/spinner state does not stick.
+ */
+const busyFailureListeners = new Set<() => void>();
+
+export function notifyComposerBusyFailure(): void {
+  for (const listener of busyFailureListeners) {
+    listener();
+  }
+}
+
 function useComposerBusyStateValue(): ComposerBusyState {
   const isRunning = useThreadIsRunning();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -23,6 +37,16 @@ function useComposerBusyStateValue(): ComposerBusyState {
       setIsSubmitting(false);
     }
   }, [isRunning]);
+
+  useEffect(() => {
+    const clearSubmitting = () => {
+      setIsSubmitting(false);
+    };
+    busyFailureListeners.add(clearSubmitting);
+    return () => {
+      busyFailureListeners.delete(clearSubmitting);
+    };
+  }, []);
 
   const isBusy = isRunning || isSubmitting;
 

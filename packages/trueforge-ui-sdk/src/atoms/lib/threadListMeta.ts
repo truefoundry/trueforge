@@ -17,6 +17,7 @@ export function formatRelativeShort(date: Date, now: Date = new Date()): string 
 /**
  * Indices into `threadIds` ordered newest-first by `lastMessageAt`.
  * Stabilizes UI when assistant-ui appends a switched-to thread at the end.
+ * Missing `lastMessageAt` (empty local "New Chat") sorts as newest so it stays on top.
  */
 export function threadListIndicesByRecency({
   threadIds,
@@ -27,7 +28,8 @@ export function threadListIndicesByRecency({
 }): number[] {
   const timeByKey = new Map<string, number>();
   for (const item of threadItems) {
-    const t = item.lastMessageAt?.getTime() ?? 0;
+    // Empty / not-yet-messaged threads have no timestamp; treat as newest.
+    const t = item.lastMessageAt?.getTime() ?? Number.POSITIVE_INFINITY;
     timeByKey.set(item.id, t);
     if (item.remoteId != null) timeByKey.set(item.remoteId, t);
   }
