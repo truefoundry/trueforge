@@ -118,6 +118,25 @@ describe("McpServersClient", () => {
             .mockEndpoint()
             .get("/api/v1/mcp-servers/name/authorize")
             .respondWith()
+            .statusCode(424)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.mcpServers.authorize("name");
+        }).rejects.toThrow(TrueForgeTypes.FailedDependencyError);
+    });
+
+    test("authorize (6)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/mcp-servers/name/authorize")
+            .respondWith()
             .statusCode(500)
             .jsonBody(rawResponseBody)
             .build();

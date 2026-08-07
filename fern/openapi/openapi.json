@@ -4399,7 +4399,7 @@
                 }
               }
             },
-            "description": "Invalid redirect_url, or the authorization server rejected dynamic client registration."
+            "description": "Invalid redirect_url."
           },
           "404": {
             "content": {
@@ -4420,6 +4420,16 @@
               }
             },
             "description": "DCR could not be completed for this server (e.g. it lacks a registration_endpoint)."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The authorization server failed dynamic client registration or authorization startup."
           },
           "500": {
             "content": {
