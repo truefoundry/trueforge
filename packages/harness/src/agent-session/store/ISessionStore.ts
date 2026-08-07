@@ -26,7 +26,7 @@ export type CreateSessionInput<TSessionCustom extends object = Record<string, ne
 
 /**
  * PATCH fields for an existing session; `undefined` fields are left unchanged.
- * `agent` may be set only on draft (value) sessions, and only as a value arm.
+ * `agent` may be set only on value sessions, and only as a value arm.
  */
 export type UpdateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
@@ -229,7 +229,7 @@ export interface ISessionStore<
 
   /**
    * PATCH semantics — update only the provided fields:
-   * - agent: replace value binding (draft sessions only; ref → invariant error).
+   * - agent: replace value binding (value sessions only; ref → invariant error).
    * - title: set/replace the session title.
    * Bumps `last_activity_timestamp_ms` (= now) in the same update.
    */

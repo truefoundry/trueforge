@@ -52,7 +52,7 @@ export interface SessionTable {
   created_by: string;
   /** Named registry binding; XOR with `agent_spec`. */
   agent_id: string | null;
-  /** Inline draft binding; XOR with `agent_id`. */
+  /** Inline spec binding; XOR with `agent_id`. */
   agent_spec: JsonbColumn<AgentSpec> | null;
   title: string | null;
   last_turn_id: string | null;

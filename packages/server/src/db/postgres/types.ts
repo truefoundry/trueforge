@@ -53,7 +53,7 @@ export interface SessionTable {
    */
   agent_id: string | null;
   /**
-   * Inline draft binding; XOR with `agent_id`.
+   * Inline spec binding; XOR with `agent_id`.
    * TOAST pointer rides through per-turn tip bumps when present.
    */
   agent_spec: JSONColumnType<AgentSpec, AgentSpec | null, AgentSpec | null> | null;
