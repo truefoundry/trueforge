@@ -150,7 +150,8 @@ export class SessionsClient {
      * @example
      *     await client.sessions.create({
      *         agent: {
-     *             name: "name"
+     *             agentId: "agent_id",
+     *             type: "ref"
      *         }
      *     })
      */

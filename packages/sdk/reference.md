@@ -775,7 +775,8 @@ Create a session with `agent` as either an inline AgentSpec or `{ name }` (named
 ```typescript
 await client.sessions.create({
     agent: {
-        name: "name"
+        agentId: "agent_id",
+        type: "ref"
     }
 });
 

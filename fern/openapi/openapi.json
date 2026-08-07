@@ -29,7 +29,6 @@
             "$ref": "#/components/schemas/AgentSpec"
           },
           {
-            "additionalProperties": false,
             "properties": {
               "id": {
                 "description": "Immutable server-generated agent identifier.",
@@ -97,20 +96,7 @@
         ],
         "type": "object"
       },
-      "AgentRef": {
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "type": "object"
-      },
       "AgentSpec": {
-        "additionalProperties": false,
         "description": "Agent Definition",
         "properties": {
           "config": {
@@ -195,7 +181,6 @@
             "$ref": "#/components/schemas/AgentSpec"
           },
           {
-            "additionalProperties": false,
             "properties": {
               "name": {
                 "$ref": "#/components/schemas/ResourceName"
@@ -745,10 +730,10 @@
       "CreateSessionAgent": {
         "anyOf": [
           {
-            "$ref": "#/components/schemas/AgentRef"
+            "$ref": "#/components/schemas/SessionAgentRef"
           },
           {
-            "$ref": "#/components/schemas/AgentSpec"
+            "$ref": "#/components/schemas/SessionAgentSpec"
           }
         ]
       },
@@ -2672,6 +2657,51 @@
         ],
         "type": "object"
       },
+      "SessionAgentSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/RuntimeConfig"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "mcp_servers": {
+            "items": {
+              "$ref": "#/components/schemas/MCPServer"
+            },
+            "type": "array"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AgentSpecUserMessage"
+            },
+            "type": "array"
+          },
+          "model": {
+            "$ref": "#/components/schemas/AgentSpecModel"
+          },
+          "response_format": {
+            "$ref": "#/components/schemas/ResponseFormat"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillNameRef"
+            },
+            "type": "array"
+          },
+          "variables": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "model"
+        ],
+        "type": "object"
+      },
       "SessionAgentValue": {
         "additionalProperties": false,
         "properties": {
@@ -3606,7 +3636,6 @@
         ]
       },
       "UpdateAgentRequest": {
-        "additionalProperties": false,
         "description": "Agent Definition",
         "properties": {
           "config": {
@@ -3655,7 +3684,7 @@
         "additionalProperties": false,
         "properties": {
           "agent": {
-            "$ref": "#/components/schemas/AgentSpec"
+            "$ref": "#/components/schemas/SessionAgentSpec"
           }
         },
         "type": "object"

@@ -3,17 +3,17 @@
 import type * as TrueForge from "../../../../../api/index.js";
 import * as core from "../../../../../core/index.js";
 import type * as serializers from "../../../../index.js";
-import { AgentSpec } from "../../../../types/AgentSpec.js";
+import { SessionAgentSpec } from "../../../../types/SessionAgentSpec.js";
 
 export const UpdateSessionRequest: core.serialization.Schema<
     serializers.UpdateSessionRequest.Raw,
     TrueForge.UpdateSessionRequest
 > = core.serialization.object({
-    agent: AgentSpec.optional(),
+    agent: SessionAgentSpec.optional(),
 });
 
 export declare namespace UpdateSessionRequest {
     export interface Raw {
-        agent?: AgentSpec.Raw | null;
+        agent?: SessionAgentSpec.Raw | null;
     }
 }
