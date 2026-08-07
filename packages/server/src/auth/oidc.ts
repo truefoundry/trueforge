@@ -91,7 +91,9 @@ export async function buildLoginAuthorization(params: {
 }): Promise<string> {
   const oidcConfig = getOidcVerify()?.oidcConfig;
   if (!oidcConfig) {
-    throw new Error('OIDC claim configuration is unavailable; call initOidc before building a login authorization URL.');
+    throw new Error(
+      'OIDC claim configuration is unavailable; call initOidc before building a login authorization URL.',
+    );
   }
 
   const { scopes, claims } = buildAuthorizationRequestParams(oidcConfig);
