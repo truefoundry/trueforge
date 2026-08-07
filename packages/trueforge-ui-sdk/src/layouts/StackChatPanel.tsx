@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { useAui } from '../assistant-ui.js';
+import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { ShellActions } from '../atoms/ShellActions.js';
@@ -69,9 +70,10 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
         >
           <Icon name="clock-rotate-left" />
         </button>
+        <NamedAgentHeaderLabel />
         <span className="min-w-0 flex-1" />
-        <SaveAgentButton />
         <ClearChatButton />
+        <SaveAgentButton />
         <ShellActions />
         {threadHeaderEnd}
       </header>

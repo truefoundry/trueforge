@@ -13,12 +13,12 @@ export function ClearChatButton() {
   return (
     <button
       type="button"
-      aria-label="Clear chat"
       title="Clear chat"
-      className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+      className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
       onClick={() => shell.clearChat()}
     >
-      <Icon name="rotate-right" />
+      <Icon name="broom" size="0.875em" />
+      Clear chat
     </button>
   );
 }

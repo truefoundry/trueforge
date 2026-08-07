@@ -39,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Named agent header title** — when an immutable (named) agent chat is open,
+  the thread header shows the agent name on the left (sidebar / drawer / dock /
+  widget layouts). Hidden for idle and draft/mutable chats.
 - **`AgentLibraryEntry.agentId?` / `agentSpec?`** — optional listing fields.
   Hosts that only return `{ name }` keep working; `agentSpec` enables Edit.
 - **Agents Library Edit** — when `isComposerEnabled` and the row has
