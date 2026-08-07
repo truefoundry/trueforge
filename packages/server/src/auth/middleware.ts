@@ -25,11 +25,11 @@ declare module 'hono' {
   }
 }
 
-type OidcVerify = {
+interface OidcVerify {
   jwks: JWTVerifyGetKey;
   issuer: string;
   audience: string;
-};
+}
 
 /** Populated by {@link configureAuth}; null when browser login is disabled. */
 let oidcVerify: OidcVerify | null = null;
