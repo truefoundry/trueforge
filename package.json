@@ -7,6 +7,10 @@
   },
   "scripts": {
     "build": "pnpm --filter @truefoundry/utils-core build && pnpm --filter @truefoundry/trueforge-ui build && pnpm --filter frontend build && pnpm --filter @truefoundry/utils build",
+    "chart:deps": "helm dependency build charts/truefoundry-utils",
+    "chart:lint": "helm lint charts/truefoundry-utils --values charts/truefoundry-utils/ci/lint-values.yaml",
+    "chart:package": "helm package charts/truefoundry-utils --destination dist",
+    "chart:template": "helm template truefoundry-utils charts/truefoundry-utils --values charts/truefoundry-utils/ci/lint-values.yaml",
     "clean:all": "node scripts/clean.mjs --dependencies",
     "clean": "node scripts/clean.mjs",
     "dev:infra": "docker compose -f docker-compose.dev.yml up",
@@ -29,13 +33,10 @@
     "standalone:dev": "STANDALONE=true NODE_ENV=development pnpm --parallel --filter @truefoundry/utils-core --filter @truefoundry/utils --filter frontend dev",
     "standalone:start": "STANDALONE=true NODE_ENV=production pnpm --filter @truefoundry/utils start",
     "start": "STANDALONE=false NODE_ENV=production pnpm --filter @truefoundry/utils start",
+    "push-sandbox-image-to-daytona": "pnpm --filter @truefoundry/utils push-sandbox-image-to-daytona",
     "test:store:local": "bash scripts/test-store-local.sh",
     "test": "pnpm --filter @truefoundry/utils-core test && pnpm --filter @truefoundry/trueforge-ui test && pnpm --filter @truefoundry/utils test && pnpm --filter frontend test",
-    "typecheck": "pnpm --filter @truefoundry/utils-core typecheck && pnpm --filter @truefoundry/trueforge-ui typecheck && pnpm --filter @truefoundry/utils typecheck && pnpm --filter frontend typecheck",
-    "chart:deps": "helm dependency build charts/truefoundry-utils",
-    "chart:lint": "helm lint charts/truefoundry-utils --values charts/truefoundry-utils/ci/lint-values.yaml",
-    "chart:template": "helm template truefoundry-utils charts/truefoundry-utils --values charts/truefoundry-utils/ci/lint-values.yaml",
-    "chart:package": "helm package charts/truefoundry-utils --destination dist"
+    "typecheck": "pnpm --filter @truefoundry/utils-core typecheck && pnpm --filter @truefoundry/trueforge-ui typecheck && pnpm --filter @truefoundry/utils typecheck && pnpm --filter frontend typecheck"
   },
   "devDependencies": {
     "@eslint-react/eslint-plugin": "^5.18.0",
