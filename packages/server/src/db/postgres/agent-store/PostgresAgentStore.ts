@@ -32,18 +32,15 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
     this.#db = db;
   }
 
-  async listAgents(tenantId: string): Promise<AgentRecord[]> {
-    const rows = await this.#db
-      .selectFrom('agent')
-      .selectAll()
-      .where('tenant_id', '=', tenantId)
-      .orderBy('name')
-      .execute();
+  async listAgents(tenantId: string, transaction?: Transaction<Database>): Promise<AgentRecord[]> {
+    const db = transaction ?? this.#db;
+    const rows = await db.selectFrom('agent').selectAll().where('tenant_id', '=', tenantId).orderBy('name').execute();
     return rows.map(toRecord);
   }
 
-  async getAgent(input: GetAgentInput): Promise<AgentRecord | undefined> {
-    let query = this.#db.selectFrom('agent').selectAll().where('tenant_id', '=', input.tenant_id);
+  async getAgent(input: GetAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
+    const db = transaction ?? this.#db;
+    let query = db.selectFrom('agent').selectAll().where('tenant_id', '=', input.tenant_id);
     if ('id' in input) {
       query = query.where('id', '=', input.id);
     } else {
@@ -92,7 +89,8 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
     return row === undefined ? undefined : toRecord(row);
   }
 
-  async deleteAgent(input: DeleteAgentInput): Promise<void> {
-    await this.#db.deleteFrom('agent').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
+  async deleteAgent(input: DeleteAgentInput, transaction?: Transaction<Database>): Promise<void> {
+    const db = transaction ?? this.#db;
+    await db.deleteFrom('agent').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
   }
 }

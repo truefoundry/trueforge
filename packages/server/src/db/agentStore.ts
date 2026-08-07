@@ -61,12 +61,12 @@ export class AgentNameConflictError extends Error {
 }
 
 export interface IAgentStore<TTransaction = never> {
-  listAgents(tenantId: string): Promise<AgentRecord[]>;
-  getAgent(input: GetAgentInput): Promise<AgentRecord | undefined>;
+  listAgents(tenantId: string, transaction?: TTransaction): Promise<AgentRecord[]>;
+  getAgent(input: GetAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;
   /** Inserts a new agent with a generated ULID. Throws AgentNameConflictError on name clash. */
   createAgent(input: CreateAgentInput, transaction?: TTransaction): Promise<AgentRecord>;
   /** Replaces `manifest` for an existing name. Returns undefined if missing. */
   updateAgent(input: UpdateAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;
   /** Deletes by immutable id. Idempotent if already missing. */
-  deleteAgent(input: DeleteAgentInput): Promise<void>;
+  deleteAgent(input: DeleteAgentInput, transaction?: TTransaction): Promise<void>;
 }

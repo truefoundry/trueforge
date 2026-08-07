@@ -23,8 +23,12 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore<Trans
     this.#db = db;
   }
 
-  async getSandboxProvider(tenantId: string): Promise<SandboxProviderRecord | undefined> {
-    const row = await this.#db
+  async getSandboxProvider(
+    tenantId: string,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxProviderRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .selectFrom('sandbox_provider')
       .selectAll()
       .where('tenant_id', '=', tenantId)

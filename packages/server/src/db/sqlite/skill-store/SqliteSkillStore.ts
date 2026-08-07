@@ -28,19 +28,21 @@ export class SqliteSkillStore implements ISkillStore<Transaction<Database>> {
     this.#db = db;
   }
 
-  async listSkills(input: ListSkillsInput): Promise<SkillRecord[]> {
+  async listSkills(input: ListSkillsInput, transaction?: Transaction<Database>): Promise<SkillRecord[]> {
     if (input.names?.length === 0) {
       return [];
     }
-    let query = this.#db.selectFrom('skill').select(recordColumns).where('tenant_id', '=', input.tenant_id);
+    const db = transaction ?? this.#db;
+    let query = db.selectFrom('skill').select(recordColumns).where('tenant_id', '=', input.tenant_id);
     if (input.names !== undefined) {
       query = query.where('name', 'in', [...input.names]);
     }
     return await query.orderBy('name').execute();
   }
 
-  async getSkill(input: GetSkillInput): Promise<SkillRecord | undefined> {
-    return await this.#db
+  async getSkill(input: GetSkillInput, transaction?: Transaction<Database>): Promise<SkillRecord | undefined> {
+    const db = transaction ?? this.#db;
+    return await db
       .selectFrom('skill')
       .select(recordColumns)
       .where('tenant_id', '=', input.tenant_id)

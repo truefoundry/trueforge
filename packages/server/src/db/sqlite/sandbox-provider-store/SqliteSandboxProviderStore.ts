@@ -25,8 +25,12 @@ export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transac
     this.#db = db;
   }
 
-  async getSandboxProvider(tenantId: string): Promise<SandboxProviderRecord | undefined> {
-    return await this.#db
+  async getSandboxProvider(
+    tenantId: string,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxProviderRecord | undefined> {
+    const db = transaction ?? this.#db;
+    return await db
       .selectFrom('sandbox_provider')
       .select(recordColumns)
       .where('tenant_id', '=', tenantId)

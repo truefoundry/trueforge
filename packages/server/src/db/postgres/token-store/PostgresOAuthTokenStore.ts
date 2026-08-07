@@ -8,25 +8,28 @@ import { deleteToken, getToken, getTokens, saveToken } from './queries/token';
 export class PostgresOAuthTokenStore implements IOAuthTokenStore<Transaction<Database>> {
   constructor(private readonly db: Kysely<Database>) {}
 
-  savePendingAuthorization(pending: OAuthPendingAuthorization): Promise<void> {
-    return savePendingAuthorization(this.db, pending);
+  savePendingAuthorization(pending: OAuthPendingAuthorization, transaction?: Transaction<Database>): Promise<void> {
+    return savePendingAuthorization(transaction ?? this.db, pending);
   }
 
-  consumePendingAuthorization(params: { state: string }): Promise<OAuthPendingAuthorization | undefined> {
-    return consumePendingAuthorization(this.db, params);
+  consumePendingAuthorization(
+    params: { state: string },
+    transaction?: Transaction<Database>,
+  ): Promise<OAuthPendingAuthorization | undefined> {
+    return consumePendingAuthorization(transaction ?? this.db, params);
   }
 
-  saveToken(params: { id: string; token: OAuthToken }): Promise<void> {
-    return saveToken(this.db, { id: params.id, token: toStoredOAuthToken(params.token) });
+  saveToken(params: { id: string; token: OAuthToken }, transaction?: Transaction<Database>): Promise<void> {
+    return saveToken(transaction ?? this.db, { id: params.id, token: toStoredOAuthToken(params.token) });
   }
 
-  async getToken(params: { id: string }): Promise<OAuthToken | undefined> {
-    const stored = await getToken(this.db, params);
+  async getToken(params: { id: string }, transaction?: Transaction<Database>): Promise<OAuthToken | undefined> {
+    const stored = await getToken(transaction ?? this.db, params);
     return stored === undefined ? undefined : fromStoredOAuthToken(stored);
   }
 
-  async getTokens(params: { ids: string[] }): Promise<Map<string, OAuthToken>> {
-    const stored = await getTokens(this.db, params);
+  async getTokens(params: { ids: string[] }, transaction?: Transaction<Database>): Promise<Map<string, OAuthToken>> {
+    const stored = await getTokens(transaction ?? this.db, params);
     return new Map([...stored].map(([id, token]) => [id, fromStoredOAuthToken(token)]));
   }
 

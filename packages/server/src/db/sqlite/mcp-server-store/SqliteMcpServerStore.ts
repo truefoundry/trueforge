@@ -35,19 +35,21 @@ export class SqliteMcpServerStore implements IMcpServerStore<Transaction<Databas
     this.#db = db;
   }
 
-  async listServers(input: ListMcpServersInput): Promise<McpServerRecord[]> {
+  async listServers(input: ListMcpServersInput, transaction?: Transaction<Database>): Promise<McpServerRecord[]> {
     if (input.names?.length === 0) {
       return [];
     }
-    let query = this.#db.selectFrom('mcp_server').select(recordColumns).where('tenant_id', '=', input.tenant_id);
+    const db = transaction ?? this.#db;
+    let query = db.selectFrom('mcp_server').select(recordColumns).where('tenant_id', '=', input.tenant_id);
     if (input.names !== undefined) {
       query = query.where('name', 'in', [...input.names]);
     }
     return await query.orderBy('name').execute();
   }
 
-  async getServer(input: GetMcpServerInput): Promise<McpServerRecord | undefined> {
-    return await this.#db
+  async getServer(input: GetMcpServerInput, transaction?: Transaction<Database>): Promise<McpServerRecord | undefined> {
+    const db = transaction ?? this.#db;
+    return await db
       .selectFrom('mcp_server')
       .select(recordColumns)
       .where('tenant_id', '=', input.tenant_id)
@@ -55,9 +57,10 @@ export class SqliteMcpServerStore implements IMcpServerStore<Transaction<Databas
       .executeTakeFirst();
   }
 
-  async upsertServer(input: UpsertMcpServerInput): Promise<McpServerRecord> {
+  async upsertServer(input: UpsertMcpServerInput, transaction?: Transaction<Database>): Promise<McpServerRecord> {
+    const db = transaction ?? this.#db;
     const timestamp = nowIso();
-    return await this.#db
+    return await db
       .insertInto('mcp_server')
       .values({
         id: ulid(),
@@ -79,8 +82,9 @@ export class SqliteMcpServerStore implements IMcpServerStore<Transaction<Databas
       .executeTakeFirstOrThrow();
   }
 
-  async getClient(params: { id: string }): Promise<OAuthClientRecord | undefined> {
-    const row = await this.#db
+  async getClient(params: { id: string }, transaction?: Transaction<Database>): Promise<OAuthClientRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .selectFrom('mcp_server')
       .select(eb => [
         jsonText<OAuthServer | null>(eb.ref('oauth_server')).as('oauth_server'),
@@ -94,9 +98,13 @@ export class SqliteMcpServerStore implements IMcpServerStore<Transaction<Databas
     return fromStoredOAuthClientRecord({ server: row.oauth_server, client: row.oauth_client });
   }
 
-  async saveClient(params: { id: string; record: OAuthClientRecord }): Promise<void> {
+  async saveClient(
+    params: { id: string; record: OAuthClientRecord },
+    transaction?: Transaction<Database>,
+  ): Promise<void> {
+    const db = transaction ?? this.#db;
     const stored = toStoredOAuthClientRecord(params.record);
-    await this.#db
+    await db
       .updateTable('mcp_server')
       .set({
         oauth_server: jsonbBind(stored.server),

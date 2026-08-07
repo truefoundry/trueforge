@@ -27,8 +27,9 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
     this.#db = db;
   }
 
-  async listProviders(tenantId: string): Promise<ModelProviderRecord[]> {
-    const rows = await this.#db
+  async listProviders(tenantId: string, transaction?: Transaction<Database>): Promise<ModelProviderRecord[]> {
+    const db = transaction ?? this.#db;
+    const rows = await db
       .selectFrom('model_provider')
       .selectAll()
       .where('tenant_id', '=', tenantId)
@@ -37,8 +38,12 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
     return rows.map(toRecord);
   }
 
-  async getProvider(input: GetProviderInput): Promise<ModelProviderRecord | undefined> {
-    const row = await this.#db
+  async getProvider(
+    input: GetProviderInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ModelProviderRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .selectFrom('model_provider')
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
@@ -69,7 +74,7 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
     return toRecord(row);
   }
 
-  async listModels(tenantId: string): Promise<Model[]> {
-    return flattenProviderModels(await this.listProviders(tenantId));
+  async listModels(tenantId: string, transaction?: Transaction<Database>): Promise<Model[]> {
+    return flattenProviderModels(await this.listProviders(tenantId, transaction));
   }
 }
