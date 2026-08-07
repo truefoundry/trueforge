@@ -3888,6 +3888,36 @@
       }
     },
     "/api/v1/agents/{agent_id}": {
+      "delete": {
+        "description": "Delete a configured agent by immutable id. Idempotent if already gone.",
+        "parameters": [
+          {
+            "description": "Immutable agent identifier.",
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Agent deleted."
+          }
+        },
+        "summary": "Delete an agent",
+        "tags": [
+          "Agents"
+        ],
+        "x-fern-sdk-group-name": [
+          "agents"
+        ],
+        "x-fern-sdk-method-name": "delete"
+      },
       "get": {
         "description": "Fetch a configured agent by immutable id.",
         "parameters": [
