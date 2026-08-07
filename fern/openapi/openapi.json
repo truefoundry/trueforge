@@ -1734,6 +1734,22 @@
         ],
         "type": "string"
       },
+      "MeResponse": {
+        "properties": {
+          "type": {
+            "description": "Session kind: `default` when no OIDC id_token cookie is present; `passport` after a successful login.",
+            "enum": [
+              "default",
+              "passport"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
       "Model": {
         "additionalProperties": false,
         "properties": {
@@ -4376,6 +4392,31 @@
           "mcpServers"
         ],
         "x-fern-sdk-method-name": "authorize"
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "description": "Returns whether the browser has an OIDC session cookie. Does not require authentication — anonymous callers get `type: \"default\"`.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Session type for the current request."
+          }
+        },
+        "summary": "Current session type",
+        "tags": [
+          "Auth"
+        ],
+        "x-fern-sdk-group-name": [
+          "auth"
+        ],
+        "x-fern-sdk-method-name": "me"
       }
     },
     "/api/v1/models": {

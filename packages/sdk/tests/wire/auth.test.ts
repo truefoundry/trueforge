@@ -13,4 +13,18 @@ describe("AuthClient", () => {
         const response = await client.auth.logout();
         expect(response).toEqual(undefined);
     });
+
+    test("me", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = { type: "default" };
+
+        server.mockEndpoint().get("/api/v1/me").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
+
+        const response = await client.auth.me();
+        expect(response).toEqual({
+            type: "default",
+        });
+    });
 });
