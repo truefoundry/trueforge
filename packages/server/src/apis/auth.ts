@@ -51,10 +51,11 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
     clearAuthCookie({ context: c, name: OAUTH_STATE_COOKIE });
 
     if (pending?.state !== query.state || query.error || !query.code) {
-      // Only reflect the IdP's message when the IdP actually returned an error.
-      // Our own validation failures (state mismatch / missing code) stay generic
-      // so a crafted callback can't inject `error_description` copy on its own.
-      const reason = query.error ? (query.error_description?.trim() ?? query.error.trim()) : 'login_failed';
+      // Only reflect a non-empty IdP `error_description` when the IdP returned an error.
+      // No fallback to the `error` code — blank/missing descriptions use the default.
+      // Our own validation failures (state mismatch / missing code) stay generic too.
+      const description = query.error_description?.trim();
+      const reason = query.error && description ? description : 'login_failed';
       return c.redirect(oauthErrorRedirect(reason), 302);
     }
 

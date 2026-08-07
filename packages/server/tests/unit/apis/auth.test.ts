@@ -263,6 +263,23 @@ describe('auth router (OIDC configured)', () => {
     expect(res.headers.get('location')).toBe('/?error=user%20cancelled');
   });
 
+  it('GET /callback uses login_failed when the IdP error has no description', async () => {
+    const res = await createAuthRouter({ oidcClient, logger }).request('/callback?state=any&error=access_denied', {
+      redirect: 'manual',
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/?error=login_failed');
+  });
+
+  it('GET /callback uses login_failed when the IdP error description is blank', async () => {
+    const res = await createAuthRouter({ oidcClient, logger }).request(
+      '/callback?state=any&error=access_denied&error_description=%20%20',
+      { redirect: 'manual' },
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/?error=login_failed');
+  });
+
   it('GET /callback ignores a crafted error_description when the IdP did not return an error', async () => {
     // No `error` code → this is our own validation failure, so the attacker-supplied
     // description must not be reflected; the reason stays generic.
