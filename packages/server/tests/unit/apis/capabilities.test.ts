@@ -13,7 +13,14 @@ describe('capabilities routers', () => {
     const empty = await router.request('/');
     expect(empty.status).toBe(200);
     expect(await empty.json()).toEqual({
-      data: { sandbox: { enabled: false }, skill: { enabled: false } },
+      data: {
+        sandbox: { enabled: false },
+        skill: {
+          enabled: false,
+          reason: 'Skills run in a sandbox, which is not configured.',
+        },
+        settings: { enabled: true },
+      },
     });
 
     await store.upsertSandboxProvider({
@@ -32,7 +39,11 @@ describe('capabilities routers', () => {
     const configured = await router.request('/');
     expect(configured.status).toBe(200);
     expect(await configured.json()).toEqual({
-      data: { sandbox: { enabled: true }, skill: { enabled: true } },
+      data: {
+        sandbox: { enabled: true },
+        skill: { enabled: true },
+        settings: { enabled: true },
+      },
     });
   });
 });

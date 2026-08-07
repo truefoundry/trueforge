@@ -29,11 +29,11 @@ function MissingEnv({ missing }: { missing: string[] }) {
 }
 
 function toPublicAuth(auth: ConnectorAuth): ConnectorAuthPublic {
-  if (auth.type === 'oauth') {
-    return { type: 'oauth', authUrl: auth.authUrl ?? 'https://example.com/oauth' };
+  if (auth.type === 'dcr') {
+    return { type: 'dcr', authUrl: auth.authUrl ?? 'https://example.com/oauth' };
   }
-  if (auth.type === 'apiKey') {
-    return { type: 'apiKey', ...(auth.headerName != null ? { headerName: auth.headerName } : {}) };
+  if (auth.type === 'header') {
+    return { type: 'header', ...(auth.headerName != null ? { headerName: auth.headerName } : {}) };
   }
   return { type: 'none' };
 }
@@ -44,14 +44,14 @@ const exampleConnectorCatalog: ConnectorCatalogEntry[] = [
     name: 'GitHub',
     description: 'Access repositories, pull requests, and issues.',
     url: 'https://mcp.example.com/github',
-    auth: { type: 'oauth', authUrl: 'https://example.com/oauth/github' },
+    auth: { type: 'dcr', authUrl: 'https://example.com/oauth/github' },
   },
   {
     id: 'connector-linear',
     name: 'Linear',
     description: 'Manage issues and projects.',
     url: 'https://mcp.example.com/linear',
-    auth: { type: 'apiKey', headerName: 'Authorization' },
+    auth: { type: 'header', headerName: 'Authorization' },
   },
   {
     id: 'connector-filesystem',
@@ -153,8 +153,8 @@ const emptyCatalog: CatalogServer = {
         description: catalogEntry?.description ?? 'Custom MCP server.',
         url: req.url,
         auth: toPublicAuth(req.auth),
-        requiresAuth: req.auth.type === 'oauth',
-        authenticated: req.auth.type === 'apiKey',
+        requiresAuth: req.auth.type === 'dcr',
+        authenticated: req.auth.type === 'header',
       };
       definedConnectors = [...definedConnectors, connector];
       return connector;
@@ -167,8 +167,8 @@ const emptyCatalog: CatalogServer = {
         description: current?.description ?? 'Custom MCP server.',
         url: req.url,
         auth: toPublicAuth(req.auth),
-        requiresAuth: req.auth.type === 'oauth',
-        authenticated: req.auth.type === 'apiKey',
+        requiresAuth: req.auth.type === 'dcr',
+        authenticated: req.auth.type === 'header',
       };
       definedConnectors = definedConnectors.map(item => (item.id === req.id ? connector : item));
       return connector;
@@ -269,6 +269,7 @@ export default function App() {
         }}
         agentConfig={{ mode: 'AgentLibraryWithComposer' }}
         theme={{
+          preset: 'claude',
           brand: {
             icon: {
               src: 'https://media.licdn.com/dms/image/v2/C560BAQGQ9Tfeof4MbA/company-logo_200_200/company-logo_200_200/0/1644494262340/truefoundry_logo?e=2147483647&v=beta&t=Xm6c1LGNbVPD2Ehtj21Z5OcuSCGLhYwlJ763oEYb92M',

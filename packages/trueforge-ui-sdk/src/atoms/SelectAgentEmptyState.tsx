@@ -8,7 +8,7 @@ export function SelectAgentEmptyState() {
   const shell = useOptionalShellMode();
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
 
-  if (shell?.mode.type !== 'idle') return null;
+  if (shell?.mode.status !== 'idle') return null;
 
   return (
     <div

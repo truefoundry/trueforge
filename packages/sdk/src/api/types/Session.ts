@@ -5,6 +5,7 @@ import type * as TrueForge from "../index.js";
 export interface Session {
     agent: TrueForge.SessionAgent;
     createdAt: string;
+    createdBy: string;
     id: string;
     title: string | null;
     updatedAt: string;

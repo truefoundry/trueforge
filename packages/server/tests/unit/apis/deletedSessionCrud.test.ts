@@ -68,6 +68,7 @@ describe('public CRUD after session deletion', () => {
     await sessionStore.createSession({
       tenant_id: TENANT_ID,
       session_id: 's1',
+      created_by: 'user-1',
       agent: {
         type: 'value',
         agent_spec: AgentSpecSchema.parse({

@@ -57,7 +57,7 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
 
   const isEmpty = useAuiState(isNewChatView);
   const isLoading = useAuiState(s => s.thread.isLoading);
-  const welcomeHeading = shell?.mode.type === 'named' ? shell.mode.agentName : undefined;
+  const welcomeHeading = shell?.mode.status === 'active' ? shell.mode.agentName : undefined;
 
   return (
     <ComposerBusyProvider>

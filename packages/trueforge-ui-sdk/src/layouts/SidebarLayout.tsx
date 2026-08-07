@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAui } from '../assistant-ui.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
+import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { ShellActions } from '../atoms/ShellActions.js';
@@ -39,7 +40,7 @@ export function SidebarLayout({ className }: { className?: string }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
-  const isIdle = shell?.mode.type === 'idle';
+  const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
 
   useEffect(() => {
@@ -155,9 +156,10 @@ export function SidebarLayout({ className }: { className?: string }) {
             >
               <Icon name="bars" />
             </button>
+            <NamedAgentHeaderLabel />
             <span className="min-w-0 flex-1" />
-            <SaveAgentButton />
             <ClearChatButton />
+            <SaveAgentButton />
             <div className="md:hidden">
               <ShellActions />
             </div>
