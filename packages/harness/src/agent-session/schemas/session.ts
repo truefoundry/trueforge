@@ -1,6 +1,6 @@
 /**
  * Session product schemas. Agent binding is a single discriminated `agent`
- * field (`ref` | `value`). DB may still store agent_id / agent_spec columns.
+ * field (`ref` | `value`). DB stores agent_id / agent_name / agent_spec columns.
  */
 import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema } from './agentSpec';
@@ -8,7 +8,9 @@ import { AgentSpecSchema } from './agentSpec';
 export const SessionAgentRefSchema = z
   .object({
     type: z.literal('ref'),
-    agent_id: z.string().min(1),
+    id: z.string().min(1),
+    /** Create-time snapshot of the registry agent name; null for legacy/orphan rows. */
+    name: z.string().nullable(),
   })
   .strict()
   .openapi('SessionAgentRef');
@@ -16,7 +18,7 @@ export const SessionAgentRefSchema = z
 export const SessionAgentValueSchema = z
   .object({
     type: z.literal('value'),
-    agent_spec: AgentSpecSchema,
+    def: AgentSpecSchema,
   })
   .strict()
   .openapi('SessionAgentValue');

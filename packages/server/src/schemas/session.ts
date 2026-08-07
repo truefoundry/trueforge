@@ -3,17 +3,22 @@ import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema, SessionSchema, TokenPaginationSchema } from '@truefoundry/utils-core/agent-session';
 import { NameSchema } from './common';
 
-export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('SessionAgentRef');
+/** Create arm: bind by unique registry agent name. */
+export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('SessionAgentNameRef');
 
-const SessionAgentSpecSchema = AgentSpecSchema.strict().openapi('SessionAgentSpec');
+/**
+ * Create/update body arm wrapping an AgentSpec.
+ */
+const SessionAgentDefBodySchema = z.object({ def: AgentSpecSchema.strict() }).strict().openapi('SessionAgentDefBody');
 
-/** Create accepts either a unique agent name or an AgentSpec. */
+/** Create accepts either a unique agent name or `{ def: AgentSpec }`. */
 export const CreateSessionAgentSchema = z
-  .union([SessionAgentNameRefSchema, SessionAgentSpecSchema])
+  .union([SessionAgentNameRefSchema, SessionAgentDefBodySchema])
   .openapi('CreateSessionAgent');
 
 export type CreateSessionAgent = z.infer<typeof CreateSessionAgentSchema>;
 export type SessionAgentNameRef = z.infer<typeof SessionAgentNameRefSchema>;
+export type SessionAgentDefBody = z.infer<typeof SessionAgentDefBodySchema>;
 
 /** Narrows the create-body union after OpenAPI already accepted either arm. */
 export function isSessionAgentNameRef(agent: CreateSessionAgent): agent is SessionAgentNameRef {
@@ -25,9 +30,9 @@ export const CreateSessionRequestSchema = z
   .strict()
   .openapi('CreateSessionRequest');
 
-/** Only AgentSpec sessions may be updated; named sessions reject agent updates. */
+/** Only value sessions may be updated; named (ref) sessions reject agent updates. */
 export const UpdateSessionRequestSchema = z
-  .object({ agent: SessionAgentSpecSchema.optional() })
+  .object({ agent: SessionAgentDefBodySchema.optional() })
   .strict()
   .openapi('UpdateSessionRequest');
 

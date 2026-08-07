@@ -2,7 +2,8 @@ import type { SessionAgent } from '../schemas/session';
 
 /**
  * Session persistence record. Agent binding is a single discriminated `agent`
- * (`ref` | `value`). Named agents are not hydrated on read.
+ * (`ref` | `value`). Ref rows carry create-time `name` snapshot (nullable for
+ * legacy/orphan). Named agents are not hydrated to a value on read.
  */
 export interface SessionRecord<TCustom extends object = Record<string, never>> {
   tenant_id: string;
