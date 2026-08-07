@@ -261,6 +261,9 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
         if (error.statusCode === 422) {
           return c.json({ error: { message: error.message } }, 422);
         }
+        if (error.statusCode === 424) {
+          return c.json({ error: { message: error.message } }, 424);
+        }
         return c.json({ error: { message: error.message } }, 500);
       }
       deps.logger.error(`MCP authorize unexpected failure for "${name}"`, extractErrorLogFields(error));

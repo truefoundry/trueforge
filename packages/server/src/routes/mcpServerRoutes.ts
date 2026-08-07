@@ -196,7 +196,7 @@ export const authorizeMcpServerRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid redirect_url, or the authorization server rejected dynamic client registration.',
+      description: 'Invalid redirect_url.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -205,6 +205,10 @@ export const authorizeMcpServerRoute = createRoute({
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'DCR could not be completed for this server (e.g. it lacks a registration_endpoint).',
+    },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The authorization server failed dynamic client registration or authorization startup.',
     },
     500: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

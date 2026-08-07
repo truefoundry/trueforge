@@ -76,7 +76,7 @@ describe('harness rejections on POST /{session_id}/turns', () => {
     ['agent_sandbox_required', 422],
     ['invalid_send_input', 422],
     ['tool_name_collision', 422],
-    ['invalid_agent_input', 400],
+    ['invalid_file_input', 400],
   ] as const)('maps %s to %i', async (code, status) => {
     const response = await postTurnRejectingWith(new AgentHarnessError(code, 'rejected'));
     expect(response.status).toBe(status);

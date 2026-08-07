@@ -1,5 +1,5 @@
 export type AgentHarnessErrorCode =
-  | 'invalid_agent_input'
+  | 'invalid_file_input'
   | 'invalid_send_input'
   | 'agent_sandbox_required'
   | 'tool_name_collision'
@@ -17,10 +17,10 @@ export class AgentHarnessError extends Error {
   }
 }
 
-export class InvalidAgentInputError extends AgentHarnessError {
+export class InvalidFileInputError extends AgentHarnessError {
   constructor(message: string, options?: ErrorOptions) {
-    super('invalid_agent_input', message, options);
-    this.name = 'InvalidAgentInputError';
+    super('invalid_file_input', message, options);
+    this.name = 'InvalidFileInputError';
   }
 }
 
