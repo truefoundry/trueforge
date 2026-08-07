@@ -79,10 +79,15 @@ describe('sessions HTTP agent binding', () => {
     const res = await app.request('/', jsonInit('POST', { agent: { type: 'value', agent_spec: draftSpec } }));
     expect(res.status).toBe(201);
     const json = (await res.json()) as {
-      data: { id: string; agent: { type: string; agent_spec?: { instructions?: string } } };
+      data: {
+        id: string;
+        created_by: string;
+        agent: { type: string; agent_spec?: { instructions?: string } };
+      };
     };
     expect(json.data.agent.type).toBe('value');
     expect(json.data.agent.agent_spec?.instructions).toBe('draft');
+    expect(json.data.created_by).toBe('trueforge-default');
   });
 
   it('returns 404 when creating a session for an unknown agent_id', async () => {
@@ -119,12 +124,14 @@ describe('sessions HTTP agent binding', () => {
   it('filters list by created_by', async () => {
     const created = await app.request('/', jsonInit('POST', { agent: { type: 'value', agent_spec: draftSpec } }));
     expect(created.status).toBe(201);
-    const json = (await created.json()) as { data: { id: string } };
+    const json = (await created.json()) as { data: { id: string; created_by: string } };
+    expect(json.data.created_by).toBe('trueforge-default');
 
     const matched = await app.request('/?created_by=trueforge-default');
     expect(matched.status).toBe(200);
-    const matchedJson = (await matched.json()) as { data: Array<{ id: string }> };
+    const matchedJson = (await matched.json()) as { data: Array<{ id: string; created_by: string }> };
     expect(matchedJson.data.some(row => row.id === json.data.id)).toBe(true);
+    expect(matchedJson.data.every(row => row.created_by === 'trueforge-default')).toBe(true);
 
     const unmatched = await app.request('/?created_by=someone-else');
     expect(unmatched.status).toBe(200);

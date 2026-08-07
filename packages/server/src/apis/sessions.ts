@@ -57,6 +57,7 @@ export function toWireSession(record: SessionRecord): Session {
     id: record.session_id,
     agent: record.agent,
     title: record.title,
+    created_by: record.created_by,
     created_at: record.created_at.toISOString(),
     updated_at: record.updated_at.toISOString(),
   };
