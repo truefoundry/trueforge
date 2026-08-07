@@ -210,12 +210,9 @@ describe('AgentsLibraryButton', () => {
   it('re-fetches the agent count when agentsListEpoch bumps', async () => {
     const searchAgents = vi
       .fn()
-      .mockResolvedValueOnce([{ name: 'alpha', agentId: 'alpha' }])
-      .mockResolvedValueOnce([
-        { name: 'alpha', agentId: 'alpha' },
-        { name: 'beta', agentId: 'beta' },
-      ]);
-    const server = { searchAgents } as unknown as AgentUIServer;
+      .mockResolvedValueOnce([{ name: 'alpha' }])
+      .mockResolvedValueOnce([{ name: 'alpha' }, { name: 'beta' }]);
+    const server = createMockAgentUIServer({ searchAgents });
 
     function Invalidate() {
       const shell = useShellMode();

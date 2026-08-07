@@ -1,0 +1,37 @@
+---
+title: "TrueForge UI SDK"
+description: "A themeable React SDK for building AI agent chat applications."
+---
+
+`@truefoundry/trueforge-ui` gives you a production-ready agent chat experience — streaming
+responses, session history, tool calls with approvals, sub-agents, reasoning traces,
+attachments, and an agent library — as a single React component you can drop into an
+existing app. It is built on [assistant-ui](https://www.assistant-ui.com/) and follows
+shadcn/ui conventions, so branding, layout, and individual components stay under your
+control.
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/ui-sdk/get-started/installation">
+    Install the package, wire up the stylesheet, and satisfy the peer dependencies.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/ui-sdk/get-started/quickstart">
+    A working chat UI in about fifteen lines of JSX.
+  </Card>
+  <Card title="Architecture" icon="layer-group" href="/ui-sdk/concepts/architecture">
+    How atoms, containers, layouts, and slots fit together.
+  </Card>
+  <Card title="API reference" icon="code" href="/ui-sdk/reference/trueforge-ui">
+    Every export, prop, and type.
+  </Card>
+</CardGroup>
+
+## What you get
+
+The SDK ships one entry component, `TrueforgeUI`, which mounts its own provider stack and
+renders either one of four built-in layouts or a layout you write. Everything below that is
+prop-driven: pick a server, pick a layout, optionally pass a theme and a set of slot overrides.
+
+Backends are pluggable. Point the SDK at a TrueFoundry control plane, or implement the
+`AgentUIServer` interface yourself and hand the object straight to the component. A third
+option, `type: "trueforge"` for the harness adapter, is typed but not yet implemented. The
+[quickstart](/ui-sdk/get-started/quickstart) covers all three.

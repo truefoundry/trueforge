@@ -4149,7 +4149,7 @@
         ],
         "responses": {
           "302": {
-            "description": "Redirect back into the app on success, or to /?error=login_failed on failure."
+            "description": "Redirect back into the app on success, or to /?error=<reason> on failure."
           }
         },
         "summary": "Login callback",

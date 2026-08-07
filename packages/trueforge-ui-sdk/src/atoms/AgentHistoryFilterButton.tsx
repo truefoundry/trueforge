@@ -182,11 +182,11 @@ export function AgentHistoryFilterButton() {
               role="menu"
               aria-label="Filter agents"
               style={{ top: menuPos.top, left: menuPos.left }}
-              className="fixed z-50 w-56 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+              className="font-sans-flex fixed z-50 w-56 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
             >
               {filterBody}
             </div>,
-            document.body,
+            buttonRef.current?.closest('.aui-theme-root') ?? document.body,
           )
         : null}
     </div>

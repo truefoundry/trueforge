@@ -64,36 +64,45 @@ export function DrawerLayout({ className }: { className?: string }) {
 
   return (
     <div className={cn('relative flex h-full min-h-0 w-full flex-col', className)}>
-      {!settingsOpen ? (
-        <header className="flex shrink-0 items-center gap-1 border-b border-border bg-background px-2 py-1.5">
-          <NamedAgentHeaderLabel />
+      {/* Keep ShellActions mounted across Settings open/close so host action-slot state persists. */}
+      <header className="flex shrink-0 items-center gap-1 border-b border-border bg-background px-2 py-1.5">
+        {!settingsOpen ? (
+          <>
+            <NamedAgentHeaderLabel />
+            <span className="min-w-0 flex-1" />
+            <ClearChatButton />
+            <SaveAgentButton />
+          </>
+        ) : (
           <span className="min-w-0 flex-1" />
-          <ClearChatButton />
-          <SaveAgentButton />
-          <ShellActions />
-          {shell?.isNewChatEnabled !== false ? (
+        )}
+        <ShellActions key="shell-actions" />
+        {!settingsOpen ? (
+          <>
+            {shell?.isNewChatEnabled !== false ? (
+              <button
+                type="button"
+                aria-label="New chat"
+                title="New chat"
+                className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                onClick={handleNewChat}
+              >
+                <Icon name="plus" />
+              </button>
+            ) : null}
             <button
+              ref={threadsBtnRef}
               type="button"
-              aria-label="New chat"
-              title="New chat"
-              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-              onClick={handleNewChat}
+              aria-label="Sessions"
+              aria-expanded={threadsOpen}
+              className="text-muted-foreground hover:text-foreground inline-flex size-8 cursor-pointer items-center justify-center rounded-md"
+              onClick={() => setThreadsOpen(v => !v)}
             >
-              <Icon name="plus" />
+              <Icon name="clock-rotate-left" />
             </button>
-          ) : null}
-          <button
-            ref={threadsBtnRef}
-            type="button"
-            aria-label="Sessions"
-            aria-expanded={threadsOpen}
-            className="text-muted-foreground hover:text-foreground inline-flex size-8 cursor-pointer items-center justify-center rounded-md"
-            onClick={() => setThreadsOpen(v => !v)}
-          >
-            <Icon name="clock-rotate-left" />
-          </button>
-        </header>
-      ) : null}
+          </>
+        ) : null}
+      </header>
       <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
         {settingsOpen ? <TruefoundrySettingsBuilder /> : isIdle ? <SelectAgentEmptyState /> : <Thread />}
       </div>

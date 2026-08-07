@@ -7,10 +7,12 @@ import SearchInput from '../../atoms/primitives/SearchInput.js';
 import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { ModelEntry, ModelProviderBase, ModelProviderCatalogEntry } from '../../server/types.js';
+import { useErrorToasterOptional } from '../ErrorToasterContainer.js';
 import CustomModelProviderForm, { type CustomProviderDraft } from './CustomModelProviderForm.js';
 
 const ModelSettings = () => {
   const { modelCatalog } = useCatalogServer();
+  const toaster = useErrorToasterOptional();
 
   const [query, setQuery] = useState('');
   const [configured, setConfigured] = useState<ModelProviderBase[]>([]);
@@ -113,7 +115,11 @@ const ModelSettings = () => {
       await refresh();
       closeKeyEditor();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Request failed');
+      if (toaster != null) {
+        toaster.showError(err);
+      } else {
+        setError(err instanceof Error ? err.message : 'Request failed');
+      }
       throw err;
     } finally {
       setBusy(false);

@@ -30,6 +30,32 @@ describe('harnessBuilderServer', () => {
     });
   });
 
+  it('gets capabilities through the configured harness client', async () => {
+    const fetchMock: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/capabilities')) {
+        return Response.json({
+          data: {
+            sandbox: { enabled: false },
+            skill: { enabled: false, reason: 'Configure a sandbox provider' },
+            settings: { enabled: true },
+          },
+        });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+
+    assert.deepEqual(await builder.getCapabilities(), {
+      data: {
+        sandbox: { enabled: false },
+        skill: { enabled: false, reason: 'Configure a sandbox provider' },
+        settings: { enabled: true },
+      },
+    });
+  });
+
   it('searchAgents maps registry rows to library entries with agentId + agentSpec', async () => {
     const fetchMock: typeof fetch = async input => {
       const url = input instanceof Request ? input.url : String(input);
