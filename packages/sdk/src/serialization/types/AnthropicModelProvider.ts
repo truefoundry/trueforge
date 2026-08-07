@@ -6,21 +6,21 @@ import type * as serializers from "../index.js";
 import { ModelEntry } from "./ModelEntry.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
 
-export const GoogleGeminiModelProviderManifest: core.serialization.ObjectSchema<
-    serializers.GoogleGeminiModelProviderManifest.Raw,
-    TrueForge.GoogleGeminiModelProviderManifest
+export const AnthropicModelProvider: core.serialization.ObjectSchema<
+    serializers.AnthropicModelProvider.Raw,
+    TrueForge.AnthropicModelProvider
 > = core.serialization.object({
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    type: core.serialization.stringLiteral("google-gemini"),
+    type: core.serialization.stringLiteral("anthropic"),
 });
 
-export declare namespace GoogleGeminiModelProviderManifest {
+export declare namespace AnthropicModelProvider {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
-        type: "google-gemini";
+        type: "anthropic";
     }
 }

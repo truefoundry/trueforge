@@ -12,12 +12,10 @@ describe("ModelProvidersClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    manifest: {
-                        auth: { api_key: "api_key" },
-                        models: [{ model_id: "model_id", name: "name", properties: {} }],
-                        type: "alibaba",
-                    },
-                    name: "name",
+                    auth: { api_key: "api_key" },
+                    base_url: "base_url",
+                    models: [{ model_id: "model_id", name: "name", properties: {} }],
+                    type: "alibaba",
                 },
             ],
         };
@@ -34,20 +32,18 @@ describe("ModelProvidersClient", () => {
         expect(response).toEqual({
             data: [
                 {
-                    manifest: {
-                        auth: {
-                            apiKey: "api_key",
-                        },
-                        models: [
-                            {
-                                modelId: "model_id",
-                                name: "name",
-                                properties: {},
-                            },
-                        ],
-                        type: "alibaba",
+                    auth: {
+                        apiKey: "api_key",
                     },
-                    name: "name",
+                    baseUrl: "base_url",
+                    models: [
+                        {
+                            modelId: "model_id",
+                            name: "name",
+                            properties: {},
+                        },
+                    ],
+                    type: "alibaba",
                 },
             ],
         });
@@ -63,13 +59,10 @@ describe("ModelProvidersClient", () => {
         };
         const rawResponseBody = {
             data: {
-                manifest: {
-                    auth: { api_key: "api_key" },
-                    base_url: "base_url",
-                    models: [{ model_id: "model_id", name: "name", properties: {} }],
-                    type: "alibaba",
-                },
-                name: "name",
+                auth: { api_key: "api_key" },
+                base_url: "base_url",
+                models: [{ model_id: "model_id", name: "name", properties: {} }],
+                type: "alibaba",
             },
         };
 
@@ -97,21 +90,18 @@ describe("ModelProvidersClient", () => {
         });
         expect(response).toEqual({
             data: {
-                manifest: {
-                    auth: {
-                        apiKey: "api_key",
-                    },
-                    baseUrl: "base_url",
-                    models: [
-                        {
-                            modelId: "model_id",
-                            name: "name",
-                            properties: {},
-                        },
-                    ],
-                    type: "alibaba",
+                auth: {
+                    apiKey: "api_key",
                 },
-                name: "name",
+                baseUrl: "base_url",
+                models: [
+                    {
+                        modelId: "model_id",
+                        name: "name",
+                        properties: {},
+                    },
+                ],
+                type: "alibaba",
             },
         });
     });

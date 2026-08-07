@@ -1,10 +1,10 @@
 import { VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/utils-core/core';
-import { ModelProviderManifestSchema, modelProviderName } from '../../../src/schemas/modelProvider';
+import { ModelProviderSchema, modelProviderName } from '../../../src/schemas/modelProvider';
 
 const models = [{ model_id: 'a-model', name: 'a-model', properties: {} }];
 
 function parse(body: Record<string, unknown>): { success: boolean; name?: string; base_url?: string } {
-  const result = ModelProviderManifestSchema.safeParse({ auth: { api_key: 'k' }, models, ...body });
+  const result = ModelProviderSchema.safeParse({ auth: { api_key: 'k' }, models, ...body });
   return result.success
     ? { success: true, name: modelProviderName(result.data), base_url: result.data.base_url }
     : { success: false };
@@ -14,15 +14,15 @@ function parse(body: Record<string, unknown>): { success: boolean; name?: string
 const CALLER_SUPPLIED_TYPES = ['custom'];
 
 /** Only `custom` takes a name; the others reject one, so fixtures name just that type. */
-function manifestFor(type: string, body: Record<string, unknown> = {}): Record<string, unknown> {
+function providerFor(type: string, body: Record<string, unknown> = {}): Record<string, unknown> {
   return { type, ...(CALLER_SUPPLIED_TYPES.includes(type) ? { name: 'internal' } : {}), ...body };
 }
 
-describe('ModelProviderManifestSchema', () => {
+describe('ModelProviderSchema', () => {
   // A type with no schema of its own leaves its catalog entries unconfigurable.
   it('can configure every adapter the harness can build', () => {
     const rejected = VERCEL_AI_PROVIDER_NAMES.filter(
-      type => !parse(manifestFor(type, { base_url: 'https://example.com/v1' })).success,
+      type => !parse(providerFor(type, { base_url: 'https://example.com/v1' })).success,
     );
     expect(rejected).toEqual([]);
   });
@@ -30,7 +30,7 @@ describe('ModelProviderManifestSchema', () => {
   // A named endpoint keeps buildLanguageModel off its adapter's implicit default.
   it('defaults base_url for every type that has a known endpoint', () => {
     for (const type of VERCEL_AI_PROVIDER_NAMES) {
-      const parsed = parse(manifestFor(type));
+      const parsed = parse(providerFor(type));
       if (CALLER_SUPPLIED_TYPES.includes(type)) {
         expect([type, parsed.success]).toEqual([type, false]);
       } else {

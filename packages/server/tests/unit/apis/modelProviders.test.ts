@@ -25,11 +25,8 @@ const anthropicBody = {
   models: [model],
 };
 
-/** What the body above is echoed as: named after its type, endpoint from its schema. */
-const anthropicProvider = {
-  name: 'anthropic',
-  manifest: { ...anthropicBody, base_url: 'https://api.anthropic.com/v1' },
-};
+/** What the body above is stored and echoed as: no name of its own, endpoint from its schema. */
+const anthropicProvider = { ...anthropicBody, base_url: 'https://api.anthropic.com/v1' };
 
 const customBody = {
   type: 'custom' as const,
@@ -38,8 +35,6 @@ const customBody = {
   auth: { api_key: 'sk-custom' },
   models: [model],
 };
-
-const customProvider = { name: customBody.name, manifest: customBody };
 
 function putInit(body: unknown): RequestInit {
   return {
@@ -110,7 +105,7 @@ describe('settings model-providers and models routers', () => {
 
     const created = await settingsRouter.request('/model-providers', putInit(customBody));
     expect(created.status).toBe(200);
-    expect(await created.json()).toEqual({ data: customProvider });
+    expect(await created.json()).toEqual({ data: customBody });
   });
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {
@@ -146,21 +141,25 @@ describe('well-known types are limited to one provider', () => {
     const rotated = { ...anthropicBody, auth: { api_key: 'sk-ant-rotated' } };
     const update = await settingsRouter.request('/model-providers', putInit(rotated));
     expect(update.status).toBe(200);
-    const rotatedProvider = { ...anthropicProvider, manifest: { ...anthropicProvider.manifest, auth: rotated.auth } };
-    expect(await update.json()).toEqual({ data: rotatedProvider });
+    expect(await update.json()).toEqual({ data: { ...anthropicProvider, auth: rotated.auth } });
 
     const list = await settingsRouter.request('/model-providers');
-    expect(await list.json()).toEqual({ data: [rotatedProvider] });
+    expect(await list.json()).toEqual({ data: [{ ...anthropicProvider, auth: rotated.auth }] });
     const models = await modelsRouter.request('/');
     expect(((await models.json()) as { data: { name: string }[] }).data.map(entry => entry.name)).toEqual([
       'anthropic/claude-sonnet-4-6',
     ]);
   });
 
-  it('PUT rejects a name of its own for a well-known type', async () => {
+  it('PUT takes no name for a well-known type, not even its own', async () => {
     const { settingsRouter } = await createRouters();
-    const named = await settingsRouter.request('/model-providers', putInit({ ...anthropicBody, name: 'anthropic-eu' }));
-    expect(named.status).toBe(400);
+    const sibling = await settingsRouter.request(
+      '/model-providers',
+      putInit({ ...anthropicBody, name: 'anthropic-eu' }),
+    );
+    expect(sibling.status).toBe(400);
+    const echoed = await settingsRouter.request('/model-providers', putInit({ ...anthropicBody, name: 'anthropic' }));
+    expect(echoed.status).toBe(400);
 
     const list = await settingsRouter.request('/model-providers');
     expect(await list.json()).toEqual({ data: [] });
@@ -171,9 +170,7 @@ describe('well-known types are limited to one provider', () => {
     const proxied = { ...anthropicBody, base_url: 'https://gateway.internal.example.com/v1' };
     const response = await settingsRouter.request('/model-providers', putInit(proxied));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      data: { ...anthropicProvider, manifest: { ...anthropicProvider.manifest, base_url: proxied.base_url } },
-    });
+    expect(await response.json()).toEqual({ data: { ...anthropicProvider, base_url: proxied.base_url } });
   });
 
   it('PUT allows several caller-supplied providers, which each name their own endpoint', async () => {
@@ -183,7 +180,7 @@ describe('well-known types are limited to one provider', () => {
     expect((await settingsRouter.request('/model-providers', putInit(second))).status).toBe(200);
 
     const list = await settingsRouter.request('/model-providers');
-    expect(await list.json()).toEqual({ data: [customProvider, { name: second.name, manifest: second }] });
+    expect(await list.json()).toEqual({ data: [customBody, second] });
   });
 });
 
@@ -193,9 +190,9 @@ describe('catalog presets are configurable', () => {
     const { settingsRouter } = await createRouters();
     // `logo` is catalog-only metadata and a well-known provider takes its name from `type`; the rest
     // copies straight into a PUT body.
-    const { logo, name, ...manifest } = preset;
+    const { logo, name, ...presetFields } = preset;
     const body = {
-      ...manifest,
+      ...presetFields,
       auth: { api_key: `sk-${name}` },
     };
     expect(logo === undefined || typeof logo === 'string').toBe(true);

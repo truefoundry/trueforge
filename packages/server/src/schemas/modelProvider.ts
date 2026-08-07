@@ -69,7 +69,7 @@ const ModelProviderManifestBaseSchema = z
  * one of each because the `(tenant_id, name)` primary key replaces the row rather than adding a
  * sibling. `base_url` defaults to the adapter's endpoint and stays overridable.
  */
-function wellKnownProviderManifestSchema<Type extends Exclude<ProviderType, 'custom'>>({
+function wellKnownProviderSchema<Type extends Exclude<ProviderType, 'custom'>>({
   type,
   base_url,
 }: {
@@ -82,54 +82,54 @@ function wellKnownProviderManifestSchema<Type extends Exclude<ProviderType, 'cus
   }).strict();
 }
 
-const OpenAiModelProviderManifestSchema = wellKnownProviderManifestSchema({
+const OpenAiModelProviderSchema = wellKnownProviderSchema({
   type: 'openai',
   base_url: 'https://api.openai.com/v1',
-}).openapi('OpenAIModelProviderManifest');
+}).openapi('OpenAIModelProvider');
 
-const AnthropicModelProviderManifestSchema = wellKnownProviderManifestSchema({
+const AnthropicModelProviderSchema = wellKnownProviderSchema({
   type: 'anthropic',
   base_url: 'https://api.anthropic.com/v1',
-}).openapi('AnthropicModelProviderManifest');
+}).openapi('AnthropicModelProvider');
 
-const GoogleGeminiModelProviderManifestSchema = wellKnownProviderManifestSchema({
+const GoogleGeminiModelProviderSchema = wellKnownProviderSchema({
   type: 'google-gemini',
   base_url: 'https://generativelanguage.googleapis.com/v1beta',
-}).openapi('GoogleGeminiModelProviderManifest');
+}).openapi('GoogleGeminiModelProvider');
 
-const FireworksModelProviderManifestSchema = wellKnownProviderManifestSchema({
+const FireworksModelProviderSchema = wellKnownProviderSchema({
   type: 'fireworks',
   base_url: 'https://api.fireworks.ai/inference/v1',
-}).openapi('FireworksModelProviderManifest');
+}).openapi('FireworksModelProvider');
 
-const ZaiModelProviderManifestSchema = wellKnownProviderManifestSchema({
+const ZaiModelProviderSchema = wellKnownProviderSchema({
   type: 'zai',
   base_url: 'https://api.z.ai/api/paas/v4',
-}).openapi('ZaiModelProviderManifest');
+}).openapi('ZaiModelProvider');
 
-const MoonshotModelProviderManifestSchema = wellKnownProviderManifestSchema({
+const MoonshotModelProviderSchema = wellKnownProviderSchema({
   type: 'moonshot',
   base_url: 'https://api.moonshot.ai/v1',
-}).openapi('MoonshotModelProviderManifest');
+}).openapi('MoonshotModelProvider');
 
-const TogetherAIModelProviderManifestSchema = wellKnownProviderManifestSchema({
+const TogetherAIModelProviderSchema = wellKnownProviderSchema({
   type: 'together',
   base_url: 'https://api.together.xyz/v1',
-}).openapi('TogetherAIModelProviderManifest');
+}).openapi('TogetherAIModelProvider');
 
-const AlibabaModelProviderManifestSchema = wellKnownProviderManifestSchema({
+const AlibabaModelProviderSchema = wellKnownProviderSchema({
   type: 'alibaba',
   base_url: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
-}).openapi('AlibabaModelProviderManifest');
+}).openapi('AlibabaModelProvider');
 
 /** The one type a caller names, because only it supplies its own endpoint. */
-const CustomModelProviderManifestSchema = ModelProviderManifestBaseSchema.extend({
+const CustomModelProviderSchema = ModelProviderManifestBaseSchema.extend({
   type: z.literal('custom'),
   name: NameSchema,
   base_url: z.url().describe("Base URL of the provider's API."),
 })
   .strict()
-  .openapi('CustomModelProviderManifest');
+  .openapi('CustomModelProvider');
 
 export function refineModelProviderManifest(
   manifest: { models: { model_id: string; name: string }[] },
@@ -141,39 +141,31 @@ export function refineModelProviderManifest(
 export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
 
 /**
- * PUT body and the persisted `model_provider.manifest` document: configuration, plus the name on
- * `custom`, which is the only type with nothing to derive one from.
+ * Configured provider: PUT body, response data, and the persisted `model_provider.manifest` document
+ * in one shape. Only `custom` carries a name, so the row's key column comes from
+ * `modelProviderName` rather than from a field every type repeats.
  */
-export const ModelProviderManifestSchema = z
+export const ModelProviderSchema = z
   .discriminatedUnion('type', [
-    OpenAiModelProviderManifestSchema,
-    AnthropicModelProviderManifestSchema,
-    GoogleGeminiModelProviderManifestSchema,
-    FireworksModelProviderManifestSchema,
-    ZaiModelProviderManifestSchema,
-    MoonshotModelProviderManifestSchema,
-    TogetherAIModelProviderManifestSchema,
-    AlibabaModelProviderManifestSchema,
-    CustomModelProviderManifestSchema,
+    OpenAiModelProviderSchema,
+    AnthropicModelProviderSchema,
+    GoogleGeminiModelProviderSchema,
+    FireworksModelProviderSchema,
+    ZaiModelProviderSchema,
+    MoonshotModelProviderSchema,
+    TogetherAIModelProviderSchema,
+    AlibabaModelProviderSchema,
+    CustomModelProviderSchema,
   ])
   .superRefine(refineModelProviderManifest)
-  .openapi('ModelProviderManifest');
-
-/** The row's key: only `custom` carries a name of its own. */
-export function modelProviderName(manifest: ModelProviderManifest): ResourceName {
-  return manifest.type === 'custom' ? manifest.name : manifest.type;
-}
-
-/** Configured provider as the API returns it: the row's identity beside its document. */
-export const ModelProviderSchema = z
-  .object({
-    name: NameSchema.describe('Identity of the configured provider; first segment of a model FQN.'),
-    manifest: ModelProviderManifestSchema,
-  })
-  .strict()
   .openapi('ModelProvider');
 
-export const PutModelProviderRequestSchema = ModelProviderManifestSchema;
+/** The row's key: only `custom` carries a name of its own. */
+export function modelProviderName(provider: ModelProvider): ResourceName {
+  return provider.type === 'custom' ? provider.name : provider.type;
+}
+
+export const PutModelProviderRequestSchema = ModelProviderSchema;
 
 export const ListModelProvidersResponseSchema = z
   .object({
@@ -205,6 +197,5 @@ export const ListModelsResponseSchema = z
   })
   .openapi('ListModelsResponse');
 
-export type ModelProviderManifest = z.infer<typeof ModelProviderManifestSchema>;
 export type ModelProvider = z.infer<typeof ModelProviderSchema>;
 export type Model = z.infer<typeof ModelSchema>;

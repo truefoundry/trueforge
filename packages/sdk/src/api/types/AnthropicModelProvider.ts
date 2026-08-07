@@ -2,10 +2,10 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface TogetherAiModelProviderManifest {
+export interface AnthropicModelProvider {
     auth: TrueForge.ModelProviderAuth;
     /** Override of the provider's default API base URL. */
     baseUrl?: string;
     models: TrueForge.ModelEntry[];
-    type: "together";
+    type: "anthropic";
 }

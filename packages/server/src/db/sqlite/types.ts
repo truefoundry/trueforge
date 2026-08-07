@@ -18,7 +18,7 @@ import type {
 import type { CurrentContextUsage } from '@truefoundry/utils-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
-import type { ModelProviderManifest } from '../../schemas/modelProvider';
+import type { ModelProvider } from '../../schemas/modelProvider';
 import type { SandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
@@ -152,8 +152,8 @@ export interface ThreadCapabilityStateTable {
 export interface ModelProviderTable {
   tenant_id: string;
   name: string;
-  /** ModelProviderManifest document; replaced whole on every upsert */
-  manifest: JsonbColumn<ModelProviderManifest>;
+  /** ModelProvider document; replaced whole on every upsert */
+  manifest: JsonbColumn<ModelProvider>;
   created_at: string;
   updated_at: string;
 }

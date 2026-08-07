@@ -2,10 +2,11 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface AnthropicModelProviderManifest {
+export interface CustomModelProvider {
     auth: TrueForge.ModelProviderAuth;
-    /** Override of the provider's default API base URL. */
-    baseUrl?: string;
+    /** Base URL of the provider's API. */
+    baseUrl: string;
     models: TrueForge.ModelEntry[];
-    type: "anthropic";
+    name: TrueForge.ResourceName;
+    type: "custom";
 }

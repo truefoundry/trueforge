@@ -91,7 +91,7 @@ export class ModelProvidersClient {
     /**
      * Full upsert: creates the provider or replaces its entire configuration (models included). The key is the returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named by the caller.
      *
-     * @param {TrueForge.ModelProviderManifest} request
+     * @param {TrueForge.ModelProvider} request
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -112,14 +112,14 @@ export class ModelProvidersClient {
      *     })
      */
     public upsert(
-        request: TrueForge.ModelProviderManifest,
+        request: TrueForge.ModelProvider,
         requestOptions?: ModelProvidersClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.PutModelProviderResponse> {
         return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
     }
 
     private async __upsert(
-        request: TrueForge.ModelProviderManifest,
+        request: TrueForge.ModelProvider,
         requestOptions?: ModelProvidersClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.PutModelProviderResponse>> {
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(this._options?.headers, requestOptions?.headers);
@@ -135,7 +135,7 @@ export class ModelProvidersClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.ModelProviderManifest.jsonOrThrow(request, {
+                serializers.ModelProvider.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

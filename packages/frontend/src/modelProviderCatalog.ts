@@ -2,8 +2,8 @@
  * Maps trueforge-ui model-settings calls onto Harness
  * `/api/v1/settings/model-providers` (name-keyed upsert, no delete).
  *
- * UI: flat `apiKey` / model `id`. Harness: `manifest.auth.apiKey` / `modelId`.
- * Provider `id` in the UI is the Harness resource `name`, which the API derives.
+ * UI: flat `apiKey` / model `id`. Harness: `auth.apiKey` / `modelId`.
+ * Provider `id` in the UI is the Harness resource `name`.
  */
 import type {
   CreateModelProviderRequest,
@@ -45,13 +45,14 @@ export function toHarnessModelEntry(model: UiModelEntry): Harness.ModelEntry {
 }
 
 export function toUiModelProvider(provider: Harness.ModelProvider): UiModelProvider {
-  const { name, manifest } = provider;
+  // Only `custom` carries a name; the API names every other type after its type.
+  const name = provider.type === 'custom' ? provider.name : provider.type;
   return {
     id: name,
-    type: manifest.type,
+    type: provider.type,
     name,
-    ...(manifest.baseUrl === undefined ? {} : { baseUrl: manifest.baseUrl }),
-    models: manifest.models.map(toUiModelEntry),
+    ...(provider.baseUrl === undefined ? {} : { baseUrl: provider.baseUrl }),
+    models: provider.models.map(toUiModelEntry),
   };
 }
 
@@ -67,17 +68,17 @@ export function toUiCatalogEntry(provider: Harness.CatalogProvider): UiModelProv
 /** The catalog lists every type but `custom`, which only exists as tenant configuration. */
 const PROVIDER_TYPES: readonly string[] = [...Object.values(Harness.CatalogProviderType), 'custom'];
 
-function isProviderType(type: string): type is Harness.ModelProviderManifest['type'] {
+function isProviderType(type: string): type is Harness.ModelProvider['type'] {
   return PROVIDER_TYPES.includes(type);
 }
 
-export function toHarnessModelProviderManifest(req: {
+export function toHarnessModelProvider(req: {
   type: string;
   name: string;
   apiKey: string;
   baseUrl?: string;
   models: UiModelEntry[];
-}): Harness.ModelProviderManifest {
+}): Harness.ModelProvider {
   const models = req.models.map(toHarnessModelEntry);
   const auth = { apiKey: req.apiKey };
   if (!isProviderType(req.type)) {
@@ -106,11 +107,11 @@ async function resolveApiKey(req: { id?: string; apiKey: string }): Promise<stri
     throw new Error('API key is required');
   }
   const listed = await client.settings.modelProviders.list();
-  const existing = listed.data.find(provider => provider.name === req.id);
+  const existing = listed.data.find(provider => toUiModelProvider(provider).id === req.id);
   if (existing === undefined) {
     throw new Error(`Model provider "${req.id}" not found`);
   }
-  return existing.manifest.auth.apiKey;
+  return existing.auth.apiKey;
 }
 
 async function upsertFromUi(req: {
@@ -121,7 +122,7 @@ async function upsertFromUi(req: {
   models: UiModelEntry[];
 }): Promise<UiModelProvider> {
   const body = await client.settings.modelProviders.upsert(
-    toHarnessModelProviderManifest({
+    toHarnessModelProvider({
       type: req.type,
       name: req.name,
       apiKey: req.apiKey,

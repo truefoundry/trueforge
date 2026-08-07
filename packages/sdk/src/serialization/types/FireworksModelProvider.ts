@@ -6,21 +6,21 @@ import type * as serializers from "../index.js";
 import { ModelEntry } from "./ModelEntry.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
 
-export const TogetherAiModelProviderManifest: core.serialization.ObjectSchema<
-    serializers.TogetherAiModelProviderManifest.Raw,
-    TrueForge.TogetherAiModelProviderManifest
+export const FireworksModelProvider: core.serialization.ObjectSchema<
+    serializers.FireworksModelProvider.Raw,
+    TrueForge.FireworksModelProvider
 > = core.serialization.object({
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    type: core.serialization.stringLiteral("together"),
+    type: core.serialization.stringLiteral("fireworks"),
 });
 
-export declare namespace TogetherAiModelProviderManifest {
+export declare namespace FireworksModelProvider {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
-        type: "together";
+        type: "fireworks";
     }
 }

@@ -6,9 +6,9 @@ import type * as serializers from "../index.js";
 import { ModelEntry } from "./ModelEntry.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
 
-export const AlibabaModelProviderManifest: core.serialization.ObjectSchema<
-    serializers.AlibabaModelProviderManifest.Raw,
-    TrueForge.AlibabaModelProviderManifest
+export const AlibabaModelProvider: core.serialization.ObjectSchema<
+    serializers.AlibabaModelProvider.Raw,
+    TrueForge.AlibabaModelProvider
 > = core.serialization.object({
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
@@ -16,7 +16,7 @@ export const AlibabaModelProviderManifest: core.serialization.ObjectSchema<
     type: core.serialization.stringLiteral("alibaba"),
 });
 
-export declare namespace AlibabaModelProviderManifest {
+export declare namespace AlibabaModelProvider {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;

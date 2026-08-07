@@ -2093,7 +2093,7 @@ await client.settings.modelProviders.upsert({
 <dl>
 <dd>
 
-**request:** `TrueForge.ModelProviderManifest` 
+**request:** `TrueForge.ModelProvider` 
     
 </dd>
 </dl>

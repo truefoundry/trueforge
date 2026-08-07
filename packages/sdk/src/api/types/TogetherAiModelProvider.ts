@@ -2,10 +2,10 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface FireworksModelProviderManifest {
+export interface TogetherAiModelProvider {
     auth: TrueForge.ModelProviderAuth;
     /** Override of the provider's default API base URL. */
     baseUrl?: string;
     models: TrueForge.ModelEntry[];
-    type: "fireworks";
+    type: "together";
 }

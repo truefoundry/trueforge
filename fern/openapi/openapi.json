@@ -194,7 +194,7 @@
         ],
         "description": "Agent Definition"
       },
-      "AlibabaModelProviderManifest": {
+      "AlibabaModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -227,7 +227,7 @@
         ],
         "type": "object"
       },
-      "AnthropicModelProviderManifest": {
+      "AnthropicModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -744,7 +744,7 @@
         },
         "type": "object"
       },
-      "CustomModelProviderManifest": {
+      "CustomModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -904,7 +904,7 @@
         ],
         "type": "string"
       },
-      "FireworksModelProviderManifest": {
+      "FireworksModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -1101,7 +1101,7 @@
         ],
         "type": "object"
       },
-      "GoogleGeminiModelProviderManifest": {
+      "GoogleGeminiModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -1985,27 +1985,49 @@
         "type": "object"
       },
       "ModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "manifest": {
-            "$ref": "#/components/schemas/ModelProviderManifest"
+        "discriminator": {
+          "mapping": {
+            "alibaba": "#/components/schemas/AlibabaModelProvider",
+            "anthropic": "#/components/schemas/AnthropicModelProvider",
+            "custom": "#/components/schemas/CustomModelProvider",
+            "fireworks": "#/components/schemas/FireworksModelProvider",
+            "google-gemini": "#/components/schemas/GoogleGeminiModelProvider",
+            "moonshot": "#/components/schemas/MoonshotModelProvider",
+            "openai": "#/components/schemas/OpenAIModelProvider",
+            "together": "#/components/schemas/TogetherAIModelProvider",
+            "zai": "#/components/schemas/ZaiModelProvider"
           },
-          "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Identity of the configured provider; first segment of a model FQN."
-              }
-            ]
-          }
+          "propertyName": "type"
         },
-        "required": [
-          "name",
-          "manifest"
-        ],
-        "type": "object"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OpenAIModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/AnthropicModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/GoogleGeminiModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/FireworksModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/ZaiModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/MoonshotModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/TogetherAIModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/AlibabaModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/CustomModelProvider"
+          }
+        ]
       },
       "ModelProviderAuth": {
         "additionalProperties": false,
@@ -2020,52 +2042,7 @@
         ],
         "type": "object"
       },
-      "ModelProviderManifest": {
-        "discriminator": {
-          "mapping": {
-            "alibaba": "#/components/schemas/AlibabaModelProviderManifest",
-            "anthropic": "#/components/schemas/AnthropicModelProviderManifest",
-            "custom": "#/components/schemas/CustomModelProviderManifest",
-            "fireworks": "#/components/schemas/FireworksModelProviderManifest",
-            "google-gemini": "#/components/schemas/GoogleGeminiModelProviderManifest",
-            "moonshot": "#/components/schemas/MoonshotModelProviderManifest",
-            "openai": "#/components/schemas/OpenAIModelProviderManifest",
-            "together": "#/components/schemas/TogetherAIModelProviderManifest",
-            "zai": "#/components/schemas/ZaiModelProviderManifest"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/OpenAIModelProviderManifest"
-          },
-          {
-            "$ref": "#/components/schemas/AnthropicModelProviderManifest"
-          },
-          {
-            "$ref": "#/components/schemas/GoogleGeminiModelProviderManifest"
-          },
-          {
-            "$ref": "#/components/schemas/FireworksModelProviderManifest"
-          },
-          {
-            "$ref": "#/components/schemas/ZaiModelProviderManifest"
-          },
-          {
-            "$ref": "#/components/schemas/MoonshotModelProviderManifest"
-          },
-          {
-            "$ref": "#/components/schemas/TogetherAIModelProviderManifest"
-          },
-          {
-            "$ref": "#/components/schemas/AlibabaModelProviderManifest"
-          },
-          {
-            "$ref": "#/components/schemas/CustomModelProviderManifest"
-          }
-        ]
-      },
-      "MoonshotModelProviderManifest": {
+      "MoonshotModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -2098,7 +2075,7 @@
         ],
         "type": "object"
       },
-      "OpenAIModelProviderManifest": {
+      "OpenAIModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -2923,7 +2900,7 @@
         ],
         "type": "object"
       },
-      "TogetherAIModelProviderManifest": {
+      "TogetherAIModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -3688,7 +3665,7 @@
         ],
         "type": "object"
       },
-      "ZaiModelProviderManifest": {
+      "ZaiModelProvider": {
         "additionalProperties": false,
         "properties": {
           "auth": {
@@ -5671,7 +5648,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ModelProviderManifest"
+                "$ref": "#/components/schemas/ModelProvider"
               }
             }
           },

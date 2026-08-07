@@ -5,22 +5,25 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ModelEntry } from "./ModelEntry.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
+import { ResourceName } from "./ResourceName.js";
 
-export const AnthropicModelProviderManifest: core.serialization.ObjectSchema<
-    serializers.AnthropicModelProviderManifest.Raw,
-    TrueForge.AnthropicModelProviderManifest
+export const CustomModelProvider: core.serialization.ObjectSchema<
+    serializers.CustomModelProvider.Raw,
+    TrueForge.CustomModelProvider
 > = core.serialization.object({
     auth: ModelProviderAuth,
-    baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
+    baseUrl: core.serialization.property("base_url", core.serialization.string()),
     models: core.serialization.list(ModelEntry),
-    type: core.serialization.stringLiteral("anthropic"),
+    name: ResourceName,
+    type: core.serialization.stringLiteral("custom"),
 });
 
-export declare namespace AnthropicModelProviderManifest {
+export declare namespace CustomModelProvider {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
-        base_url?: string | null;
+        base_url: string;
         models: ModelEntry.Raw[];
-        type: "anthropic";
+        name: ResourceName.Raw;
+        type: "custom";
     }
 }
