@@ -65,6 +65,7 @@ function mapRowToSessionRecord(row: {
     agent: sessionAgentFromColumns({
       session_id: row.session_id,
       agent_id: row.agent_id,
+      agent_name: null,
       agent_spec: row.agent_spec,
     }),
     title: row.title,
@@ -154,7 +155,7 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
       if (agent === undefined) {
         return qb;
       }
-      return qb.set({ agent_spec: json(agent.agent_spec) });
+      return qb.set({ agent_spec: json(agent.def) });
     })
     .$if(title !== undefined, qb => {
       if (title === undefined) {

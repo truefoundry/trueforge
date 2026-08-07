@@ -26,7 +26,7 @@ export type CreateSessionInput<TSessionCustom extends object = Record<string, ne
 
 /**
  * PATCH fields for an existing session; `undefined` fields are left unchanged.
- * `agent` may be set only on value sessions, and only as a value arm.
+ * `agent` may be set only on value sessions, and only as a value arm (`{ type: 'value', def }`).
  */
 export type UpdateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,

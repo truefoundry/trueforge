@@ -226,7 +226,7 @@ export class InMemorySessionStore<
       if (stored.record.tenant_id !== input.tenant_id) continue;
       if (
         input.agent_id !== undefined &&
-        (stored.record.agent.type !== 'ref' || stored.record.agent.agent_id !== input.agent_id)
+        (stored.record.agent.type !== 'ref' || stored.record.agent.id !== input.agent_id)
       ) {
         continue;
       }
