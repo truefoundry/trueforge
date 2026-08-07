@@ -1,0 +1,26 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- $min := .Values.podDisruptionBudget.minAvailable }}
+{{- $max := .Values.podDisruptionBudget.maxUnavailable }}
+{{- if and $min $max }}
+{{- fail "podDisruptionBudget: set exactly one of minAvailable or maxUnavailable, not both" }}
+{{- end }}
+{{- if not (or $min $max) }}
+{{- fail "podDisruptionBudget: set exactly one of minAvailable or maxUnavailable when enabled" }}
+{{- end }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "truefoundry-utils.fullname" . }}
+  labels:
+    {{- include "truefoundry-utils.labels" . | nindent 4 }}
+spec:
+  {{- with $min }}
+  minAvailable: {{ . }}
+  {{- end }}
+  {{- with $max }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "truefoundry-utils.selectorLabels" . | nindent 6 }}
+{{- end }}

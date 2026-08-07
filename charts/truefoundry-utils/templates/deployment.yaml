@@ -1,20 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "trueforge.fullname" . }}
+  name: {{ include "truefoundry-utils.fullname" . }}
   labels:
-    {{- include "trueforge.labels" . | nindent 4 }}
+    {{- include "truefoundry-utils.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
-      {{- include "trueforge.selectorLabels" . | nindent 6 }}
+      {{- include "truefoundry-utils.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "trueforge.selectorLabels" . | nindent 8 }}
+        {{- include "truefoundry-utils.selectorLabels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -27,16 +31,23 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "trueforge.serviceAccountName" . }}
+      serviceAccountName: {{ include "truefoundry-utils.serviceAccountName" . }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
       # Above the server's GRACEFUL_TIMEOUT_SECONDS so SIGKILL does not cut off turn drain.
       terminationGracePeriodSeconds: {{ add .Values.server.gracefulTimeoutSeconds 5 }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: server
-          image: {{ include "trueforge.image" . | quote }}
+          image: {{ include "truefoundry-utils.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.securityContext }}
           securityContext:
@@ -52,32 +63,43 @@ spec:
             - name: PORT
               value: {{ .Values.server.port | quote }}
             - name: PUBLIC_BASE_URL
-              value: {{ required "server.publicBaseUrl is required" .Values.server.publicBaseUrl | quote }}
+              value: {{ .Values.server.publicBaseUrl | quote }}
             # The server always runs peered against Postgres + Redis.
             - name: STANDALONE
               value: "false"
             - name: GRACEFUL_TIMEOUT_SECONDS
               value: {{ .Values.server.gracefulTimeoutSeconds | quote }}
             - name: REDIS_URL
-              value: {{ include "trueforge.redis.url" . | quote }}
+              {{- if eq (include "truefoundry-utils.redis.useSecret" .) "true" }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalRedis.existingSecret | quote }}
+                  key: {{ .Values.externalRedis.urlKey | quote }}
+              {{- else }}
+              value: {{ include "truefoundry-utils.redis.url" . | quote }}
+              {{- end }}
             - name: POSTGRES_HOST
-              value: {{ include "trueforge.postgres.host" . | quote }}
+              value: {{ include "truefoundry-utils.postgres.host" . | quote }}
             - name: POSTGRES_PORT
-              value: {{ include "trueforge.postgres.port" . | quote }}
+              value: {{ include "truefoundry-utils.postgres.port" . | quote }}
             - name: POSTGRES_DB
-              value: {{ include "trueforge.postgres.database" . | quote }}
+              value: {{ include "truefoundry-utils.postgres.database" . | quote }}
             - name: POSTGRES_USER
-              value: {{ include "trueforge.postgres.user" . | quote }}
+              value: {{ include "truefoundry-utils.postgres.user" . | quote }}
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "trueforge.postgres.secretName" . }}
-                  key: {{ include "trueforge.postgres.secretKey" . }}
+                  name: {{ include "truefoundry-utils.postgres.secretName" . }}
+                  key: {{ include "truefoundry-utils.postgres.secretKey" . }}
             {{- with .Values.server.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
           {{- with .Values.server.extraEnvFrom }}
           envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.startupProbe }}
+          startupProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with .Values.livenessProbe }}
@@ -92,6 +114,17 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- with .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.extraVolumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -102,5 +135,9 @@ spec:
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}

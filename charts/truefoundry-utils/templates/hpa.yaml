@@ -2,14 +2,14 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "trueforge.fullname" . }}
+  name: {{ include "truefoundry-utils.fullname" . }}
   labels:
-    {{- include "trueforge.labels" . | nindent 4 }}
+    {{- include "truefoundry-utils.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "trueforge.fullname" . }}
+    name: {{ include "truefoundry-utils.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:

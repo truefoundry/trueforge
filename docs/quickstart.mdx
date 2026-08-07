@@ -42,21 +42,20 @@ description: 'Run TrueForge with one command, configure a model provider, and ha
 
   </Tab>
   <Tab title="Kubernetes (Helm)">
-    The Helm chart deploys the server with bundled Postgres and Redis (or point it at your own):
+    The Helm chart deploys the server in distributed mode with bundled Postgres and Redis (or point it at your own). No values are required for a basic install:
 
     ```bash
     # TODO: replace <HELM_REPO> with the published Helm repo URL
-    helm install trueforge oci://<HELM_REPO>/trueforge \
-      --version <x.y.z> \
-      --set server.publicBaseUrl=https://trueforge.example.com
+    helm install truefoundry-utils oci://<HELM_REPO>/truefoundry-utils \
+      --version <x.y.z>
     ```
 
-    | Value                  | Default      | Description                                                             |
-    | ---------------------- | ------------ | ------------------------------------------------------------------------ |
-    | `server.publicBaseUrl` | — (required) | Public origin for MCP OAuth callbacks.                                   |
-    | `replicaCount`         | `1`          | Number of server replicas (peered over Redis).                           |
-    | `postgresql.enabled`   | `true`       | Bundle Postgres; set `false` + `externalPostgres.*` to bring your own.   |
-    | `redis.enabled`        | `true`       | Bundle Redis; set `false` + `externalRedis.url` to bring your own.       |
+    | Value                  | Default | Description                                                             |
+    | ---------------------- | ------- | ------------------------------------------------------------------------ |
+    | `server.publicBaseUrl` | `""`    | Public origin for MCP OAuth / OIDC callbacks; set once you expose the service. |
+    | `replicaCount`         | `1`     | Number of server replicas (peered over Redis).                           |
+    | `postgresql.enabled`   | `true`  | Bundle Postgres; set `false` + `externalPostgres.*` to bring your own.   |
+    | `redis.enabled`        | `true`  | Bundle Redis; set `false` + `externalRedis.url` or `existingSecret`.     |
 
   </Tab>
 </Tabs>

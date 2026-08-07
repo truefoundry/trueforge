@@ -1,8 +1,0 @@
-# Minimal values that satisfy the chart's required() checks so `helm lint` and
-# `helm template` render cleanly. Postgres and Redis are bundled by default, so
-# only the public base URL is required. Not packaged (see .helmignore).
-#
-# Requires the subchart dependencies to be present first: run `pnpm chart:deps`
-# (pulls the public Bitnami OCI charts, no auth) before linting/templating.
-server:
-  publicBaseUrl: https://trueforge.example.com

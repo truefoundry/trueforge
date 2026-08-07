@@ -78,24 +78,23 @@ Every environment variable is documented in [`packages/server/.env.example`](pac
 
 ### Option 4: Kubernetes (Helm)
 
-The [`charts/trueforge`](charts/trueforge) Helm chart deploys the server with bundled Postgres and Redis (or point it at your own):
+The [`charts/truefoundry-utils`](charts/truefoundry-utils) Helm chart deploys the server in distributed mode (`STANDALONE=false`) with bundled Postgres and Redis (or point it at your own). No values are required for a basic install:
 
 ```bash
 # TODO: replace <HELM_REPO> with the published Helm repo URL
-helm install trueforge oci://<HELM_REPO>/trueforge \
-  --version <x.y.z> \
-  --set server.publicBaseUrl=https://trueforge.example.com
+helm install truefoundry-utils oci://<HELM_REPO>/truefoundry-utils \
+  --version <x.y.z>
 ```
 
-| Configuration          | Default      | Description                                                                   |
-| ---------------------- | ------------ | ----------------------------------------------------------------------------- |
-| `server.publicBaseUrl` | — (required) | Public origin for MCP OAuth callbacks.                                        |
-| `replicaCount`         | `1`          | Number of server replicas (turn cancel/streaming peers over Redis).           |
-| `postgresql.enabled`   | `true`       | Bundle Postgres; set `false` and fill `externalPostgres.*` to bring your own. |
-| `redis.enabled`        | `true`       | Bundle Redis; set `false` and set `externalRedis.url` to bring your own.      |
-| `autoscaling.enabled`  | `false`      | Enable a HorizontalPodAutoscaler.                                             |
+| Configuration          | Default | Description                                                                    |
+| ---------------------- | ------- | ------------------------------------------------------------------------------ |
+| `server.publicBaseUrl` | `""`    | Public origin for MCP OAuth / OIDC callbacks; set once you expose the service. |
+| `replicaCount`         | `1`     | Number of server replicas (turn cancel/streaming peers over Redis).            |
+| `postgresql.enabled`   | `true`  | Bundle Postgres; set `false` and fill `externalPostgres.*` to bring your own.  |
+| `redis.enabled`        | `true`  | Bundle Redis; set `false` and set `externalRedis.url` or `existingSecret`.     |
+| `autoscaling.enabled`  | `false` | Enable a HorizontalPodAutoscaler.                                              |
 
-See the [chart README](charts/trueforge/README.md) for external databases, ingress via `extraObjects`, and the full values reference.
+See the [chart README](charts/truefoundry-utils/README.md) for Secrets, external databases, ingress via `extraObjects`, and the full values reference.
 
 ## Getting started walkthrough
 
