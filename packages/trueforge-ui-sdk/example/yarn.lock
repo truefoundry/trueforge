@@ -9,7 +9,7 @@
   dependencies:
     zod "^3.22.4"
 
-"@assistant-ui/core@^0.2.19", "@assistant-ui/core@^0.2.22", "@assistant-ui/core@^0.2.23":
+"@assistant-ui/core@^0.2.22", "@assistant-ui/core@^0.2.23":
   version "0.2.23"
   resolved "https://registry.yarnpkg.com/@assistant-ui/core/-/core-0.2.23.tgz#24e63f885864d20af322c2261a93d46870358a18"
   integrity sha512-mD/sWrdH4SF1POxWE0Wn8jrxOSnuGOJfj8j5coDuEtdtoevQT3Z8LzD5mkd2UdyXHIkwFsMb3/vIL1kH8XKyGg==
@@ -42,7 +42,7 @@
     zod "^4.4.3"
     zustand "^5.0.14"
 
-"@assistant-ui/store@^0.2.19", "@assistant-ui/store@^0.2.22":
+"@assistant-ui/store@^0.2.21", "@assistant-ui/store@^0.2.22":
   version "0.2.22"
   resolved "https://registry.yarnpkg.com/@assistant-ui/store/-/store-0.2.22.tgz#3eaa11b7c2fcdddac909d4b3e3e1726e9238d2a8"
   integrity sha512-RdUFLOFJ3ZwIoOZYrRvps3OAODwnWoUAuNfqbROKrj5qtlQsIJRqxUNdLTjcf4AimhkjCwOaFacGHHm9lE4qBw==
@@ -1425,13 +1425,13 @@
     "@tailwindcss/oxide" "4.3.3"
     tailwindcss "4.3.3"
 
-"@truefoundry/assistant-ui-runtime@^0.1.9":
-  version "0.1.9"
-  resolved "https://registry.yarnpkg.com/@truefoundry/assistant-ui-runtime/-/assistant-ui-runtime-0.1.9.tgz#3234bb477f88d11e3fef4c034798f0a1bf85ddfc"
-  integrity sha512-2LjsIHbWOtJI+oSF28SvgcJ8WpUUr74/LYJ84UyKfOLnFutgJZPAwFp9a3uYmIdwVahnwk9pF6FD3zFyVVDB/Q==
+"@truefoundry/assistant-ui-runtime@^0.1.10":
+  version "0.1.10"
+  resolved "https://registry.yarnpkg.com/@truefoundry/assistant-ui-runtime/-/assistant-ui-runtime-0.1.10.tgz#71fef92257ea2534c74498e3769ee259d1dbb112"
+  integrity sha512-EDIIssQt6y/WVGLRf1Vd7JdS0Ewvuzn8jWCCueiMj38L+Hfcdih3TBr6H2hhEby9C4ULxTl4xbBVG3ybmVxPSw==
   dependencies:
-    "@assistant-ui/core" "^0.2.19"
-    "@assistant-ui/store" "^0.2.19"
+    "@assistant-ui/core" "^0.2.22"
+    "@assistant-ui/store" "^0.2.21"
 
 "@truefoundry/trueforge-ui@link:..":
   version "0.0.0"
@@ -1634,7 +1634,7 @@ assistant-cloud@^0.1.37:
   dependencies:
     assistant-stream "^0.3.33"
 
-assistant-stream@^0.3.27, assistant-stream@^0.3.28, assistant-stream@^0.3.33:
+assistant-stream@^0.3.28, assistant-stream@^0.3.33:
   version "0.3.33"
   resolved "https://registry.yarnpkg.com/assistant-stream/-/assistant-stream-0.3.33.tgz#8dd69031265966686ada54d9e33b0c60c351c091"
   integrity sha512-ZUP5hGMtucRpg1TQWCMX3Tp7iOvhG4KWrKTJYtNUCbtDvPuMod4JbBp2JJp8ThrNALXBi3OlE4ZU1a/6W11Cog==

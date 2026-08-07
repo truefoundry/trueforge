@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useAui } from '../assistant-ui.js';
+import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { ShellActions } from '../atoms/ShellActions.js';
@@ -24,7 +25,7 @@ export function DrawerLayout({ className }: { className?: string }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
-  const isIdle = shell?.mode.type === 'idle';
+  const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
 
   useEffect(() => {
@@ -64,9 +65,11 @@ export function DrawerLayout({ className }: { className?: string }) {
   return (
     <div className={cn('relative flex h-full min-h-0 w-full flex-col', className)}>
       {!settingsOpen ? (
-        <header className="flex shrink-0 items-center justify-end gap-1 border-b border-border bg-background px-2 py-1.5">
-          <SaveAgentButton />
+        <header className="flex shrink-0 items-center gap-1 border-b border-border bg-background px-2 py-1.5">
+          <NamedAgentHeaderLabel />
+          <span className="min-w-0 flex-1" />
           <ClearChatButton />
+          <SaveAgentButton />
           <ShellActions />
           {shell?.isNewChatEnabled !== false ? (
             <button

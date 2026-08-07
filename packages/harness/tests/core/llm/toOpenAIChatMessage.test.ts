@@ -1,5 +1,4 @@
-import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/chat';
-import type { ILLM } from '../../../src/core/llm/ILLM';
+import type { ILLM, LLMCreateParamsStreaming } from '../../../src/core/llm/ILLM';
 import type {
   ExtendedChatCompletionChunk,
   InternalEnrichedAssistantMessage,
@@ -153,9 +152,9 @@ describe('AgentThread LLM request mapping (end-to-end)', () => {
   }
 
   it('forwards thinking_blocks, reasoning_content, and provider_specific_fields; strips tool_info', async () => {
-    let capturedBody: ChatCompletionCreateParamsStreaming | undefined;
+    let capturedBody: LLMCreateParamsStreaming | undefined;
     const modelClient: ILLM = {
-      create: jest.fn().mockImplementation((body: ChatCompletionCreateParamsStreaming) => {
+      create: jest.fn().mockImplementation((body: LLMCreateParamsStreaming) => {
         capturedBody = body;
         return finalAnswerStream();
       }),
@@ -169,7 +168,6 @@ describe('AgentThread LLM request mapping (end-to-end)', () => {
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
       definition: {
-        model: 'test-model',
         modelClient,
         instruction: 'test',
         toolSets: [],

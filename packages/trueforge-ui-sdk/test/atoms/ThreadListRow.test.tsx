@@ -54,4 +54,53 @@ describe('ThreadListRow', () => {
     const activeRow = container.querySelector('[data-slot="aui_thread-list-item"]');
     expect(activeRow?.className).toMatch(/bg-muted/);
   });
+
+  it('renders agent name and relative time when provided', () => {
+    const lastMessageAt = new Date(Date.now() - 30 * 60_000);
+    render(
+      <SlotsProvider>
+        <ThreadListRow
+          title="Hello chat"
+          active={false}
+          onSelect={() => {}}
+          agentName="from-sdk"
+          lastMessageAt={lastMessageAt}
+        />
+      </SlotsProvider>,
+    );
+    expect(screen.getByText('Hello chat')).toBeInTheDocument();
+    expect(screen.getByText('from-sdk')).toBeInTheDocument();
+    expect(screen.getByText('30m')).toBeInTheDocument();
+  });
+
+  it('keeps relative time and actions in one trailing slot that swaps on hover', () => {
+    const lastMessageAt = new Date(Date.now() - 2 * 24 * 60 * 60_000);
+    const { container } = render(
+      <SlotsProvider>
+        <ThreadListRow
+          title="Hello"
+          active={false}
+          onSelect={() => {}}
+          agentName="test-gv-yo"
+          lastMessageAt={lastMessageAt}
+          actions={
+            <button type="button" aria-label="Session actions">
+              …
+            </button>
+          }
+        />
+      </SlotsProvider>,
+    );
+    const row = container.querySelector('[data-slot="aui_thread-list-item"]');
+    expect(row?.className).toMatch(/items-center/);
+    const time = screen.getByText('2d');
+    expect(time.getAttribute('data-slot')).toBe('aui_thread-list-item-age');
+    const actionsSlot = screen.getByRole('button', { name: 'Session actions' }).parentElement;
+    expect(actionsSlot?.getAttribute('data-slot')).toBe('aui_thread-list-item-actions');
+    expect(actionsSlot?.className).toMatch(/absolute/);
+    expect(actionsSlot?.className).toMatch(/md:opacity-0/);
+    expect(actionsSlot?.className).toMatch(/md:group-hover:opacity-100/);
+    expect(time.className).toMatch(/md:opacity-100/);
+    expect(time.className).toMatch(/md:group-hover:opacity-0/);
+  });
 });

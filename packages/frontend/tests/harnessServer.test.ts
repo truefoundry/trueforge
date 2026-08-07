@@ -38,6 +38,9 @@ const fetchMock: typeof fetch = async (input, init) => {
   if (url.includes('/api/v1/sessions?') || url.endsWith('/api/v1/sessions')) {
     return Response.json({ data: [session], pagination: { limit: 20, next_page_token: 'tok_2' } });
   }
+  if (url.endsWith('/api/v1/agents')) {
+    return Response.json({ data: [] });
+  }
   if (url.endsWith('/api/v1/sessions/ses_1/turns')) {
     return new Response(
       'id: 7\ndata: {"type":"model.message.delta","id":"evt_1","thread_id":"main","content":"hello"}\n\n',
@@ -131,6 +134,174 @@ describe('createHarnessChatServer', () => {
         },
       },
     ]);
+  });
+
+  it('creates a ref session from agentName and reports it immutable', async () => {
+    const requests: { url: string; body?: unknown }[] = [];
+    const fetchNamed: typeof fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/agents')) {
+        return Response.json({
+          data: [{ id: 'agt_1', name: 'reviewer', model: { name: 'test/model' } }],
+        });
+      }
+      if (url.endsWith('/api/v1/sessions') && init?.method === 'POST' && typeof init.body === 'string') {
+        requests.push({ url, body: JSON.parse(init.body) });
+        return Response.json({ data: { ...session, agent: { type: 'ref', agent_id: 'agt_1' } } });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    const created = await server.createSession({ agentName: 'reviewer' });
+
+    assert.deepEqual(requests.at(-1)?.body, { agent: { type: 'ref', agent_id: 'agt_1' } });
+    assert.equal(created.isMutable, false);
+    assert.equal(created.agentName, 'reviewer');
+    assert.equal(created.agentSpec, undefined);
+  });
+
+  it('rejects createSession for an unknown agentName without touching sessions', async () => {
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/agents')) return Response.json({ data: [] });
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    await assert.rejects(() => server.createSession({ agentName: 'ghost' }), /Agent not found: ghost/);
+  });
+
+  it('filters listSessions by agentId (name) and stamps it on the ref rows', async () => {
+    let listUrl: string | undefined;
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/agents')) {
+        return Response.json({
+          data: [{ id: 'agt_1', name: 'reviewer', model: { name: 'test/model' } }],
+        });
+      }
+      if (url.includes('/api/v1/sessions?')) {
+        listUrl = url;
+        return Response.json({
+          data: [{ ...session, agent: { type: 'ref', agent_id: 'agt_1' } }],
+          pagination: { limit: 20 },
+        });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    const page = await server.listSessions({ agentId: 'reviewer' });
+
+    assert.ok(listUrl !== undefined);
+    assert.equal(new URL(listUrl, 'http://test.local').searchParams.get('agent_id'), 'agt_1');
+    assert.equal(page.data[0]?.agentName, 'reviewer');
+    assert.equal(page.data[0]?.isMutable, false);
+  });
+
+  it('filters listSessions when agentId is the registry id', async () => {
+    let listUrl: string | undefined;
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/agents')) {
+        return Response.json({
+          data: [{ id: 'agt_1', name: 'reviewer', model: { name: 'test/model' } }],
+        });
+      }
+      if (url.includes('/api/v1/sessions?')) {
+        listUrl = url;
+        return Response.json({
+          data: [{ ...session, agent: { type: 'ref', agent_id: 'agt_1' } }],
+          pagination: { limit: 20 },
+        });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    const page = await server.listSessions({ agentId: 'agt_1' });
+
+    assert.ok(listUrl !== undefined);
+    assert.equal(new URL(listUrl, 'http://test.local').searchParams.get('agent_id'), 'agt_1');
+    assert.equal(page.data[0]?.agentName, 'reviewer');
+  });
+
+  it('listSessions returns an empty page when agentId matches no registry agent', async () => {
+    let listedSessions = false;
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/agents')) return Response.json({ data: [] });
+      if (url.includes('/api/v1/sessions')) {
+        listedSessions = true;
+        return new Response(`Unexpected request: ${url}`, { status: 500 });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    const page = await server.listSessions({ agentId: 'ghost', limit: 10 });
+
+    assert.equal(listedSessions, false);
+    assert.deepEqual(page.data, []);
+    assert.equal(page.hasNextPage(), false);
+    assert.deepEqual(page.response.pagination, { limit: 10 });
+  });
+
+  it('getSession resolves the agentName of a ref session from the registry', async () => {
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/agents')) {
+        return Response.json({
+          data: [{ id: 'agt_1', name: 'reviewer', model: { name: 'test/model' } }],
+        });
+      }
+      if (url.endsWith('/api/v1/sessions/ses_1')) {
+        return Response.json({ data: { ...session, agent: { type: 'ref', agent_id: 'agt_1' } } });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    const found = await server.getSession({ sessionId: 'ses_1' });
+
+    assert.equal(found.agentName, 'reviewer');
+    assert.equal(found.isMutable, false);
+  });
+
+  it('getSession stamps agentId as agentName when the registry agent is gone', async () => {
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/agents')) return Response.json({ data: [] });
+      if (url.endsWith('/api/v1/sessions/ses_1')) {
+        return Response.json({ data: { ...session, agent: { type: 'ref', agent_id: 'agt_deleted' } } });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    const found = await server.getSession({ sessionId: 'ses_1' });
+
+    assert.equal(found.isMutable, false);
+    assert.equal(found.agentName, 'agt_deleted');
+  });
+
+  it('refuses to update the agent of a ref session', async () => {
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/sessions/ses_1')) {
+        return Response.json({ data: { ...session, agent: { type: 'ref', agent_id: 'agt_1' } } });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    const updateSession = server.updateSession;
+    assert.ok(updateSession);
+    await assert.rejects(
+      () => updateSession({ sessionId: 'ses_1', agentSpec: { model: { name: 'test/model' } } }),
+      /Cannot update agent on a named session/,
+    );
   });
 
   it('subscribes to a turn and forwards afterSequenceNumber', async () => {
