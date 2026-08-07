@@ -10,5 +10,5 @@ export type ModelProvider =
     | TrueForge.GoogleGeminiModelProvider
     | TrueForge.MoonshotModelProvider
     | TrueForge.OpenAiModelProvider
-    | TrueForge.TogetherModelProvider
+    | TrueForge.TogetherAiModelProvider
     | TrueForge.ZaiModelProvider;

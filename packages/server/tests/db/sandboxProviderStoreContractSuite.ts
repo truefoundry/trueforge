@@ -10,7 +10,7 @@ const TENANT = 'default';
 function manifest(overrides: Partial<SandboxProviderManifest> = {}): SandboxProviderManifest {
   return {
     type: 'daytona',
-    snapshot_name: 'truefoundry-platform-dev-2d5edee',
+    snapshot_name: 'trueforge-local',
     auth: { api_key: 'dtn-test' },
     exec_timeout_ms: 60000,
     auto_stop_interval_in_minutes: 5,
@@ -75,7 +75,7 @@ export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxPro
 
     const forDefault = await store.getSandboxProvider(TENANT);
     const forOther = await store.getSandboxProvider('other-tenant');
-    expect(forDefault?.manifest.snapshot_name).toBe('truefoundry-platform-dev-2d5edee');
+    expect(forDefault?.manifest.snapshot_name).toBe('trueforge-local');
     expect(forOther?.manifest.snapshot_name).toBe('other-tenant-snapshot');
   });
 }

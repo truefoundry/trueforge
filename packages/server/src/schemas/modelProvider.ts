@@ -85,7 +85,7 @@ function wellKnownProviderSchema<Type extends Exclude<ProviderType, 'custom'>>({
 const OpenAiModelProviderSchema = wellKnownProviderSchema({
   type: 'openai',
   base_url: 'https://api.openai.com/v1',
-}).openapi('OpenAiModelProvider');
+}).openapi('OpenAIModelProvider');
 
 const AnthropicModelProviderSchema = wellKnownProviderSchema({
   type: 'anthropic',
@@ -112,10 +112,10 @@ const MoonshotModelProviderSchema = wellKnownProviderSchema({
   base_url: 'https://api.moonshot.ai/v1',
 }).openapi('MoonshotModelProvider');
 
-const TogetherModelProviderSchema = wellKnownProviderSchema({
+const TogetherAIModelProviderSchema = wellKnownProviderSchema({
   type: 'together',
   base_url: 'https://api.together.xyz/v1',
-}).openapi('TogetherModelProvider');
+}).openapi('TogetherAIModelProvider');
 
 const AlibabaModelProviderSchema = wellKnownProviderSchema({
   type: 'alibaba',
@@ -137,7 +137,7 @@ const MODEL_PROVIDER_SCHEMAS = [
   FireworksModelProviderSchema,
   ZaiModelProviderSchema,
   MoonshotModelProviderSchema,
-  TogetherModelProviderSchema,
+  TogetherAIModelProviderSchema,
   AlibabaModelProviderSchema,
   CustomModelProviderSchema,
 ] as const;

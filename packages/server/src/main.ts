@@ -13,9 +13,10 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
 let configuration: typeof import('./config').default;
+let isOidcConfigured: typeof import('./config').isOidcConfigured;
 
 try {
-  ({ default: configuration } = await import('./config'));
+  ({ default: configuration, isOidcConfigured } = await import('./config'));
 } catch (error) {
   console.error(
     'Failed to start server: Failed to load configuration:',
@@ -36,6 +37,7 @@ import type { RedisClientType } from 'redis';
 import winston, { type Logger } from 'winston';
 
 import { createServerApp } from './app';
+import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
 import { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -177,7 +179,7 @@ async function createDistributedPersistence(options: {
 try {
   // Console logger shared by the server runtime (harness components require one).
   const logger = winston.createLogger({
-    level: process.env['LOG_LEVEL'] ?? 'info',
+    level: configuration.LOG_LEVEL,
     format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
     transports: [new winston.transports.Console()],
   });
@@ -200,6 +202,14 @@ try {
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
 
+  const oidc = isOidcConfigured(configuration) ? configuration.OIDC : undefined;
+  if (oidc) {
+    logger.info('OIDC is configured', { issuer: oidc.OIDC_ISSUER_URL });
+  } else {
+    logger.warn('OIDC is not configured; browser login is disabled');
+  }
+  const oidcClient = await initOidc(oidc);
+
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),
     mcpCatalog: McpCatalog.load(),
@@ -218,6 +228,7 @@ try {
     requestReplyRouter,
     eventSubscriptions,
     logger,
+    oidcClient,
   });
 
   if (mountFrontend(app, configuration.FRONTEND_DIR)) {
@@ -268,7 +279,7 @@ try {
 
   // Graceful drain is the safe default for built and direct execution.
   // Development watch mode opts out so tsx can restart without waiting for a drain.
-  if (process.env['NODE_ENV'] !== 'development') {
+  if (configuration.NODE_ENV !== 'development') {
     let shuttingDown = false;
     const shutdown = async (signal: NodeJS.Signals) => {
       if (shuttingDown) return;
