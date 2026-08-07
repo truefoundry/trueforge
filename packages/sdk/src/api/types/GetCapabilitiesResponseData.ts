@@ -4,5 +4,6 @@ import type * as TrueForge from "../index.js";
 
 export interface GetCapabilitiesResponseData {
     sandbox: TrueForge.GetCapabilitiesResponseDataSandbox;
+    settings: TrueForge.GetCapabilitiesResponseDataSettings;
     skill: TrueForge.GetCapabilitiesResponseDataSkill;
 }
