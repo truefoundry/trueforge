@@ -13,7 +13,16 @@ export function providerOf(name: string): string {
 
 export function createHarnessBuilderServer(): AgentBuilderServer<HarnessAgentSpec> {
   return {
-    getModels: async () => (await listModels()).map(model => ({ name: model.name, provider: providerOf(model.name) })),
+    getModels: async () =>
+      (await listModels()).map(model => ({
+        name: model.name,
+        provider: providerOf(model.name),
+        ...(model.properties?.reasoningEfforts?.length
+          ? {
+              reasoningEfforts: model.properties.reasoningEfforts,
+            }
+          : {}),
+      })),
     // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
     getSkills: async () => {
       const [capabilities, skills] = await Promise.all([getCapabilities(), listSkills()]);
