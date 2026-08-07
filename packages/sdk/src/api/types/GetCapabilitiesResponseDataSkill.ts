@@ -3,4 +3,6 @@
 export interface GetCapabilitiesResponseDataSkill {
     /** Whether skills are available. False when sandbox is not enabled (skills require a sandbox). */
     enabled: boolean;
+    /** Present when skills are disabled. Explains why. */
+    reason?: string;
 }

@@ -23,6 +23,7 @@ export function AgentsLibraryButton({ className, compact = false, onSelectAgent 
   const [count, setCount] = useState<number | null>(null);
 
   const enabled = shell?.isLibraryEnabled === true && server != null;
+  const agentsListEpoch = shell?.agentsListEpoch ?? 0;
 
   useEffect(() => {
     if (!enabled || !server) return;
@@ -36,7 +37,7 @@ export function AgentsLibraryButton({ className, compact = false, onSelectAgent 
     return () => {
       cancelled = true;
     };
-  }, [enabled, server]);
+  }, [enabled, server, agentsListEpoch]);
 
   if (!enabled) return null;
 

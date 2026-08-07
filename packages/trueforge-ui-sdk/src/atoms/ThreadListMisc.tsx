@@ -77,7 +77,8 @@ export function ThreadListShell({ header, children, className }: ThreadListShell
   return (
     <div className={cn('font-sans-flex flex h-full min-h-0 flex-1 flex-col overflow-hidden', className)}>
       <div className="shrink-0 border-b border-border px-2 py-2">{header}</div>
-      <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2">{children}</div>
+      {/* History section owns overflow scroll so infinite-load IO can root on it. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-2">{children}</div>
     </div>
   );
 }

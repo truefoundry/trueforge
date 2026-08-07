@@ -23,11 +23,15 @@ describe('TurnHandle.stream()', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      agent_spec: makeAgentSpec({
-        config: {
-          sandbox: { enabled: true, file_downloads: true },
-        },
-      }),
+      created_by: 'user-1',
+      agent: {
+        type: 'value',
+        agent_spec: makeAgentSpec({
+          config: {
+            sandbox: { enabled: true, file_downloads: true },
+          },
+        }),
+      },
     });
     return { store, session };
   }
@@ -37,7 +41,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver(),
     });
@@ -79,7 +83,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: 'turn-usage',
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
@@ -114,7 +118,7 @@ describe('TurnHandle.stream()', () => {
     const turn1 = await session.createTurn({
       turn_id: 'turn-isolation-1',
       input: [{ type: EventType.USER_MESSAGE, content: 'turn one' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
@@ -179,7 +183,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: 'turn-cache-read',
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         usage: {
@@ -205,7 +209,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver(),
     });
@@ -223,7 +227,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver(),
     });
@@ -247,7 +251,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         close: () => {
@@ -278,7 +282,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: controller.signal,
       resolver: makeTestResolver(),
     });
@@ -304,7 +308,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: controller.signal,
       resolver: makeTestResolver(),
     });
@@ -332,7 +336,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: controller.signal,
       resolver: makeTestResolver(),
     });
@@ -360,7 +364,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver({
         close: () => {
@@ -387,7 +391,7 @@ describe('TurnHandle.stream()', () => {
     const closeSpy = jest.spyOn(sandbox, 'close').mockResolvedValue(undefined);
     const logger = makeSilentLogger();
     const resolver = new TurnResourceResolver({
-      llm: () => makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
+      llm: () => Promise.resolve(makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) })),
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
@@ -399,7 +403,7 @@ describe('TurnHandle.stream()', () => {
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver,
     });
@@ -441,7 +445,7 @@ describe('TurnResourceResolver caches', () => {
         expect(a).toBe(b);
       }
     })({
-      llm: () => makeMockILLM(),
+      llm: () => Promise.resolve(makeMockILLM()),
       mcp: () => Promise.resolve({ url: 'http://example.invalid' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
@@ -457,7 +461,7 @@ describe('TurnResourceResolver caches', () => {
     let sandboxCreates = 0;
     const logger = makeSilentLogger();
     const resolver = new TurnResourceResolver({
-      llm: () => makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
+      llm: () => Promise.resolve(makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) })),
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
@@ -472,16 +476,20 @@ describe('TurnResourceResolver caches', () => {
     const session = await sessions.create({
       tenant_id: 't',
       session_id: 's',
-      agent_spec: makeAgentSpec({
-        config: {
-          sandbox: { enabled: true, file_downloads: true },
-        },
-      }),
+      created_by: 'user-1',
+      agent: {
+        type: 'value',
+        agent_spec: makeAgentSpec({
+          config: {
+            sandbox: { enabled: true, file_downloads: true },
+          },
+        }),
+      },
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
-      previous_turn_id: null,
+      previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver,
     });

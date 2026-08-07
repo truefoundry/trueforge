@@ -8,17 +8,20 @@ import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { validateAgentSpec } from '../../../src/runtime/sessionResources';
+import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
 
 describe('validateAgentSpec', () => {
-  async function setup(options?: { reasoningEfforts?: string[] | undefined }) {
+  async function setup(options?: { reasoningEfforts?: ReasoningEffort[] | undefined }) {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
     await modelProviderStore.upsertProvider({
       tenant_id: TENANT_ID,
-      name: 'test-provider',
       manifest: {
-        type: 'openai',
+        // Caller-named, so `custom` is the only type it can be.
+        type: 'custom',
+        name: 'test-provider',
+        base_url: 'https://llm.test.example.com/v1',
         auth: { api_key: 'sk-test' },
         models: [
           {

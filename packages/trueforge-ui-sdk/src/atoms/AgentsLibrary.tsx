@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
-import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import type { AgentLibraryEntry } from '../server/types.js';
+import { libraryAgentId, useOptionalShellMode } from '../server/ShellModeContext.js';
+import type { AgentLibraryEntry, AgentSpec } from '../server/types.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { useCompactLayout } from './lib/CompactLayoutContext.js';
@@ -18,7 +18,22 @@ export type AgentsLibraryProps = {
   onSelectAgent?: (agentName: string) => void;
 };
 
-function AgentLibraryRow({ agent, onSelect }: { agent: AgentLibraryEntry; onSelect: () => void }) {
+type AgentLibraryRowProps = {
+  agent: AgentLibraryEntry;
+  showEdit: boolean;
+  onTry: () => void;
+  onEdit: () => void;
+};
+
+function rowActionClass(compact: boolean) {
+  return cn(
+    'shrink-0 opacity-100 transition-opacity',
+    !compact && 'md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100',
+    'focus-visible:opacity-100',
+  );
+}
+
+function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProps) {
   const compact = useCompactLayout();
 
   return (
@@ -36,22 +51,34 @@ function AgentLibraryRow({ agent, onSelect }: { agent: AgentLibraryEntry; onSele
       <span className="text-foreground min-w-0 flex-1 truncate text-left text-sm font-medium leading-tight">
         {agent.name}
       </span>
-      <button
-        type="button"
-        aria-label={`Try agent ${agent.name}`}
-        className={auiButtonClass({
-          variant: 'outline',
-          size: 'sm',
-          className: cn(
-            'shrink-0 opacity-100 transition-opacity',
-            !compact && 'md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100',
-            'focus-visible:opacity-100',
-          ),
-        })}
-        onClick={onSelect}
-      >
-        Try Agent
-      </button>
+      <span className="flex shrink-0 items-center gap-1.5">
+        {showEdit ? (
+          <button
+            type="button"
+            aria-label={`Edit agent ${agent.name}`}
+            className={auiButtonClass({
+              variant: 'ghost',
+              size: 'sm',
+              className: rowActionClass(compact),
+            })}
+            onClick={onEdit}
+          >
+            Edit
+          </button>
+        ) : null}
+        <button
+          type="button"
+          aria-label={`Try agent ${agent.name}`}
+          className={auiButtonClass({
+            variant: 'outline',
+            size: 'sm',
+            className: rowActionClass(compact),
+          })}
+          onClick={onTry}
+        >
+          Try Agent
+        </button>
+      </span>
     </div>
   );
 }
@@ -63,6 +90,9 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
   const [agents, setAgents] = useState<AgentLibraryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const canEdit = shell?.isComposerEnabled === true;
+  const agentsListEpoch = shell?.agentsListEpoch ?? 0;
 
   useEffect(() => {
     if (!open) {
@@ -90,21 +120,38 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
     return () => {
       cancelled = true;
     };
-  }, [open, query, server]);
+  }, [open, query, server, agentsListEpoch]);
 
-  const handleSelect = (name: string) => {
+  const closeLibrary = () => {
     onOpenChange(false);
     setQuery('');
-    onSelectAgent?.(name);
-    shell?.selectAgent(name);
+  };
+
+  const handleTry = (agent: AgentLibraryEntry) => {
+    const id = libraryAgentId(agent);
+    closeLibrary();
+    onSelectAgent?.(agent.name);
+    shell?.selectLibraryAgent({
+      isMutable: false,
+      agentId: id,
+      agentName: agent.name,
+    });
+  };
+
+  const handleEdit = (agent: AgentLibraryEntry, agentSpec: AgentSpec) => {
+    const id = libraryAgentId(agent);
+    closeLibrary();
+    onSelectAgent?.(agent.name);
+    shell?.selectLibraryAgent({
+      isMutable: true,
+      agentId: id,
+      agentName: agent.name,
+      agentSpec,
+    });
   };
 
   return (
     <CenteredModal open={open} onOpenChange={onOpenChange} title="Agents Library">
-      {/*
-        Single-pane layout modeled on the MCP tools modal's left column
-        (search + icon rows). Detail columns need fields beyond AgentLibraryEntry.
-      */}
       <div className="bg-muted/40 flex min-h-0 flex-1 flex-col">
         <div className="shrink-0 border-b border-border px-4 py-3">
           <label className="relative block">
@@ -134,9 +181,21 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
           ) : agents.length === 0 ? (
             <p className="text-muted-foreground px-3 py-8 text-center text-sm">No agents found</p>
           ) : (
-            agents.map(agent => (
-              <AgentLibraryRow key={agent.name} agent={agent} onSelect={() => handleSelect(agent.name)} />
-            ))
+            agents.map(agent => {
+              const agentSpec = agent.agentSpec;
+              const showEdit = canEdit && agentSpec != null;
+              return (
+                <AgentLibraryRow
+                  key={libraryAgentId(agent)}
+                  agent={agent}
+                  showEdit={showEdit}
+                  onTry={() => handleTry(agent)}
+                  onEdit={() => {
+                    if (agentSpec != null) handleEdit(agent, agentSpec);
+                  }}
+                />
+              );
+            })
           )}
         </div>
       </div>

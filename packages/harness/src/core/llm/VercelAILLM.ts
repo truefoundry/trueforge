@@ -26,17 +26,16 @@ import type {
   ToolSet,
   UserContent,
 } from 'ai';
-import { jsonSchema, Output, streamText } from 'ai';
+import { APICallError, jsonSchema, Output, streamText } from 'ai';
 import type {
   ChatCompletionContentPart,
-  ChatCompletionCreateParams,
   ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageParam,
   ChatCompletionTool,
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../util/errorLogFields';
-import type { ILLM } from './ILLM';
+import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
 import {
   type CompletionUsage,
   type ExtendedChatCompletionChunk,
@@ -46,20 +45,9 @@ import {
   type ThinkingBlock,
 } from './LLMTypes';
 
-/** Narrows to an indexable record. */
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
-
-/** OpenAI SDK v7 unions function + custom tools; harness only emits function tools. */
-function isFunctionTool(tool: ChatCompletionTool): tool is Extract<ChatCompletionTool, { type: 'function' }> {
-  return tool.type === 'function';
-}
-
-/** OpenAI SDK v7 unions function + custom tool calls; harness only consumes function calls. */
-function isFunctionToolCall<T extends { type: string }>(toolCall: T): toolCall is Extract<T, { type: 'function' }> {
-  return toolCall.type === 'function';
-}
+// ---------------------------------------------------------------------------
+// Public config
+// ---------------------------------------------------------------------------
 
 /**
  * Providers with a case in {@link buildLanguageModel}. Canonical: the server derives the provider
@@ -100,6 +88,29 @@ export interface VercelAILLMConfig {
   logger: Logger;
   signal?: AbortSignal;
 }
+
+// ---------------------------------------------------------------------------
+// Shared predicates
+// ---------------------------------------------------------------------------
+
+/** Narrows to an indexable record. */
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+/** OpenAI SDK v7 unions function + custom tools; harness only emits function tools. */
+function isFunctionTool(tool: ChatCompletionTool): tool is Extract<ChatCompletionTool, { type: 'function' }> {
+  return tool.type === 'function';
+}
+
+/** OpenAI SDK v7 unions function + custom tool calls; harness only consumes function calls. */
+function isFunctionToolCall<T extends { type: string }>(toolCall: T): toolCall is Extract<T, { type: 'function' }> {
+  return toolCall.type === 'function';
+}
+
+// ---------------------------------------------------------------------------
+// Model construction
+// ---------------------------------------------------------------------------
 
 /**
  * Shared by every OpenAI-compatible provider, which differ only by endpoint. The provider name
@@ -187,31 +198,9 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
   }
 }
 
-/** Maps Vercel AI SDK LanguageModelUsage → harness CompletionUsage. */
-export function normalizeUsage(usage: {
-  inputTokens: number | undefined;
-  outputTokens: number | undefined;
-  inputTokenDetails: {
-    cacheReadTokens: number | undefined;
-    cacheWriteTokens: number | undefined;
-    noCacheTokens: number | undefined;
-  };
-  outputTokenDetails: {
-    reasoningTokens: number | undefined;
-    textTokens: number | undefined;
-  };
-}): CompletionUsage {
-  const input = usage.inputTokens ?? 0;
-  const output = usage.outputTokens ?? 0;
-  return {
-    input_tokens: input,
-    output_tokens: output,
-    total_tokens: input + output,
-    cache_read_tokens: usage.inputTokenDetails.cacheReadTokens ?? undefined,
-    cache_write_tokens: usage.inputTokenDetails.cacheWriteTokens ?? undefined,
-    reasoning_tokens: usage.outputTokenDetails.reasoningTokens ?? undefined,
-  };
-}
+// ---------------------------------------------------------------------------
+// Reasoning effort
+// ---------------------------------------------------------------------------
 
 /**
  * The cross-provider `streamText({ reasoning })` setting, distinct from `providerOptions`. Derived
@@ -219,28 +208,36 @@ export function normalizeUsage(usage: {
  */
 type ReasoningLevel = NonNullable<LanguageModelCallOptions['reasoning']>;
 
-const REASONING_LEVELS: readonly ReasoningLevel[] = [
-  'provider-default',
+const COMMON_REASONING_LEVELS = [
   'none',
   'minimal',
   'low',
   'medium',
   'high',
   'xhigh',
-];
+] as const satisfies readonly ReasoningLevel[];
+
+const VERCEL_AI_REASONING_LEVELS = [
+  'provider-default',
+  ...COMMON_REASONING_LEVELS,
+] as const satisfies readonly ReasoningLevel[];
+
+// Fails if any union member is missing.
+true satisfies Exclude<ReasoningLevel, (typeof VERCEL_AI_REASONING_LEVELS)[number]> extends never ? true : never;
 
 function isReasoningLevel(v: string): v is ReasoningLevel {
-  return (REASONING_LEVELS as readonly string[]).includes(v);
+  return VERCEL_AI_REASONING_LEVELS.some(level => level === v);
 }
 
 /**
  * Efforts the SDK's union cannot express. `xhigh` is its ceiling, so `max` rides in as `xhigh`;
  * Anthropic's adapter raises that back, and {@link maxEffortOption} covers the rest.
+ * Keys here must also appear in {@link SUPPORTED_REASONING_EFFORTS}.
  */
 const EFFORT_ALIASES: Readonly<Record<string, ReasoningLevel>> = { max: 'xhigh' };
 
 /** What a model may advertise in `reasoning_efforts`; anything else resolves to the provider default. */
-export const SUPPORTED_REASONING_EFFORTS: readonly string[] = [...REASONING_LEVELS, ...Object.keys(EFFORT_ALIASES)];
+export const SUPPORTED_REASONING_EFFORTS = [...COMMON_REASONING_LEVELS, 'max'] as const;
 
 /**
  * The effort travels on the top-level `reasoning` setting, which each adapter translates per model:
@@ -270,45 +267,69 @@ function maxEffortOption(reasoningEffort: string | undefined): MaxEffortOption {
   return reasoningEffort === 'max' ? { reasoningEffort: 'max' } : {};
 }
 
+// ---------------------------------------------------------------------------
+// Structured output
+// ---------------------------------------------------------------------------
+
 /**
- * Providers surface stream errors as plain objects as often as Errors; `String()` on those
- * yields "[object Object]" and loses the only description of what went wrong.
+ * Kept as plain data rather than an SDK `Output` instance, since `Output` isn't a nameable
+ * exported type from `ai` — see `buildOutput`.
  */
-export function describeStreamError(raw: unknown): string {
-  if (typeof raw !== 'object' || raw === null) {
-    return String(raw);
+export type StructuredOutputSpec =
+  | { mode: 'text' }
+  | { mode: 'json' }
+  | {
+      mode: 'json_schema';
+      schema: Record<string, unknown>;
+      name: string;
+      description: string | undefined;
+      /** Mirrors `response_format.json_schema.strict`; consumed by `buildProviderOptions`. */
+      strict: boolean | undefined;
+    };
+
+/** Converts an OpenAI-format `response_format` into a normalized `StructuredOutputSpec`. */
+export function toStructuredOutputSpec(
+  responseFormat: ChatCompletionCreateParamsStreaming['response_format'],
+): StructuredOutputSpec {
+  if (responseFormat === undefined || responseFormat.type === 'text') {
+    return { mode: 'text' };
   }
-  const message: unknown = Reflect.get(raw, 'message');
-  if (typeof message === 'string' && message.length > 0) {
-    return message;
+  if (responseFormat.type === 'json_object') {
+    return { mode: 'json' };
   }
-  try {
-    return JSON.stringify(raw);
-  } catch {
-    return `unserialisable provider error (${Object.keys(raw).join(', ')})`;
-  }
+  const { json_schema } = responseFormat;
+  return {
+    mode: 'json_schema',
+    schema: json_schema.schema ?? { type: 'object', properties: {} },
+    name: json_schema.name,
+    description: json_schema.description,
+    strict: json_schema.strict ?? undefined,
+  };
 }
 
-export function mapFinishReason(reason: FinishReason): RawAssistantMessageWithUsage['finish_reason'] {
-  switch (reason) {
-    case 'stop':
-      return 'stop';
-    case 'length':
-      return 'length';
-    case 'tool-calls':
-      return 'tool_calls';
-    case 'content-filter':
-      return 'content_filter';
-    // No harness equivalent for these — fall back to 'stop'.
-    case 'error':
-    case 'other':
-      return 'stop';
+/** Not exported: `Output`'s type isn't nameable outside `ai`, so a return type can't be declared. */
+function buildOutput(spec: StructuredOutputSpec) {
+  switch (spec.mode) {
+    case 'text':
+      return undefined;
+    case 'json':
+      return Output.json();
+    case 'json_schema':
+      return Output.object({
+        schema: jsonSchema(spec.schema),
+        name: spec.name,
+        ...(spec.description !== undefined ? { description: spec.description } : {}),
+      });
     default: {
-      const _exhaustive: never = reason;
-      throw new Error(`Unknown finish reason: ${String(_exhaustive)}`);
+      const _exhaustive: never = spec;
+      throw new Error(`Unknown structured output mode: ${JSON.stringify(_exhaustive)}`);
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Provider options
+// ---------------------------------------------------------------------------
 
 /** `rawBody` is a parsed JSON request body, so any value present is a valid JSONValue. */
 function readBodyField({ rawBody, key }: { rawBody: unknown; key: string }): JSONValue | undefined {
@@ -329,12 +350,15 @@ function openaiProviderOptions({
   const user = readBodyField({ rawBody, key: 'user' });
   const promptCacheKey = readBodyField({ rawBody, key: 'prompt_cache_key' });
   const parallelToolCalls = readBodyField({ rawBody, key: 'parallel_tool_calls' });
+  const reasoningSummary = readBodyField({ rawBody, key: 'reasoning_summary' });
   // No server-side storage, and request the encrypted reasoning token so replay stays stateless.
   return {
     store: false,
     include: ['reasoning.encrypted_content'],
+    reasoningSummary: 'auto',
     // gpt-5.6 serves both xhigh and max, so the aliased top-level level asks for one rung less.
     ...maxEffortOption(reasoningEffort),
+    ...(reasoningSummary !== undefined ? { reasoningSummary } : {}),
     ...(strictJsonSchema !== undefined ? { strictJsonSchema } : {}),
     ...(serviceTier !== undefined ? { serviceTier } : {}),
     ...(user !== undefined ? { user } : {}),
@@ -515,6 +539,10 @@ export function buildProviderOptions({
     return compatible !== undefined ? { [config.provider]: compatible } : {};
   }
 }
+
+// ---------------------------------------------------------------------------
+// Request conversion (OpenAI → SDK)
+// ---------------------------------------------------------------------------
 
 /** Prefers `max_completion_tokens`, falling back to the deprecated `max_tokens`. */
 export function resolveMaxOutputTokens(
@@ -767,61 +795,9 @@ export function convertTools(tools: ChatCompletionTool[] | undefined): ToolSet |
   return Object.keys(toolSet).length > 0 ? toolSet : undefined;
 }
 
-/**
- * Kept as plain data rather than an SDK `Output` instance, since `Output` isn't a nameable
- * exported type from `ai` — see `buildOutput`.
- */
-export type StructuredOutputSpec =
-  | { mode: 'text' }
-  | { mode: 'json' }
-  | {
-      mode: 'json_schema';
-      schema: Record<string, unknown>;
-      name: string;
-      description: string | undefined;
-      /** Mirrors `response_format.json_schema.strict`; consumed by `buildProviderOptions`. */
-      strict: boolean | undefined;
-    };
-
-/** Converts an OpenAI-format `response_format` into a normalized `StructuredOutputSpec`. */
-export function toStructuredOutputSpec(
-  responseFormat: ChatCompletionCreateParamsStreaming['response_format'],
-): StructuredOutputSpec {
-  if (responseFormat === undefined || responseFormat.type === 'text') {
-    return { mode: 'text' };
-  }
-  if (responseFormat.type === 'json_object') {
-    return { mode: 'json' };
-  }
-  const { json_schema } = responseFormat;
-  return {
-    mode: 'json_schema',
-    schema: json_schema.schema ?? { type: 'object', properties: {} },
-    name: json_schema.name,
-    description: json_schema.description,
-    strict: json_schema.strict ?? undefined,
-  };
-}
-
-/** Not exported: `Output`'s type isn't nameable outside `ai`, so a return type can't be declared. */
-function buildOutput(spec: StructuredOutputSpec) {
-  switch (spec.mode) {
-    case 'text':
-      return undefined;
-    case 'json':
-      return Output.json();
-    case 'json_schema':
-      return Output.object({
-        schema: jsonSchema(spec.schema),
-        name: spec.name,
-        ...(spec.description !== undefined ? { description: spec.description } : {}),
-      });
-    default: {
-      const _exhaustive: never = spec;
-      throw new Error(`Unknown structured output mode: ${JSON.stringify(_exhaustive)}`);
-    }
-  }
-}
+// ---------------------------------------------------------------------------
+// streamText args
+// ---------------------------------------------------------------------------
 
 /**
  * Pure-data subset of `streamText(...)`'s call args. Uses `?` rather than this file's usual
@@ -896,6 +872,85 @@ export function buildStreamTextArgs(input: {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Stream mapping (SDK → harness chunks)
+// ---------------------------------------------------------------------------
+
+/** Maps Vercel AI SDK LanguageModelUsage → harness CompletionUsage. */
+export function normalizeUsage(usage: {
+  inputTokens: number | undefined;
+  outputTokens: number | undefined;
+  inputTokenDetails: {
+    cacheReadTokens: number | undefined;
+    cacheWriteTokens: number | undefined;
+    noCacheTokens: number | undefined;
+  };
+  outputTokenDetails: {
+    reasoningTokens: number | undefined;
+    textTokens: number | undefined;
+  };
+}): CompletionUsage {
+  const input = usage.inputTokens ?? 0;
+  const output = usage.outputTokens ?? 0;
+  return {
+    input_tokens: input,
+    output_tokens: output,
+    total_tokens: input + output,
+    cache_read_tokens: usage.inputTokenDetails.cacheReadTokens ?? undefined,
+    cache_write_tokens: usage.inputTokenDetails.cacheWriteTokens ?? undefined,
+    reasoning_tokens: usage.outputTokenDetails.reasoningTokens ?? undefined,
+  };
+}
+
+/**
+ * Prefer AI SDK `APICallError` (`message` / `statusCode`):
+ * https://ai-sdk.dev/docs/reference/ai-sdk-errors/ai-api-call-error#properties
+ * Fallback is required because stream `error` parts are typed `unknown` (not only
+ * `APICallError`) — plain objects would otherwise stringify to "[object Object]".
+ */
+export function describeStreamError(raw: unknown): string {
+  if (APICallError.isInstance(raw)) {
+    if (raw.statusCode != null) {
+      return `Request failed (${String(raw.statusCode)}): ${raw.message}`;
+    }
+    return raw.message;
+  }
+
+  if (typeof raw !== 'object' || raw === null) {
+    return String(raw);
+  }
+  const message: unknown = Reflect.get(raw, 'message');
+  if (typeof message === 'string' && message.length > 0) {
+    return message;
+  }
+  try {
+    return JSON.stringify(raw);
+  } catch {
+    return `unserialisable provider error (${Object.keys(raw).join(', ')})`;
+  }
+}
+
+export function mapFinishReason(reason: FinishReason): RawAssistantMessageWithUsage['finish_reason'] {
+  switch (reason) {
+    case 'stop':
+      return 'stop';
+    case 'length':
+      return 'length';
+    case 'tool-calls':
+      return 'tool_calls';
+    case 'content-filter':
+      return 'content_filter';
+    // No harness equivalent for these — fall back to 'stop'.
+    case 'error':
+    case 'other':
+      return 'stop';
+    default: {
+      const _exhaustive: never = reason;
+      throw new Error(`Unknown finish reason: ${String(_exhaustive)}`);
+    }
+  }
+}
+
 interface ToolCallState {
   index: number;
   id: string;
@@ -931,6 +986,22 @@ function applyReasoningSignature({
       return;
     }
   }
+}
+
+/**
+ * Which reasoning item a stream part belongs to. OpenAI is alone in splitting one item across
+ * several parts, so elsewhere this is absent and every part stands on its own.
+ */
+function reasoningItemId(providerMetadata: ProviderMetadata | undefined): string | undefined {
+  if (providerMetadata === undefined) {
+    return undefined;
+  }
+  for (const meta of Object.values(providerMetadata)) {
+    if ('itemId' in meta && typeof meta['itemId'] === 'string') {
+      return meta['itemId'];
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -984,7 +1055,34 @@ export async function* mapStreamToChunks({
   let nextToolIndex = 0;
   let accumulatedText = '';
   const accumulatedThinking: ThinkingBlock[] = [];
+  const thinkingByReasoningItem = new Map<string, ThinkingBlock>();
   let currentThinkingBlock: ThinkingBlock | null = null;
+
+  /**
+   * The block this reasoning part belongs to: the one already open for its item, or a new one.
+   *
+   * OpenAI streams a single reasoning item as several summary parts, and hands every part the one
+   * token that identifies the item. A block per part would therefore replay that item once per
+   * part, every copy presenting the same token with a different piece of the reasoning. Grouping by
+   * item keeps one block per token, which is the only shape the provider can be replayed.
+   */
+  const openThinkingBlock = (providerMetadata: ProviderMetadata | undefined): ThinkingBlock => {
+    const itemId = reasoningItemId(providerMetadata);
+    const started = itemId !== undefined ? thinkingByReasoningItem.get(itemId) : undefined;
+    if (started !== undefined) {
+      // Each part is its own titled paragraph, and a part can be empty.
+      if (started.thinking.length > 0) {
+        started.thinking += '\n\n';
+      }
+      return started;
+    }
+    const block: ThinkingBlock = { type: 'thinking', thinking: '' };
+    accumulatedThinking.push(block);
+    if (itemId !== undefined) {
+      thinkingByReasoningItem.set(itemId, block);
+    }
+    return block;
+  };
   let finalUsage: CompletionUsage = getEmptyUsage();
   let finalFinishReason: RawAssistantMessageWithUsage['finish_reason'] = 'stop';
 
@@ -1007,18 +1105,14 @@ export async function* mapStreamToChunks({
       }
 
       case 'reasoning-start': {
-        currentThinkingBlock = { type: 'thinking', thinking: '' };
-        accumulatedThinking.push(currentThinkingBlock);
+        currentThinkingBlock = openThinkingBlock(part.providerMetadata);
         break;
       }
 
       case 'reasoning-delta': {
         // A delta with no preceding `reasoning-start` would otherwise drop the block and its
         // signature, breaking replay while the text still streams out.
-        if (currentThinkingBlock === null) {
-          currentThinkingBlock = { type: 'thinking', thinking: '' };
-          accumulatedThinking.push(currentThinkingBlock);
-        }
+        currentThinkingBlock ??= openThinkingBlock(part.providerMetadata);
         currentThinkingBlock.thinking += part.text;
         applyReasoningSignature({ block: currentThinkingBlock, providerMetadata: part.providerMetadata });
         yield {
@@ -1128,8 +1222,10 @@ export async function* mapStreamToChunks({
 
       case 'error': {
         const raw = part.error;
-        const err = raw instanceof Error ? raw : new Error(describeStreamError(raw));
-        throw new Error('LLM stream error', { cause: err });
+        const message = describeStreamError(raw);
+        // Preserve the original stream error as cause; toast/turn use .message only.
+        const cause = raw instanceof Error ? raw : new Error(message);
+        throw new Error(message, { cause });
       }
 
       case 'abort': {
@@ -1186,6 +1282,10 @@ export async function* mapStreamToChunks({
   return { usage: finalUsage, output, finish_reason: finalFinishReason };
 }
 
+// ---------------------------------------------------------------------------
+// VercelAILLM
+// ---------------------------------------------------------------------------
+
 /** ILLM implementation backed by Vercel AI SDK, supporting multiple LLM providers. */
 export class VercelAILLM implements ILLM {
   private readonly config: VercelAILLMConfig;
@@ -1199,7 +1299,7 @@ export class VercelAILLM implements ILLM {
   }
 
   async *create(
-    body: ChatCompletionCreateParamsStreaming,
+    body: LLMCreateParamsStreaming,
   ): AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown> {
     const { providerConfig } = this.config;
     const model = buildLanguageModel(providerConfig);
@@ -1263,7 +1363,7 @@ export class VercelAILLM implements ILLM {
       warnings => {
         if (warnings !== undefined && warnings.length > 0) {
           this.logger.warn('Provider adjusted the request', {
-            model: body.model,
+            model: providerConfig.name,
             warnings: warnings.map(describeCallWarning),
           });
         }
@@ -1275,10 +1375,11 @@ export class VercelAILLM implements ILLM {
     );
 
     // Synthetic chunk fields; id is unique per stream instance.
+    // Label chunks with the catalog name — providerConfig.modelId is the wire id.
     const chunkMeta: ChunkMeta = {
       id: `vc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       created: Math.floor(Date.now() / 1000),
-      model: body.model,
+      model: providerConfig.name,
     };
 
     try {
@@ -1293,7 +1394,7 @@ export class VercelAILLM implements ILLM {
     }
   }
 
-  async createNonStream(body: ChatCompletionCreateParams): Promise<RawAssistantMessageWithUsage> {
+  async createNonStream(body: LLMCreateParams): Promise<RawAssistantMessageWithUsage> {
     // Drain the streaming generator — reuses the same accumulation and error handling path.
     const llmStream = this.create({ ...body, stream: true });
     let result = await llmStream.next();

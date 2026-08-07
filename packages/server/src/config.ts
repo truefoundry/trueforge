@@ -263,6 +263,10 @@ export interface OIDCConfig {
 }
 
 export interface SharedServerConfiguration {
+  /** Log level. Env: `LOG_LEVEL`. */
+  LOG_LEVEL: string;
+  /** Node environment. Env: `NODE_ENV`. */
+  NODE_ENV: string | undefined;
   /** HTTP port the server listens on. Env: `PORT`. */
   PORT: number;
   /** Peering identity embedded in the turn ids this process mints; `local` in standalone mode. */
@@ -409,8 +413,7 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   REDIS_URL: string;
   /**
    * OIDC configuration for server authentication.
-   * Undefined = every request resolves to a fixed
-   * local admin identity instead of a real IdP session.
+   * Undefined means browser login is disabled.
    */
   OIDC: OIDCConfig | undefined;
 };
@@ -436,6 +439,8 @@ const standalone = parseBoolean({
 const port = parsePort(getEnv('PORT'));
 
 const shared: SharedServerConfiguration = {
+  LOG_LEVEL: getEnv('LOG_LEVEL', { defaultValue: 'info' }) ?? 'info',
+  NODE_ENV: getEnv('NODE_ENV'),
   PORT: port,
   EXECUTOR_ID: standalone ? LOCAL_EXECUTOR_ID : randomAlphanumeric(6),
   MODEL_CATALOG_PATH: resolveOptionalPathEnv('MODEL_CATALOG_PATH'),
@@ -534,9 +539,10 @@ const configuration: ServerConfiguration = standalone
       OIDC: resolveOIDCConfig(),
     };
 
-/** True when a real identity provider is configured */
-export function isOidcConfigured(): boolean {
-  return !configuration.STANDALONE && configuration.OIDC !== undefined;
+export function isOidcConfigured(
+  value: ServerConfiguration,
+): value is DistributedServerConfiguration & { OIDC: OIDCConfig } {
+  return !value.STANDALONE && value.OIDC !== undefined;
 }
 
 export default configuration;

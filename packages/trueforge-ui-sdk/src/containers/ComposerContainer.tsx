@@ -103,7 +103,7 @@ export function ComposerContainer({
   const parentRightSection = useSlot('ComposerRightSection');
   const DraftComposerLeftSection = useSlot('DraftComposerLeftSection');
   const DraftComposerRightSection = useSlot('DraftComposerRightSection');
-  const isDraft = shell?.mode.type === 'draft';
+  const canMutateSpec = shell?.mode.status === 'active' && shell.mode.isMutable;
 
   if (pauseView.kind === 'mcp') {
     return <McpAuthContainer />;
@@ -112,7 +112,7 @@ export function ComposerContainer({
     return <AskUserContainer />;
   }
 
-  if (isDraft) {
+  if (canMutateSpec) {
     return (
       <DraftCatalogProvider>
         <SlotsProvider

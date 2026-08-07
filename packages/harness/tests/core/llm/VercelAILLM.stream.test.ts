@@ -10,8 +10,14 @@ import type {
   TextStreamPart,
   ToolSet,
 } from 'ai';
+import { APICallError } from 'ai';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
-import { mapFinishReason, mapStreamToChunks, normalizeUsage } from '../../../src/core/llm/VercelAILLM';
+import {
+  describeStreamError,
+  mapFinishReason,
+  mapStreamToChunks,
+  normalizeUsage,
+} from '../../../src/core/llm/VercelAILLM';
 
 // ─────────── Helpers ───────────
 
@@ -121,6 +127,80 @@ describe('mapFinishReason', () => {
   });
 });
 
+// ─────────── describeStreamError ───────────
+
+describe('describeStreamError', () => {
+  describe('APICallError', () => {
+    it.each([
+      {
+        provider: 'openai',
+        statusCode: 401,
+        message: 'Incorrect API key provided: sk-inval***********-key.',
+        expected: 'Request failed (401): Incorrect API key provided: sk-inval***********-key.',
+      },
+      {
+        provider: 'anthropic',
+        statusCode: 401,
+        message: 'invalid x-api-key',
+        expected: 'Request failed (401): invalid x-api-key',
+      },
+      {
+        provider: 'google-gemini',
+        statusCode: 400,
+        message: 'API key not valid. Please pass a valid API key.',
+        expected: 'Request failed (400): API key not valid. Please pass a valid API key.',
+      },
+    ] as const)('includes HTTP status for $provider invalid-key failures', ({ statusCode, message, expected }) => {
+      expect(
+        describeStreamError(
+          new APICallError({
+            message,
+            url: 'https://example.com',
+            requestBodyValues: {},
+            statusCode,
+          }),
+        ),
+      ).toBe(expected);
+    });
+
+    it('omits status prefix when statusCode is absent', () => {
+      expect(
+        describeStreamError(
+          new APICallError({
+            message: 'upstream failed',
+            url: 'https://example.com',
+            requestBodyValues: {},
+          }),
+        ),
+      ).toBe('upstream failed');
+    });
+  });
+
+  describe('fallback', () => {
+    it('uses Error.message', () => {
+      expect(describeStreamError(new Error('upstream error'))).toBe('upstream error');
+    });
+
+    it('uses a plain object message field', () => {
+      expect(describeStreamError({ message: 'The requested model does not exist.' })).toBe(
+        'The requested model does not exist.',
+      );
+    });
+
+    it('JSON-serialises a message-less object instead of [object Object]', () => {
+      expect(describeStreamError({ code: 'model_not_found', status: 404 })).toBe(
+        '{"code":"model_not_found","status":404}',
+      );
+    });
+
+    it('stringifies non-object values', () => {
+      expect(describeStreamError('string error')).toBe('string error');
+      expect(describeStreamError(42)).toBe('42');
+      expect(describeStreamError(null)).toBe('null');
+    });
+  });
+});
+
 // ─────────── mapStreamToChunks ───────────
 
 describe('mapStreamToChunks', () => {
@@ -202,6 +282,124 @@ describe('mapStreamToChunks', () => {
       thinking: 'thought',
       signature: 'ant-sig',
     });
+  });
+
+  // OpenAI's real wire shape once summaries are on: one reasoning item arrives as several summary
+  // parts, each closed with the item's single token. A block per part would replay that one item
+  // once per part, all copies carrying the same token with the summary divided between them.
+  it('keeps the summary parts of one OpenAI reasoning item in a single block', async () => {
+    const itemId = 'rs_abc';
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: `${itemId}:0`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-delta', id: `${itemId}:0`, text: 'first summary' },
+          {
+            type: 'reasoning-end',
+            id: `${itemId}:0`,
+            providerMetadata: { openai: { itemId, reasoningEncryptedContent: 'enc-item' } },
+          },
+          { type: 'reasoning-start', id: `${itemId}:1`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-delta', id: `${itemId}:1`, text: 'second summary' },
+          {
+            type: 'reasoning-end',
+            id: `${itemId}:1`,
+            providerMetadata: { openai: { itemId, reasoningEncryptedContent: 'enc-item' } },
+          },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.thinking_blocks).toEqual([
+      { type: 'thinking', thinking: 'first summary\n\nsecond summary', signature: 'enc-item' },
+    ]);
+  });
+
+  // The same grouping has to hold when only the closing part carries the token, which is how the
+  // provider behaved before it began repeating it, and all a stream is contractually promised.
+  it('signs the whole item when only its closing part carries the token', async () => {
+    const itemId = 'rs_abc';
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: `${itemId}:0`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-delta', id: `${itemId}:0`, text: 'first summary' },
+          { type: 'reasoning-end', id: `${itemId}:0`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-start', id: `${itemId}:1`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-delta', id: `${itemId}:1`, text: 'second summary' },
+          {
+            type: 'reasoning-end',
+            id: `${itemId}:1`,
+            providerMetadata: { openai: { itemId, reasoningEncryptedContent: 'enc-sig' } },
+          },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.thinking_blocks).toEqual([
+      { type: 'thinking', thinking: 'first summary\n\nsecond summary', signature: 'enc-sig' },
+    ]);
+  });
+
+  // An item can open a summary part it never writes to, which must not push the reasoning that
+  // follows behind a blank line.
+  it('does not indent the text of an item whose first part is empty', async () => {
+    const itemId = 'rs_abc';
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: `${itemId}:0`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-end', id: `${itemId}:0`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-start', id: `${itemId}:1`, providerMetadata: { openai: { itemId } } },
+          { type: 'reasoning-delta', id: `${itemId}:1`, text: 'the only summary' },
+          {
+            type: 'reasoning-end',
+            id: `${itemId}:1`,
+            providerMetadata: { openai: { itemId, reasoningEncryptedContent: 'enc-item' } },
+          },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.thinking_blocks).toEqual([
+      { type: 'thinking', thinking: 'the only summary', signature: 'enc-item' },
+    ]);
+  });
+
+  it('keeps separate reasoning items in separate blocks, each with its own token', async () => {
+    const { final } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: 'rs_1:0', providerMetadata: { openai: { itemId: 'rs_1' } } },
+          { type: 'reasoning-delta', id: 'rs_1:0', text: 'before the tool call' },
+          {
+            type: 'reasoning-end',
+            id: 'rs_1:0',
+            providerMetadata: { openai: { itemId: 'rs_1', reasoningEncryptedContent: 'enc-1' } },
+          },
+          { type: 'reasoning-start', id: 'rs_2:0', providerMetadata: { openai: { itemId: 'rs_2' } } },
+          { type: 'reasoning-delta', id: 'rs_2:0', text: 'after the tool call' },
+          {
+            type: 'reasoning-end',
+            id: 'rs_2:0',
+            providerMetadata: { openai: { itemId: 'rs_2', reasoningEncryptedContent: 'enc-2' } },
+          },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    expect(final.output.thinking_blocks).toEqual([
+      { type: 'thinking', thinking: 'before the tool call', signature: 'enc-1' },
+      { type: 'thinking', thinking: 'after the tool call', signature: 'enc-2' },
+    ]);
   });
 
   // Anthropic's real wire shape: signature_delta surfaces as a text-less reasoning-delta, not on
@@ -356,7 +554,7 @@ describe('mapStreamToChunks', () => {
     expect(final.finish_reason).toBe('length');
   });
 
-  it('rejects (with cause) on an error part', async () => {
+  it('rejects with the provider message on an error part', async () => {
     const cause = new Error('upstream error');
     await expect(
       drainStream(
@@ -365,7 +563,7 @@ describe('mapStreamToChunks', () => {
           chunkMeta: CHUNK_META,
         }),
       ),
-    ).rejects.toMatchObject({ message: 'LLM stream error', cause });
+    ).rejects.toMatchObject({ message: 'upstream error', cause });
   });
 
   it('rejects on an abort part rather than returning the partial message as a clean stop', async () => {
@@ -379,7 +577,27 @@ describe('mapStreamToChunks', () => {
     ).rejects.toMatchObject({ name: 'AbortError' });
   });
 
-  it('keeps the provider message when the error part carries a plain object', async () => {
+  it('rejects with describeStreamError output for an APICallError part', async () => {
+    const cause = new APICallError({
+      message: 'invalid x-api-key',
+      url: 'https://example.com',
+      requestBodyValues: {},
+      statusCode: 401,
+    });
+    await expect(
+      drainStream(
+        mapStreamToChunks({
+          stream: makeStream([{ type: 'error', error: cause }]),
+          chunkMeta: CHUNK_META,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      message: 'Request failed (401): invalid x-api-key',
+      cause,
+    });
+  });
+
+  it('rejects with describeStreamError output for a plain-object error part', async () => {
     await expect(
       drainStream(
         mapStreamToChunks({
@@ -388,34 +606,9 @@ describe('mapStreamToChunks', () => {
         }),
       ),
     ).rejects.toMatchObject({
-      message: 'LLM stream error',
+      message: 'The requested model does not exist.',
       cause: { message: 'The requested model does not exist.' },
     });
-  });
-
-  it('serialises a message-less error object rather than stringifying it to [object Object]', async () => {
-    await expect(
-      drainStream(
-        mapStreamToChunks({
-          stream: makeStream([{ type: 'error', error: { code: 'model_not_found', status: 404 } }]),
-          chunkMeta: CHUNK_META,
-        }),
-      ),
-    ).rejects.toMatchObject({
-      message: 'LLM stream error',
-      cause: { message: '{"code":"model_not_found","status":404}' },
-    });
-  });
-
-  it('wraps non-Error error values in an Error with cause', async () => {
-    await expect(
-      drainStream(
-        mapStreamToChunks({
-          stream: makeStream([{ type: 'error', error: 'string error' }]),
-          chunkMeta: CHUNK_META,
-        }),
-      ),
-    ).rejects.toMatchObject({ message: 'LLM stream error' });
   });
 
   it('sets chunk metadata (id, model, object) on emitted chunks', async () => {

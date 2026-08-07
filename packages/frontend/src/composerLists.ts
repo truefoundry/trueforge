@@ -9,9 +9,8 @@ export async function listModels(): Promise<Harness.Model[]> {
   const body = await client.models.list();
   return body.data;
 }
-
-export async function listMcpServers(): Promise<Harness.McpServerReadEntry[]> {
-  const body = await client.mcpServers.list();
+export async function listConfiguredMcpServers(): Promise<Harness.ConfiguredMcpServer[]> {
+  const body = await client.settings.mcpServers.list();
   return body.data;
 }
 

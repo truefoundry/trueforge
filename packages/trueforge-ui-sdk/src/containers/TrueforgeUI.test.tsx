@@ -22,7 +22,6 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
     hasMore: false,
     loadMore: vi.fn(),
   }),
-  useTrueFoundryDownloadSandboxFile: () => vi.fn(),
   useTrueFoundryAgentSpec: () => ({
     agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
   }),
