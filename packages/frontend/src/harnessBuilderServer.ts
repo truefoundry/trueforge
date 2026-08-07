@@ -2,7 +2,12 @@
  * AgentBuilderServer callbacks for createTrueFoundryServer.
  * Composer pickers + agent library backed by the Harness agents registry.
  */
-import type { AgentBuilderServer, AgentLibraryEntry, SearchAgentsParams } from '@truefoundry/trueforge-ui';
+import type {
+  AgentBuilderServer,
+  AgentLibraryEntry,
+  ModelSelection,
+  SearchAgentsParams,
+} from '@truefoundry/trueforge-ui';
 import type { TrueForgeApi as Harness } from 'trueforge';
 import { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './composerLists';
 import { toUiConnector } from './connectorCatalog';
@@ -12,6 +17,16 @@ import { agentManifest, toHarnessAgentSpec, toUiAgentSpec, type HarnessAgentSpec
 /** Harness model names are `provider/model`. */
 export function providerOf(name: string): string {
   return name.split('/')[0] ?? name;
+}
+
+/** Map harness model rows onto the UI picker shape (incl. reasoning-effort options). */
+export function toModelSelection(model: Harness.Model): ModelSelection {
+  const efforts = model.properties.reasoningEfforts;
+  return {
+    name: model.name,
+    provider: providerOf(model.name),
+    ...(efforts !== undefined && efforts.length > 0 ? { reasoningEfforts: [...efforts] } : {}),
+  };
 }
 
 function toLibraryEntry(agent: Harness.Agent): AgentLibraryEntry {
@@ -29,7 +44,7 @@ export function createHarnessBuilderServer(
     options.baseUrl === undefined && options.fetch === undefined ? harnessClient : createHarnessClient(options);
 
   return {
-    getModels: async () => (await listModels()).map(model => ({ name: model.name, provider: providerOf(model.name) })),
+    getModels: async () => (await listModels()).map(toModelSelection),
     // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
     getSkills: async () => {
       const [capabilities, skills] = await Promise.all([getCapabilities(), listSkills()]);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { createHarnessBuilderServer, providerOf } from '../src/harnessBuilderServer';
+import { createHarnessBuilderServer, providerOf, toModelSelection } from '../src/harnessBuilderServer';
 
 describe('harnessBuilderServer', () => {
   it('providerOf takes the segment before the first slash', () => {
@@ -10,6 +10,24 @@ describe('harnessBuilderServer', () => {
 
   it('providerOf falls back to the full name when there is no slash', () => {
     assert.equal(providerOf('gpt-4o'), 'gpt-4o');
+  });
+
+  it('toModelSelection forwards reasoningEfforts when present', () => {
+    assert.deepEqual(
+      toModelSelection({
+        name: 'openai/o3',
+        properties: { reasoningEfforts: ['low', 'medium', 'high'] },
+      }),
+      {
+        name: 'openai/o3',
+        provider: 'openai',
+        reasoningEfforts: ['low', 'medium', 'high'],
+      },
+    );
+    assert.deepEqual(toModelSelection({ name: 'openai/gpt-4o', properties: {} }), {
+      name: 'openai/gpt-4o',
+      provider: 'openai',
+    });
   });
 
   it('searchAgents maps registry rows to library entries with agentId + agentSpec', async () => {
