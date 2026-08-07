@@ -10,16 +10,6 @@ body,
   height: 100%;
 }
 
-/* Tokens for chrome outside the SDK shell (boot screen). The SDK sets its own
-   on `.aui-theme-root`, which wins for everything inside. */
-:root {
-  color-scheme: dark;
-  --background: #161618;
-  --foreground: #ececee;
-  --muted-foreground: #9b9ba3;
-  --destructive: #f87171;
-}
-
 body {
   color: var(--foreground);
   background: var(--background);

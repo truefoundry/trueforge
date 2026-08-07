@@ -17,6 +17,8 @@ export interface ModelSelection {
   provider: string;
   /** When non-empty, UI shows a reasoning-effort picker beside the model selector. */
   reasoningEfforts?: string[];
+  /** Provider logo URL from the model catalog; selector falls back to a monogram when omitted. */
+  providerLogo?: string;
 }
 
 /** Skill picker row. Host extends for fqn, preload, etc. */

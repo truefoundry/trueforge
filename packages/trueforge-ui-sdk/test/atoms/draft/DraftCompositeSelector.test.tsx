@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftCompositeSelector, type DraftCompositeSelectorProps } from '@/atoms/draft/DraftCompositeSelector.js';
@@ -39,6 +39,7 @@ function renderSelector(props: DraftCompositeSelectorProps = {}) {
 
 describe('DraftCompositeSelector', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     agentSpec = {
       model: { name: 'openai/gpt-4.1' },
       mcpServers: [{ id: 'slack', name: 'Slack' }],
@@ -47,7 +48,11 @@ describe('DraftCompositeSelector', () => {
     updateAgentSpec.mockReset();
   });
 
-  it('adds an available connector to the draft spec', async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('adds an available connector to the draft spec after debounce', async () => {
     renderSelector();
     fireEvent.click(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' }));
 
@@ -55,15 +60,21 @@ describe('DraftCompositeSelector', () => {
     expect(github).toHaveAttribute('aria-checked', 'false');
     fireEvent.click(github);
 
+    expect(updateAgentSpec).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
     expect(updateAgentSpec).toHaveBeenCalledWith({
       mcpServers: [
         { id: 'slack', name: 'Slack' },
         { id: 'github', name: 'GitHub' },
       ],
+      skills: [{ id: 'research', name: 'Research' }],
     });
   });
 
-  it('switches tabs, resets search, and removes a selected skill', async () => {
+  it('switches tabs, resets search, and removes a selected skill on close flush', async () => {
     renderSelector();
     fireEvent.click(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' }));
     await screen.findByRole('menuitemcheckbox', { name: /GitHub/ });
@@ -82,7 +93,13 @@ describe('DraftCompositeSelector', () => {
     expect(within(dialog).getByRole('menuitemcheckbox', { name: /Writer/ })).toBeInTheDocument();
     fireEvent.click(research);
 
-    expect(updateAgentSpec).toHaveBeenCalledWith({ skills: [] });
+    // Close before debounce — flush pending local state.
+    fireEvent.click(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' }));
+
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      mcpServers: [{ id: 'slack', name: 'Slack' }],
+      skills: [],
+    });
   });
 
   it('forwards attachment requests and closes the picker', async () => {

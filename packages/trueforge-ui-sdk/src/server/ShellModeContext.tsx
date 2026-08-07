@@ -138,9 +138,12 @@ function libraryAgentId(agent: Pick<AgentLibraryEntry, 'agentId' | 'name'>): str
 
 export function ShellModeProvider({
   agentConfig = DEFAULT_AGENT_CONFIG,
+  initialSettingsOpen = false,
   children,
 }: {
   agentConfig?: AgentConfig;
+  /** Open settings on first paint (e.g. host boot with no models). Does not re-open later. */
+  initialSettingsOpen?: boolean;
   children: ReactNode;
 }) {
   const mutableSeedRef = useRef(mutableSeedFromConfig(agentConfig));
@@ -161,7 +164,7 @@ export function ShellModeProvider({
   const [mutableEpoch, setMutableEpoch] = useState(0);
   const [clearEpoch, setClearEpoch] = useState(0);
   const [agentsListEpoch, setAgentsListEpoch] = useState(0);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(initialSettingsOpen);
   const [historyAgentFilter, setHistoryAgentFilter] = useState<string | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
 

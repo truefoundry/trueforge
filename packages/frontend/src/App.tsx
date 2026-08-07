@@ -1,12 +1,5 @@
-import {
-  createTrueFoundryServer,
-  TrueforgeUI,
-  useShellMode,
-  WelcomeScreen,
-  type SlotOverrides,
-  type WelcomeScreenProps,
-} from '@truefoundry/trueforge-ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createTrueFoundryServer, TrueforgeUI } from '@truefoundry/trueforge-ui';
+import { useEffect, useState } from 'react';
 import { getCapabilities, listModels } from './composerLists';
 import { createConnectorCatalog } from './connectorCatalog';
 import { createHarnessBuilderServer } from './harnessBuilderServer';
@@ -14,20 +7,6 @@ import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer'
 import { createModelProviderCatalog } from './modelProviderCatalog';
 import { createSandboxProviderCatalog } from './sandboxProviderCatalog';
 import { createSkillCatalog } from './skillCatalog';
-
-/** Opens settings once when the empty welcome screen mounts (no models configured). */
-function OpenSettingsWelcomeScreen(props: WelcomeScreenProps) {
-  const { setSettingsOpen } = useShellMode();
-  const openedRef = useRef(false);
-  useEffect(() => {
-    if (openedRef.current) {
-      return;
-    }
-    openedRef.current = true;
-    setSettingsOpen(true);
-  }, [setSettingsOpen]);
-  return <WelcomeScreen {...props} />;
-}
 
 const chatServer = createHarnessChatServer();
 
@@ -97,13 +76,6 @@ export function App() {
     };
   }, []);
 
-  const overrides: SlotOverrides = useMemo(
-    () => ({
-      ...(boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
-    }),
-    [boot],
-  );
-
   if (boot.status === 'error') {
     return (
       <div className="boot-screen" data-error="true">
@@ -130,7 +102,7 @@ export function App() {
           mode: 'AgentLibraryWithComposer',
           defaultAgentSpec: boot.defaultAgentSpec,
         }}
-        overrides={overrides}
+        initialSettingsOpen={boot.openSettings}
         className="app-assistant"
       />
     </div>

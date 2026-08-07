@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { AppendMessage } from '@assistant-ui/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ComposerContainer } from '@/containers/ComposerContainer.js';
 import { ComposerBusyProvider } from '@/hooks/useComposerBusyState.js';
@@ -9,9 +9,14 @@ import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 
+const agentSpecState: { agentSpec: { model: { name: string } } | undefined } = {
+  agentSpec: { model: { name: 'test/model' } },
+};
+
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   useTrueFoundryCancel: () => vi.fn(),
   useTrueFoundryToolResponses: () => ({ pending: [] }),
+  useTrueFoundryAgentSpec: () => ({ agentSpec: agentSpecState.agentSpec }),
 }));
 
 function renderComposer(onNew?: (message: AppendMessage) => Promise<void>) {
@@ -25,6 +30,9 @@ function renderComposer(onNew?: (message: AppendMessage) => Promise<void>) {
 }
 
 describe('ComposerContainer', () => {
+  beforeEach(() => {
+    agentSpecState.agentSpec = { model: { name: 'test/model' } };
+  });
   it('wraps the composer in an attachment dropzone by default', () => {
     renderComposer();
     const dropzone = document.querySelector('[data-slot="aui_composer-attachment-dropzone"]');
@@ -68,6 +76,20 @@ describe('ComposerContainer', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(input.value).toBe(''));
     expect(onNew).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables send when no model is selected', async () => {
+    agentSpecState.agentSpec = { model: { name: '' } };
+    const onNew = vi.fn(async () => {});
+    renderComposer(onNew);
+    const input = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message input' });
+
+    fireEvent.change(input, { target: { value: 'hi' } });
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(input.value).toBe('hi'));
+    expect(onNew).not.toHaveBeenCalled();
   });
 
   it('preserves consumer section overrides in draft mode', () => {

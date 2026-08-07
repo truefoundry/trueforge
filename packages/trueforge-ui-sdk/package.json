@@ -50,7 +50,9 @@
   ],
   "scripts": {
     "build": "tsup && tailwindcss --input src/build-styles.css --output dist/styles.css --minify",
-    "dev:watch": "tsup --watch",
+    "dev:watch": "pnpm run \"/^(dev:watch:js|dev:watch:css)$/\"",
+    "dev:watch:js": "tsup --watch",
+    "dev:watch:css": "tailwindcss --input src/build-styles.css --output dist/styles.css --watch",
     "pack:tgz": "pnpm build && pnpm pack",
     "test": "vitest run && pnpm test:package",
     "test:package": "pnpm build && node test/packageExports.smoke.mjs",

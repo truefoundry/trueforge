@@ -30,6 +30,18 @@ describe('harnessBuilderServer', () => {
     });
   });
 
+  it('toModelSelection forwards providerLogo when present', () => {
+    assert.deepEqual(toModelSelection({ name: 'openai/gpt-4o', properties: {} }, 'https://assets.example/openai.svg'), {
+      name: 'openai/gpt-4o',
+      provider: 'openai',
+      providerLogo: 'https://assets.example/openai.svg',
+    });
+    assert.deepEqual(toModelSelection({ name: 'openai/gpt-4o', properties: {} }, ''), {
+      name: 'openai/gpt-4o',
+      provider: 'openai',
+    });
+  });
+
   it('searchAgents maps registry rows to library entries with agentId + agentSpec', async () => {
     const fetchMock: typeof fetch = async input => {
       const url = input instanceof Request ? input.url : String(input);

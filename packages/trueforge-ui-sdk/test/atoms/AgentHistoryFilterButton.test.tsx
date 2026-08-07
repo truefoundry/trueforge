@@ -92,15 +92,22 @@ describe('AgentHistoryFilterButton', () => {
     });
 
     expect(screen.getByTestId('filter-value')).toHaveTextContent('all');
+    expect(screen.queryByTestId('history-filter-active-dot')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Filter chat history/i }));
     await waitFor(() => expect(screen.getByRole('menuitem', { name: /from-sdk/i })).toBeInTheDocument());
+
+    const menu = screen.getByRole('menu', { name: /Filter agents/i });
+    expect(menu.closest('.aui-theme-root')).not.toBeNull();
+    expect(menu.className).toContain('font-sans-flex');
+    expect(menu.className).toContain('bg-popover');
 
     await act(async () => {
       fireEvent.click(screen.getByRole('menuitem', { name: /from-sdk/i }));
     });
 
     expect(screen.getByTestId('filter-value')).toHaveTextContent('from-sdk');
+    expect(screen.getByTestId('history-filter-active-dot')).toBeInTheDocument();
     expect(searchAgents).toHaveBeenCalled();
   });
 

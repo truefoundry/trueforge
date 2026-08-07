@@ -1,7 +1,7 @@
 'use client';
 
 import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefoundry/assistant-ui-runtime';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import type { AgentSkill, ConnectorState, McpServerMount, SkillMount } from '../../server/types.js';
@@ -19,6 +19,8 @@ const TABS: { id: AttachTab; label: string; icon: string }[] = [
   { id: 'skills', label: 'Skills', icon: 'list-check' },
   { id: 'files', label: 'Attachment', icon: 'paperclip' },
 ];
+
+const SPEC_FLUSH_MS = 300;
 
 function Checkbox({ checked }: { checked: boolean }) {
   return (
@@ -106,7 +108,7 @@ function SectionHeading({ label, count }: { label: string; count: number }) {
 }
 
 export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
-  const { skills, connectors } = useDraftCatalog();
+  const { skills, connectors, ensureLoaded } = useDraftCatalog();
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
   const [open, setOpen] = useState(false);
@@ -115,30 +117,78 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   // Section membership is snapped when the picker opens, so toggles don't jump rows mid-session.
   const [pinnedMcpIds, setPinnedMcpIds] = useState<Set<string>>(() => new Set());
   const [pinnedSkillIds, setPinnedSkillIds] = useState<Set<string>>(() => new Set());
+  // Local working copy while open — flush to AgentSpec on debounce / close.
+  const [localMcp, setLocalMcp] = useState<McpServerMount[]>([]);
+  const [localSkills, setLocalSkills] = useState<SkillMount[]>([]);
+  const dirtyRef = useRef(false);
+  const flushTimerRef = useRef<number | null>(null);
+  const localMcpRef = useRef(localMcp);
+  const localSkillsRef = useRef(localSkills);
+  localMcpRef.current = localMcp;
+  localSkillsRef.current = localSkills;
+
   const containerRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
   const isMobile = useIsMobile();
   const compactLayout = useCompactLayout();
 
-  const selectedMcp = useMemo(
-    () => (agentSpec?.mcpServers as McpServerMount[] | undefined) ?? [],
-    [agentSpec?.mcpServers],
-  );
-  const selectedSkills = useMemo(() => (agentSpec?.skills as SkillMount[] | undefined) ?? [], [agentSpec?.skills]);
+  const specMcp = useMemo(() => (agentSpec?.mcpServers as McpServerMount[] | undefined) ?? [], [agentSpec?.mcpServers]);
+  const specSkills = useMemo(() => (agentSpec?.skills as SkillMount[] | undefined) ?? [], [agentSpec?.skills]);
 
+  const selectedMcp = open ? localMcp : specMcp;
+  const selectedSkills = open ? localSkills : specSkills;
   const selectedMcpIds = useMemo(() => new Set(selectedMcp.map(m => m.id)), [selectedMcp]);
   const selectedSkillIds = useMemo(() => new Set(selectedSkills.map(s => s.id)), [selectedSkills]);
+
+  const clearFlushTimer = useCallback(() => {
+    if (flushTimerRef.current != null) {
+      window.clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+  }, []);
+
+  const flushSpec = useCallback(() => {
+    clearFlushTimer();
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
+    updateAgentSpec?.({
+      mcpServers: localMcpRef.current,
+      skills: localSkillsRef.current,
+    });
+  }, [clearFlushTimer, updateAgentSpec]);
+
+  const scheduleFlush = useCallback(() => {
+    clearFlushTimer();
+    flushTimerRef.current = window.setTimeout(() => {
+      flushTimerRef.current = null;
+      flushSpec();
+    }, SPEC_FLUSH_MS);
+  }, [clearFlushTimer, flushSpec]);
+
+  const setOpenAndFlush = useCallback(
+    (next: boolean) => {
+      if (!next) flushSpec();
+      setOpen(next);
+    },
+    [flushSpec],
+  );
+
+  useEffect(() => {
+    if (open) ensureLoaded();
+  }, [open, ensureLoaded]);
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        setOpenAndFlush(false);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  }, [open, setOpenAndFlush]);
+
+  useEffect(() => () => clearFlushTimer(), [clearFlushTimer]);
 
   // Keep unavailable selections visible so users can remove them.
   // Hosts that omit auth info keep their connectors selectable.
@@ -181,22 +231,32 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   );
 
   const toggleConnector = (connector: ConnectorState) => {
-    const next = selectedMcpIds.has(connector.id)
-      ? selectedMcp.filter(m => m.id !== connector.id)
-      : [...selectedMcp, { id: connector.id, name: connector.name }];
-    updateAgentSpec?.({ mcpServers: next });
+    setLocalMcp(prev =>
+      prev.some(m => m.id === connector.id)
+        ? prev.filter(m => m.id !== connector.id)
+        : [...prev, { id: connector.id, name: connector.name }],
+    );
+    dirtyRef.current = true;
+    scheduleFlush();
   };
 
   const toggleSkill = (skill: AgentSkill) => {
-    const next = selectedSkillIds.has(skill.id)
-      ? selectedSkills.filter(s => s.id !== skill.id)
-      : [...selectedSkills, { id: skill.id, name: skill.name }];
-    updateAgentSpec?.({ skills: next });
+    setLocalSkills(prev =>
+      prev.some(s => s.id === skill.id)
+        ? prev.filter(s => s.id !== skill.id)
+        : [...prev, { id: skill.id, name: skill.name }],
+    );
+    dirtyRef.current = true;
+    scheduleFlush();
   };
 
   const openPicker = () => {
-    setPinnedMcpIds(new Set(selectedMcp.map(m => m.id)));
-    setPinnedSkillIds(new Set(selectedSkills.map(s => s.id)));
+    setLocalMcp(specMcp);
+    setLocalSkills(specSkills);
+    dirtyRef.current = false;
+    clearFlushTimer();
+    setPinnedMcpIds(new Set(specMcp.map(m => m.id)));
+    setPinnedSkillIds(new Set(specSkills.map(s => s.id)));
     setOpen(true);
   };
 
@@ -233,7 +293,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
           disabled={disabled}
           onClick={() => {
             onAttach?.();
-            setOpen(false);
+            setOpenAndFlush(false);
           }}
           className={cn(
             'm-3 flex min-h-48 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-8',
@@ -334,7 +394,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
         onClick={() => {
           if (open) {
-            setOpen(false);
+            setOpenAndFlush(false);
             return;
           }
           openPicker();
@@ -345,7 +405,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
 
       {open ? (
         isMobile || compactLayout ? (
-          <BottomSheet id={menuId} open onOpenChange={setOpen} aria-label="Add to composer">
+          <BottomSheet id={menuId} open onOpenChange={setOpenAndFlush} aria-label="Add to composer">
             {content}
           </BottomSheet>
         ) : (

@@ -79,7 +79,7 @@ export function DrawerLayout({ className }: { className?: string }) {
               className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
               onClick={handleNewChat}
             >
-              <Icon name="plus" />
+              <Icon name="square-pen" />
             </button>
           ) : null}
           <button
