@@ -6,6 +6,8 @@ fern/openapi/
 # Downloaded third-party Helm subcharts (Bitnami); not ours to reformat.
 charts/trueforge/charts/
 coverage/
+# Prettier's markdown parser escapes `*` inside MDX `{/* */}` comments, breaking MDX parsing.
+*.mdx
 .turbo/
 pnpm-lock.yaml
 *.tsbuildinfo

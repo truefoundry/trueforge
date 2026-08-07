@@ -31,19 +31,19 @@
           "mcp-servers",
           "skills",
           "sandbox",
+          {
+            "group": "Context Engineering",
+            "pages": [
+              "context-engineering/overview",
+              "context-engineering/subagents",
+              "context-engineering/deferred-tool-loading",
+              "context-engineering/code-mode",
+              "context-engineering/large-tool-responses"
+            ]
+          },
           "human-in-the-loop",
           "ask-user-questions",
           "generative-ui"
-        ]
-      },
-      {
-        "group": "Context Engineering",
-        "pages": [
-          "context-engineering/overview",
-          "context-engineering/subagents",
-          "context-engineering/deferred-tool-loading",
-          "context-engineering/code-mode",
-          "context-engineering/large-tool-responses"
         ]
       },
       {

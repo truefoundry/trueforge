@@ -28,7 +28,7 @@ This is a pnpm workspace:
 | `@truefoundry/utils`        | `@truefoundry/trueforge`      | [`packages/server`](packages/server)                     | Agent server + bundled UI                    |
 | `@truefoundry/utils-core`   | `@truefoundry/trueforge-core` | [`packages/harness`](packages/harness)                   | Library: agent core, sessions, and streaming |
 | `@truefoundry/trueforge-ui` | `@truefoundry/trueforge-ui`   | [`packages/trueforge-ui-sdk`](packages/trueforge-ui-sdk) | Embeddable agent chat UI SDK                 |
-| `trueforge`                 | `@truefoundry/trueforge-sdk`  | [`packages/sdk`](packages/sdk)                           | Generated TypeScript API client              |
+| `trueforge`                 | `trueforge`                   | [`packages/sdk`](packages/sdk)                           | Generated TypeScript API client              |
 | `frontend`                  | —                             | [`packages/frontend`](packages/frontend)                 | Chat UI app (bundled into the server)        |
 
 > Note: some workspace package and folder names (`utils`, `harness`) predate the public release names and will be renamed.
