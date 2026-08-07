@@ -94,9 +94,22 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   app.route('/api/v1/auth', createAuthRouter({ oidcClient: deps.oidcClient, logger: deps.logger }));
   app.route(
     '/api/v1/capabilities',
-    withAuth(createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore })),
+    withAuth(
+      createCapabilitiesRouter({
+        sandboxProviderStore: deps.sandboxProviderStore,
+        withTransaction: deps.withTransaction,
+      }),
+    ),
   );
-  app.route('/api/v1/models', withAuth(createModelsRouter(deps.modelProviderStore)));
+  app.route(
+    '/api/v1/models',
+    withAuth(
+      createModelsRouter({
+        modelProviderStore: deps.modelProviderStore,
+        withTransaction: deps.withTransaction,
+      }),
+    ),
+  );
   // Public MCP OAuth callback must be registered before the gated `/mcp-servers` mount so
   // `withAuth` cannot intercept IdP redirects to `/api/v1/mcp-servers/oauth/*`.
   app.route(
@@ -114,11 +127,20 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createMcpServersRouter({
         mcpServerStore: deps.mcpServerStore,
         tokenStore: deps.tokenStore,
+        withTransaction: deps.withTransaction,
         logger: deps.logger,
       }),
     ),
   );
-  app.route('/api/v1/skills', withAuth(createAvailableSkillsRouter(deps.skillStore)));
+  app.route(
+    '/api/v1/skills',
+    withAuth(
+      createAvailableSkillsRouter({
+        skillStore: deps.skillStore,
+        withTransaction: deps.withTransaction,
+      }),
+    ),
+  );
   app.route(
     '/api/v1/agents',
     withAuth(
@@ -128,6 +150,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
+        withTransaction: deps.withTransaction,
       }),
     ),
   );
@@ -144,6 +167,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         skillStore: deps.skillStore,
         sandboxCatalog: deps.sandboxCatalog,
         sandboxProviderStore: deps.sandboxProviderStore,
+        withTransaction: deps.withTransaction,
         logger: deps.logger,
       }),
     ),

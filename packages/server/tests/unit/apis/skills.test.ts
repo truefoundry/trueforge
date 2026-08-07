@@ -32,8 +32,12 @@ describe('skills routers', () => {
     settingsRouter = createSkillsRouter({
       skillCatalog: SkillCatalog.load(),
       skillStore,
+      withTransaction: callback => db.transaction().execute(callback),
     });
-    availableRouter = createAvailableSkillsRouter(skillStore);
+    availableRouter = createAvailableSkillsRouter({
+      skillStore,
+      withTransaction: callback => db.transaction().execute(callback),
+    });
   });
 
   it('GET /catalog returns the shipped catalog verbatim', async () => {

@@ -54,6 +54,7 @@ describe('agents router', () => {
       mcpServerStore: new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      withTransaction: callback => db.transaction().execute(callback),
     });
   });
 
