@@ -71,16 +71,17 @@ callbacks; `App.tsx` spreads them into `createTrueFoundryServer` (settings CRUD 
 | `getModels`    | `GET /api/v1/models` (also seeds `defaultAgentSpec.model`)        |
 | `getMcp`       | `GET /api/v1/settings/mcp-servers` (carries auth status)          |
 | `getSkills`    | `GET /api/v1/skills` when `GET /api/v1/capabilities` has skill on |
-| `searchAgents` | Empty — Harness has no agent registry                             |
-| `saveAgent`    | Rejects — sessions are draft-only                                 |
+| `searchAgents` | `GET /api/v1/agents`, filtered by `query` and paged client-side   |
+| `saveAgent`    | `PUT`/`POST /api/v1/agents` — updates by name, else creates       |
 
 The SDK's picker round-trips a skill as `{ id, name }`. Harness persists name refs only
 (`{ name }`), so `harnessServer` derives `id` from `name` on read and strips `id` on write.
 Skills stay empty in the picker when the skill capability is off (no sandbox provider configured).
 
-The Agents Library button still renders (the SDK shows it whenever `agentName` is omitted) and
-opens an empty list; `AgentsLibraryButton` is not part of the publicly typed `AtomSlots`, so it
-cannot be overridden away without a cast.
+The Agents Library lists the registry, so sessions bind either to a registry agent (`{ name }`) or
+to an inline spec (`{ def }`). Reads name their agent on the `ref` arm, so the adapter never resolves
+display names through the registry; only the `agentId` list filter does, since the UI may pass a
+display name where the API expects a registry id.
 
 ## Gaps
 
