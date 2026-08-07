@@ -9,6 +9,7 @@ export const Session: core.serialization.ObjectSchema<serializers.Session.Raw, T
     core.serialization.object({
         agent: SessionAgent,
         createdAt: core.serialization.property("created_at", core.serialization.string()),
+        createdBy: core.serialization.property("created_by", core.serialization.string()),
         id: core.serialization.string(),
         title: core.serialization.string().nullable(),
         updatedAt: core.serialization.property("updated_at", core.serialization.string()),
@@ -18,6 +19,7 @@ export declare namespace Session {
     export interface Raw {
         agent: SessionAgent.Raw;
         created_at: string;
+        created_by: string;
         id: string;
         title?: string | null;
         updated_at: string;

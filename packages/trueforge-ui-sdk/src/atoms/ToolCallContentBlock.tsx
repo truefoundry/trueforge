@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { Icon } from '../icons/Icon.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { cn } from './lib/cn.js';
-import { MonacoEditorCore } from './MonacoEditorCore.js';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './primitives/Dialog.js';
 import { IconButton } from './primitives/IconButton.js';
 
@@ -35,6 +34,8 @@ function JsonEditor({
   autoHeight?: boolean;
   maxHeight?: string | number;
 }) {
+  const MonacoEditorCore = useSlot('MonacoEditorCore');
+
   return (
     <MonacoEditorCore
       language="json"

@@ -1,8 +1,4 @@
-import type {
-  ChatCompletionCreateParamsStreaming,
-  ChatCompletionMessageParam,
-  ChatCompletionTool,
-} from 'openai/resources/chat';
+import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat';
 import type { Logger } from 'winston';
 import type { AgentCapability, CapabilityState } from '../capabilities/AgentCapability';
 import type {
@@ -39,6 +35,7 @@ import {
   type UserToolResponseMessage,
 } from '../events/schema';
 import { InstructionBuilder, ROOT_AGENT_IDENTITY } from '../InstructionBuilder';
+import type { LLMCreateParamsStreaming } from '../llm/ILLM';
 import {
   type CompletionUsage,
   type ExtendedChatCompletionChunk,
@@ -760,7 +757,7 @@ export class AgentThread {
     return { ...this.metrics };
   }
 
-  private transformToLLMRequest(tools: ChatCompletionTool[]): ChatCompletionCreateParamsStreaming {
+  private transformToLLMRequest(tools: ChatCompletionTool[]): LLMCreateParamsStreaming {
     let messages: ChatCompletionMessageParam[] = [];
 
     if (this.instruction) {
@@ -790,8 +787,8 @@ export class AgentThread {
 
     // modelParams may include provider extensions (e.g. reasoning_effort) beyond the SDK's
     // ChatCompletionCreateParamsStreaming field set; assign after constructing the typed body.
-    const requestBody: ChatCompletionCreateParamsStreaming = {
-      model: this.definition.model,
+    // Model identity is owned by modelClient — do not set `model` on the request.
+    const requestBody: LLMCreateParamsStreaming = {
       messages,
       stream: true,
       ...(this.definition.responseFormat !== undefined
@@ -810,7 +807,7 @@ export class AgentThread {
   }
 
   private computeAssistantMessageUsage(params: {
-    requestBody: ChatCompletionCreateParamsStreaming;
+    requestBody: LLMCreateParamsStreaming;
     usage: CompletionUsage;
     toolMapping: Map<string, MappedMCPTool>;
   }): ModelMessageUsage {

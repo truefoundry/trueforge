@@ -131,11 +131,15 @@ type SemanticTokens = {
   accentForeground: string;
   destructive: string;
   destructiveForeground: string;
+  success: string;
+  successForeground: string;
+  warning: string;
+  warningForeground: string;
   border: string;
   input: string;
   ring: string;
   radius: string;
-  fontSans: string; // maps to --font-agent-ui
+  fontFamily: string; // maps to --font-agent-ui
   // optional chat-specific:
   userBubble?: string;
   userBubbleForeground?: string;
@@ -189,6 +193,7 @@ type ThemeConfig = {
 type ContentClassNames = {
   /** Wrapper / prose root for rendered markdown */
   markdown?: string;
+  inlineCode?: string; // Inline code rendered by Markdown
   /** Non-openui fenced code blocks (syntax-highlighter root / pre / code) */
   syntaxHighlighter?: {
     root?: string;
@@ -199,8 +204,7 @@ type ContentClassNames = {
   /** OpenUI fenced-block host + common child hooks */
   openui?: {
     root?: string;
-    /** Extra classes forwarded into OpenUI theme/host if supported */
-    [key: string]: string | undefined;
+    scope?: string;
   };
   /** Monaco editor / diff surfaces */
   monaco?: {
@@ -234,35 +238,41 @@ function MyLayout({ className }: { className?: string }) {
 }
 
 <TrueforgeUI
-  layout={MyLayout} // or "sidebar" | "drawer" | "dock" | "widget"
+  layout={MyLayout} // or 'sidebar' | 'drawer' | 'dock' | 'widget'
   theme={{
-    preset: "claude",
-    mode: "dark",
-    tokens: { primary: "#…", fontSans: '"My Font", system-ui' },
+    preset: 'claude',
+    mode: 'dark',
+    tokens: { primary: '#…', fontFamily: '"My Font", system-ui' },
     brand: {
-      name: "Acme Agent",
-      logo: { src: "/acme-wordmark.svg", alt: "Acme" },
+      name: 'Acme Agent',
+      logo: { src: '/acme-wordmark.svg', alt: 'Acme' },
       icon: MyAcmeMark,
     },
-    className: "my-chat",
+    className: 'my-chat',
     icons: { send: MySendSvg, paperclip: MyAttachSvg },
     classNames: {
-      markdown: "prose prose-neutral dark:prose-invert max-w-none",
+      markdown: 'prose prose-neutral dark:prose-invert max-w-none',
+      inlineCode: 'font-semibold',
       syntaxHighlighter: {
-        root: "my-code-block rounded-lg",
-        pre: "bg-zinc-950 p-4",
-        code: "text-sm font-mono",
+        root: 'my-code-block rounded-lg',
+        pre: 'bg-zinc-950 p-4',
+        code: 'text-sm font-mono',
+        lineNumber: 'opacity-60',
       },
-      openui: { root: "my-openui-host" },
-      monaco: { root: "my-monaco h-64", monacoTheme: "vs-dark" },
+      openui: { root: 'my-openui-host', scope: 'p-2' },
+      monaco: { root: 'my-monaco h-64', editor: 'rounded-lg', monacoTheme: 'vs-dark' },
     },
   }}
-  overrides={{ WelcomeScreen: MyWelcome }}
 />
 ```
 
 **Resolution order:** preset defaults → `tokens` → `brand` / `icons` →
 `classNames` → host CSS variables (documented) → `className` utilities.
+
+Component resolution is separate: the nearest `SlotsProvider` override wins,
+then a parent override, then `defaultSlots`. An override receives the exact
+props object for that atom; do not assume container-composed content is passed
+as `children`.
 
 **Custom styles without the object:** host CSS still works:
 
@@ -291,12 +301,13 @@ function MyLayout({ className }: { className?: string }) {
 
 1. All product marks render through `useBrand()` / `<BrandLogo />` /
    `<BrandIcon />` — never hard-coded TFY assets in layouts or atoms.
-2. `theme.brand.logo` → headers, welcome, wide chrome.
-3. `theme.brand.icon` → widget FAB, compact headers, assistant avatar fallback
-   when no user avatar is set.
+2. `BrandLogo` resolves `theme.brand.logo` first. Its default wordmark combines
+   the configured name with the resolved `BrandIcon`.
+3. `BrandIcon` resolves `theme.brand.icon`, then `theme.icons.robot`, then the
+   registry's Lucide robot fallback.
 4. `theme.brand.name` → accessible labels / text next to logo when provided.
-5. Omitting `brand` keeps the default TrueFoundry (or preset) mark; hosts
-   replace either or both logo and icon independently.
+5. Omitting `brand` keeps the default `TrueFoundry` name and robot mark; hosts
+   replace the logo and icon independently.
 
 ## Icon system
 
@@ -308,6 +319,12 @@ function MyLayout({ className }: { className?: string }) {
    vs string props on tfy `IconButton`).
 6. Brand marks are **not** mixed into `icons` — use `theme.brand` so product
    identity stays separate from action icons.
+
+For named UI icons the order is `theme.icons[name]` → registry default. The
+robot is also the final brand fallback, so `theme.brand.icon` still takes
+precedence over `theme.icons.robot`. Preset-specific icons such as
+`welcome-sparkle` and OAuth state icons (`oauth-loading`, `oauth-success`,
+`oauth-error`) use the same lookup order.
 
 ## Layout override
 
@@ -377,6 +394,14 @@ stylistic homages, not product replicas.
    `aui-monaco`) so host CSS works without the theme object.
 6. Preload path: replace `preloadMarkdownOpenUI` with local equivalent.
 7. Pass `theme.classNames.markdown` / `openui` into the Markdown/OpenUI hosts.
+
+Supported hooks are `markdown`, `inlineCode`,
+`syntaxHighlighter.{root,pre,code,lineNumber}`,
+`openui.{root,scope}`, and `monaco.{root,editor,monacoTheme}`.
+
+The standalone MCP OAuth callback selected by `TrueforgeUI` skips server
+resolution, but remains inside the same theme and slot provider boundary as the
+main shell.
 
 ## Call flow
 

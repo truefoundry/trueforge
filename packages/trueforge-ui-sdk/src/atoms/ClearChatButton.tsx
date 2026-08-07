@@ -8,17 +8,17 @@ import { auiButtonClass } from './lib/buttonClasses.js';
 export function ClearChatButton() {
   const shell = useOptionalShellMode();
 
-  if (shell == null || shell.mode.type === 'idle') return null;
+  if (shell == null || shell.mode.status === 'idle') return null;
 
   return (
     <button
       type="button"
-      aria-label="Clear chat"
       title="Clear chat"
-      className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+      className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
       onClick={() => shell.clearChat()}
     >
-      <Icon name="rotate-right" />
+      <Icon name="broom" size="0.875em" />
+      Clear chat
     </button>
   );
 }

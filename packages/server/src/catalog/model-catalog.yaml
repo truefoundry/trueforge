@@ -73,6 +73,12 @@ providers:
         properties:
           context_length: 1000000
           max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: claude-haiku-4-5
         name: claude-haiku-4-5
         properties:
@@ -83,11 +89,23 @@ providers:
         properties:
           context_length: 1000000
           max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: claude-opus-5
         name: claude-opus-5
         properties:
           context_length: 1000000
           max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: claude-sonnet-4-6
         name: claude-sonnet-4-6
         properties:
@@ -103,6 +121,12 @@ providers:
         properties:
           context_length: 1000000
           max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
   - type: google-gemini
     name: google-gemini
     logo: https://assets.production.truefoundry.com/google-gemini.svg
@@ -121,6 +145,11 @@ providers:
         properties:
           context_length: 1048576
           max_output_tokens: 65536
+          reasoning_efforts:
+            - minimal
+            - low
+            - medium
+            - high
   - type: fireworks
     name: fireworks
     logo: https://assets.production.truefoundry.com/fireworks.svg
@@ -129,35 +158,84 @@ providers:
         name: deepseek-v4-pro
         properties:
           context_length: 1048576
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: accounts/fireworks/models/glm-5p2
         name: glm-5p2
         properties:
           context_length: 1048576
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: accounts/fireworks/models/kimi-k2p7-code
         name: kimi-k2p7-code
         properties:
           context_length: 262144
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: accounts/fireworks/models/kimi-k3
         name: kimi-k3
         properties:
           context_length: 1048576
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: accounts/fireworks/models/minimax-m3
         name: minimax-m3
         properties:
           context_length: 512000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
   - type: zai
     name: zai
     logo: https://assets.production.truefoundry.com/zai.svg
     models:
       - model_id: glm-5-turbo
         name: glm-5-turbo
-        properties: {}
+        properties:
+          context_length: 200000
+          max_output_tokens: 131072
       - model_id: glm-5.1
         name: glm-5-1
-        properties: {}
+        properties:
+          context_length: 200000
+          max_output_tokens: 131072
       - model_id: glm-5.2
         name: glm-5-2
-        properties: {}
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
   - type: moonshot
     name: moonshot
     logo: https://assets.production.truefoundry.com/moonshot.png
@@ -180,16 +258,53 @@ providers:
     models:
       - model_id: qwen3.7-flash
         name: qwen3-7-flash
-        properties: {}
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
       - model_id: qwen3.7-max
         name: qwen3-7-max
-        properties: {}
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
       - model_id: qwen3.7-plus
         name: qwen3-7-plus
-        properties: {}
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
       - model_id: qwen3.8-max
         name: qwen3-8-max
-        properties: {}
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
   - type: together
     name: together
     logo: https://assets.production.truefoundry.com/togetherai.svg
@@ -204,7 +319,7 @@ providers:
       - model_id: MiniMaxAI/MiniMax-M3
         name: minimax-m3
         properties:
-          context_length: 1000000
+          context_length: 524288
       - model_id: moonshotai/Kimi-K2.7-Code
         name: kimi-k2-7-code
         properties:
@@ -212,21 +327,41 @@ providers:
       - model_id: moonshotai/Kimi-K3
         name: kimi-k3
         properties:
-          context_length: 1000000
+          context_length: 1048576
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - max
       - model_id: Qwen/Qwen3.7-Max
         name: qwen3-7-max
         properties:
           context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
       - model_id: Qwen/Qwen3.7-Plus
         name: qwen3-7-plus
         properties:
           context_length: 1000000
-          max_output_tokens: 65536
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
       - model_id: zai-org/GLM-5.2
         name: glm-5-2
         properties:
-          context_length: 262144
-          max_output_tokens: 131072
+          context_length: 512000
           reasoning_efforts:
             - high
             - max

@@ -1,9 +1,9 @@
 'use client';
 
-import { CheckCircle2, LoaderCircle, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { MCP_AUTH_POPUP_CHANNEL, type McpAuthPopupMessage } from '../../hooks/useMcpAuth.js';
+import { Icon } from '../../icons/Icon.js';
 
 const BROADCAST_RETRY_DELAY_MS = 1000;
 const WINDOW_CLOSE_DELAY_MS = 2000;
@@ -54,11 +54,11 @@ const PostMcpOauthScreen = () => {
     <main className="flex min-h-screen items-center justify-center bg-background p-6">
       <div className="flex w-full max-w-md flex-col items-center gap-3 rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
         {result === undefined ? (
-          <LoaderCircle className="size-16 animate-spin text-muted-foreground" aria-hidden />
+          <Icon name="oauth-loading" className="size-16 animate-spin text-muted-foreground" />
         ) : isSuccess ? (
-          <CheckCircle2 className="size-16 text-green-600" aria-hidden />
+          <Icon name="oauth-success" className="size-16 text-success" />
         ) : (
-          <XCircle className="size-16 text-destructive" aria-hidden />
+          <Icon name="oauth-error" className="size-16 text-destructive" />
         )}
         <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
         <p className="text-sm leading-6 text-muted-foreground">{description}</p>

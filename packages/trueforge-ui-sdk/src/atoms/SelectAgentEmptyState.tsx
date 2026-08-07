@@ -8,7 +8,7 @@ export function SelectAgentEmptyState() {
   const shell = useOptionalShellMode();
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
 
-  if (shell?.mode.type !== 'idle') return null;
+  if (shell?.mode.status !== 'idle') return null;
 
   return (
     <div
@@ -19,4 +19,10 @@ export function SelectAgentEmptyState() {
       <AgentsLibraryButton className="w-56 max-w-full" />
     </div>
   );
+}
+
+declare module '../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    SelectAgentEmptyState: typeof SelectAgentEmptyState;
+  }
 }

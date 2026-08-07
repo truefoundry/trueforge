@@ -997,11 +997,27 @@
                 ],
                 "type": "object"
               },
+              "settings": {
+                "properties": {
+                  "enabled": {
+                    "description": "Whether the settings UI/API is enabled.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "type": "object"
+              },
               "skill": {
                 "properties": {
                   "enabled": {
                     "description": "Whether skills are available. False when sandbox is not enabled (skills require a sandbox).",
                     "type": "boolean"
+                  },
+                  "reason": {
+                    "description": "Present when skills are disabled. Explains why.",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1012,7 +1028,8 @@
             },
             "required": [
               "sandbox",
-              "skill"
+              "skill",
+              "settings"
             ],
             "type": "object"
           }
@@ -2567,6 +2584,9 @@
           "created_at": {
             "type": "string"
           },
+          "created_by": {
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
@@ -2584,6 +2604,7 @@
           "id",
           "agent",
           "title",
+          "created_by",
           "created_at",
           "updated_at"
         ],
@@ -4384,7 +4405,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "description": "List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent; optional `created_by` filters by creator identity. Pass `page_token` to fetch the next page, keeping the other query params constant.",
         "parameters": [
           {
             "description": "Page size. Defaults to 10, max 100.",
@@ -4447,6 +4468,17 @@
             "required": false,
             "schema": {
               "description": "When set, only sessions bound to this agent id are returned.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "When set, only sessions created by this identity are returned.",
+            "in": "query",
+            "name": "created_by",
+            "required": false,
+            "schema": {
+              "description": "When set, only sessions created by this identity are returned.",
               "minLength": 1,
               "type": "string"
             }

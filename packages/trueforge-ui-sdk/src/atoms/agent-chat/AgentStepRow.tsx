@@ -122,7 +122,7 @@ export function AgentStepRow({
                 <Icon
                   name="circle-check"
                   size="0.875rem"
-                  className="shrink-0 text-green-600"
+                  className="shrink-0 text-success"
                   data-testid={dataTestPrefix ? `${dataTestPrefix}-success-icon` : undefined}
                 />
               )}
@@ -144,7 +144,7 @@ export function AgentStepRow({
         <div className={cn('flex shrink-0 items-center gap-2', alignStart ? 'self-start' : 'self-center')}>
           {statusText && (
             <span className="flex items-center gap-1">
-              {isRunning && <StatusDot colorClassName="bg-orange-500" />}
+              {isRunning && <StatusDot />}
               <span className="font-sans text-xs font-medium leading-4 text-muted-foreground">{statusText}</span>
             </span>
           )}
@@ -155,7 +155,7 @@ export function AgentStepRow({
                   <Spinner size={12} />
                 </div>
               ) : (
-                <StatusDot colorClassName="bg-orange-500" />
+                <StatusDot />
               )}
             </>
           )}
