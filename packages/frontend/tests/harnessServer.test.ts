@@ -226,6 +226,27 @@ describe('createHarnessChatServer', () => {
     assert.equal(page.data[0]?.agentName, 'reviewer');
   });
 
+  it('listSessions returns an empty page when agentId matches no registry agent', async () => {
+    let listedSessions = false;
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/agents')) return Response.json({ data: [] });
+      if (url.includes('/api/v1/sessions')) {
+        listedSessions = true;
+        return new Response(`Unexpected request: ${url}`, { status: 500 });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    const page = await server.listSessions({ agentId: 'ghost', limit: 10 });
+
+    assert.equal(listedSessions, false);
+    assert.deepEqual(page.data, []);
+    assert.equal(page.hasNextPage(), false);
+    assert.deepEqual(page.response.pagination, { limit: 10 });
+  });
+
   it('getSession resolves the agentName of a ref session from the registry', async () => {
     const fetchNamed: typeof fetch = async input => {
       const url = input instanceof Request ? input.url : String(input);

@@ -128,7 +128,7 @@ export function App() {
         }}
         layout="sidebar"
         agentConfig={{
-          mode: 'AgentComposer',
+          mode: 'AgentLibraryWithComposer',
           defaultAgentSpec: boot.defaultAgentSpec,
         }}
         overrides={overrides}

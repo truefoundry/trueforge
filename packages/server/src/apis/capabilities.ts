@@ -13,6 +13,7 @@ export function createCapabilitiesRouter(deps: { sandboxProviderStore: ISandboxP
         data: {
           sandbox: { enabled: sandboxEnabled },
           skill: { enabled: sandboxEnabled },
+          settings: { enabled: true },
         },
       },
       200,

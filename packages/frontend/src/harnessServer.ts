@@ -105,9 +105,13 @@ function toUiSession(session: Harness.Session, agentName?: string): Session<Harn
  * UI `agentId` filters may be a registry id or a display name (history filter /
  * SingleAgent lock both pass names today).
  */
-export async function resolveAgent(client: TrueForge, agentIdOrName: string): Promise<Harness.Agent> {
+export async function findAgent(client: TrueForge, agentIdOrName: string): Promise<Harness.Agent | undefined> {
   const { data } = await client.agents.list();
-  const agent = data.find(candidate => candidate.id === agentIdOrName || candidate.name === agentIdOrName);
+  return data.find(candidate => candidate.id === agentIdOrName || candidate.name === agentIdOrName);
+}
+
+export async function resolveAgent(client: TrueForge, agentIdOrName: string): Promise<Harness.Agent> {
+  const agent = await findAgent(client, agentIdOrName);
   if (agent === undefined) {
     throw new Error(`Agent not found: ${agentIdOrName}`);
   }
@@ -218,7 +222,20 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
 
     async listSessions(request = {}) {
       const filterKey = request.agentId !== undefined && request.agentId.length > 0 ? request.agentId : undefined;
-      const agentFilter = filterKey === undefined ? undefined : await resolveAgent(client, filterKey);
+      // Soft lookup: stale history filter / deleted agent / SingleAgent mismatch → empty page.
+      const agentFilter = filterKey === undefined ? undefined : await findAgent(client, filterKey);
+      if (filterKey !== undefined && agentFilter === undefined) {
+        const limit = request.limit ?? 20;
+        const data: Session<HarnessAgentSpec>[] = [];
+        const pagination = { limit };
+        const empty = (): HarnessPage<Session<HarnessAgentSpec>> => ({
+          data,
+          response: { data, pagination },
+          hasNextPage: () => false,
+          getNextPage: async () => empty(),
+        });
+        return empty();
+      }
       // Stamp ref rows with display names; registries are small (one tenant).
       const nameById =
         agentFilter !== undefined
