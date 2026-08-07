@@ -727,11 +727,21 @@
         ],
         "type": "object"
       },
+      "CreateSessionAgent": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SessionAgentNameRef"
+          },
+          {
+            "$ref": "#/components/schemas/SessionAgentSpecBody"
+          }
+        ]
+      },
       "CreateSessionRequest": {
         "additionalProperties": false,
         "properties": {
           "agent": {
-            "$ref": "#/components/schemas/SessionAgent"
+            "$ref": "#/components/schemas/CreateSessionAgent"
           }
         },
         "required": [
@@ -2639,56 +2649,87 @@
       "SessionAgent": {
         "discriminator": {
           "mapping": {
-            "ref": "#/components/schemas/SessionAgentRef",
-            "value": "#/components/schemas/SessionAgentValue"
+            "inline": "#/components/schemas/SessionAgentInline",
+            "reference": "#/components/schemas/SessionAgentReference"
           },
           "propertyName": "type"
         },
         "oneOf": [
           {
-            "$ref": "#/components/schemas/SessionAgentRef"
+            "$ref": "#/components/schemas/SessionAgentReference"
           },
           {
-            "$ref": "#/components/schemas/SessionAgentValue"
+            "$ref": "#/components/schemas/SessionAgentInline"
           }
         ]
       },
-      "SessionAgentRef": {
+      "SessionAgentInline": {
         "additionalProperties": false,
         "properties": {
-          "agent_id": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "ref"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "agent_id"
-        ],
-        "type": "object"
-      },
-      "SessionAgentValue": {
-        "additionalProperties": false,
-        "properties": {
-          "agent_spec": {
+          "spec": {
             "$ref": "#/components/schemas/AgentSpec"
           },
           "type": {
             "enum": [
-              "value"
+              "inline"
             ],
             "type": "string"
           }
         },
         "required": [
           "type",
-          "agent_spec"
+          "spec"
+        ],
+        "type": "object"
+      },
+      "SessionAgentNameRef": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "SessionAgentReference": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "enum": [
+              "reference"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "SessionAgentSpecBody": {
+        "additionalProperties": false,
+        "properties": {
+          "spec": {
+            "$ref": "#/components/schemas/AgentSpec"
+          }
+        },
+        "required": [
+          "spec"
         ],
         "type": "object"
       },
@@ -3652,9 +3693,10 @@
         "type": "object"
       },
       "UpdateSessionRequest": {
+        "additionalProperties": false,
         "properties": {
           "agent": {
-            "$ref": "#/components/schemas/SessionAgentValue"
+            "$ref": "#/components/schemas/SessionAgentSpecBody"
           }
         },
         "type": "object"
@@ -3899,6 +3941,36 @@
       }
     },
     "/api/v1/agents/{agent_id}": {
+      "delete": {
+        "description": "Delete a configured agent by immutable id. Idempotent if already gone.",
+        "parameters": [
+          {
+            "description": "Immutable agent identifier.",
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Agent deleted."
+          }
+        },
+        "summary": "Delete an agent",
+        "tags": [
+          "Agents"
+        ],
+        "x-fern-sdk-group-name": [
+          "agents"
+        ],
+        "x-fern-sdk-method-name": "delete"
+      },
       "get": {
         "description": "Fetch a configured agent by immutable id.",
         "parameters": [
@@ -4584,7 +4656,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "post": {
-        "description": "Create a session with `agent` as either `{ type: \"value\", agent_spec }` (draft) or `{ type: \"ref\", agent_id }` (named). Named sessions resolve the live agent on each turn.",
+        "description": "Create a session with `agent` as either `{ name }` (named registry binding) or `{ spec: AgentSpec }` (inline). Named sessions snapshot the agent name at create and resolve the live agent on each turn. Responses use `{ type: \"reference\", name, id }` or `{ type: \"inline\", spec }`.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4624,7 +4696,7 @@
                 }
               }
             },
-            "description": "Named `agent_id` not found."
+            "description": "Named agent not found."
           },
           "422": {
             "content": {
@@ -4746,7 +4818,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.",
+        "description": "Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.",
         "parameters": [
           {
             "description": "Session identifier.",

@@ -197,8 +197,7 @@ export class SessionHandle<
     try {
       const tracing = input.resolver.createTracing();
       const agent = this.session.agent;
-      const spec =
-        agent.type === 'value' ? agent.agent_spec : await input.resolver.resolveAgentSpec({ agent_id: agent.agent_id });
+      const spec = agent.type === 'inline' ? agent.spec : await input.resolver.resolveAgentSpec({ agent_id: agent.id });
       const sandbox = await input.resolver.resolveSandbox({
         spec,
         existing: previous?.snapshot.sandbox_info ?? undefined,

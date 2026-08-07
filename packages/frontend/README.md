@@ -1,6 +1,6 @@
 # frontend
 
-Private draft-only agent chat UI for the harness server. **Not published to npm** (`"private": true`).
+Private agent chat UI for the harness server (registry + inline sessions). **Not published to npm** (`"private": true`).
 
 Built on:
 
@@ -71,16 +71,17 @@ callbacks; `App.tsx` spreads them into `createTrueFoundryServer` (settings CRUD 
 | `getModels`    | `GET /api/v1/models` (also seeds `defaultAgentSpec.model`)        |
 | `getMcp`       | `GET /api/v1/settings/mcp-servers` (carries auth status)          |
 | `getSkills`    | `GET /api/v1/skills` when `GET /api/v1/capabilities` has skill on |
-| `searchAgents` | Empty — Harness has no agent registry                             |
-| `saveAgent`    | Rejects — sessions are draft-only                                 |
+| `searchAgents` | `GET /api/v1/agents`, filtered by `query` and paged client-side   |
+| `saveAgent`    | `PUT`/`POST /api/v1/agents` — updates by name, else creates       |
 
 The SDK's picker round-trips a skill as `{ id, name }`. Harness persists name refs only
 (`{ name }`), so `harnessServer` derives `id` from `name` on read and strips `id` on write.
 Skills stay empty in the picker when the skill capability is off (no sandbox provider configured).
 
-The Agents Library button still renders (the SDK shows it whenever `agentName` is omitted) and
-opens an empty list; `AgentsLibraryButton` is not part of the publicly typed `AtomSlots`, so it
-cannot be overridden away without a cast.
+The Agents Library lists the registry, so sessions bind either to a registry agent (`{ name }`) or
+to an inline spec (`{ spec }`). Reads name their agent on the `reference` arm, so the adapter never
+resolves display names through the registry. History filtering forwards the library `agentId`
+straight to `GET /sessions?agent_id=`.
 
 ## Gaps
 
@@ -88,7 +89,7 @@ cannot be overridden away without a cast.
 | ------------------------------------- | ---------------------------------------- |
 | Subscribe turn SSE                    | Deferred (route defined, not registered) |
 | Attachments / sandbox download        | Off                                      |
-| Session `type` / `created_by_subject` | Soft — not required for draft FE         |
+| Session `type` / `created_by_subject` | Soft — not required for this FE          |
 | `turn.created.created_by`             | Soft — stream adopt tolerates missing    |
 
 ## Scripts

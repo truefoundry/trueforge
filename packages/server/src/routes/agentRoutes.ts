@@ -99,6 +99,24 @@ export const getAgentRoute = createRoute({
   },
 });
 
+export const deleteAgentRoute = createRoute({
+  method: 'delete',
+  path: '/{agent_id}',
+  tags: [AGENTS_TAG],
+  summary: 'Delete an agent',
+  description: 'Delete a configured agent by immutable id. Idempotent if already gone.',
+  'x-fern-sdk-group-name': ['agents'],
+  'x-fern-sdk-method-name': 'delete',
+  request: {
+    params: AgentIdParamsSchema,
+  },
+  responses: {
+    204: {
+      description: 'Agent deleted.',
+    },
+  },
+});
+
 export const putAgentRoute = createRoute({
   method: 'put',
   path: '/{name}',

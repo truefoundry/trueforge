@@ -9,7 +9,13 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
-import { createAgentRoute, getAgentRoute, listAgentsRoute, putAgentRoute } from '../routes/agentRoutes';
+import {
+  createAgentRoute,
+  deleteAgentRoute,
+  getAgentRoute,
+  listAgentsRoute,
+  putAgentRoute,
+} from '../routes/agentRoutes';
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { toAgentManifest, type Agent, type AgentWriteRequest } from '../schemas/agent';
 import { TENANT_ID } from './sessions';
@@ -83,6 +89,12 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     return c.json({ data: toWireAgent(record) }, 200);
   };
 
+  const deleteHandler: RouteHandler<typeof deleteAgentRoute> = async c => {
+    const { agent_id: agentId } = c.req.valid('param');
+    await deps.agentStore.deleteAgent({ tenant_id: TENANT_ID, id: agentId });
+    return c.body(null, 204);
+  };
+
   const putHandler: RouteHandler<typeof putAgentRoute> = async c => {
     const { name } = c.req.valid('param');
     const body = c.req.valid('json');
@@ -102,6 +114,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
   router.openapi(listAgentsRoute, listHandler);
   router.openapi(createAgentRoute, createHandler);
   router.openapi(getAgentRoute, getHandler);
+  router.openapi(deleteAgentRoute, deleteHandler);
   router.openapi(putAgentRoute, putHandler);
   return router;
 }

@@ -34,8 +34,8 @@ describe('turns', () => {
         session_id: 's1',
         created_by: 'someone-else',
         agent: {
-          type: 'value',
-          agent_spec: AgentSpecSchema.parse({
+          type: 'inline',
+          spec: AgentSpecSchema.parse({
             model: { name: 'test-provider/test-model' },
             instructions: 'test',
           }),
@@ -130,7 +130,7 @@ describe('turns', () => {
       const sessions = {
         get: () =>
           Promise.resolve({
-            agent_spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
+            spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
             record: { last_turn_id: null, created_by: LOCAL_USER_CONTEXT.userRef },
             createTurn: () =>
               Promise.resolve({
@@ -242,12 +242,12 @@ describe('turns', () => {
       const sessions = {
         get: () =>
           Promise.resolve({
-            agent_spec: agentSpec,
+            spec: agentSpec,
             record: {
               session_id: 's1',
               last_turn_id: null,
               created_by: LOCAL_USER_CONTEXT.userRef,
-              agent: { type: 'value', agent_spec: agentSpec },
+              agent: { type: 'inline', spec: agentSpec },
             },
             createTurn: () =>
               Promise.resolve({

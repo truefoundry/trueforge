@@ -28,7 +28,7 @@ export const createSessionRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Create a session',
   description:
-    'Create a session with `agent` as either `{ type: "value", agent_spec }` (draft) or `{ type: "ref", agent_id }` (named). Named sessions resolve the live agent on each turn.',
+    'Create a session with `agent` as either `{ name }` (named registry binding) or `{ spec: AgentSpec }` (inline). Named sessions snapshot the agent name at create and resolve the live agent on each turn. Responses use `{ type: "reference", name, id }` or `{ type: "inline", spec }`.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create',
   request: {
@@ -48,7 +48,7 @@ export const createSessionRoute = createRoute({
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Named `agent_id` not found.',
+      description: 'Named agent not found.',
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -114,7 +114,7 @@ export const updateSessionRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Update a session',
   description:
-    'Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.',
+    'Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'update',
   request: {

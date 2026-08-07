@@ -1,14 +1,43 @@
-/** Server session wire schemas. Core Session/Create/Update live in agentSession. */
+/** Server session wire schemas. Core Session lives in agentSession. */
 import { z } from '@hono/zod-openapi';
-import {
-  CreateSessionRequestSchema,
-  SessionSchema,
-  TokenPaginationSchema,
-  UpdateSessionRequestSchema,
-} from '@truefoundry/utils-core/agent-session';
+import { AgentSpecSchema, SessionSchema, TokenPaginationSchema } from '@truefoundry/utils-core/agent-session';
+import { NameSchema } from './common';
+
+/** Create arm: bind by unique registry agent name. */
+export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('SessionAgentNameRef');
+
+/**
+ * Create/update body arm wrapping an AgentSpec.
+ * Use AgentSpecSchema (not `.strict()`) so OpenAPI `$ref`s the shared AgentSpec.
+ */
+const SessionAgentSpecBodySchema = z.object({ spec: AgentSpecSchema }).strict().openapi('SessionAgentSpecBody');
+
+/** Create accepts either a unique agent name or `{ spec: AgentSpec }`. */
+export const CreateSessionAgentSchema = z
+  .union([SessionAgentNameRefSchema, SessionAgentSpecBodySchema])
+  .openapi('CreateSessionAgent');
+
+export type CreateSessionAgent = z.infer<typeof CreateSessionAgentSchema>;
+export type SessionAgentNameRef = z.infer<typeof SessionAgentNameRefSchema>;
+export type SessionAgentSpecBody = z.infer<typeof SessionAgentSpecBodySchema>;
+
+/** Narrows the create-body union after OpenAPI already accepted either arm. */
+export function isSessionAgentNameRef(agent: CreateSessionAgent): agent is SessionAgentNameRef {
+  return SessionAgentNameRefSchema.safeParse(agent).success;
+}
+
+export const CreateSessionRequestSchema = z
+  .object({ agent: CreateSessionAgentSchema })
+  .strict()
+  .openapi('CreateSessionRequest');
+
+/** Only inline sessions may be updated; named (reference) sessions reject agent updates. */
+export const UpdateSessionRequestSchema = z
+  .object({ agent: SessionAgentSpecBodySchema.optional() })
+  .strict()
+  .openapi('UpdateSessionRequest');
 
 export type { Session } from '@truefoundry/utils-core/agent-session';
-export { CreateSessionRequestSchema, UpdateSessionRequestSchema };
 
 export const DEFAULT_SESSIONS_LIMIT = 10;
 export const SESSIONS_MAX_LIMIT = 100;
