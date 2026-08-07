@@ -11,8 +11,6 @@ TrueForge runs the agent execution loop for you — model calls, tool use, conte
 
 [Documentation](#) · [Quickstart Guide](#) · [API Reference](#) · [Community](#)
 
-<!-- TODO: hero screenshot of the chat UI -->
-
 ![TrueForge chat UI](docs/assets/hero.png)
 
 ## Why TrueForge?
@@ -21,7 +19,7 @@ Building an agent is easy. Running one in production is not — you need streami
 
 - **Multi-turn sessions with streaming** — resumable turn streams that survive reconnects and server restarts.
 - **MCP tool servers** — connect any [Model Context Protocol](https://modelcontextprotocol.io) server, including ones that require OAuth.
-- **Any model provider** — OpenAI, Anthropic, Google, and OpenAI-compatible endpoints, configured from the UI or the API.
+- **Any model provider** — OpenAI, Anthropic, Google Gemini, and a catalog of hosted and open-weight models, or any OpenAI-compatible endpoint — all configured from the UI or the API.
 - **Skills** — reusable instruction packs the agent loads on demand.
 - **Sandboxed code execution** — run agent-generated code in isolated sandboxes.
 - **Human-in-the-loop approvals** — pause the agent and wait for a person before sensitive tool calls.
@@ -54,7 +52,7 @@ Then open [http://localhost:8790](http://localhost:8790), add a model provider u
 Runs the full production topology on your machine: the server (UI + API), Postgres, and Redis.
 
 ```bash
-git clone <REPO_URL> trueforge && cd trueforge   # TODO: repo URL
+git clone https://github.com/truefoundry/trueforge.git trueforge && cd trueforge
 cp packages/server/.env.example packages/server/.env
 docker compose up --build
 ```
@@ -93,15 +91,13 @@ See the [chart README](charts/trueforge/README.md) for external databases, ingre
 
 ## Getting started walkthrough
 
-<!-- TODO: replace with real screenshots -->
-
-1. **Add a model provider** — open **Settings → Model Providers**, pick a provider from the catalog, and paste your API key.
+1. **Add a model provider** — open **Settings → Models**, pick a provider from the catalog, and paste your API key.
 
    ![Configure a model provider](docs/assets/getting-started-provider.png)
 
 2. **(Optional) Connect tools** — add MCP servers, skills, and a sandbox provider under **Settings**.
 
-   ![Connect MCP servers](docs/assets/getting-started-mcp.png)
+   ![Connectors](docs/assets/getting-started-connectors.png)
 
 3. **Start a session** — create a chat and talk to your agent. Streaming, tool calls, and approvals all show up live in the UI.
 
