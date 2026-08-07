@@ -13,7 +13,10 @@ export function AssistantMessageBubble({ children, error, actionBar, className }
   return (
     <div
       data-slot="aui_assistant-message-root"
-      className={cn('group/assistant relative min-w-0 max-w-full', className)}
+      className={cn(
+        'group/assistant relative min-w-0 max-w-full bg-[var(--assistant-bubble,transparent)] text-[var(--assistant-bubble-foreground,var(--foreground))]',
+        className,
+      )}
     >
       <div className="min-w-0 max-w-full">
         {children}

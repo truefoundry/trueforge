@@ -65,7 +65,7 @@ const TruefoundrySettingsBuilder = () => {
       baseSections.push({ id: 'skills', label: 'Skills', icon: 'lightbulb' });
     }
     if (hasSandbox) {
-      baseSections.push({ id: 'sandbox', label: 'Sandbox', icon: 'cube' });
+      baseSections.push({ id: 'sandbox', label: 'Sandbox providers', icon: 'cube' });
     }
     return baseSections;
   }, [hasSkills, hasSandbox]);

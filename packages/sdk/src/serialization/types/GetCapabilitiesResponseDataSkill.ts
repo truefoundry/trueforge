@@ -9,10 +9,12 @@ export const GetCapabilitiesResponseDataSkill: core.serialization.ObjectSchema<
     TrueForge.GetCapabilitiesResponseDataSkill
 > = core.serialization.object({
     enabled: core.serialization.boolean(),
+    reason: core.serialization.string().optional(),
 });
 
 export declare namespace GetCapabilitiesResponseDataSkill {
     export interface Raw {
         enabled: boolean;
+        reason?: string | null;
     }
 }

@@ -94,7 +94,6 @@ describe('AgentThread unknown tool logging', () => {
       tracing: NOOP_AGENT_TRACING,
       logger: silentLogger,
       definition: {
-        model: 'test-model',
         modelClient,
         instruction: 'test',
         toolSets: [],

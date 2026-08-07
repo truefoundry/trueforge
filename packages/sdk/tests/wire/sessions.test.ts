@@ -14,6 +14,7 @@ describe("SessionsClient", () => {
                 {
                     agent: { agent_id: "agent_id", type: "ref" },
                     created_at: "created_at",
+                    created_by: "created_by",
                     id: "id",
                     title: "title",
                     updated_at: "updated_at",
@@ -38,6 +39,7 @@ describe("SessionsClient", () => {
                         type: "ref",
                     },
                     createdAt: "created_at",
+                    createdBy: "created_by",
                     id: "id",
                     title: "title",
                     updatedAt: "updated_at",
@@ -78,6 +80,7 @@ describe("SessionsClient", () => {
             data: {
                 agent: { agent_id: "agent_id", type: "ref" },
                 created_at: "created_at",
+                created_by: "created_by",
                 id: "id",
                 title: "title",
                 updated_at: "updated_at",
@@ -106,6 +109,7 @@ describe("SessionsClient", () => {
                     type: "ref",
                 },
                 createdAt: "created_at",
+                createdBy: "created_by",
                 id: "id",
                 title: "title",
                 updatedAt: "updated_at",
@@ -196,6 +200,7 @@ describe("SessionsClient", () => {
             data: {
                 agent: { agent_id: "agent_id", type: "ref" },
                 created_at: "created_at",
+                created_by: "created_by",
                 id: "id",
                 title: "title",
                 updated_at: "updated_at",
@@ -218,6 +223,7 @@ describe("SessionsClient", () => {
                     type: "ref",
                 },
                 createdAt: "created_at",
+                createdBy: "created_by",
                 id: "id",
                 title: "title",
                 updatedAt: "updated_at",
@@ -262,6 +268,7 @@ describe("SessionsClient", () => {
             data: {
                 agent: { agent_id: "agent_id", type: "ref" },
                 created_at: "created_at",
+                created_by: "created_by",
                 id: "id",
                 title: "title",
                 updated_at: "updated_at",
@@ -285,6 +292,7 @@ describe("SessionsClient", () => {
                     type: "ref",
                 },
                 createdAt: "created_at",
+                createdBy: "created_by",
                 id: "id",
                 title: "title",
                 updatedAt: "updated_at",

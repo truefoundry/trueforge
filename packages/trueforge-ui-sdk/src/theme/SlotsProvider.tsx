@@ -1,34 +1,21 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
-import type {
-  ComposerLeftSectionProps,
-  ComposerRightSectionProps,
-  ComposerSendButtonProps,
-} from '../atoms/ComposerSections.js';
 import { defaultSlots } from './defaultSlots.js';
+import type { PublicAtomSlots, SlotOverrides } from './publicSlots.js';
 import { ThemeProvider, useOptionalThemeMode } from './ThemeProvider.js';
 import type { ThemeConfig } from './types.js';
 
 export type { ThemeConfig, ThemeMode } from './types.js';
 
 /**
- * Registry of atom-name -> atom-implementation. Empty by default; each atom module
- * augments this interface via `declare module "../theme/SlotsProvider"` when it is
- * introduced, so adding an atom never requires editing this file or any container.
+ * Internal completeness contract augmented by each slotted atom.
+ * `defaultSlots` satisfies this interface and owns the public slot keys.
  */
-export interface AtomSlots {
-  ComposerLeftSection: ComposerLeftSectionSlot;
-  ComposerRightSection: ComposerRightSectionSlot;
-  ComposerSendButton: ComposerSendButtonSlot;
-}
+export interface AtomSlots {}
 
-export type ComposerLeftSectionSlot = (props: ComposerLeftSectionProps) => ReactNode;
-export type ComposerRightSectionSlot = (props: ComposerRightSectionProps) => ReactNode;
-export type ComposerSendButtonSlot = (props: ComposerSendButtonProps) => ReactNode;
+export type { SlotOverrides } from './publicSlots.js';
 
-export type SlotOverrides = Partial<AtomSlots>;
-
-const SlotsContext = createContext<AtomSlots>(defaultSlots);
+const SlotsContext = createContext<PublicAtomSlots>(defaultSlots);
 const ThemeModeContext = createContext<'light' | 'dark' | undefined>(undefined);
 
 /** Merges `overrides` over parent/default slots. Containers resolve atoms via `useSlot`. */
@@ -44,7 +31,7 @@ export function SlotsProvider({
 }) {
   const parentSlots = useContext(SlotsContext);
   const inheritedTheme = useContext(ThemeModeContext);
-  const resolved = useMemo(() => ({ ...parentSlots, ...overrides }) as AtomSlots, [parentSlots, overrides]);
+  const resolved = useMemo(() => ({ ...parentSlots, ...overrides }), [parentSlots, overrides]);
 
   const slotsTree = (
     <SlotsProviderContents slots={resolved} inheritedTheme={inheritedTheme} theme={theme}>
@@ -68,7 +55,7 @@ function SlotsProviderContents({
   inheritedTheme,
   theme,
 }: {
-  slots: AtomSlots;
+  slots: PublicAtomSlots;
   children: ReactNode;
   inheritedTheme: 'light' | 'dark' | undefined;
   theme?: ThemeConfig;
@@ -85,7 +72,7 @@ function SlotsProviderContents({
 }
 
 /** Resolves the atom implementation registered for `name` -- default unless overridden. */
-export function useSlot<K extends keyof AtomSlots>(name: K): AtomSlots[K] {
+export function useSlot<K extends keyof PublicAtomSlots>(name: K): PublicAtomSlots[K] {
   const slots = useContext(SlotsContext);
   return slots[name];
 }

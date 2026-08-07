@@ -4,15 +4,11 @@ import { ComposerPrimitive, useAui, useAuiState } from '@assistant-ui/react';
 import { useTrueFoundryCancel } from '@truefoundry/assistant-ui-runtime';
 import { useRef } from 'react';
 
-import {
-  ComposerLeftSection as DefaultComposerLeftSection,
-  ComposerRightSection as DefaultComposerRightSection,
-} from '../atoms/ComposerSections.js';
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
-import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
 import { useComposerBusyState } from '../hooks/useComposerBusyState.js';
 import { useComposerPauseView } from '../hooks/useComposerPauseView.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { defaultSlots } from '../theme/defaultSlots.js';
 import { SlotsProvider, useSlot } from '../theme/SlotsProvider.js';
 import { AskUserContainer } from './AskUserContainer.js';
 import { ComposerAttachmentsContainer } from './AttachmentsContainer.js';
@@ -105,7 +101,9 @@ export function ComposerContainer({
   const shell = useOptionalShellMode();
   const parentLeftSection = useSlot('ComposerLeftSection');
   const parentRightSection = useSlot('ComposerRightSection');
-  const isDraft = shell?.mode.type === 'draft';
+  const DraftComposerLeftSection = useSlot('DraftComposerLeftSection');
+  const DraftComposerRightSection = useSlot('DraftComposerRightSection');
+  const canMutateSpec = shell?.mode.status === 'active' && shell.mode.isMutable;
 
   if (pauseView.kind === 'mcp') {
     return <McpAuthContainer />;
@@ -114,19 +112,19 @@ export function ComposerContainer({
     return <AskUserContainer />;
   }
 
-  if (isDraft) {
+  if (canMutateSpec) {
     return (
       <DraftCatalogProvider>
         <SlotsProvider
           overrides={{
             ComposerLeftSection: preferHostSlotOverride(
               parentLeftSection,
-              DefaultComposerLeftSection,
+              defaultSlots.ComposerLeftSection,
               DraftComposerLeftSection,
             ),
             ComposerRightSection: preferHostSlotOverride(
               parentRightSection,
-              DefaultComposerRightSection,
+              defaultSlots.ComposerRightSection,
               DraftComposerRightSection,
             ),
           }}

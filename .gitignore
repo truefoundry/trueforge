@@ -14,5 +14,4 @@ packages/server/src/catalog/modelCatalog.gen.ts
 packages/server/src/catalog/mcpCatalog.gen.ts
 packages/server/src/catalog/skillCatalog.gen.ts
 packages/server/src/catalog/sandboxCatalog.gen.ts
-ui-shots/*.png
 data/

@@ -10,8 +10,14 @@ import type {
   TextStreamPart,
   ToolSet,
 } from 'ai';
+import { APICallError } from 'ai';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
-import { mapFinishReason, mapStreamToChunks, normalizeUsage } from '../../../src/core/llm/VercelAILLM';
+import {
+  describeStreamError,
+  mapFinishReason,
+  mapStreamToChunks,
+  normalizeUsage,
+} from '../../../src/core/llm/VercelAILLM';
 
 // ─────────── Helpers ───────────
 
@@ -118,6 +124,80 @@ describe('mapFinishReason', () => {
 
   it.each(cases)('maps %s → %s', (sdkReason, harnessReason) => {
     expect(mapFinishReason(sdkReason)).toBe(harnessReason);
+  });
+});
+
+// ─────────── describeStreamError ───────────
+
+describe('describeStreamError', () => {
+  describe('APICallError', () => {
+    it.each([
+      {
+        provider: 'openai',
+        statusCode: 401,
+        message: 'Incorrect API key provided: sk-inval***********-key.',
+        expected: 'Request failed (401): Incorrect API key provided: sk-inval***********-key.',
+      },
+      {
+        provider: 'anthropic',
+        statusCode: 401,
+        message: 'invalid x-api-key',
+        expected: 'Request failed (401): invalid x-api-key',
+      },
+      {
+        provider: 'google-gemini',
+        statusCode: 400,
+        message: 'API key not valid. Please pass a valid API key.',
+        expected: 'Request failed (400): API key not valid. Please pass a valid API key.',
+      },
+    ] as const)('includes HTTP status for $provider invalid-key failures', ({ statusCode, message, expected }) => {
+      expect(
+        describeStreamError(
+          new APICallError({
+            message,
+            url: 'https://example.com',
+            requestBodyValues: {},
+            statusCode,
+          }),
+        ),
+      ).toBe(expected);
+    });
+
+    it('omits status prefix when statusCode is absent', () => {
+      expect(
+        describeStreamError(
+          new APICallError({
+            message: 'upstream failed',
+            url: 'https://example.com',
+            requestBodyValues: {},
+          }),
+        ),
+      ).toBe('upstream failed');
+    });
+  });
+
+  describe('fallback', () => {
+    it('uses Error.message', () => {
+      expect(describeStreamError(new Error('upstream error'))).toBe('upstream error');
+    });
+
+    it('uses a plain object message field', () => {
+      expect(describeStreamError({ message: 'The requested model does not exist.' })).toBe(
+        'The requested model does not exist.',
+      );
+    });
+
+    it('JSON-serialises a message-less object instead of [object Object]', () => {
+      expect(describeStreamError({ code: 'model_not_found', status: 404 })).toBe(
+        '{"code":"model_not_found","status":404}',
+      );
+    });
+
+    it('stringifies non-object values', () => {
+      expect(describeStreamError('string error')).toBe('string error');
+      expect(describeStreamError(42)).toBe('42');
+      expect(describeStreamError(null)).toBe('null');
+    });
   });
 });
 
@@ -474,7 +554,7 @@ describe('mapStreamToChunks', () => {
     expect(final.finish_reason).toBe('length');
   });
 
-  it('rejects (with cause) on an error part', async () => {
+  it('rejects with the provider message on an error part', async () => {
     const cause = new Error('upstream error');
     await expect(
       drainStream(
@@ -483,7 +563,7 @@ describe('mapStreamToChunks', () => {
           chunkMeta: CHUNK_META,
         }),
       ),
-    ).rejects.toMatchObject({ message: 'LLM stream error', cause });
+    ).rejects.toMatchObject({ message: 'upstream error', cause });
   });
 
   it('rejects on an abort part rather than returning the partial message as a clean stop', async () => {
@@ -497,7 +577,27 @@ describe('mapStreamToChunks', () => {
     ).rejects.toMatchObject({ name: 'AbortError' });
   });
 
-  it('keeps the provider message when the error part carries a plain object', async () => {
+  it('rejects with describeStreamError output for an APICallError part', async () => {
+    const cause = new APICallError({
+      message: 'invalid x-api-key',
+      url: 'https://example.com',
+      requestBodyValues: {},
+      statusCode: 401,
+    });
+    await expect(
+      drainStream(
+        mapStreamToChunks({
+          stream: makeStream([{ type: 'error', error: cause }]),
+          chunkMeta: CHUNK_META,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      message: 'Request failed (401): invalid x-api-key',
+      cause,
+    });
+  });
+
+  it('rejects with describeStreamError output for a plain-object error part', async () => {
     await expect(
       drainStream(
         mapStreamToChunks({
@@ -506,34 +606,9 @@ describe('mapStreamToChunks', () => {
         }),
       ),
     ).rejects.toMatchObject({
-      message: 'LLM stream error',
+      message: 'The requested model does not exist.',
       cause: { message: 'The requested model does not exist.' },
     });
-  });
-
-  it('serialises a message-less error object rather than stringifying it to [object Object]', async () => {
-    await expect(
-      drainStream(
-        mapStreamToChunks({
-          stream: makeStream([{ type: 'error', error: { code: 'model_not_found', status: 404 } }]),
-          chunkMeta: CHUNK_META,
-        }),
-      ),
-    ).rejects.toMatchObject({
-      message: 'LLM stream error',
-      cause: { message: '{"code":"model_not_found","status":404}' },
-    });
-  });
-
-  it('wraps non-Error error values in an Error with cause', async () => {
-    await expect(
-      drainStream(
-        mapStreamToChunks({
-          stream: makeStream([{ type: 'error', error: 'string error' }]),
-          chunkMeta: CHUNK_META,
-        }),
-      ),
-    ).rejects.toMatchObject({ message: 'LLM stream error' });
   });
 
   it('sets chunk metadata (id, model, object) on emitted chunks', async () => {

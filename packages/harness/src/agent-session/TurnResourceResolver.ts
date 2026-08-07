@@ -193,10 +193,12 @@ export class TurnResourceResolver<
         });
       }),
     );
+    // Sub-agents may request a different catalog model via agent_info.model;
+    // resolve that name so modelClient matches the override (not just a label).
+    const modelName = agentInfo?.model ?? spec.model.name;
     return {
       definition: {
-        model: spec.model.name,
-        modelClient: await this.deps.llm(spec.model.name),
+        modelClient: await this.deps.llm(modelName),
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.
         instruction: agentInfo ? undefined : spec.instructions,

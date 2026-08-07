@@ -9,6 +9,10 @@
  *
  * Skills are name refs on the wire (`SkillNameRef`); the UI SkillMount only
  * needs `{ id, name }`, so id is derived as the skill name.
+ *
+ * Sessions bind either an inline draft (`agent.type === 'value'`) or a named
+ * registry ref (`agent.type === 'ref'`). The UI speaks names; the wire carries
+ * agent ids — resolve via the agents registry.
  */
 import type {
   AgentChatServer,
@@ -24,7 +28,7 @@ import type {
   TurnInputItem,
   UserMessageContent,
 } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi as Harness } from 'trueforge';
+import type { TrueForgeApi as Harness, TrueForge } from 'trueforge';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 export type HarnessSkillMount = SkillMount;
 export type HarnessMcpServerMount = McpServerMount & Harness.McpServer;
@@ -35,11 +39,6 @@ export interface HarnessAgentSpec extends AgentSpec<Harness.AgentSpecModel, Harn
   messages?: Harness.AgentSpecUserMessage[];
   responseFormat?: Harness.ResponseFormat;
   variables?: Record<string, string>;
-}
-
-export interface HarnessSession extends Session<HarnessAgentSpec> {
-  agentSpec?: HarnessAgentSpec;
-  isMutable: boolean;
 }
 
 export type CreateHarnessServerOptions = CreateHarnessClientOptions;
@@ -55,7 +54,7 @@ function toUiSkill(skill: Harness.SkillNameRef): HarnessSkillMount {
 }
 
 /** Strip UI-only `id` before admission; Harness skills are name refs only. */
-function toHarnessAgentSpec(spec: HarnessAgentSpec): Harness.AgentSpec {
+export function toHarnessAgentSpec(spec: HarnessAgentSpec): Harness.AgentSpec {
   const { skills, mcpServers, ...rest } = spec;
   return {
     ...rest,
@@ -72,7 +71,7 @@ function toHarnessAgentSpec(spec: HarnessAgentSpec): Harness.AgentSpec {
   };
 }
 
-function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
+export function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
   const { mcpServers, skills, ...rest } = spec;
   return {
     ...rest,
@@ -81,17 +80,44 @@ function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
   };
 }
 
-function toUiSession(session: Harness.Session): HarnessSession {
-  // Value agents are draft/mutable; ref agents are named/immutable.
-  const isMutable = session.agent.type === 'value';
+/** Drop registry identity columns so the rest is a plain AgentSpec. */
+export function agentManifest(agent: Harness.Agent): Harness.AgentSpec {
+  const { id, name, ...spec } = agent;
+  void id;
+  void name;
+  return spec;
+}
+
+/** `agentName` is caller-known (UI speaks names; the wire carries only agent ids). */
+function toUiSession(session: Harness.Session, agentName?: string): Session<HarnessAgentSpec> {
   return {
     id: session.id,
-    isMutable,
+    isMutable: session.agent.type === 'value',
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     ...(session.title === null ? {} : { title: session.title }),
+    // Ref sessions stay named even when the registry row is gone — stamp agentId
+    // so older runtimes that only forward custom.agentName still treat them immutable.
+    ...(session.agent.type === 'ref' ? { agentName: agentName ?? session.agent.agentId } : {}),
     ...(session.agent.type === 'value' ? { agentSpec: toUiAgentSpec(session.agent.agentSpec) } : {}),
   };
+}
+
+/**
+ * UI `agentId` filters may be a registry id or a display name (history filter /
+ * SingleAgent lock both pass names today).
+ */
+export async function findAgent(client: TrueForge, agentIdOrName: string): Promise<Harness.Agent | undefined> {
+  const { data } = await client.agents.list();
+  return data.find(candidate => candidate.id === agentIdOrName || candidate.name === agentIdOrName);
+}
+
+export async function resolveAgent(client: TrueForge, agentIdOrName: string): Promise<Harness.Agent> {
+  const agent = await findAgent(client, agentIdOrName);
+  if (agent === undefined) {
+    throw new Error(`Agent not found: ${agentIdOrName}`);
+  }
+  return agent;
 }
 
 /** Spread drops the interface identity, which is what makes the SDK's index-signature part type accept it. */
@@ -180,30 +206,76 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
     },
 
     async createSession(request) {
-      if (!request.agentSpec) {
-        throw new Error('Harness sessions require an agentSpec');
+      if (request.agentName !== undefined && request.agentName.length > 0) {
+        const agent = await resolveAgent(client, request.agentName);
+        const created = await client.sessions.create({
+          agent: { type: 'ref', agentId: agent.id },
+        });
+        return toUiSession(created.data, agent.name);
       }
-      const created = await client.sessions.create({
-        agent: { type: 'value', agentSpec: toHarnessAgentSpec(request.agentSpec) },
-      });
-      return toUiSession(created.data);
+      if (request.agentSpec !== undefined) {
+        const created = await client.sessions.create({
+          agent: { type: 'value', agentSpec: toHarnessAgentSpec(request.agentSpec) },
+        });
+        return toUiSession(created.data);
+      }
+      throw new Error('createSession requires agentName or agentSpec');
     },
 
     async listSessions(request = {}) {
+      const filterKey = request.agentId !== undefined && request.agentId.length > 0 ? request.agentId : undefined;
+      // Soft lookup: stale history filter / deleted agent / SingleAgent mismatch → empty page.
+      const agentFilter = filterKey === undefined ? undefined : await findAgent(client, filterKey);
+      if (filterKey !== undefined && agentFilter === undefined) {
+        const limit = request.limit ?? 20;
+        const data: Session<HarnessAgentSpec>[] = [];
+        const pagination = { limit };
+        const empty = (): HarnessPage<Session<HarnessAgentSpec>> => ({
+          data,
+          response: { data, pagination },
+          hasNextPage: () => false,
+          getNextPage: () => Promise.resolve(empty()),
+        });
+        return empty();
+      }
+      // Stamp ref rows with display names; registries are small (one tenant).
+      const nameById =
+        agentFilter !== undefined
+          ? new Map([[agentFilter.id, agentFilter.name]])
+          : new Map((await client.agents.list()).data.map(agent => [agent.id, agent.name]));
+
       const page = await client.sessions.list({
         ...(request.limit === undefined ? {} : { limit: request.limit }),
         ...(request.order === undefined ? {} : { order: request.order }),
         ...(request.pageToken === undefined ? {} : { pageToken: request.pageToken }),
+        ...(agentFilter === undefined ? {} : { agentId: agentFilter.id }),
       });
-      return toPage(page, toUiSession);
+      return toPage(page, session =>
+        toUiSession(session, session.agent.type === 'ref' ? nameById.get(session.agent.agentId) : undefined),
+      );
     },
 
     async getSession({ sessionId }) {
       const response = await client.sessions.get(sessionId);
+      const { agent } = response.data;
+      if (agent.type === 'ref') {
+        try {
+          const resolved = await resolveAgent(client, agent.agentId);
+          return toUiSession(response.data, resolved.name);
+        } catch {
+          return toUiSession(response.data);
+        }
+      }
       return toUiSession(response.data);
     },
 
     async updateSession({ sessionId, agentSpec }) {
+      if (agentSpec !== undefined) {
+        const current = await client.sessions.get(sessionId);
+        if (current.data.agent.type === 'ref') {
+          throw new Error('Cannot update agent on a named session');
+        }
+      }
       const response = await client.sessions.update(sessionId, {
         ...(agentSpec === undefined ? {} : { agent: { type: 'value', agentSpec: toHarnessAgentSpec(agentSpec) } }),
       });

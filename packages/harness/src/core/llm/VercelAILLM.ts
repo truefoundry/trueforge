@@ -26,17 +26,16 @@ import type {
   ToolSet,
   UserContent,
 } from 'ai';
-import { jsonSchema, Output, streamText } from 'ai';
+import { APICallError, jsonSchema, Output, streamText } from 'ai';
 import type {
   ChatCompletionContentPart,
-  ChatCompletionCreateParams,
   ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageParam,
   ChatCompletionTool,
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../util/errorLogFields';
-import type { ILLM } from './ILLM';
+import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
 import {
   type CompletionUsage,
   type ExtendedChatCompletionChunk,
@@ -904,10 +903,19 @@ export function normalizeUsage(usage: {
 }
 
 /**
- * Providers surface stream errors as plain objects as often as Errors; `String()` on those
- * yields "[object Object]" and loses the only description of what went wrong.
+ * Prefer AI SDK `APICallError` (`message` / `statusCode`):
+ * https://ai-sdk.dev/docs/reference/ai-sdk-errors/ai-api-call-error#properties
+ * Fallback is required because stream `error` parts are typed `unknown` (not only
+ * `APICallError`) — plain objects would otherwise stringify to "[object Object]".
  */
 export function describeStreamError(raw: unknown): string {
+  if (APICallError.isInstance(raw)) {
+    if (raw.statusCode != null) {
+      return `Request failed (${String(raw.statusCode)}): ${raw.message}`;
+    }
+    return raw.message;
+  }
+
   if (typeof raw !== 'object' || raw === null) {
     return String(raw);
   }
@@ -1214,8 +1222,10 @@ export async function* mapStreamToChunks({
 
       case 'error': {
         const raw = part.error;
-        const err = raw instanceof Error ? raw : new Error(describeStreamError(raw));
-        throw new Error('LLM stream error', { cause: err });
+        const message = describeStreamError(raw);
+        // Preserve the original stream error as cause; toast/turn use .message only.
+        const cause = raw instanceof Error ? raw : new Error(message);
+        throw new Error(message, { cause });
       }
 
       case 'abort': {
@@ -1289,7 +1299,7 @@ export class VercelAILLM implements ILLM {
   }
 
   async *create(
-    body: ChatCompletionCreateParamsStreaming,
+    body: LLMCreateParamsStreaming,
   ): AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown> {
     const { providerConfig } = this.config;
     const model = buildLanguageModel(providerConfig);
@@ -1353,7 +1363,7 @@ export class VercelAILLM implements ILLM {
       warnings => {
         if (warnings !== undefined && warnings.length > 0) {
           this.logger.warn('Provider adjusted the request', {
-            model: body.model,
+            model: providerConfig.name,
             warnings: warnings.map(describeCallWarning),
           });
         }
@@ -1365,10 +1375,11 @@ export class VercelAILLM implements ILLM {
     );
 
     // Synthetic chunk fields; id is unique per stream instance.
+    // Label chunks with the catalog name — providerConfig.modelId is the wire id.
     const chunkMeta: ChunkMeta = {
       id: `vc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       created: Math.floor(Date.now() / 1000),
-      model: body.model,
+      model: providerConfig.name,
     };
 
     try {
@@ -1383,7 +1394,7 @@ export class VercelAILLM implements ILLM {
     }
   }
 
-  async createNonStream(body: ChatCompletionCreateParams): Promise<RawAssistantMessageWithUsage> {
+  async createNonStream(body: LLMCreateParams): Promise<RawAssistantMessageWithUsage> {
     // Drain the streaming generator — reuses the same accumulation and error handling path.
     const llmStream = this.create({ ...body, stream: true });
     let result = await llmStream.next();

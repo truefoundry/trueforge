@@ -11,7 +11,6 @@ import { makeMockILLM, makeSilentLogger } from '../core/harnessMocks';
 
 function makeDefinition(): AgentDefinition {
   return {
-    model: 'provider/model',
     modelClient: makeMockILLM(),
   };
 }
