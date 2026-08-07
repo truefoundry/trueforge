@@ -42,16 +42,22 @@ npx @truefoundry/trueforge
 
 Then open [http://localhost:8790](http://localhost:8790), add a model provider under **Settings**, and start chatting.
 
-| Configuration     | Default                    | Description                                                     |
-| ----------------- | -------------------------- | --------------------------------------------------------------- |
-| `--port` / `PORT` | `8790`                     | HTTP port the server (UI + API) listens on.                     |
-| `SQLITE_PATH`     | OS data dir                | Location of the SQLite database file.                           |
-| `PUBLIC_BASE_URL` | `http://localhost:${PORT}` | Public origin, used for MCP OAuth callbacks.                    |
-| `STANDALONE`      | `true`                     | Keep `true` for single-process SQLite mode (the `npx` default). |
+### Option 2: From source (pnpm)
 
-### Option 2: Docker Compose
+Runs the standalone (SQLite) topology from a clone of this repo — no Docker, no Postgres, no Redis. Requires [Node.js](https://nodejs.org) 22.13+ and [pnpm](https://pnpm.io) (`corepack enable` installs the pinned version):
 
-Runs the full production topology on your machine: the server (UI + API), Postgres, and Redis.
+```bash
+git clone <REPO_URL> trueforge && cd trueforge   # TODO: repo URL
+pnpm install
+cp packages/server/.env.example packages/server/.env
+pnpm standalone:dev
+```
+
+Then open [http://localhost:3000](http://localhost:3000) — Vite serves the UI with live reload and proxies API calls to the server on port 8790. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development guide, including the Postgres + Redis dev topology.
+
+### Option 3: Docker Compose
+
+Runs the full production topology on your machine: the server (UI + API), Postgres, and Redis. Clone the repo first:
 
 ```bash
 git clone <REPO_URL> trueforge && cd trueforge   # TODO: repo URL
@@ -70,7 +76,7 @@ Then open [http://localhost:8791](http://localhost:8791).
 
 Every environment variable is documented in [`packages/server/.env.example`](packages/server/.env.example).
 
-### Option 3: Kubernetes (Helm)
+### Option 4: Kubernetes (Helm)
 
 The [`charts/trueforge`](charts/trueforge) Helm chart deploys the server with bundled Postgres and Redis (or point it at your own):
 
