@@ -13,7 +13,6 @@ import { listConfiguredMcpServers, listModels, listSkills } from './composerList
 import { toUiConnector } from './connectorCatalog';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 import { agentManifest, toHarnessAgentSpec, toUiAgentSpec, type HarnessAgentSpec } from './harnessServer';
-import { createModelProviderCatalog } from './modelProviderCatalog';
 
 /** Harness model names are `provider/model`. */
 export function providerOf(name: string): string {
@@ -21,13 +20,12 @@ export function providerOf(name: string): string {
 }
 
 /** Map harness model rows onto the UI picker shape (incl. reasoning-effort options). */
-export function toModelSelection(model: Harness.Model, providerLogo?: string): ModelSelection {
+export function toModelSelection(model: Harness.Model): ModelSelection {
   const efforts = model.properties.reasoningEfforts;
   return {
     name: model.name,
     provider: providerOf(model.name),
     ...(efforts !== undefined && efforts.length > 0 ? { reasoningEfforts: [...efforts] } : {}),
-    ...(providerLogo !== undefined && providerLogo !== '' ? { providerLogo } : {}),
   };
 }
 
@@ -47,19 +45,7 @@ export function createHarnessBuilderServer(
 
   return {
     getCapabilities: () => client.server.getCapabilities(),
-    getModels: async () => {
-      const [models, catalog] = await Promise.all([
-        listModels(),
-        createModelProviderCatalog().getModelProviderCatalog(),
-      ]);
-      const logoByProvider = new Map<string, string>();
-      for (const entry of catalog) {
-        if (entry.logo === undefined || entry.logo === '') continue;
-        logoByProvider.set(entry.type, entry.logo);
-        logoByProvider.set(entry.name, entry.logo);
-      }
-      return models.map(model => toModelSelection(model, logoByProvider.get(providerOf(model.name))));
-    },
+    getModels: async () => (await listModels()).map(toModelSelection),
     // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
     getSkills: async () => {
       const skills = await listSkills();
