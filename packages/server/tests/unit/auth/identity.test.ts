@@ -4,7 +4,7 @@ import { LOCAL_USER_CONTEXT, resolveUserContext } from '../../../src/auth/identi
 describe('resolveUserContext', () => {
   it('returns the user set on the request context', () => {
     const c = {
-      get: (key: string) => (key === 'user' ? LOCAL_USER_CONTEXT : undefined),
+      get: (key: string) => (key === 'user_context' ? LOCAL_USER_CONTEXT : undefined),
     } as unknown as Context;
     expect(resolveUserContext(c)).toEqual(LOCAL_USER_CONTEXT);
   });
