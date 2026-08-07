@@ -3,11 +3,13 @@ import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema, SessionSchema, TokenPaginationSchema } from '@truefoundry/utils-core/agent-session';
 import { NameSchema } from './common';
 
-export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('AgentRef');
+export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('SessionAgentRef');
+
+const SessionAgentSpecSchema = AgentSpecSchema.strict().openapi('SessionAgentSpec');
 
 /** Create accepts either a unique agent name or an AgentSpec. */
 export const CreateSessionAgentSchema = z
-  .union([SessionAgentNameRefSchema, AgentSpecSchema])
+  .union([SessionAgentNameRefSchema, SessionAgentSpecSchema])
   .openapi('CreateSessionAgent');
 
 export type CreateSessionAgent = z.infer<typeof CreateSessionAgentSchema>;
@@ -25,7 +27,7 @@ export const CreateSessionRequestSchema = z
 
 /** Only AgentSpec sessions may be updated; named sessions reject agent updates. */
 export const UpdateSessionRequestSchema = z
-  .object({ agent: AgentSpecSchema.optional() })
+  .object({ agent: SessionAgentSpecSchema.optional() })
   .strict()
   .openapi('UpdateSessionRequest');
 

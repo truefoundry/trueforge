@@ -239,7 +239,6 @@ export const AgentSpecSchema = z
     config: RuntimeConfigSchema.default(() => RuntimeConfigSchema.parse({})),
     variables: z.record(z.string(), z.string()).optional(),
   })
-  .strict()
   .describe('Agent Definition')
   .openapi('AgentSpec');
 
