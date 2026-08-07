@@ -39,6 +39,7 @@ function parseSessionCustom(value: Record<string, unknown> | null): SessionCusto
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
+  created_by: string;
   agent_id: string | null;
   agent_spec: AgentSpec | null;
   title: string | null;
@@ -51,6 +52,7 @@ function mapRowToSessionRecord(row: {
   return {
     tenant_id: row.tenant_id,
     session_id: row.session_id,
+    created_by: row.created_by,
     agent: sessionAgentFromColumns({
       session_id: row.session_id,
       agent_id: row.agent_id,
@@ -69,6 +71,7 @@ function sessionSelectColumns() {
   return [
     'tenant_id' as const,
     'session_id' as const,
+    'created_by' as const,
     'agent_id' as const,
     jsonText<AgentSpec | null>(sql.ref('agent_spec')).as('agent_spec'),
     'title' as const,
@@ -90,6 +93,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .values({
         tenant_id: input.tenant_id,
         session_id: input.session_id,
+        created_by: input.created_by,
         agent_id: columns.agent_id,
         agent_spec: columns.agent_spec !== null ? jsonbBind(columns.agent_spec) : null,
         title: null,
@@ -186,6 +190,9 @@ export async function listSessions(
 
   if (input.agent_id !== undefined) {
     query = query.where('agent_id', '=', input.agent_id);
+  }
+  if (input.created_by !== undefined) {
+    query = query.where('created_by', '=', input.created_by);
   }
   if (input.start_timestamp !== undefined) {
     query = query.where('created_at', '>=', input.start_timestamp.toISOString());

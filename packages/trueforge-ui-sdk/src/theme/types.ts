@@ -32,6 +32,8 @@ export type SemanticTokens = {
   userBubbleForeground?: string;
   assistantBubble?: string;
   assistantBubbleForeground?: string;
+  /** Scrollbar thumb (“plug”) color. Defaults to `--muted-foreground`. */
+  scrollbarThumb?: string;
 };
 
 export type IconProps = {
@@ -116,4 +118,5 @@ export const TOKEN_CSS_VARS: Record<keyof SemanticTokens, string> = {
   userBubbleForeground: '--user-bubble-foreground',
   assistantBubble: '--assistant-bubble',
   assistantBubbleForeground: '--assistant-bubble-foreground',
+  scrollbarThumb: '--scrollbar-thumb',
 };

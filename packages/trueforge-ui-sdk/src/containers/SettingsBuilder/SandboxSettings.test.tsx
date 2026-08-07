@@ -184,4 +184,33 @@ describe('SandboxSettings', () => {
     });
     expect(host.updated[0]).not.toHaveProperty('apiKey');
   });
+
+  it('hides other catalog providers once one is configured', async () => {
+    const existing: SandboxProviderBase = {
+      id: 'sb-1',
+      name: 'Daytona',
+      catalogId: 'cat-daytona',
+      isConnected: true,
+      snapshotName: 'custom-snap',
+      execTimeoutMs: 60000,
+      autoStopIntervalInMinutes: 30,
+      autoArchiveIntervalInMinutes: 1440,
+      autoDeleteIntervalInMinutes: 10080,
+    };
+    const host = createFakeHost([existing]);
+    const { wrapper: Wrapper } = host;
+    render(
+      <Wrapper>
+        <SandboxSettings />
+      </Wrapper>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Sandbox providers')).toBeTruthy();
+    });
+    expect(screen.queryByRole('button', { name: 'Configure' })).toBeNull();
+    expect(
+      screen.getByText('A sandbox provider is already configured. Remove it to choose a different one.'),
+    ).toBeTruthy();
+  });
 });

@@ -43,6 +43,7 @@ export * from "./GetAgentResponse.js";
 export * from "./GetCapabilitiesResponse.js";
 export * from "./GetCapabilitiesResponseData.js";
 export * from "./GetCapabilitiesResponseDataSandbox.js";
+export * from "./GetCapabilitiesResponseDataSettings.js";
 export * from "./GetCapabilitiesResponseDataSkill.js";
 export * from "./GetMcpServerCatalogResponse.js";
 export * from "./GetMcpServerResponse.js";

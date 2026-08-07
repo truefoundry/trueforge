@@ -62,6 +62,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      created_by: 'user-1',
       agent: { type: 'value', agent_spec: makeAgentSpec() },
     });
 
@@ -133,6 +134,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      created_by: 'user-1',
       agent: { type: 'value', agent_spec: makeAgentSpec() },
     });
     const planV1: JsonValue = {
@@ -225,6 +227,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
+      created_by: 'user-1',
       agent: { type: 'value', agent_spec: makeAgentSpec() },
     });
     const turn = await session.createTurn({

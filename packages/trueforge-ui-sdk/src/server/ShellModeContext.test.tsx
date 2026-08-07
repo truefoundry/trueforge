@@ -12,9 +12,9 @@ function wrap(agentConfig?: AgentConfig) {
 }
 
 describe('ShellModeProvider', () => {
-  it('defaults to AgentLibraryWithComposer (draft + library)', () => {
+  it('defaults to AgentLibraryWithComposer (mutable + library)', () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
-    expect(result.current.mode.type).toBe('draft');
+    expect(result.current.mode).toMatchObject({ status: 'active', isMutable: true, locked: false });
     expect(result.current.isLibraryEnabled).toBe(true);
     expect(result.current.isComposerEnabled).toBe(true);
     expect(result.current.isNewChatEnabled).toBe(true);
@@ -25,7 +25,9 @@ describe('ShellModeProvider', () => {
       wrapper: wrap({ mode: 'SingleAgent', name: 'locked' }),
     });
     expect(result.current.mode).toEqual({
-      type: 'named',
+      status: 'active',
+      isMutable: false,
+      agentId: 'locked',
       agentName: 'locked',
       locked: true,
     });
@@ -35,31 +37,36 @@ describe('ShellModeProvider', () => {
     act(() => result.current.selectAgent('other'));
     act(() => result.current.openDraft());
     expect(result.current.mode).toEqual({
-      type: 'named',
+      status: 'active',
+      isMutable: false,
+      agentId: 'locked',
       agentName: 'locked',
       locked: true,
     });
   });
 
-  it('starts AgentLibrary idle, then selectAgent → named', () => {
+  it('starts AgentLibrary idle, then selectAgent → immutable', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentLibrary' }),
     });
-    expect(result.current.mode.type).toBe('idle');
+    expect(result.current.mode.status).toBe('idle');
     expect(result.current.isNewChatEnabled).toBe(false);
     expect(result.current.isComposerEnabled).toBe(false);
     expect(result.current.isLibraryEnabled).toBe(true);
 
     act(() => result.current.selectAgent('alpha'));
     expect(result.current.mode).toEqual({
-      type: 'named',
+      status: 'active',
+      isMutable: false,
+      agentId: 'alpha',
       agentName: 'alpha',
       locked: false,
     });
 
     const keyBefore = result.current.runtimeKey;
     act(() => result.current.clearChat());
-    expect(result.current.mode.type).toBe('named');
+    expect(result.current.mode.status).toBe('active');
+    expect(result.current.mode).toMatchObject({ isMutable: false });
     expect(result.current.runtimeKey).not.toBe(keyBefore);
   });
 
@@ -73,30 +80,32 @@ describe('ShellModeProvider', () => {
 
     act(() => result.current.selectAgent('alpha'));
     expect(result.current.mode).toEqual({
-      type: 'named',
+      status: 'active',
+      isMutable: false,
+      agentId: 'alpha',
       agentName: 'alpha',
       locked: false,
     });
     expect(result.current.runtimeKey).not.toBe(keyBefore);
   });
 
-  it('AgentComposer stays draft; clearChat bumps draft epoch', () => {
+  it('AgentComposer stays mutable; clearChat bumps epoch', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({
         mode: 'AgentComposer',
         defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
       }),
     });
-    expect(result.current.mode.type).toBe('draft');
+    expect(result.current.mode).toMatchObject({ status: 'active', isMutable: true });
     expect(result.current.isLibraryEnabled).toBe(false);
     expect(result.current.isComposerEnabled).toBe(true);
 
     act(() => result.current.selectAgent('nope'));
-    expect(result.current.mode.type).toBe('draft');
+    expect(result.current.mode).toMatchObject({ status: 'active', isMutable: true });
 
     const keyBefore = result.current.runtimeKey;
     act(() => result.current.clearChat());
-    expect(result.current.mode.type).toBe('draft');
+    expect(result.current.mode).toMatchObject({ status: 'active', isMutable: true });
     expect(result.current.runtimeKey).not.toBe(keyBefore);
   });
 
@@ -107,7 +116,7 @@ describe('ShellModeProvider', () => {
     const key = result.current.runtimeKey;
     act(() => result.current.clearChat());
     expect(result.current.runtimeKey).toBe(key);
-    expect(result.current.mode.type).toBe('idle');
+    expect(result.current.mode.status).toBe('idle');
   });
 
   it('openDraft and selectAgent close Settings', () => {
@@ -120,15 +129,240 @@ describe('ShellModeProvider', () => {
 
     act(() => result.current.openDraft());
     expect(result.current.settingsOpen).toBe(false);
-    expect(result.current.mode.type).toBe('draft');
+    expect(result.current.mode).toMatchObject({ status: 'active', isMutable: true });
 
     act(() => result.current.setSettingsOpen(true));
     act(() => result.current.selectAgent('alpha'));
     expect(result.current.settingsOpen).toBe(false);
     expect(result.current.mode).toEqual({
-      type: 'named',
+      status: 'active',
+      isMutable: false,
+      agentId: 'alpha',
       agentName: 'alpha',
       locked: false,
     });
+  });
+
+  it('selectLibraryAgent Edit seeds mutable binding with agentSpec', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+    const spec = {
+      model: { name: 'custom/model' },
+      skills: [{ id: 's1', name: 'Skill' }],
+      mcpServers: [{ id: 'm1', name: 'MCP' }],
+    };
+
+    act(() =>
+      result.current.selectLibraryAgent({
+        isMutable: true,
+        agentId: 'writer',
+        agentName: 'writer',
+        agentSpec: spec,
+      }),
+    );
+
+    expect(result.current.mode).toEqual({
+      status: 'active',
+      isMutable: true,
+      agentId: 'writer',
+      agentName: 'writer',
+      agentSpec: spec,
+      locked: false,
+    });
+  });
+
+  it('clearChat on Edit preserves agentName and seeded agentSpec', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+    const spec = {
+      model: { name: 'custom/model' },
+      skills: [{ id: 's1', name: 'Skill' }],
+    };
+
+    act(() =>
+      result.current.selectLibraryAgent({
+        isMutable: true,
+        agentId: 'writer',
+        agentName: 'writer',
+        agentSpec: spec,
+      }),
+    );
+    const keyBefore = result.current.runtimeKey;
+
+    act(() => result.current.clearChat());
+
+    expect(result.current.mode).toEqual({
+      status: 'active',
+      isMutable: true,
+      agentId: 'writer',
+      agentName: 'writer',
+      agentSpec: spec,
+      locked: false,
+    });
+    expect(result.current.runtimeKey).not.toBe(keyBefore);
+  });
+
+  it('listSessionsAgentId follows history filter when library is enabled', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+    expect(result.current.listSessionsAgentId).toBeUndefined();
+    expect(result.current.historyAgentFilter).toBeNull();
+
+    act(() => result.current.setHistoryAgentFilter('from-sdk'));
+    expect(result.current.historyAgentFilter).toBe('from-sdk');
+    expect(result.current.listSessionsAgentId).toBe('from-sdk');
+
+    act(() => result.current.setHistoryAgentFilter(null));
+    expect(result.current.listSessionsAgentId).toBeUndefined();
+  });
+
+  it('SingleAgent locks listSessionsAgentId to the agent name', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'SingleAgent', name: 'locked' }),
+    });
+    expect(result.current.listSessionsAgentId).toBe('locked');
+    act(() => result.current.setHistoryAgentFilter('ignored'));
+    expect(result.current.listSessionsAgentId).toBe('locked');
+  });
+
+  it('openHistorySession remounts into immutable binding with pendingSessionId', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+    expect(result.current.mode).toMatchObject({ status: 'active', isMutable: true });
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-1', agentName: 'from-sdk' }));
+    expect(result.current.mode).toEqual({
+      status: 'active',
+      isMutable: false,
+      agentId: 'from-sdk',
+      agentName: 'from-sdk',
+      locked: false,
+    });
+    expect(result.current.pendingSessionId).toBe('sess-1');
+    expect(result.current.runtimeKey).toContain('sess-1');
+  });
+
+  it('openHistorySession keeps immutable binding when agentName is missing', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-orphan', isMutable: false }));
+    expect(result.current.mode).toEqual({
+      status: 'active',
+      isMutable: false,
+      locked: false,
+    });
+    expect(result.current.pendingSessionId).toBe('sess-orphan');
+  });
+
+  it('openHistorySession into mutable clears Edit identity', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({
+        mode: 'AgentLibraryWithComposer',
+        defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+      }),
+    });
+
+    act(() =>
+      result.current.selectLibraryAgent({
+        isMutable: true,
+        agentId: 'writer',
+        agentName: 'writer',
+        agentSpec: { model: { name: 'openai-main/gpt-4.1' }, instructions: 'Write.' },
+      }),
+    );
+    expect(result.current.mode).toMatchObject({ agentName: 'writer', isMutable: true });
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-other', isMutable: true }));
+    expect(result.current.mode).toEqual({
+      status: 'active',
+      isMutable: true,
+      agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+      locked: false,
+    });
+    expect(result.current.pendingSessionId).toBe('sess-other');
+  });
+
+  it('invalidateAgentsList bumps agentsListEpoch', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+    expect(result.current.agentsListEpoch).toBe(0);
+    act(() => result.current.invalidateAgentsList());
+    expect(result.current.agentsListEpoch).toBe(1);
+  });
+
+  it('bindMutableAgent attaches identity without remounting', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+    const keyBefore = result.current.runtimeKey;
+    const spec = {
+      model: { name: 'openai-main/gpt-4.1' },
+      instructions: 'Saved.',
+    };
+
+    act(() =>
+      result.current.bindMutableAgent({
+        agentId: 'saved',
+        agentName: 'saved',
+        agentSpec: spec,
+      }),
+    );
+
+    expect(result.current.mode).toEqual({
+      status: 'active',
+      isMutable: true,
+      agentId: 'saved',
+      agentName: 'saved',
+      agentSpec: spec,
+      locked: false,
+    });
+    expect(result.current.runtimeKey).toBe(keyBefore);
+  });
+
+  it('bindMutableAgent keeps runtimeKey stable even when model changes', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({
+        mode: 'AgentLibraryWithComposer',
+        defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+      }),
+    });
+    const keyBefore = result.current.runtimeKey;
+
+    act(() =>
+      result.current.bindMutableAgent({
+        agentId: 'saved',
+        agentName: 'saved',
+        agentSpec: { model: { name: 'other/model' }, instructions: 'Saved.' },
+      }),
+    );
+
+    expect(result.current.runtimeKey).toBe(keyBefore);
+    expect(result.current.mode).toMatchObject({
+      agentId: 'saved',
+      agentName: 'saved',
+      agentSpec: { model: { name: 'other/model' } },
+    });
+  });
+
+  it('bindMutableAgent is a no-op when not on a mutable chat', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibrary' }),
+    });
+    expect(result.current.mode.status).toBe('idle');
+
+    act(() =>
+      result.current.bindMutableAgent({
+        agentId: 'x',
+        agentName: 'x',
+        agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+      }),
+    );
+
+    expect(result.current.mode.status).toBe('idle');
   });
 });

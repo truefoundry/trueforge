@@ -30,6 +30,8 @@
  *     :root { --background: #fff; --primary: #e11d48; }
  *
  * Or via the theme object: `theme={{ tokens: { primary: "#e11d48" } }}`.
+ * Scrollbar thumb: `theme={{ tokens: { scrollbarThumb: "#a1a1aa" } }}` or
+ * `--scrollbar-thumb` in host CSS. Track stays transparent; thumb is the plug.
  *
  * Both work because the `@layer` block below has the lowest precedence —
  * any plain `:root` / `.aui-root` declaration in the consumer's CSS wins.
@@ -201,34 +203,46 @@
  */
 .aui-theme-root {
   --thread-list-item-radius: 0.5rem;
+  --scrollbar-thumb: var(--muted-foreground);
   color: var(--foreground);
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * Slim scrollbars.
+ * Slim scrollbars — flush to the edge, transparent track. Thumb color via
+ * `--scrollbar-thumb` (theme.tokens.scrollbarThumb). Theme-root covers
+ * sidebar/chrome; aui-root covers standalone thread shells.
  * ──────────────────────────────────────────────────────────────────── */
 .aui-root {
   color: var(--foreground);
-  scrollbar-width: thin;
-  scrollbar-color: var(--muted-foreground) transparent;
 }
 
+.aui-theme-root,
+.aui-root {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb, var(--muted-foreground)) transparent;
+}
+
+.aui-theme-root ::-webkit-scrollbar,
 .aui-root ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
+  background: transparent;
 }
 
+.aui-theme-root ::-webkit-scrollbar-track,
 .aui-root ::-webkit-scrollbar-track {
   background: transparent;
 }
 
+.aui-theme-root ::-webkit-scrollbar-thumb,
 .aui-root ::-webkit-scrollbar-thumb {
-  background-color: var(--muted-foreground);
+  background-color: var(--scrollbar-thumb, var(--muted-foreground));
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
+.aui-theme-root ::-webkit-scrollbar-corner,
 .aui-root ::-webkit-scrollbar-corner {
   background: transparent;
 }

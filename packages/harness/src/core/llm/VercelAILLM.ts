@@ -26,7 +26,7 @@ import type {
   ToolSet,
   UserContent,
 } from 'ai';
-import { jsonSchema, Output, streamText } from 'ai';
+import { APICallError, jsonSchema, Output, streamText } from 'ai';
 import type {
   ChatCompletionContentPart,
   ChatCompletionCreateParamsStreaming,
@@ -350,12 +350,15 @@ function openaiProviderOptions({
   const user = readBodyField({ rawBody, key: 'user' });
   const promptCacheKey = readBodyField({ rawBody, key: 'prompt_cache_key' });
   const parallelToolCalls = readBodyField({ rawBody, key: 'parallel_tool_calls' });
+  const reasoningSummary = readBodyField({ rawBody, key: 'reasoning_summary' });
   // No server-side storage, and request the encrypted reasoning token so replay stays stateless.
   return {
     store: false,
     include: ['reasoning.encrypted_content'],
+    reasoningSummary: 'auto',
     // gpt-5.6 serves both xhigh and max, so the aliased top-level level asks for one rung less.
     ...maxEffortOption(reasoningEffort),
+    ...(reasoningSummary !== undefined ? { reasoningSummary } : {}),
     ...(strictJsonSchema !== undefined ? { strictJsonSchema } : {}),
     ...(serviceTier !== undefined ? { serviceTier } : {}),
     ...(user !== undefined ? { user } : {}),
@@ -900,10 +903,19 @@ export function normalizeUsage(usage: {
 }
 
 /**
- * Providers surface stream errors as plain objects as often as Errors; `String()` on those
- * yields "[object Object]" and loses the only description of what went wrong.
+ * Prefer AI SDK `APICallError` (`message` / `statusCode`):
+ * https://ai-sdk.dev/docs/reference/ai-sdk-errors/ai-api-call-error#properties
+ * Fallback is required because stream `error` parts are typed `unknown` (not only
+ * `APICallError`) — plain objects would otherwise stringify to "[object Object]".
  */
 export function describeStreamError(raw: unknown): string {
+  if (APICallError.isInstance(raw)) {
+    if (raw.statusCode != null) {
+      return `Request failed (${String(raw.statusCode)}): ${raw.message}`;
+    }
+    return raw.message;
+  }
+
   if (typeof raw !== 'object' || raw === null) {
     return String(raw);
   }
@@ -977,6 +989,22 @@ function applyReasoningSignature({
 }
 
 /**
+ * Which reasoning item a stream part belongs to. OpenAI is alone in splitting one item across
+ * several parts, so elsewhere this is absent and every part stands on its own.
+ */
+function reasoningItemId(providerMetadata: ProviderMetadata | undefined): string | undefined {
+  if (providerMetadata === undefined) {
+    return undefined;
+  }
+  for (const meta of Object.values(providerMetadata)) {
+    if ('itemId' in meta && typeof meta['itemId'] === 'string') {
+      return meta['itemId'];
+    }
+  }
+  return undefined;
+}
+
+/**
  * Where the SDK reports what it changed about our request: an effort a model cannot honour and so
  * was coerced, a setting the provider ignored. Nothing else surfaces these.
  */
@@ -1027,7 +1055,34 @@ export async function* mapStreamToChunks({
   let nextToolIndex = 0;
   let accumulatedText = '';
   const accumulatedThinking: ThinkingBlock[] = [];
+  const thinkingByReasoningItem = new Map<string, ThinkingBlock>();
   let currentThinkingBlock: ThinkingBlock | null = null;
+
+  /**
+   * The block this reasoning part belongs to: the one already open for its item, or a new one.
+   *
+   * OpenAI streams a single reasoning item as several summary parts, and hands every part the one
+   * token that identifies the item. A block per part would therefore replay that item once per
+   * part, every copy presenting the same token with a different piece of the reasoning. Grouping by
+   * item keeps one block per token, which is the only shape the provider can be replayed.
+   */
+  const openThinkingBlock = (providerMetadata: ProviderMetadata | undefined): ThinkingBlock => {
+    const itemId = reasoningItemId(providerMetadata);
+    const started = itemId !== undefined ? thinkingByReasoningItem.get(itemId) : undefined;
+    if (started !== undefined) {
+      // Each part is its own titled paragraph, and a part can be empty.
+      if (started.thinking.length > 0) {
+        started.thinking += '\n\n';
+      }
+      return started;
+    }
+    const block: ThinkingBlock = { type: 'thinking', thinking: '' };
+    accumulatedThinking.push(block);
+    if (itemId !== undefined) {
+      thinkingByReasoningItem.set(itemId, block);
+    }
+    return block;
+  };
   let finalUsage: CompletionUsage = getEmptyUsage();
   let finalFinishReason: RawAssistantMessageWithUsage['finish_reason'] = 'stop';
 
@@ -1050,18 +1105,14 @@ export async function* mapStreamToChunks({
       }
 
       case 'reasoning-start': {
-        currentThinkingBlock = { type: 'thinking', thinking: '' };
-        accumulatedThinking.push(currentThinkingBlock);
+        currentThinkingBlock = openThinkingBlock(part.providerMetadata);
         break;
       }
 
       case 'reasoning-delta': {
         // A delta with no preceding `reasoning-start` would otherwise drop the block and its
         // signature, breaking replay while the text still streams out.
-        if (currentThinkingBlock === null) {
-          currentThinkingBlock = { type: 'thinking', thinking: '' };
-          accumulatedThinking.push(currentThinkingBlock);
-        }
+        currentThinkingBlock ??= openThinkingBlock(part.providerMetadata);
         currentThinkingBlock.thinking += part.text;
         applyReasoningSignature({ block: currentThinkingBlock, providerMetadata: part.providerMetadata });
         yield {
@@ -1171,8 +1222,10 @@ export async function* mapStreamToChunks({
 
       case 'error': {
         const raw = part.error;
-        const err = raw instanceof Error ? raw : new Error(describeStreamError(raw));
-        throw new Error('LLM stream error', { cause: err });
+        const message = describeStreamError(raw);
+        // Preserve the original stream error as cause; toast/turn use .message only.
+        const cause = raw instanceof Error ? raw : new Error(message);
+        throw new Error(message, { cause });
       }
 
       case 'abort': {
