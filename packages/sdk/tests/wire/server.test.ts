@@ -8,7 +8,9 @@ describe("ServerClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
 
-        const rawResponseBody = { data: { sandbox: { enabled: true }, skill: { enabled: true } } };
+        const rawResponseBody = {
+            data: { sandbox: { enabled: true }, settings: { enabled: true }, skill: { enabled: true } },
+        };
 
         server
             .mockEndpoint()
@@ -22,6 +24,9 @@ describe("ServerClient", () => {
         expect(response).toEqual({
             data: {
                 sandbox: {
+                    enabled: true,
+                },
+                settings: {
                     enabled: true,
                 },
                 skill: {

@@ -31,6 +31,10 @@ export interface ConnectorState {
   id: string;
   name: string;
   description?: string;
+  /** When true, the connector must be authenticated before use. Omitted when the host does not report auth. */
+  requiresAuth?: boolean;
+  /** When true, the connector is already authenticated. Omitted when the host does not report auth. */
+  authenticated?: boolean;
 }
 
 /** Agents library row — UI shows name only. Host extends for metadata. */
@@ -431,22 +435,21 @@ export interface ToolBase {
 }
 
 /** Strict auth type id. Hosts widen branches via intersection + re-union. */
-export type ConnectorAuthType = 'oauth' | 'apiKey' | 'none';
+export type ConnectorAuthType = 'dcr' | 'header' | 'none';
 
 // Write (create/update) — export branches so hosts can intersect extras
-export type ConnectorAuthOAuth = { type: 'oauth'; authUrl?: string };
+export type ConnectorAuthOAuth = { type: 'dcr'; authUrl?: string };
 export type ConnectorAuthApiKey = {
-  type: 'apiKey';
+  type: 'header';
   apiKey?: string;
   headerName?: string;
 };
 export type ConnectorAuthNone = { type: 'none' };
 export type ConnectorAuth = ConnectorAuthOAuth | ConnectorAuthApiKey | ConnectorAuthNone;
 
-// Public (list/detail) — no secrets; oauth requires authUrl
-export type ConnectorAuthPublicOAuth = { type: 'oauth'; authUrl: string };
+export type ConnectorAuthPublicOAuth = { type: 'dcr'; authUrl?: string };
 export type ConnectorAuthPublicApiKey = {
-  type: 'apiKey';
+  type: 'header';
   headerName?: string;
 };
 export type ConnectorAuthPublicNone = { type: 'none' };
@@ -504,7 +507,7 @@ export interface AuthenticateConnectorRequest {
 export interface ConnectorAuthenticationResult<TConnector extends ConnectorBase = ConnectorBase> {
   connector?: TConnector;
   status?: string;
-  authorization_endpoint?: string;
+  authorization_endpoint?: string | undefined;
 }
 
 export interface ConnectorCatalogServer<

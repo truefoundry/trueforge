@@ -11,6 +11,9 @@ const GetCapabilitiesResponseSchema = z
           .boolean()
           .describe('Whether skills are available. False when sandbox is not enabled (skills require a sandbox).'),
       }),
+      settings: z.object({
+        enabled: z.boolean().describe('Whether the settings UI/API is enabled.'),
+      }),
     }),
   })
   .openapi('GetCapabilitiesResponse');
