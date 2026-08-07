@@ -11,7 +11,7 @@ const LOGIN_ERROR_PATH = '/?error=login_failed';
 
 /**
  * Auth surfaces mounted at /api/v1/auth: login, callback, logout, me.
- * Login and callback stay public; logout and me require {@link authMiddleware}.
+ * Login, callback, and logout stay public; me requires {@link authMiddleware}.
  */
 export function createAuthRouter(params: { oidcClient: Configuration | undefined; logger: Logger }) {
   const router = new OpenAPIHono();
@@ -69,15 +69,14 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
     }
   });
 
-  const gated = new OpenAPIHono();
-  gated.use('*', authMiddleware);
-
-  gated.openapi(authLogoutRoute, c => {
+  router.openapi(authLogoutRoute, c => {
     // Cookie deletion is idempotent, so logout also succeeds when no cookie exists.
     clearAuthCookie({ context: c, name: ID_TOKEN_COOKIE });
     return c.body(null, 204);
   });
 
+  const gated = new OpenAPIHono();
+  gated.use('*', authMiddleware);
   gated.openapi(meRoute, c => {
     const user = c.get('user') ?? DEFAULT_USER_CONTEXT;
     const body: MeResponse = getOidcVerify()
@@ -85,7 +84,7 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
       : { type: 'default', email: user.userRef, role: user.role };
     return c.json(body, 200);
   });
-
   router.route('/', gated);
+
   return router;
 }

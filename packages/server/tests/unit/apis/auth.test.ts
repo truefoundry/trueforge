@@ -217,19 +217,9 @@ describe('auth router (OIDC configured)', () => {
     expect(idTokenCookie).toContain('Max-Age=86400');
   });
 
-  it('POST /logout requires auth when the id_token cookie is missing', async () => {
+  it('POST /logout clears id_token even when no cookie is present', async () => {
     const res = await createAuthRouter({ oidcClient, logger }).request('/logout', {
       method: 'POST',
-    });
-
-    expect(res.status).toBe(401);
-  });
-
-  it('POST /logout clears id_token when authenticated', async () => {
-    const token = await createIdToken();
-    const res = await createAuthRouter({ oidcClient, logger }).request('/logout', {
-      method: 'POST',
-      headers: { Cookie: `${ID_TOKEN_COOKIE}=${token}` },
     });
 
     expect(res.status).toBe(204);
