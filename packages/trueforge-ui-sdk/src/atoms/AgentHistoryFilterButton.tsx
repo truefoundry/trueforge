@@ -122,10 +122,10 @@ export function AgentHistoryFilterButton() {
           <p className="px-2 py-3 text-center text-xs text-muted-foreground">Loading…</p>
         ) : (
           agents.map(agent => {
-            const active = selected === agent.name;
+            const active = selected === agent.agentId;
             return (
               <button
-                key={agent.name}
+                key={agent.agentId}
                 type="button"
                 role="menuitem"
                 className={cn(
@@ -133,7 +133,7 @@ export function AgentHistoryFilterButton() {
                   'hover:bg-accent hover:text-accent-foreground',
                   active && 'bg-accent',
                 )}
-                onClick={() => pick(agent.name)}
+                onClick={() => pick(agent.agentId)}
               >
                 <span className="min-w-0 truncate">{agent.name}</span>
                 {active ? <Icon name="check" className="size-3.5 shrink-0" /> : null}
