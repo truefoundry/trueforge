@@ -26,6 +26,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
+import type { UserContext } from '../auth/claims';
 import type { ResolveUserContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
@@ -323,20 +324,9 @@ export function resolveAfterSequenceNumber(c: Context, bodyAfterSequenceNumber?:
   return bodyAfterSequenceNumber;
 }
 
-/**
- * Returns a 403 error body when the caller is not the session creator.
- * Resolves the caller from `c` via the injected identity function.
- */
-function checkTurnAccess(
-  c: Context,
-  createdBy: string,
-  message: string,
-  resolveUserContext: ResolveUserContext,
-): { error: { message: string } } | undefined {
-  if (createdBy === resolveUserContext(c).userRef) {
-    return undefined;
-  }
-  return { error: { message } };
+/** True when `user` is the session creator (`created_by`). */
+function checkTurnAccess(user: UserContext, createdBy: string): boolean {
+  return createdBy === user.userRef;
 }
 
 const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this session';
@@ -351,9 +341,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    const forbidden = checkTurnAccess(c, session.record.created_by, FORBIDDEN_SESSION_ACCESS, deps.resolveUserContext);
-    if (forbidden) {
-      return c.json(forbidden, 403);
+    if (!checkTurnAccess(deps.resolveUserContext(c), session.record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     try {
       const { data, pagination } = await session.listTurns({
@@ -375,9 +364,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    const forbidden = checkTurnAccess(c, session.record.created_by, FORBIDDEN_SESSION_ACCESS, deps.resolveUserContext);
-    if (forbidden) {
-      return c.json(forbidden, 403);
+    if (!checkTurnAccess(deps.resolveUserContext(c), session.record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     const turn = await session.getTurn(turnId);
     if (!turn) {
@@ -399,14 +387,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       if (!session) {
         return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
       }
-      const forbidden = checkTurnAccess(
-        c,
-        session.record.created_by,
-        FORBIDDEN_SESSION_ACCESS,
-        deps.resolveUserContext,
-      );
-      if (forbidden) {
-        return c.json(forbidden, 403);
+      if (!checkTurnAccess(deps.resolveUserContext(c), session.record.created_by)) {
+        return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
       }
 
       // Loading the turn through the session is also a session-binding check: a turn id from another
@@ -461,9 +443,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    const forbidden = checkTurnAccess(c, session.record.created_by, FORBIDDEN_SESSION_ACCESS, deps.resolveUserContext);
-    if (forbidden) {
-      return c.json(forbidden, 403);
+    if (!checkTurnAccess(deps.resolveUserContext(c), session.record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     const turn = await session.getTurn(turnId);
     if (!turn) {
@@ -492,9 +473,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    const forbidden = checkTurnAccess(c, session.record.created_by, FORBIDDEN_CREATE_TURN, deps.resolveUserContext);
-    if (forbidden) {
-      return c.json(forbidden, 403);
+    if (!checkTurnAccess(deps.resolveUserContext(c), session.record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
     }
 
     const abortController = new AbortController();
@@ -607,9 +587,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    const forbidden = checkTurnAccess(c, session.record.created_by, FORBIDDEN_SESSION_ACCESS, deps.resolveUserContext);
-    if (forbidden) {
-      return c.json(forbidden, 403);
+    if (!checkTurnAccess(deps.resolveUserContext(c), session.record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     const turn = await session.getTurn(turnId);
     if (!turn) {
