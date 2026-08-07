@@ -8,8 +8,9 @@ export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict()
 
 /**
  * Create/update body arm wrapping an AgentSpec.
+ * Use AgentSpecSchema (not `.strict()`) so OpenAPI `$ref`s the shared AgentSpec.
  */
-const SessionAgentDefBodySchema = z.object({ def: AgentSpecSchema.strict() }).strict().openapi('SessionAgentDefBody');
+const SessionAgentDefBodySchema = z.object({ def: AgentSpecSchema }).strict().openapi('SessionAgentDefBody');
 
 /** Create accepts either a unique agent name or `{ def: AgentSpec }`. */
 export const CreateSessionAgentSchema = z
