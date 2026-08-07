@@ -3,7 +3,7 @@
   "version": "0.1.9-rc.2",
   "description": "TrueFoundry agent core and session library",
   "author": "Truefoundry",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": false,
   "type": "module",
   "main": "./dist/index.js",
