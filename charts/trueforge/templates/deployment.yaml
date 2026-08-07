@@ -54,7 +54,7 @@ spec:
             - name: PUBLIC_BASE_URL
               value: {{ required "server.publicBaseUrl is required" .Values.server.publicBaseUrl | quote }}
             # The server always runs peered against Postgres + Redis.
-            - name: SINGLE_BINARY
+            - name: STANDALONE
               value: "false"
             - name: GRACEFUL_TIMEOUT_SECONDS
               value: {{ .Values.server.gracefulTimeoutSeconds | quote }}
