@@ -1,0 +1,164 @@
+name: Release image and Helm chart
+
+# Publishing a GitHub Release (tag vX.Y.Z) builds and pushes the server image,
+# then stamps that version into the Helm chart, packages it, pushes it to the
+# JFrog public OCI Helm repo, and attaches the .tgz to the release.
+on:
+  release:
+    types: [published]
+
+# One release at a time so the commit back to main and the chart push cannot race.
+# The group is intentionally tag-independent so releases of different tags
+# serialize instead of running in parallel.
+concurrency:
+  group: release-image-and-chart
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Derive the version from the release tag; it is the single source of truth for
+  # the image tag and the chart version/appVersion.
+  prepare:
+    name: Resolve release version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Resolve version
+        id: version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "Release tag '$TAG' is not a semver vX.Y.Z tag" >&2
+            exit 1
+          fi
+          echo "Releasing version $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  # Build and push the server image (API + UI) via the shared reusable workflow.
+  build:
+    name: Build and push server image
+    needs: [prepare]
+    uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      artifactory_registry_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
+      artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
+      image_artifact_name: trueforge
+      image_tag: ${{ needs.prepare.outputs.version }}
+      image_context: .
+      dockerfile_path: Dockerfile
+      platforms: linux/amd64,linux/arm64
+      # The chart pulls the server image from JFrog (values.yaml image.repository),
+      # so JFrog is the only publish target; public ECR stays off.
+      enable_jfrog: true
+      enable_public_ecr: false
+    secrets:
+      artifactory_username: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME }}
+      artifactory_password: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD }}
+
+  # Stamp the version into the chart, publish it, and attach the package to the release.
+  release-chart:
+    name: Package and publish Helm chart
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      CHART_DIR: charts/trueforge
+      HELM_REGISTRY_URL: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
+      HELM_REGISTRY_USERNAME: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME }}
+      HELM_REGISTRY_PASSWORD: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD }}
+      HELM_CHART_REPOSITORY: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY }}
+    steps:
+      # Package from the exact tagged commit so the published chart matches the
+      # release (the image build uses the same tag). main is checked out
+      # separately later, only for the version-bump commit.
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Install yq
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      # Pin the released version everywhere the chart references it.
+      - name: Stamp version into chart
+        run: |
+          set -euo pipefail
+          yq -i '.version = strenv(VERSION) | .appVersion = strenv(VERSION)' "$CHART_DIR/Chart.yaml"
+          yq -i '.image.tag = strenv(VERSION)' "$CHART_DIR/values.yaml"
+          echo "Stamped chart to $VERSION"
+
+      - name: Helm registry login
+        run: |
+          helm registry login -u "$HELM_REGISTRY_USERNAME" -p "$HELM_REGISTRY_PASSWORD" "$HELM_REGISTRY_URL"
+
+      # Fetch the postgresql/redis subcharts from the public Bitnami OCI archive,
+      # pinned by Chart.lock. The archive is public (no auth); the images those
+      # subcharts run are separately mirrored to JFrog via values.yaml.
+      - name: Build chart dependencies
+        run: helm dependency build "$CHART_DIR"
+
+      - name: Package and push chart
+        id: package
+        run: |
+          set -euo pipefail
+          CHART_NAME=$(yq -r '.name' "$CHART_DIR/Chart.yaml")
+          helm package "$CHART_DIR" --destination dist
+          PACKAGE="dist/${CHART_NAME}-${VERSION}.tgz"
+          echo "Pushing $PACKAGE to oci://$HELM_CHART_REPOSITORY"
+          helm push "$PACKAGE" "oci://$HELM_CHART_REPOSITORY"
+          echo "package=$PACKAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Attach chart to the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: ${{ steps.package.outputs.package }}
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Sync the checked-in chart on main with the released version. Uses its own
+      # main checkout (packaging above runs against the tag) and stamps main's
+      # current chart files rather than copying the tag's, so unrelated changes
+      # on main are preserved.
+      - name: Check out main for the version bump
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-checkout
+
+      # Runs last so a rejected push to a protected main never blocks shipping
+      # the artifacts.
+      - name: Commit chart version bump to main
+        working-directory: main-checkout
+        run: |
+          set -euo pipefail
+          yq -i '.version = strenv(VERSION) | .appVersion = strenv(VERSION)' "$CHART_DIR/Chart.yaml"
+          yq -i '.image.tag = strenv(VERSION)' "$CHART_DIR/values.yaml"
+          if git diff --quiet -- "$CHART_DIR"; then
+            echo "Chart already at $VERSION; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$CHART_DIR/Chart.yaml" "$CHART_DIR/values.yaml"
+          git commit -m "chore(chart): release trueforge $VERSION"
+          git push origin HEAD:main
