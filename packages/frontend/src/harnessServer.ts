@@ -269,18 +269,10 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
     },
 
     async updateSession({ sessionId, agentSpec }) {
+      // Named (ref) sessions reject agent updates server-side;
       const response = await client.sessions.update(sessionId, {
         ...(agentSpec === undefined ? {} : { agent: toHarnessAgentSpec(agentSpec) }),
       });
-      const { agent } = response.data;
-      if (agent.type === 'ref') {
-        try {
-          const resolved = await resolveAgent(client, agent.agentId);
-          return toUiSession(response.data, resolved.name);
-        } catch {
-          return toUiSession(response.data);
-        }
-      }
       return toUiSession(response.data);
     },
 
