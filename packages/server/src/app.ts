@@ -1,6 +1,6 @@
 /** The API: resource routers, the OpenAPI document and Swagger UI, all under /api/v1. */
 import { swaggerUI } from '@hono/swagger-ui';
-import { OpenAPIHono } from '@hono/zod-openapi';
+import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/utils-core/agent-session';
 import type { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import type { Context } from 'hono';
@@ -33,6 +33,7 @@ import type { WithTransaction } from './db/transaction';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
+import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
 const openApiDocConfig = {
   openapi: '3.1.0',
@@ -88,7 +89,7 @@ export interface ServerDeps<TTransaction> {
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
-  const app = new OpenAPIHono();
+  const app = new OpenAPIHono({ defaultHook: zodValidationHook });
 
   app.get('/healthz', c => c.text('OK!'));
 
@@ -217,6 +218,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   app.notFound(routeNotFound);
 
   app.onError((error, c) => {
+    if (error instanceof z.ZodError) {
+      return zodErrorResponse(c, error);
+    }
     if (error instanceof HTTPException) {
       return c.json({ error: { message: error.message } }, error.status);
     }
