@@ -70,8 +70,8 @@ describe('public CRUD after session deletion', () => {
       session_id: 's1',
       created_by: 'user-1',
       agent: {
-        type: 'value',
-        def: AgentSpecSchema.parse({
+        type: 'inline',
+        spec: AgentSpecSchema.parse({
           model: { name: 'test-provider/test-model' },
           instructions: 'test',
         }),

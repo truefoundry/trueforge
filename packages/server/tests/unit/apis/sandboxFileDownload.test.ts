@@ -110,7 +110,7 @@ describe('GET /{session_id}/turns/{turn_id}/download', () => {
       tenant_id: TENANT_ID,
       session_id: 'no-turn',
       created_by: 'trueforge-default',
-      agent: { type: 'value', def: agentSpec() },
+      agent: { type: 'inline', spec: agentSpec() },
     });
 
     const response = await app.request(downloadUrl({ sessionId: session.session_id, path: '/workspace/report.pdf' }));

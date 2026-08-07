@@ -142,7 +142,7 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
     if (existing === undefined) {
       throw new SessionNotFoundError(input.session_id);
     }
-    if (existing.agent.type === 'ref') {
+    if (existing.agent.type === 'reference') {
       throw new SessionStoreInvariantError(`Session ${input.session_id} is named; agent cannot be updated`);
     }
   }
@@ -157,7 +157,7 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
       if (agent === undefined) {
         return qb;
       }
-      return qb.set({ agent_spec: json(agent.def) });
+      return qb.set({ agent_spec: json(agent.spec) });
     })
     .$if(title !== undefined, qb => {
       if (title === undefined) {

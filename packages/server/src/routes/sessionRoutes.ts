@@ -28,7 +28,7 @@ export const createSessionRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Create a session',
   description:
-    'Create a session with `agent` as either `{ name }` (named registry binding) or `{ def: AgentSpec }` (inline). Named sessions snapshot the agent name at create and resolve the live agent on each turn. Responses use `{ type: "ref", name, id }` or `{ type: "value", def }`.',
+    'Create a session with `agent` as either `{ name }` (named registry binding) or `{ spec: AgentSpec }` (inline). Named sessions snapshot the agent name at create and resolve the live agent on each turn. Responses use `{ type: "reference", name, id }` or `{ type: "inline", spec }`.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create',
   request: {
@@ -105,7 +105,7 @@ export const updateSessionRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Update a session',
   description:
-    'Update a session by replacing `agent` with `{ def: AgentSpec }`. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.',
+    'Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'update',
   request: {

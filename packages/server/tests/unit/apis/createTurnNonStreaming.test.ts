@@ -48,7 +48,7 @@ describe('create turn non-streaming', () => {
     const sessions = {
       get: () =>
         Promise.resolve({
-          def: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
+          spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
           record: { last_turn_id: null },
           createTurn: () =>
             Promise.resolve({

@@ -1,31 +1,31 @@
 /**
  * Session product schemas. Agent binding is a single discriminated `agent`
- * field (`ref` | `value`). DB stores agent_id / agent_name / agent_spec columns.
+ * field (`reference` | `inline`). DB stores agent_id / agent_name / agent_spec columns.
  */
 import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema } from './agentSpec';
 
-export const SessionAgentRefSchema = z
+export const SessionAgentReferenceSchema = z
   .object({
-    type: z.literal('ref'),
+    type: z.literal('reference'),
     id: z.string().min(1),
     /** Create-time snapshot of the registry agent name; null for legacy/orphan rows. */
     name: z.string().nullable(),
   })
   .strict()
-  .openapi('SessionAgentRef');
+  .openapi('SessionAgentReference');
 
-export const SessionAgentValueSchema = z
+export const SessionAgentInlineSchema = z
   .object({
-    type: z.literal('value'),
-    def: AgentSpecSchema,
+    type: z.literal('inline'),
+    spec: AgentSpecSchema,
   })
   .strict()
-  .openapi('SessionAgentValue');
+  .openapi('SessionAgentInline');
 
 /** Named registry binding or inline AgentSpec — exactly one arm. */
 export const SessionAgentSchema = z
-  .discriminatedUnion('type', [SessionAgentRefSchema, SessionAgentValueSchema])
+  .discriminatedUnion('type', [SessionAgentReferenceSchema, SessionAgentInlineSchema])
   .openapi('SessionAgent');
 
 export const SessionSchema = z
@@ -40,7 +40,7 @@ export const SessionSchema = z
   })
   .openapi('Session');
 
-export type SessionAgentRef = z.infer<typeof SessionAgentRefSchema>;
-export type SessionAgentValue = z.infer<typeof SessionAgentValueSchema>;
+export type SessionAgentReference = z.infer<typeof SessionAgentReferenceSchema>;
+export type SessionAgentInline = z.infer<typeof SessionAgentInlineSchema>;
 export type SessionAgent = z.infer<typeof SessionAgentSchema>;
 export type Session = z.infer<typeof SessionSchema>;

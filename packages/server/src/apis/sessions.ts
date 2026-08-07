@@ -199,13 +199,13 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         tenant_id: TENANT_ID,
         session_id: sessionId,
         created_by: 'trueforge-default',
-        agent: { type: 'ref', id: agent.id, name: agent.name },
+        agent: { type: 'reference', id: agent.id, name: agent.name },
       });
       return c.json({ data: toWireSession(session.record) }, 201);
     }
 
     await validateAgentSpec({
-      spec: body.agent.def,
+      spec: body.agent.spec,
       tenant_id: TENANT_ID,
       modelProviderStore: deps.modelProviderStore,
       mcpServerStore: deps.mcpServerStore,
@@ -216,7 +216,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       tenant_id: TENANT_ID,
       session_id: sessionId,
       created_by: 'trueforge-default',
-      agent: { type: 'value', def: body.agent.def },
+      agent: { type: 'inline', spec: body.agent.spec },
     });
     return c.json({ data: toWireSession(session.record) }, 201);
   };
@@ -239,11 +239,11 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   const updateSessionHandler: RouteHandler<typeof updateSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
-    // Value sessions may replace their inline agent; named (ref) sessions
+    // Inline sessions may replace their agent; named (reference) sessions
     // cannot — the store rejects that with SessionStoreInvariantError → 422 below.
     if (body.agent !== undefined) {
       await validateAgentSpec({
-        spec: body.agent.def,
+        spec: body.agent.spec,
         tenant_id: TENANT_ID,
         modelProviderStore: deps.modelProviderStore,
         mcpServerStore: deps.mcpServerStore,
@@ -255,7 +255,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       await deps.sessionStore.updateSession({
         tenant_id: TENANT_ID,
         session_id: sessionId,
-        agent: body.agent === undefined ? undefined : { type: 'value', def: body.agent.def },
+        agent: body.agent === undefined ? undefined : { type: 'inline', spec: body.agent.spec },
         title: undefined,
       });
     } catch (error) {

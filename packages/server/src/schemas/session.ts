@@ -10,16 +10,16 @@ export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict()
  * Create/update body arm wrapping an AgentSpec.
  * Use AgentSpecSchema (not `.strict()`) so OpenAPI `$ref`s the shared AgentSpec.
  */
-const SessionAgentDefBodySchema = z.object({ def: AgentSpecSchema }).strict().openapi('SessionAgentDefBody');
+const SessionAgentSpecBodySchema = z.object({ spec: AgentSpecSchema }).strict().openapi('SessionAgentSpecBody');
 
-/** Create accepts either a unique agent name or `{ def: AgentSpec }`. */
+/** Create accepts either a unique agent name or `{ spec: AgentSpec }`. */
 export const CreateSessionAgentSchema = z
-  .union([SessionAgentNameRefSchema, SessionAgentDefBodySchema])
+  .union([SessionAgentNameRefSchema, SessionAgentSpecBodySchema])
   .openapi('CreateSessionAgent');
 
 export type CreateSessionAgent = z.infer<typeof CreateSessionAgentSchema>;
 export type SessionAgentNameRef = z.infer<typeof SessionAgentNameRefSchema>;
-export type SessionAgentDefBody = z.infer<typeof SessionAgentDefBodySchema>;
+export type SessionAgentSpecBody = z.infer<typeof SessionAgentSpecBodySchema>;
 
 /** Narrows the create-body union after OpenAPI already accepted either arm. */
 export function isSessionAgentNameRef(agent: CreateSessionAgent): agent is SessionAgentNameRef {
@@ -31,9 +31,9 @@ export const CreateSessionRequestSchema = z
   .strict()
   .openapi('CreateSessionRequest');
 
-/** Only value sessions may be updated; named (ref) sessions reject agent updates. */
+/** Only inline sessions may be updated; named (reference) sessions reject agent updates. */
 export const UpdateSessionRequestSchema = z
-  .object({ agent: SessionAgentDefBodySchema.optional() })
+  .object({ agent: SessionAgentSpecBodySchema.optional() })
   .strict()
   .openapi('UpdateSessionRequest');
 
