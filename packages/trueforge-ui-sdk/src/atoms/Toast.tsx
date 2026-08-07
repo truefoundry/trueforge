@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 import { Icon } from '../icons/Icon.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
@@ -78,12 +79,27 @@ export type ToastStackProps = {
   duration?: number;
 };
 
+const openToastStack = (element: HTMLDivElement | null): void => {
+  if (element === null || typeof element.showPopover !== 'function') return;
+  if (element.matches(':popover-open')) element.hidePopover();
+  element.showPopover();
+};
+
 export function ToastStack({ children, duration: _duration = Number.POSITIVE_INFINITY }: ToastStackProps) {
-  return (
-    <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 flex-col-reverse gap-2 px-4">
+  const stack = (
+    <div
+      ref={openToastStack}
+      popover="manual"
+      className="pointer-events-none fixed top-auto right-auto bottom-4 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 flex-col-reverse gap-2 overflow-visible bg-transparent px-4"
+    >
       {children}
     </div>
   );
+
+  if (typeof document === 'undefined') return stack;
+  const dialogs = document.querySelectorAll<HTMLDialogElement>('dialog[open]');
+  const activeDialog = dialogs.item(dialogs.length - 1);
+  return activeDialog === null ? stack : createPortal(stack, activeDialog);
 }
 
 declare module '../theme/SlotsProvider.js' {

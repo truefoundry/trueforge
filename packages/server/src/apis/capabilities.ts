@@ -1,4 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
+import { isAdmin, resolveUserContext } from '../auth/identity';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
@@ -12,6 +13,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
   router.openapi(getCapabilitiesRoute, async c => {
     const record = await deps.sandboxProviderStore.getSandboxProvider(TENANT_ID);
     const sandboxEnabled = record !== undefined;
+    const settingsEnabled = isAdmin(resolveUserContext(c));
     return c.json(
       {
         data: {
@@ -22,7 +24,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
                 enabled: false,
                 reason: 'Skills run in a sandbox, which is not configured.',
               },
-          settings: { enabled: true },
+          settings: { enabled: settingsEnabled },
         },
       },
       200,
