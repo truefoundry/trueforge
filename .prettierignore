@@ -3,6 +3,8 @@ dist/
 # Fern-generated: formatted by the generator, not by this repo's config.
 packages/sdk/
 fern/openapi/
+# Downloaded third-party Helm subcharts (Bitnami); not ours to reformat.
+charts/trueforge/charts/
 coverage/
 .turbo/
 pnpm-lock.yaml
