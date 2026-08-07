@@ -29,6 +29,7 @@
             "$ref": "#/components/schemas/AgentSpec"
           },
           {
+            "additionalProperties": false,
             "properties": {
               "id": {
                 "description": "Immutable server-generated agent identifier.",
@@ -109,6 +110,7 @@
         "type": "object"
       },
       "AgentSpec": {
+        "additionalProperties": false,
         "description": "Agent Definition",
         "properties": {
           "config": {
@@ -193,6 +195,7 @@
             "$ref": "#/components/schemas/AgentSpec"
           },
           {
+            "additionalProperties": false,
             "properties": {
               "name": {
                 "$ref": "#/components/schemas/ResourceName"
@@ -1036,6 +1039,10 @@
                   "enabled": {
                     "description": "Whether skills are available. False when sandbox is not enabled (skills require a sandbox).",
                     "type": "boolean"
+                  },
+                  "reason": {
+                    "description": "Present when skills are disabled. Explains why.",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -3599,6 +3606,7 @@
         ]
       },
       "UpdateAgentRequest": {
+        "additionalProperties": false,
         "description": "Agent Definition",
         "properties": {
           "config": {
