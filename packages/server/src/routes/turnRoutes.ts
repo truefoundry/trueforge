@@ -161,6 +161,7 @@ export const createAndExecuteTurnRoute = createRoute({
   tags: [SESSIONS_TAG],
   summary: 'Create and execute a turn in a session',
   description: `Create a turn within a session and execute it.
+Only the session creator (\`created_by\`) may create turns.
 When \`stream\` is true (default), respond with a Server-Sent Events stream of turn events.
 When \`stream\` is false, return the turn immediately with \`state.status: "running"\` while execution continues in the background; use get turn or subscribe to observe completion.
 Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto\`); use \`none\` for a new root.`,
@@ -196,6 +197,10 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

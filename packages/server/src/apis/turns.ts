@@ -27,6 +27,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
+import { resolveUserContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -450,6 +451,10 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    const user = resolveUserContext();
+    if (session.record.created_by !== user.userRef) {
+      return c.json({ error: { message: 'Only the session creator can create turns' } }, 403);
     }
 
     const abortController = new AbortController();

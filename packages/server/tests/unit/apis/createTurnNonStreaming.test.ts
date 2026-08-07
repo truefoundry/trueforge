@@ -4,6 +4,7 @@ import { AgentSpecSchema } from '@truefoundry/utils-core/agent-session';
 import { createLogger } from 'winston';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, turnStreamId } from '../../../src/apis/turns';
+import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -49,7 +50,7 @@ describe('create turn non-streaming', () => {
       get: () =>
         Promise.resolve({
           agent_spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
-          record: { last_turn_id: null },
+          record: { last_turn_id: null, created_by: LOCAL_USER_CONTEXT.userRef },
           createTurn: () =>
             Promise.resolve({
               id: 'turn-non-stream',

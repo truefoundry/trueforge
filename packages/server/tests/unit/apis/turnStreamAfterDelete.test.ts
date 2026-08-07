@@ -3,6 +3,7 @@ import type { Sessions } from '@truefoundry/utils-core/agent-session';
 import { AgentSpecSchema, TurnNotFoundError } from '@truefoundry/utils-core/agent-session';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
+import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -53,6 +54,7 @@ describe('turn SSE after session deletion', () => {
           record: {
             session_id: 's1',
             last_turn_id: null,
+            created_by: LOCAL_USER_CONTEXT.userRef,
             agent: { type: 'value', agent_spec: agentSpec },
           },
           createTurn: () =>
