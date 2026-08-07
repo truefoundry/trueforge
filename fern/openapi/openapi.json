@@ -4570,7 +4570,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "post": {
-        "description": "Create a session with `agent` as either an inline AgentSpec (draft) or `{ name }` (named). Named sessions resolve the live agent on each turn.",
+        "description": "Create a session with `agent` as either an inline AgentSpec or `{ name }` (named). Named sessions resolve the live agent on each turn.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4712,7 +4712,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a draft session by replacing `agent` with an inline AgentSpec. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.",
+        "description": "Update a session by replacing `agent` with an inline AgentSpec. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.",
         "parameters": [
           {
             "description": "Session identifier.",
