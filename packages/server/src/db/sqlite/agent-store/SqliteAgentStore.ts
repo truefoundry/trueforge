@@ -1,5 +1,5 @@
 import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
-import type { ExpressionBuilder, Kysely } from 'kysely';
+import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import { ulid } from 'ulid';
 import {
   AgentNameConflictError,
@@ -25,7 +25,7 @@ function recordColumns(eb: ExpressionBuilder<Database, 'agent'>) {
   ];
 }
 
-export class SqliteAgentStore implements IAgentStore {
+export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {

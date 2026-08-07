@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from 'kysely';
+import type { Kysely, Selectable, Transaction } from 'kysely';
 import {
   type GetSkillInput,
   type ISkillStore,
@@ -19,7 +19,7 @@ function toRecord(row: Selectable<SkillTable>): SkillRecord {
   };
 }
 
-export class PostgresSkillStore implements ISkillStore {
+export class PostgresSkillStore implements ISkillStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {

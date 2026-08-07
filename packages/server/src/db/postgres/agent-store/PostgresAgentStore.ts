@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from 'kysely';
+import type { Kysely, Selectable, Transaction } from 'kysely';
 import { ulid } from 'ulid';
 import {
   AgentNameConflictError,
@@ -23,7 +23,7 @@ function toRecord(row: Selectable<AgentTable>): AgentRecord {
   };
 }
 
-export class PostgresAgentStore implements IAgentStore {
+export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {

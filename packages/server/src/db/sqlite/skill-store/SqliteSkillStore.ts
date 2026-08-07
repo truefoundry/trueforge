@@ -1,4 +1,4 @@
-import type { ExpressionBuilder, Kysely } from 'kysely';
+import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { SkillManifest } from '../../../schemas/skill';
 import {
   type GetSkillInput,
@@ -21,7 +21,7 @@ function recordColumns(eb: ExpressionBuilder<Database, 'skill'>) {
   ];
 }
 
-export class SqliteSkillStore implements ISkillStore {
+export class SqliteSkillStore implements ISkillStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {

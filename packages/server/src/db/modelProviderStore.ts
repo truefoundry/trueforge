@@ -27,7 +27,7 @@ export interface UpsertProviderInput {
   manifest: ModelProvider;
 }
 
-export interface IModelProviderStore {
+export interface IModelProviderStore<_TTransaction = never> {
   listProviders(tenantId: string): Promise<ModelProviderRecord[]>;
   getProvider(input: GetProviderInput): Promise<ModelProviderRecord | undefined>;
   /** Single-row write: creates the provider or replaces the whole manifest (models included). */

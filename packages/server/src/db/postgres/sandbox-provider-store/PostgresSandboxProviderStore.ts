@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from 'kysely';
+import type { Kysely, Selectable, Transaction } from 'kysely';
 import {
   type ISandboxProviderStore,
   type SandboxProviderRecord,
@@ -16,7 +16,7 @@ function toRecord(row: Selectable<SandboxProviderTable>): SandboxProviderRecord 
   };
 }
 
-export class PostgresSandboxProviderStore implements ISandboxProviderStore {
+export class PostgresSandboxProviderStore implements ISandboxProviderStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {

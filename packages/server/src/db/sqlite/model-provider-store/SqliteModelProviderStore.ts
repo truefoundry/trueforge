@@ -1,4 +1,4 @@
-import type { ExpressionBuilder, Kysely } from 'kysely';
+import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { Model, ModelProvider } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
@@ -21,7 +21,7 @@ function recordColumns(eb: ExpressionBuilder<Database, 'model_provider'>) {
   ];
 }
 
-export class SqliteModelProviderStore implements IModelProviderStore {
+export class SqliteModelProviderStore implements IModelProviderStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {

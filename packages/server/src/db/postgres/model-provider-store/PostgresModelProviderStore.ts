@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from 'kysely';
+import type { Kysely, Selectable, Transaction } from 'kysely';
 import type { Model } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
@@ -20,7 +20,7 @@ function toRecord(row: Selectable<ModelProviderTable>): ModelProviderRecord {
   };
 }
 
-export class PostgresModelProviderStore implements IModelProviderStore {
+export class PostgresModelProviderStore implements IModelProviderStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {

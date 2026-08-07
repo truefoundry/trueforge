@@ -1,4 +1,4 @@
-import type { ExpressionBuilder, Kysely } from 'kysely';
+import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { SandboxProviderManifest } from '../../../schemas/sandboxProvider';
 import {
   type ISandboxProviderStore,
@@ -18,7 +18,7 @@ function recordColumns(eb: ExpressionBuilder<Database, 'sandbox_provider'>) {
   ];
 }
 
-export class SqliteSandboxProviderStore implements ISandboxProviderStore {
+export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {

@@ -65,13 +65,13 @@ export interface ServerDeps<TTransaction> {
   mcpCatalog: McpCatalog;
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
-  modelProviderStore: IModelProviderStore;
+  modelProviderStore: IModelProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
-  skillStore: ISkillStore;
-  sandboxProviderStore: ISandboxProviderStore;
-  agentStore: IAgentStore;
+  skillStore: ISkillStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  agentStore: IAgentStore<TTransaction>;
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;

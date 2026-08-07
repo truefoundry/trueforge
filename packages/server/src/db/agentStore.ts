@@ -47,7 +47,7 @@ export class AgentNameConflictError extends Error {
   }
 }
 
-export interface IAgentStore {
+export interface IAgentStore<_TTransaction = never> {
   listAgents(tenantId: string): Promise<AgentRecord[]>;
   getAgent(input: GetAgentInput): Promise<AgentRecord | undefined>;
   /** Inserts a new agent with a generated ULID. Throws AgentNameConflictError on name clash. */

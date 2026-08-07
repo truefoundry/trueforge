@@ -60,13 +60,13 @@ import { EventSubscriptionRegistry } from './runtime/event-subscription';
 /** Persistence + optional Redis wired for the selected topology. */
 interface ServerPersistence<TTransaction> {
   sessionStore: ISessionStore;
-  modelProviderStore: IModelProviderStore;
+  modelProviderStore: IModelProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
-  skillStore: ISkillStore;
-  sandboxProviderStore: ISandboxProviderStore;
-  agentStore: IAgentStore;
+  skillStore: ISkillStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  agentStore: IAgentStore<TTransaction>;
   destroyDb: () => Promise<void>;
   redis: RedisClientType | undefined;
 }
