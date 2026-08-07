@@ -1,4 +1,4 @@
-import configuration, { isOidcConfigured } from '../config';
+import type { Context } from 'hono';
 import type { UserContext } from './claims';
 
 /**
@@ -10,18 +10,13 @@ export const LOCAL_USER_CONTEXT: UserContext = {
   role: 'admin',
 };
 
+/** Resolves the caller identity from the request context. Injected on session/turn routers. */
+export type ResolveUserContext = (c: Context) => UserContext;
+
 /**
- * Caller {@link UserContext} for the current request.
- *
- * - Auth disabled (no OIDC): always {@link LOCAL_USER_CONTEXT}.
- * - Auth enabled: pass the verified context attached by auth middleware.
+ * Caller {@link UserContext} for the current request..
  */
-export function resolveUserContext(verified?: UserContext): UserContext {
-  if (!isOidcConfigured(configuration)) {
-    return LOCAL_USER_CONTEXT;
-  }
-  if (verified === undefined) {
-    throw new Error('UserContext is required when OIDC is configured');
-  }
-  return verified;
+export function resolveUserContext(_c: Context): UserContext {
+  // TODO: extract UserContext from `c` once auth middleware sets it (e.g. c.get('user')).
+  return LOCAL_USER_CONTEXT;
 }

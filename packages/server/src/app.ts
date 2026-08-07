@@ -18,6 +18,7 @@ import { createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
+import { resolveUserContext } from './auth/identity';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -139,6 +140,7 @@ export function createServerApp(deps: ServerDeps) {
       sandboxProviderStore: deps.sandboxProviderStore,
       redis: deps.redis,
       requestReplyRouter: deps.requestReplyRouter,
+      resolveUserContext,
     }),
   );
   app.route(
@@ -155,6 +157,7 @@ export function createServerApp(deps: ServerDeps) {
       eventSubscriptions: deps.eventSubscriptions,
       sandboxProviderStore: deps.sandboxProviderStore,
       logger: deps.logger,
+      resolveUserContext,
     }),
   );
 

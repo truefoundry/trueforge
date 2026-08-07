@@ -8,7 +8,7 @@ import {
 import { createLogger } from 'winston';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, turnStreamId } from '../../../src/apis/turns';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { LOCAL_USER_CONTEXT, resolveUserContext } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -22,8 +22,8 @@ import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 
 describe('turns', () => {
-  describe('create turn ownership', () => {
-    it('returns 403 when the caller is not the session creator', async () => {
+  describe('turn ownership', () => {
+    it('returns 403 for create/get/list when the caller is not the session creator', async () => {
       const db = createSqliteDb(':memory:');
       await migrateSqliteToLatest(db);
       const sessionStore = new SqliteSessionStore(db);
@@ -58,17 +58,30 @@ describe('turns', () => {
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger: createLogger({ silent: true }),
+          resolveUserContext,
         }),
       );
 
-      const response = await app.request('/s1/turns', {
+      const createResponse = await app.request('/s1/turns', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ stream: false }),
       });
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual({
+      expect(createResponse.status).toBe(403);
+      expect(await createResponse.json()).toEqual({
         error: { message: 'Only the session creator can create turns' },
+      });
+
+      const listResponse = await app.request('/s1/turns');
+      expect(listResponse.status).toBe(403);
+      expect(await listResponse.json()).toEqual({
+        error: { message: 'Only the session creator can access this session' },
+      });
+
+      const getResponse = await app.request('/s1/turns/any-turn');
+      expect(getResponse.status).toBe(403);
+      expect(await getResponse.json()).toEqual({
+        error: { message: 'Only the session creator can access this session' },
       });
     });
   });
@@ -150,6 +163,7 @@ describe('turns', () => {
           eventSubscriptions,
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger,
+          resolveUserContext,
         }),
       );
 
@@ -248,6 +262,7 @@ describe('turns', () => {
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger,
+          resolveUserContext,
         }),
       );
 

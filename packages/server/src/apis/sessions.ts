@@ -18,7 +18,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';
 import { z } from 'zod';
-import { resolveUserContext } from '../auth/identity';
+import type { ResolveUserContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -75,6 +75,7 @@ export interface SessionsRouterDeps {
   sandboxProviderStore: ISandboxProviderStore;
   redis?: RedisClientType | undefined;
   requestReplyRouter: RequestReplyRouter;
+  resolveUserContext: ResolveUserContext;
 }
 
 function cancelTurnOnThisExecutor(
@@ -196,7 +197,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       if (agent === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.agent_id}` } }, 404);
       }
-      const user = resolveUserContext();
+      const user = deps.resolveUserContext(c);
       const session = await deps.sessions.create({
         tenant_id: TENANT_ID,
         session_id: sessionId,
@@ -214,7 +215,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       skillStore: deps.skillStore,
       sandboxProviderStore: deps.sandboxProviderStore,
     });
-    const user = resolveUserContext();
+    const user = deps.resolveUserContext(c);
     const session = await deps.sessions.create({
       tenant_id: TENANT_ID,
       session_id: sessionId,
@@ -230,7 +231,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    const user = resolveUserContext();
+    const user = deps.resolveUserContext(c);
     if (record.created_by !== user.userRef) {
       return c.json({ error: { message: 'Only the session creator can get this session' } }, 403);
     }
@@ -283,7 +284,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const listSessionsHandler: RouteHandler<typeof listSessionsRoute> = async c => {
     const query = c.req.valid('query');
-    const user = resolveUserContext();
+    const user = deps.resolveUserContext(c);
     try {
       const { data, pagination } = await deps.sessionStore.listSessions({
         agent_id: query.agent_id,
