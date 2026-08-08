@@ -223,6 +223,7 @@ Powers the agent library and the draft composer.
 
 ```ts
 interface AgentBuilderServer {
+  getCapabilities(): Promise<AgentBuilderCapabilitiesResponse>;
   getModels(): Promise<ModelSelection[]>;
   getSkills(): Promise<AgentSkill[]>;
   getMcp(): Promise<ConnectorState[]>;
@@ -232,20 +233,54 @@ interface AgentBuilderServer {
 }
 ```
 
-These return picker rows — the minimum each selector renders:
+`deleteAgent` is the only optional method here — the rest must be implemented.
+
+### Capabilities
+
+`getCapabilities` tells the UI which optional features your backend supports, so it can hide
+what you do not offer rather than surfacing controls that fail.
+
+```ts
+interface AgentBuilderCapabilitiesResponse {
+  data: {
+    sandbox: { enabled: boolean };
+    skill: { enabled: boolean; reason?: string };
+    settings?: { enabled: boolean };
+  };
+}
+```
+
+It is fetched once when the server resolves. `skill.reason` is shown to the user when skills are
+disabled, so use it to explain why — for example that no skill registry is configured. Setting
+`settings.enabled` to `false` hides the settings control even when a `catalog` is attached;
+omitting `settings` leaves it visible.
+
+```ts
+async getCapabilities() {
+  return { data: { sandbox: { enabled: false }, skill: { enabled: true } } };
+}
+```
+
+Read the resolved value anywhere in your own components with
+[`useServerCapabilities()`](/ui-sdk/reference/hooks).
+
+### Picker rows
+
+The remaining methods return the minimum each selector renders:
 
 | Type | Required | Optional |
 | --- | --- | --- |
 | `ModelSelection` | `name`, `provider` | `reasoningEfforts?: string[]` |
 | `AgentSkill` | `id`, `name` | `description` |
 | `ConnectorState` | `id`, `name` | `description`, `requiresAuth`, `authenticated` |
-| `AgentLibraryEntry` | `name` | `agentId`, `agentSpec` |
+| `AgentLibraryEntry` | `name`, `agentId` | `agentSpec` |
 
 <Note>
   Return a non-empty `reasoningEfforts` on a `ModelSelection` and the UI shows a
-  reasoning-effort picker beside the model selector. On `AgentLibraryEntry`, supply `agentSpec`
-  to enable Edit — omit it for try-only agents — and `agentId` when the stable id differs from
-  the display `name`, which otherwise serves as the id.
+  reasoning-effort picker beside the model selector. On `AgentLibraryEntry`, `agentId` is the
+  stable identifier used for selection, history filtering, and session binding — it is required
+  even when it matches the display `name`. Supply `agentSpec` to enable Edit; omit it for
+  try-only agents.
 </Note>
 
 `SearchAgentsParams` is `{ query?, limit?, offset? }` — offset paging, since it backs a search

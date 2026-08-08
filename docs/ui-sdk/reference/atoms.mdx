@@ -103,6 +103,10 @@ Also `ToolCallContentBlock`, `ToolApprovalBar`, `ToolGroupCard`, `SubAgentCard`,
 All of these except `DraftCatalogProvider` and `useDraftCatalog` are also overridable slots, so
 you can either render them yourself or replace them globally through `overrides`.
 
+`ShellActionsActionSlot` belongs to the same shell chrome. It renders nothing by default and
+exists to be overridden — the supported way to add host controls such as logout beside the
+theme and settings buttons.
+
 ## Primitives
 
 `BottomSheet`, `CenteredModal`, `Avatar` / `AvatarImage` / `AvatarFallback`, `Icon`, `Toast`,

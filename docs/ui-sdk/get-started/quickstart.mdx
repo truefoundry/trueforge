@@ -91,6 +91,9 @@ const chatServer = createTrueFoundryChatServer({
 
 const server = createTrueFoundryServer({
   chatServer,
+  getCapabilities: async () => ({
+    data: { sandbox: { enabled: false }, skill: { enabled: false } },
+  }),
   getModels: async () => [],
   getSkills: async () => [],
   getMcp: async () => [],
@@ -107,10 +110,11 @@ export default function App() {
 }
 ```
 
-Two notes on this path. Empty `getModels` means the composer has no models to offer, so supply
-real ones before enabling composer mode — see [Agent modes](/ui-sdk/concepts/agent-modes). And
+Three notes on this path. Empty `getModels` means the composer has no models to offer, so
+supply real ones before enabling composer mode — see [Agent modes](/ui-sdk/concepts/agent-modes).
 `createTrueFoundryServer` attaches no `catalog`, so the settings panel stays hidden until you
-pass one.
+pass one. And `getCapabilities` is required: it declares which optional features your backend
+supports, so the UI hides sandbox and skill affordances rather than offering ones that fail.
 
 To skip `createTrueFoundryServer` entirely and implement the interface from scratch — against
 any backend, not just TrueFoundry — see
