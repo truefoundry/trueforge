@@ -33,6 +33,20 @@ type ThemeConfig = {
 />
 ```
 
+The `chatgpt`, `claude`, and `gemini` presets (the default is `truefoundry`):
+
+<Columns cols={3}>
+  <Frame caption="chatgpt">
+    <img src="/images/theme-chatgpt.png" alt="TrueForge UI with the chatgpt theme preset" />
+  </Frame>
+  <Frame caption="claude">
+    <img src="/images/theme-claude.png" alt="TrueForge UI with the claude theme preset" />
+  </Frame>
+  <Frame caption="gemini">
+    <img src="/images/theme-gemini.png" alt="TrueForge UI with the gemini theme preset" />
+  </Frame>
+</Columns>
+
 ## Precedence
 
 The provider resolves the preset for the current mode, merges your `theme.tokens` over it, and
@@ -136,15 +150,3 @@ const tokens = resolvePresetTokens("gemini", "dark");
 ```
 
 `PRESETS` is a `Record<ThemePreset, { light, dark }>` — useful for building a preset picker.
-
-<Columns cols={3}>
-  <Frame caption="chatgpt">
-    <img src="/images/theme-chatgpt.png" alt="TrueForge UI with the chatgpt theme preset" />
-  </Frame>
-  <Frame caption="claude">
-    <img src="/images/theme-claude.png" alt="TrueForge UI with the claude theme preset" />
-  </Frame>
-  <Frame caption="gemini">
-    <img src="/images/theme-gemini.png" alt="TrueForge UI with the gemini theme preset" />
-  </Frame>
-</Columns>
