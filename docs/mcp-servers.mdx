@@ -30,6 +30,17 @@ An MCP server is configured with a small manifest:
 
 Register it with `PUT /api/v1/settings/mcp-servers` (or through the UI). A catalog of popular servers is available at `GET /api/v1/settings/mcp-servers/catalog`, and you can verify connectivity with `GET /api/v1/settings/mcp-servers/{name}/tools`, which lists the server's live tools.
 
+<div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.75", padding: "40px 0" }}>
+  <iframe
+    src="https://app.supademo.com/embed/cmsk7ca2801l91t0jwyiwj78i?embed_v=2&utm_source=embed"
+    loading="lazy"
+    title="Register a remote MCP server in TrueForge"
+    allow="clipboard-write"
+    allowFullScreen
+    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
+  />
+</div>
+
 ### Authentication options
 
 - **No auth** — public or network-trusted servers.

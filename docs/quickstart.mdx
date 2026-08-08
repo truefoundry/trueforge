@@ -70,7 +70,7 @@ description: 'Run TrueForge with one command, configure a model provider, and ha
 TrueForge ships with a catalog of model providers. Configure one before your first chat:
 
 <Steps>
-  <Step title="Open Settings">In the UI, open **Settings → Model Providers**.</Step>
+  <Step title="Open Settings">In the UI, open **Settings → Models**.</Step>
   <Step title="Pick a provider">
     Choose a provider from the catalog — OpenAI, Anthropic, Google Gemini, or an OpenAI-compatible endpoint — and paste
     your API key.
@@ -82,6 +82,17 @@ TrueForge ships with a catalog of model providers. Configure one before your fir
 
 Everything you can do in Settings is also available through the API — see `GET /api/v1/settings/model-providers/catalog` and `PUT /api/v1/settings/model-providers` in the interactive API docs at `/api/v1/docs`.
 
+<div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.75", padding: "40px 0" }}>
+  <iframe
+    src="https://app.supademo.com/embed/cmsk7202v01l51t0jkq022fjk?embed_v=2&utm_source=embed"
+    loading="lazy"
+    title="Configure a model provider in TrueForge"
+    allow="clipboard-write"
+    allowFullScreen
+    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
+  />
+</div>
+
 ## Start chatting
 
 Send your first message. Out of the box the agent supports multi-turn conversations with streaming. To give it more capabilities:
@@ -89,6 +100,17 @@ Send your first message. Out of the box the agent supports multi-turn conversati
 - **Connect tools** — add [MCP servers](/mcp-servers) under **Settings → MCP Servers**.
 - **Enable the sandbox** — configure a [sandbox provider](/sandbox) so the agent can run code and use [skills](/skills).
 - **Add skills** — register [git-backed skills](/skills) under **Settings → Skills**.
+
+<div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.46", padding: "40px 0" }}>
+  <iframe
+    src="https://app.supademo.com/embed/cmsk13xio00k81p0j1wj6amj6?embed_v=2&utm_source=embed"
+    loading="lazy"
+    title="Chat with an agent in TrueForge"
+    allow="clipboard-write"
+    allowFullScreen
+    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
+  />
+</div>
 
 ## Call the API
 
