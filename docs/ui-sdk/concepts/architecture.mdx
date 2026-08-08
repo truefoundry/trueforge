@@ -6,7 +6,7 @@ description: "The pieces you compose: providers, layouts, containers, and slots.
 You can use the SDK at three levels of control. Most applications stay at the first.
 
 <Steps>
-  <Step title="Drop in TrueforgeUI">
+  <Step title="Simply use TrueforgeUI">
     One component, a `server` and a `layout`. It mounts everything it needs internally.
   </Step>
   <Step title="Supply your own layout">
@@ -21,16 +21,11 @@ You can use the SDK at three levels of control. Most applications stay at the fi
 
 Two kinds of component are exported, and the distinction determines which one you reach for.
 
-**Containers** are connected to the chat runtime. `ThreadContainer`, `ComposerContainer`, and
-`ThreadListContainer` know how to read messages, stream responses, and switch sessions. They
-take few props because they get their data from context. Use them to assemble a layout.
+**Containers** are connected to the chat runtime. `ThreadContainer`, `ComposerContainer`, and `ThreadListContainer` know how to read messages, stream responses, and switch sessions. They take few props because they get their data from context. Use them to assemble a layout.
 
-**Atoms** are presentational. `AssistantMessageBubble`, `ComposerShell`, and `ToolCallCard`
-take everything they render as props and hold no runtime state. You rarely render an atom
-directly — instead you replace one, and the container that renders it picks up your version.
+**Atoms** are presentational. `AssistantMessageBubble`, `ComposerShell`, and `ToolCallCard` take everything they render as props and hold no runtime state. You rarely render an atom directly — instead you replace one, and the container that renders it picks up your version.
 
-That replacement is what `overrides` does: name a component, supply your own, and it is used
-everywhere that component appears. See [Slot overrides](/ui-sdk/guides/slot-overrides).
+That replacement is what `overrides` does: name a component, supply your own, and it is used everywhere that component appears. See [Slot overrides](/ui-sdk/guides/slot-overrides).
 
 ## Provider stack
 
@@ -51,18 +46,11 @@ everywhere that component appears. See [Slot overrides](/ui-sdk/guides/slot-over
 Order matters: `SlotsProvider` must be outside `TrueFoundryChatProvider`.
 
 <Warning>
-  Composing manually means you own runtime resets. `TrueforgeUI` remounts the chat runtime
-  when the selected agent changes, a new draft starts, or the chat is cleared; a hand-rolled
-  stack does not. Change the `key` on `TrueFoundryChatProvider` yourself at those moments, or
-  stale messages carry over between agents.
+  Composing manually means you own runtime resets. `TrueforgeUI` remounts the chat runtime when the selected agent changes, a new draft starts, or the chat is cleared; a hand-rolled stack does not. Change the `key` on `TrueFoundryChatProvider` yourself at those moments, or stale messages carry over between agents.
 </Warning>
 
 ## Styling hooks
 
-These class names and attributes are stable and safe to target from your own CSS:
-`.aui-root`, `.aui-theme-root`, `.aui-markdown`, `.aui-syntax-highlighter`, `.aui-openui`,
-`.aui-monaco`, plus `data-slot` attributes on individual components. Most slot values are
-prefixed `aui_`, but not all — `avatar`, `tool-call-card`, and `tool-group-card` are among the
-unprefixed ones, so inspect the element rather than assuming the prefix.
+These class names and attributes are stable and safe to target from your own CSS: `.aui-root`, `.aui-theme-root`, `.aui-markdown`, `.aui-syntax-highlighter`, `.aui-openui`, `.aui-monaco`, plus `data-slot` attributes on individual components. Most slot values are prefixed `aui_`, but not all — `avatar`, `tool-call-card`, and `tool-group-card` are among the unprefixed ones, so inspect the element rather than assuming the prefix.
 
 For token-level changes, prefer [theming](/ui-sdk/guides/theming) over CSS overrides.
