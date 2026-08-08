@@ -9,9 +9,10 @@ description: "Server factory, context hooks, shell mode, and contract types."
 createTrueFoundryServer(options: CreateTrueFoundryServerOptions): TrueFoundryServer;
 ```
 
-Options: `{ chatServer, getModels, getSkills, getMcp, searchAgents, saveAgent, deleteAgent?, catalog? }`.
+Options: `{ chatServer, getCapabilities, getModels, getSkills, getMcp, searchAgents, saveAgent, deleteAgent?, catalog? }`.
 Combines a chat server with your agent-management callbacks into a complete `AgentUIServer`.
-If you omit `deleteAgent`, calling it throws — supply one to support agent deletion.
+`deleteAgent` and `catalog` are the only optional entries; if you omit `deleteAgent`, calling it
+throws.
 
 ## Context
 
@@ -20,6 +21,7 @@ If you omit `deleteAgent`, calling it throws — supply one to support agent del
 | `ServerProvider` | Supplies the resolved server. |
 | `useServer()` | The server; throws outside a provider. |
 | `useOptionalServer()` | The server, or `null` outside a provider. |
+| `useServerCapabilities()` | Resolved `getCapabilities()` data, or `null` while loading or on failure. |
 | `useCatalogServer()` | `server.catalog`; **throws** when absent. |
 | `useOptionalCatalogServer()` | `server.catalog`, or `null` when there is none. |
 
@@ -45,8 +47,9 @@ to reference:
 
 <AccordionGroup>
   <Accordion title="Server interfaces">
-    `AgentUIServer`, `AgentChatServer`, `AgentBuilderServer`, `CatalogServer`,
-    `TrueforgeServerConfig`, `CreateTrueFoundryServerOptions`, `TrueFoundryServer`.
+    `AgentUIServer`, `AgentChatServer`, `AgentBuilderServer`,
+    `AgentBuilderCapabilitiesResponse`, `CatalogServer`, `TrueforgeServerConfig`,
+    `CreateTrueFoundryServerOptions`, `TrueFoundryServer`.
   </Accordion>
   <Accordion title="Sessions and turns">
     `Session`, `CreateSessionRequest`, `UpdateSessionRequest`, `Turn`, `TurnState`,

@@ -6,9 +6,6 @@
 /** Browser entry for OIDC login (not available as an SDK method). */
 export const AUTH_LOGIN_HREF = '/api/v1/auth/login';
 
-/** Post-logout landing (separate from login failure `?error=`). */
-export const AUTH_LOGGED_OUT_HREF = '/?logged_out';
-
 export function createAuthAwareFetch(baseFetch: typeof fetch = globalThis.fetch.bind(globalThis)): typeof fetch {
   let redirecting = false;
 

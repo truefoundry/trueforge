@@ -15,7 +15,7 @@ import type {
   ToolBase,
   UpdateConnectorRequest,
 } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi as Harness } from 'trueforge';
+import type { TrueForgeApi } from 'trueforge-sdk';
 import { harnessClient as client } from './harnessClient';
 
 export type UiConnectorAuth = ConnectorAuth;
@@ -25,7 +25,7 @@ export type UiConnectorCatalogEntry = ConnectorCatalogEntry;
 
 const DEFAULT_API_KEY_HEADER = 'Authorization';
 
-export function toUiAuthPublic(auth: Harness.ConfiguredMcpServerAuth | undefined): UiConnectorAuthPublic {
+export function toUiAuthPublic(auth: TrueForgeApi.ConfiguredMcpServerAuth | undefined): UiConnectorAuthPublic {
   if (auth === undefined) {
     return { type: 'none' };
   }
@@ -39,7 +39,7 @@ export function toUiAuthPublic(auth: Harness.ConfiguredMcpServerAuth | undefined
   };
 }
 
-export function toHarnessAuth(auth: ConnectorAuth): Harness.ConfiguredMcpServerAuth | undefined {
+export function toHarnessAuth(auth: ConnectorAuth): TrueForgeApi.ConfiguredMcpServerAuth | undefined {
   if (auth.type === 'none') {
     return undefined;
   }
@@ -55,7 +55,7 @@ export function toHarnessAuth(auth: ConnectorAuth): Harness.ConfiguredMcpServerA
   return { type: 'header', headers: { [headerName]: apiKey } };
 }
 
-export function toUiCatalogEntry(server: Harness.CatalogMcpServer): UiConnectorCatalogEntry {
+export function toUiCatalogEntry(server: TrueForgeApi.CatalogMcpServer): UiConnectorCatalogEntry {
   return {
     id: server.name,
     name: server.name,
@@ -71,7 +71,7 @@ export function toUiTool(tool: Record<string, unknown>): ToolBase {
   return { id: name, name, description };
 }
 
-export function toUiConnector(server: Harness.ConfiguredMcpServer): UiConnector {
+export function toUiConnector(server: TrueForgeApi.ConfiguredMcpServer): UiConnector {
   const auth = toUiAuthPublic(server.auth);
   return {
     id: server.name,
@@ -87,7 +87,7 @@ export function toUiConnector(server: Harness.ConfiguredMcpServer): UiConnector 
 export interface HarnessMcpUpsert {
   name: string;
   url: string;
-  auth?: Harness.ConfiguredMcpServerAuth;
+  auth?: TrueForgeApi.ConfiguredMcpServerAuth;
 }
 
 export function toHarnessManifest(req: { name: string; url: string; auth: ConnectorAuth }): HarnessMcpUpsert {
@@ -99,7 +99,7 @@ export function toHarnessManifest(req: { name: string; url: string; auth: Connec
   };
 }
 
-async function getConfigured(name: string): Promise<Harness.ConfiguredMcpServer> {
+async function getConfigured(name: string): Promise<TrueForgeApi.ConfiguredMcpServer> {
   const listed = await client.settings.mcpServers.list();
   const existing = listed.data.find(server => server.name === name);
   if (existing === undefined) {

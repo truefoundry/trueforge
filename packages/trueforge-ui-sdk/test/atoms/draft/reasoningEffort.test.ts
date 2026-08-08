@@ -47,9 +47,15 @@ describe('modelPatchWithReasoningEffort', () => {
       params: { maxTokens: 100, reasoningEffort: 'low' },
     });
 
+    // `undefined` must be present so mergeAgentSpec overwrites a sticky effort.
     expect(modelPatchWithReasoningEffort('m', { maxTokens: 100, reasoningEffort: 'high' }, [])).toEqual({
       name: 'm',
-      params: { maxTokens: 100 },
+      params: { maxTokens: 100, reasoningEffort: undefined },
+    });
+
+    expect(modelPatchWithReasoningEffort('m', { reasoningEffort: 'high' }, undefined)).toEqual({
+      name: 'm',
+      params: { reasoningEffort: undefined },
     });
   });
 });

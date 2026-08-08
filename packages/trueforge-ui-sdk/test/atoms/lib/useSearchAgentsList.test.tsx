@@ -20,8 +20,11 @@ describe('useSearchAgentsList', () => {
   });
 
   it('fetches the first page when enabled and paginates via loadMore sentinel', async () => {
-    const page1 = Array.from({ length: SEARCH_AGENTS_PAGE_SIZE }, (_, i) => ({ name: `agent-${i}` }));
-    const page2 = [{ name: 'agent-extra' }];
+    const page1 = Array.from({ length: SEARCH_AGENTS_PAGE_SIZE }, (_, i) => ({
+      name: `agent-${i}`,
+      agentId: `agent-${i}`,
+    }));
+    const page2 = [{ name: 'agent-extra', agentId: 'agent-extra' }];
     const searchAgents = vi.fn().mockResolvedValueOnce(page1).mockResolvedValueOnce(page2);
 
     const server = createMockAgentUIServer({ searchAgents });
@@ -80,7 +83,9 @@ describe('useSearchAgentsList', () => {
 
   it('debounces query changes before re-fetching', async () => {
     vi.useFakeTimers();
-    const searchAgents = vi.fn(async ({ query }: { query?: string } = {}) => [{ name: query ?? 'all' }]);
+    const searchAgents = vi.fn(async ({ query }: { query?: string } = {}) => [
+      { name: query ?? 'all', agentId: query ?? 'all' },
+    ]);
     const server = createMockAgentUIServer({ searchAgents });
 
     const { result, rerender } = renderHook(
@@ -105,6 +110,6 @@ describe('useSearchAgentsList', () => {
     });
     expect(searchAgents).toHaveBeenCalledTimes(2);
     expect(searchAgents).toHaveBeenLastCalledWith({ query: 'alpha', limit: SEARCH_AGENTS_PAGE_SIZE, offset: 0 });
-    expect(result.current.agents).toEqual([{ name: 'alpha' } satisfies AgentLibraryEntry]);
+    expect(result.current.agents).toEqual([{ name: 'alpha', agentId: 'alpha' } satisfies AgentLibraryEntry]);
   });
 });

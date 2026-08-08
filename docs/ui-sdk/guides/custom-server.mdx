@@ -73,6 +73,9 @@ export const server: AgentUIServer = {
   },
 
   // builder
+  async getCapabilities() {
+    return { data: { sandbox: { enabled: false }, skill: { enabled: false } } };
+  },
   async getModels() {
     return [{ name: "my-model", provider: "my-provider" }];
   },
@@ -83,13 +86,17 @@ export const server: AgentUIServer = {
     return [];
   },
   async searchAgents() {
-    return [{ name: "support-agent" }];
+    return [{ agentId: "support-agent", name: "Support agent" }];
   },
   async saveAgent() {
     return {};
   },
 };
 ```
+
+Declaring `sandbox` and `skill` as disabled is the honest starting point — the UI then hides
+those affordances instead of offering controls your backend cannot serve. Flip them on as you
+implement each.
 
 ```tsx title="App.tsx"
 <TrueforgeUI server={server} layout="sidebar" agentConfig={{ mode: "AgentLibrary" }} />

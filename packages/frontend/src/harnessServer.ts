@@ -28,33 +28,37 @@ import type {
   TurnInputItem,
   UserMessageContent,
 } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi as Harness } from 'trueforge';
+import type { TrueForgeApi } from 'trueforge-sdk';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 export type HarnessSkillMount = SkillMount;
-export type HarnessMcpServerMount = McpServerMount & Harness.McpServer;
+export type HarnessMcpServerMount = McpServerMount & TrueForgeApi.McpServer;
 
-export interface HarnessAgentSpec extends AgentSpec<Harness.AgentSpecModel, HarnessSkillMount, HarnessMcpServerMount> {
-  config?: Harness.RuntimeConfig;
+export interface HarnessAgentSpec extends AgentSpec<
+  TrueForgeApi.AgentSpecModel,
+  HarnessSkillMount,
+  HarnessMcpServerMount
+> {
+  config?: TrueForgeApi.RuntimeConfig;
   instructions?: string;
-  messages?: Harness.AgentSpecUserMessage[];
-  responseFormat?: Harness.ResponseFormat;
+  messages?: TrueForgeApi.AgentSpecUserMessage[];
+  responseFormat?: TrueForgeApi.ResponseFormat;
   variables?: Record<string, string>;
 }
 
 export type CreateHarnessServerOptions = CreateHarnessClientOptions;
 
 /** Mount ids are derived, not stored: Harness returns MCP servers keyed by name. */
-function toUiMcpServer(server: Harness.McpServer): HarnessMcpServerMount {
+function toUiMcpServer(server: TrueForgeApi.McpServer): HarnessMcpServerMount {
   return { ...server, id: server.name };
 }
 
 /** Skill ids are derived from the name ref Harness persists. */
-function toUiSkill(skill: Harness.SkillNameRef): HarnessSkillMount {
+function toUiSkill(skill: TrueForgeApi.SkillNameRef): HarnessSkillMount {
   return { id: skill.name, name: skill.name };
 }
 
 /** Strip UI-only `id` before admission; Harness skills are name refs only. */
-export function toHarnessAgentSpec(spec: HarnessAgentSpec): Harness.AgentSpec {
+export function toHarnessAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSpec {
   const { skills, mcpServers, ...rest } = spec;
   return {
     ...rest,
@@ -71,7 +75,7 @@ export function toHarnessAgentSpec(spec: HarnessAgentSpec): Harness.AgentSpec {
   };
 }
 
-export function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
+export function toUiAgentSpec(spec: TrueForgeApi.AgentSpec): HarnessAgentSpec {
   const { mcpServers, skills, ...rest } = spec;
   return {
     ...rest,
@@ -81,14 +85,14 @@ export function toUiAgentSpec(spec: Harness.AgentSpec): HarnessAgentSpec {
 }
 
 /** Drop registry identity columns so the rest is a plain AgentSpec. */
-export function agentManifest(agent: Harness.Agent): Harness.AgentSpec {
+export function agentManifest(agent: TrueForgeApi.Agent): TrueForgeApi.AgentSpec {
   const { id, name, ...spec } = agent;
   void id;
   void name;
   return spec;
 }
 
-function toUiSession(session: Harness.Session): Session<HarnessAgentSpec> {
+function toUiSession(session: TrueForgeApi.Session): Session<HarnessAgentSpec> {
   return {
     id: session.id,
     isMutable: session.agent.type === 'inline',
@@ -103,15 +107,15 @@ function toUiSession(session: Harness.Session): Session<HarnessAgentSpec> {
 }
 
 /** Spread drops the interface identity, which is what makes the SDK's index-signature part type accept it. */
-function toUiContent(content: Harness.UserMessageContent): UserMessageContent {
+function toUiContent(content: TrueForgeApi.UserMessageContent): UserMessageContent {
   return typeof content === 'string' ? content : content.map(part => ({ ...part }));
 }
 
-function toUiInput(input: Harness.TurnInputItem[]): TurnInputItem[] {
+function toUiInput(input: TrueForgeApi.TurnInputItem[]): TurnInputItem[] {
   return input.map(item => (item.type === 'user.message' ? { ...item, content: toUiContent(item.content) } : item));
 }
 
-function toUiTurn(turn: Harness.Turn): Turn {
+function toUiTurn(turn: TrueForgeApi.Turn): Turn {
   const { previousTurnId, input, ...rest } = turn;
   return {
     ...rest,
@@ -120,17 +124,17 @@ function toUiTurn(turn: Harness.Turn): Turn {
   };
 }
 
-function toUiEvent(event: Harness.SessionEvent | Harness.TurnStreamingEvent): SessionEvent {
+function toUiEvent(event: TrueForgeApi.SessionEvent | TrueForgeApi.TurnStreamingEvent): SessionEvent {
   return { ...event };
 }
 
-function toUiEventItem(item: Harness.SessionEventItem): SessionEventItem {
+function toUiEventItem(item: TrueForgeApi.SessionEventItem): SessionEventItem {
   return { turnId: item.turnId, event: toUiEvent(item.event) };
 }
 
 interface HarnessPageSource<T> {
   data: T[];
-  response: { pagination: Harness.TokenPagination };
+  response: { pagination: TrueForgeApi.TokenPagination };
   getNextPage(): Promise<HarnessPageSource<T>>;
 }
 
@@ -158,7 +162,7 @@ function sequenceNumber(id: string | undefined, fallback: number): number {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
-function toHarnessContent(content: UserMessageContent): Harness.UserMessageContent {
+function toHarnessContent(content: UserMessageContent): TrueForgeApi.UserMessageContent {
   if (typeof content === 'string') return content;
   return content.map(part => {
     if (part.type === 'text') return part;
@@ -170,7 +174,7 @@ function toHarnessContent(content: UserMessageContent): Harness.UserMessageConte
   });
 }
 
-function toHarnessInput(input: TurnInputItem[]): Harness.TurnInputItem[] {
+function toHarnessInput(input: TurnInputItem[]): TrueForgeApi.TurnInputItem[] {
   return input.map(item =>
     item.type === 'user.message' ? { ...item, content: toHarnessContent(item.content) } : item,
   );

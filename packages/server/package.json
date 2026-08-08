@@ -20,6 +20,7 @@
     "dev": "pnpm run \"/^(build:gen:watch|dev:serve)$/\"",
     "dev:no-watch": "NODE_OPTIONS='--conditions=development' NODE_ENV=development tsx --env-file=.env src/main.ts",
     "start": "NODE_ENV=production node --env-file=.env dist/main.js",
+    "push-sandbox-image-to-daytona": "node scripts/push-sandbox-image-to-daytona.mjs",
     "migrate": "NODE_OPTIONS='--conditions=development' STANDALONE=false tsx --env-file=.env src/db/postgres/migrate-cli.ts",
     "openapi:write": "pnpm run build:gen && NODE_OPTIONS='--conditions=development' tsx --env-file=.env.test scripts/write-openapi.ts",
     "pack:dry": "pnpm pack --dry-run",

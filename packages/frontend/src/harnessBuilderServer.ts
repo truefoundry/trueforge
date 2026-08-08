@@ -8,7 +8,7 @@ import type {
   ModelSelection,
   SearchAgentsParams,
 } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi as Harness } from 'trueforge';
+import type { TrueForgeApi } from 'trueforge-sdk';
 import { listConfiguredMcpServers, listModels, listSkills } from './composerLists';
 import { toUiConnector } from './connectorCatalog';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
@@ -20,7 +20,7 @@ export function providerOf(name: string): string {
 }
 
 /** Map harness model rows onto the UI picker shape (incl. reasoning-effort options). */
-export function toModelSelection(model: Harness.Model): ModelSelection {
+export function toModelSelection(model: TrueForgeApi.Model): ModelSelection {
   const efforts = model.properties.reasoningEfforts;
   return {
     name: model.name,
@@ -29,7 +29,7 @@ export function toModelSelection(model: Harness.Model): ModelSelection {
   };
 }
 
-function toLibraryEntry(agent: Harness.Agent): AgentLibraryEntry {
+function toLibraryEntry(agent: TrueForgeApi.Agent): AgentLibraryEntry {
   return {
     name: agent.name,
     agentId: agent.id,

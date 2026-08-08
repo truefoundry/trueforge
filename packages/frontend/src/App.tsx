@@ -1,12 +1,13 @@
 import { createTrueFoundryServer, TrueforgeUI, type SlotOverrides } from '@truefoundry/trueforge-ui';
 import { useEffect, useMemo, useState } from 'react';
 import { AuthErrorScreen } from './AuthErrorScreen';
-import { isLoggedOutSearch, parseAuthErrorReason } from './authStatusSearch';
+import { probeSession, type SessionState } from './authSession';
+import { parseAuthErrorReason } from './authStatusSearch';
 import { getCapabilities, listModels } from './composerLists';
 import { createConnectorCatalog } from './connectorCatalog';
+import { GetStartedScreen } from './GetStartedScreen';
 import { createHarnessBuilderServer } from './harnessBuilderServer';
 import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';
-import { LoggedOutScreen } from './LoggedOutScreen';
 import { LogoutButton } from './LogoutButton';
 import { createModelProviderCatalog } from './modelProviderCatalog';
 import { createSandboxProviderCatalog } from './sandboxProviderCatalog';
@@ -31,14 +32,29 @@ type BootState =
   | { status: 'ready'; defaultAgentSpec: HarnessAgentSpec; openSettings: boolean };
 
 export function App() {
-  const search = window.location.search;
-  const loggedOut = isLoggedOutSearch(search);
-  const authError = parseAuthErrorReason(search);
-  const skipBoot = loggedOut || authError != null;
+  const authError = parseAuthErrorReason(window.location.search);
+  const [session, setSession] = useState<SessionState | 'checking'>('checking');
   const [boot, setBoot] = useState<BootState>({ status: 'loading' });
 
+  // Gate boot on a non-redirecting `/me` probe: unauthenticated users see the
+  // welcome screen instead of being bounced to login by the auth-aware fetch.
   useEffect(() => {
-    if (skipBoot) {
+    if (authError != null) {
+      return;
+    }
+    const state = { cancelled: false };
+    void probeSession().then(result => {
+      if (!state.cancelled) {
+        setSession(result);
+      }
+    });
+    return () => {
+      state.cancelled = true;
+    };
+  }, [authError]);
+
+  useEffect(() => {
+    if (session !== 'authenticated') {
       return;
     }
     const state = { cancelled: false };
@@ -85,16 +101,20 @@ export function App() {
     return () => {
       state.cancelled = true;
     };
-  }, [skipBoot]);
+  }, [session]);
 
   const overrides: SlotOverrides = useMemo(() => ({ ShellActionsActionSlot: LogoutButton }), []);
 
-  if (loggedOut) {
-    return <LoggedOutScreen />;
-  }
-
   if (authError != null) {
     return <AuthErrorScreen reason={authError} />;
+  }
+
+  if (session === 'checking') {
+    return <div className="boot-screen">Loading application…</div>;
+  }
+
+  if (session === 'unauthenticated') {
+    return <GetStartedScreen />;
   }
 
   if (boot.status === 'error') {
