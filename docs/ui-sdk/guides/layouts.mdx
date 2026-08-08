@@ -13,6 +13,10 @@ description: "The four built-in layouts, and how to supply your own."
     ```tsx
     <TrueforgeUI server={server} layout="sidebar" />
     ```
+
+    <Frame caption="Sidebar: full-page chat with the thread list pinned on the left.">
+      <img src="/images/sidebar.png" alt="Sidebar layout — a persistent thread list on the left beside a full-page chat" />
+    </Frame>
   </Tab>
   <Tab title="drawer">
     Thread list collapses into an overlay drawer. Suited to narrower viewports.
@@ -20,6 +24,10 @@ description: "The four built-in layouts, and how to supply your own."
     ```tsx
     <TrueforgeUI server={server} layout="drawer" />
     ```
+
+    <Frame caption="Drawer: the thread list collapses into an overlay for narrow viewports.">
+      <img src="/images/drawer.png" alt="Drawer layout — the thread list collapsed into an overlay drawer" />
+    </Frame>
   </Tab>
   <Tab title="dock">
     A panel pinned to the right edge, filling the available width up to a 400px cap. The side is
@@ -28,6 +36,10 @@ description: "The four built-in layouts, and how to supply your own."
     ```tsx
     <TrueforgeUI server={server} layout="dock" />
     ```
+
+    <Frame caption="Dock: a compact panel pinned to the right edge, up to a 400px cap.">
+      <img src="/images/dock.png" alt="Dock layout — a compact chat panel pinned to the right edge of the app" />
+    </Frame>
   </Tab>
   <Tab title="widget">
     Floating launcher that expands into a compact chat panel.
@@ -35,6 +47,10 @@ description: "The four built-in layouts, and how to supply your own."
     ```tsx
     <TrueforgeUI server={server} layout="widget" />
     ```
+
+    <Frame caption="Widget: a floating launcher that expands into a compact chat panel.">
+      <img src="/images/widget.png" alt="Widget layout — a floating launcher expanded into a compact chat panel" />
+    </Frame>
   </Tab>
 </Tabs>
 
@@ -68,6 +84,10 @@ function MyLayout() {
 
 <TrueforgeUI server={server} layout={MyLayout} />;
 ```
+
+<Frame caption="A custom layout renders inside the full provider stack, so every container hook still works.">
+  <img src="/images/custom.png" alt="A custom TrueForge layout composed from a thread list and a chat pane" />
+</Frame>
 
 `Thread` is a convenience wrapper equal to
 `<ThreadContainer composer={<ComposerContainer />} />`. Split them apart when you need the
