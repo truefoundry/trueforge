@@ -3,42 +3,54 @@ title: "TrueForge UI SDK"
 description: "A themeable React SDK for building AI agent chat applications."
 ---
 
-`@truefoundry/trueforge-ui` gives you a production-ready agent chat experience — streaming
-responses, session history, tool calls with approvals, sub-agents, reasoning traces,
-attachments, and an agent library — as a single React component you can drop into an
-existing app. It is built on [assistant-ui](https://www.assistant-ui.com/) and follows
-shadcn/ui conventions, so branding, layout, and individual components stay under your
-control.
+`@truefoundry/trueforge-ui` provides a production-ready agent chat experience as a single, reusable React component that can be integrated into an existing application.
+
+It supports:
+
+- Streaming responses
+- Session history
+- Tool calls and approval workflows
+- File attachments
+- Agent library with compose new agent option
+- Sub-agents
+- Reasoning traces
+- Model, MCP, Skill and Sandbox connector
+- Configurable server - TrueForge, TrueFoundry or fully custom 
+
+The component is built on assistant-ui and follows shadcn/ui conventions. This allows you to customize the branding, layout, and individual UI components while retaining full control over the application’s look and feel
 
 <Frame caption="A TrueForge UI chat session — streaming response, agent steps, and tool calls.">
-  <img
-    src="/images/hero.png"
-    alt="The TrueForge UI SDK rendering an agent chat with an expandable agent-steps panel and a streamed response"
-  />
+  ![The TrueForge UI SDK rendering an agent chat with an expandable agent-steps panel and a streamed response](/images/hero.png)
 </Frame>
 
 <CardGroup cols={2}>
   <Card title="Installation" icon="download" href="/ui-sdk/get-started/installation">
     Install the package, wire up the stylesheet, and satisfy the peer dependencies.
   </Card>
+
   <Card title="Quickstart" icon="rocket" href="/ui-sdk/get-started/quickstart">
     A working chat UI in about fifteen lines of JSX.
   </Card>
+
   <Card title="Architecture" icon="layer-group" href="/ui-sdk/concepts/architecture">
     How atoms, containers, layouts, and slots fit together.
   </Card>
+
   <Card title="API reference" icon="code" href="/ui-sdk/reference/trueforge-ui">
     Every export, prop, and type.
   </Card>
 </CardGroup>
 
-## What you get
+## Interactive Controls & Code Examples
 
-The SDK ships one entry component, `TrueforgeUI`, which mounts its own provider stack and
-renders either one of four built-in layouts or a layout you write. Everything below that is
-prop-driven: pick a server, pick a layout, optionally pass a theme and a set of slot overrides.
+The hosted webapp provides an interactive interface for exploring and configuring all available controls and properties.
 
-Backends are pluggable. Point the SDK at a TrueFoundry control plane, or implement the
-`AgentUIServer` interface yourself and hand the object straight to the component. A third
-option, `type: "trueforge"` for the harness adapter, is typed but not yet implemented. The
-[quickstart](/ui-sdk/get-started/quickstart) covers all three.
+You can:
+
+- Configure and preview component properties
+- Override default settings
+- Generate a code snippet based on your configuration
+
+This provides a simple way to experiment with configurations and quickly integrate the resulting setup into your application.
+
+[https://ui.trueforge.dev/](https://ui.trueforge.dev/)
