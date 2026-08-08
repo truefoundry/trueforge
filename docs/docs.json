@@ -13,9 +13,9 @@
   },
   "description": "Open-source agent harness — MCP tools, skills, sandboxing, approvals, and subagents.",
   "colors": {
-    "primary": "#0D9488",
-    "light": "#14B8A6",
-    "dark": "#0F766E"
+    "primary": "#4f46e5",
+    "light": "#4f46e5",
+    "dark": "#4f46e5"
   },
   "topbarLinks": [
     {
