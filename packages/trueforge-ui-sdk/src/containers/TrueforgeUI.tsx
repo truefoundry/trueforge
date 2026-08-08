@@ -40,6 +40,8 @@ export type TrueforgeUIProps = {
    * Defaults to `{ mode: "AgentLibraryWithComposer" }`.
    */
   agentConfig?: AgentConfig;
+  /** Open settings on first paint only (host boot with no models configured). */
+  initialSettingsOpen?: boolean;
 };
 
 function LayoutFallback({ className }: { className?: string }) {
@@ -206,6 +208,7 @@ function TrueforgeUIShell(props: TrueforgeUIProps) {
     theme,
     className,
     agentConfig = DEFAULT_AGENT_CONFIG,
+    initialSettingsOpen = false,
     server: serverConfig,
     onError,
     ...providerRest
@@ -235,7 +238,7 @@ function TrueforgeUIShell(props: TrueforgeUIProps) {
   return (
     <SlotsProvider overrides={overrides} theme={theme}>
       <ServerProvider server={server}>
-        <ShellModeProvider agentConfig={agentConfig}>
+        <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
           <ChatProviderFromShell server={server} onError={onError} {...providerRest}>
             {layoutTree}
           </ChatProviderFromShell>

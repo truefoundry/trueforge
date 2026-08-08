@@ -1,16 +1,16 @@
 apiVersion: v2
-name: trueforge
-description: TrueForge server (API + UI) served from a single container image.
+name: truefoundry-utils
+description: TrueFoundry Utils server (API + UI) served from a single container image.
 type: application
-# version (chart) and appVersion are stamped from the release tag by
-# .github/workflows/release-image-and-chart.yml; the committed values are the
-# last release.
+# version (chart) and appVersion are stamped at publish time by
+# .github/workflows/release-image-and-chart.yml (workflow_dispatch, commit SHA);
+# committed values are placeholders until that workflow runs.
 version: 0.0.1
 appVersion: "0.0.1"
 kubeVersion: ">=1.25.0-0"
-home: https://github.com/truefoundry/trueforge
+home: https://truefoundry.com
 sources:
-  - https://github.com/truefoundry/trueforge
+  - https://truefoundry.com
 maintainers:
   - name: TrueFoundry
     url: https://truefoundry.com

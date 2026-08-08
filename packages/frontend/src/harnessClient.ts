@@ -5,7 +5,7 @@
  *
  * Default `fetch` intercepts 401 and sends the browser through OIDC login.
  */
-import { TrueForge } from 'trueforge';
+import { TrueForge } from 'trueforge-sdk';
 import { createAuthAwareFetch } from './authFetch';
 
 export interface CreateHarnessClientOptions {

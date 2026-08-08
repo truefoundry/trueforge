@@ -6,13 +6,19 @@ import { createPortal } from 'react-dom';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import type { AgentLibraryEntry } from '../server/types.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { useCompactLayout } from './lib/CompactLayoutContext.js';
 import { useIsMobile } from './lib/useIsMobile.js';
+import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { BottomSheet } from './primitives/BottomSheet.js';
+import { DropdownMenuItem } from './primitives/DropdownMenu.js';
 import SearchInput from './primitives/SearchInput.js';
+
+/** Keep portaled chrome under ThemeProvider so preset/custom CSS vars still apply. */
+function themePortalRoot(from: HTMLElement | null): HTMLElement {
+  return from?.closest('.aui-theme-root') ?? document.body;
+}
 
 /**
  * Funnel popover for filtering chat history by agent id.
@@ -27,8 +33,6 @@ export function AgentHistoryFilterButton() {
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [agents, setAgents] = useState<AgentLibraryEntry[]>([]);
-  const [loading, setLoading] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -38,28 +42,13 @@ export function AgentHistoryFilterButton() {
   const selected = shell?.historyAgentFilter ?? null;
 
   useEffect(() => {
-    if (!open) {
-      setQuery('');
-      return;
-    }
-    if (!server) return;
-    let cancelled = false;
-    setLoading(true);
-    void server
-      .searchAgents({ query: query.trim() || undefined, limit: 50 })
-      .then(rows => {
-        if (!cancelled) setAgents(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setAgents([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, query, server]);
+    if (!open) setQuery('');
+  }, [open]);
+
+  const { agents, isInitialLoading, isSearching, loadingMore, hasMore, listRef, sentinelRef } = useSearchAgentsList({
+    enabled: open && enabled,
+    query,
+  });
 
   // Desktop only: anchor to the right of the funnel; portal escapes sidebar overflow.
   useLayoutEffect(() => {
@@ -103,43 +92,47 @@ export function AgentHistoryFilterButton() {
     <>
       <div className="p-1" onMouseDown={e => e.stopPropagation()}>
         <SearchInput query={query} setQuery={setQuery} placeholder="Search agents" />
+        {isSearching ? (
+          <p className="text-muted-foreground px-1 pt-1 text-[11px]" role="status">
+            Searching…
+          </p>
+        ) : null}
       </div>
-      <div className={cn('mt-1 overflow-y-auto', useSheet ? 'min-h-0 flex-1 px-1 pb-2' : 'max-h-64')}>
-        <button
-          type="button"
-          role="menuitem"
-          className={cn(
-            'flex w-full cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-sm outline-none',
-            'hover:bg-accent hover:text-accent-foreground',
-            selected == null && 'bg-accent',
-          )}
+      <div ref={listRef} className={cn('mt-1 overflow-y-auto', useSheet ? 'min-h-0 flex-1 px-1 pb-2' : 'max-h-64')}>
+        <DropdownMenuItem
+          className={cn('justify-between', selected == null && 'bg-accent text-accent-foreground')}
           onClick={() => pick(null)}
         >
           All chats
           {selected == null ? <Icon name="check" className="size-3.5 shrink-0" /> : null}
-        </button>
-        {loading ? (
+        </DropdownMenuItem>
+        {isInitialLoading ? (
           <p className="px-2 py-3 text-center text-xs text-muted-foreground">Loading…</p>
         ) : (
-          agents.map(agent => {
-            const active = selected === agent.agentId;
-            return (
-              <button
-                key={agent.agentId}
-                type="button"
-                role="menuitem"
-                className={cn(
-                  'flex w-full cursor-pointer items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-sm outline-none',
-                  'hover:bg-accent hover:text-accent-foreground',
-                  active && 'bg-accent',
-                )}
-                onClick={() => pick(agent.agentId)}
-              >
-                <span className="min-w-0 truncate">{agent.name}</span>
-                {active ? <Icon name="check" className="size-3.5 shrink-0" /> : null}
-              </button>
-            );
-          })
+          <>
+            {agents.map(agent => {
+              const active = selected === agent.agentId;
+              return (
+                <DropdownMenuItem
+                  key={agent.agentId}
+                  className={cn('justify-between gap-2 text-left', active && 'bg-accent text-accent-foreground')}
+                  onClick={() => pick(agent.agentId)}
+                >
+                  <span className="min-w-0 truncate">{agent.name}</span>
+                  {active ? <Icon name="check" className="size-3.5 shrink-0" /> : null}
+                </DropdownMenuItem>
+              );
+            })}
+            {hasMore ? (
+              <div ref={sentinelRef} className="flex h-6 shrink-0 items-center justify-center" aria-hidden>
+                {loadingMore ? (
+                  <span className="text-muted-foreground text-[11px]" role="status">
+                    Loading more…
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </>
@@ -150,7 +143,7 @@ export function AgentHistoryFilterButton() {
       <button
         ref={buttonRef}
         type="button"
-        aria-label="Filter chat history by agent"
+        aria-label={selected != null ? `Filter chat history by agent (${selected})` : 'Filter chat history by agent'}
         aria-haspopup={useSheet ? 'dialog' : 'menu'}
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -159,13 +152,20 @@ export function AgentHistoryFilterButton() {
           variant: 'ghost',
           size: 'icon',
           className: cn(
-            'size-7 text-muted-foreground hover:bg-accent hover:text-foreground',
+            'relative size-7 shrink-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             selected != null && 'text-foreground',
           ),
         })}
         onClick={() => setOpen(v => !v)}
       >
         <Icon name="funnel" className="size-3.5" />
+        {selected != null ? (
+          <span
+            className="bg-primary absolute top-1 right-1 size-1.5 rounded-full"
+            aria-hidden
+            data-testid="history-filter-active-dot"
+          />
+        ) : null}
       </button>
       {useSheet && open ? (
         <BottomSheet open onOpenChange={setOpen} id={menuId} aria-label="Filter agents">
@@ -186,7 +186,7 @@ export function AgentHistoryFilterButton() {
             >
               {filterBody}
             </div>,
-            buttonRef.current?.closest('.aui-theme-root') ?? document.body,
+            themePortalRoot(buttonRef.current),
           )
         : null}
     </div>

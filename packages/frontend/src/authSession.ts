@@ -2,10 +2,10 @@
  * Session helpers: SDK `auth.me()` / `auth.logout()` only.
  * Login is not on the SDK (browser redirect to `/api/v1/auth/login`).
  */
-import type { TrueForgeApi as Harness, TrueForge } from 'trueforge';
+import type { TrueForge, TrueForgeApi } from 'trueforge-sdk';
 import { harnessClient } from './harnessClient';
 
-export type MeResponse = Harness.MeResponse;
+export type MeResponse = TrueForgeApi.MeResponse;
 
 /** Last successful me() OIDC check — survives remounts of host chrome. */
 let cachedIsOidcConnected: boolean | undefined;

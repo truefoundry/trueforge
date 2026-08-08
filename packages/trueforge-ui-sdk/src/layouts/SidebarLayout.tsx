@@ -116,7 +116,7 @@ export function SidebarLayout({ className }: { className?: string }) {
                 className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
                 onClick={handleNewChat}
               >
-                <Icon name="pencil" />
+                <Icon name="square-pen" />
               </button>
             ) : null}
             <AgentsLibraryButton compact />

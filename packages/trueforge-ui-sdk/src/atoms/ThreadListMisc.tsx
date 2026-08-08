@@ -24,7 +24,7 @@ export function ThreadListNewButton({ className, children, style, ...rest }: Thr
     >
       {children ?? (
         <>
-          <Icon name="pencil" />
+          <Icon name="square-pen" />
           New Chat
         </>
       )}

@@ -1,7 +1,7 @@
 'use client';
 
 import { ComposerPrimitive, useAui, useAuiState } from '@assistant-ui/react';
-import { useTrueFoundryCancel } from '@truefoundry/assistant-ui-runtime';
+import { useTrueFoundryAgentSpec, useTrueFoundryCancel } from '@truefoundry/assistant-ui-runtime';
 import { useRef } from 'react';
 
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
@@ -20,11 +20,20 @@ export type ComposerContainerProps = {
 function ComposerBody({ placeholder }: { placeholder: string }) {
   const ComposerShell = useSlot('ComposerShell');
   const aui = useAui();
+  const shell = useOptionalShellMode();
   const hasText = useAuiState(s => s.composer.text.trim().length > 0);
+  const { agentSpec } = useTrueFoundryAgentSpec();
+  // Named (immutable) agents use a server-side model; only draft/mutable composers pick one here.
+  const requiresModel = shell == null || (shell.mode.status === 'active' && shell.mode.isMutable);
+  const hasModel = Boolean(agentSpec?.model?.name?.trim());
   const { isBusy, send, resetBusy } = useComposerBusyState();
   const cancel = useTrueFoundryCancel();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const submit = () => send(() => aui.composer().send());
+  const canSubmit = !isBusy && hasText && (!requiresModel || hasModel);
+  const submit = () => {
+    if (!canSubmit) return;
+    send(() => aui.composer().send());
+  };
 
   return (
     <>
@@ -70,7 +79,7 @@ function ComposerBody({ placeholder }: { placeholder: string }) {
               />
             }
             disabled={isBusy}
-            canSubmit={!isBusy && hasText}
+            canSubmit={canSubmit}
             isRunning={isBusy}
             onSubmit={submit}
             onCancel={() => {

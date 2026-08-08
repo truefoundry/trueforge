@@ -3,7 +3,7 @@
 # PUT /api/v1/settings/sandbox-providers bodies. Discovery-only — never executed against.
 providers:
   - type: daytona
-    snapshot_name: trueforge-local
+    snapshot_name: trueforge-sandbox-image
     exec_timeout_ms: 60000
     auto_stop_interval_in_minutes: 5
     auto_archive_interval_in_minutes: 60

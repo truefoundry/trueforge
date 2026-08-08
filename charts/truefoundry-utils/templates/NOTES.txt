@@ -1,0 +1,24 @@
+TrueFoundry Utils {{ .Chart.AppVersion }} has been deployed as release {{ .Release.Name }}.
+
+Image: {{ include "truefoundry-utils.image" . }}
+
+Reach the server (API + UI) inside the cluster at:
+  http://{{ include "truefoundry-utils.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}
+
+Port-forward it locally with:
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "truefoundry-utils.fullname" . }} 8790:{{ .Values.service.port }}
+
+Then open http://localhost:8790 and check http://localhost:8790/healthz.
+
+Postgres: {{ if .Values.postgresql.enabled }}bundled ({{ include "truefoundry-utils.postgres.host" . }}){{ else }}external ({{ include "truefoundry-utils.postgres.host" . }}){{ end }}
+Redis:    {{ if .Values.redis.enabled }}bundled{{- else }}external (Secret or url){{- end }}
+
+{{- if not .Values.server.publicBaseUrl }}
+
+NOTE: server.publicBaseUrl is empty. MCP OAuth and OIDC callbacks will fail until you set it to the public origin (e.g. https://truefoundry-utils.example.com).
+{{- end }}
+
+{{- if and (not .Values.postgresql.enabled) (not .Values.externalPostgres.host) }}
+
+WARNING: postgresql.enabled is false and externalPostgres.host is empty. Set one so the server can reach Postgres.
+{{- end }}

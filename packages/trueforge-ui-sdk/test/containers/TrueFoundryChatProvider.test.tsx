@@ -49,10 +49,17 @@ describe('TrueFoundryChatProvider', () => {
         server,
         agentName: 'my-agent',
         initialSessionId: 'session-123',
-        onError,
         adapters: { attachments: defaultAttachmentAdapter },
       }),
     );
+    const forwardedOnError = runtimeSpy.mock.calls[0]?.[0]?.onError;
+    expect(typeof forwardedOnError).toBe('function');
+    expect(forwardedOnError).not.toBe(onError);
+
+    act(() => {
+      forwardedOnError?.(new Error('createSession failed'));
+    });
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
   });
 
   it('forwards a discriminated agent configuration', () => {

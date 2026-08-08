@@ -25,12 +25,13 @@ export type DraftReasoningEffortSelectorProps = {
 };
 
 export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReasoningEffortSelectorProps) {
-  const { models: rawModels } = useDraftCatalog();
+  const { models: rawModels, ensureLoaded } = useDraftCatalog();
   const models = rawModels as RichModel[];
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const clearedStickyEffortForModelRef = useRef<string | null>(null);
   const menuId = useId();
   const isMobile = useIsMobile();
   const compactLayout = useCompactLayout();
@@ -43,6 +44,11 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
   const resolved = resolveReasoningEffort(efforts, currentEffort);
 
   useEffect(() => {
+    // Need catalog to know whether this model exposes reasoning efforts.
+    ensureLoaded();
+  }, [ensureLoaded]);
+
+  useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -52,6 +58,22 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
+
+  // Heal sticky effort left by mergeAgentSpec when the selected model has none.
+  useEffect(() => {
+    if (!updateAgentSpec || selected === undefined) return;
+    if (hasReasoningEfforts(efforts)) {
+      clearedStickyEffortForModelRef.current = null;
+      return;
+    }
+    if (currentEffort === undefined) return;
+    const modelKey = modelValue(selected);
+    if (clearedStickyEffortForModelRef.current === modelKey) return;
+    clearedStickyEffortForModelRef.current = modelKey;
+    updateAgentSpec({
+      model: modelPatchWithReasoningEffort(modelKey, agentSpec?.model?.params, undefined),
+    });
+  }, [updateAgentSpec, selected, efforts, currentEffort, agentSpec?.model?.params]);
 
   if (!hasReasoningEfforts(efforts) || !resolved) return null;
 

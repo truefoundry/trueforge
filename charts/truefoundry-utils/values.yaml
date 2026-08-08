@@ -1,9 +1,9 @@
-# Default values for the trueforge chart.
+# Default values for the truefoundry-utils chart.
 
 replicaCount: 1
 
 image:
-  repository: tfy.jfrog.io/tfy-images/trueforge
+  repository: tfy.jfrog.io/tfy-images/truefoundry-utils
   # Tag defaults to the chart appVersion when empty; the release workflow stamps
   # the released version here.
   tag: ""
@@ -24,24 +24,47 @@ podLabels: {}
 podSecurityContext: {}
 securityContext: {}
 
+# Optional PriorityClass for the server pods.
+priorityClassName: ""
+
+# Rolling update controls (omit keys you do not want to set).
+strategy: {}
+# strategy:
+#   type: RollingUpdate
+#   rollingUpdate:
+#     maxUnavailable: 0
+#     maxSurge: 1
+
 service:
   type: ClusterIP
   port: 8790
+  annotations: {}
+  labels: {}
 
 # Server runtime configuration. Keys map to environment variables read in
 # packages/server/src/config.ts.
 server:
   # Container port the server listens on (PORT).
   port: 8790
-  # Public origin used for MCP OAuth callbacks (PUBLIC_BASE_URL). Required.
+  # Public origin for MCP OAuth / OIDC callbacks (PUBLIC_BASE_URL). Optional;
+  # empty string is injected as-is (distributed mode keeps it empty until set).
   publicBaseUrl: ""
   # Seconds the server is given to drain turns on SIGTERM (GRACEFUL_TIMEOUT_SECONDS).
   gracefulTimeoutSeconds: 30
-  # The server always runs peered (SINGLE_BINARY=false) against Postgres + Redis.
-  # extraEnv/extraEnvFrom are escape hatches; extraEnv accepts
-  # {name, value} or {name, valueFrom: {secretKeyRef: ...}}.
+  # The server always runs peered (STANDALONE=false) against Postgres + Redis.
+  # extraEnv/extraEnvFrom are escape hatches for OIDC and other knobs.
+  # extraEnv accepts {name, value} or {name, valueFrom: {secretKeyRef: ...}}.
   extraEnv: []
+  # extraEnv:
+  #   - name: OIDC_CLIENT_SECRET
+  #     valueFrom:
+  #       secretKeyRef:
+  #         name: truefoundry-utils-oidc
+  #         key: client-secret
   extraEnvFrom: []
+  # extraEnvFrom:
+  #   - secretRef:
+  #       name: truefoundry-utils-oidc
 
 # Bitnami relocated its versioned container images to docker.io/bitnamilegacy and
 # left only rolling `latest` tags under docker.io/bitnami, so the subchart image
@@ -66,11 +89,11 @@ postgresql:
     repository: tfy-mirror/bitnamilegacy/postgresql
     tag: 17.6.0-debian-12-r4
   auth:
-    username: trueforge
-    database: trueforge
+    username: truefoundry_utils
+    database: truefoundry_utils
     # Dev default. In production set a strong password or reference a Secret via
     # `existingSecret` (Bitnami reads the user password from key `password`).
-    password: trueforge
+    password: truefoundry_utils
     existingSecret: ""
   primary:
     persistence:
@@ -79,7 +102,8 @@ postgresql:
 
 # --- Bundled Redis (Bitnami subchart) ------------------------------------------
 # Rendered only when redis.enabled is true. Auth is disabled so REDIS_URL is a
-# plain redis://host:6379 the server can consume directly.
+# plain redis://host:6379 the server can consume directly. For passworded Redis,
+# disable the subchart and use externalRedis with a Secret.
 redis:
   enabled: true
   architecture: standalone
@@ -99,8 +123,8 @@ redis:
 externalPostgres:
   host: ""
   port: 5432
-  database: trueforge
-  user: trueforge
+  database: truefoundry_utils
+  user: truefoundry_utils
   # Provide the password one of two ways:
   #  - set `password` and the chart renders a Secret, or
   #  - set `existingSecret` (+ `passwordKey`) to reference an existing Secret.
@@ -109,40 +133,61 @@ externalPostgres:
   passwordKey: password
 
 externalRedis:
-  # Full connection URL, e.g. redis://redis-master.databases.svc:6379.
-  # Required when redis.enabled is false (the server always needs Redis).
+  # Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
+  # Provide one of:
+  #  - `url` (literal; fine for local/dev), or
+  #  - `existingSecret` (+ `urlKey`) to reference an existing Secret.
   url: ""
+  existingSecret: ""
+  urlKey: redis-url
 
 # Extra raw manifests deployed alongside the server, e.g. an Istio
 # VirtualService, a Gateway, an Ingress, or a NetworkPolicy. Each entry is a
 # full Kubernetes object rendered through `tpl`, so Helm templating works and
-# helpers like `{{ include "trueforge.fullname" . }}` resolve. Example:
+# helpers like `{{ include "truefoundry-utils.fullname" . }}` resolve. Example:
 #
 # extraObjects:
 #   - apiVersion: networking.istio.io/v1
 #     kind: VirtualService
 #     metadata:
-#       name: '{{ include "trueforge.fullname" . }}'
+#       name: '{{ include "truefoundry-utils.fullname" . }}'
 #     spec:
 #       hosts:
-#         - trueforge.example.com
+#         - truefoundry-utils.example.com
 #       gateways:
 #         - istio-system/public-gateway
 #       http:
 #         - route:
 #             - destination:
-#                 host: '{{ include "trueforge.fullname" . }}'
+#                 host: '{{ include "truefoundry-utils.fullname" . }}'
 #                 port:
 #                   number: '{{ .Values.service.port }}'
 extraObjects: []
 
+# Init containers and sidecar containers (full container specs).
+initContainers: []
+extraContainers: []
+
+# Extra volumes / mounts on the server container (e.g. CA bundles, projected tokens).
+extraVolumes: []
+extraVolumeMounts: []
+
 resources: {}
+
+# startupProbe runs until success before liveness/readiness; sized for migrate + Redis connect.
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 5
+  timeoutSeconds: 5
+  failureThreshold: 30
 
 livenessProbe:
   httpGet:
     path: /healthz
     port: http
-  initialDelaySeconds: 15
+  initialDelaySeconds: 0
   periodSeconds: 10
   timeoutSeconds: 5
   failureThreshold: 6
@@ -151,7 +196,7 @@ readinessProbe:
   httpGet:
     path: /healthz
     port: http
-  initialDelaySeconds: 5
+  initialDelaySeconds: 0
   periodSeconds: 10
   timeoutSeconds: 5
   failureThreshold: 6
@@ -162,6 +207,14 @@ autoscaling:
   maxReplicas: 5
   targetCPUUtilizationPercentage: 80
 
+podDisruptionBudget:
+  enabled: false
+  # Exactly one of minAvailable or maxUnavailable is required when enabled.
+  # Default keeps at least one pod available during voluntary disruptions.
+  minAvailable: 1
+  maxUnavailable: ""
+
 nodeSelector: {}
 tolerations: []
 affinity: {}
+topologySpreadConstraints: []

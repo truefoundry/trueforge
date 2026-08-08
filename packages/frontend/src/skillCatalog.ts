@@ -8,13 +8,13 @@
  * configured skill name matches a catalog preset.
  */
 import type { DefinedSkill, SkillCatalogEntry, SkillCatalogServer, SkillConfigBase } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi as Harness } from 'trueforge';
+import type { TrueForgeApi } from 'trueforge-sdk';
 import { harnessClient as client } from './harnessClient';
 
 export type UiSkill = DefinedSkill;
 export type UiSkillCatalogEntry = SkillCatalogEntry;
 
-export function toUiCatalogEntry(skill: Harness.CatalogSkill): UiSkillCatalogEntry {
+export function toUiCatalogEntry(skill: TrueForgeApi.CatalogSkill): UiSkillCatalogEntry {
   return {
     id: skill.name,
     name: skill.name,
@@ -25,7 +25,7 @@ export function toUiCatalogEntry(skill: Harness.CatalogSkill): UiSkillCatalogEnt
   };
 }
 
-export function toHarnessManifest(req: SkillConfigBase): Harness.SkillManifest {
+export function toHarnessManifest(req: SkillConfigBase): TrueForgeApi.SkillManifest {
   const path = req.path.trim();
   return {
     type: 'git',
@@ -37,7 +37,7 @@ export function toHarnessManifest(req: SkillConfigBase): Harness.SkillManifest {
   };
 }
 
-export function toUiSkill(skill: Harness.SkillManifest, catalogNames: ReadonlySet<string>): UiSkill {
+export function toUiSkill(skill: TrueForgeApi.SkillManifest, catalogNames: ReadonlySet<string>): UiSkill {
   const base = {
     id: skill.name,
     name: skill.name,
