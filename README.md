@@ -186,6 +186,10 @@ flowchart LR
 - [API reference](#)
 - [Deploying to Kubernetes](#)
 
+## Benchmarks
+
+We compare TrueForge against other agent frameworks (Claude Managed Agents, deepagents) on the same tasks, the same model, and the same prompt, and report accuracy alongside cost and latency. The harness, the exact prompt, the blind grader, and our results all live in [`benchmark/`](benchmark/) - and it is built to be re-run against your own dataset and models.
+
 ## Contributing
 
 We love contributions! Whether it's a bug report, a new feature, or a docs fix - see [CONTRIBUTING.md](CONTRIBUTING.md) for how to set up a development environment and open a pull request. Please also read our [Code of Conduct](CODE_OF_CONDUCT.md).
