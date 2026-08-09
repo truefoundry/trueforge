@@ -16,15 +16,18 @@ Consider a task: _"Summarize the recent pull requests for every member of my tea
 
 <Tabs>
   <Tab title="Without subagents">
-    1. The agent looks up members of the team. 2. It works on each member **one by one**, fetching pull requests and
-    summarizing each. 3. All intermediate tool calls and results stay in the context window. 4. The agent has to reason
-    over a large, cluttered context to produce the final answer. 5. The bloat carries over to future turns in the
-    session.
+    1. The agent looks up members of the team.
+    2. It works on each member **one by one**, fetching pull requests and summarizing each.
+    3. All intermediate tool calls and results stay in the context window.
+    4. The agent has to reason over a large, cluttered context to produce the final answer.
+    5. The bloat carries over to future turns in the session.
   </Tab>
   <Tab title="With subagents">
-    1. The agent looks up members of the team. 2. It creates a subagent **per team member** — they run in parallel. 3.
-    Each subagent fetches pull requests and produces a summary independently. 4. Subagents return only their summaries
-    to the root agent. 5. The root agent combines the summaries — the raw data never enters its context.
+    1. The agent looks up members of the team.
+    2. It creates a subagent **per team member** — they run in parallel.
+    3. Each subagent fetches pull requests and produces a summary independently.
+    4. Subagents return only their summaries to the root agent.
+    5. The root agent combines the summaries — the raw data never enters its context.
   </Tab>
 </Tabs>
 
@@ -91,6 +94,10 @@ Every execution — root and subagent — runs in its own **thread**, identified
 ```
 
 Between the two, the subagent's own `model.message`, `tool.response`, and other events stream with its `thread_id` — so a client can render each subagent as its own collapsible trace while the root agent's events keep flowing on `"main"`. The bundled chat UI does exactly this.
+
+<Frame caption="The chat UI renders each subagent as its own collapsible trace as they run in parallel.">
+  <img src="/images/subagents.png" alt="The chat UI showing three parallel subagents — mcp-research, a2a-research, openui-research — as separate collapsible traces under Agent steps" />
+</Frame>
 
 See [Turn events](/api/turn-events#thread-created) for the full schemas.
 
