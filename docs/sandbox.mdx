@@ -30,7 +30,7 @@ This design has several consequences:
 
 ## Configuring a sandbox provider
 
-TrueForge delegates sandbox compute to a provider. Configure it once — in the UI under **Settings → Sandbox** or via `PUT /api/v1/settings/sandbox-providers`. Today the supported provider is [Daytona](https://www.daytona.io):
+TrueForge delegates sandbox compute to a provider. Configure it once — in the UI under **Settings → Sandbox providers** or via `PUT /api/v1/settings/sandbox-providers`. Today the supported provider is [Daytona](https://www.daytona.io):
 
 ```json
 {
@@ -54,6 +54,17 @@ TrueForge delegates sandbox compute to a provider. Configure it once — in the 
 | `auto_delete_interval_in_minutes`  | Time before an archived sandbox is deleted.                      |
 
 A template with defaults is available at `GET /api/v1/settings/sandbox-providers/catalog`. Whether a provider is configured is reported by `GET /api/v1/capabilities`.
+
+<div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.75", padding: "40px 0" }}>
+  <iframe
+    src="https://app.supademo.com/embed/cmsk7vatl00pz0n0jme1d96w5?embed_v=2&utm_source=embed"
+    loading="lazy"
+    title="Configure a sandbox provider in TrueForge"
+    allow="clipboard-write"
+    allowFullScreen
+    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
+  />
+</div>
 
 ## Enabling the sandbox on an agent
 

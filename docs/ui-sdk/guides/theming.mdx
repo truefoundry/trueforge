@@ -33,6 +33,20 @@ type ThemeConfig = {
 />
 ```
 
+The `chatgpt`, `claude`, and `gemini` presets (the default is `truefoundry`):
+
+<Columns cols={3}>
+  <Frame caption="chatgpt">
+    <img src="/images/theme-chatgpt.png" alt="TrueForge UI with the chatgpt theme preset" />
+  </Frame>
+  <Frame caption="claude">
+    <img src="/images/theme-claude.png" alt="TrueForge UI with the claude theme preset" />
+  </Frame>
+  <Frame caption="gemini">
+    <img src="/images/theme-gemini.png" alt="TrueForge UI with the gemini theme preset" />
+  </Frame>
+</Columns>
+
 ## Precedence
 
 The provider resolves the preset for the current mode, merges your `theme.tokens` over it, and
@@ -69,6 +83,10 @@ no-op and you own the state.
   manages dark mode by the same mechanism, the two will fight. Pass a controlled
   `theme.mode` derived from your own state to keep them in sync.
 </Warning>
+
+<Frame caption="Dark mode applied to the chat UI.">
+  <img src="/images/dark_theme.png" alt="The TrueForge UI SDK rendered in dark mode" />
+</Frame>
 
 ## Reading theme state
 

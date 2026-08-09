@@ -66,8 +66,13 @@ honor the props you receive — several are rendered nodes (`actionBar`, `error`
   </Accordion>
   <Accordion title="Agent library and shell">
     `AgentsLibrary`, `AgentsLibraryButton`, `SaveAgentButton`, `SelectAgentEmptyState`,
-    `ClearChatButton`, `Toast`, `ToastStack`, `Accordion`, `AccordionSummary`,
-    `AccordionDetails`.
+    `ClearChatButton`, `ShellActionsActionSlot`, `Toast`, `ToastStack`, `Accordion`,
+    `AccordionSummary`, `AccordionDetails`.
+
+    `ShellActionsActionSlot` exists purely to be overridden — it renders nothing by default and
+    is the supported place to add your own chrome, such as a logout control, beside the theme
+    and settings buttons. Layouts keep it mounted while Settings is open, so state in your
+    component survives.
   </Accordion>
 </AccordionGroup>
 

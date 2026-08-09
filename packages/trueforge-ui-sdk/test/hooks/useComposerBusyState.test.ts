@@ -9,7 +9,7 @@ vi.mock('@assistant-ui/core/react', () => ({
   useThreadIsRunning: () => useThreadIsRunning(),
 }));
 
-import { ComposerBusyProvider, useComposerBusyState } from '@/hooks/useComposerBusyState.js';
+import { ComposerBusyProvider, notifyComposerBusyFailure, useComposerBusyState } from '@/hooks/useComposerBusyState.js';
 
 function wrapper({ children }: { children: ReactNode }) {
   return createElement(ComposerBusyProvider, null, children);
@@ -96,6 +96,24 @@ describe('useComposerBusyState', () => {
       result.current.resetBusy();
     });
     expect(result.current.isBusy).toBe(false);
+  });
+
+  it('clears submitting on notifyComposerBusyFailure when send never starts a run', () => {
+    const { result } = renderHook(() => useComposerBusyState(), { wrapper });
+
+    act(() => {
+      // Matches aui.composer().send(): void return, rejection swallowed upstream.
+      result.current.send(() => undefined);
+    });
+    expect(result.current.isBusy).toBe(true);
+    expect(result.current.isSubmitting).toBe(true);
+
+    act(() => {
+      notifyComposerBusyFailure();
+    });
+
+    expect(result.current.isBusy).toBe(false);
+    expect(result.current.isSubmitting).toBe(false);
   });
 
   it('requires ComposerBusyProvider', () => {

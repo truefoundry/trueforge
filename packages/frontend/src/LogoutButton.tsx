@@ -1,7 +1,7 @@
-import { Icon } from '@truefoundry/trueforge-ui';
+import { CenteredModal, Icon } from '@truefoundry/trueforge-ui';
 import { useEffect, useState } from 'react';
-import { AUTH_LOGGED_OUT_HREF } from './authFetch';
 import { getCachedIsOidcConnectedSession, isOidcConnectedSession, logout } from './authSession';
+import './LogoutButton.css';
 
 /**
  * Icon button next to Settings (via `ShellActionsActionSlot` override).
@@ -10,6 +10,7 @@ import { getCachedIsOidcConnectedSession, isOidcConnectedSession, logout } from 
  */
 export function LogoutButton() {
   const [visible, setVisible] = useState(() => getCachedIsOidcConnectedSession() === true);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -33,26 +34,58 @@ export function LogoutButton() {
     return null;
   }
 
+  const handleConfirm = () => {
+    if (busy) return;
+    setBusy(true);
+    void logout()
+      .then(() => {
+        // Land on the welcome gate (probe /me → unauthenticated → GetStartedScreen).
+        window.location.assign('/');
+      })
+      .catch(() => {
+        setBusy(false);
+      });
+  };
+
   return (
-    <button
-      type="button"
-      aria-label="Log out"
-      title="Log out"
-      disabled={busy}
-      className="harness-logout"
-      onClick={() => {
-        if (busy) return;
-        setBusy(true);
-        void logout()
-          .then(() => {
-            window.location.assign(AUTH_LOGGED_OUT_HREF);
-          })
-          .catch(() => {
-            setBusy(false);
-          });
-      }}
-    >
-      <Icon name="log-out" />
-    </button>
+    <>
+      <button
+        type="button"
+        aria-label="Log out"
+        title="Log out"
+        className="harness-logout"
+        onClick={() => {
+          setConfirmOpen(true);
+        }}
+      >
+        <Icon name="log-out" />
+      </button>
+
+      <CenteredModal
+        open={confirmOpen}
+        onOpenChange={next => {
+          if (!busy) setConfirmOpen(next);
+        }}
+        title="Log out"
+        description="Sure to logout?"
+        contentSized
+      >
+        <div className="harness-logout-confirm">
+          <button
+            type="button"
+            className="harness-logout-cancel"
+            disabled={busy}
+            onClick={() => {
+              setConfirmOpen(false);
+            }}
+          >
+            Cancel
+          </button>
+          <button type="button" className="harness-logout-submit" disabled={busy} onClick={handleConfirm}>
+            {busy ? 'Logging out…' : 'Confirm'}
+          </button>
+        </div>
+      </CenteredModal>
+    </>
   );
 }

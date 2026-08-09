@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { AUTH_LOGGED_OUT_HREF, AUTH_LOGIN_HREF, createAuthAwareFetch } from '../src/authFetch';
-import { isLoggedOutSearch, parseAuthErrorReason } from '../src/authStatusSearch';
+import { AUTH_LOGIN_HREF, createAuthAwareFetch } from '../src/authFetch';
+import { parseAuthErrorReason } from '../src/authStatusSearch';
 
 describe('createAuthAwareFetch', () => {
   it('passes through non-401 responses', async () => {
@@ -51,21 +51,14 @@ describe('createAuthAwareFetch', () => {
     }
   });
 
-  it('exports browser auth entry paths', () => {
+  it('exports browser auth entry path', () => {
     assert.equal(AUTH_LOGIN_HREF, '/api/v1/auth/login');
-    assert.equal(AUTH_LOGGED_OUT_HREF, '/?logged_out');
   });
 });
 
 describe('auth status landings', () => {
-  it('detects logout landing separately from errors', () => {
-    assert.equal(isLoggedOutSearch('?logged_out'), true);
-    assert.equal(isLoggedOutSearch('?logged_out='), true);
-    assert.equal(isLoggedOutSearch('?error=login_failed'), false);
-  });
-
   it('reads error reason for sign-in failures', () => {
     assert.equal(parseAuthErrorReason('?error=access_denied'), 'access_denied');
-    assert.equal(parseAuthErrorReason('?logged_out'), null);
+    assert.equal(parseAuthErrorReason('?other=1'), null);
   });
 });

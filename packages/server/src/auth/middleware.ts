@@ -3,7 +3,7 @@ import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
 import { toUserContext, type IdTokenClaims } from './claims';
 import { readIdTokenCookie } from './cookies';
-import { LOCAL_USER_CONTEXT, type UserContext } from './identity';
+import { LOCAL_USER_CONTEXT, isAdmin, type UserContext } from './identity';
 import { getOidcVerify } from './oidc';
 
 declare module 'hono' {
@@ -61,5 +61,30 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     // Valid JWT but claim mapping failed (e.g. missing user reference claim).
     throw new HTTPException(401, { message: 'Authentication required', cause: error });
   }
+  return next();
+};
+
+/** Standalone admin gate: no-op without OIDC; with OIDC requires an authenticated admin. */
+export const adminAuthMiddleware: MiddlewareHandler = async (c, next) => {
+  if (!getOidcVerify()) {
+    return next();
+  }
+
+  try {
+    const user = await resolveAuthUser(c);
+    if (!user) {
+      throw new HTTPException(401, { message: 'Authentication required' });
+    }
+    if (!isAdmin(user)) {
+      throw new HTTPException(403, { message: 'Admin access required' });
+    }
+    c.set('user_context', user);
+  } catch (error) {
+    if (error instanceof HTTPException) {
+      throw error;
+    }
+    throw new HTTPException(401, { message: 'Authentication required', cause: error });
+  }
+
   return next();
 };

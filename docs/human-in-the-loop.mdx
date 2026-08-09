@@ -85,6 +85,10 @@ To deny, send `{ "status": "deny", "reason": "..." }` — the agent receives the
 
 The bundled chat UI handles all of this automatically: it pauses the run, shows the tool name and request payload with **Approve / Deny** buttons, and resumes on your decision.
 
+<Frame caption="The chat UI pauses on a sensitive tool call and shows the request with Approve / Deny buttons.">
+  <img src="/images/hitl.png" alt="The chat UI pausing on a tool call, showing the request payload and Approve / Deny buttons" />
+</Frame>
+
 ## When to use approvals
 
 Use approvals for tool calls that change state, are irreversible, or affect production — mutating data, modifying infrastructure, sending external communications, or triggering expensive operations. The `@write` / `@destructive` defaults cover this when the MCP server annotates its tools correctly.

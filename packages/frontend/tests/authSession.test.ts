@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { TrueForge } from 'trueforge';
+import type { TrueForge } from 'trueforge-sdk';
 import {
   getCachedIsOidcConnectedSession,
   isOidcConnectedSession,
   logout,
+  probeSession,
   resetOidcSessionCacheForTests,
 } from '../src/authSession';
 
@@ -57,5 +58,14 @@ describe('authSession', () => {
       }),
     );
     assert.equal(called, true);
+  });
+
+  it('probeSession reports authenticated when me() resolves', async () => {
+    assert.equal(await probeSession(createClient({ type: 'default' })), 'authenticated');
+    assert.equal(await probeSession(createClient({ type: 'oidc-connected' })), 'authenticated');
+  });
+
+  it('probeSession reports unauthenticated when me() throws', async () => {
+    assert.equal(await probeSession(createClient({ meError: new Error('401') })), 'unauthenticated');
   });
 });

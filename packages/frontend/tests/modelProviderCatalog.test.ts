@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { TrueForgeApi } from 'trueforge';
+import { TrueForgeApi } from 'trueforge-sdk';
 import {
   toHarnessModelEntry,
   toHarnessModelProvider,

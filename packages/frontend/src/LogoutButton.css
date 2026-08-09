@@ -1,0 +1,50 @@
+/* Confirm dialog footer for the logout flow (rendered inside CenteredModal). */
+
+.harness-logout-confirm {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1.25rem;
+}
+
+.harness-logout-cancel,
+.harness-logout-submit {
+  flex: 1 1 0;
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.625rem;
+  padding: 0 1rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.harness-logout-cancel {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--foreground);
+}
+
+.harness-logout-cancel:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.harness-logout-submit {
+  border: 0;
+  background: var(--destructive);
+  color: var(--destructive-foreground, #fff);
+}
+
+.harness-logout-submit:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.harness-logout-cancel:disabled,
+.harness-logout-submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}

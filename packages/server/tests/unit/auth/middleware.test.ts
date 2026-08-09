@@ -2,7 +2,7 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { HTTPException } from 'hono/http-exception';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { Configuration } from 'openid-client';
-import { authMiddleware } from '../../../src/auth/middleware';
+import { adminAuthMiddleware, authMiddleware } from '../../../src/auth/middleware';
 import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import type { OIDCConfig } from '../../../src/config';
 
@@ -16,6 +16,7 @@ const OIDC_CONFIG: OIDCConfig = {
   OIDC_USER_REFERENCE_CLAIM: 'sub',
   OIDC_USER_ROLE_CLAIM: 'groups',
   OIDC_ADMIN_ROLE_VALUE: 'admin',
+  OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
 };
 
 function json(body: unknown, status = 200): Response {
@@ -46,10 +47,25 @@ function createApp() {
   models.get('/', c => c.json({ ok: true, user: c.get('user_context') }));
   app.route('/api/v1/models', models);
 
+  const settings = new OpenAPIHono();
+  settings.use('*', adminAuthMiddleware);
+  settings.get('/', c => c.json({ ok: true, user: c.get('user_context') }));
+  app.route('/api/v1/settings', settings);
+
   return app;
 }
 
 describe('authMiddleware', () => {
+  it('allows settings without admin role when OIDC is not configured', async () => {
+    disableOidcAuth();
+    const res = await createApp().request('/api/v1/settings');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      ok: true,
+      user: undefined,
+    });
+  });
+
   it('sets default user when OIDC is not configured', async () => {
     disableOidcAuth();
     const res = await createApp().request('/api/v1/models');
@@ -176,6 +192,27 @@ describe('authMiddleware', () => {
         ok: true,
         user: { userRef: 'alice', role: 'admin' },
       });
+    });
+
+    it('allows settings when the caller has admin role', async () => {
+      const token = await createIdToken({ sub: 'alice', groups: ['admin'] });
+      const res = await createApp().request('/api/v1/settings', {
+        headers: { Cookie: `id_token=${token}` },
+      });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        ok: true,
+        user: { userRef: 'alice', role: 'admin' },
+      });
+    });
+
+    it('returns 403 on settings when the caller is not admin', async () => {
+      const token = await createIdToken({ sub: 'bob', groups: ['everyone'] });
+      const res = await createApp().request('/api/v1/settings', {
+        headers: { Cookie: `id_token=${token}` },
+      });
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({ error: { message: 'Admin access required' } });
     });
 
     it.each([

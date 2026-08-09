@@ -4,6 +4,8 @@ import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefou
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
+import { useOptionalCatalogServer } from '../../server/ServerContext.js';
+import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { ModelSelection } from '../../server/types.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
@@ -15,17 +17,26 @@ import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
 
 type RichModel = ModelSelection & { apiModel?: string; modelId?: string };
 
-const PROVIDER_COLORS = ['#ec4899', '#0ea5e9', '#f59e0b', '#10b981', '#6366f1', '#8b5cf6'] as const;
-
 function monogram(value: string): string {
   const trimmed = value.trim();
   return trimmed ? trimmed.charAt(0).toUpperCase() : '?';
 }
 
-function colorFor(value: string): string {
-  let hash = 0;
-  for (const ch of value) hash = (hash + ch.charCodeAt(0)) % PROVIDER_COLORS.length;
-  return PROVIDER_COLORS[hash] ?? PROVIDER_COLORS[0];
+function ProviderMark({ logo, label, className }: { logo?: string; label: string; className?: string }) {
+  if (logo) {
+    return <img src={logo} alt="" className={cn('shrink-0 rounded object-contain', className)} aria-hidden />;
+  }
+  return (
+    <span
+      className={cn(
+        'bg-muted text-muted-foreground flex shrink-0 items-center justify-center rounded font-semibold',
+        className,
+      )}
+      aria-hidden
+    >
+      {monogram(label)}
+    </span>
+  );
 }
 
 function displayModelLabel(modelName: string): string {
@@ -43,16 +54,23 @@ export type DraftModelSelectorProps = {
 };
 
 export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorProps) {
-  const { models: rawModels, loading } = useDraftCatalog();
+  const { models: rawModels, loading, ensureLoaded } = useDraftCatalog();
   const models = rawModels as RichModel[];
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
+  const catalog = useOptionalCatalogServer();
+  const shell = useOptionalShellMode();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
   const isMobile = useIsMobile();
   const compactLayout = useCompactLayout();
+  const showConfigureSettingsCta = !loading && models.length === 0 && catalog != null;
+
+  useEffect(() => {
+    ensureLoaded();
+  }, [ensureLoaded]);
 
   const selectedName = agentSpec?.model?.name ?? (models[0] ? modelValue(models[0]) : '');
   const selected = models.find(m => modelValue(m) === selectedName || m.name === selectedName);
@@ -88,7 +106,6 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
   }, [open]);
 
   const account = selected?.provider ?? selectedName;
-  const iconBg = colorFor(account);
 
   const content = (
     <>
@@ -116,7 +133,24 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
         className="flex min-h-0 flex-1 flex-col overflow-y-auto p-1"
       >
         {filtered.length === 0 ? (
-          <p className="text-muted-foreground px-2 py-4 text-center text-sm">No models</p>
+          showConfigureSettingsCta ? (
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground flex w-full items-center justify-center gap-1 px-2 py-4 text-center text-sm"
+              onClick={() => {
+                setOpen(false);
+                setQuery('');
+                shell?.setSettingsOpen(true);
+              }}
+            >
+              <span>
+                Please configure Models in the <span className="underline">settings</span>
+              </span>
+              <Icon name="chevron-right" className="size-3.5 shrink-0" />
+            </button>
+          ) : (
+            <p className="text-muted-foreground px-2 py-4 text-center text-sm">No models</p>
+          )
         ) : (
           filtered.map(model => {
             const value = modelValue(model);
@@ -139,13 +173,11 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
                   setQuery('');
                 }}
               >
-                <span
-                  className="flex size-6 shrink-0 items-center justify-center rounded text-[11px] font-bold text-white"
-                  style={{ backgroundColor: colorFor(model.provider || model.name) }}
-                  aria-hidden
-                >
-                  {monogram(model.provider || model.name)}
-                </span>
+                <ProviderMark
+                  logo={model.providerLogo}
+                  label={model.provider || model.name}
+                  className="size-5 text-xs"
+                />
                 <span className="truncate font-medium">{displayModelLabel(value)}</span>
               </button>
             );
@@ -171,13 +203,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
         })}
         onClick={() => setOpen(v => !v)}
       >
-        <span
-          className="flex size-5 shrink-0 items-center justify-center rounded text-[10px] font-bold text-white"
-          style={{ backgroundColor: iconBg }}
-          aria-hidden
-        >
-          {monogram(account)}
-        </span>
+        <ProviderMark logo={selected?.providerLogo} label={account} className="size-5 text-[10px]" />
         <span className="truncate">{label}</span>
         <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
       </button>

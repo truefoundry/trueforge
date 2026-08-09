@@ -13,22 +13,22 @@ import type {
   ModelProviderCatalogEntry,
   UpdateModelProviderRequest,
 } from '@truefoundry/trueforge-ui';
-import { TrueForgeApi as Harness } from 'trueforge';
+import { TrueForgeApi } from 'trueforge-sdk';
 import { harnessClient as client } from './harnessClient';
 /** Custom-form rows omit properties; catalog rows round-trip them. */
 export type UiModelEntry = ModelEntry & {
-  properties?: Harness.ModelProperties;
+  properties?: TrueForgeApi.ModelProperties;
 };
 
 export type UiModelProvider = ModelProviderBase<UiModelEntry>;
 export type UiModelProviderCatalogEntry = ModelProviderCatalogEntry<UiModelEntry>;
 
-const DEFAULT_MODEL_PROPERTIES: Harness.ModelProperties = {
+const DEFAULT_MODEL_PROPERTIES: TrueForgeApi.ModelProperties = {
   contextLength: 128_000,
   maxOutputTokens: 16_384,
 };
 
-export function toUiModelEntry(model: Harness.ModelEntry): UiModelEntry {
+export function toUiModelEntry(model: TrueForgeApi.ModelEntry): UiModelEntry {
   return {
     id: model.modelId,
     name: model.name,
@@ -36,7 +36,7 @@ export function toUiModelEntry(model: Harness.ModelEntry): UiModelEntry {
   };
 }
 
-export function toHarnessModelEntry(model: UiModelEntry): Harness.ModelEntry {
+export function toHarnessModelEntry(model: UiModelEntry): TrueForgeApi.ModelEntry {
   return {
     modelId: model.id,
     name: model.name,
@@ -44,7 +44,7 @@ export function toHarnessModelEntry(model: UiModelEntry): Harness.ModelEntry {
   };
 }
 
-export function toUiModelProvider(provider: Harness.ModelProvider): UiModelProvider {
+export function toUiModelProvider(provider: TrueForgeApi.ModelProvider): UiModelProvider {
   // Every type but `custom` is named after itself, so the wire leaves `name` optional.
   const name = provider.name ?? provider.type;
   return {
@@ -56,7 +56,7 @@ export function toUiModelProvider(provider: Harness.ModelProvider): UiModelProvi
   };
 }
 
-export function toUiCatalogEntry(provider: Harness.CatalogProvider): UiModelProviderCatalogEntry {
+export function toUiCatalogEntry(provider: TrueForgeApi.CatalogProvider): UiModelProviderCatalogEntry {
   return {
     type: provider.type,
     name: provider.name,
@@ -66,9 +66,9 @@ export function toUiCatalogEntry(provider: Harness.CatalogProvider): UiModelProv
 }
 
 /** The catalog lists every type but `custom`, which only exists as tenant configuration. */
-const PROVIDER_TYPES: readonly string[] = [...Object.values(Harness.CatalogProviderType), 'custom'];
+const PROVIDER_TYPES: readonly string[] = [...Object.values(TrueForgeApi.CatalogProviderType), 'custom'];
 
-function isProviderType(type: string): type is Harness.ModelProvider['type'] {
+function isProviderType(type: string): type is TrueForgeApi.ModelProvider['type'] {
   return PROVIDER_TYPES.includes(type);
 }
 
@@ -78,7 +78,7 @@ export function toHarnessModelProvider(req: {
   apiKey: string;
   baseUrl?: string;
   models: UiModelEntry[];
-}): Harness.ModelProvider {
+}): TrueForgeApi.ModelProvider {
   const models = req.models.map(toHarnessModelEntry);
   const auth = { apiKey: req.apiKey };
   if (!isProviderType(req.type)) {

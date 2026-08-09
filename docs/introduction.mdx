@@ -38,6 +38,10 @@ You choose a model, connect MCP servers, add skills, and write instructions. Tru
 
 It scales down and up: run a single process backed by SQLite with `npx @truefoundry/trueforge`, or run multiple replicas backed by Postgres and Redis behind a load balancer.
 
+<Frame caption="The bundled chat UI — streaming responses, an expandable agent-steps panel, and tool calls.">
+  <img src="/images/getting-started-chat.png" alt="The TrueForge chat UI showing an agent response with an agent-steps panel and tool calls" />
+</Frame>
+
 ## Capabilities
 
 <CardGroup cols={2}>
@@ -105,6 +109,10 @@ flowchart LR
 ## Core concepts
 
 Interaction with an agent follows a strict hierarchy: **one Agent → many Sessions → many Turns → many Events**.
+
+<Frame caption="One agent serves many sessions; each session has many turns; each turn emits many events.">
+  <img src="/images/agent-session-hierarchy.png" alt="Hierarchy diagram: one Agent contains many Sessions, each Session many Turns, each Turn many Events" />
+</Frame>
 
 | Concept     | What it is                                                                                                            |
 | ----------- | --------------------------------------------------------------------------------------------------------------------- |

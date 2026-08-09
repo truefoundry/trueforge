@@ -1,0 +1,49 @@
+name: Push sandbox image
+
+# Build and push the Daytona sandbox base image to JFrog, tagged with the
+# commit SHA of the ref selected at dispatch time.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: push-sandbox-image
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and push sandbox image
+    uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      artifactory_registry_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
+      artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
+      image_artifact_name: truefoundry-utils-core-sandbox
+      image_tag: ${{ github.sha }}
+      image_context: packages/harness/scripts/sandbox
+      dockerfile_path: packages/harness/scripts/sandbox/sandbox.Dockerfile
+      # Dockerfile downloads linux-amd64 helm/nats binaries only.
+      platforms: linux/amd64
+      enable_jfrog: true
+      enable_public_ecr: false
+    secrets:
+      artifactory_username: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME }}
+      artifactory_password: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD }}
+
+  print-uri:
+    name: Print pushed image URI
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print image URI
+        env:
+          IMAGE_URI: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}/truefoundry-utils-core-sandbox:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          echo "Pushed image URI: $IMAGE_URI"
+          echo "### Sandbox image" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$IMAGE_URI\`" >> "$GITHUB_STEP_SUMMARY"

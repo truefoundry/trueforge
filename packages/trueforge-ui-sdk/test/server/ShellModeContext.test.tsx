@@ -5,9 +5,13 @@ import { describe, expect, it } from 'vitest';
 
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 
-function wrap(agentConfig?: AgentConfig) {
+function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <ShellModeProvider agentConfig={agentConfig}>{children}</ShellModeProvider>;
+    return (
+      <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
+        {children}
+      </ShellModeProvider>
+    );
   };
 }
 
@@ -20,6 +24,16 @@ describe('ShellModeProvider', () => {
     const { result } = renderHook(() => useOptionalShellMode());
 
     expect(result.current).toBeNull();
+  });
+
+  it('opens settings on first paint when initialSettingsOpen is true', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap(undefined, true) });
+    expect(result.current.settingsOpen).toBe(true);
+
+    act(() => result.current.setSettingsOpen(false));
+    expect(result.current.settingsOpen).toBe(false);
+    act(() => result.current.openDraft());
+    expect(result.current.settingsOpen).toBe(false);
   });
 
   it('defaults to AgentLibraryWithComposer (mutable + library)', () => {

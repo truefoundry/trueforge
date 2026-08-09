@@ -1,4 +1,3 @@
-import type { LucideIcon } from 'lucide-react';
 import {
   Archive,
   ArrowDown,
@@ -7,7 +6,6 @@ import {
   Bot,
   Box,
   Brain,
-  BrushCleaning,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -40,20 +38,46 @@ import {
   PanelLeftOpen,
   Paperclip,
   Pencil,
+  Play,
   Plug,
   Plus,
   RotateCw,
   Search,
   Settings,
   Sparkle,
+  SquarePen,
   Sun,
   Terminal,
   Trash2,
   Wrench,
   X,
 } from 'lucide-react';
+import type { SVGProps } from 'react';
 
 import type { IconEntry, IconMap } from '../theme/types.js';
+
+/** Lucide `broom` (https://lucide.dev/icons/broom) — not in lucide-react 0.x. */
+function Broom({ size = 24, ...props }: SVGProps<SVGSVGElement> & { size?: string | number }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M13.5 10.5 22 2" />
+      <path d="M14.734 13.841a2 2 0 00-.314-2.42L12.58 9.58a2 2 0 00-2.421-.314l-7.657 4.461A1 1 0 002.3 15.3l6.403 6.403a1 1 0 001.571-.204z" />
+      <path d="m5 18 2-2" />
+      <path d="m7.699 10.7 5.602 5.601" />
+    </svg>
+  );
+}
 
 const registry = new Map<string, IconEntry>();
 
@@ -77,7 +101,7 @@ export function resolveIconName(icon: string | readonly string[]): string {
   return icon[icon.length - 1] ?? '';
 }
 
-const defaults: Record<string, LucideIcon> = {
+const defaults: Record<string, IconEntry> = {
   paperclip: Paperclip,
   'arrow-up': ArrowUp,
   'arrow-down': ArrowDown,
@@ -85,8 +109,10 @@ const defaults: Record<string, LucideIcon> = {
   xmark: X,
   check: Check,
   pencil: Pencil,
+  play: Play,
+  'square-pen': SquarePen,
   'rotate-right': RotateCw,
-  broom: BrushCleaning,
+  broom: Broom,
   ellipsis: Ellipsis,
   trash: Trash2,
   'box-archive': Archive,

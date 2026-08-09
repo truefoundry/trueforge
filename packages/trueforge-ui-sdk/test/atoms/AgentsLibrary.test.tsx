@@ -210,8 +210,11 @@ describe('AgentsLibraryButton', () => {
   it('re-fetches the agent count when agentsListEpoch bumps', async () => {
     const searchAgents = vi
       .fn()
-      .mockResolvedValueOnce([{ name: 'alpha' }])
-      .mockResolvedValueOnce([{ name: 'alpha' }, { name: 'beta' }]);
+      .mockResolvedValueOnce([{ name: 'alpha', agentId: 'alpha' }])
+      .mockResolvedValueOnce([
+        { name: 'alpha', agentId: 'alpha' },
+        { name: 'beta', agentId: 'beta' },
+      ]);
     const server = createMockAgentUIServer({ searchAgents });
 
     function Invalidate() {
@@ -244,5 +247,27 @@ describe('AgentsLibraryButton', () => {
       expect(screen.getByRole('button', { name: /Agents Library \(2\)/ })).toBeInTheDocument();
     });
     expect(searchAgents).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows 50+ when the first page is full', async () => {
+    const agents = Array.from({ length: 50 }, (_, i) => ({
+      name: `agent-${i}`,
+      agentId: `agent-${i}`,
+    }));
+    const server = mockServer(agents);
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <AgentsLibraryButton />
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Agents Library \(50\+\)/ })).toBeInTheDocument();
+    });
   });
 });
