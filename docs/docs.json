@@ -68,11 +68,11 @@
         "groups": [
           {
             "group": "Get started",
-            "pages": ["ui-sdk/index", "ui-sdk/get-started/installation", "ui-sdk/get-started/quickstart"]
+            "pages": ["ui-sdk/index", "ui-sdk/get-started/quickstart"]
           },
           {
             "group": "Concepts",
-            "pages": ["ui-sdk/concepts/architecture", "ui-sdk/concepts/agent-modes", "ui-sdk/concepts/server-contract"]
+            "pages": ["ui-sdk/concepts/architecture", "ui-sdk/concepts/agent-modes"]
           },
           {
             "group": "Guides",
@@ -80,8 +80,15 @@
               "ui-sdk/guides/layouts",
               "ui-sdk/guides/theming",
               "ui-sdk/guides/slot-overrides",
-              "ui-sdk/guides/custom-server",
               "ui-sdk/guides/mcp-oauth",
+              {
+                "group": "Setup Other Server",
+                "pages": [
+                  "ui-sdk/setup-different-servers/server-contract",
+                  "ui-sdk/setup-different-servers/custom-server",
+                  "ui-sdk/setup-different-servers/connect-with-truefoundry"
+                ]
+              },
               "ui-sdk/guides/troubleshooting"
             ]
           },
