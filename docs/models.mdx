@@ -4,7 +4,7 @@ sidebarTitle: 'Models'
 description: 'Configure model providers once, then reference models by name in any agent — switching models is a config change, not a code change.'
 ---
 
-TrueForge works with the major model providers and any OpenAI-compatible endpoint. Provider credentials are configured once — in the UI under **Settings → Model Providers** or via the settings API — and agents reference models by name. Agent definitions never contain API keys.
+TrueForge works with the major model providers and any OpenAI-compatible endpoint. Provider credentials are configured once — in the UI under **Settings → Models** or via the settings API — and agents reference models by name. Agent definitions never contain API keys.
 
 ## Supported providers
 
@@ -21,6 +21,10 @@ TrueForge works with the major model providers and any OpenAI-compatible endpoin
 | `custom`        | Any OpenAI-compatible endpoint — self-hosted models, gateways, proxies |
 
 The shipped catalog (`GET /api/v1/settings/model-providers/catalog`) contains ready-to-fill templates for each provider. Use the `custom` type to connect vLLM, Ollama, a corporate gateway, or any other OpenAI-compatible API.
+
+<Frame caption="Adding a custom OpenAI-compatible provider (vLLM, Ollama, a gateway) with base URL, API key, and model IDs.">
+  <img src="/images/add-custom-model-provider.png" alt="The Add Custom Provider dialog with name, base URL, API key, and model fields" />
+</Frame>
 
 ## Configuring a provider
 

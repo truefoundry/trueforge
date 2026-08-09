@@ -36,6 +36,10 @@ sequenceDiagram
 
 The user selects one of the listed options or types a free-form answer. The agent receives the response as a regular tool result and continues from where it paused. The bundled chat UI renders questions and options natively.
 
+<Frame caption="The chat UI renders the question and its options as a selectable card.">
+  <img src="/images/ask-user-questions.png" alt="The chat UI showing an agent question with multiple-choice options and a Submit button" />
+</Frame>
+
 <Note>
   Only the root agent can call `ask_user_question`. [Subagents](/context-engineering/subagents) must resolve ambiguity
   from the context the root agent provides them.

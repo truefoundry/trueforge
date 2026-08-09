@@ -70,47 +70,72 @@ description: 'Run TrueForge with one command, configure a model provider, and ha
 TrueForge ships with a catalog of model providers. Configure one before your first chat:
 
 <Steps>
-  <Step title="Open Settings">In the UI, open **Settings → Models**.</Step>
+  <Step title="Open Settings">
+    In the UI, open **Settings → Models**.
+
+    <Frame>
+      <img src="/images/model-settings.png" alt="The Settings → Models page listing configured and available providers" />
+    </Frame>
+  </Step>
   <Step title="Pick a provider">
     Choose a provider from the catalog — OpenAI, Anthropic, Google Gemini, or an OpenAI-compatible endpoint — and paste
     your API key.
+
+    <Frame>
+      <img src="/images/model-configure.png" alt="Configuring a provider — pasting the API key and clicking Create" />
+    </Frame>
   </Step>
   <Step title="Select a model">
     Back in the chat, pick a model. Models are addressed as `provider/model`, for example `anthropic/claude-sonnet-4-6`.
+
+    <Frame>
+      <img src="/images/model-pick.png" alt="Selecting a model from the chat composer's model picker" />
+    </Frame>
   </Step>
 </Steps>
 
 Everything you can do in Settings is also available through the API — see `GET /api/v1/settings/model-providers/catalog` and `PUT /api/v1/settings/model-providers` in the interactive API docs at `/api/v1/docs`.
 
-<div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.75", padding: "40px 0" }}>
-  <iframe
-    src="https://app.supademo.com/embed/cmsk7202v01l51t0jkq022fjk?embed_v=2&utm_source=embed"
-    loading="lazy"
-    title="Configure a model provider in TrueForge"
-    allow="clipboard-write"
-    allowFullScreen
-    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
-  />
-</div>
-
 ## Start chatting
 
 Send your first message. Out of the box the agent supports multi-turn conversations with streaming. To give it more capabilities:
 
-- **Connect tools** — add [MCP servers](/mcp-servers) under **Settings → MCP Servers**.
-- **Enable the sandbox** — configure a [sandbox provider](/sandbox) so the agent can run code and use [skills](/skills).
-- **Add skills** — register [git-backed skills](/skills) under **Settings → Skills**.
+<Steps>
+  <Step title="Connect tools">
+    Add [MCP servers](/mcp-servers) under **Settings → Connectors**.
 
-<div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.46", padding: "40px 0" }}>
-  <iframe
-    src="https://app.supademo.com/embed/cmsk13xio00k81p0j1wj6amj6?embed_v=2&utm_source=embed"
-    loading="lazy"
-    title="Chat with an agent in TrueForge"
-    allow="clipboard-write"
-    allowFullScreen
-    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
-  />
-</div>
+    <Frame>
+      <img src="/images/getting-started-connectors.png" alt="The Connectors settings page listing connected and available MCP servers" />
+    </Frame>
+  </Step>
+  <Step title="Enable the sandbox">
+    Configure a [sandbox provider](/sandbox) under **Settings → Sandbox providers** so the agent can run code and use [skills](/skills).
+
+    <Frame>
+      <img src="/images/getting-started-sandbox.png" alt="The Sandbox providers settings page with Daytona connected" />
+    </Frame>
+  </Step>
+  <Step title="Add skills">
+    Register [git-backed skills](/skills) under **Settings → Skills**.
+
+    <Frame>
+      <img src="/images/getting-started-skills.png" alt="The Skills settings page with a selected skill" />
+    </Frame>
+  </Step>
+</Steps>
+
+<Frame caption="Composing an agent — pick a model, add connectors and skills, then save it to the library.">
+  <div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.46", padding: "40px 0" }}>
+    <iframe
+      src="https://app.supademo.com/embed/cmsk13xio00k81p0j1wj6amj6?embed_v=2&utm_source=embed"
+      loading="lazy"
+      title="Chat with an agent in TrueForge"
+      allow="clipboard-write"
+      allowFullScreen
+      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
+    />
+  </div>
+</Frame>
 
 ## Call the API
 

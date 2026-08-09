@@ -68,6 +68,10 @@ never returned.
     `supportedReasoningEfforts` lists the effort levels the provider's models accept, which the
     custom-provider form offers when configuring a model. `logo` is an optional image for the
     provider card.
+
+    <Frame caption="The custom-provider form these types back, in the Models settings panel.">
+      <img src="/images/add-custom-model-provider.png" alt="The Add Custom Provider dialog with name, base URL, API key, and model fields" />
+    </Frame>
   </Accordion>
 
   <Accordion title="Connectors (MCP servers)">
@@ -169,6 +173,10 @@ never returned.
     There is no `updateSkill` — skills are created and deleted rather than edited. Deletion is
     asymmetric between the two kinds: removing a registry skill returns it to the catalog as
     selectable again, while removing a GitHub-imported skill is permanent.
+
+    <Frame caption="Importing a skill from a GitHub repository in the Skills settings panel.">
+      <img src="/images/add-skill.png" alt="The Import from GitHub skill dialog with name, description, repository URL, path, and ref fields" />
+    </Frame>
   </Accordion>
 
   <Accordion title="Sandbox providers">
@@ -206,6 +214,10 @@ never returned.
     `UpdateSandboxProviderRequest` takes `id` plus the config, with an **optional** `apiKey` —
     omit it to keep the existing key, send one to rotate. That is the one place a catalog write
     is not a straight full replace.
+
+    <Frame caption="Configuring a sandbox provider (Daytona) in the Sandbox providers settings panel.">
+      <img src="/images/add-sandbox.png" alt="The sandbox provider configuration dialog with snapshot name, timeouts, lifecycle intervals, and API key" />
+    </Frame>
   </Accordion>
 </AccordionGroup>
 
