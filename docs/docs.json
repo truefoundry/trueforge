@@ -72,10 +72,7 @@
           },
           {
             "group": "Concepts",
-            "pages": [
-              "ui-sdk/concepts/architecture",
-              "ui-sdk/concepts/agent-modes",
-              "ui-sdk/guides/setup-different-servers/server-contract"]
+            "pages": ["ui-sdk/concepts/architecture", "ui-sdk/concepts/agent-modes", "ui-sdk/guides/setup-different-servers/server-contract"]
           },
           {
             "group": "Guides",
@@ -83,6 +80,7 @@
               "ui-sdk/guides/layouts",
               "ui-sdk/guides/theming",
               "ui-sdk/guides/slot-overrides",
+              "ui-sdk/guides/custom-server",
               "ui-sdk/guides/mcp-oauth",
               "ui-sdk/guides/troubleshooting"
             ]
