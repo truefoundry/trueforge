@@ -3,17 +3,50 @@ title: "Bring your own server"
 description: "Implement AgentUIServer and pass the object straight to the component."
 ---
 
-Because `server` accepts an `AgentUIServer` directly, you can front any backend — including
-your own proxy that keeps API keys server-side. The object is used immediately, so there is no
-loading indicator on mount.
+Use this when you compose chat and builder yourself — a chat-only gateway adapter with a stub catalog, a full host BFF, or a proxy that keeps credentials server-side. Pass the server object directly, with no `type` wrapper.
+
+`createTrueFoundryServer` combines a chat port with the builder callbacks. The stubs below return empty lists, which is enough to mount; fill them in as you add agent management.
+
+```jsx App.tsx
+import { TrueforgeUI, createTrueFoundryServer } from "@truefoundry/trueforge-ui";
+import { createTrueFoundryChatServer } from "@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adapter";
+
+// this structure will most likely change. Govinda to update this
+const chatServer = createTrueFoundryChatServer({
+  apiKey: import.meta.env.VITE_TFY_API_KEY,
+  baseUrl: import.meta.env.VITE_TFY_GATEWAY_URL,
+});
+
+const server = createTrueFoundryServer({
+  chatServer,
+  getCapabilities: async () => ({
+    data: { sandbox: { enabled: false }, skill: { enabled: false } },
+  }),
+  getModels: async () => [],
+  getSkills: async () => [],
+  getMcp: async () => [],
+  searchAgents: async () => [],
+  saveAgent: async () => ({}),
+});
+
+export default function App() {
+  return (
+    <div style={{ height: "100dvh" }}>
+      <TrueforgeUI server={server} layout="sidebar" />
+    </div>
+  );
+}
+```
+
+To skip `createTrueFoundryServer` entirely and implement the interface from scratch — against any backend, not just TrueFoundry — see [Bring your own server](/ui-sdk/guides/custom-server).
+
+Because `server` accepts an `AgentUIServer` directly, you can front any backend — including your own proxy that keeps API keys server-side. The object is used immediately, so there is no loading indicator on mount.
 
 ## Minimal implementation
 
-The shape below is the smallest thing that mounts. Optional methods are omitted; required ones
-must exist even if they only throw in paths your UI never reaches.
+The shape below is the smallest thing that mounts. Optional methods are omitted; required ones must exist even if they only throw in paths your UI never reaches.
 
-List methods return a `PageResult`, which carries methods as well as data — so a small helper
-for the single-page case keeps the boilerplate in one place.
+List methods return a `PageResult`, which carries methods as well as data — so a small helper for the single-page case keeps the boilerplate in one place.
 
 ```ts title="server.ts"
 import type { AgentUIServer, PageResult, Session } from "@truefoundry/trueforge-ui";
@@ -94,9 +127,7 @@ export const server: AgentUIServer = {
 };
 ```
 
-Declaring `sandbox` and `skill` as disabled is the honest starting point — the UI then hides
-those affordances instead of offering controls your backend cannot serve. Flip them on as you
-implement each.
+Declaring `sandbox` and `skill` as disabled is the honest starting point — the UI then hides those affordances instead of offering controls your backend cannot serve. Flip them on as you implement each.
 
 ```tsx title="App.tsx"
 <TrueforgeUI server={server} layout="sidebar" agentConfig={{ mode: "AgentLibrary" }} />
@@ -104,9 +135,7 @@ implement each.
 
 ## Streaming
 
-`createTurn` yields envelopes of the form `{ sequenceNumber, event }` — not bare events. The
-number must increase monotonically within the turn, and it is what lets a reconnecting client
-resume via `subscribeToTurn({ afterSequenceNumber })`.
+`createTurn` yields envelopes of the form `{ sequenceNumber, event }` — not bare events. The number must increase monotonically within the turn, and it is what lets a reconnecting client resume via `subscribeToTurn({ afterSequenceNumber })`.
 
 The minimum viable stream for one assistant reply is three events:
 
@@ -148,18 +177,13 @@ async *createTurn({ sessionId, input }) {
 }
 ```
 
-Two things are easy to get wrong. Deltas carry the *increment* rather than the accumulated
-text, and every delta for one message shares a single `id`. And a stream that ends without a
-`turn.done` leaves the UI showing the turn as still running.
+Two things are easy to get wrong. Deltas carry the _increment_ rather than the accumulated text, and every delta for one message shares a single `id`. And a stream that ends without a `turn.done` leaves the UI showing the turn as still running.
 
-[Streaming events](/ui-sdk/reference/events) documents the full protocol — tool calls, approval
-prompts, sub-agent threads, and sandbox artifacts.
+[Streaming events](/ui-sdk/reference/events) documents the full protocol — tool calls, approval prompts, sub-agent threads, and sandbox artifacts.
 
 ## Pagination
 
-`PageResult<T, R>` carries `data` (the rows), `response` (your raw backend payload), and the
-methods `hasNextPage()` and `getNextPage()`. Page tokens travel the other way: requests accept
-a `pageToken`, so `getNextPage()` calls your backend again with the token you kept.
+`PageResult<T, R>` carries `data` (the rows), `response` (your raw backend payload), and the methods `hasNextPage()` and `getNextPage()`. Page tokens travel the other way: requests accept a `pageToken`, so `getNextPage()` calls your backend again with the token you kept.
 
 ```ts
 async listSessions({ pageToken, limit = 20 } = {}) {
@@ -174,38 +198,33 @@ async listSessions({ pageToken, limit = 20 } = {}) {
 }
 ```
 
-Because the result carries methods, you cannot hand back a bare parsed JSON object — construct
-it, or reuse a helper like the `onePage` above.
+Because the result carries methods, you cannot hand back a bare parsed JSON object — construct it, or reuse a helper like the `onePage` above.
 
-`listEvents` additionally accepts `lastTurnId`, used when hydrating history for an existing
-session.
+`listEvents` additionally accepts `lastTurnId`, used when hydrating history for an existing session.
 
 ## Optional capabilities
 
 <AccordionGroup>
   <Accordion title="deleteSession / deleteAgent">
-    In a hand-written `AgentUIServer` like the one above, omitting these leaves the
-    corresponding affordances unavailable rather than broken. (This differs from
-    `createTrueFoundryServer`, where an omitted `deleteAgent` throws when called.)
+    In a hand-written `AgentUIServer` like the one above, omitting these leaves the corresponding affordances unavailable rather than broken. (This differs from `createTrueFoundryServer`, where an omitted `deleteAgent` throws when called.)
   </Accordion>
+
   <Accordion title="downloadSandboxFile">
-    Return a `Blob`. Required only if your agents produce sandbox artifacts users should be able
-    to download.
+    Return a `Blob`. Required only if your agents produce sandbox artifacts users should be able to download.
   </Accordion>
+
   <Accordion title="subscribeToTurn">
-    Resumes a live stream from `afterSequenceNumber`, so a reconnecting client picks up where it
-    left off instead of replaying the turn. Skip it if your backend cannot resume.
+    Resumes a live stream from `afterSequenceNumber`, so a reconnecting client picks up where it left off instead of replaying the turn. Skip it if your backend cannot resume.
   </Accordion>
+
   <Accordion title="catalog">
-    Attach a [`CatalogServer`](/ui-sdk/reference/catalog) to enable the settings UI — models,
-    connectors, skills, and sandboxes. Without it those surfaces do not render.
+    Attach a [`CatalogServer`](/ui-sdk/reference/catalog) to enable the settings UI — models, connectors, skills, and sandboxes. Without it those surfaces do not render.
   </Accordion>
 </AccordionGroup>
 
 ## Widening the types
 
-The interfaces are generic so you can carry backend-specific fields through the UI without
-casting. `AgentUIServer` takes the chat port, the builder port, and the catalog:
+The interfaces are generic so you can carry backend-specific fields through the UI without casting. `AgentUIServer` takes the chat port, the builder port, and the catalog:
 
 ```ts
 interface MyModel extends ModelSelection {
@@ -223,13 +242,11 @@ const server: AgentUIServer<
 };
 ```
 
-See [Widening the types](/ui-sdk/concepts/server-contract#widening-the-types) for the full set of
-parameters.
+See [Widening the types](/ui-sdk/concepts/server-contract#widening-the-types) for the full set of parameters.
 
 ## Attachments
 
-Attachment handling defaults to `trueFoundryAttachmentAdapter`. Override it through the
-`adapters` prop on `TrueforgeUI` if your backend stores uploads differently.
+Attachment handling defaults to `trueFoundryAttachmentAdapter`. Override it through the `adapters` prop on `TrueforgeUI` if your backend stores uploads differently.
 
 ```tsx
 <TrueforgeUI server={server} layout="sidebar" adapters={{ attachments: myAdapter }} />

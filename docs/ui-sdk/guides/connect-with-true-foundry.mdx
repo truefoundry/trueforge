@@ -1,0 +1,28 @@
+---
+title: "Connect with TrueFoundry"
+---
+
+The zero-config path. The SDK builds the agent UI server from your API key and control plane URL; the gateway URL is optional and resolved from the control plane when omitted.
+
+```jsx App.tsx
+import { TrueforgeUI } from "@truefoundry/trueforge-ui";
+
+export default function App() {
+  return (
+    <div style={{ height: "100dvh" }}>
+      <TrueforgeUI
+        server={{
+          type: "truefoundry",
+          apiKey: {{API_KEY}},
+          controlPlaneURL: {{CONTROL_PLANE_URL}},
+        }}
+        layout="sidebar"
+      />
+    </div>
+  );
+}
+```
+
+Add `gatewayPlaneURL` alongside `controlPlaneURL` to target a specific gateway.
+
+Because this config is resolved asynchronously, the SDK shows a brief loading indicator before the chat appears. The other two paths mount immediately.
