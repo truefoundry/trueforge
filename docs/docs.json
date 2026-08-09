@@ -72,13 +72,14 @@
           },
           {
             "group": "Concepts",
-            "pages": ["ui-sdk/concepts/architecture", "ui-sdk/concepts/agent-modes"]
+            "pages": ["ui-sdk/concepts/architecture"]
           },
           {
             "group": "Guides",
             "pages": [
               "ui-sdk/guides/layouts",
               "ui-sdk/guides/theming",
+              "ui-sdk/guides/agent-modes",
               "ui-sdk/guides/slot-overrides",
               "ui-sdk/guides/mcp-oauth",
               {
