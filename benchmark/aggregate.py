@@ -55,20 +55,28 @@ def load(path):
 
 
 def main():
-    metrics = {(r["harness"], r["trial"], r["task"]): r for r in load("matrix.jsonl") if r.get("status") == "ok"}
+    all_rows = load("matrix.jsonl")                          # both "ok" and "failed" cells
+    metrics = {(r["harness"], r["trial"], r["task"]): r for r in all_rows if r.get("status") == "ok"}
     verdicts = {(r["harness"], r["trial"], r["task"]): r["verdict"] for r in load("grades.jsonl")}
 
-    harnesses = sorted({h for (h, _, _) in metrics})
-    tasks = sorted({t for (_, _, t) in metrics})
+    harnesses = sorted({r["harness"] for r in all_rows})
+    tasks = sorted({r["task"] for r in all_rows})
     total_tasks = len(tasks)
 
+    # Seed every ATTEMPTED (harness, trial) to zero passes — including a trial whose cells
+    # all hard-failed (no "ok" rows). Otherwise that trial would be absent and the mean
+    # would divide by fewer trials, overstating accuracy after a full-trial failure.
+    solved_per_trial = defaultdict(dict)                     # solved_per_trial[harness][trial] -> #tasks passed
+    for r in all_rows:
+        solved_per_trial[r["harness"]].setdefault(r["trial"], 0)
+    for (h, tr, t), v in verdicts.items():
+        if v == "PASS":
+            solved_per_trial[h][tr] = solved_per_trial[h].get(tr, 0) + 1
+
     per_task = defaultdict(lambda: defaultdict(list))        # per_task[harness][task] -> [PASS/FAIL...]
-    solved_per_trial = defaultdict(lambda: defaultdict(int)) # solved_per_trial[harness][trial] -> #tasks passed
     per_cell = defaultdict(lambda: {"cost": [], "lat": [], "tok": [], "tools": []})
     for (h, tr, t), m in metrics.items():
-        v = verdicts.get((h, tr, t), "UNGRADED")
-        per_task[h][t].append(v)
-        solved_per_trial[h][tr] += 1 if v == "PASS" else 0   # ensures every ran trial is present
+        per_task[h][t].append(verdicts.get((h, tr, t), "UNGRADED"))
         per_cell[h]["cost"].append(cell_cost(h, m["tokens"]))
         per_cell[h]["lat"].append(m.get("latency_s", 0))
         per_cell[h]["tok"].append(m["tokens"]["input"] + m["tokens"]["output"])
