@@ -72,7 +72,7 @@
           },
           {
             "group": "Concepts",
-            "pages": ["ui-sdk/concepts/architecture", "ui-sdk/concepts/agent-modes", "ui-sdk/guides/setup-different-servers/server-contract"]
+            "pages": ["ui-sdk/concepts/architecture", "ui-sdk/concepts/agent-modes", "ui-sdk/concepts/server-contract"]
           },
           {
             "group": "Guides",
