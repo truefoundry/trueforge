@@ -50,7 +50,10 @@ def run_tfy(task, prompt, cap):
         "instructions": SYSTEM_PROMPT,
         "mcp_servers": [{"name": n, "enable_tools": ["@all"], "require_approval_for_tools": []}
                         for n in mcp],
-        "config": {"iteration_limit": int(os.environ.get("TFY_ITERATION_LIMIT", "100"))},
+        # Fully autonomous: no approval gates (above) and no clarifying-question pauses,
+        # either of which would end a turn early with incomplete work.
+        "config": {"iteration_limit": int(os.environ.get("TFY_ITERATION_LIMIT", "100")),
+                   "ask_user_questions": {"enabled": False}},
     }
 
     def _post(path, body, stream=False):

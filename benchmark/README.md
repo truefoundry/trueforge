@@ -5,11 +5,11 @@ three agent frameworks on the model of your choice, grading the answers with a
 **blind LLM judge**, and reporting **accuracy, cost, and latency** side by side.
 
 Built by TrueFoundry to compare [TrueForge](https://github.com/truefoundry/trueforge) (our
-open-source agent harness) against **Claude Managed Agents (CMA)** and
-**deepagents** on a suite of cross-system enterprise tasks. Everything here is
-what we run — no hidden scoring, no per-task hints, one uniform prompt for every
-framework. Point it at your own dataset and models and you should reproduce our
-shape of results.
+open-source agent harness) against **Claude Managed Agents (CMA)** on a suite of
+cross-system enterprise tasks; a **deepagents** (LangGraph) arm is included as well.
+Everything here is what we run — no hidden scoring, no per-task hints, one uniform
+prompt for every framework. Point it at your own dataset and models and you should
+reproduce our shape of results.
 
 ---
 
@@ -48,16 +48,15 @@ Any suite in that shape works — this harness is not DevRev-specific.
 
 ## The three arms
 
-| Arm | Framework | How the agent runs | Tools |
-|-----|-----------|--------------------|-------|
-| `tfy` | TrueForge (TrueFoundry Agent Harness) | Session via TrueForge's own HTTP API (`/api/v1`) | MCP servers registered in TrueForge (by name) |
-| `cma` | Claude Managed Agents (beta) | Anthropic-hosted session + sandbox | `mcp_toolset` attached to the agent |
-| `deepagents` | deepagents (LangGraph) | Local `create_deep_agent` loop | MCP tools via `MultiServerMCPClient` |
+| Arm          | Framework                             | How the agent runs                               | Tools                                         |
+| ------------ | ------------------------------------- | ------------------------------------------------ | --------------------------------------------- |
+| `tfy`        | TrueForge (TrueFoundry Agent Harness) | Session via TrueForge's own HTTP API (`/api/v1`) | MCP servers registered in TrueForge (by name) |
+| `cma`        | Claude Managed Agents (beta)          | Anthropic-hosted session + sandbox               | `mcp_toolset` attached to the agent           |
+| `deepagents` | deepagents (LangGraph)                | Local `create_deep_agent` loop                   | MCP tools via `MultiServerMCPClient`          |
 
 Every arm gets the **same system prompt** (`prompts/system.md`) and the **same task
 prompts**. The prompt is generic operating guidance — how to approach a cross-system
-task, be thorough with sources, ground claims, respect scope. There are no
-task-specific hints and no answer key in the prompt or the judge.
+task, be thorough with sources, ground claims, respect scope.
 
 ---
 
@@ -76,9 +75,8 @@ task-specific hints and no answer key in the prompt or the judge.
    only the criteria and the answer, never a reference value and never which arm
    produced it. A task PASSES only if **every** required criterion is met (no
    partial credit). Writes `results/grades.jsonl`.
-4. **`aggregate.py`** — rolls the matrix up into per-arm accuracy, cost, and
-   latency. A task is **solved** when it passes in the **majority** of trials.
-   Writes `results/summary.csv`.
+4. **`aggregate.py`** — rolls the matrix up into per-arm accuracy, cost, and latency.
+   `Solved / 14` is the mean number of tasks passed per trial. Writes `results/summary.csv`.
 
 ### Cost model
 
@@ -132,24 +130,24 @@ Docker: `docker build -t trueforge-bench . && docker run --env-file .env -v $PWD
 
 ## Our results
 
-The DevRev L1-L2 suite is **14 tasks**. Same system prompt, same tasks, blind judge;
-a task is solved when it passes in the majority of its trials (`n` shown per row).
-Cost is per run (one task) at provider list prices; solved is the mean across trials.
+The DevRev L1-L2 suite is **14 tasks**, each run in a fresh session over **n = 3
+trials**. `Solved / 14` is the mean number of tasks passed per trial (blind judge,
+all-or-nothing); cost is per run at provider list prices.
 
-| Configuration | n | Solved / 14 | Cost / run | Tokens / run |
-|---------------|:-:|:-----------:|:----------:|:------------:|
-| Claude Managed Agents · Opus 4.8 | 3 | 10.7 | $11.78 | 10.0M |
-| TrueForge · Opus 4.8 | 3 | 10.3 | $8.50 | 3.8M |
-| TrueForge · GLM-5.2 | 2 | 10.5 | $2.89 | 3.7M |
+| Configuration                    |  n  | Solved / 14 | Cost / run | Tokens / run |
+| -------------------------------- | :-: | :---------: | :--------: | :----------: |
+| Claude Managed Agents · Opus 4.8 |  3  |    10.7     |   $11.8    |    10.0M     |
+| TrueForge · Opus 4.8             |  3  |    10.7     |    $8.6    |     3.7M     |
+| TrueForge · GLM-5.2              |  3  |    11.7     |    $3.0    |     3.8M     |
 
-On the **same model (Opus 4.8)**, TrueForge and Claude Managed Agents land within a
-task of each other on accuracy (10.3 vs 10.7) — quality is comparable — while
-TrueForge uses far fewer tokens per run (3.8M vs 10.0M) and so costs less ($8.50 vs
-$11.78). Running TrueForge on the open model **GLM-5.2** holds accuracy in the same
-band (10.5) at $2.89/run. Trial counts are small; numbers move a task or two run to
-run, so reproduce the shape, not a single cell, and plug in your own models and rates.
+On the **same model (Opus 4.8)**, TrueForge and Claude Managed Agents solve the same
+number of tasks (10.7 each) — matched accuracy — while TrueForge uses far fewer tokens
+per run (3.7M vs 10.0M) and so costs less ($8.6 vs $11.8, ~27% lower). Running
+TrueForge on the open model **GLM-5.2** solves 11.7 / 14 at $3.0 per run — about 75%
+below Claude Managed Agents. Numbers move a task or two run to run, so reproduce the
+shape, not a single cell, and plug in your own models and rates.
 
-The kit also includes a **deepagents** arm you can run under the same setup.
+A **deepagents** (LangGraph) arm is also included in the kit and can be run the same way.
 
 ---
 

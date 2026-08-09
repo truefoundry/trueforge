@@ -4,9 +4,9 @@
 Reads results/matrix.jsonl (per-cell tokens/latency/tool-calls) and results/grades.jsonl
 (per-cell PASS/FAIL), and writes results/summary.csv plus a printed table.
 
-A task counts as SOLVED for a harness when it passes in the MAJORITY of its trials
-(>= ceil(trials/2)). Cost is computed per cell from token counts and per-harness rates,
-then averaged per run.
+`Solved / 14` is the mean number of tasks passed per trial (each answer graded
+all-or-nothing by the blind judge). Cost is computed per cell from token counts and
+per-harness rates, then averaged per run.
 
     python aggregate.py
 
@@ -15,7 +15,7 @@ TOTAL prompt with cache reads/writes as a subset (uncached = input - cache_read 
 cache_write); others report `input` as already-uncached. Rates are $/1M tokens; override
 per harness with RATES / RATES_<HARNESS> env vars (see .env.example).
 """
-import os, csv, json, math, pathlib
+import os, csv, json, pathlib
 from collections import defaultdict
 
 BENCH = pathlib.Path(__file__).parent
@@ -60,15 +60,15 @@ def main():
 
     harnesses = sorted({h for (h, _, _) in metrics})
     tasks = sorted({t for (_, _, t) in metrics})
-    trials = sorted({tr for (_, tr, _) in metrics})
-    ntr = len(trials) or 1
-    need = math.ceil(ntr / 2)
+    total_tasks = len(tasks)
 
-    per_task = defaultdict(lambda: defaultdict(list))     # per_task[harness][task] -> [PASS/FAIL...]
+    per_task = defaultdict(lambda: defaultdict(list))        # per_task[harness][task] -> [PASS/FAIL...]
+    solved_per_trial = defaultdict(lambda: defaultdict(int)) # solved_per_trial[harness][trial] -> #tasks passed
     per_cell = defaultdict(lambda: {"cost": [], "lat": [], "tok": [], "tools": []})
     for (h, tr, t), m in metrics.items():
         v = verdicts.get((h, tr, t), "UNGRADED")
         per_task[h][t].append(v)
+        solved_per_trial[h][tr] += 1 if v == "PASS" else 0   # ensures every ran trial is present
         per_cell[h]["cost"].append(cell_cost(h, m["tokens"]))
         per_cell[h]["lat"].append(m.get("latency_s", 0))
         per_cell[h]["tok"].append(m["tokens"]["input"] + m["tokens"]["output"])
@@ -77,25 +77,24 @@ def main():
     def mean(xs):
         return sum(xs) / len(xs) if xs else 0.0
 
-    # summary.csv: per (harness, task) pass fraction
+    # summary.csv: per (harness, task) pass count across trials
     with open(OUT / "summary.csv", "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["harness", "task", "trials", "passes", "solved_majority"])
+        w.writerow(["harness", "task", "trials", "passes"])
         for h in harnesses:
             for t in tasks:
                 vs = per_task[h].get(t, [])
-                passes = sum(1 for v in vs if v == "PASS")
-                w.writerow([h, t, len(vs), passes, int(passes >= need)])
+                w.writerow([h, t, len(vs), sum(1 for v in vs if v == "PASS")])
 
-    print(f"\ntrials/harness = {ntr}  (solved = passes in >= {need} trials)\n")
-    hdr = f"{'harness':14} {'solved/N':>9} {'$/run':>8} {'tokens':>9} {'tool_calls':>11} {'latency_s':>10}"
-    print(hdr); print("-" * len(hdr))
+    hdr = f"{'harness':22} {'n':>2} {'solved/'+str(total_tasks):>10} {'$/run':>8} {'tokens':>9} {'tools':>6} {'lat_s':>6}"
+    print("\n" + hdr); print("-" * len(hdr))
     for h in harnesses:
-        solved = sum(1 for t in tasks if sum(1 for v in per_task[h].get(t, []) if v == "PASS") >= need)
+        trials = solved_per_trial[h]
+        solved = mean(list(trials.values()))                 # mean tasks passed per trial
         c = per_cell[h]
-        print(f"{h:14} {str(solved)+'/'+str(len(tasks)):>9} "
+        print(f"{h:22} {len(trials):>2} {solved:>10.1f} "
               f"{'$'+format(mean(c['cost']),'.2f'):>8} {mean(c['tok'])/1e6:>8.2f}M "
-              f"{mean(c['tools']):>11.1f} {mean(c['lat']):>10.0f}")
+              f"{mean(c['tools']):>6.1f} {mean(c['lat']):>6.0f}")
     print(f"\nwrote {OUT/'summary.csv'}")
 
 
