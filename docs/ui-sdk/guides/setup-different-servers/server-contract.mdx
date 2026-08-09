@@ -3,8 +3,7 @@ title: "Server contract"
 description: "The interfaces a backend must implement for the SDK to talk to it."
 ---
 
-The `server` prop accepts either a built-in config object or an object implementing
-`AgentUIServer`.
+The `server` prop accepts either a built-in config object or an object implementing `AgentUIServer`.
 
 ```ts
 type TrueforgeServerConfig =
@@ -19,13 +18,9 @@ type TrueforgeServerConfig =
   | AgentUIServer;
 ```
 
-Each form resolves differently. An `AgentUIServer` object is used immediately. A `truefoundry`
-config is resolved asynchronously, so the SDK renders a loading indicator (`role="status"`) for
-a moment first. A `trueforge` config is typed for the forthcoming harness adapter and currently
-resolves to a not-implemented error — see [Quickstart](/ui-sdk/get-started/quickstart#trueforge).
+Each form resolves differently. An `AgentUIServer` object is used immediately. A `truefoundry` config is resolved asynchronously, so the SDK renders a loading indicator (`role="status"`) for a moment first. A `trueforge` config is typed for the forthcoming harness adapter and currently resolves to a not-implemented error — see [Quickstart](/ui-sdk/get-started/quickstart#trueforge).
 
-`catalog` is optional on both built-in forms and is attached to the resolved server, which is
-how you enable the [settings UI](/ui-sdk/reference/catalog) without hand-building a server.
+`catalog` is optional on both built-in forms and is attached to the resolved server, which is how you enable the [settings UI](/ui-sdk/reference/catalog) without hand-building a server.
 
 ## The composed contract
 
@@ -33,12 +28,9 @@ how you enable the [settings UI](/ui-sdk/reference/catalog) without hand-buildin
 type AgentUIServer = AgentChatServer & AgentBuilderServer & { catalog?: CatalogServer };
 ```
 
-Chat and session operations, agent-builder operations, and an optional settings catalog. Only
-the first two are required.
+Chat and session operations, agent-builder operations, and an optional settings catalog. Only the first two are required.
 
-Every interface is generic. The SDK's types constrain only the fields the UI itself reads, so
-when your backend returns richer objects you widen the type parameters rather than casting or
-stripping fields. See [widening](#widening-the-types) below.
+Every interface is generic. The SDK's types constrain only the fields the UI itself reads, so when your backend returns richer objects you widen the type parameters rather than casting or stripping fields. See [widening](#widening-the-types) below.
 
 ## AgentChatServer
 
@@ -89,19 +81,13 @@ interface AgentChatServer {
 }
 ```
 
-Three methods are optional. `deleteSession` gates the delete control in the session list.
-`subscribeToTurn` lets a reconnecting client resume a stream from `afterSequenceNumber` rather
-than replaying it. `downloadSandboxFile` enables artifact downloads.
+Three methods are optional. `deleteSession` gates the delete control in the session list. `subscribeToTurn` lets a reconnecting client resume a stream from `afterSequenceNumber` rather than replaying it. `downloadSandboxFile` enables artifact downloads.
 
 <Note>
-  `downloadSandboxFile` receives both `turnId` and `sandboxId` because backends address
-  sandboxes differently. If your download route is scoped to a turn, resolve the sandbox from
-  `turnId` and ignore `sandboxId`; if you address sandboxes directly, use `sandboxId`.
+  `downloadSandboxFile` receives both `turnId` and `sandboxId` because backends address sandboxes differently. If your download route is scoped to a turn, resolve the sandbox from `turnId` and ignore `sandboxId`; if you address sandboxes directly, use `sandboxId`.
 </Note>
 
-`createTurn` and `subscribeToTurn` yield `TurnStreamData`, an envelope of
-`{ sequenceNumber, event }`. The event protocol is documented in
-[Streaming events](/ui-sdk/reference/events).
+`createTurn` and `subscribeToTurn` yield `TurnStreamData`, an envelope of `{ sequenceNumber, event }`. The event protocol is documented in [Streaming events](/ui-sdk/reference/events).
 
 ## Sessions
 
@@ -117,12 +103,9 @@ interface Session {
 }
 ```
 
-`id`, `isMutable`, `createdAt`, and `updatedAt` are required; timestamps are ISO strings. Set
-`isMutable: true` while the agent spec may still be edited — that is what permits
-`updateSession`.
+`id`, `isMutable`, `createdAt`, and `updatedAt` are required; timestamps are ISO strings. Set `isMutable: true` while the agent spec may still be edited — that is what permits `updateSession`.
 
-`CreateSessionRequest` is `{ agentName?, agentSpec?, title? }`; `UpdateSessionRequest` is the
-same plus a required `sessionId`.
+`CreateSessionRequest` is `{ agentName?, agentSpec?, title? }`; `UpdateSessionRequest` is the same plus a required `sessionId`.
 
 ## Pagination
 
@@ -135,14 +118,9 @@ interface PageResult<T, R = unknown> {
 }
 ```
 
-`PageResult` is an object with methods, not a plain DTO. `data` holds the rows, `response`
-carries your raw backend payload, and the two methods drive paging. Requests accept a
-`pageToken`, so `getNextPage()` is where you call your backend again with the token you held
-onto.
+`PageResult` is an object with methods, not a plain DTO. `data` holds the rows, `response` carries your raw backend payload, and the two methods drive paging. Requests accept a `pageToken`, so `getNextPage()` is where you call your backend again with the token you held onto.
 
-The `response` type parameter is the shape your endpoint returned — `ListSessionsResponse`,
-`ListTurnsResponse`, or `ListSessionEventsResponse`, each `{ data, pagination }` where
-`pagination` is a `TokenPagination` of `{ nextPageToken?, previousPageToken?, limit }`.
+The `response` type parameter is the shape your endpoint returned — `ListSessionsResponse`, `ListTurnsResponse`, or `ListSessionEventsResponse`, each `{ data, pagination }` where `pagination` is a `TokenPagination` of `{ nextPageToken?, previousPageToken?, limit }`.
 
 ```ts
 async listSessions({ pageToken, limit = 20 } = {}) {
@@ -158,8 +136,7 @@ async listSessions({ pageToken, limit = 20 } = {}) {
 ```
 
 <Note>
-  Because `PageResult` carries methods, you cannot return a bare object literal parsed from
-  JSON. Build it — or write a small helper — so `hasNextPage` and `getNextPage` are present.
+  Because `PageResult` carries methods, you cannot return a bare object literal parsed from JSON. Build it — or write a small helper — so `hasNextPage` and `getNextPage` are present.
 </Note>
 
 ## Turn input
@@ -189,9 +166,7 @@ interface UserToolResponseEvent {
 }
 ```
 
-A plain chat message arrives as `user.message`. Approving or rejecting a tool call, and
-answering a prompt the agent raised, arrive as the other two — all three through the same
-`createTurn` entry point, so branch on `type`.
+A plain chat message arrives as `user.message`. Approving or rejecting a tool call, and answering a prompt the agent raised, arrive as the other two — all three through the same `createTurn` entry point, so branch on `type`.
 
 ## Turn state
 
@@ -212,10 +187,7 @@ type TurnState =
   | { status: "error"; message: string; completedAt: string };
 ```
 
-A turn ends in one of three terminal states, each carrying `completedAt`. A `done` turn may
-still carry `requiredActions` — that is how a turn signals it is waiting on the user, such as a
-tool approval, rather than being finished outright. The user's reply arrives on the next
-`createTurn` call as a `user.tool_approval` or `user.tool_response` input item.
+A turn ends in one of three terminal states, each carrying `completedAt`. A `done` turn may still carry `requiredActions` — that is how a turn signals it is waiting on the user, such as a tool approval, rather than being finished outright. The user's reply arrives on the next `createTurn` call as a `user.tool_approval` or `user.tool_response` input item.
 
 ## AgentBuilderServer
 
@@ -237,8 +209,7 @@ interface AgentBuilderServer {
 
 ### Capabilities
 
-`getCapabilities` tells the UI which optional features your backend supports, so it can hide
-what you do not offer rather than surfacing controls that fail.
+`getCapabilities` tells the UI which optional features your backend supports, so it can hide what you do not offer rather than surfacing controls that fail.
 
 ```ts
 interface AgentBuilderCapabilitiesResponse {
@@ -250,10 +221,7 @@ interface AgentBuilderCapabilitiesResponse {
 }
 ```
 
-It is fetched once when the server resolves. `skill.reason` is shown to the user when skills are
-disabled, so use it to explain why — for example that no skill registry is configured. Setting
-`settings.enabled` to `false` hides the settings control even when a `catalog` is attached;
-omitting `settings` leaves it visible.
+It is fetched once when the server resolves. `skill.reason` is shown to the user when skills are disabled, so use it to explain why — for example that no skill registry is configured. Setting `settings.enabled` to `false` hides the settings control even when a `catalog` is attached; omitting `settings` leaves it visible.
 
 ```ts
 async getCapabilities() {
@@ -261,8 +229,7 @@ async getCapabilities() {
 }
 ```
 
-Read the resolved value anywhere in your own components with
-[`useServerCapabilities()`](/ui-sdk/reference/hooks).
+Read the resolved value anywhere in your own components with [`useServerCapabilities()`](/ui-sdk/reference/hooks).
 
 ### Picker rows
 
@@ -276,16 +243,10 @@ The remaining methods return the minimum each selector renders:
 | `AgentLibraryEntry` | `name`, `agentId` | `agentSpec` |
 
 <Note>
-  Return a non-empty `reasoningEfforts` on a `ModelSelection` and the UI shows a
-  reasoning-effort picker beside the model selector. On `AgentLibraryEntry`, `agentId` is the
-  stable identifier used for selection, history filtering, and session binding — it is required
-  even when it matches the display `name`. Supply `agentSpec` to enable Edit; omit it for
-  try-only agents.
+  Return a non-empty `reasoningEfforts` on a `ModelSelection` and the UI shows a reasoning-effort picker beside the model selector. On `AgentLibraryEntry`, `agentId` is the stable identifier used for selection, history filtering, and session binding — it is required even when it matches the display `name`. Supply `agentSpec` to enable Edit; omit it for try-only agents.
 </Note>
 
-`SearchAgentsParams` is `{ query?, limit?, offset? }` — offset paging, since it backs a search
-box rather than an infinite list. `SaveAgentRequest` is `{ agentName, agentSpec }`, and its
-return value is passed through untyped.
+`SearchAgentsParams` is `{ query?, limit?, offset? }` — offset paging, since it backs a search box rather than an infinite list. `SaveAgentRequest` is `{ agentName, agentSpec }`, and its return value is passed through untyped.
 
 ## AgentSpec
 
@@ -305,14 +266,11 @@ interface Model {
 
 Only `model` is required. `instructions` carries the system prompt.
 
-`SkillMount` and `McpServerMount` are typed as `object`. The runtime stores and forwards mounts
-without reading any field, and your backend owns their shape — so the base constrains only that
-a mount is an object, and you intersect your concrete type over it.
+`SkillMount` and `McpServerMount` are typed as `object`. The runtime stores and forwards mounts without reading any field, and your backend owns their shape — so the base constrains only that a mount is an object, and you intersect your concrete type over it.
 
 ## Widening the types
 
-Every interface takes type parameters defaulting to the SDK-minimal shapes. Supply your own to
-carry extra fields through the UI without casting:
+Every interface takes type parameters defaulting to the SDK-minimal shapes. Supply your own to carry extra fields through the UI without casting:
 
 ```ts
 interface MyModel extends ModelSelection {
@@ -328,8 +286,7 @@ const server: AgentUIServer<AgentChatServer<MySpec>, AgentBuilderServer<MySpec, 
 };
 ```
 
-The UI keeps reading only the fields it knows about; your own components — supplied through
-[slot overrides](/ui-sdk/guides/slot-overrides) — can read the rest.
+The UI keeps reading only the fields it knows about; your own components — supplied through [slot overrides](/ui-sdk/guides/slot-overrides) — can read the rest.
 
 ## Next
 
@@ -337,12 +294,15 @@ The UI keeps reading only the fields it knows about; your own components — sup
   <Card title="Worked implementation" icon="server" href="/ui-sdk/guides/custom-server">
     A minimal `AgentUIServer` you can copy.
   </Card>
+
   <Card title="Streaming events" icon="bolt" href="/ui-sdk/reference/events">
     The event protocol `createTurn` yields.
   </Card>
+
   <Card title="Settings catalog" icon="sliders" href="/ui-sdk/reference/catalog">
     The optional `catalog` port behind the settings UI.
   </Card>
+
   <Card title="Type reference" icon="code" href="/ui-sdk/reference/server">
     Every exported server type.
   </Card>
