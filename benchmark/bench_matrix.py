@@ -38,35 +38,72 @@ def prompt_for(task):
     return (DATASET_DIR / task / "prompt.txt").read_text().strip()
 
 
-# ---------------- TrueForge adapter ----------------
+# ---------------- TrueForge adapter (native /api/v1 HTTP API, stdlib only) ----------------
 def run_tfy(task, prompt, cap):
-    from truefoundry_gateway_sdk.agents import AgentSessionClient
-    from truefoundry_gateway_sdk.types import UserMessage
-    client = AgentSessionClient(base_url=os.environ["TFY_BASE_URL"], api_key=os.environ["TFY_API_KEY"],
-                                timeout=TASK_TIMEOUT, max_retries=1)
-    session = client.create_session(agent_name=os.environ["TFY_AGENT"])
-    turn = session.prepare_turn(input=[UserMessage(content=prompt)], previous_turn_id="auto")
-    tot = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}; tools = 0
+    import urllib.request
+    base = os.environ["TFY_BASE_URL"].rstrip("/")
+    mcp = json.loads(pathlib.Path(os.environ["MCP_CONFIG"]).read_text())     # {name: url}
+    # Inline agent spec: the shared model + system prompt and the MCP connectors (by
+    # the names they are registered under in TrueForge), autonomous (no approval gates).
+    spec = {
+        "model": {"name": os.environ["MODEL_TFY"]},
+        "instructions": SYSTEM_PROMPT,
+        "mcp_servers": [{"name": n, "enable_tools": ["@all"], "require_approval_for_tools": []}
+                        for n in mcp],
+        "config": {"iteration_limit": int(os.environ.get("TFY_ITERATION_LIMIT", "100"))},
+    }
 
-    def num(u, *names):
-        for k in names:
-            v = getattr(u, k, None)
-            if isinstance(v, (int, float)):
-                return v
-        return 0
+    def _post(path, body, stream=False):
+        req = urllib.request.Request(base + path, data=json.dumps(body).encode(),
+            headers={"Content-Type": "application/json",
+                     "Accept": "text/event-stream" if stream else "application/json"}, method="POST")
+        return urllib.request.urlopen(req, timeout=TASK_TIMEOUT)
 
-    for data in turn.execute(stream=True):
-        ev = getattr(data, "event", data)
-        u = getattr(ev, "usage", None)
-        if u is not None:
-            tot["input"] += num(u, "input_tokens"); tot["output"] += num(u, "output_tokens")
-            tot["cache_read"] += num(u, "cache_read_tokens"); tot["cache_write"] += num(u, "cache_write_tokens")
-        if getattr(ev, "type", "") == "tool.response":
+    def text_of(content):
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return "\n".join(b.get("text", "") for b in content if isinstance(b, dict))
+        return ""
+
+    sid = json.load(_post("/api/v1/sessions", {"agent": {"spec": spec}}))["data"]["id"]
+    tot = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
+    tools = 0; answer = ""; last_msg = ""; cost = None
+    resp = _post(f"/api/v1/sessions/{sid}/turns",
+                 {"input": [{"type": "user.message", "content": prompt}],
+                  "previous_turn_id": "none", "stream": True}, stream=True)
+    for raw in resp:                                          # Server-Sent Events, one JSON object per `data:` line
+        line = raw.decode("utf-8", "ignore").strip()
+        if not line.startswith("data:"):
+            continue
+        try:
+            ev = json.loads(line[5:].strip())
+        except Exception:
+            continue
+        et = ev.get("type", "")
+        if et == "tool.response":
             tools += 1
-    st = getattr(turn, "state", None); out = getattr(st, "output", None); c = getattr(out, "content", None)
-    ans = c if isinstance(c, str) else "\n".join(
-        [(getattr(b, "text", None) or (b.get("text") if isinstance(b, dict) else "") or "") for b in (c or [])])
-    cap.put({"session_id": session.id, "tokens": tot, "tool_calls": tools, "answer": ans})
+        elif et == "model.message":
+            t = text_of(ev.get("content"))
+            if t.strip():
+                last_msg = t
+        elif et == "turn.done":
+            state = ev.get("state", {}) or {}
+            m = state.get("metrics") or {}
+            tot = {"input": m.get("total_input_tokens", 0) or 0,
+                   "output": m.get("total_output_tokens", 0) or 0,
+                   "cache_read": m.get("total_cache_read_tokens", 0) or 0,
+                   "cache_write": m.get("total_cache_write_tokens", 0) or 0}
+            cost = m.get("total_cost_in_usd")
+            out = state.get("output") or {}
+            answer = text_of(out.get("content") if isinstance(out, dict) else None)
+            break
+    if not answer:
+        answer = last_msg
+    res = {"session_id": sid, "tokens": tot, "tool_calls": tools, "answer": answer}
+    if cost is not None:
+        res["cost_usd"] = cost                                # harness-reported cost, kept for cross-check
+    cap.put(res)
 
 
 # ---------------- Claude Managed Agents adapter ----------------
@@ -131,20 +168,20 @@ def run_deepagents(task, prompt, cap):
                 txt = "\n".join(b.get("text", "") for b in c if isinstance(b, dict) and b.get("type") in (None, "text"))
                 if txt.strip():
                     answer = txt
-        # deepagents writes deliverables to a virtual filesystem; fold real files into the graded answer
-        files = res.get("files") or {}
-        parts = []
-        for p, fd in files.items():
-            if "large_tool_results" in p:            # offloaded raw tool dumps — scratch, not deliverable
-                continue
-            content = fd.get("content") if isinstance(fd, dict) else getattr(fd, "content", None)
-            if isinstance(content, list):
-                content = "\n".join(str(x) for x in content)
-            if content and str(content).strip():
-                parts.append(f"### FILE: {p}\n{content}")
-        vf = "\n\n".join(parts)
-        if vf.strip():
-            answer = (answer + "\n\n" + vf) if answer.strip() else vf
+        # Grade the reply, exactly like the other arms. Fallback only: if the agent left
+        # its answer in its virtual filesystem instead of the reply, grade those files so
+        # deepagents is not under-graded — this never adds to any other arm's answer.
+        if not answer.strip():
+            parts = []
+            for p, fd in (res.get("files") or {}).items():
+                if "large_tool_results" in p:        # offloaded raw tool dumps — scratch, not deliverable
+                    continue
+                content = fd.get("content") if isinstance(fd, dict) else getattr(fd, "content", None)
+                if isinstance(content, list):
+                    content = "\n".join(str(x) for x in content)
+                if content and str(content).strip():
+                    parts.append(f"### FILE: {p}\n{content}")
+            answer = "\n\n".join(parts)
         return {"session_id": f"da-{task}", "tokens": tot, "tool_calls": tools_n, "answer": answer}
 
     cap.put(asyncio.run(_run()))
@@ -211,7 +248,7 @@ if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     mode = sys.argv[1]
     if mode == "_one":
-        # internal single-cell worker: run one adapter, write result JSON, exit
+        # private single-cell worker: run one adapter, write result JSON, exit
         harness, task, outpath = sys.argv[2], sys.argv[3], sys.argv[4]
         class _Cap:
             val = None

@@ -19,7 +19,7 @@ and query syntax; do not guess a signature. The servers are `pm`, `crm`, and
   `crm_get_record`, `crm_describe` (object schema), `crm_list_objects`, `crm_search`.
   Objects: Account (42), Opportunity (8704), Case (32768), User (289).
 - **file-server** (Drive-style): `search_files`, `get_file_metadata`,
-  `read_file_content`, `list_recent_files`. Holds internal docs, transcripts, MSAs.
+  `read_file_content`, `list_recent_files`. Holds company docs, transcripts, MSAs.
 
 ## Method
 1. `crm_describe` / `pm_list_components` / `crm_list_objects` to learn the schema
@@ -32,13 +32,11 @@ and query syntax; do not guess a signature. The servers are `pm`, `crm`, and
 5. If the task names a person, deal, or time window, filter to exactly that.
 
 ## Output
-Write your FINAL answer to `results/<TASK_ID>.md` (given in your task). Include:
+Reply with your COMPLETE answer (do not rely on writing files — put everything in
+your reply). Include:
 - A short "Approach & assumptions" note (which objects/fields/joins you used).
 - The requested table(s) or analysis as the main deliverable.
-- If data was missing/ambiguous, say so explicitly rather than inventing values.
-
-Then reply with a 3-5 line summary (key numbers + where the file is). Keep the
-full answer in the file, not in your reply.
+- If data was missing or ambiguous, say so explicitly rather than inventing values.
 
 ## Guidance for good answers
 1. Granularity: answer at the level of specificity the question asks for. Do not
