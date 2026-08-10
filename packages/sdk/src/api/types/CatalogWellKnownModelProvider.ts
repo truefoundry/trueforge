@@ -7,6 +7,5 @@ export interface CatalogWellKnownModelProvider {
     logo?: string;
     /** Preset models; empty on the `custom` sentinel. */
     models: TrueForge.ModelEntry[];
-    /** Well-known provider type (catalog excludes `custom`). */
-    type: TrueForge.CatalogWellKnownModelProviderType;
+    type: "zai";
 }
