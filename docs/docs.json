@@ -59,7 +59,11 @@
           },
           {
             "group": "API",
-            "pages": ["api/overview", "api/agent-spec", "api/turn-events"]
+            "pages": ["api/overview", "api/use-agent", "api/agent-spec", "api/turn-events"]
+          },
+          {
+            "group": "Project",
+            "pages": ["roadmap"]
           }
         ]
       },
@@ -99,6 +103,13 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "API Reference",
+        "openapi": {
+          "source": "./openapi.json",
+          "directory": "docs/api-reference"
+        }
       }
     ]
   },

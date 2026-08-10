@@ -6,18 +6,7 @@ description: 'TrueForge is an open-source agent harness — the runtime layer th
 
 ## What is an agent harness?
 
-An agent harness is the runtime layer around an LLM that turns it into a reliable, long-running agent.
-
-Instead of only generating text, the harness manages the full execution loop: planning, tool calling, context management, approvals, state, and streaming.
-
-Most production harnesses include:
-
-- An orchestration loop (`plan -> act -> observe -> continue/stop`)
-- Tool routing and execution (for APIs, MCP tools, and code)
-- Memory and context controls for long-running tasks
-- Security boundaries (sandboxing, credentials, permissions)
-- Human-in-the-loop gates for sensitive actions
-- Session state that survives reconnects and restarts
+An agent harness is the runtime layer around an LLM that turns it into a reliable, long-running agent. Instead of only generating text, the harness runs the full execution loop — planning, tool routing and execution, context management for long tasks, security boundaries like sandboxing and human-in-the-loop approvals, and session state that survives reconnects and restarts.
 
 <Frame caption="The harness orchestrates the agent run, connecting the model, tools, sandbox, and approvals to deliver a safe, reliable result">
   <img
@@ -28,23 +17,96 @@ Most production harnesses include:
 
 ## What is TrueForge?
 
-TrueForge is an **open-source agent harness**. It runs the agent execution loop — model calls, tool use, context, and session state — and exposes the result three ways:
-
-- A **chat UI**, bundled into the server and served on the same port
-- An **HTTP API** (REST + Server-Sent Events) with an OpenAPI spec
-- A **TypeScript library** (`@truefoundry/trueforge-core`) for embedding the agent core in your own application
-
-You choose a model, connect MCP servers, add skills, and write instructions. TrueForge handles orchestration, tool execution, sandbox lifecycle, approvals, and streaming.
-
-It scales down and up: run a single process backed by SQLite with `npx @truefoundry/trueforge`, or run multiple replicas backed by Postgres and Redis behind a load balancer.
+TrueForge is an **open-source agent harness** with three parts: a **core server** that runs the agent loop, an **HTTP API** (with a TypeScript SDK) to drive it from code, and a **chat UI** (with a React UI SDK) to drive it from the browser.
 
 <Frame caption="The bundled chat UI — streaming responses, an expandable agent-steps panel, and tool calls.">
   <img src="/images/getting-started-chat.png" alt="The TrueForge chat UI showing an agent response with an agent-steps panel and tool calls" />
 </Frame>
 
+### Key Components 
+
+```mermaid
+flowchart LR
+  ui[Chat UI<br/><small>@truefoundry/trueforge-ui</small>]
+  code[Your code<br/><small>@truefoundry/trueforge-core</small>]
+  subgraph server [TrueForge server]
+    api[HTTP API]
+    loop[Agent loop]
+    api --> loop
+  end
+  db[(SQLite / Postgres)]
+  subgraph byo [Bring your own]
+    llm[Model providers]
+    mcp[MCP servers]
+    sandbox[Sandbox provider]
+  end
+
+  ui --> api
+  code --> api
+  loop --> db
+  loop --> llm
+  loop --> mcp
+  loop --> sandbox
+
+  style byo stroke-dasharray: 6 4
+```
+
+### Core server
+
+Runs the agent loop. When a user sends a message, the server:
+
+- Plans the turn, calls the model, and executes tools — streaming every step back
+- Pauses for [human approval](/human-in-the-loop) on sensitive actions
+- Keeps context lean on long tasks with [context engineering](/context-engineering/overview)
+- Persists sessions, so conversations survive reconnects and restarts
+
+The services the loop talks to — [model providers](/models), [MCP servers](/mcp-servers), the [sandbox provider](/sandbox) — are **bring your own**: you configure them, TrueForge orchestrates them.
+
+<Note>
+  Many harnesses run the agent *inside* a sandbox. TrueForge treats the **sandbox as a tool**: one is provisioned only
+  when the agent actually needs to execute code. That's why one server can run many agents concurrently, and why turns
+  that don't need code execution are cheaper and faster.
+</Note>
+
+### HTTP API + TypeScript SDK
+
+Everything the server does is exposed as an API, so anything you see in the UI you can automate:
+
+- REST + Server-Sent Events, with an OpenAPI spec and interactive docs at `/api/v1/docs`
+- A TypeScript SDK (`@truefoundry/trueforge-core`) to create and call agents from your own code
+
+See the [API overview](/api/overview).
+
+### Chat UI + UI SDK
+
+A ready-made interface for the agents you create:
+
+- Browse your agents, chat with them, and manage models, MCP servers, skills, and sandbox settings
+- Bundled with the server and served on the same port — nothing extra to deploy
+- Also published as a customizable [UI SDK](/ui-sdk/index) (`@truefoundry/trueforge-ui`): theme it to your organization and launch your own Claude Desktop-like interface, backed by your TrueForge server
+
+## Two ways to run it
+
+The agent features are identical in both modes — only the backend around the server changes. The [Quickstart](/quickstart) has run instructions for each.
+
+### Local mode — a personal productivity tool
+
+Like Claude Desktop, but on your terms: one process on your machine, started with `npx @truefoundry/trueforge`.
+
+- UI and backend run locally; sessions are stored in a local SQLite file
+- No database server, Redis, or other infrastructure to set up
+
+### Hosted mode — a shared deployment for your team
+
+Like Claude's managed agents: one deployment the whole company uses, via Docker Compose or the Helm chart.
+
+- Multiple server replicas run behind a load balancer
+- **Postgres** replaces SQLite as durable storage shared by all replicas
+- **Redis** peers the replicas — it hands off turn event streams and cancellation signals, so a client can reconnect to any replica and still resume a turn running on another one
+
 ## Capabilities
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card title="Models" icon="brain" href="/models">
     OpenAI, Anthropic, Google Gemini, and any OpenAI-compatible provider. Configure once, switch per agent.
   </Card>
@@ -72,64 +134,16 @@ It scales down and up: run a single process backed by SQLite with `npx @truefoun
   </Card>
 </CardGroup>
 
-## Architecture
-
-TrueForge is a single server process (or several peered replicas) plus a database — and Redis when you run more than one replica.
-
-```mermaid
-flowchart LR
-  browser([Browser / your app])
-  subgraph server [TrueForge server]
-    ui[Chat UI]
-    api[HTTP API + agent loop]
-  end
-  db[(Postgres or SQLite)]
-  redis[(Redis)]
-  llm[Model providers]
-  mcp[MCP servers]
-  sandbox[Sandbox provider]
-
-  browser --> ui
-  browser --> api
-  api --> db
-  api <--> redis
-  api --> llm
-  api --> mcp
-  api --> sandbox
-```
-
-| Component             | Role                                                                                                |
-| --------------------- | --------------------------------------------------------------------------------------------------- |
-| **Chat UI**           | React chat interface, bundled into the server image and served on the same port as the API.         |
-| **Server**            | Node.js server: the agent execution loop, sessions, turns, streaming, settings, and OpenAPI docs.   |
-| **Postgres / SQLite** | Session, turn, and settings storage. SQLite in standalone mode; Postgres for multi-replica.         |
-| **Redis**             | Cross-replica peering (turn cancellation and stream handoff). Only needed when running > 1 replica. |
-| **Sandbox provider**  | Remote isolated compute for code execution and skills. Optional — enable it per agent.              |
-
-## Core concepts
-
-Interaction with an agent follows a strict hierarchy: **one Agent → many Sessions → many Turns → many Events**.
-
-<Frame caption="One agent serves many sessions; each session has many turns; each turn emits many events.">
-  <img src="/images/agent-session-hierarchy.png" alt="Hierarchy diagram: one Agent contains many Sessions, each Session many Turns, each Turn many Events" />
-</Frame>
-
-| Concept     | What it is                                                                                                            |
-| ----------- | --------------------------------------------------------------------------------------------------------------------- |
-| **Agent**   | A saved definition — model, instructions, MCP servers, skills, and runtime config. See [Agent spec](/api/agent-spec). |
-| **Session** | One conversation with an agent. Turns in a session chain together, so the agent remembers earlier context.            |
-| **Turn**    | One request/response boundary — a user message, an approval decision, or an answer to an agent question.              |
-| **Event**   | A JSON object streamed while a turn runs: model output, tool responses, approval requests, subagent lifecycle.        |
-
-See the [API overview](/api/overview) for the full lifecycle with examples.
-
 ## Start building
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
     Run TrueForge with one command, configure a model provider, and start chatting.
   </Card>
   <Card title="Use the API" icon="code" href="/api/overview">
     Create sessions, stream turn events, and integrate TrueForge into your application.
+  </Card>
+  <Card title="Build with the UI SDK" icon="palette" href="/ui-sdk/index">
+    Embed and customize the chat experience in your own React application.
   </Card>
 </CardGroup>
