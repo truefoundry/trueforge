@@ -8,6 +8,5 @@ export interface GoogleGeminiModelProvider {
     baseUrl?: string;
     /** Models exposed by this provider (at least one). */
     models: TrueForge.ModelEntry[];
-    name?: "google-gemini";
     type: "google-gemini";
 }

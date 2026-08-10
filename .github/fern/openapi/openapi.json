@@ -228,13 +228,6 @@
             "minItems": 1,
             "type": "array"
           },
-          "name": {
-            "default": "alibaba",
-            "enum": [
-              "alibaba"
-            ],
-            "type": "string"
-          },
           "type": {
             "enum": [
               "alibaba"
@@ -268,13 +261,6 @@
             },
             "minItems": 1,
             "type": "array"
-          },
-          "name": {
-            "default": "anthropic",
-            "enum": [
-              "anthropic"
-            ],
-            "type": "string"
           },
           "type": {
             "enum": [
@@ -1015,13 +1001,6 @@
             "minItems": 1,
             "type": "array"
           },
-          "name": {
-            "default": "fireworks",
-            "enum": [
-              "fireworks"
-            ],
-            "type": "string"
-          },
           "type": {
             "enum": [
               "fireworks"
@@ -1237,13 +1216,6 @@
             },
             "minItems": 1,
             "type": "array"
-          },
-          "name": {
-            "default": "google-gemini",
-            "enum": [
-              "google-gemini"
-            ],
-            "type": "string"
           },
           "type": {
             "enum": [
@@ -2277,13 +2249,6 @@
             "minItems": 1,
             "type": "array"
           },
-          "name": {
-            "default": "moonshot",
-            "enum": [
-              "moonshot"
-            ],
-            "type": "string"
-          },
           "type": {
             "enum": [
               "moonshot"
@@ -2317,13 +2282,6 @@
             },
             "minItems": 1,
             "type": "array"
-          },
-          "name": {
-            "default": "openai",
-            "enum": [
-              "openai"
-            ],
-            "type": "string"
           },
           "type": {
             "enum": [
@@ -3236,13 +3194,6 @@
             "minItems": 1,
             "type": "array"
           },
-          "name": {
-            "default": "together",
-            "enum": [
-              "together"
-            ],
-            "type": "string"
-          },
           "type": {
             "enum": [
               "together"
@@ -4089,13 +4040,6 @@
             },
             "minItems": 1,
             "type": "array"
-          },
-          "name": {
-            "default": "zai",
-            "enum": [
-              "zai"
-            ],
-            "type": "string"
           },
           "type": {
             "enum": [
@@ -6379,7 +6323,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "put": {
-        "description": "Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Every type but `custom` is named after itself, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named, and numbered, by the caller.",
+        "description": "Full upsert: creates the provider or replaces its entire configuration (models included). The key is the returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named by the caller.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6425,7 +6369,7 @@
     },
     "/api/v1/settings/model-providers/catalog": {
       "get": {
-        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: copy an entry into PUT /settings/model-providers to configure it. Custom providers are not listed here.",
+        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Custom providers are not listed here.",
         "responses": {
           "200": {
             "content": {

@@ -1,23 +1,28 @@
 import { VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/utils-core/core';
-import { ModelProviderSchema } from '../../../src/schemas/modelProvider';
+import { ModelProviderSchema, modelProviderName } from '../../../src/schemas/modelProvider';
 
 const models = [{ model_id: 'a-model', name: 'a-model', properties: {} }];
 
 function parse(body: Record<string, unknown>): { success: boolean; name?: string; base_url?: string } {
   const result = ModelProviderSchema.safeParse({ auth: { api_key: 'k' }, models, ...body });
   return result.success
-    ? { success: true, name: result.data.name, base_url: result.data.base_url }
+    ? { success: true, name: modelProviderName(result.data), base_url: result.data.base_url }
     : { success: false };
 }
 
-/** A custom endpoint is arbitrary, so there is nothing to default to. */
-const TYPES_WITHOUT_DEFAULT_BASE_URL = ['custom'];
+/** A custom endpoint is arbitrary, so there is nothing to default to, and nothing to name it after. */
+const CALLER_SUPPLIED_TYPES = ['custom'];
+
+/** Only `custom` takes a name; the others reject one, so fixtures name just that type. */
+function providerFor(type: string, body: Record<string, unknown> = {}): Record<string, unknown> {
+  return { type, ...(CALLER_SUPPLIED_TYPES.includes(type) ? { name: 'internal' } : {}), ...body };
+}
 
 describe('ModelProviderSchema', () => {
   // A type with no schema of its own leaves its catalog entries unconfigurable.
   it('can configure every adapter the harness can build', () => {
     const rejected = VERCEL_AI_PROVIDER_NAMES.filter(
-      type => !parse({ type, name: type, base_url: 'https://example.com/v1' }).success,
+      type => !parse(providerFor(type, { base_url: 'https://example.com/v1' })).success,
     );
     expect(rejected).toEqual([]);
   });
@@ -25,8 +30,8 @@ describe('ModelProviderSchema', () => {
   // A named endpoint keeps buildLanguageModel off its adapter's implicit default.
   it('defaults base_url for every type that has a known endpoint', () => {
     for (const type of VERCEL_AI_PROVIDER_NAMES) {
-      const parsed = parse({ type });
-      if (TYPES_WITHOUT_DEFAULT_BASE_URL.includes(type)) {
+      const parsed = parse(providerFor(type));
+      if (CALLER_SUPPLIED_TYPES.includes(type)) {
         expect([type, parsed.success]).toEqual([type, false]);
       } else {
         expect([type, parsed.base_url]).toEqual([type, expect.stringMatching(/^https:\/\//)]);
@@ -40,10 +45,10 @@ describe('ModelProviderSchema', () => {
     );
   });
 
-  // Pinning the name to the type is what makes a second write replace the first.
-  it('names every type but custom after itself', () => {
+  // Deriving the name is what makes a second write replace the first, so the body cannot carry one.
+  it('names every type but custom after itself, and takes no name from the caller', () => {
     expect(parse({ type: 'anthropic' }).name).toBe('anthropic');
-    expect(parse({ type: 'anthropic', name: 'anthropic' }).name).toBe('anthropic');
+    expect(parse({ type: 'anthropic', name: 'anthropic' }).success).toBe(false);
     expect(parse({ type: 'anthropic', name: 'anthropic-eu' }).success).toBe(false);
   });
 

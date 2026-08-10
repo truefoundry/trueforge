@@ -13,7 +13,6 @@ export const ZaiModelProvider: core.serialization.ObjectSchema<
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    name: core.serialization.stringLiteral("zai").optional(),
     type: core.serialization.stringLiteral("zai"),
 });
 
@@ -22,7 +21,6 @@ export declare namespace ZaiModelProvider {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
-        name?: "zai" | null;
         type: "zai";
     }
 }

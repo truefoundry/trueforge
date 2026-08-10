@@ -15,7 +15,6 @@ describe("ModelProvidersClient", () => {
                     auth: { api_key: "api_key" },
                     base_url: "base_url",
                     models: [{ model_id: "model_id", name: "name", properties: {} }],
-                    name: "alibaba",
                     type: "alibaba",
                 },
             ],
@@ -44,7 +43,6 @@ describe("ModelProvidersClient", () => {
                             properties: {},
                         },
                     ],
-                    name: "alibaba",
                     type: "alibaba",
                 },
             ],
@@ -102,7 +100,6 @@ describe("ModelProvidersClient", () => {
                 auth: { api_key: "api_key" },
                 base_url: "base_url",
                 models: [{ model_id: "model_id", name: "name", properties: {} }],
-                name: "alibaba",
                 type: "alibaba",
             },
         };
@@ -142,7 +139,6 @@ describe("ModelProvidersClient", () => {
                         properties: {},
                     },
                 ],
-                name: "alibaba",
                 type: "alibaba",
             },
         });

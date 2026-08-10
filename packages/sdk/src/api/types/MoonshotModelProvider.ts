@@ -8,6 +8,5 @@ export interface MoonshotModelProvider {
     baseUrl?: string;
     /** Models exposed by this provider (at least one). */
     models: TrueForge.ModelEntry[];
-    name?: "moonshot";
     type: "moonshot";
 }
