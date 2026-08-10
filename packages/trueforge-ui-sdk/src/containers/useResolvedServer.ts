@@ -11,7 +11,7 @@ export type ResolvedServerState =
   | { status: 'ready'; server: AgentUIServer; error: null }
   | { status: 'error'; server: null; error: unknown };
 
-/** Used when the runtime adapter has not shipped `getCapabilities` yet. */
+/** Fallback when an older runtime adapter omits `getCapabilities`. */
 const DEFAULT_CAPABILITIES = {
   data: {
     sandbox: { enabled: true },
@@ -36,8 +36,7 @@ function hasGetCapabilities(
 }
 
 /**
- * Runtime chat/builder objects are structurally an AgentUIServer once
- * `getCapabilities` is present. Catalog is optional host overlay.
+ * Attach optional catalog and ensure `getCapabilities` exists on the composed port.
  */
 function toAgentUIServer(server: object, catalog: CatalogServer | undefined): AgentUIServer {
   const getCapabilities = hasGetCapabilities(server)
