@@ -2,7 +2,11 @@
 
 import type * as TrueForge from "../index.js";
 
+/**
+ * JSON Schema response format. Extra provider fields are allowed.
+ */
 export interface ResponseFormatJsonSchema {
+    /** JSON Schema payload. Extra provider fields are allowed. */
     jsonSchema: TrueForge.ResponseFormatJsonSchemaJsonSchema;
     type: "json_schema";
     /** Accepts any additional properties */

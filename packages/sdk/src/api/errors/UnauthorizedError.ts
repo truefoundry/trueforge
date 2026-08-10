@@ -2,9 +2,12 @@
 
 import type * as core from "../../core/index.js";
 import * as errors from "../../errors/index.js";
+import type * as TrueForge from "../index.js";
 
 export class UnauthorizedError extends errors.TrueForgeError {
-    constructor(body?: unknown, rawResponse?: core.RawResponse) {
+    public declare readonly body: TrueForge.RequestErrorResponse;
+
+    constructor(body: TrueForge.RequestErrorResponse, rawResponse?: core.RawResponse) {
         super({
             message: "UnauthorizedError",
             statusCode: 401,

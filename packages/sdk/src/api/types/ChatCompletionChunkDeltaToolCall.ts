@@ -4,7 +4,10 @@ import type * as TrueForge from "../index.js";
 
 export interface ChatCompletionChunkDeltaToolCall {
     function?: TrueForge.ChatCompletionChunkDeltaToolCallFunction;
+    /** Tool call id (may arrive across multiple deltas). */
     id?: string;
+    /** Index of this tool call in the streaming delta array. */
     index: number;
+    /** Tool call type when present on this delta. */
     type?: "function";
 }

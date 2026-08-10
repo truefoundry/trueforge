@@ -1,0 +1,86 @@
+---
+title: 'Okta'
+sidebarTitle: 'Okta'
+description: 'Configure Okta as the OIDC identity provider for TrueForge.'
+---
+
+See [Authentication](/authentication/overview) for shared OIDC concepts, roles, and Helm patterns. This page covers Okta-specific setup.
+
+## Create the app
+
+1. Applications → **Create App Integration** → OIDC → **Web Application**.
+2. Grant type: **Authorization Code**.
+3. Sign-in redirect URI: `https://<your-public-host>/api/v1/auth/callback`.
+4. Assign users or groups who should sign in.
+5. Copy **Client ID** and **Client secret**.
+
+Use a **Web** (confidential) app with a client secret. A SPA / `PublicClientApp` fails token exchange with invalid client secret — TrueForge always authenticates to the token endpoint with the client secret.
+
+Sign-out redirect URI is unused by TrueForge (logout only clears the local cookie). Set the app origin if Okta requires a value.
+
+## Authorization Server
+
+Point `OIDC_ISSUER_URL` at a **custom** Authorization Server, usually `https://<your-oidc-domain>/oauth2/default`. On that server:
+
+1. **Access Policies** — a rule that includes this Web client, grant type Authorization Code, your users, and the scopes you request (`openid`, `profile`, `email`, and `groups` if used).
+2. **Scopes** — if you request `groups`, create a custom scope named `groups` (it is not built-in on custom authorization servers).
+3. **Claims** — add an **ID token** claim named to match `OIDC_USER_ROLE_CLAIM` (default `groups`): Groups value type, filter as needed, include in the ID token (not access token only).
+
+## Example config
+
+Group `harness-admin` → admin role:
+
+```bash
+PUBLIC_BASE_URL=https://trueforge.example.com
+OIDC_ISSUER_URL=https://integrator-XXXX.okta.com/oauth2/default
+OIDC_CLIENT_ID=0oa...
+OIDC_CLIENT_SECRET=...
+OIDC_USER_REFERENCE_CLAIM=email
+OIDC_USER_ROLE_CLAIM=groups
+OIDC_ADMIN_ROLE_VALUE=harness-admin
+OIDC_SCOPES=openid,profile,email,groups
+```
+
+Helm: set `server.publicBaseUrl` for the callback origin. Pass `OIDC_*` through `server.extraEnv` (or `extraEnvFrom`); keep the client secret in a Kubernetes Secret:
+
+```yaml
+server:
+  publicBaseUrl: "https://trueforge.example.com"
+  extraEnv:
+    - name: OIDC_ISSUER_URL
+      value: "https://integrator-XXXX.okta.com/oauth2/default"
+    - name: OIDC_CLIENT_ID
+      value: "0oa..."
+    - name: OIDC_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: truefoundry-utils-oidc
+          key: client-secret
+    - name: OIDC_USER_REFERENCE_CLAIM
+      value: email
+    - name: OIDC_USER_ROLE_CLAIM
+      value: groups
+    - name: OIDC_ADMIN_ROLE_VALUE
+      value: harness-admin
+    - name: OIDC_SCOPES
+      value: openid,profile,email,groups
+extraObjects:
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: truefoundry-utils-oidc
+    type: Opaque
+    stringData:
+      client-secret: "..."
+```
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+| ------- | ------------ |
+| `no_matching_policy` / Policy evaluation failed | Access Policy on the Authorization Server does not include this client, grant, scopes, or user |
+| `You are not allowed to access this app` | User not assigned to the Okta application, or app sign-on policy denies them |
+| `invalid client secret` | App is SPA/public; recreate as **Web** with a client secret |
+| Stuck blank authorize URL with `groups` scope | Custom AS missing `groups` scope and/or ID-token groups claim |
+| Login works but `role: "user"` | Groups claim missing from ID token, wrong claim name, or admin value mismatch (case-sensitive) |
+| SDK gets 401 | OIDC on and no `Authorization: Bearer` / cookie |

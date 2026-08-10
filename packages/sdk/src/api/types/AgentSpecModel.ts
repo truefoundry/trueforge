@@ -3,6 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface AgentSpecModel {
+    /** Model FQN: `provider/model`, e.g. `openai/gpt-5.2`. */
     name: string;
     params?: TrueForge.ModelParams;
 }

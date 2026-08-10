@@ -9,7 +9,6 @@ import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkill
 
 const modelProvider = {
   type: 'anthropic' as const,
-  name: 'anthropic' as const,
   base_url: 'https://api.anthropic.com/v1',
   auth: { api_key: 'sk-ant-secret' },
   models: [
@@ -47,7 +46,7 @@ describe('agents router', () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
-    await modelProviderStore.upsertProvider({ tenant_id: 'default', manifest: modelProvider });
+    await modelProviderStore.upsertProvider({ tenant_id: 'default', name: 'anthropic', manifest: modelProvider });
     router = createAgentsRouter({
       agentStore: new SqliteAgentStore(db),
       modelProviderStore,

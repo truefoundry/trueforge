@@ -38,7 +38,7 @@ groups:
         version: 3.87.1
         output:
           location: local-file-system
-          path: ../packages/sdk
+          path: ../../packages/sdk
         config:
           packageJson:
             name: trueforge-sdk

@@ -4,7 +4,7 @@ sidebarTitle: 'Overview'
 description: 'Understand Agent, Session, Turn, Event, and Delta — then create sessions, run turns, and stream events over REST or the TypeScript SDK.'
 ---
 
-Everything the chat UI does goes through the HTTP API, so anything you can do in the UI you can automate. The API is served under `/api/v1`, documented interactively at `/api/v1/docs` (OpenAPI 3.1 at `/api/v1/openapi.json`). A generated TypeScript client, [`trueforge`](https://www.npmjs.com/package/trueforge), wraps the same API.
+Everything the chat UI does goes through the HTTP API, so anything you can do in the UI you can automate. The API is served under `/api/v1`, documented interactively at `/api/v1/docs` (OpenAPI 3.1 at `/api/v1/openapi.json`). A generated TypeScript client, [`trueforge-sdk`](https://www.npmjs.com/package/trueforge-sdk), wraps the same API. For a full SDK cookbook (streaming, approvals, reconnects, threads), see [Use an agent](/api/use-agent).
 
 ## Core concepts
 
@@ -301,7 +301,7 @@ A separate issue — Bob's shipping question, or even Jane's next problem — ru
 
 ### 1. Create a session
 
-Pass an inline agent spec (`type: "value"`), or reference a saved agent by id (`type: "ref"`):
+Pass an inline agent spec (`{ "spec": ... }`), or reference a saved agent by name (`{ "name": "..." }`):
 
 <Tabs>
 <Tab title="curl">
@@ -311,8 +311,7 @@ curl -X POST http://localhost:8790/api/v1/sessions \
   -H 'Content-Type: application/json' \
   -d '{
     "agent": {
-      "type": "value",
-      "agent_spec": {
+      "spec": {
         "model": { "name": "anthropic/claude-sonnet-4-6" },
         "instructions": "You help customers with orders. Always confirm before processing refunds.",
         "mcp_servers": [
@@ -331,10 +330,9 @@ import { TrueForge } from 'trueforge-sdk';
 
 const client = new TrueForge({ baseUrl: 'http://localhost:8790' });
 
-const session = await client.sessions.create({
+const { data: session } = await client.sessions.create({
   agent: {
-    type: 'value',
-    agent_spec: {
+    spec: {
       model: { name: 'anthropic/claude-sonnet-4-6' },
       instructions: 'You help customers with orders. Always confirm before processing refunds.',
       mcp_servers: [{ name: 'orders-api', require_approval_for_tools: ['process_refund'] }],
@@ -365,11 +363,11 @@ curl -N -X POST http://localhost:8790/api/v1/sessions/sess-7f2a9c1b/turns \
 <Tab title="TypeScript">
 
 ```typescript
-const stream = await client.sessions.createTurnStream(sessionId, {
+const stream = await client.sessions.createTurnStream(session.id, {
   input: [{ type: 'user.message', content: 'What is the status of order ORD-2031?' }],
 });
 
-for await (const event of stream) {
+for await (const { data: event } of stream.withMetadata()) {
   switch (event.type) {
     case 'model.message.delta':
       process.stdout.write(event.content ?? '');
@@ -380,6 +378,8 @@ for await (const event of stream) {
   }
 }
 ```
+
+See [Use an agent](/api/use-agent) for delta merging, approvals, reconnects, and more.
 
 </Tab>
 </Tabs>

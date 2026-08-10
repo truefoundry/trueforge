@@ -3,10 +3,15 @@
 import type * as TrueForge from "../index.js";
 
 export interface Turn {
+    /** ISO 8601 creation timestamp. */
     createdAt: string;
+    /** Unique turn id. */
     id: string;
+    /** Input items supplied when the turn was created. */
     input?: TrueForge.TurnInputItem[];
+    /** Prior turn this turn chains from; null for a root turn. */
     previousTurnId: string | null;
+    /** Session that owns this turn. */
     sessionId: string;
     state: TrueForge.TurnState;
 }

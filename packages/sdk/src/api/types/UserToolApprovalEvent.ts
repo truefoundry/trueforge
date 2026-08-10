@@ -4,7 +4,9 @@ import type * as TrueForge from "../index.js";
 
 export interface UserToolApprovalEvent {
     approval: TrueForge.ApprovalDecision;
+    /** Thread that owns the pending tool call. */
     threadId: string;
+    /** Tool call id being approved or denied. */
     toolCallId: string;
     type: "user.tool_approval";
 }
