@@ -7,7 +7,7 @@ import { TurnStateErrorMetrics } from "./TurnStateErrorMetrics.js";
 
 export const TurnStateError: core.serialization.ObjectSchema<serializers.TurnStateError.Raw, TrueForge.TurnStateError> =
     core.serialization.object({
-        completedAt: core.serialization.property("completed_at", core.serialization.date()),
+        completedAt: core.serialization.property("completed_at", core.serialization.string()),
         message: core.serialization.string(),
         metrics: TurnStateErrorMetrics.optional(),
         status: core.serialization.stringLiteral("error"),

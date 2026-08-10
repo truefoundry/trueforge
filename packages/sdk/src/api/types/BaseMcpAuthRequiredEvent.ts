@@ -2,7 +2,7 @@
 
 export interface BaseMcpAuthRequiredEvent {
     /** ISO 8601 event timestamp. */
-    createdAt: Date;
+    createdAt: string;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
     /** Always null — this is a run-level event. */

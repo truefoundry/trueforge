@@ -2,7 +2,7 @@
 
 export interface SandboxCreatedEvent {
     /** ISO 8601 event timestamp. */
-    createdAt: Date;
+    createdAt: string;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
     /** Provider sandbox id. */

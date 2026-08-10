@@ -12,7 +12,7 @@ export const ModelMessageDeltaEvent: core.serialization.ObjectSchema<
     TrueForge.ModelMessageDeltaEvent
 > = core.serialization.object({
     content: core.serialization.string().optionalNullable(),
-    createdAt: core.serialization.property("created_at", core.serialization.date().optional()),
+    createdAt: core.serialization.property("created_at", core.serialization.string().optional()),
     finishReason: core.serialization.property("finish_reason", FinishReason.optionalNullable()),
     id: core.serialization.string(),
     reasoningContent: core.serialization.property("reasoning_content", core.serialization.string().optional()),

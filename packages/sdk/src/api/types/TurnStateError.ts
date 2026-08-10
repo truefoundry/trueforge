@@ -4,7 +4,7 @@ import type * as TrueForge from "../index.js";
 
 export interface TurnStateError {
     /** ISO 8601 time when the error state was recorded. */
-    completedAt: Date;
+    completedAt: string;
     /** Human-readable error message. */
     message: string;
     /** Optional billable aggregate for work done before the error. */

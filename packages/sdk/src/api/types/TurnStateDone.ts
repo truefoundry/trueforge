@@ -4,7 +4,7 @@ import type * as TrueForge from "../index.js";
 
 export interface TurnStateDone {
     /** ISO 8601 time when the turn reached a terminal state. */
-    completedAt: Date;
+    completedAt: string;
     metrics?: TrueForge.TurnMetrics;
     /** Final `model.message` for the turn, or null when the turn ended paused without a final message. */
     output: TrueForge.ModelMessageEvent | null;

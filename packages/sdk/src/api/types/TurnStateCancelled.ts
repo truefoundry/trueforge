@@ -4,7 +4,7 @@ import type * as TrueForge from "../index.js";
 
 export interface TurnStateCancelled {
     /** ISO 8601 time when cancellation completed. */
-    completedAt: Date;
+    completedAt: string;
     /** Optional billable aggregate for work done before cancel. */
     metrics?: TrueForge.TurnStateCancelledMetrics;
     reason: TrueForge.TurnStateCancelledReason;

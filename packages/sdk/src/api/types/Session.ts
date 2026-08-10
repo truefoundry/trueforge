@@ -5,7 +5,7 @@ import type * as TrueForge from "../index.js";
 export interface Session {
     agent: TrueForge.SessionAgent;
     /** ISO 8601 creation timestamp. */
-    createdAt: Date;
+    createdAt: string;
     /** Caller identity that created the session (immutable). */
     createdBy: string;
     /** Unique session id. */
@@ -13,5 +13,5 @@ export interface Session {
     /** Optional human-readable title; null until set. */
     title: string | null;
     /** ISO 8601 last-update timestamp. */
-    updatedAt: Date;
+    updatedAt: string;
 }

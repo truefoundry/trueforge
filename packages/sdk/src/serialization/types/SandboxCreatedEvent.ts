@@ -8,7 +8,7 @@ export const SandboxCreatedEvent: core.serialization.ObjectSchema<
     serializers.SandboxCreatedEvent.Raw,
     TrueForge.SandboxCreatedEvent
 > = core.serialization.object({
-    createdAt: core.serialization.property("created_at", core.serialization.date()),
+    createdAt: core.serialization.property("created_at", core.serialization.string()),
     id: core.serialization.string(),
     sandboxId: core.serialization.property("sandbox_id", core.serialization.string()),
     threadId: core.serialization.property("thread_id", core.serialization.string().nullable()),

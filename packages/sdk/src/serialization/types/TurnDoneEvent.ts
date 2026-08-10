@@ -7,7 +7,7 @@ import { TurnDoneEventState } from "./TurnDoneEventState.js";
 
 export const TurnDoneEvent: core.serialization.ObjectSchema<serializers.TurnDoneEvent.Raw, TrueForge.TurnDoneEvent> =
     core.serialization.object({
-        createdAt: core.serialization.property("created_at", core.serialization.date()),
+        createdAt: core.serialization.property("created_at", core.serialization.string()),
         id: core.serialization.string(),
         state: TurnDoneEventState,
         threadId: core.serialization.property("thread_id", core.serialization.string().nullable()),

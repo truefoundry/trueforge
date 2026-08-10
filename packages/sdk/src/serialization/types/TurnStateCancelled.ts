@@ -10,7 +10,7 @@ export const TurnStateCancelled: core.serialization.ObjectSchema<
     serializers.TurnStateCancelled.Raw,
     TrueForge.TurnStateCancelled
 > = core.serialization.object({
-    completedAt: core.serialization.property("completed_at", core.serialization.date()),
+    completedAt: core.serialization.property("completed_at", core.serialization.string()),
     metrics: TurnStateCancelledMetrics.optional(),
     reason: TurnStateCancelledReason,
     status: core.serialization.stringLiteral("cancelled"),

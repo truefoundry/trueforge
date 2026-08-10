@@ -7,7 +7,7 @@ import { TurnInputItem } from "./TurnInputItem.js";
 import { TurnState } from "./TurnState.js";
 
 export const Turn: core.serialization.ObjectSchema<serializers.Turn.Raw, TrueForge.Turn> = core.serialization.object({
-    createdAt: core.serialization.property("created_at", core.serialization.date()),
+    createdAt: core.serialization.property("created_at", core.serialization.string()),
     id: core.serialization.string(),
     input: core.serialization.list(TurnInputItem).optional(),
     previousTurnId: core.serialization.property("previous_turn_id", core.serialization.string().nullable()),

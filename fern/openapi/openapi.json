@@ -358,7 +358,6 @@
         "properties": {
           "created_at": {
             "description": "ISO 8601 event timestamp.",
-            "format": "date-time",
             "type": "string"
           },
           "id": {
@@ -1511,7 +1510,6 @@
         "properties": {
           "created_at": {
             "description": "ISO 8601 event timestamp.",
-            "format": "date-time",
             "type": "string"
           },
           "id": {
@@ -1933,7 +1931,6 @@
           },
           "created_at": {
             "description": "Optional ISO 8601 event timestamp.",
-            "format": "date-time",
             "type": "string"
           },
           "finish_reason": {
@@ -2017,7 +2014,6 @@
           },
           "created_at": {
             "description": "ISO 8601 event timestamp.",
-            "format": "date-time",
             "type": "string"
           },
           "finish_reason": {
@@ -2675,7 +2671,6 @@
         "properties": {
           "created_at": {
             "description": "ISO 8601 event timestamp.",
-            "format": "date-time",
             "type": "string"
           },
           "id": {
@@ -2789,7 +2784,6 @@
           },
           "created_at": {
             "description": "ISO 8601 creation timestamp.",
-            "format": "date-time",
             "type": "string"
           },
           "created_by": {
@@ -2809,7 +2803,6 @@
           },
           "updated_at": {
             "description": "ISO 8601 last-update timestamp.",
-            "format": "date-time",
             "type": "string"
           }
         },
@@ -3092,7 +3085,6 @@
           },
           "created_at": {
             "description": "ISO 8601 event timestamp.",
-            "format": "date-time",
             "type": "string"
           },
           "id": {
@@ -3138,7 +3130,6 @@
             "properties": {
               "created_at": {
                 "description": "ISO 8601 event timestamp.",
-                "format": "date-time",
                 "type": "string"
               },
               "id": {
@@ -3291,7 +3282,6 @@
         "properties": {
           "created_at": {
             "description": "ISO 8601 event timestamp.",
-            "format": "date-time",
             "type": "string"
           },
           "id": {
@@ -3385,7 +3375,6 @@
           },
           "created_at": {
             "description": "ISO 8601 event timestamp.",
-            "format": "date-time",
             "type": "string"
           },
           "id": {
@@ -3422,7 +3411,6 @@
         "properties": {
           "created_at": {
             "description": "ISO 8601 event timestamp.",
-            "format": "date-time",
             "type": "string"
           },
           "id": {
@@ -3481,7 +3469,6 @@
         "properties": {
           "created_at": {
             "description": "ISO 8601 creation timestamp.",
-            "format": "date-time",
             "type": "string"
           },
           "id": {
@@ -3523,7 +3510,6 @@
         "properties": {
           "created_at": {
             "description": "ISO 8601 event timestamp.",
-            "format": "date-time",
             "type": "string"
           },
           "id": {
@@ -3581,7 +3567,6 @@
         "properties": {
           "created_at": {
             "description": "ISO 8601 event timestamp.",
-            "format": "date-time",
             "type": "string"
           },
           "id": {
@@ -3725,7 +3710,6 @@
         "properties": {
           "completed_at": {
             "description": "ISO 8601 time when cancellation completed.",
-            "format": "date-time",
             "type": "string"
           },
           "metrics": {
@@ -3770,7 +3754,6 @@
         "properties": {
           "completed_at": {
             "description": "ISO 8601 time when the turn reached a terminal state.",
-            "format": "date-time",
             "type": "string"
           },
           "metrics": {
@@ -3814,7 +3797,6 @@
         "properties": {
           "completed_at": {
             "description": "ISO 8601 time when the error state was recorded.",
-            "format": "date-time",
             "type": "string"
           },
           "message": {

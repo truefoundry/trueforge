@@ -4,7 +4,7 @@ import type * as TrueForge from "../index.js";
 
 export interface Turn {
     /** ISO 8601 creation timestamp. */
-    createdAt: Date;
+    createdAt: string;
     /** Unique turn id. */
     id: string;
     /** Input items supplied when the turn was created. */

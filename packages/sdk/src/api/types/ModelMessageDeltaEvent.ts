@@ -6,7 +6,7 @@ export interface ModelMessageDeltaEvent {
     /** Incremental assistant text content. */
     content?: string | null;
     /** Optional ISO 8601 event timestamp. */
-    createdAt?: Date;
+    createdAt?: string;
     /** Finish reason when this delta completes the stream. */
     finishReason?: TrueForge.FinishReason | null;
     /** Unique identifier for the event (monotonic ULID). */

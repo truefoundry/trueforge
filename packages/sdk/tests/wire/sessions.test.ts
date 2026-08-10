@@ -13,11 +13,11 @@ describe("SessionsClient", () => {
             data: [
                 {
                     agent: { spec: { model: { name: "name" } }, type: "inline" },
-                    created_at: "2024-01-15T09:30:00Z",
+                    created_at: "created_at",
                     created_by: "created_by",
                     id: "id",
                     title: "title",
-                    updated_at: "2024-01-15T09:30:00Z",
+                    updated_at: "updated_at",
                 },
             ],
             pagination: { limit: 1, next_page_token: "next_page_token", previous_page_token: "previous_page_token" },
@@ -42,11 +42,11 @@ describe("SessionsClient", () => {
                         },
                         type: "inline",
                     },
-                    createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                    createdAt: "created_at",
                     createdBy: "created_by",
                     id: "id",
                     title: "title",
-                    updatedAt: new Date("2024-01-15T09:30:00.000Z"),
+                    updatedAt: "updated_at",
                 },
             ],
             pagination: {
@@ -83,11 +83,11 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: {
                 agent: { spec: { model: { name: "name" } }, type: "inline" },
-                created_at: "2024-01-15T09:30:00Z",
+                created_at: "created_at",
                 created_by: "created_by",
                 id: "id",
                 title: "title",
-                updated_at: "2024-01-15T09:30:00Z",
+                updated_at: "updated_at",
             },
         };
 
@@ -115,11 +115,11 @@ describe("SessionsClient", () => {
                     },
                     type: "inline",
                 },
-                createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                createdAt: "created_at",
                 createdBy: "created_by",
                 id: "id",
                 title: "title",
-                updatedAt: new Date("2024-01-15T09:30:00.000Z"),
+                updatedAt: "updated_at",
             },
         });
     });
@@ -203,11 +203,11 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: {
                 agent: { spec: { model: { name: "name" } }, type: "inline" },
-                created_at: "2024-01-15T09:30:00Z",
+                created_at: "created_at",
                 created_by: "created_by",
                 id: "id",
                 title: "title",
-                updated_at: "2024-01-15T09:30:00Z",
+                updated_at: "updated_at",
             },
         };
 
@@ -230,11 +230,11 @@ describe("SessionsClient", () => {
                     },
                     type: "inline",
                 },
-                createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                createdAt: "created_at",
                 createdBy: "created_by",
                 id: "id",
                 title: "title",
-                updatedAt: new Date("2024-01-15T09:30:00.000Z"),
+                updatedAt: "updated_at",
             },
         });
     });
@@ -313,11 +313,11 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: {
                 agent: { spec: { model: { name: "name" } }, type: "inline" },
-                created_at: "2024-01-15T09:30:00Z",
+                created_at: "created_at",
                 created_by: "created_by",
                 id: "id",
                 title: "title",
-                updated_at: "2024-01-15T09:30:00Z",
+                updated_at: "updated_at",
             },
         };
 
@@ -341,11 +341,11 @@ describe("SessionsClient", () => {
                     },
                     type: "inline",
                 },
-                createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                createdAt: "created_at",
                 createdBy: "created_by",
                 id: "id",
                 title: "title",
-                updatedAt: new Date("2024-01-15T09:30:00.000Z"),
+                updatedAt: "updated_at",
             },
         });
     });
@@ -517,7 +517,7 @@ describe("SessionsClient", () => {
             data: [
                 {
                     event: {
-                        created_at: "2024-01-15T09:30:00Z",
+                        created_at: "created_at",
                         id: "id",
                         thread_id: null,
                         mcp_servers: [{ auth_url: "auth_url", id: "id", name: "name" }],
@@ -541,7 +541,7 @@ describe("SessionsClient", () => {
             data: [
                 {
                     event: {
-                        createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                        createdAt: "created_at",
                         id: "id",
                         threadId: null,
                         mcpServers: [
@@ -634,16 +634,12 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    created_at: "2024-01-15T09:30:00Z",
+                    created_at: "created_at",
                     id: "id",
                     input: [{ content: "content", type: "user.message" }],
                     previous_turn_id: "previous_turn_id",
                     session_id: "session_id",
-                    state: {
-                        completed_at: "2024-01-15T09:30:00Z",
-                        reason: "server-execution-timeout",
-                        status: "cancelled",
-                    },
+                    state: { completed_at: "completed_at", reason: "server-execution-timeout", status: "cancelled" },
                 },
             ],
             pagination: { limit: 1, next_page_token: "next_page_token", previous_page_token: "previous_page_token" },
@@ -660,7 +656,7 @@ describe("SessionsClient", () => {
         const expected = {
             data: [
                 {
-                    createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                    createdAt: "created_at",
                     id: "id",
                     input: [
                         {
@@ -671,7 +667,7 @@ describe("SessionsClient", () => {
                     previousTurnId: "previous_turn_id",
                     sessionId: "session_id",
                     state: {
-                        completedAt: new Date("2024-01-15T09:30:00.000Z"),
+                        completedAt: "completed_at",
                         reason: "server-execution-timeout",
                         status: "cancelled",
                     },
@@ -753,7 +749,7 @@ describe("SessionsClient", () => {
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
         const rawRequestBody = { stream: true };
         const rawResponseBody =
-            'event: \ndata: {"created_at":"2024-01-15T09:30:00Z","id":"id","thread_id":"thread_id","mcp_servers":[{"auth_url":"auth_url","id":"id","name":"name"}],"type":"mcp.auth_required"}\n\n';
+            'event: \ndata: {"created_at":"created_at","id":"id","thread_id":"thread_id","mcp_servers":[{"auth_url":"auth_url","id":"id","name":"name"}],"type":"mcp.auth_required"}\n\n';
 
         server
             .mockEndpoint()
@@ -771,7 +767,7 @@ describe("SessionsClient", () => {
         }
         expect(events).toEqual([
             {
-                createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                createdAt: "created_at",
                 id: "id",
                 threadId: "thread_id",
                 mcpServers: [
@@ -892,16 +888,12 @@ describe("SessionsClient", () => {
         const rawRequestBody = { stream: false };
         const rawResponseBody = {
             data: {
-                created_at: "2024-01-15T09:30:00Z",
+                created_at: "created_at",
                 id: "id",
                 input: [{ content: "content", type: "user.message" }],
                 previous_turn_id: "previous_turn_id",
                 session_id: "session_id",
-                state: {
-                    completed_at: "2024-01-15T09:30:00Z",
-                    reason: "server-execution-timeout",
-                    status: "cancelled",
-                },
+                state: { completed_at: "completed_at", reason: "server-execution-timeout", status: "cancelled" },
             },
         };
 
@@ -917,7 +909,7 @@ describe("SessionsClient", () => {
         const response = await client.sessions.createTurn("session_id", {});
         expect(response).toEqual({
             data: {
-                createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                createdAt: "created_at",
                 id: "id",
                 input: [
                     {
@@ -928,7 +920,7 @@ describe("SessionsClient", () => {
                 previousTurnId: "previous_turn_id",
                 sessionId: "session_id",
                 state: {
-                    completedAt: new Date("2024-01-15T09:30:00.000Z"),
+                    completedAt: "completed_at",
                     reason: "server-execution-timeout",
                     status: "cancelled",
                 },
@@ -1042,16 +1034,12 @@ describe("SessionsClient", () => {
 
         const rawResponseBody = {
             data: {
-                created_at: "2024-01-15T09:30:00Z",
+                created_at: "created_at",
                 id: "id",
                 input: [{ content: "content", type: "user.message" }],
                 previous_turn_id: "previous_turn_id",
                 session_id: "session_id",
-                state: {
-                    completed_at: "2024-01-15T09:30:00Z",
-                    reason: "server-execution-timeout",
-                    status: "cancelled",
-                },
+                state: { completed_at: "completed_at", reason: "server-execution-timeout", status: "cancelled" },
             },
         };
 
@@ -1066,7 +1054,7 @@ describe("SessionsClient", () => {
         const response = await client.sessions.getTurn("session_id", "turn_id");
         expect(response).toEqual({
             data: {
-                createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                createdAt: "created_at",
                 id: "id",
                 input: [
                     {
@@ -1077,7 +1065,7 @@ describe("SessionsClient", () => {
                 previousTurnId: "previous_turn_id",
                 sessionId: "session_id",
                 state: {
-                    completedAt: new Date("2024-01-15T09:30:00.000Z"),
+                    completedAt: "completed_at",
                     reason: "server-execution-timeout",
                     status: "cancelled",
                 },
@@ -1130,7 +1118,7 @@ describe("SessionsClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    created_at: "2024-01-15T09:30:00Z",
+                    created_at: "created_at",
                     id: "id",
                     thread_id: "thread_id",
                     mcp_servers: [{ auth_url: "auth_url", id: "id", name: "name" }],
@@ -1151,7 +1139,7 @@ describe("SessionsClient", () => {
         const expected = {
             data: [
                 {
-                    createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                    createdAt: "created_at",
                     id: "id",
                     threadId: "thread_id",
                     mcpServers: [
@@ -1240,7 +1228,7 @@ describe("SessionsClient", () => {
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
 
         const rawResponseBody =
-            'event: \ndata: {"created_at":"2024-01-15T09:30:00Z","id":"id","thread_id":"thread_id","mcp_servers":[{"auth_url":"auth_url","id":"id","name":"name"}],"type":"mcp.auth_required"}\n\n';
+            'event: \ndata: {"created_at":"created_at","id":"id","thread_id":"thread_id","mcp_servers":[{"auth_url":"auth_url","id":"id","name":"name"}],"type":"mcp.auth_required"}\n\n';
 
         server
             .mockEndpoint()
@@ -1257,7 +1245,7 @@ describe("SessionsClient", () => {
         }
         expect(events).toEqual([
             {
-                createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                createdAt: "created_at",
                 id: "id",
                 threadId: "thread_id",
                 mcpServers: [

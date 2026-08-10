@@ -4,7 +4,7 @@ import type * as TrueForge from "../index.js";
 
 export interface McpInitializeEvent {
     /** ISO 8601 event timestamp. */
-    createdAt: Date;
+    createdAt: string;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
     /** Servers that were initialized. */

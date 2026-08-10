@@ -3,7 +3,7 @@
 export interface ToolResponseEvent {
     content: string;
     /** ISO 8601 event timestamp. */
-    createdAt: Date;
+    createdAt: string;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
     /** Thread that owns the tool call. */
