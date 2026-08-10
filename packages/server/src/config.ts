@@ -559,7 +559,13 @@ export function isOidcConfigured(
  * Standalone → `http://localhost:$PORT`; distributed → `PUBLIC_BASE_URL` (may be `''`).
  */
 export function getPublicBaseUrl(config: ServerConfiguration = configuration): string {
-  return config.STANDALONE ? `http://localhost:${String(config.PORT)}` : config.PUBLIC_BASE_URL;
+  if (config.STANDALONE) {
+    return `http://localhost:${String(config.PORT)}`;
+  }
+  if (config.PUBLIC_BASE_URL === '') {
+    throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
+  }
+  return config.PUBLIC_BASE_URL;
 }
 
 export default configuration;
