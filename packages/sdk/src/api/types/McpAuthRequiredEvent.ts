@@ -3,6 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface McpAuthRequiredEvent extends TrueForge.BaseMcpAuthRequiredEvent {
+    /** Servers that need authorization, each with an auth_url. */
     mcpServers: TrueForge.McpServerAuthInfo[];
     type: "mcp.auth_required";
 }

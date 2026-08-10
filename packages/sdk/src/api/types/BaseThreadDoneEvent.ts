@@ -4,6 +4,8 @@ import type * as TrueForge from "../index.js";
 
 export interface BaseThreadDoneEvent {
     parent?: TrueForge.AgentParent;
+    /** Thread that finished. */
     threadId: string;
+    /** Human-readable thread title. */
     title: string;
 }

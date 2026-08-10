@@ -4,11 +4,14 @@ import type * as TrueForge from "../index.js";
 
 export interface ThreadCreatedEvent {
     agentInfo: TrueForge.AgentInfo;
+    /** ISO 8601 event timestamp. */
     createdAt: string;
-    /** Unique identifier for the event */
+    /** Unique identifier for the event (monotonic ULID). */
     id: string;
     parent: TrueForge.AgentParent;
+    /** Id of the new thread. */
     threadId: string;
+    /** Human-readable thread title. */
     title: string;
     type: "thread.created";
 }

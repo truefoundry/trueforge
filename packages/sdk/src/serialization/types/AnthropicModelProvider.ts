@@ -13,7 +13,6 @@ export const AnthropicModelProvider: core.serialization.ObjectSchema<
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    name: core.serialization.stringLiteral("anthropic").optional(),
     type: core.serialization.stringLiteral("anthropic"),
 });
 
@@ -22,7 +21,6 @@ export declare namespace AnthropicModelProvider {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
-        name?: "anthropic" | null;
         type: "anthropic";
     }
 }

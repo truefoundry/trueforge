@@ -5,5 +5,6 @@ import type * as TrueForge from "../index.js";
 export interface McpAuthStatus {
     /** When auth is required, this contains the URL to redirect the user to for authorization. */
     authorizationUrl?: string;
+    /** Current auth state for this MCP server. */
     status: TrueForge.McpAuthStatusStatus;
 }

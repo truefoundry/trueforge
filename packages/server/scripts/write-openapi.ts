@@ -1,5 +1,5 @@
 /**
- * Writes the server's OpenAPI document to `fern/openapi/openapi.json` for Fern.
+ * Writes the server's OpenAPI document to `.github/fern/openapi/openapi.json` for Fern.
  *
  * The real app is built in-process and asked for its document, so the committed
  * spec cannot drift from what the server serves. Nothing listens or dials out:
@@ -73,7 +73,14 @@ const app = createServerApp({
 // Fern OpenAPI still documents optional Bearer so the SDK keeps `token` support.
 registerOpenApiBearerAuth(app);
 const document = buildOpenApiDocument(app, { authEnabled: true });
-const outputPath = path.join(import.meta.dirname, '../../../fern/openapi/openapi.json');
-mkdirSync(path.dirname(outputPath), { recursive: true });
-writeFileSync(outputPath, `${JSON.stringify(canonicalise(document), null, 2)}\n`);
-console.log(`Wrote ${String(Object.keys(document.paths ?? {}).length)} paths to ${outputPath}`);
+const sdkOutputPath = path.join(import.meta.dirname, '../../../.github/fern/openapi/openapi.json');
+mkdirSync(path.dirname(sdkOutputPath), { recursive: true });
+writeFileSync(sdkOutputPath, `${JSON.stringify(canonicalise(document), null, 2)}\n`);
+console.log(`Wrote ${String(Object.keys(document.paths ?? {}).length)} paths to ${sdkOutputPath}`);
+
+// we are replicating it here because we need to use it in the docs
+// TODO (chiragjn): We tried symlinking but that did not work, revisit it later
+const docsOutputPath = path.join(import.meta.dirname, '../../../docs/openapi.json');
+mkdirSync(path.dirname(docsOutputPath), { recursive: true });
+writeFileSync(docsOutputPath, `${JSON.stringify(canonicalise(document), null, 2)}\n`);
+console.log(`Wrote ${String(Object.keys(document.paths ?? {}).length)} paths to ${docsOutputPath}`);

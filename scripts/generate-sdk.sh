@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# Regenerates fern/openapi/openapi.json and packages/sdk (same steps as CI).
+# Regenerates .github/fern/openapi/openapi.json and packages/sdk (same steps as CI).
 # Requires Docker (Fern --local) and network access for the Fern CLI/image.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-fern_version="$(jq -r .version fern/fern.config.json)"
+fern_version="$(jq -r .version .github/fern/fern.config.json)"
 fern() {
-  pnpm dlx "fern-api@${fern_version}" "$@"
+  # Fern only discovers a directory literally named `fern` under the process cwd
+  # (https://buildwithfern.com/learn/docs/getting-started/project-structure).
+  (cd .github && pnpm dlx "fern-api@${fern_version}" "$@")
 }
 
 pnpm --filter @truefoundry/utils-core build

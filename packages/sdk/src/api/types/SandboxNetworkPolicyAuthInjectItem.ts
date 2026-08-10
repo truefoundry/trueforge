@@ -5,5 +5,6 @@ import type * as TrueForge from "../index.js";
 export interface SandboxNetworkPolicyAuthInjectItem {
     authData: TrueForge.SandboxNetworkPolicyAuthInjectItemAuthData;
     match: TrueForge.SandboxNetworkPolicyAuthInjectItemMatch;
+    /** Inject credentials for git HTTPS clones. */
     type: "git";
 }

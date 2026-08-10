@@ -21,20 +21,29 @@ export const DEFAULT_AGENT_CONFIG_ITERATION_LIMIT = 100;
 
 const ModelParamsSchema = z
   .object({
-    max_tokens: z.number().optional(),
-    temperature: z.number().optional(),
-    top_p: z.number().optional(),
-    top_k: z.number().optional(),
-    parallel_tool_calls: z.boolean().optional(),
-    reasoning_effort: z.string().optional(),
+    max_tokens: z.number().optional().describe('Maximum tokens to generate in the model response.'),
+    temperature: z.number().optional().describe('Sampling temperature; higher values increase randomness.'),
+    top_p: z.number().optional().describe('Nucleus sampling probability mass.'),
+    top_k: z.number().optional().describe('Top-k sampling; keep only the k highest-probability tokens.'),
+    parallel_tool_calls: z
+      .boolean()
+      .optional()
+      .describe('Whether the model may emit multiple tool calls in one response.'),
+    reasoning_effort: z.string().optional().describe('Provider-specific reasoning effort (e.g. low/medium/high).'),
   })
   .loose() // this ensures extra model params are allowed
+  .describe(
+    'Model call parameters passed through to the provider. Known keys are documented; extra keys are allowed and forwarded as-is.',
+  )
   .openapi('ModelParams');
 
 // Opaque runtime identifier; the hosting server owns naming conventions (e.g. provider/model).
 const ModelSpecSchema = z
   .object({
-    name: z.string().min(1, 'model.name must not be empty'),
+    name: z
+      .string()
+      .min(1, 'model.name must not be empty')
+      .describe('Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.'),
     params: ModelParamsSchema.optional(),
   })
   .openapi('AgentSpecModel');
@@ -60,44 +69,86 @@ const RequireApprovalToolSelectorSchema = z.union([
 // Auth headers are not part of the spec — they come from the configured MCP server store.
 const MCPServerRequestSchema = z
   .object({
-    name: z.string().min(1, 'mcp_servers[].name must not be empty'),
+    name: z
+      .string()
+      .min(1, 'mcp_servers[].name must not be empty')
+      .describe('Name of a configured MCP server (Settings → Connectors).'),
     // Which tools to enable. Default: all tools.
-    enable_tools: z.array(EnableToolSelectorSchema).default(DEFAULT_ENABLE_TOOLS),
+    enable_tools: z
+      .array(EnableToolSelectorSchema)
+      .default(DEFAULT_ENABLE_TOOLS)
+      .describe('Tools exposed to the agent: `@all`, `@read-only`, or literal tool names. Default: `["@all"]`.'),
     // Which tools to disable (subtracted from enable_tools). Default: none.
-    disable_tools: z.array(EnableToolSelectorSchema).default(DEFAULT_DISABLE_TOOLS),
+    disable_tools: z
+      .array(EnableToolSelectorSchema)
+      .default(DEFAULT_DISABLE_TOOLS)
+      .describe('Tools subtracted from the enabled set. Default: none.'),
     // When the server is not fully preloaded (`preload: false`), which tools to
     // still preload into context. A non-empty list implies `preload: false`.
-    preload_tools: z.array(EnableToolSelectorSchema).default(DEFAULT_PRELOAD_TOOLS),
+    preload_tools: z
+      .array(EnableToolSelectorSchema)
+      .default(DEFAULT_PRELOAD_TOOLS)
+      .describe(
+        'Tools loaded eagerly into context while the rest stay deferred. A non-empty list implies `preload: false`.',
+      ),
     // Tools that require human approval before execution. Default: @write + @destructive.
-    require_approval_for_tools: z.array(RequireApprovalToolSelectorSchema).default(DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS),
+    require_approval_for_tools: z
+      .array(RequireApprovalToolSelectorSchema)
+      .default(DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS)
+      .describe(
+        'Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `["@write", "@destructive"]`.',
+      ),
     // Whether this server's tools are preloaded into context. Default: false.
     // When false, tools are discovered lazily and only `preload_tools` stay eager.
-    preload: z.boolean().optional().default(false),
+    preload: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('When true, load all tool schemas upfront. Default: false (deferred discovery).'),
   })
   .openapi('MCPServer');
 
 // --- Runtime config ---
 
 const CompactionSettingsSchema = z.object({
-  enabled: z.boolean().default(true),
-  compaction_threshold_tokens: z.number().int().positive().optional(),
+  enabled: z.boolean().default(true).describe('Summarize older history when context grows too large. Default: true.'),
+  compaction_threshold_tokens: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe('Context size in tokens that triggers compaction. Default: 50000.'),
 });
 
 const LargeToolResponseSettingsSchema = z.object({
-  enabled: z.boolean().default(true),
+  enabled: z.boolean().default(true).describe('Offload oversized tool responses to a sandbox file. Default: true.'),
   individual_tool_response_token_threshold: z
     .number()
     .int()
     .positive()
     .optional()
-    .default(DEFAULT_INDIVIDUAL_TOOL_TOKEN_THRESHOLD),
+    .default(DEFAULT_INDIVIDUAL_TOOL_TOKEN_THRESHOLD)
+    .describe(
+      `Token threshold for a single tool response before offloading. Default: ${String(DEFAULT_INDIVIDUAL_TOOL_TOKEN_THRESHOLD)}.`,
+    ),
   total_tool_response_token_threshold: z
     .number()
     .int()
     .positive()
     .optional()
-    .default(DEFAULT_TOTAL_TOOL_TOKEN_THRESHOLD),
-  preview_number_of_characters: z.number().int().positive().optional().default(DEFAULT_PREVIEW_NUMBER_OF_CHARACTERS),
+    .default(DEFAULT_TOTAL_TOOL_TOKEN_THRESHOLD)
+    .describe(
+      `Combined tool-response token threshold before offloading. Default: ${String(DEFAULT_TOTAL_TOOL_TOKEN_THRESHOLD)}.`,
+    ),
+  preview_number_of_characters: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .default(DEFAULT_PREVIEW_NUMBER_OF_CHARACTERS)
+    .describe(
+      `Characters of preview kept in context after offloading. Default: ${String(DEFAULT_PREVIEW_NUMBER_OF_CHARACTERS)}.`,
+    ),
 });
 
 const BASIC_AUTH_USERNAME_PATTERN = /^\S+$/;
@@ -115,19 +166,24 @@ const SandboxAuthInjectMatchSchema = z.object({
         .min(1)
         .refine(host => !hostContainsWildcard(host), {
           message: 'Hosts must be exact hostnames without wildcards',
-        }),
+        })
+        .describe('Exact hostname to match (no wildcards).'),
     )
-    .min(1),
+    .min(1)
+    .describe('Hostnames that receive injected credentials.'),
 });
 
 const SandboxBasicAuthDataSchema = z.object({
-  type: z.literal('basic'),
-  username: z.string().regex(BASIC_AUTH_USERNAME_PATTERN, 'Username must be non-empty and contain no whitespace'),
-  password: z.string().min(1),
+  type: z.literal('basic').describe('Basic auth credential type.'),
+  username: z
+    .string()
+    .regex(BASIC_AUTH_USERNAME_PATTERN, 'Username must be non-empty and contain no whitespace')
+    .describe('Basic-auth username (no whitespace).'),
+  password: z.string().min(1).describe('Basic-auth password.'),
 });
 
 const SandboxGitAuthInjectSchema = z.object({
-  type: z.literal('git'),
+  type: z.literal('git').describe('Inject credentials for git HTTPS clones.'),
   match: SandboxAuthInjectMatchSchema,
   auth_data: SandboxBasicAuthDataSchema,
 });
@@ -137,21 +193,25 @@ const SandboxNetworkPolicySchema = z
     auth_inject: z
       .array(SandboxGitAuthInjectSchema)
       .max(1, 'At most one auth inject rule is supported (type: git)')
-      .optional(),
+      .optional()
+      .describe('Up to one rule injecting git basic-auth credentials for exact hosts.'),
   })
   .openapi('SandboxNetworkPolicy');
 
 const SandboxConfigSchema = z
   .object({
-    enabled: z.boolean(),
-    file_downloads: z.boolean().default(true),
+    enabled: z.boolean().describe('Give the agent a sandbox. Required for skills and Code Mode.'),
+    file_downloads: z
+      .boolean()
+      .default(true)
+      .describe('Allow downloading agent-produced files via the turn download endpoint. Default: true.'),
     network_policy: SandboxNetworkPolicySchema.optional(),
   })
   .openapi('SandboxConfig');
 
 const DynamicSubAgentsConfigSchema = z
   .object({
-    enabled: z.boolean().default(true),
+    enabled: z.boolean().default(true).describe('Allow the agent to spawn dynamic subagents. Default: true.'),
   })
   .openapi('DynamicSubAgentsConfig');
 
@@ -168,19 +228,27 @@ const ContextManagementConfigSchema = z
 
 const GenerativeUIConfigSchema = z
   .object({
-    enabled: z.boolean().default(true),
+    enabled: z.boolean().default(true).describe('Enable Generative UI (OpenUI blocks). Default: true.'),
   })
   .openapi('GenerativeUIConfig');
 
 const AskUserQuestionsConfigSchema = z
   .object({
-    enabled: z.boolean().default(true),
+    enabled: z.boolean().default(true).describe('Enable the `ask_user_question` tool. Default: true.'),
   })
   .openapi('AskUserQuestionsConfig');
 
 export const RuntimeConfigSchema = z
   .object({
-    iteration_limit: z.number().int().positive().max(1024).default(DEFAULT_AGENT_CONFIG_ITERATION_LIMIT),
+    iteration_limit: z
+      .number()
+      .int()
+      .positive()
+      .max(1024)
+      .default(DEFAULT_AGENT_CONFIG_ITERATION_LIMIT)
+      .describe(
+        `Max agent-loop iterations per turn (1–1024). Default: ${String(DEFAULT_AGENT_CONFIG_ITERATION_LIMIT)}.`,
+      ),
     sandbox: SandboxConfigSchema.default(() => ({ enabled: false, file_downloads: true })),
     dynamic_sub_agents: DynamicSubAgentsConfigSchema.default(() => ({ enabled: true })),
     context_management: ContextManagementConfigSchema.default(() => ({
@@ -208,7 +276,7 @@ const SkillNameRefSchema = z
       .regex(SKILL_NAME_REGEX, 'Name may only contain letters, numbers, ".", "_", and "-"')
       .refine(v => v !== '.' && v !== '..', 'Name must not be "." or ".."')
       .refine(v => !v.startsWith('.tfy-'), 'Name must not use the reserved ".tfy-" prefix')
-      .describe('Name for the skill, used as directory name in sandbox.'),
+      .describe('Name of a configured skill (also used as the skill directory name in the sandbox).'),
   })
   .strict()
   .openapi('SkillNameRef');
@@ -217,11 +285,12 @@ const SkillNameRefSchema = z
 
 const AgentSpecUserMessageSchema = z
   .object({
-    type: z.literal('user.message'),
+    type: z.literal('user.message').describe('Seed message type.'),
     content: z
       .string()
       .min(1, 'User message content must not be empty')
-      .refine(content => content.trim().length > 0, 'User message content must not be empty'),
+      .refine(content => content.trim().length > 0, 'User message content must not be empty')
+      .describe('Seed user message content injected at the start of every session.'),
   })
   .openapi('AgentSpecUserMessage');
 
@@ -230,16 +299,31 @@ const AgentSpecUserMessageSchema = z
 export const AgentSpecSchema = z
   .object({
     model: ModelSpecSchema,
-    instructions: z.string().optional(),
-    messages: z.array(AgentSpecUserMessageSchema).optional(),
-    mcp_servers: z.array(MCPServerRequestSchema).optional(),
+    instructions: z
+      .string()
+      .optional()
+      .describe("Optional system prompt — the agent's role, behavior, and constraints."),
+    messages: z
+      .array(AgentSpecUserMessageSchema)
+      .optional()
+      .describe('Optional seed user messages injected at the start of every session.'),
+    mcp_servers: z
+      .array(MCPServerRequestSchema)
+      .optional()
+      .describe('Optional MCP servers attached by configured name.'),
     response_format: ResponseFormatSchema.optional(),
-    skills: z.array(SkillNameRefSchema).optional(),
+    skills: z
+      .array(SkillNameRefSchema)
+      .optional()
+      .describe('Optional name-only skill references. Requires `config.sandbox.enabled: true`.'),
     // Factory must parse so nested RuntimeConfig field defaults materialize.
     config: RuntimeConfigSchema.default(() => RuntimeConfigSchema.parse({})),
-    variables: z.record(z.string(), z.string()).optional(),
+    variables: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Optional string key–value map reserved for parameterizing agent definitions.'),
   })
-  .describe('Agent Definition')
+  .describe('Complete agent definition used inline on a session or saved as a named agent.')
   .openapi('AgentSpec');
 
 export type AgentSpec = z.infer<typeof AgentSpecSchema>;

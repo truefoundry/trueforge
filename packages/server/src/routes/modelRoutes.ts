@@ -1,4 +1,5 @@
 import { createRoute } from '@hono/zod-openapi';
+import { RequestErrorResponseSchema } from '../schemas/errors';
 import { ListModelsResponseSchema } from '../schemas/modelProvider';
 
 export const listModelsRoute = createRoute({
@@ -13,6 +14,10 @@ export const listModelsRoute = createRoute({
     200: {
       content: { 'application/json': { schema: ListModelsResponseSchema } },
       description: 'All models of all configured providers.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
     },
   },
 });

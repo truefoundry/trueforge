@@ -12,11 +12,16 @@ import type * as TrueForge from "../../../../index.js";
  */
 export interface UpdateAgentRequest {
     config?: TrueForge.RuntimeConfig;
+    /** Optional system prompt — the agent's role, behavior, and constraints. */
     instructions?: string;
+    /** Optional MCP servers attached by configured name. */
     mcpServers?: TrueForge.McpServer[];
+    /** Optional seed user messages injected at the start of every session. */
     messages?: TrueForge.AgentSpecUserMessage[];
     model: TrueForge.AgentSpecModel;
     responseFormat?: TrueForge.ResponseFormat;
+    /** Optional name-only skill references. Requires `config.sandbox.enabled: true`. */
     skills?: TrueForge.SkillNameRef[];
+    /** Optional string key–value map reserved for parameterizing agent definitions. */
     variables?: Record<string, string>;
 }

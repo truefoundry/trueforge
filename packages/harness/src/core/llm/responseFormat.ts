@@ -8,26 +8,34 @@ import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/chat'
  */
 
 const ResponseFormatTextSchema = z
-  .object({ type: z.literal('text') })
+  .object({ type: z.literal('text').describe('Unconstrained text output.') })
   .loose()
+  .describe('Default text response format. Extra provider fields are allowed.')
   .openapi('ResponseFormatText');
 const ResponseFormatJsonObjectSchema = z
-  .object({ type: z.literal('json_object') })
+  .object({ type: z.literal('json_object').describe('Model must return a JSON object.') })
   .loose()
+  .describe('JSON object response format. Extra provider fields are allowed.')
   .openapi('ResponseFormatJsonObject');
 const ResponseFormatJsonSchemaSchema = z
   .object({
-    type: z.literal('json_schema'),
+    type: z.literal('json_schema').describe('Model must return JSON matching a schema.'),
     json_schema: z
       .object({
-        name: z.string(),
-        description: z.string().optional(),
-        schema: z.record(z.string(), z.unknown()).optional(),
-        strict: z.boolean().nullable().optional(),
+        name: z.string().describe('Schema name sent to the provider.'),
+        description: z.string().optional().describe('Optional schema description for the model.'),
+        schema: z.record(z.string(), z.unknown()).optional().describe('JSON Schema object for the response.'),
+        strict: z
+          .boolean()
+          .nullable()
+          .optional()
+          .describe('When true, ask the provider to enforce the schema strictly.'),
       })
-      .loose(),
+      .loose()
+      .describe('JSON Schema payload. Extra provider fields are allowed.'),
   })
   .loose()
+  .describe('JSON Schema response format. Extra provider fields are allowed.')
   .openapi('ResponseFormatJsonSchema');
 
 export const ResponseFormatSchema = z

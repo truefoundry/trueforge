@@ -7,6 +7,7 @@
  */
 import { createRoute } from '@hono/zod-openapi';
 import { AuthLoginQuerySchema, MeResponseSchema, OAuthCallbackQuerySchema } from '../schemas/auth';
+import { RequestErrorResponseSchema } from '../schemas/errors';
 
 const AUTH_TAG = 'Auth';
 
@@ -72,6 +73,7 @@ export const meRoute = createRoute({
       description: 'Session type and identity for the current request.',
     },
     401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Auth is enabled and the request has no valid cookie or Bearer ID token.',
     },
   },

@@ -13,7 +13,6 @@ export const MoonshotModelProvider: core.serialization.ObjectSchema<
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    name: core.serialization.stringLiteral("moonshot").optional(),
     type: core.serialization.stringLiteral("moonshot"),
 });
 
@@ -22,7 +21,6 @@ export declare namespace MoonshotModelProvider {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
-        name?: "moonshot" | null;
         type: "moonshot";
     }
 }

@@ -3,5 +3,6 @@
 import type * as TrueForge from "../index.js";
 
 export interface SandboxNetworkPolicy {
+    /** Up to one rule injecting git basic-auth credentials for exact hosts. */
     authInject?: TrueForge.SandboxNetworkPolicyAuthInjectItem[];
 }

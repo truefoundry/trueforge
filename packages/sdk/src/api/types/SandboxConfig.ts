@@ -3,7 +3,9 @@
 import type * as TrueForge from "../index.js";
 
 export interface SandboxConfig {
+    /** Give the agent a sandbox. Required for skills and Code Mode. */
     enabled: boolean;
+    /** Allow downloading agent-produced files via the turn download endpoint. Default: true. */
     fileDownloads?: boolean;
     networkPolicy?: TrueForge.SandboxNetworkPolicy;
 }

@@ -3,7 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 /**
- * Agent Definition
+ * Complete agent definition used inline on a session or saved as a named agent.
  */
 export interface Agent extends TrueForge.AgentSpec {
     /** Immutable server-generated agent identifier. */

@@ -13,7 +13,6 @@ export const GoogleGeminiModelProvider: core.serialization.ObjectSchema<
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    name: core.serialization.stringLiteral("google-gemini").optional(),
     type: core.serialization.stringLiteral("google-gemini"),
 });
 
@@ -22,7 +21,6 @@ export declare namespace GoogleGeminiModelProvider {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
-        name?: "google-gemini" | null;
         type: "google-gemini";
     }
 }

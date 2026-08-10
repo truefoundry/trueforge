@@ -38,9 +38,15 @@ import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 const BEARER_AUTH_SCHEME = 'BearerAuth';
 
 const openApiInfo = {
-  title: 'Agent Server',
+  title: 'TrueForge API',
   description:
-    'Agent server with DB-backed sessions, agent registry, settings catalogs, and model/MCP/skill providers.',
+    'HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` ' +
+    '(OpenAPI JSON at `/api/v1/openapi.json`).\n\n' +
+    '**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware ' +
+    'stamps a local default user. When OIDC is configured, protected routes require a valid `id_token` cookie ' +
+    'or `Authorization: Bearer` ID token. There is no built-in API-key scheme; ' +
+    'pass custom headers only if your reverse proxy or IdP layer requires them.\n\n' +
+    'Covers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.',
   version: '0.1.0',
 } as const;
 
