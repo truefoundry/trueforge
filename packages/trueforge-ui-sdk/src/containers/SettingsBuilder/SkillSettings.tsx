@@ -221,12 +221,12 @@ const SkillSettings = () => {
                         size="sm"
                         type="button"
                         disabled={busy}
-                        aria-label={`Select ${entry.name}`}
+                        aria-label={`Enable ${entry.name}`}
                         onClick={() => {
                           handleSelect(entry);
                         }}
                       >
-                        Select
+                        Enable
                       </Button>
                     ),
                   }),
