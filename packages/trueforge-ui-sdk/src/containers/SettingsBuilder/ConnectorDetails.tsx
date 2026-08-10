@@ -6,6 +6,7 @@ import { Button } from '../../atoms/primitives/Button.js';
 import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { ConnectorBase, ToolBase } from '../../server/types.js';
+import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
 
 type ConnectorDetailsProps = {
@@ -34,7 +35,7 @@ const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: Con
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setToolsError(err instanceof Error ? err.message : 'Failed to load connector tools');
+          setToolsError(getErrorMessage(err, 'Failed to load connector tools'));
         }
       })
       .finally(() => {
