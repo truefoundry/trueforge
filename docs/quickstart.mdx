@@ -1,7 +1,7 @@
 ---
 title: 'Quickstart'
 sidebarTitle: 'Quickstart'
-description: 'Run TrueForge with one command, configure a model provider, and have your first agent conversation in minutes.'
+description: 'Run TrueForge, connect a model and tools, and build your first reusable agent — step by step.'
 ---
 
 ## Run TrueForge
@@ -62,77 +62,83 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
   across them.
 </Note>
 
-## Configure a model provider
+## Build your first agent
 
-TrueForge ships with a catalog of model providers. Configure one before your first chat:
+With TrueForge open in your browser, this walkthrough takes you from an empty workspace to a saved, reusable agent. The example builds a **GitHub repo explainer** — an agent that turns any public repo into a one-page PDF brief.
 
 <Steps>
-  <Step title="Open Settings">
-    In the UI, open **Settings → Models**.
+  <Step title="Add a model provider">
+    Open **Settings → Models**, pick a provider from the catalog, and paste your API key. Its models become available immediately — no restart needed.
 
     <Frame>
-      <img src="/images/model-settings.png" alt="The Settings → Models page listing configured and available providers" />
+      <img src="/images/quickstart-models.png" alt="Settings → Models with the OpenAI provider expanded, showing an API key field and a Create button" />
     </Frame>
   </Step>
-  <Step title="Pick a provider">
-    Choose a provider from the catalog — OpenAI, Anthropic, Google Gemini, or an OpenAI-compatible endpoint — and paste
-    your API key.
+
+  <Step title="Connect a tool">
+    Open **Settings → Connectors** and connect a [Model Context Protocol (MCP)](/mcp-servers) server so your agent can reach external tools and data. Pick one from the catalog and click **Connect** (via OAuth, an API key, or no auth), or use **Add MCP Server** to register your own by URL.
 
     <Frame>
-      <img src="/images/model-configure.png" alt="Configuring a provider — pasting the API key and clicking Create" />
+      <img src="/images/quickstart-connectors.png" alt="Settings → Connectors with deepwiki connected, above a catalog of more MCP servers to connect" />
     </Frame>
   </Step>
-  <Step title="Select a model">
-    Back in the chat, pick a model. Models are addressed as `provider/model`, for example `anthropic/claude-sonnet-4-6`.
+
+  <Step title="Add a skill">
+    Open **Settings → Skills**. Select a built-in skill, or click **Import from GitHub** to add a [git-backed skill](/skills) from any repository.
 
     <Frame>
-      <img src="/images/model-pick.png" alt="Selecting a model from the chat composer's model picker" />
+      <img src="/images/quickstart-skills.png" alt="Settings → Skills: a selected skill and an available skill with a Select button, plus an Import from GitHub action" />
+    </Frame>
+  </Step>
+
+  <Step title="Add a sandbox provider (optional)">
+    A [sandbox](/sandbox) lets the agent run code, work with files, and use skills. TrueForge supports [Daytona](https://www.daytona.io) today. It's a one-time setup:
+
+    1. **Create a Daytona API key** with permission to write and delete snapshots and write sandboxes.
+    2. **Sync the TrueForge sandbox image** to your Daytona account (a one-time CLI step).
+    3. **Add the provider** under **Settings → Sandbox providers** — choose Daytona and enter your API key and snapshot name.
+
+    <Frame>
+      <img src="/images/quickstart-sandbox.png" alt="The Daytona sandbox provider dialog with snapshot name, exec timeout, lifecycle intervals, and an API key field" />
+    </Frame>
+
+    See the [Sandbox guide](/sandbox) for the exact API-key permissions and the image-sync command.
+  </Step>
+
+  <Step title="Compose an agent and start chatting">
+    Back in the chat, assemble the agent for this conversation, then send your first message.
+
+    1. **Pick a model** from the selector in the composer.
+    2. Open the **+** menu → **Connectors** and enable the MCP server you connected.
+    3. In the same menu → **Skills**, enable your skill.
+    4. Send your message. Streaming, tool calls, sandbox output, and [approvals](/human-in-the-loop) all show up live.
+
+    <Frame caption="Pick a model, then add your connector and skill to the turn from the + menu.">
+      <img src="/images/quickstart-composer-connectors.png" alt="The composer with a model selected and the + menu open on the Connectors tab, a connector checked" />
+    </Frame>
+    <Frame caption="The agent runs — here it used the connector, the sandbox, and the pdf skill to generate a one-page brief.">
+      <img src="/images/quickstart-chat-result.png" alt="A completed chat where the agent generated a one-page PDF brief, with one connector and one skill active" />
+    </Frame>
+  </Step>
+
+  <Step title="Save it as an agent">
+    Happy with the setup? Click **Save as agent**, give it a name and system instructions, and **Save**. This captures the model, connectors, skills, and prompt together as a reusable agent.
+
+    <Frame>
+      <img src="/images/quickstart-save-agent.png" alt="The Save as agent dialog with a name and system instructions" />
+    </Frame>
+  </Step>
+
+  <Step title="Find it in the Agents Library">
+    Open **Agents Library** from the sidebar. Your saved agent is there — click **Try** to start a fresh chat with the same setup, or **Edit** to tweak it.
+
+    <Frame>
+      <img src="/images/quickstart-agents-library.png" alt="The Agents Library listing the saved github-repo-explainer agent with Edit and Try actions" />
     </Frame>
   </Step>
 </Steps>
 
-Everything you can do in Settings is also available through the API — see `GET /api/v1/settings/model-providers/catalog` and `PUT /api/v1/settings/model-providers` in the interactive API docs at `/api/v1/docs`.
-
-## Start chatting
-
-Send your first message. Out of the box the agent supports multi-turn conversations with streaming. To give it more capabilities:
-
-<Steps>
-  <Step title="Connect tools">
-    Add [MCP servers](/mcp-servers) under **Settings → Connectors**.
-
-    <Frame>
-      <img src="/images/getting-started-connectors.png" alt="The Connectors settings page listing connected and available MCP servers" />
-    </Frame>
-  </Step>
-  <Step title="Enable the sandbox">
-    Configure a [sandbox provider](/sandbox) under **Settings → Sandbox providers** so the agent can run code and use [skills](/skills).
-
-    <Frame>
-      <img src="/images/getting-started-sandbox.png" alt="The Sandbox providers settings page with Daytona connected" />
-    </Frame>
-  </Step>
-  <Step title="Add skills">
-    Register [git-backed skills](/skills) under **Settings → Skills**.
-
-    <Frame>
-      <img src="/images/getting-started-skills.png" alt="The Skills settings page with a selected skill" />
-    </Frame>
-  </Step>
-</Steps>
-
-<Frame caption="Composing an agent — pick a model, add connectors and skills, then save it to the library.">
-  <div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.46", padding: "40px 0" }}>
-    <iframe
-      src="https://app.supademo.com/embed/cmsk13xio00k81p0j1wj6amj6?embed_v=2&utm_source=embed"
-      loading="lazy"
-      title="Chat with an agent in TrueForge"
-      allow="clipboard-write"
-      allowFullScreen
-      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
-    />
-  </div>
-</Frame>
+Everything you configure in Settings is also available through the API — see the interactive docs at `/api/v1/docs`.
 
 ## Call the API
 
