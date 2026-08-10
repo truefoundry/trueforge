@@ -62,7 +62,7 @@ describe('authMiddleware', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       ok: true,
-      user: undefined,
+      user: { userRef: 'trueforge-default', role: 'admin' },
     });
   });
 
