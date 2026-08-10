@@ -4,9 +4,13 @@ sidebarTitle: 'Evaluation'
 description: 'How TrueForge compares to Claude Managed Agents and deepagents on the same tasks, tools, and model — and how to reproduce it.'
 ---
 
-We benchmarked TrueForge against two alternatives — the closed **Claude Managed Agents** and the open-source **deepagents** (LangGraph) — on the same 14 enterprise tasks, with the same tools and the same model. On **Opus 4.8**, TrueForge matched both on accuracy while costing about **30% less than Claude Managed Agents** and about **2.5× less than deepagents**. Swapping in the efficient open model **GLM-5.2** kept quality in the same band at roughly **75% below Claude Managed Agents**.
+We benchmarked TrueForge against two alternatives — the closed **Claude Managed Agents** and the open-source **deepagents** (LangGraph) — on the same 14 enterprise tasks, with the same tools and the same model. Same accuracy, lower cost:
 
-<Frame caption="Same tasks, same tools, same accuracy — at a fraction of the cost per run">
+- **~30% cheaper than Claude Managed Agents** on the same model (Opus 4.8).
+- **~2.5× cheaper than deepagents** on the same model.
+- **~75% cheaper** running the efficient open model **GLM-5.2**, at the same quality.
+
+<Frame>
   <img
     src="/images/evaluation-hero.png"
     alt="Cost per run on the 14 enterprise tasks: Claude Managed Agents on Opus 4.8 is the baseline, TrueForge on Opus 4.8 is about 30% cheaper, and TrueForge on GLM-5.2 is about 75% cheaper — with the same accuracy across all three."
@@ -21,21 +25,19 @@ We use the **L1-L2 tasks from [DevRev's Enterprise-Bench](https://x.com/devrev/s
 
 Every harness runs the **same model, the same three MCP servers, and the same system prompt**, with each task in a fresh session and nothing carried over. We run **n = 3 trials** per configuration and report the mean.
 
-Answers are graded by an independent LLM judge that sees only the task's criteria and the answer — never which harness produced it — and a task passes only if it meets **every** required criterion (no partial credit). Cost is computed per run from token counts at each provider's list prices, cache-aware.
+Answers are graded by an independent LLM judge that sees only the task's criteria and the answer — never which harness produced it — and a task passes only if it meets **every** required criterion.
 
 ## Results
 
-On the same model (Opus 4.8), TrueForge matches Claude Managed Agents (10.7 / 14) and edges deepagents (10.7 vs 10.0) at far lower cost per run; on the open model GLM-5.2 it solves the most (11.7 / 14) at the lowest cost of any run.
+| Configuration                    | Solved / 14 | $ / run | Tokens / run |
+| -------------------------------- | :---------: | :-----: | :----------: |
+| Claude Managed Agents · Opus 4.8 |    10.7     |  $11.8  |    10.0M     |
+| TrueForge · Opus 4.8             |    10.7     |  $8.6   |     3.7M     |
+| TrueForge · GLM-5.2              |    11.7     |  $3.0   |     3.8M     |
+| deepagents · Opus 4.8            |    10.0     |  $21.2  |    16.5M     |
+| deepagents · GLM-5.2             |    12.0     |  $9.1   |    11.9M     |
 
-| Configuration                    |  n  | Solved / 14 | $ / run | Tokens / run |
-| -------------------------------- | :-: | :---------: | :-----: | :----------: |
-| Claude Managed Agents · Opus 4.8 |  3  |    10.7     |  $11.8  |    10.0M     |
-| TrueForge · Opus 4.8             |  3  |    10.7     |  $8.6   |     3.7M     |
-| TrueForge · GLM-5.2              |  3  |    11.7     |  $3.0   |     3.8M     |
-| deepagents · Opus 4.8            |  3  |    10.0     |  $21.2  |    16.5M     |
-| deepagents · GLM-5.2             |  3  |    12.0     |  $9.1   |    11.9M     |
-
-`Solved / 14` is the mean number of tasks passed per trial.
+`Solved / 14` is the mean number of tasks passed per trial (n = 3 trials per configuration).
 
 ### Per task
 
@@ -69,11 +71,6 @@ Most of the cost in an agent run is the loop, not the final answer — every too
 
 ## Reproduce it
 
-The full harness — the runners for each arm, the exact system prompt, the blind grader, and the cost aggregator — is open in the TrueForge repo. Point it at your own dataset and models and you should reproduce the same shape of results.
+<Card title="Benchmark kit on GitHub" icon="github" href="https://github.com/truefoundry/trueforge/tree/main/benchmark" horizontal />
 
-<Card title="Benchmark kit on GitHub" icon="github" href="https://github.com/truefoundry/trueforge/tree/main/benchmark">
-  A reproducible harness comparing TrueForge, Claude Managed Agents, and deepagents on the same tasks, model, and
-  prompt — with setup, the system prompt, the judge, and the cost aggregator.
-</Card>
-
-The dataset comes from DevRev's open Enterprise-Bench release — the queries, judging criteria, and their [Harbor](https://github.com/harbor-framework/harbor) harness. We point at their release rather than redistributing it, so your run scores against the canonical rubric.
+<small>The dataset is DevRev's open Enterprise-Bench release — queries, judging criteria, and the [Harbor](https://github.com/harbor-framework/harbor) harness. We point at it rather than redistributing, so runs score against the canonical rubric.</small>
