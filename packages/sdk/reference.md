@@ -392,7 +392,7 @@ await client.auth.logout();
 <dl>
 <dd>
 
-Returns the authenticated caller identity. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` ID token (401 otherwise). When auth is disabled, returns the default anonymous identity.
+Returns the authenticated caller identity. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` ID token (401 otherwise). When auth is disabled, returns the default identity.
 </dd>
 </dl>
 </dd>

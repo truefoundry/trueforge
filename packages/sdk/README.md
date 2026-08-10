@@ -5,7 +5,7 @@
 
 TypeScript client for the TrueFoundry agent harness server: a self-hosted runtime that executes agent turns and streams them over Server-Sent Events.
 
-When auth is enabled on the server, pass an ID token via the optional `token` client option (`Authorization: Bearer`). When auth is disabled, omit `token`.
+When auth is enabled on the server, pass an ID token via the optional `token` client option (`Authorization: Bearer`).
 
 
 ## Table of Contents

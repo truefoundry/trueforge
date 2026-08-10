@@ -6722,8 +6722,7 @@
   "security": [
     {
       "BearerAuth": []
-    },
-    {}
+    }
   ],
   "webhooks": {}
 }
