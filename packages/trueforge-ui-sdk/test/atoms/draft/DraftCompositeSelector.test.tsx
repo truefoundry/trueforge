@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftCompositeSelector, type DraftCompositeSelectorProps } from '@/atoms/draft/DraftCompositeSelector.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentBuilderCapabilitiesResponse, AgentSpec } from '@/server/types.js';
+import type { AgentBuilderCapabilitiesResponse, AgentSpec, AgentUIServer } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec;
@@ -19,8 +19,8 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
 type RenderSelectorOptions = {
   props?: DraftCompositeSelectorProps;
   getCapabilities?: () => Promise<AgentBuilderCapabilitiesResponse>;
-  getSkills?: Parameters<typeof createMockAgentUIServer>[0]['getSkills'];
-  getMcp?: Parameters<typeof createMockAgentUIServer>[0]['getMcp'];
+  getSkills?: AgentUIServer['getSkills'];
+  getMcp?: AgentUIServer['getMcp'];
 };
 
 function renderSelector({ props = {}, getCapabilities, getSkills, getMcp }: RenderSelectorOptions = {}) {
