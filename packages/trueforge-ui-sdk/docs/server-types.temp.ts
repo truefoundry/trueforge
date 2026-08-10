@@ -222,7 +222,6 @@ export interface AgentSpec {
   // responseFormat?: ResponseFormat;
   skills?: SkillMount[];
   // config?: RuntimeConfig;
-  // variables?: Record<string, string>;
 }
 
 export type AgentSpecUpdate = {
@@ -233,7 +232,6 @@ export type AgentSpecUpdate = {
   mcpServers?: McpServer[];
   skills?: SkillMount[];
   messages?: AgentSpecUserMessage[];
-  variables?: Record<string, string>;
   responseFormat?: ResponseFormat;
   config?: RuntimeConfig;
 };

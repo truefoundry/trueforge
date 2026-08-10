@@ -19,7 +19,6 @@ export const AgentSpec: core.serialization.ObjectSchema<serializers.AgentSpec.Ra
         model: AgentSpecModel,
         responseFormat: core.serialization.property("response_format", ResponseFormat.optional()),
         skills: core.serialization.list(SkillNameRef).optional(),
-        variables: core.serialization.record(core.serialization.string(), core.serialization.string()).optional(),
     });
 
 export declare namespace AgentSpec {
@@ -31,6 +30,5 @@ export declare namespace AgentSpec {
         model: AgentSpecModel.Raw;
         response_format?: ResponseFormat.Raw | null;
         skills?: SkillNameRef.Raw[] | null;
-        variables?: Record<string, string> | null;
     }
 }
