@@ -2,4 +2,4 @@
 
 import type * as TrueForge from "../index.js";
 
-export type CatalogModelProvider = TrueForge.CatalogCustomModelProvider | TrueForge.CatalogWellKnownModelProvider;
+export type CatalogModelProvider = TrueForge.CatalogWellKnownModelProvider | TrueForge.CatalogCustomModelProvider;

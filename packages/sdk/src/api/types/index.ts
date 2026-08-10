@@ -21,6 +21,7 @@ export * from "./CatalogMcpServerAuth.js";
 export * from "./CatalogModelProvider.js";
 export * from "./CatalogSkill.js";
 export * from "./CatalogWellKnownModelProvider.js";
+export * from "./CatalogWellKnownModelProviderType.js";
 export * from "./ChatCompletionChunkDeltaToolCall.js";
 export * from "./ChatCompletionChunkDeltaToolCallFunction.js";
 export * from "./ChatCompletionContentPartRefusal.js";

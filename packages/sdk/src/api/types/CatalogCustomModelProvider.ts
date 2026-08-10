@@ -3,7 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface CatalogCustomModelProvider {
-    /** Supported reasoning-effort values for this provider. */
+    /** Supported reasoning-effort values for this provider */
     supportedReasoningEfforts: TrueForge.ReasoningEffort[];
     type: "custom";
 }

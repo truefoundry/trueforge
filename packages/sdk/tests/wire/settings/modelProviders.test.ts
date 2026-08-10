@@ -192,7 +192,9 @@ describe("ModelProvidersClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = { data: [{ supported_reasoning_efforts: ["none"], type: "custom" }] };
+        const rawResponseBody = {
+            data: [{ logo: "logo", models: [{ model_id: "model_id", name: "name", properties: {} }], type: "openai" }],
+        };
 
         server
             .mockEndpoint()
@@ -206,8 +208,15 @@ describe("ModelProvidersClient", () => {
         expect(response).toEqual({
             data: [
                 {
-                    supportedReasoningEfforts: ["none"],
-                    type: "custom",
+                    logo: "logo",
+                    models: [
+                        {
+                            modelId: "model_id",
+                            name: "name",
+                            properties: {},
+                        },
+                    ],
+                    type: "openai",
                 },
             ],
         });

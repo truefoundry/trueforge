@@ -9,8 +9,8 @@ import { CatalogWellKnownModelProvider } from "./CatalogWellKnownModelProvider.j
 export const CatalogModelProvider: core.serialization.Schema<
     serializers.CatalogModelProvider.Raw,
     TrueForge.CatalogModelProvider
-> = core.serialization.undiscriminatedUnion([CatalogCustomModelProvider, CatalogWellKnownModelProvider]);
+> = core.serialization.undiscriminatedUnion([CatalogWellKnownModelProvider, CatalogCustomModelProvider]);
 
 export declare namespace CatalogModelProvider {
-    export type Raw = CatalogCustomModelProvider.Raw | CatalogWellKnownModelProvider.Raw;
+    export type Raw = CatalogWellKnownModelProvider.Raw | CatalogCustomModelProvider.Raw;
 }

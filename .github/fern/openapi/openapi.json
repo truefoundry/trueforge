@@ -392,14 +392,13 @@
         "additionalProperties": false,
         "properties": {
           "supported_reasoning_efforts": {
-            "description": "Supported reasoning-effort values for this provider.",
+            "description": "Supported reasoning-effort values for this provider",
             "items": {
               "$ref": "#/components/schemas/ReasoningEffort"
             },
             "type": "array"
           },
           "type": {
-            "description": "Custom provider type (catalog includes `custom`).",
             "enum": [
               "custom"
             ],
@@ -496,21 +495,7 @@
         "type": "object"
       },
       "CatalogModelProvider": {
-        "discriminator": {
-          "mapping": {
-            "alibaba": "#/components/schemas/CatalogWellKnownModelProvider",
-            "anthropic": "#/components/schemas/CatalogWellKnownModelProvider",
-            "custom": "#/components/schemas/CatalogCustomModelProvider",
-            "fireworks": "#/components/schemas/CatalogWellKnownModelProvider",
-            "google-gemini": "#/components/schemas/CatalogWellKnownModelProvider",
-            "moonshot": "#/components/schemas/CatalogWellKnownModelProvider",
-            "openai": "#/components/schemas/CatalogWellKnownModelProvider",
-            "together": "#/components/schemas/CatalogWellKnownModelProvider",
-            "zai": "#/components/schemas/CatalogWellKnownModelProvider"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
+        "anyOf": [
           {
             "$ref": "#/components/schemas/CatalogWellKnownModelProvider"
           },
@@ -565,30 +550,19 @@
         "additionalProperties": false,
         "properties": {
           "logo": {
-            "description": "URL of the provider logo asset.",
+            "description": "URL of the provider logo asset",
             "format": "uri",
             "type": "string"
           },
           "models": {
-            "description": "Preset models; empty on the `custom` sentinel.",
+            "description": "Preset models",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
             "type": "array"
           },
           "type": {
-            "description": "Well-known provider type (catalog excludes `custom`).",
-            "enum": [
-              "openai",
-              "anthropic",
-              "google-gemini",
-              "fireworks",
-              "zai",
-              "moonshot",
-              "alibaba",
-              "together"
-            ],
-            "type": "string"
+            "$ref": "#/components/schemas/CatalogWellKnownModelProviderType"
           }
         },
         "required": [
@@ -596,6 +570,19 @@
           "models"
         ],
         "type": "object"
+      },
+      "CatalogWellKnownModelProviderType": {
+        "enum": [
+          "openai",
+          "anthropic",
+          "google-gemini",
+          "fireworks",
+          "zai",
+          "moonshot",
+          "alibaba",
+          "together"
+        ],
+        "type": "string"
       },
       "ChatCompletionChunkDeltaToolCall": {
         "properties": {

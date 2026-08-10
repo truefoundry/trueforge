@@ -3,9 +3,9 @@
 import type * as TrueForge from "../index.js";
 
 export interface CatalogWellKnownModelProvider {
-    /** URL of the provider logo asset. */
+    /** URL of the provider logo asset */
     logo?: string;
-    /** Preset models; empty on the `custom` sentinel. */
+    /** Preset models */
     models: TrueForge.ModelEntry[];
-    type: "zai";
+    type: TrueForge.CatalogWellKnownModelProviderType;
 }
