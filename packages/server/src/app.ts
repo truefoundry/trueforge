@@ -92,7 +92,7 @@ function withAuth(router: OpenAPIHono): OpenAPIHono {
   return shell;
 }
 
-/** Admin-only routes: standalone passes through; with OIDC requires an authenticated admin. */
+/** Admin-only routes: local admin when auth is disabled; with OIDC requires an authenticated admin. */
 function withAdminAuth(router: OpenAPIHono): OpenAPIHono {
   const shell = new OpenAPIHono();
   shell.use('*', adminAuthMiddleware);

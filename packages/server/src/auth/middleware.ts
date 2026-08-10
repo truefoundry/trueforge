@@ -91,9 +91,10 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   return next();
 };
 
-/** Admin gate: no-op when auth is disabled; when auth is enabled requires an authenticated admin. */
+/** Admin gate: local admin when auth is disabled; when auth is enabled requires an authenticated admin. */
 export const adminAuthMiddleware: MiddlewareHandler = async (c, next) => {
   if (!getOidcVerify()) {
+    c.set('user_context', LOCAL_USER_CONTEXT);
     return next();
   }
 

@@ -114,7 +114,7 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
     onSelectAgent?.(agent.name);
     shell?.selectLibraryAgent({
       isMutable: false,
-      agentId: agent.agentId,
+      agentId: libraryAgentId(agent),
       agentName: agent.name,
     });
   };
@@ -124,7 +124,7 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
     onSelectAgent?.(agent.name);
     shell?.selectLibraryAgent({
       isMutable: true,
-      agentId: agent.agentId,
+      agentId: libraryAgentId(agent),
       agentName: agent.name,
       agentSpec,
     });

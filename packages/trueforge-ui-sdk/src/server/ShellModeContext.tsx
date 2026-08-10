@@ -133,8 +133,8 @@ function initialMode(config: AgentConfig, mutableSeed: AgentSpec): ShellMode {
   }
 }
 
-function libraryAgentId(agent: Pick<AgentLibraryEntry, 'agentId'>): string {
-  return agent.agentId;
+function libraryAgentId(agent: Pick<AgentLibraryEntry, 'agentId' | 'name'>): string {
+  return agent.agentId ?? agent.name;
 }
 
 export function ShellModeProvider({

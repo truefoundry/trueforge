@@ -193,14 +193,7 @@ describe("ModelProvidersClient", () => {
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
-            data: [
-                {
-                    logo: "logo",
-                    models: [{ model_id: "model_id", name: "name", properties: {} }],
-                    name: "name",
-                    type: "openai",
-                },
-            ],
+            data: [{ logo: "logo", models: [{ model_id: "model_id", name: "name", properties: {} }], type: "openai" }],
         };
 
         server
@@ -223,7 +216,6 @@ describe("ModelProvidersClient", () => {
                             properties: {},
                         },
                     ],
-                    name: "name",
                     type: "openai",
                 },
             ],

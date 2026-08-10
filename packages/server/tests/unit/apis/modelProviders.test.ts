@@ -82,16 +82,18 @@ describe('settings model-providers and models routers', () => {
     ({ settingsRouter, modelsRouter } = await createRouters());
   });
 
-  it('GET /model-providers/catalog returns the shipped catalog verbatim', async () => {
+  it('GET /model-providers/catalog returns shipped presets plus a custom sentinel', async () => {
     const response = await settingsRouter.request('/model-providers/catalog');
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { data: { type: string; name: string }[] };
-    expect(body.data.map(provider => provider.name)).toEqual(
-      ModelCatalog.load()
-        .list()
-        .map(provider => provider.name),
-    );
-    expect(body.data.every(provider => provider.type !== 'custom')).toBe(true);
+    const body = (await response.json()) as {
+      data: { type: string; supported_reasoning_efforts?: string[] }[];
+    };
+    const shipped = ModelCatalog.load().list();
+    expect(body.data.slice(0, -1)).toEqual([...shipped]);
+    expect(body.data.at(-1)).toEqual({
+      type: 'custom',
+      supported_reasoning_efforts: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
+    });
   });
 
   it('PUT upserts a well-known provider without base_url and echoes the stored auth', async () => {
@@ -192,14 +194,15 @@ describe('well-known types are limited to one provider', () => {
 
 describe('catalog presets are configurable', () => {
   // A preset is copied into a PUT body with an api_key added, so every catalog type must parse.
+  // `custom` is appended by the catalog route, not ModelCatalog — only well-known presets appear here.
   it.each(ModelCatalog.load().list())('PUT accepts the $type preset', async preset => {
     const { settingsRouter } = await createRouters();
     // `logo` is catalog-only metadata and a well-known provider takes its name from `type`; the rest
     // copies straight into a PUT body.
-    const { logo, name, ...presetFields } = preset;
+    const { logo, ...presetFields } = preset;
     const body = {
       ...presetFields,
-      auth: { api_key: `sk-${name}` },
+      auth: { api_key: `sk-${preset.type}` },
     };
     expect(logo === undefined || typeof logo === 'string').toBe(true);
     const response = await settingsRouter.request('/model-providers', putInit(body));
