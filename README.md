@@ -64,20 +64,10 @@ docker compose up --build
 
 Then open [http://localhost:8791](http://localhost:8791).
 
-<<<<<<< HEAD
-
-| Configuration                                         | Default                 | Description                                                           |
-| ----------------------------------------------------- | ----------------------- | --------------------------------------------------------------------- |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `harness` (from `.env`) | Postgres credentials, read from `packages/server/.env`.               |
-| Host ports                                            | `8791`, `5433`, `6380`  | App, Postgres, and Redis - offset so they don't clash with local dev. |
-| =======                                               |
-| Configuration                                         | Default                 | Description                                                           |
-| ----------------------------------------------------- | ----------------------- | ----------------------------------------------                        |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env`             | Postgres credentials (`packages/server/.env`).                        |
-| `PUBLIC_BASE_URL`                                     | `http://localhost:8791` | Public origin for MCP OAuth / OIDC callbacks.                         |
-| Host ports                                            | `8791`, `5433`, `6380`  | App, Postgres, and Redis.                                             |
-
-> > > > > > > 2f9ad9a69a895a388597d4e91da32120d24d9ef5
+| Configuration                                         | Default                | Description                                    |
+| ----------------------------------------------------- | ---------------------- | ---------------------------------------------- |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env`            | Postgres credentials (`packages/server/.env`). | gst |
+| Host ports                                            | `8791`, `5433`, `6380` | App, Postgres, and Redis.                      |
 
 Every environment variable is documented in [`packages/server/.env.example`](packages/server/.env.example).
 
