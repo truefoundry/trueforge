@@ -1,8 +1,5 @@
-/* The SDK ships utilities and theme tokens but no reset. Preflight goes in its
-   own layer: unlayered it would outrank `tfy-agent-ui-utilities` and strip the
-   SDK's own margin, padding and border. */
+/* Host Tailwind for this app's chrome. SDK styles inject via ThemeProvider. */
 @import 'tailwindcss';
-@import '@truefoundry/trueforge-ui/styles.css';
 
 html,
 body,
@@ -11,8 +8,8 @@ body,
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: #09090b;
+  background: #fff;
 }
 
 .app-root {
@@ -29,11 +26,11 @@ body {
   display: grid;
   place-items: center;
   padding: 2rem;
-  color: var(--muted-foreground);
+  color: #71717a;
 }
 
 .boot-screen[data-error='true'] {
-  color: var(--destructive);
+  color: #ef4444;
 }
 
 .harness-logout {

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Styles auto-inject** — `ThemeProvider` injects the SDK stylesheet at runtime.
+  Hosts no longer need `@import '@truefoundry/trueforge-ui/styles.css'` (export
+  kept for SSR). Semantic tokens and dark mode are scoped to `.aui-theme-root`
+  (no `html.dark` / `:root` retheme of the host page).
+
 ### Fixed
 
 - **History row mutability** — prefer `custom.isMutable` from the session (runtime

@@ -51,7 +51,19 @@ pnpm add @truefoundry/trueforge-ui
 yarn add @truefoundry/trueforge-ui
 ```
 
-`react` / `react-dom` are required peers. Import the stylesheet after Tailwind in the host:
+`react` / `react-dom` are required peers. The **host app must have
+[Tailwind CSS](https://tailwindcss.com/) set up** (v4 recommended) so preflight
+and your app chrome work alongside the SDK. In the host stylesheet:
+
+```css
+@import 'tailwindcss';
+```
+
+SDK styles (tokens, utilities, OpenUI) load automatically when `TrueforgeUI` /
+`ThemeProvider` mounts — you do **not** need to import the SDK stylesheet for
+client-only apps.
+
+Optional (SSR / explicit load order):
 
 ```css
 @import 'tailwindcss';
@@ -255,7 +267,7 @@ See [docs/theming.md](./docs/theming.md) for presets, controlled vs uncontrolled
 | `AgentLibrary`                         | Agents Library only (no draft)  | Empty until pick; no New Chat; Clear Chat after selection |
 | `AgentComposer`                        | Draft builder only (no library) | Always draft; New Chat / Clear Chat = fresh draft         |
 
-In library modes, picking an agent from the Agents Library switches to a named chat for that agent **and remounts the runtime** so the new agent starts from a clean conversation. Draft chats can be promoted via **Save as agent** (`server.saveAgent` on the resolved `AgentUIServer`). **Clear Chat** (thread header) resets the current named or draft session.
+In library modes, picking an agent from the Agents Library switches to a named chat for that agent **and remounts the runtime** so the new agent starts from a clean conversation. Draft chats can be promoted via **Save agent** (`server.saveAgent` on the resolved `AgentUIServer`). **Clear Chat** (thread header) resets the current named or draft session.
 
 ```tsx
 {
@@ -460,7 +472,7 @@ See [docs/server.md](./docs/server.md) for the full method list and BYO guidance
 | `SlotsProvider`, `useSlot`, `useTheme`                       | API        | Overrides + theme mode                                       |
 | `AgentUIServer`, `AgentChatServer`, `AgentBuilderServer`     | Types      | Resolved server contract                                     |
 | `ThemeConfig`, `LayoutProp`, `SlotOverrides`, `AgentSpec`, … | Types      | Configuration contracts                                      |
-| `@truefoundry/trueforge-ui/styles.css`                       | CSS        | Tokens, utilities, OpenUI                                    |
+| `@truefoundry/trueforge-ui/styles.css`                       | CSS        | Optional; auto-injected by `ThemeProvider`                   |
 | `@truefoundry/trueforge-ui/assistant-ui`                     | Entry      | Shared `useAui` / `useAuiState` (single instance)            |
 
 Curated public API: [docs/api.md](./docs/api.md).
