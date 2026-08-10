@@ -4,7 +4,7 @@ sidebarTitle: 'Agent Spec'
 description: 'Every field on the AgentSpec — model, instructions, MCP servers, skills, and runtime config.'
 ---
 
-An `AgentSpec` is the complete definition of an agent. It is used inline when creating a session (`agent.type: "value"`) or saved as a named agent (`POST /api/v1/agents`) and referenced by id (`agent.type: "ref"`). All fields are `snake_case`.
+An `AgentSpec` is the complete definition of an agent. Pass it inline when creating a session, or save it as a named agent and reference it by name. All fields are `snake_case`.
 
 ```json A complete example
 {
@@ -49,7 +49,7 @@ The only required field.
 
 ## `instructions`
 
-Optional string. The agent's system prompt — its role, behavior, and constraints. The harness appends its own guidance for enabled capabilities (sandbox, subagents, etc.), so keep this focused on _your_ agent. See [context engineering best practices](/context-engineering/overview#best-practices).
+Optional string. The agent's system prompt — its role, behavior, and constraints. The harness appends its own guidance for enabled capabilities (sandbox, subagents, etc.), so keep this focused on _your_ agent. See [Key Features](/key-features/overview) for how context is managed at runtime.
 
 ## `messages`
 
@@ -69,8 +69,8 @@ Optional array. Each entry attaches a [configured MCP server](/mcp-servers) by n
 | `enable_tools`               | `["@all"]`                   | Tools exposed to the agent: `@all`, `@read-only`, or literal tool names.                                       |
 | `disable_tools`              | `[]`                         | Tools subtracted from the enabled set.                                                                         |
 | `preload_tools`              | `[]`                         | Tools loaded eagerly into context while the rest stay deferred.                                                |
-| `require_approval_for_tools` | `["@write", "@destructive"]` | Tools that pause for [human approval](/human-in-the-loop): `@all`, `@write`, `@destructive`, or literal names. |
-| `preload`                    | `false`                      | Load all tool schemas upfront instead of [on demand](/context-engineering/deferred-tool-loading).              |
+| `require_approval_for_tools` | `["@write", "@destructive"]` | Tools that pause for [human approval](/create-agent/tool-approval): `@all`, `@write`, `@destructive`, or literal names. |
+| `preload`                    | `false`                      | Load all tool schemas upfront instead of [on demand](/key-features/deferred-tool-loading).              |
 
 The `@read-only`, `@write`, and `@destructive` selectors are resolved from the tool annotations published by the MCP server.
 
@@ -96,17 +96,17 @@ Runtime behavior. Every field has a default, so `config` can be omitted entirely
 | -------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `iteration_limit`    | `100`                  | Max agent-loop iterations per turn (1–1024). A safety stop for runaway loops.                                                                   |
 | `sandbox`            | `{ "enabled": false }` | [Sandbox](/sandbox) for code execution, files, and skills.                                                                                      |
-| `dynamic_sub_agents` | `{ "enabled": true }`  | [Subagents](/context-engineering/subagents).                                                                                                    |
-| `context_management` | all enabled            | [Compaction](/context-engineering/overview#context-compaction) and [large tool response offloading](/context-engineering/large-tool-responses). |
-| `generative_ui`      | `{ "enabled": true }`  | [Generative UI](/generative-ui) (OpenUI blocks).                                                                                                |
-| `ask_user_questions` | `{ "enabled": true }`  | The [`ask_user_question`](/ask-user-questions) tool.                                                                                            |
+| `dynamic_sub_agents` | `{ "enabled": true }`  | [Subagents](/key-features/subagents).                                                                                                    |
+| `context_management` | all enabled            | [Compaction](/key-features/overview#context-compaction) and [large tool response offloading](/key-features/large-tool-responses). |
+| `generative_ui`      | `{ "enabled": true }`  | [Generative UI](/create-agent/generative-ui) (OpenUI blocks).                                                                                                |
+| `ask_user_questions` | `{ "enabled": true }`  | The [`ask_user_question`](/create-agent/ask-user-questions) tool.                                                                                            |
 
 ### `config.sandbox`
 
 | Field                        | Default | Description                                                                                                                                                                                             |
 | ---------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`                    | `false` | Give the agent a sandbox. Required for skills and Code Mode.                                                                                                                                            |
-| `file_downloads`             | `true`  | Allow downloading agent-produced files via the turn download endpoint.                                                                                                                                  |
+| `file_downloads`             | `true`  | Allow clients to download files the agent produces in the sandbox.                                                                                                                                      |
 | `network_policy.auth_inject` | —       | Up to one rule injecting git basic-auth credentials for exact hosts: `{ "type": "git", "match": { "hosts": ["github.com"] }, "auth_data": { "type": "basic", "username": "...", "password": "..." } }`. |
 
 ### `config.context_management`

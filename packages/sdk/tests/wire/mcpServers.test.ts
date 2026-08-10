@@ -7,9 +7,11 @@ import { mockServerPool } from "../mock-server/MockServerPool";
 describe("McpServersClient", () => {
     test("list (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = { data: [{ name: "name", url: "url" }] };
+        const rawResponseBody = {
+            data: [{ auth: { type: "dcr" }, auth_status: { status: "authenticated" }, name: "name", url: "url" }],
+        };
 
         server
             .mockEndpoint()
@@ -23,6 +25,12 @@ describe("McpServersClient", () => {
         expect(response).toEqual({
             data: [
                 {
+                    auth: {
+                        type: "dcr",
+                    },
+                    authStatus: {
+                        status: "authenticated",
+                    },
                     name: "name",
                     url: "url",
                 },
@@ -32,7 +40,7 @@ describe("McpServersClient", () => {
 
     test("list (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -51,7 +59,7 @@ describe("McpServersClient", () => {
 
     test("authorize (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { authorization_url: "authorization_url", status: "authenticated" };
 
@@ -72,7 +80,7 @@ describe("McpServersClient", () => {
 
     test("authorize (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -91,7 +99,7 @@ describe("McpServersClient", () => {
 
     test("authorize (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -110,7 +118,7 @@ describe("McpServersClient", () => {
 
     test("authorize (4)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -129,7 +137,7 @@ describe("McpServersClient", () => {
 
     test("authorize (5)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -148,7 +156,7 @@ describe("McpServersClient", () => {
 
     test("authorize (6)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -167,7 +175,7 @@ describe("McpServersClient", () => {
 
     test("delete_authorize (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: {
@@ -206,7 +214,7 @@ describe("McpServersClient", () => {
 
     test("delete_authorize (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 

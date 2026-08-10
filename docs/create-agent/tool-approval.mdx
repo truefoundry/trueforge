@@ -1,0 +1,33 @@
+---
+title: 'Configure Tool Approval'
+sidebarTitle: 'Tool approval'
+description: 'Pause sensitive MCP tool calls so the user can approve or deny before they run.'
+---
+
+Some actions — deploying, deleting data, sending refunds — should not run without explicit consent. **Tool approval** (human in the loop) pauses the agent before a sensitive MCP tool call, shows the tool name and arguments, and resumes only after the user approves or denies.
+
+Safe read-only tools stay autonomous. Write and destructive tools get a checkpoint.
+
+## Configuring which tools require approval
+
+<Note>
+  Today, configuring `require_approval_for_tools` (and related enable/disable tool lists) is done via the **API / SDK**
+  when you create or update an agent. The chat UI already handles the Approve / Deny experience at runtime, but the
+  builder does not yet expose the full approval policy editor. See the [agent spec](/api/agent-spec#mcp_servers).
+</Note>
+
+Approval policy is set **per MCP server** on the agent. The default is write and destructive tools — any tool the MCP server does not mark as read-only, or marks as destructive. You can also list specific tool names, or gate every tool.
+
+## How it feels in chat
+
+When a gated tool is requested, the bundled chat UI pauses the run and shows **Approve / Deny** with the request payload. Approve to execute; deny to return a reason to the agent so it can adjust its plan.
+
+<Frame caption="The chat UI pauses on a sensitive tool call with Approve / Deny.">
+  <img src="/images/hitl.png" alt="Chat UI pausing on a tool call with Approve and Deny buttons" />
+</Frame>
+
+## When to use approvals
+
+Use them for state changes, irreversible actions, production impact, external communications, or expensive operations. Skip them for safe reads (list, fetch, search) where confirmation only adds friction.
+
+Approvals do not replace authorization — the user still needs access to the underlying tool; approval only decides whether this pending call should proceed.

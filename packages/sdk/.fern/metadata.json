@@ -21,12 +21,16 @@
         },
         "noSerdeLayer": false,
         "omitUndefined": true,
+        "optional-auth": true,
         "requireBaseUrl": true,
         "retainOriginalCasing": false,
         "skipResponseValidation": true,
         "streamType": "web",
         "useDefaultRequestParameterValues": true
     },
+    "originGitCommit": "18ec0e4a4e67a22a5a72579a893cd0b9eef06533",
+    "originGitCommitIsDirty": true,
+    "invokedBy": "ci",
     "requestedVersion": "0.0.0",
     "ciProvider": "github",
     "sdkVersion": "0.0.0"

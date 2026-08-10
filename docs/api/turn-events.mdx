@@ -4,7 +4,7 @@ sidebarTitle: 'Turn Events'
 description: 'Every event type streamed while a turn runs — lifecycle, model output, tool activity, subagent threads, and pause events.'
 ---
 
-While a turn runs, the server streams events as Server-Sent Events (SSE). Each SSE message's `data` is one JSON event; the SSE `id` field carries the per-stream **sequence number**, which you can pass back (as a `Last-Event-Id` header or the `after_sequence_number` query parameter) to the [subscribe endpoint](/api/overview#non-streaming-reconnects-and-cancellation) to resume after a disconnect.
+While a turn runs, the SDK streams events to your app. Each event is a JSON object; the stream also carries a **sequence number** you can use to [reconnect](/api/use-agent) after a disconnect without missing or double-processing events.
 
 Every event carries:
 
@@ -13,9 +13,9 @@ Every event carries:
 | `type`       | The event type — one of the types below.                                                                                                                                                                           |
 | `id`         | Unique event id (monotonic ULID — sortable by creation order).                                                                                                                                                     |
 | `created_at` | ISO 8601 timestamp.                                                                                                                                                                                                |
-| `thread_id`  | Which execution thread emitted it: `"main"` for the root agent, a generated id for [subagents](/context-engineering/subagents), or `null` for run-level events (`turn.*`, `sandbox.created`, `mcp.auth_required`). |
+| `thread_id`  | Which execution thread emitted it: `"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events (`turn.*`, `sandbox.created`, `mcp.auth_required`). |
 
-A stream always opens with `turn.created` and closes with `turn.done`. When you list persisted events afterwards (`GET .../events`), you get the same events with deltas pre-merged into their `model.message`.
+A stream always opens with `turn.created` and closes with `turn.done`. When you list persisted session events afterwards, you get the same events with deltas pre-merged into their `model.message`.
 
 ## Lifecycle events
 
@@ -98,7 +98,7 @@ The result of a tool the harness executed, linked to its call by `tool_call_id`:
 
 ### `tool.approval_required`
 
-A tool call needs [human approval](/human-in-the-loop) before it can run. The turn ends after this event; resume with a `user.tool_approval` input.
+A tool call needs [human approval](/create-agent/tool-approval) before it can run. The turn ends after this event; resume with a `user.tool_approval` input.
 
 | Field        | Description                                                                                                                                       |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -106,13 +106,13 @@ A tool call needs [human approval](/human-in-the-loop) before it can run. The tu
 
 ### `tool.response_required`
 
-A client-side tool (e.g. [`ask_user_question`](/ask-user-questions)) needs a result from your app. Same shape as `tool.approval_required`; resume with a `user.tool_response` input.
+A client-side tool (e.g. [`ask_user_question`](/create-agent/ask-user-questions)) needs a result from your app. Same shape as `tool.approval_required`; resume with a `user.tool_response` input.
 
 ## Subagent threads
 
 ### `thread.created`
 
-A [subagent](/context-engineering/subagents) started. Subsequent events with this `thread_id` belong to it.
+A [subagent](/key-features/subagents) started. Subsequent events with this `thread_id` belong to it.
 
 | Field        | Description                                                                            |
 | ------------ | -------------------------------------------------------------------------------------- |

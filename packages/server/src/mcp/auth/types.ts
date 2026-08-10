@@ -2,17 +2,24 @@
 export interface OAuthPendingAuthorization {
   state: string;
   id: string;
+  userRef: string;
   mcpServerUrl: string;
   codeVerifier: string | null;
   redirectUrl: string | null;
 }
 
-/** Stored access token for one resource. */
+/** Stored access token for one (MCP server, user) pair. */
 export interface OAuthToken {
   accessToken: string;
   refreshToken: string | null;
   expiresAt: string;
   scope: string | null;
+}
+
+/** Composite key: MCP server row id + harness `UserContext.userRef`. */
+export interface OAuthTokenKey {
+  id: string;
+  userRef: string;
 }
 
 export interface IOAuthTokenStore<TTransaction = never> {
@@ -21,10 +28,10 @@ export interface IOAuthTokenStore<TTransaction = never> {
     params: { state: string },
     transaction?: TTransaction,
   ): Promise<OAuthPendingAuthorization | undefined>;
-  saveToken(params: { id: string; token: OAuthToken }, transaction?: TTransaction): Promise<void>;
-  getToken(params: { id: string }, transaction?: TTransaction): Promise<OAuthToken | undefined>;
-  getTokens(params: { ids: string[] }, transaction?: TTransaction): Promise<Map<string, OAuthToken>>;
-  deleteToken(params: { id: string }, transaction?: TTransaction): Promise<void>;
+  saveToken(params: OAuthTokenKey & { token: OAuthToken }, transaction?: TTransaction): Promise<void>;
+  getToken(params: OAuthTokenKey, transaction?: TTransaction): Promise<OAuthToken | undefined>;
+  getTokens(params: { ids: string[]; userRef: string }, transaction?: TTransaction): Promise<Map<string, OAuthToken>>;
+  deleteToken(params: OAuthTokenKey, transaction?: TTransaction): Promise<void>;
 }
 
 /** Authorization-server endpoints discovered and cached at registration time. */

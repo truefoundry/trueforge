@@ -1,0 +1,359 @@
+# Shipped model catalog: provider/model presets offered by
+# GET /api/v1/settings/model-providers/catalog for the settings UI to copy into
+# PUT /api/v1/settings/model-providers bodies. Discovery-only — never executed against.
+providers:
+  - type: openai
+    logo: https://assets.production.truefoundry.com/openai.svg
+    models:
+      - model_id: gpt-5.4-mini
+        name: gpt-5-4-mini
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.5
+        name: gpt-5-5
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.6-luna
+        name: gpt-5-6-luna
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: gpt-5.6-sol
+        name: gpt-5-6-sol
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: gpt-5.6-terra
+        name: gpt-5-6-terra
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+  - type: anthropic
+    logo: https://assets.production.truefoundry.com/anthropic.svg
+    models:
+      - model_id: claude-fable-5
+        name: claude-fable-5
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: claude-haiku-4-5
+        name: claude-haiku-4-5
+        properties:
+          context_length: 200000
+          max_output_tokens: 64000
+      - model_id: claude-opus-4-8
+        name: claude-opus-4-8
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: claude-opus-5
+        name: claude-opus-5
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: claude-sonnet-4-6
+        name: claude-sonnet-4-6
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - max
+      - model_id: claude-sonnet-5
+        name: claude-sonnet-5
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+  - type: google-gemini
+    logo: https://assets.production.truefoundry.com/google-gemini.svg
+    models:
+      - model_id: gemini-3.1-pro-preview
+        name: gemini-3-1-pro-preview
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+      - model_id: gemini-3.6-flash
+        name: gemini-3-6-flash
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - minimal
+            - low
+            - medium
+            - high
+  - type: fireworks
+    logo: https://assets.production.truefoundry.com/fireworks.svg
+    models:
+      - model_id: accounts/fireworks/models/deepseek-v4-pro
+        name: deepseek-v4-pro
+        properties:
+          context_length: 1048576
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: accounts/fireworks/models/glm-5p2
+        name: glm-5p2
+        properties:
+          context_length: 1048576
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: accounts/fireworks/models/kimi-k2p7-code
+        name: kimi-k2p7-code
+        properties:
+          context_length: 262144
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: accounts/fireworks/models/kimi-k3
+        name: kimi-k3
+        properties:
+          context_length: 1048576
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: accounts/fireworks/models/minimax-m3
+        name: minimax-m3
+        properties:
+          context_length: 512000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+  - type: zai
+    logo: https://assets.production.truefoundry.com/zai.svg
+    models:
+      - model_id: glm-5-turbo
+        name: glm-5-turbo
+        properties:
+          context_length: 200000
+          max_output_tokens: 131072
+      - model_id: glm-5.1
+        name: glm-5-1
+        properties:
+          context_length: 200000
+          max_output_tokens: 131072
+      - model_id: glm-5.2
+        name: glm-5-2
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+  - type: moonshot
+    logo: https://assets.production.truefoundry.com/moonshot.png
+    models:
+      - model_id: kimi-k2.7-code
+        name: kimi-k2-7-code
+        properties:
+          context_length: 262144
+      - model_id: kimi-k3
+        name: kimi-k3
+        properties:
+          context_length: 1048576
+          reasoning_efforts:
+            - low
+            - high
+            - max
+  - type: alibaba
+    logo: https://assets.production.truefoundry.com/alibaba.png
+    models:
+      - model_id: qwen3.7-flash
+        name: qwen3-7-flash
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: qwen3.7-max
+        name: qwen3-7-max
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: qwen3.7-plus
+        name: qwen3-7-plus
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: qwen3.8-max
+        name: qwen3-8-max
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+  - type: together
+    logo: https://assets.production.truefoundry.com/togetherai.svg
+    models:
+      - model_id: deepseek-ai/DeepSeek-V4-Pro
+        name: deepseek-v4-pro
+        properties:
+          context_length: 512000
+          reasoning_efforts:
+            - high
+            - max
+      - model_id: MiniMaxAI/MiniMax-M3
+        name: minimax-m3
+        properties:
+          context_length: 524288
+      - model_id: moonshotai/Kimi-K2.7-Code
+        name: kimi-k2-7-code
+        properties:
+          context_length: 262144
+      - model_id: moonshotai/Kimi-K3
+        name: kimi-k3
+        properties:
+          context_length: 1048576
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - max
+      - model_id: Qwen/Qwen3.7-Max
+        name: qwen3-7-max
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: Qwen/Qwen3.7-Plus
+        name: qwen3-7-plus
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - none
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: zai-org/GLM-5.2
+        name: glm-5-2
+        properties:
+          context_length: 512000
+          reasoning_efforts:
+            - high
+            - max

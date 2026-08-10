@@ -7,7 +7,7 @@ import { mockServerPool } from "../../mock-server/MockServerPool";
 describe("ModelProvidersClient", () => {
     test("list (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [
@@ -51,7 +51,7 @@ describe("ModelProvidersClient", () => {
 
     test("list (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -70,7 +70,7 @@ describe("ModelProvidersClient", () => {
 
     test("list (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -89,7 +89,7 @@ describe("ModelProvidersClient", () => {
 
     test("upsert (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
             auth: { api_key: "api_key" },
             models: [{ model_id: "model_id", name: "name", properties: {} }],
@@ -146,7 +146,7 @@ describe("ModelProvidersClient", () => {
 
     test("upsert (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
             auth: { api_key: "x" },
             models: [
@@ -190,17 +190,10 @@ describe("ModelProvidersClient", () => {
 
     test("catalog (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
-            data: [
-                {
-                    logo: "logo",
-                    models: [{ model_id: "model_id", name: "name", properties: {} }],
-                    name: "name",
-                    type: "openai",
-                },
-            ],
+            data: [{ logo: "logo", models: [{ model_id: "model_id", name: "name", properties: {} }], type: "openai" }],
         };
 
         server
@@ -223,7 +216,6 @@ describe("ModelProvidersClient", () => {
                             properties: {},
                         },
                     ],
-                    name: "name",
                     type: "openai",
                 },
             ],
@@ -232,7 +224,7 @@ describe("ModelProvidersClient", () => {
 
     test("catalog (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -251,7 +243,7 @@ describe("ModelProvidersClient", () => {
 
     test("catalog (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 

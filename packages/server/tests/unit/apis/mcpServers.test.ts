@@ -1,6 +1,7 @@
 import winston from 'winston';
 import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../../src/apis/mcpServers';
 import { TENANT_ID } from '../../../src/apis/sessions';
+import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -43,6 +44,8 @@ describe('mcp-servers routers', () => {
   let mcpServersRouter: ReturnType<typeof createMcpServersRouter>;
   let mcpServerStore: SqliteMcpServerStore;
   let tokenStore: SqliteOAuthTokenStore;
+  let withTransaction: <T>(callback: (transaction: unknown) => Promise<T>) => Promise<T>;
+  let logger: ReturnType<typeof winston.createLogger>;
   const originalFetch = globalThis.fetch;
 
   beforeAll(async () => {
@@ -55,19 +58,22 @@ describe('mcp-servers routers', () => {
     await migrateSqliteToLatest(db);
     mcpServerStore = new SqliteMcpServerStore(db);
     tokenStore = new SqliteOAuthTokenStore(db);
-    const logger = winston.createLogger({ silent: true });
+    withTransaction = callback => db.transaction().execute(callback);
+    logger = winston.createLogger({ silent: true });
     settingsRouter = createSettingsMcpServersRouter({
       mcpCatalog: McpCatalog.load(),
       mcpServerStore,
       tokenStore,
-      withTransaction: callback => db.transaction().execute(callback),
+      withTransaction,
       logger,
+      resolveUserContext: () => LOCAL_USER_CONTEXT,
     });
     mcpServersRouter = createMcpServersRouter({
       mcpServerStore,
       tokenStore,
-      withTransaction: callback => db.transaction().execute(callback),
+      withTransaction,
       logger,
+      resolveUserContext: () => LOCAL_USER_CONTEXT,
     });
   });
 
@@ -122,13 +128,14 @@ describe('mcp-servers routers', () => {
     });
   });
 
-  it('DCR server reads authenticated once an unexpired token is stored, auth_required once expired', async () => {
+  it('DCR server reads authenticated when a token row exists, auth_required once deleted', async () => {
     await settingsRouter.request('/', putInit(putBodyWithDcr));
     const record = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithDcr.name });
     if (record === undefined) throw new Error('expected DCR server to exist');
 
     await tokenStore.saveToken({
       id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
       token: {
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
@@ -143,8 +150,10 @@ describe('mcp-servers routers', () => {
       status: 'authenticated',
     });
 
+    // List auth_status is presence-based; expiry is handled at resolve/refresh time.
     await tokenStore.saveToken({
       id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
       token: {
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
@@ -156,10 +165,16 @@ describe('mcp-servers routers', () => {
     const expired = await settingsRouter.request('/');
     const expiredBody = (await expired.json()) as { data: { name: string; auth_status: { status: string } }[] };
     expect(expiredBody.data.find(server => server.name === putBodyWithDcr.name)?.auth_status).toEqual({
-      status: 'auth_required',
+      status: 'authenticated',
     });
 
-    await tokenStore.deleteToken({ id: record.id });
+    await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
+
+    const cleared = await settingsRouter.request('/');
+    const clearedBody = (await cleared.json()) as { data: { name: string; auth_status: { status: string } }[] };
+    expect(clearedBody.data.find(server => server.name === putBodyWithDcr.name)?.auth_status).toEqual({
+      status: 'auth_required',
+    });
   });
 
   it('PUT re-upsert of a DCR server reports authenticated when a usable token already exists', async () => {
@@ -170,6 +185,7 @@ describe('mcp-servers routers', () => {
 
     await tokenStore.saveToken({
       id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
       token: {
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
@@ -185,7 +201,7 @@ describe('mcp-servers routers', () => {
       data: { ...putBodyWithDcr, auth_status: { status: 'authenticated' } },
     });
 
-    await tokenStore.deleteToken({ id: record.id });
+    await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
   });
 
   it('PUT with header auth stores headers and reports authenticated', async () => {
@@ -196,12 +212,76 @@ describe('mcp-servers routers', () => {
     });
   });
 
-  it('GET / on the chat router returns the slim projection without auth fields', async () => {
+  it('GET / on the chat router returns per-user auth_status and public auth type', async () => {
     const response = await mcpServersRouter.request('/');
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { data: { name: string; url: string }[] };
-    expect(body.data.map(server => server.name).sort()).toEqual(['deepwiki', 'linear', 'private-mcp']);
-    expect(body.data.every(server => Object.keys(server).sort().join(',') === 'name,url')).toBe(true);
+    const body = (await response.json()) as {
+      data: {
+        name: string;
+        url: string;
+        auth?: { type: string };
+        auth_status: { status: string };
+      }[];
+    };
+    const byName = new Map(body.data.map(server => [server.name, server]));
+
+    expect(byName.get('deepwiki')).toEqual({
+      name: 'deepwiki',
+      url: putBody.url,
+      auth_status: { status: 'not_required' },
+    });
+    expect(byName.get('linear')).toEqual({
+      name: 'linear',
+      url: putBodyWithDcr.url,
+      auth: { type: 'dcr' },
+      auth_status: { status: 'auth_required' },
+    });
+    expect(byName.get('private-mcp')).toEqual({
+      name: 'private-mcp',
+      url: putBodyWithHeaderAuth.url,
+      auth: { type: 'header' },
+      auth_status: { status: 'authenticated' },
+    });
+  });
+
+  it('GET / chat list auth_status is scoped to the calling user', async () => {
+    const record = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithDcr.name });
+    if (record === undefined) throw new Error('expected DCR server to exist');
+    await tokenStore.saveToken({
+      id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
+      token: {
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        scope: null,
+      },
+    });
+
+    const forLocal = await mcpServersRouter.request('/');
+    const localBody = (await forLocal.json()) as {
+      data: { name: string; auth_status: { status: string } }[];
+    };
+    expect(localBody.data.find(server => server.name === putBodyWithDcr.name)?.auth_status).toEqual({
+      status: 'authenticated',
+    });
+
+    const otherRouter = createMcpServersRouter({
+      mcpServerStore,
+      tokenStore,
+      withTransaction,
+      logger,
+      resolveUserContext: () => ({ userRef: 'other-user', role: 'user' }),
+    });
+    const forOther = await otherRouter.request('/');
+    const otherBody = (await forOther.json()) as {
+      data: { name: string; auth_status: { status: string } }[];
+    };
+    expect(otherBody.data.find(server => server.name === putBodyWithDcr.name)?.auth_status).toEqual({
+      status: 'auth_required',
+    });
+
+    await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
   });
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {
@@ -387,6 +467,7 @@ describe('mcp-servers routers', () => {
     });
     await tokenStore.saveToken({
       id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
       token: {
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
@@ -400,7 +481,7 @@ describe('mcp-servers routers', () => {
     expect(await response.json()).toEqual({
       data: { ...putBodyWithDcr, auth_status: { status: 'auth_required' } },
     });
-    expect(await tokenStore.getToken({ id: record.id })).toBeUndefined();
+    expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toBeUndefined();
     expect(await mcpServerStore.getClient({ id: record.id })).toEqual({
       server: {
         authorizationEndpoint: 'https://auth.example.com/authorize',

@@ -1,0 +1,76 @@
+---
+title: 'Benchmarking'
+sidebarTitle: 'Benchmarking'
+description: 'How TrueForge compares to Claude Managed Agents and deepagents on the same tasks, tools, and model — and how to reproduce it.'
+---
+
+We benchmarked TrueForge against two alternatives — the closed **Claude Managed Agents** and the open-source **deepagents** (LangGraph) — on the same 14 enterprise tasks, with the same tools and the same model. Same accuracy, lower cost:
+
+- **~30% cheaper than Claude Managed Agents** on the same model (Opus 4.8).
+- **~2.5× cheaper than deepagents** on the same model.
+- **~75% cheaper** running the efficient open model **GLM-5.2**, at the same quality.
+
+<Frame>
+  <img
+    src="/images/evaluation-hero.png"
+    alt="Cost per run on the 14 enterprise tasks: Claude Managed Agents on Opus 4.8 is the baseline, TrueForge on Opus 4.8 is about 30% cheaper, and TrueForge on GLM-5.2 is about 75% cheaper — with the same accuracy across all three."
+  />
+</Frame>
+
+## What We Measured
+
+We use the **L1-L2 tasks from [DevRev's Enterprise-Bench](https://x.com/devrev/status/2075815567458734468)** — 14 cross-system tasks that read like real B2B operations work across engineering, sales, and support. Each task makes the agent join data across three MCP servers: a CRM (Salesforce-style), a project tracker (Jira-style), and a document store (Drive-style).
+
+## How We Measured
+
+Every harness runs the **same model, the same three MCP servers, and the same system prompt**, with each task in a fresh session and nothing carried over. We run **n = 3 trials** per configuration and report the mean.
+
+Answers are graded by an independent LLM judge that sees only the task's criteria and the answer — never which harness produced it — and a task passes only if it meets **every** required criterion.
+
+## Results
+
+| Configuration                    | Solved / 14 | $ / run | Tokens / run |
+| -------------------------------- | :---------: | :-----: | :----------: |
+| Claude Managed Agents · Opus 4.8 |    10.7     |  $11.8  |    10.0M     |
+| TrueForge · Opus 4.8             |    10.7     |  $8.6   |     3.7M     |
+| TrueForge · GLM-5.2              |    11.7     |  $3.0   |     3.8M     |
+| deepagents · Opus 4.8            |    10.0     |  $21.2  |    16.5M     |
+| deepagents · GLM-5.2             |    12.0     |  $9.1   |    11.9M     |
+
+`Solved / 14` is the mean number of tasks passed per trial (n = 3 trials per configuration).
+
+### Per task
+
+Tasks passed across the 3 trials, by configuration:
+
+| Task         | CMA · Opus | TrueForge · Opus | TrueForge · GLM-5.2 | deepagents · Opus | deepagents · GLM-5.2 |
+| ------------ | :--------: | :--------------: | :-----------------: | :---------------: | :------------------: |
+| eng-l1-a     |    0/3     |       0/3        |         1/3         |        0/3        |         0/3          |
+| eng-l1-b     |    3/3     |       3/3        |         3/3         |        3/3        |         3/3          |
+| eng-l1-c     |    1/3     |       3/3        |         3/3         |        3/3        |         3/3          |
+| eng-l2-a     |    0/3     |       0/3        |         1/3         |        3/3        |         1/3          |
+| eng-l2-b     |    1/3     |       1/3        |         2/3         |        3/3        |         3/3          |
+| sales-l1-a   |    3/3     |       3/3        |         2/3         |        3/3        |         3/3          |
+| sales-l2-a   |    3/3     |       1/3        |         3/3         |        3/3        |         3/3          |
+| sales-l2-b   |    3/3     |       3/3        |         3/3         |        3/3        |         3/3          |
+| sales-l2-c   |    3/3     |       3/3        |         3/3         |        3/3        |         3/3          |
+| sales-l2-d   |    3/3     |       3/3        |         3/3         |        0/3        |         3/3          |
+| support-l1-a |    3/3     |       3/3        |         3/3         |        3/3        |         3/3          |
+| support-l1-b |    3/3     |       3/3        |         3/3         |        0/3        |         3/3          |
+| support-l1-c |    3/3     |       3/3        |         3/3         |        3/3        |         2/3          |
+| support-l2-a |    3/3     |       3/3        |         2/3         |        0/3        |         3/3          |
+| **Mean / 14** | **10.7**  |     **10.7**     |      **11.7**       |     **10.0**      |       **12.0**       |
+
+## Why it was cheaper
+
+Most of the cost in an agent run is the loop, not the final answer — every tool round-trip ships the growing context back to the model. TrueForge keeps that loop lean:
+
+- **Leaner context each turn.** It drives from a compact instruction rather than heavy scaffolding; deepagents also carries planning, a virtual filesystem, and sub-agent machinery on every turn.
+- **Fewer tool calls.** It planned the fewest calls of the three to reach the same result — 19 per task, versus 32 and 40.
+- **[Compaction](/key-features/overview#context-compaction) instead of replay.** It trims history and [offloads large tool responses](/key-features/large-tool-responses) instead of re-sending everything verbatim; deepagents re-reads its accumulated context step after step, which is how it lands at three to four times the tokens for the same task.
+
+## Reproduce it
+
+<Card title="Benchmark kit on GitHub" icon="github" href="https://github.com/truefoundry/trueforge/tree/main/benchmark" horizontal />
+
+<small>The dataset is DevRev's open Enterprise-Bench release — queries, judging criteria, and the [Harbor](https://github.com/harbor-framework/harbor) harness. We point at it rather than redistributing, so runs score against the canonical rubric.</small>

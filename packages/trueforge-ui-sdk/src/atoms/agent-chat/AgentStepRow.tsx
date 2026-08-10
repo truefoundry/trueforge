@@ -187,7 +187,7 @@ export function AgentStepRow({
 
       {hasPersistentChildren && (
         <div
-          className="flex min-w-0 gap-3"
+          className={cn('flex min-w-0', showPersistentContentConnector ? 'gap-3' : 'gap-2')}
           data-testid={dataTestPrefix ? `${dataTestPrefix}-persistent-content` : undefined}
         >
           {showChevronColumn && <div className="w-5 shrink-0" />}
