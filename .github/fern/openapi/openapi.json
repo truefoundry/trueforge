@@ -1696,6 +1696,7 @@
       },
       "McpAuthStatus": {
         "additionalProperties": false,
+        "description": "Auth state for the calling user.",
         "properties": {
           "authorization_url": {
             "description": "When auth is required, this contains the URL to redirect the user to for authorization.",
@@ -1786,6 +1787,9 @@
       "McpServerReadEntry": {
         "additionalProperties": false,
         "properties": {
+          "auth_status": {
+            "$ref": "#/components/schemas/McpAuthStatus"
+          },
           "name": {
             "$ref": "#/components/schemas/ResourceName"
           },
@@ -1797,7 +1801,8 @@
         },
         "required": [
           "name",
-          "url"
+          "url",
+          "auth_status"
         ],
         "type": "object"
       },

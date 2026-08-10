@@ -3,6 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface McpServerReadEntry {
+    authStatus: TrueForge.McpAuthStatus;
     name: TrueForge.ResourceName;
     /** URL of the remote MCP server. */
     url: string;

@@ -3,18 +3,21 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { McpAuthStatus } from "./McpAuthStatus.js";
 import { ResourceName } from "./ResourceName.js";
 
 export const McpServerReadEntry: core.serialization.ObjectSchema<
     serializers.McpServerReadEntry.Raw,
     TrueForge.McpServerReadEntry
 > = core.serialization.object({
+    authStatus: core.serialization.property("auth_status", McpAuthStatus),
     name: ResourceName,
     url: core.serialization.string(),
 });
 
 export declare namespace McpServerReadEntry {
     export interface Raw {
+        auth_status: McpAuthStatus.Raw;
         name: ResourceName.Raw;
         url: string;
     }
