@@ -2171,7 +2171,7 @@ await client.settings.modelProviders.list();
 <dl>
 <dd>
 
-Full upsert keyed by `name`: creates the provider or replaces its entire configuration (models included). Every type but `custom` is named after itself, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named, and numbered, by the caller.
+Full upsert: creates the provider or replaces its entire configuration (models included). The key is the returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named by the caller.
 </dd>
 </dl>
 </dd>
@@ -2244,7 +2244,7 @@ await client.settings.modelProviders.upsert({
 <dl>
 <dd>
 
-Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: copy an entry into PUT /settings/model-providers to configure it. Custom providers are not listed here.
+Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Custom providers are not listed here.
 </dd>
 </dl>
 </dd>

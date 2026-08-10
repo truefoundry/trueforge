@@ -70,7 +70,14 @@ const app = createServerApp({
 });
 
 const document = buildOpenApiDocument(app);
-const outputPath = path.join(import.meta.dirname, '../../../.github/fern/openapi/openapi.json');
-mkdirSync(path.dirname(outputPath), { recursive: true });
-writeFileSync(outputPath, `${JSON.stringify(canonicalise(document), null, 2)}\n`);
-console.log(`Wrote ${String(Object.keys(document.paths ?? {}).length)} paths to ${outputPath}`);
+const sdkOutputPath = path.join(import.meta.dirname, '../../../.github/fern/openapi/openapi.json');
+mkdirSync(path.dirname(sdkOutputPath), { recursive: true });
+writeFileSync(sdkOutputPath, `${JSON.stringify(canonicalise(document), null, 2)}\n`);
+console.log(`Wrote ${String(Object.keys(document.paths ?? {}).length)} paths to ${sdkOutputPath}`);
+
+// we are replicating it here because we need to use it in the docs
+// TODO (chiragjn): We tried symlinking but that did not work, revisit it later
+const docsOutputPath = path.join(import.meta.dirname, '../../../docs/openapi.json');
+mkdirSync(path.dirname(docsOutputPath), { recursive: true });
+writeFileSync(docsOutputPath, `${JSON.stringify(canonicalise(document), null, 2)}\n`);
+console.log(`Wrote ${String(Object.keys(document.paths ?? {}).length)} paths to ${docsOutputPath}`);

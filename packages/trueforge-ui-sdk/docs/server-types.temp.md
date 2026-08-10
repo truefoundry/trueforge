@@ -212,7 +212,6 @@ export interface AgentSpec {
   responseFormat?: ResponseFormat;
   skills?: SkillMount[];
   config?: RuntimeConfig;
-  variables?: Record<string, string>;
 }
 
 /** Partial patch (from `@truefoundry/assistant-ui-runtime`) */
@@ -224,7 +223,6 @@ export type AgentSpecUpdate = {
   mcpServers?: McpServer[];
   skills?: SkillMount[];
   messages?: AgentSpecUserMessage[];
-  variables?: Record<string, string>;
   responseFormat?: ResponseFormat;
   config?: RuntimeConfig;
 };

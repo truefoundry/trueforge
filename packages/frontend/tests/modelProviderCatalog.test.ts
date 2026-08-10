@@ -40,10 +40,9 @@ describe('modelProviderCatalog mappers', () => {
     });
   });
 
-  it('uses provider name as the UI id and strips auth from the list card', () => {
+  it('names a well-known provider after its type and strips auth from the list card', () => {
     const harness = {
       type: 'openai' as const,
-      name: 'openai',
       auth: { apiKey: 'sk-secret' },
       models: [
         {
@@ -66,6 +65,26 @@ describe('modelProviderCatalog mappers', () => {
         },
       ],
     });
+  });
+
+  // The stored name is the UI id, so getting this wrong points edits at the wrong row.
+  it('keeps a custom provider under the name it was given', () => {
+    assert.deepEqual(
+      toUiModelProvider({
+        type: 'custom' as const,
+        name: 'local-llama',
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        auth: { apiKey: 'sk-local' },
+        models: [{ modelId: 'llama3', name: 'llama3', properties: {} }],
+      }),
+      {
+        id: 'local-llama',
+        type: 'custom',
+        name: 'local-llama',
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        models: [{ id: 'llama3', name: 'llama3', properties: {} }],
+      },
+    );
   });
 
   it('maps catalog presets without inventing custom providers', () => {

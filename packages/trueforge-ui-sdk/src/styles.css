@@ -2,39 +2,13 @@
  * Tailwind authoring source for @truefoundry/trueforge-ui.
  *
  * The package build compiles this file through `build-styles.css` into the
- * public `dist/styles.css` artifact. Consumers must import that artifact,
- * rather than compiling this source in their own Tailwind pipeline.
+ * public `dist/styles.css` artifact. `ThemeProvider` injects that stylesheet
+ * at runtime — hosts do not need a CSS import. The `styles.css` export remains
+ * for SSR / explicit control.
  *
- * ── Quick start ──────────────────────────────────────────────────────
- *
- *   @import "@truefoundry/trueforge-ui/styles.css";
- *
- * That's the entire styling setup. Everything below is pulled in for you:
- *
- *  1. OpenUI stylesheet + Tailwind `@source` scanning for this SDK's own
- *     compiled components.
- *
- *  2. GitHub Markdown styles (`github-markdown-css`) for `.markdown-body`.
- *
- *  3. Owned palette + shadcn-style semantic tokens (`--background`,
- *     `--muted`, `--primary`, …) in light and dark.
- *
- * ── Overriding colours ───────────────────────────────────────────────
- *
- * Palette colours:
- *
- *     :root { --color-indigo-500: #000; }
- *
- * Semantic tokens (used by this SDK's atoms):
- *
- *     :root { --background: #fff; --primary: #e11d48; }
- *
- * Or via the theme object: `theme={{ tokens: { primary: "#e11d48" } }}`.
- * Scrollbar thumb: `theme={{ tokens: { scrollbarThumb: "#a1a1aa" } }}` or
- * `--scrollbar-thumb` in host CSS. Track stays transparent; thumb is the plug.
- *
- * Both work because the `@layer` block below has the lowest precedence —
- * any plain `:root` / `.aui-root` declaration in the consumer's CSS wins.
+ * Tokens live on `.aui-theme-root` (light) and `.aui-theme-root.dark` so the
+ * host document is not rethemed. Override via host CSS on `.aui-theme-root` or
+ * `theme={{ tokens: { primary: "#e11d48" } }}`.
  */
 @import './openui.css';
 
@@ -47,12 +21,12 @@
 @import './github-markdown-bridge.css';
 
 /* ──────────────────────────────────────────────────────────────────────
- * Owned palette (minimal set used by semantic tokens + gray utilities).
- * Light values on :root; dark mode flips the same var names under .dark
- * (matches prior tfy ThemeProvider injectThemes behaviour).
+ * Owned palette scoped to `.aui-theme-root` so host `:root` / `html.dark`
+ * are untouched. ThemeProvider toggles `.dark` on this root.
  * ──────────────────────────────────────────────────────────────────── */
 @layer tfy-agent-ui-base {
-  :root {
+  .aui-theme-root {
+    box-sizing: border-box;
     --color-white: #ffffff;
     --color-black: #09090b;
     --color-gray-100: #f4f4f5;
@@ -105,7 +79,13 @@
     --assistant-bubble-foreground: var(--foreground);
   }
 
-  .dark {
+  .aui-theme-root *,
+  .aui-theme-root *::before,
+  .aui-theme-root *::after {
+    box-sizing: border-box;
+  }
+
+  .aui-theme-root.dark {
     --color-gray-100: #101013;
     --color-gray-125: #141417;
     --color-gray-150: #18181b;

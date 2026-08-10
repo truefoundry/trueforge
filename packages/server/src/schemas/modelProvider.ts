@@ -5,7 +5,7 @@
  */
 import { z } from '@hono/zod-openapi';
 import { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/utils-core/core';
-import { NameSchema, uniqueNames } from './common';
+import { NameSchema, uniqueNames, type ResourceName } from './common';
 
 /** Every type the harness has an adapter for; a test asserts each one has a schema below. */
 export const ProviderTypeSchema = z.enum(VERCEL_AI_PROVIDER_NAMES).openapi('ProviderType');
@@ -69,8 +69,9 @@ const ModelProviderManifestBaseSchema = z
   .strict();
 
 /**
- * Naming a provider after its type limits a tenant to one of each: the `(tenant_id, name)` primary
- * key replaces the row rather than adding a sibling. `base_url` defaults to the adapter's endpoint.
+ * A well-known provider has no name of its own: it is named after its type, which limits a tenant to
+ * one of each because the `(tenant_id, name)` primary key replaces the row rather than adding a
+ * sibling. `base_url` defaults to the adapter's endpoint and stays overridable.
  */
 function wellKnownProviderSchema<Type extends Exclude<ProviderType, 'custom'>>({
   type,
@@ -81,7 +82,6 @@ function wellKnownProviderSchema<Type extends Exclude<ProviderType, 'custom'>>({
 }) {
   return ModelProviderManifestBaseSchema.extend({
     type: z.literal(type),
-    name: z.literal(type).default(type),
     base_url: z.url().default(base_url).describe("Override of the provider's default API base URL."),
   }).strict();
 }
@@ -126,6 +126,7 @@ const AlibabaModelProviderSchema = wellKnownProviderSchema({
   base_url: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
 }).openapi('AlibabaModelProvider');
 
+/** The one type a caller names, because only it supplies its own endpoint. */
 const CustomModelProviderSchema = ModelProviderManifestBaseSchema.extend({
   type: z.literal('custom'),
   name: NameSchema,
@@ -133,18 +134,6 @@ const CustomModelProviderSchema = ModelProviderManifestBaseSchema.extend({
 })
   .strict()
   .openapi('CustomModelProvider');
-
-const MODEL_PROVIDER_SCHEMAS = [
-  OpenAiModelProviderSchema,
-  AnthropicModelProviderSchema,
-  GoogleGeminiModelProviderSchema,
-  FireworksModelProviderSchema,
-  ZaiModelProviderSchema,
-  MoonshotModelProviderSchema,
-  TogetherAIModelProviderSchema,
-  AlibabaModelProviderSchema,
-  CustomModelProviderSchema,
-] as const;
 
 export function refineModelProviderManifest(
   manifest: { models: { model_id: string; name: string }[] },
@@ -157,12 +146,28 @@ export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
 
 /**
  * Configured provider: PUT body, response data, and the persisted `model_provider.manifest` document
- * in one shape. The `name` column is written from it, so the two cannot disagree.
+ * in one shape. Only `custom` carries a name, so the row's key column comes from
+ * `modelProviderName` rather than from a field every type repeats.
  */
 export const ModelProviderSchema = z
-  .discriminatedUnion('type', MODEL_PROVIDER_SCHEMAS)
+  .discriminatedUnion('type', [
+    OpenAiModelProviderSchema,
+    AnthropicModelProviderSchema,
+    GoogleGeminiModelProviderSchema,
+    FireworksModelProviderSchema,
+    ZaiModelProviderSchema,
+    MoonshotModelProviderSchema,
+    TogetherAIModelProviderSchema,
+    AlibabaModelProviderSchema,
+    CustomModelProviderSchema,
+  ])
   .superRefine(refineModelProviderManifest)
   .openapi('ModelProvider');
+
+/** The row's key: only `custom` carries a name of its own. */
+export function modelProviderName(provider: ModelProvider): ResourceName {
+  return provider.type === 'custom' ? provider.name : provider.type;
+}
 
 export const PutModelProviderRequestSchema = ModelProviderSchema;
 

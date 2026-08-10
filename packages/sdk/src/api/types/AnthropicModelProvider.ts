@@ -8,6 +8,5 @@ export interface AnthropicModelProvider {
     baseUrl?: string;
     /** Models exposed by this provider (at least one). */
     models: TrueForge.ModelEntry[];
-    name?: "anthropic";
     type: "anthropic";
 }
