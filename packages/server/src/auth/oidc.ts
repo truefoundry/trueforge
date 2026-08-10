@@ -67,9 +67,6 @@ export async function initOidc(oidc: OIDCConfig | undefined): Promise<Configurat
 
 function authCallbackUrl(): string {
   const publicBaseUrl = getPublicBaseUrl();
-  if (publicBaseUrl === '') {
-    throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
-  }
   return `${publicBaseUrl}${CALLBACK_PATH}`;
 }
 
