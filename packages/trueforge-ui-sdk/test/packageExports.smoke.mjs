@@ -51,6 +51,16 @@ assert.equal(typeof assistantUi.useAuiState, 'function');
 
 const stylesPath = fileURLToPath(import.meta.resolve('@truefoundry/trueforge-ui/styles.css'));
 await access(stylesPath);
+
+const { readdir, readFile } = await import('node:fs/promises');
+const { dirname, join } = await import('node:path');
+const packageDist = dirname(fileURLToPath(import.meta.resolve('@truefoundry/trueforge-ui')));
+const jsFiles = (await readdir(packageDist)).filter(name => name.endsWith('.js'));
+const embedded = await Promise.all(jsFiles.map(name => readFile(join(packageDist, name), 'utf8')));
+assert.ok(
+  embedded.some(source => source.includes('trueforge-ui-styles') && source.includes('--color-indigo-500')),
+  'Expected bundled JS to embed SDK stylesheet',
+);
 `,
   );
 

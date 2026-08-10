@@ -49,7 +49,7 @@
     "src/icons/registerAgentIcons.ts"
   ],
   "scripts": {
-    "build": "tsup && tailwindcss --input src/build-styles.css --output dist/styles.css --minify",
+    "build": "rm -rf dist && tailwindcss --input src/build-styles.css --output dist/styles.css --minify && tsup",
     "dev:watch": "pnpm run \"/^(dev:watch:js|dev:watch:css)$/\"",
     "dev:watch:js": "tsup --watch",
     "dev:watch:css": "tailwindcss --input src/build-styles.css --output dist/styles.css --watch",
