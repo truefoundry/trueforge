@@ -28,10 +28,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`
     CREATE TABLE oauth_token (
       oauth_server_id TEXT NOT NULL REFERENCES mcp_server (id) ON DELETE CASCADE,
-      user_id TEXT NOT NULL,
       token BLOB NOT NULL,
       updated_at TEXT NOT NULL,
-      PRIMARY KEY (oauth_server_id, user_id)
+      PRIMARY KEY (oauth_server_id)
     ) STRICT
   `.execute(db);
 
@@ -39,7 +38,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     CREATE TABLE oauth_pending_authorization (
       id TEXT NOT NULL,
       oauth_server_id TEXT NOT NULL REFERENCES mcp_server (id) ON DELETE CASCADE,
-      user_id TEXT NOT NULL,
       auth_data BLOB NOT NULL,
       created_at TEXT NOT NULL,
       PRIMARY KEY (id)

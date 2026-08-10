@@ -70,18 +70,15 @@ function omitUndefinedEntries(obj: Record<string, unknown>): Record<string, unkn
 function toConfiguredMcpServer({
   record,
   token,
-  nowMs = Date.now(),
 }: {
   record: McpServerRecord;
   token: OAuthToken | undefined;
-  nowMs?: number;
 }): ConfiguredMcpServer {
   return {
     ...record.manifest,
     auth_status: resolveMcpAuthStatus({
       manifest: record.manifest,
       ...(token !== undefined ? { token } : {}),
-      nowMs,
     }),
   };
 }
@@ -89,11 +86,9 @@ function toConfiguredMcpServer({
 function toMcpServerReadEntry({
   record,
   token,
-  nowMs = Date.now(),
 }: {
   record: McpServerRecord;
   token: OAuthToken | undefined;
-  nowMs?: number;
 }): McpServerReadEntry {
   const authType = record.manifest.auth?.type;
   return {
@@ -103,7 +98,6 @@ function toMcpServerReadEntry({
     auth_status: resolveMcpAuthStatus({
       manifest: record.manifest,
       ...(token !== undefined ? { token } : {}),
-      nowMs,
     }),
   };
 }
@@ -137,12 +131,11 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
   const listHandler: RouteHandler<typeof listMcpServersRoute> = async c => {
     const userRef = deps.resolveUserContext(c).userRef;
     const records = await deps.mcpServerStore.listServers({ tenant_id: TENANT_ID, names: undefined });
-    const nowMs = Date.now();
     // Only DCR servers have tokens; batch the lookup for this user.
     const dcrIds = records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
     const tokens = await deps.tokenStore.getTokens({ ids: dcrIds, userRef });
     return c.json(
-      { data: records.map(record => toConfiguredMcpServer({ record, token: tokens.get(record.id), nowMs })) },
+      { data: records.map(record => toConfiguredMcpServer({ record, token: tokens.get(record.id) })) },
       200,
     );
   };
@@ -327,12 +320,11 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
   router.openapi(listAvailableMcpServersRoute, async c => {
     const userRef = deps.resolveUserContext(c).userRef;
     const records = await deps.mcpServerStore.listServers({ tenant_id: TENANT_ID, names: undefined });
-    const nowMs = Date.now();
     const dcrIds = records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
     const tokens = await deps.tokenStore.getTokens({ ids: dcrIds, userRef });
     return c.json(
       {
-        data: records.map(record => toMcpServerReadEntry({ record, token: tokens.get(record.id), nowMs })),
+        data: records.map(record => toMcpServerReadEntry({ record, token: tokens.get(record.id) })),
       },
       200,
     );

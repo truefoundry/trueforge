@@ -7,7 +7,6 @@
  * turn execution resolves DCR tokens via resolveMcpAuth.
  */
 import { z } from '@hono/zod-openapi';
-import { isOAuthAccessTokenUsable } from '../mcp/auth/mcpOAuthHelpers';
 import type { OAuthToken } from '../mcp/auth/types';
 import { NameSchema } from './common';
 
@@ -126,15 +125,12 @@ export function resolveConfiguredMcpRequestHeaders(manifest: McpServerManifest):
 export function resolveMcpAuthStatus({
   manifest,
   token,
-  nowMs = Date.now(),
 }: {
   manifest: McpServerManifest;
   token?: OAuthToken;
-  nowMs?: number;
 }): McpAuthStatus {
   if (manifest.auth?.type === 'dcr') {
-    const authenticated = token && isOAuthAccessTokenUsable(token.expiresAt, nowMs);
-    return authenticated ? { status: 'authenticated' } : { status: 'auth_required' };
+    return token ? { status: 'authenticated' } : { status: 'auth_required' };
   }
   if (manifest.auth?.type === 'header') {
     return { status: 'authenticated' };
