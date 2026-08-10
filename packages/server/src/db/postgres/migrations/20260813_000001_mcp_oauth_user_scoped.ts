@@ -13,7 +13,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('user_id', 'text', col => col.notNull())
     .execute();
   await sql`ALTER TABLE oauth_token DROP CONSTRAINT oauth_token_pkey`.execute(db);
-  await sql`ALTER TABLE oauth_token ADD PRIMARY KEY (oauth_server_id, user_id)`.execute(db);
+  await sql`ALTER TABLE oauth_token ADD CONSTRAINT oauth_token_pkey PRIMARY KEY (oauth_server_id, user_id)`.execute(db);
 
   // In-flight pending rows cannot be attributed to a user; drop them.
   await sql`DELETE FROM oauth_pending_authorization`.execute(db);
@@ -31,5 +31,5 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await sql`DELETE FROM oauth_token`.execute(db);
   await sql`ALTER TABLE oauth_token DROP CONSTRAINT oauth_token_pkey`.execute(db);
   await db.schema.alterTable('oauth_token').dropColumn('user_id').execute();
-  await sql`ALTER TABLE oauth_token ADD PRIMARY KEY (oauth_server_id)`.execute(db);
+  await sql`ALTER TABLE oauth_token ADD CONSTRAINT oauth_token_pkey PRIMARY KEY (oauth_server_id)`.execute(db);
 }

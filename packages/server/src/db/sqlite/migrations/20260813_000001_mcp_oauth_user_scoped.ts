@@ -18,7 +18,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       user_id TEXT NOT NULL,
       token BLOB NOT NULL,
       updated_at TEXT NOT NULL,
-      PRIMARY KEY (oauth_server_id, user_id)
+      CONSTRAINT oauth_token_pkey PRIMARY KEY (oauth_server_id, user_id)
     ) STRICT
   `.execute(db);
 
@@ -32,7 +32,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       user_id TEXT NOT NULL,
       auth_data BLOB NOT NULL,
       created_at TEXT NOT NULL,
-      PRIMARY KEY (id)
+      CONSTRAINT oauth_pending_authorization_pkey PRIMARY KEY (id)
     ) STRICT
   `.execute(db);
 }
@@ -46,7 +46,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
       oauth_server_id TEXT NOT NULL REFERENCES mcp_server (id) ON DELETE CASCADE,
       auth_data BLOB NOT NULL,
       created_at TEXT NOT NULL,
-      PRIMARY KEY (id)
+      CONSTRAINT oauth_pending_authorization_pkey PRIMARY KEY (id)
     ) STRICT
   `.execute(db);
 
@@ -57,7 +57,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
       oauth_server_id TEXT NOT NULL REFERENCES mcp_server (id) ON DELETE CASCADE,
       token BLOB NOT NULL,
       updated_at TEXT NOT NULL,
-      PRIMARY KEY (oauth_server_id)
+      CONSTRAINT oauth_token_pkey PRIMARY KEY (oauth_server_id)
     ) STRICT
   `.execute(db);
 }
