@@ -58,7 +58,7 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
       .insertInto('model_provider')
       .values({
         tenant_id: input.tenant_id,
-        name: input.manifest.name,
+        name: input.name,
         manifest: json(input.manifest),
         created_at: now(),
         updated_at: now(),

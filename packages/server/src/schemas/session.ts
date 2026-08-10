@@ -27,13 +27,17 @@ export function isSessionAgentNameRef(agent: CreateSessionAgent): agent is Sessi
 }
 
 export const CreateSessionRequestSchema = z
-  .object({ agent: CreateSessionAgentSchema })
+  .object({
+    agent: CreateSessionAgentSchema,
+  })
   .strict()
   .openapi('CreateSessionRequest');
 
 /** Only inline sessions may be updated; named (reference) sessions reject agent updates. */
 export const UpdateSessionRequestSchema = z
-  .object({ agent: SessionAgentSpecBodySchema.optional() })
+  .object({
+    agent: SessionAgentSpecBodySchema.optional(),
+  })
   .strict()
   .openapi('UpdateSessionRequest');
 

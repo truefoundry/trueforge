@@ -5,5 +5,6 @@
  *     {}
  */
 export interface SubscribeToTurnSessionsRequest {
+    /** Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer. */
     afterSequenceNumber?: number | null;
 }

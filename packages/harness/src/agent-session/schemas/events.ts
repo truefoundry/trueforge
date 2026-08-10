@@ -35,24 +35,26 @@ export const EventType = {
 
 export const TurnCreatedEventSchema = z
   .object({
-    type: z.literal(EventType.TURN_CREATED),
+    type: z.literal(EventType.TURN_CREATED).describe('Emitted when a turn starts.'),
     id: EventIdSchema,
-    turn_id: z.string(),
-    previous_turn_id: z.string().nullable(),
-    input: z.array(TurnInputItemSchema).optional(),
+    turn_id: z.string().describe('Id of the newly created turn.'),
+    previous_turn_id: z.string().nullable().describe('Prior turn this turn chains from; null for a root turn.'),
+    input: z.array(TurnInputItemSchema).optional().describe('Input items supplied when the turn was created.'),
     state: TurnStateRunningSchema,
-    created_at: z.string(),
-    thread_id: z.string().nullable(),
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+    thread_id: z.string().nullable().describe('Thread that owns the event; null for turn-level lifecycle events.'),
   })
   .openapi('TurnCreatedEvent');
 
 export const TurnDoneEventSchema = z
   .object({
-    type: z.literal(EventType.TURN_DONE),
+    type: z.literal(EventType.TURN_DONE).describe('Emitted when a turn reaches a terminal state.'),
     id: EventIdSchema,
-    state: z.discriminatedUnion('status', [TurnStateDoneSchema, TurnStateCancelledSchema, TurnStateErrorSchema]),
-    created_at: z.string(),
-    thread_id: z.string().nullable(),
+    state: z
+      .discriminatedUnion('status', [TurnStateDoneSchema, TurnStateCancelledSchema, TurnStateErrorSchema])
+      .describe('Terminal turn state (done, cancelled, or error).'),
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+    thread_id: z.string().nullable().describe('Thread that owns the event; null for turn-level lifecycle events.'),
   })
   .openapi('TurnDoneEvent');
 
@@ -76,7 +78,7 @@ export const SessionEventSchema = z
 /** One row on the session timeline: which turn emitted the event plus the event payload. */
 export const SessionEventItemSchema = z
   .object({
-    turn_id: z.string(),
+    turn_id: z.string().describe('Turn that emitted this event.'),
     event: SessionEventSchema,
   })
   .openapi('SessionEventItem');

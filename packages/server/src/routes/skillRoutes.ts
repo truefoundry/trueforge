@@ -30,6 +30,14 @@ export const getSkillCatalogRoute = createRoute({
       content: { 'application/json': { schema: GetSkillCatalogResponseSchema } },
       description: 'The shipped catalog, verbatim.',
     },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the caller is authenticated but not an admin.',
+    },
   },
 });
 
@@ -47,6 +55,10 @@ export const listAvailableSkillsRoute = createRoute({
       content: { 'application/json': { schema: ListAvailableSkillsResponseSchema } },
       description: 'All configured skills (chat projection).',
     },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
   },
 });
 
@@ -62,6 +74,14 @@ export const listConfiguredSkillsRoute = createRoute({
     200: {
       content: { 'application/json': { schema: ListConfiguredSkillsResponseSchema } },
       description: 'All configured skills.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the caller is authenticated but not an admin.',
     },
   },
 });

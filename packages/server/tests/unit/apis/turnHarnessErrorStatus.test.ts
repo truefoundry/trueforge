@@ -22,6 +22,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
   const modelProviderStore = new SqliteModelProviderStore(db);
   await modelProviderStore.upsertProvider({
     tenant_id: 'default',
+    name: 'test-provider',
     manifest: {
       type: 'custom',
       name: 'test-provider',

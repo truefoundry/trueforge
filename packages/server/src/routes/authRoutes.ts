@@ -7,6 +7,7 @@
  */
 import { createRoute } from '@hono/zod-openapi';
 import { AuthLoginQuerySchema, MeResponseSchema, OAuthCallbackQuerySchema } from '../schemas/auth';
+import { RequestErrorResponseSchema } from '../schemas/errors';
 
 const AUTH_TAG = 'Auth';
 
@@ -70,6 +71,9 @@ export const meRoute = createRoute({
       content: { 'application/json': { schema: MeResponseSchema } },
       description: 'Session type and identity for the current request.',
     },
-    401: { description: 'OIDC is configured and the request has no valid session cookie.' },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
   },
 });

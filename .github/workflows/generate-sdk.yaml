@@ -9,7 +9,7 @@ on:
       - 'packages/server/src/**'
       - 'packages/server/scripts/**'
       - 'packages/harness/src/**'
-      - 'fern/**'
+      - '.github/fern/**'
       - '.github/workflows/generate-sdk.yaml'
   pull_request:
     types: [opened, synchronize, reopened]
@@ -17,7 +17,7 @@ on:
       - 'packages/server/src/**'
       - 'packages/server/scripts/**'
       - 'packages/harness/src/**'
-      - 'fern/**'
+      - '.github/fern/**'
       - '.github/workflows/generate-sdk.yaml'
 
 concurrency:
@@ -74,12 +74,12 @@ jobs:
           set -euo pipefail
 
           reason=""
-          if [ -n "$(git status --porcelain -- fern/openapi/openapi.json)" ]; then
+          if [ -n "$(git status --porcelain -- .github/fern/openapi/openapi.json)" ]; then
             reason="the OpenAPI document changed"
           elif ! git rev-parse --verify --quiet "${BASE_SHA}^{commit}" >/dev/null; then
             # A branch's first push reports an all-zero base commit.
             reason="there is no base commit to compare against"
-          elif ! git diff --quiet "$BASE_SHA" HEAD -- fern/generators.yml fern/fern.config.json; then
+          elif ! git diff --quiet "$BASE_SHA" HEAD -- .github/fern/generators.yml .github/fern/fern.config.json; then
             reason="the generator config changed"
           fi
 
@@ -106,14 +106,14 @@ jobs:
           set -euo pipefail
 
           # --porcelain, not `git diff`, so new files count too.
-          if [ -z "$(git status --porcelain -- fern/openapi packages/sdk)" ]; then
+          if [ -z "$(git status --porcelain -- .github/fern/openapi packages/sdk)" ]; then
             echo "OpenAPI document and SDK are already up to date."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add fern/openapi packages/sdk
+          git add .github/fern/openapi packages/sdk
           git commit -m "Regenerate OpenAPI document and TypeScript SDK"
           git push origin "HEAD:refs/heads/$BRANCH"
 

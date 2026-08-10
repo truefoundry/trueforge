@@ -45,8 +45,8 @@ export function toHarnessModelEntry(model: UiModelEntry): TrueForgeApi.ModelEntr
 }
 
 export function toUiModelProvider(provider: TrueForgeApi.ModelProvider): UiModelProvider {
-  // Every type but `custom` is named after itself, so the wire leaves `name` optional.
-  const name = provider.name ?? provider.type;
+  // Only `custom` carries a name; the API names every other type after its type.
+  const name = provider.type === 'custom' ? provider.name : provider.type;
   return {
     id: name,
     type: provider.type,

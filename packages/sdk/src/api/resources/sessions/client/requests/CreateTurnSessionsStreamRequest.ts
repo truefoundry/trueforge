@@ -7,6 +7,7 @@ import type * as TrueForge from "../../../../index.js";
  *     {}
  */
 export interface CreateTurnSessionsStreamRequest {
+    /** Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items. */
     input?: TrueForge.TurnInputItem[];
     previousTurnId?: TrueForge.PreviousTurnIdInput;
 }

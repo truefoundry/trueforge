@@ -3,6 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface ThreadStateError {
+    /** Human-readable error message. */
     error: string;
     output?: TrueForge.ModelMessageEvent;
     status: "error";

@@ -21,7 +21,7 @@ export enum CancellationReason {
 
 export const TurnStateRunningSchema = z
   .object({
-    status: z.literal('running'),
+    status: z.literal('running').describe('Turn is still executing.'),
   })
   .openapi('TurnStateRunning');
 
@@ -33,41 +33,77 @@ export const TurnStateCancelledReasonSchema = z
 /** Billable aggregate for one turn. */
 export const TurnMetricsSchema = z
   .object({
-    total_input_tokens: z.number().int().nonnegative().optional(),
-    total_output_tokens: z.number().int().nonnegative().optional(),
-    total_tokens: z.number().int().nonnegative().optional(),
-    total_cache_read_tokens: z.number().int().nonnegative().optional(),
-    total_cache_write_tokens: z.number().int().nonnegative().optional(),
-    total_reasoning_tokens: z.number().int().nonnegative().optional(),
-    total_cost_in_usd: z.number().nonnegative().optional(),
+    total_input_tokens: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe('Total input tokens across model calls in this turn.'),
+    total_output_tokens: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe('Total output tokens across model calls in this turn.'),
+    total_tokens: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe('Total tokens (input + output) across model calls in this turn.'),
+    total_cache_read_tokens: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe('Total cache-read tokens across model calls in this turn.'),
+    total_cache_write_tokens: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe('Total cache-write tokens across model calls in this turn.'),
+    total_reasoning_tokens: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe('Total reasoning tokens across model calls in this turn.'),
+    total_cost_in_usd: z.number().nonnegative().optional().describe('Estimated total cost in USD for this turn.'),
   })
   .openapi('TurnMetrics');
 
 export const TurnStateCancelledSchema = z
   .object({
-    status: z.literal('cancelled'),
+    status: z.literal('cancelled').describe('Turn was cancelled before completion.'),
     reason: TurnStateCancelledReasonSchema,
-    completed_at: z.string(),
-    metrics: TurnMetricsSchema.optional(),
+    completed_at: z.string().describe('ISO 8601 time when cancellation completed.'),
+    metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for work done before cancel.'),
   })
   .openapi('TurnStateCancelled');
 
 export const TurnStateErrorSchema = z
   .object({
-    status: z.literal('error'),
-    message: z.string(),
-    completed_at: z.string(),
-    metrics: TurnMetricsSchema.optional(),
+    status: z.literal('error').describe('Turn ended with an error.'),
+    message: z.string().describe('Human-readable error message.'),
+    completed_at: z.string().describe('ISO 8601 time when the error state was recorded.'),
+    metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for work done before the error.'),
   })
   .openapi('TurnStateError');
 
 export const TurnStateDoneSchema = z
   .object({
-    status: z.literal('done'),
-    output: z.union([ModelMessageEventSchema, z.null()]),
-    required_actions: z.array(ActionRequiredEventSchema),
-    completed_at: z.string(),
-    metrics: TurnMetricsSchema.optional(),
+    status: z.literal('done').describe('Turn finished (possibly paused for required actions).'),
+    output: z
+      .union([ModelMessageEventSchema, z.null()])
+      .describe('Final `model.message` for the turn, or null when the turn ended paused without a final message.'),
+    required_actions: z
+      .array(ActionRequiredEventSchema)
+      .describe(
+        'Pending actions (`tool.approval_required`, `tool.response_required`, `mcp.auth_required`); empty when none.',
+      ),
+    completed_at: z.string().describe('ISO 8601 time when the turn reached a terminal state.'),
+    metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for the whole turn.'),
   })
   .openapi('TurnStateDone');
 
@@ -90,12 +126,12 @@ export const TurnInputItemSchema = z
 
 export const TurnSchema = z
   .object({
-    id: z.string(),
-    session_id: z.string(),
-    previous_turn_id: z.string().nullable(),
-    input: z.array(TurnInputItemSchema).optional(),
+    id: z.string().describe('Unique turn id.'),
+    session_id: z.string().describe('Session that owns this turn.'),
+    previous_turn_id: z.string().nullable().describe('Prior turn this turn chains from; null for a root turn.'),
+    input: z.array(TurnInputItemSchema).optional().describe('Input items supplied when the turn was created.'),
     state: TurnStateSchema,
-    created_at: z.string(),
+    created_at: z.string().describe('ISO 8601 creation timestamp.'),
   })
   .openapi('Turn');
 
@@ -105,7 +141,12 @@ export const TurnSchema = z
  */
 export const CreateTurnRequestSchema = z
   .object({
-    input: z.array(TurnInputItemSchema).optional(),
+    input: z
+      .array(TurnInputItemSchema)
+      .optional()
+      .describe(
+        'Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.',
+      ),
     previous_turn_id: z
       .union([z.literal('auto'), z.literal('none'), z.string().min(1)])
       .optional()

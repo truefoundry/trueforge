@@ -13,7 +13,6 @@ export const TogetherAiModelProvider: core.serialization.ObjectSchema<
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    name: core.serialization.stringLiteral("together").optional(),
     type: core.serialization.stringLiteral("together"),
 });
 
@@ -22,7 +21,6 @@ export declare namespace TogetherAiModelProvider {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
-        name?: "together" | null;
         type: "together";
     }
 }
