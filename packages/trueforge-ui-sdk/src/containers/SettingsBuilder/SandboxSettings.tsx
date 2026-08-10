@@ -6,6 +6,7 @@ import { Button } from '../../atoms/primitives/Button.js';
 import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { SandboxProviderBase, SandboxProviderCatalogEntry, SandboxProviderConfig } from '../../server/types.js';
+import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import ConfigureSandboxForm, { type SandboxConfigDraft } from './ConfigureSandboxForm.js';
 
 const configFrom = ({
@@ -47,7 +48,7 @@ const SandboxSettings = () => {
         setProviders(listed);
         setCatalog(available);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load sandbox providers');
+        setError(getErrorMessage(err, 'Failed to load sandbox providers'));
       } finally {
         if (!quiet) setLoading(false);
       }
@@ -83,7 +84,7 @@ const SandboxSettings = () => {
       await fn();
       await refresh({ quiet: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Request failed');
+      setError(getErrorMessage(err, 'Request failed'));
       throw err;
     } finally {
       setBusy(false);

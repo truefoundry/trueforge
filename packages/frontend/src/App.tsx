@@ -1,4 +1,4 @@
-import { createTrueFoundryServer, TrueforgeUI, type SlotOverrides } from '@truefoundry/trueforge-ui';
+import { createTrueFoundryServer, getErrorMessage, TrueforgeUI, type SlotOverrides } from '@truefoundry/trueforge-ui';
 import { useEffect, useMemo, useState } from 'react';
 import { AuthErrorScreen } from './AuthErrorScreen';
 import { probeSession, type SessionState } from './authSession';
@@ -93,7 +93,7 @@ export function App() {
         if (!state.cancelled) {
           setBoot({
             status: 'error',
-            message: err instanceof Error ? err.message : 'Failed to boot',
+            message: getErrorMessage(err, 'Failed to boot'),
           });
         }
       }

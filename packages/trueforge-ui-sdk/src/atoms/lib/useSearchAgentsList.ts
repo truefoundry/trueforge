@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useOptionalServer } from '../../server/ServerContext.js';
 import type { AgentLibraryEntry } from '../../server/types.js';
+import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useDebouncedValue } from './useDebouncedValue.js';
 
 export const SEARCH_AGENTS_PAGE_SIZE = 50;
@@ -97,7 +98,7 @@ export function useSearchAgentsList({
         if (gen !== genRef.current) return;
         setAgents([]);
         setHasMore(false);
-        setError(err instanceof Error ? err.message : 'Failed to load agents.');
+        setError(getErrorMessage(err, 'Failed to load agents.'));
       })
       .finally(() => {
         if (gen === genRef.current) setLoading(false);
