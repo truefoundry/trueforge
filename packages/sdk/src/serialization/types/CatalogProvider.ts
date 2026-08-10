@@ -5,6 +5,7 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { CatalogProviderType } from "./CatalogProviderType.js";
 import { ModelEntry } from "./ModelEntry.js";
+import { ReasoningEffort } from "./ReasoningEffort.js";
 import { ResourceName } from "./ResourceName.js";
 
 export const CatalogProvider: core.serialization.ObjectSchema<
@@ -14,6 +15,10 @@ export const CatalogProvider: core.serialization.ObjectSchema<
     logo: core.serialization.string().optional(),
     models: core.serialization.list(ModelEntry),
     name: ResourceName,
+    supportedReasoningEfforts: core.serialization.property(
+        "supported_reasoning_efforts",
+        core.serialization.list(ReasoningEffort).optional(),
+    ),
     type: CatalogProviderType,
 });
 
@@ -22,6 +27,7 @@ export declare namespace CatalogProvider {
         logo?: string | null;
         models: ModelEntry.Raw[];
         name: ResourceName.Raw;
+        supported_reasoning_efforts?: ReasoningEffort.Raw[] | null;
         type: CatalogProviderType.Raw;
     }
 }

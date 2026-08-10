@@ -17,6 +17,7 @@ The harness server has no built-in authentication, so point the client at your o
 - [Exception Handling](#exception-handling)
 - [Streaming Response](#streaming-response)
 - [Binary Response](#binary-response)
+- [Pagination](#pagination)
 - [Advanced](#advanced)
   - [Subpackage Exports](#subpackage-exports)
   - [Additional Headers](#additional-headers)
@@ -491,6 +492,29 @@ const text = new TextDecoder().decode(bytes);
 </blockquote>
 
 </details>
+
+## Pagination
+
+List endpoints are paginated. The SDK provides an iterator so that you can simply loop over the items:
+
+```typescript
+import { TrueForge } from "trueforge-sdk";
+
+const client = new TrueForge({ baseUrl: "YOUR_BASE_URL" });
+const pageableResponse = await client.sessions.list();
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.sessions.list();
+while (page.hasNextPage()) {
+    page = page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
+```
 
 ## Advanced
 

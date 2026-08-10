@@ -16,6 +16,7 @@ export const CatalogProviderType: core.serialization.Schema<
     "moonshot",
     "alibaba",
     "together",
+    "custom",
 ]);
 
 export declare namespace CatalogProviderType {
@@ -27,5 +28,6 @@ export declare namespace CatalogProviderType {
         | "zai"
         | "moonshot"
         | "alibaba"
-        | "together";
+        | "together"
+        | "custom";
 }

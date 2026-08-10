@@ -5,9 +5,10 @@ import type * as TrueForge from "../index.js";
 export interface CatalogProvider {
     /** URL of the provider logo asset. */
     logo?: string;
-    /** Preset models for this catalog provider. */
+    /** Preset models; empty on the `custom` sentinel. */
     models: TrueForge.ModelEntry[];
     name: TrueForge.ResourceName;
-    /** Well-known provider type (catalog excludes `custom`). */
+    /** Efforts the custom-provider form may advertise. Present only when type is `custom`. */
+    supportedReasoningEfforts?: TrueForge.ReasoningEffort[];
     type: TrueForge.CatalogProviderType;
 }

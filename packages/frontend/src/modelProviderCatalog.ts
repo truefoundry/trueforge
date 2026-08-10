@@ -56,13 +56,7 @@ export function toUiModelProvider(provider: TrueForgeApi.ModelProvider): UiModel
   };
 }
 
-/** Accepts catalog rows before/after Fern adds `custom` + `supportedReasoningEfforts`. */
-type UiCatalogProviderSource = TrueForgeApi.CatalogProvider & {
-  type: TrueForgeApi.CatalogProvider['type'] | 'custom';
-  supportedReasoningEfforts?: TrueForgeApi.ReasoningEffort[];
-};
-
-export function toUiCatalogEntry(provider: UiCatalogProviderSource): UiModelProviderCatalogEntry {
+export function toUiCatalogEntry(provider: TrueForgeApi.CatalogProvider): UiModelProviderCatalogEntry {
   return {
     type: provider.type,
     name: provider.name,
@@ -74,8 +68,7 @@ export function toUiCatalogEntry(provider: UiCatalogProviderSource): UiModelProv
   };
 }
 
-/** The catalog lists every type but `custom`, which only exists as tenant configuration. */
-const PROVIDER_TYPES: readonly string[] = [...Object.values(TrueForgeApi.CatalogProviderType), 'custom'];
+const PROVIDER_TYPES: readonly string[] = Object.values(TrueForgeApi.CatalogProviderType);
 
 function isProviderType(type: string): type is TrueForgeApi.ModelProvider['type'] {
   return PROVIDER_TYPES.includes(type);
