@@ -57,7 +57,8 @@ export function toHarnessAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSp
       ? {}
       : {
           mcpServers: mcpServers.map(server => {
-            if (typeof server === 'object' && server !== null && 'id' in server) {
+            // Draft picker may round-trip mounts as `{ id, name, ... }`; strip UI-only `id`.
+            if ('id' in server) {
               const { id, ...mount } = server;
               void id;
               return mount;
