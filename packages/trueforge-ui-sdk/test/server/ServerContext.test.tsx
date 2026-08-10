@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -7,8 +7,10 @@ import {
   ServerProvider,
   useCatalogServer,
   useOptionalCatalogServer,
+  useOptionalRefreshServerCapabilities,
   useOptionalServer,
   useServer,
+  useServerCapabilities,
 } from '@/server/ServerContext.js';
 import type { AgentUIServer, CatalogServer } from '@/server/types.js';
 import { createMockAgentUIServer } from './mockServer.js';
@@ -114,6 +116,28 @@ describe('ServerProvider', () => {
     const { result } = renderHook(() => useOptionalServer());
 
     expect(result.current).toBeNull();
+  });
+
+  it('retains existing capabilities when a refresh fails', async () => {
+    const initialCapabilities = { sandbox: { enabled: true }, skill: { enabled: true } };
+    const getCapabilities = vi
+      .fn()
+      .mockResolvedValueOnce({ data: initialCapabilities })
+      .mockRejectedValueOnce(new Error('Unavailable'));
+    const server = createMockAgentUIServer({ getCapabilities });
+    const { result } = renderHook(
+      () => ({
+        capabilities: useServerCapabilities(),
+        refresh: useOptionalRefreshServerCapabilities(),
+      }),
+      { wrapper: wrap(server) },
+    );
+
+    await waitFor(() => expect(result.current.capabilities).toEqual(initialCapabilities));
+    act(() => result.current.refresh?.());
+    await waitFor(() => expect(getCapabilities).toHaveBeenCalledTimes(2));
+
+    expect(result.current.capabilities).toEqual(initialCapabilities);
   });
 });
 

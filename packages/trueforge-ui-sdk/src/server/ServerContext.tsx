@@ -1,34 +1,50 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import type { AgentBuilderCapabilitiesResponse, AgentUIServer, CatalogServer } from './types.js';
 
 const ServerContext = createContext<AgentUIServer | null>(null);
-const ServerCapabilitiesContext = createContext<AgentBuilderCapabilitiesResponse['data'] | null>(null);
+const ServerCapabilitiesContext = createContext<{
+  capabilities: AgentBuilderCapabilitiesResponse['data'] | null;
+  refresh: () => void;
+} | null>(null);
 
 export function ServerProvider({ server, children }: { server: AgentUIServer; children: ReactNode }) {
   const [capabilities, setCapabilities] = useState<AgentBuilderCapabilitiesResponse['data'] | null>(null);
-
-  useEffect(() => {
+  const cancelActiveRequestRef = useRef<(() => void) | null>(null);
+  const refreshCapabilities = useCallback(() => {
+    cancelActiveRequestRef.current?.();
     let cancelled = false;
-    setCapabilities(null);
-    void server.getCapabilities().then(
-      response => {
-        if (!cancelled) setCapabilities(response.data);
-      },
-      () => {
-        if (!cancelled) setCapabilities(null);
-      },
-    );
-    return () => {
+    cancelActiveRequestRef.current = () => {
       cancelled = true;
     };
+    void server
+      .getCapabilities()
+      .then(response => {
+        if (!cancelled) setCapabilities(response.data);
+      })
+      .catch(() => {
+        // Preserve the last known capabilities when a refresh fails.
+      });
   }, [server]);
+
+  useEffect(() => {
+    setCapabilities(null);
+    refreshCapabilities();
+    return () => {
+      cancelActiveRequestRef.current?.();
+    };
+  }, [refreshCapabilities]);
+
+  const capabilitiesValue = useMemo(
+    () => ({ capabilities, refresh: refreshCapabilities }),
+    [capabilities, refreshCapabilities],
+  );
 
   return (
     <ServerContext.Provider value={server}>
-      <ServerCapabilitiesContext.Provider value={capabilities}>{children}</ServerCapabilitiesContext.Provider>
+      <ServerCapabilitiesContext.Provider value={capabilitiesValue}>{children}</ServerCapabilitiesContext.Provider>
     </ServerContext.Provider>
   );
 }
@@ -46,7 +62,11 @@ export function useOptionalServer(): AgentUIServer | null {
 }
 
 export function useServerCapabilities(): AgentBuilderCapabilitiesResponse['data'] | null {
-  return useContext(ServerCapabilitiesContext);
+  return useContext(ServerCapabilitiesContext)?.capabilities ?? null;
+}
+
+export function useOptionalRefreshServerCapabilities(): (() => void) | null {
+  return useContext(ServerCapabilitiesContext)?.refresh ?? null;
 }
 
 export function useCatalogServer(): CatalogServer {

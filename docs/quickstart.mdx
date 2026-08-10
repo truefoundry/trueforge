@@ -6,28 +6,24 @@ description: 'Run TrueForge with one command, configure a model provider, and ha
 
 ## Run TrueForge
 
+TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** — a single process on your machine, like a personal productivity tool — and **hosted mode** — a shared deployment for your team, with Postgres for storage and Redis for cross-replica peering. The agent features are identical in both.
+
 <Tabs>
-  <Tab title="npx">
-    Requires [Node.js](https://nodejs.org) 22.13 or newer. One command, no other infrastructure — data is stored in a local SQLite file:
+  <Tab title="Local mode (npx)">
+    Requires [Node.js](https://nodejs.org) 22.13 or newer. One command, no other infrastructure — the UI and backend run locally, and data is stored in a local SQLite file:
 
     ```bash
     npx @truefoundry/trueforge
     ```
 
-    Then open [http://localhost:8790](http://localhost:8790).
-
-    | Configuration     | Default                    | Description                                     |
-    | ----------------- | -------------------------- | ----------------------------------------------- |
-    | `--port` / `PORT` | `8790`                     | HTTP port the server (UI + API) listens on.     |
-    | `SQLITE_PATH`     | OS data dir                | Location of the SQLite database file.           |
-    | `PUBLIC_BASE_URL` | `http://localhost:${PORT}` | Public origin, used for MCP OAuth callbacks.    |
+    Then open [http://localhost:8790](http://localhost:8790). The defaults work out of the box — see the [FAQ](#faq) to change the port or data location.
 
   </Tab>
-  <Tab title="Docker Compose">
-    Runs the full production topology on your machine: the server (UI + API), Postgres, and Redis.
+  <Tab title="Hosted mode (Docker Compose)">
+    Runs the full hosted topology on your machine: the server (UI + API), Postgres, and Redis.
 
     ```bash
-    git clone <REPO_URL> trueforge && cd trueforge   # TODO: repo URL
+    git clone https://github.com/truefoundry/trueforge && cd trueforge
     cp packages/server/.env.example packages/server/.env
     docker compose up --build
     ```
@@ -41,8 +37,8 @@ description: 'Run TrueForge with one command, configure a model provider, and ha
     | Host ports                                            | `8791`, `5433`, `6380`  | App, Postgres, and Redis.                                |
 
   </Tab>
-  <Tab title="Kubernetes (Helm)">
-    The Helm chart deploys the server in distributed mode with bundled Postgres and Redis (or point it at your own). No values are required for a basic install:
+  <Tab title="Hosted mode (Kubernetes)">
+    The Helm chart deploys the server in hosted mode with bundled Postgres and Redis (or point it at your own). No values are required for a basic install:
 
     ```bash
     # TODO: replace <HELM_REPO> with the published Helm repo URL
@@ -61,8 +57,9 @@ description: 'Run TrueForge with one command, configure a model provider, and ha
 </Tabs>
 
 <Note>
-  Standalone (`npx`) uses SQLite and needs no other services. Docker Compose and Kubernetes run the multi-replica
-  topology: Postgres for storage and Redis for cross-replica peering. The agent features are identical in both.
+  Local mode (`npx`) uses SQLite and needs no other services. Docker Compose and Kubernetes run hosted mode: Postgres
+  replaces SQLite as durable storage, and Redis peers the replicas so streams and cancellations follow the client
+  across them.
 </Note>
 
 ## Configure a model provider
@@ -166,6 +163,43 @@ curl -N -X POST http://localhost:8790/api/v1/sessions/{session_id}/turns \
 ```
 
 See the [API overview](/api/overview) for the full lifecycle — turn chaining, approvals, and event handling.
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="How do I run the server on a different port?">
+    Pass `--port`, or set the `PORT` environment variable:
+
+    ```bash
+    npx @truefoundry/trueforge --port 3000
+    # or
+    PORT=3000 npx @truefoundry/trueforge
+    ```
+
+    In hosted mode, change the host port mappings in `docker-compose.yml` instead.
+
+  </Accordion>
+  <Accordion title="Where does local mode store its data?">
+    In a SQLite file in your OS's application data directory. To put it somewhere else, set the `SQLITE_PATH` environment variable:
+
+    ```bash
+    SQLITE_PATH=~/trueforge/db.sqlite npx @truefoundry/trueforge
+    ```
+
+  </Accordion>
+  <Accordion title="What is PUBLIC_BASE_URL and when do I need to set it?">
+    The public origin the server hands to MCP servers for OAuth callbacks. It defaults to `http://localhost:<port>`, which is correct as long as you access TrueForge from the same machine.
+
+    Set it when the server is reachable at a different address — behind a domain, reverse proxy, or on another host:
+
+    ```bash
+    PUBLIC_BASE_URL=https://agents.example.com npx @truefoundry/trueforge
+    ```
+
+    In hosted mode, set it in `packages/server/.env` (Docker Compose) or via `server.publicBaseUrl` (Helm).
+
+  </Accordion>
+</AccordionGroup>
 
 ## Next steps
 

@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import { useServerCapabilities } from './ServerContext.js';
+import { useOptionalRefreshServerCapabilities, useServerCapabilities } from './ServerContext.js';
 import type { AgentLibraryEntry, AgentSpec } from './types.js';
 
 /** Host-facing shell configuration for agent / library / composer chrome. */
@@ -148,6 +148,7 @@ export function ShellModeProvider({
   children: ReactNode;
 }) {
   const capabilities = useServerCapabilities();
+  const refreshCapabilities = useOptionalRefreshServerCapabilities();
   const mutableSeedRef = useRef(mutableSeedFromConfig(agentConfig));
   if (
     (agentConfig.mode === 'AgentComposer' || agentConfig.mode === 'AgentLibraryWithComposer') &&
@@ -271,8 +272,10 @@ export function ShellModeProvider({
   );
 
   const openDraft = useCallback(() => {
+    if (!isComposerEnabled) return;
+    refreshCapabilities?.();
     selectLibraryAgent({ isMutable: true, agentSpec: mutableSeedRef.current });
-  }, [selectLibraryAgent]);
+  }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 
   const openHistorySession = useCallback(
     ({
