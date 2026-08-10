@@ -48,6 +48,6 @@ re-exports override **types** only where needed.
 
 ## Styles
 
-| Export path                            | Notes                       |
-| -------------------------------------- | --------------------------- |
-| `@truefoundry/trueforge-ui/styles.css` | Tokens + utilities + OpenUI |
+| Export path                            | Notes                                                 |
+| -------------------------------------- | ----------------------------------------------------- |
+| `@truefoundry/trueforge-ui/styles.css` | Tokens + utilities + OpenUI (optional; auto-injected) |
