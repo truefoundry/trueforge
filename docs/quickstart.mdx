@@ -101,17 +101,13 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
     <Frame caption="Import from GitHub — point TrueForge at a SKILL.md in any public repo.">
       <img src="/images/quickstart-skill-1.png" alt="The Import from GitHub dialog filled in for the pdf skill" />
     </Frame>
-    <Frame caption="The imported pdf skill, now under Selected.">
-      <img src="/images/quickstart-skill-2.png" alt="Settings → Skills with the pdf skill under Selected and more skills available" />
-    </Frame>
   </Step>
 
   <Step title="Add a sandbox provider (optional)">
     A [sandbox](/sandbox) lets the agent run code, work with files, and use skills. TrueForge supports [Daytona](https://www.daytona.io) today. It's a one-time setup:
 
     1. **Create a Daytona API key** with permission to write and delete snapshots and write sandboxes.
-    2. **Sync the TrueForge sandbox image** to your Daytona account (a one-time CLI step).
-    3. **Add the provider** under **Settings → Sandbox providers** — choose Daytona and enter your API key.
+    2. **Add the provider** under **Settings → Sandbox providers** — choose Daytona and enter your API key.
 
     <Frame>
       <img src="/images/quickstart-sandbox.png" alt="The Configure Daytona dialog: snapshot name, API key, and a collapsed Advanced settings section" />
@@ -126,17 +122,14 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
     1. **Pick a model** from the selector in the composer.
     2. Open the **+** menu → **Connectors** and enable the MCP server you connected.
     3. In the same menu → **Skills**, enable your skill.
-    4. **Send your first message.** Streaming, tool calls, sandbox output, and [approvals](/create-agent/tool-approval) all show up live.
+    4. **Send your first message.**
 
     For example, paste this to try the GitHub repo explainer:
 
     ```text
-    Use DeepWiki to explain the facebook/react repository — what it does, its architecture, and how to get started. Then use the pdf skill to save a one-page brief as a PDF.
+    Use DeepWiki to explain the truefoundry/models repository — what it does, its architecture, and how to get started. Then use the pdf skill to save a one-page brief as a PDF.
     ```
 
-    <Frame caption="Pick a model, then add your connector and skill to the turn from the + menu.">
-      <img src="/images/quickstart-composer-connectors.png" alt="The composer with a model selected and the + menu open on the Connectors tab, a connector checked" />
-    </Frame>
     <Frame caption="The agent runs — here it used the connector, the sandbox, and the pdf skill to generate a one-page brief.">
       <img src="/images/quickstart-chat-result.png" alt="A completed chat where the agent generated a one-page PDF brief, with one connector and one skill active" />
     </Frame>
