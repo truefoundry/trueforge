@@ -197,7 +197,7 @@ const ConfigureSandboxForm = ({
                 />
               </span>
             </AccordionSummary>
-            <AccordionDetails className="space-y-4 px-3 pb-3">
+            <AccordionDetails className="space-y-4 border-t border-border px-3 pb-3 pt-4">
               <div>
                 <label htmlFor="sandbox-exec-timeout" className="mb-1.5 block text-sm font-medium text-foreground">
                   Exec timeout (ms)
