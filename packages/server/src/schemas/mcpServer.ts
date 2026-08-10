@@ -78,11 +78,22 @@ export const ListMcpServersResponseSchema = z
   .object({ data: z.array(ConfiguredMcpServerSchema) })
   .openapi('ListMcpServersResponse');
 
+/** Public auth mechanism for chat/composer (no secrets). */
+export const McpServerAuthPublicSchema = z
+  .discriminatedUnion('type', [
+    z.object({ type: z.literal('dcr') }).strict(),
+    z.object({ type: z.literal('header') }).strict(),
+  ])
+  .openapi('McpServerAuthPublic');
+
 /** Chat/composer read view — public fields plus per-user auth_status. */
 export const McpServerReadEntrySchema = z
   .object({
     name: NameSchema,
     url: z.url().describe('URL of the remote MCP server.'),
+    auth: McpServerAuthPublicSchema.optional().describe(
+      'Auth mechanism when configured (no secrets). Omit when the server needs no credentials.',
+    ),
     auth_status: McpAuthStatusSchema.describe('Auth state for the calling user.'),
   })
   .strict()
@@ -96,6 +107,7 @@ export type McpServerType = z.infer<typeof McpServerTypeSchema>;
 export type McpServerAuthSettings = z.infer<typeof McpServerAuthSettingsSchema>;
 export type McpServerManifest = z.infer<typeof McpServerManifestSchema>;
 export type McpAuthStatus = z.infer<typeof McpAuthStatusSchema>;
+export type McpServerAuthPublic = z.infer<typeof McpServerAuthPublicSchema>;
 export type ConfiguredMcpServer = z.infer<typeof ConfiguredMcpServerSchema>;
 export type McpServerReadEntry = z.infer<typeof McpServerReadEntrySchema>;
 

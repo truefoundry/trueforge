@@ -95,9 +95,11 @@ function toMcpServerReadEntry({
   token: OAuthToken | undefined;
   nowMs?: number;
 }): McpServerReadEntry {
+  const authType = record.manifest.auth?.type;
   return {
     name: record.name,
     url: record.manifest.url,
+    ...(authType !== undefined ? { auth: { type: authType } } : {}),
     auth_status: resolveMcpAuthStatus({
       manifest: record.manifest,
       ...(token !== undefined ? { token } : {}),

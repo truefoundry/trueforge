@@ -205,13 +205,14 @@ describe('mcp-servers routers', () => {
     });
   });
 
-  it('GET / on the chat router returns per-user auth_status without auth fields', async () => {
+  it('GET / on the chat router returns per-user auth_status and public auth type', async () => {
     const response = await mcpServersRouter.request('/');
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
       data: {
         name: string;
         url: string;
+        auth?: { type: string };
         auth_status: { status: string };
       }[];
     };
@@ -225,14 +226,15 @@ describe('mcp-servers routers', () => {
     expect(byName.get('linear')).toEqual({
       name: 'linear',
       url: putBodyWithDcr.url,
+      auth: { type: 'dcr' },
       auth_status: { status: 'auth_required' },
     });
     expect(byName.get('private-mcp')).toEqual({
       name: 'private-mcp',
       url: putBodyWithHeaderAuth.url,
+      auth: { type: 'header' },
       auth_status: { status: 'authenticated' },
     });
-    expect(body.data.every(server => !('auth' in server))).toBe(true);
   });
 
   it('GET / chat list auth_status is scoped to the calling user', async () => {
