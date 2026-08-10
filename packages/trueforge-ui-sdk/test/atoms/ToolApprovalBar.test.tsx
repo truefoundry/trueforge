@@ -68,6 +68,8 @@ describe('ToolApprovalBar', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Reason is required');
     const reasonInput = screen.getByRole('textbox', { name: 'Reason for denial' });
     expect(reasonInput).toHaveAttribute('aria-invalid', 'true');
+    expect(reasonInput).toHaveClass('h-8');
+    expect(screen.getByRole('button', { name: 'Submit' })).toHaveClass('h-8');
 
     fireEvent.change(reasonInput, { target: { value: 'new reason' } });
     expect(onDenialReasonChange).toHaveBeenCalledWith('new reason');

@@ -70,12 +70,12 @@ docker compose up --build
 
 Then open [http://localhost:8791](http://localhost:8791).
 
-| Configuration                                               | Default                 | Description                                                           |
-| ----------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------- |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`       | `harness` (from `.env`) | Postgres credentials, read from `packages/server/.env`.               |
-| `PUBLIC_BASE_URL`                                           | `http://localhost:8791` | Public origin, used for MCP OAuth callbacks.                          |
-| Host ports                                                  | `8791`, `5433`, `6380`  | App, Postgres, and Redis - offset so they don't clash with local dev. |
-| `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | unset                   | Optional: connect an identity provider. Unset = local admin identity. |
+| Configuration                                               | Default                 | Description                                                                                                  |
+| ----------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`       | `harness` (from `.env`) | Postgres credentials, read from `packages/server/.env`.                                                      |
+| `PUBLIC_BASE_URL`                                           | `http://localhost:8791` | Public origin, used for MCP OAuth callbacks.                                                                 |
+| Host ports                                                  | `8791`, `5433`, `6380`  | App, Postgres, and Redis - offset so they don't clash with local dev.                                        |
+| `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | unset                   | Optional IdP. Unset = local admin. When set, APIs accept the ID token via cookie or `Authorization: Bearer`. |
 
 Every environment variable is documented in [`packages/server/.env.example`](packages/server/.env.example).
 

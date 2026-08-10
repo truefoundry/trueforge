@@ -10,6 +10,7 @@ import { DEFAULT_AGENT_CONFIG, ShellModeProvider, useShellMode, type AgentConfig
 import type { TrueforgeServerConfig } from '../server/TrueforgeServerConfig.js';
 import { SlotsProvider, type SlotOverrides } from '../theme/SlotsProvider.js';
 import type { LayoutProp, ThemeConfig } from '../theme/types.js';
+import { getErrorMessage } from '../utils/getErrorMessage.js';
 import PostMcpOauthScreen from './McpOauthContainer/PostMcpOauthScreen.js';
 import { TrueFoundryChatProvider, type TrueFoundryChatProviderProps } from './TrueFoundryChatProvider.js';
 import { useResolvedServer } from './useResolvedServer.js';
@@ -80,7 +81,7 @@ function ServerInitLoader({ className }: { className?: string }) {
 }
 
 function ServerInitError({ error, className }: { error: unknown; className?: string }) {
-  const message = error instanceof Error ? error.message : 'Failed to initialize server';
+  const message = getErrorMessage(error, 'Failed to initialize server');
   return (
     <div
       role="alert"

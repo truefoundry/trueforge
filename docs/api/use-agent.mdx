@@ -25,12 +25,12 @@ const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
   // Raise for long-running SSE turns (default is 60s).
   timeoutInSeconds: 600,
-  // Optional: pass whatever your deployment uses for auth.
-  // headers: { Authorization: `Bearer ${process.env.TRUEFORGE_TOKEN}` },
+  // Optional: ID token when auth is enabled on the server.
+  // token: process.env.TRUEFORGE_TOKEN,
 });
 ```
 
-The harness has no built-in API-key auth. Point `baseUrl` at your deployment (standalone default: `http://localhost:8790`). Pass `headers` when your reverse proxy or OIDC layer requires them.
+When auth is enabled, pass `token` (Bearer ID token). When auth is disabled, omit it.
 
 ## Create a session
 

@@ -1,0 +1,65 @@
+---
+title: "Agent modes"
+description: "Choose between a fixed agent, a library, a composer, or both."
+---
+
+`agentConfig` decides which agent-selection affordances the shell exposes.
+
+```ts
+type AgentConfig =
+  | { mode: "SingleAgent"; name: string }
+  | { mode: "AgentLibrary" }
+  | { mode: "AgentComposer"; defaultAgentSpec?: AgentSpec }
+  | { mode: "AgentLibraryWithComposer"; defaultAgentSpec?: AgentSpec };
+```
+
+The default is `{ mode: "AgentLibraryWithComposer" }`.
+
+| Mode | Library | Composer | New chat |
+| --- | --- | --- | --- |
+| `SingleAgent` | — | — | yes |
+| `AgentLibrary` | yes | — | no |
+| `AgentComposer` | — | yes | yes |
+| `AgentLibraryWithComposer` | yes | yes | yes |
+
+<AccordionGroup>
+  <Accordion title="SingleAgent">
+    Pins the UI to one named agent. All selection controls are hidden and the user cannot switch agents or open the composer.
+  </Accordion>
+
+  <Accordion title="AgentLibrary">
+    Users pick from agents your `searchAgents` implementation returns, but cannot author a new one. Note that "new chat" is disabled in this mode only.
+
+    <Frame caption="The Agents Library: users pick from the agents your `searchAgents` returns.">
+      ![The Agents Library dialog listing saved agents to choose from](/images/agent-registry.png)
+    </Frame>
+  </Accordion>
+
+  <Accordion title="AgentComposer">
+    Users assemble an ad-hoc agent — model, skills, MCP servers — without browsing a library, and can save it back to the library.
+
+    <Frame caption="Composing an agent — pick a model, add connectors and skills, then save it to the library.">
+      <div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.46", padding: "40px 0" }}>
+  <iframe src="https://app.supademo.com/embed/cmsk13xio00k81p0j1wj6amj6?embed_v=2&utm_source=embed" loading="lazy" title="Compose an agent in TrueForge" allow="clipboard-write" allowFullScreen style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }} />
+</div>
+    </Frame>
+  </Accordion>
+
+  <Accordion title="AgentLibraryWithComposer">
+    Both surfaces, and the default. Users can pick an existing agent or author a new one.
+  </Accordion>
+</AccordionGroup>
+
+## Gotchas
+
+<Warning>
+  `defaultAgentSpec` seeds a new draft rather than binding to the current one. Changing it does not alter the conversation on screen, and it does not apply on **clear chat** either — that path deliberately preserves the spec already bound to the draft. The new value is picked up when a **new chat** starts. To apply it immediately, remount the component with a new `key`. It is ignored entirely in `SingleAgent` mode.
+</Warning>
+
+<Warning>
+  Always pass an explicit `defaultAgentSpec` in composer modes. Omitting it falls back to `{ model: { name: "openai-main/gpt-4.1" } }`, and requests fail if your backend does not expose a model under that exact name.
+</Warning>
+
+## Settings
+
+The settings panel appears only when your server exposes a `catalog`. Without one it is silently absent — there is no error, so an unexpectedly missing settings button usually means the catalog is not attached. Note that `useCatalogServer()` throws when there is no catalog; use `useOptionalCatalogServer()` in code that must tolerate its absence.

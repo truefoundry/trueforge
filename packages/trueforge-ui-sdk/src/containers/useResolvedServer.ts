@@ -4,12 +4,21 @@ import { createTrueFoundryAgentUIServer } from '@truefoundry/assistant-ui-runtim
 import { useEffect, useState } from 'react';
 
 import type { TrueforgeBuiltInServerConfig, TrueforgeServerConfig } from '../server/TrueforgeServerConfig.js';
-import type { AgentUIServer } from '../server/types.js';
+import type { AgentBuilderCapabilitiesResponse, AgentUIServer, CatalogServer } from '../server/types.js';
 
 export type ResolvedServerState =
   | { status: 'loading'; server: null; error: null }
   | { status: 'ready'; server: AgentUIServer; error: null }
   | { status: 'error'; server: null; error: unknown };
+
+/** Used when the runtime adapter has not shipped `getCapabilities` yet. */
+const DEFAULT_CAPABILITIES = {
+  data: {
+    sandbox: { enabled: true },
+    skill: { enabled: true },
+    settings: { enabled: true },
+  },
+} satisfies AgentBuilderCapabilitiesResponse;
 
 function isBuiltInConfig(config: TrueforgeServerConfig): config is TrueforgeBuiltInServerConfig {
   return (
@@ -17,6 +26,48 @@ function isBuiltInConfig(config: TrueforgeServerConfig): config is TrueforgeBuil
     config !== null &&
     'type' in config &&
     (config.type === 'truefoundry' || config.type === 'trueforge')
+  );
+}
+
+function hasGetCapabilities(
+  server: object,
+): server is { getCapabilities: () => Promise<AgentBuilderCapabilitiesResponse> } {
+  return typeof Reflect.get(server, 'getCapabilities') === 'function';
+}
+
+/**
+ * Runtime chat/builder objects are structurally an AgentUIServer once
+ * `getCapabilities` is present. Catalog is optional host overlay.
+ */
+function toAgentUIServer(server: object, catalog: CatalogServer | undefined): AgentUIServer {
+  const getCapabilities = hasGetCapabilities(server)
+    ? () => server.getCapabilities()
+    : async () => DEFAULT_CAPABILITIES;
+  const withCapabilities = { ...server, getCapabilities };
+  const withCatalog = catalog != null ? { ...withCapabilities, catalog } : withCapabilities;
+  if (!isAgentUIServer(withCatalog)) {
+    throw new Error('TrueforgeUI: runtime adapter returned an incomplete AgentUIServer');
+  }
+  return withCatalog;
+}
+
+function isAgentUIServer(value: object): value is AgentUIServer {
+  return (
+    typeof Reflect.get(value, 'createSession') === 'function' &&
+    typeof Reflect.get(value, 'listSessions') === 'function' &&
+    typeof Reflect.get(value, 'getSession') === 'function' &&
+    typeof Reflect.get(value, 'updateSession') === 'function' &&
+    typeof Reflect.get(value, 'createTurn') === 'function' &&
+    typeof Reflect.get(value, 'cancelSession') === 'function' &&
+    typeof Reflect.get(value, 'listTurns') === 'function' &&
+    typeof Reflect.get(value, 'getTurn') === 'function' &&
+    typeof Reflect.get(value, 'listEvents') === 'function' &&
+    typeof Reflect.get(value, 'getCapabilities') === 'function' &&
+    typeof Reflect.get(value, 'getModels') === 'function' &&
+    typeof Reflect.get(value, 'getSkills') === 'function' &&
+    typeof Reflect.get(value, 'getMcp') === 'function' &&
+    typeof Reflect.get(value, 'searchAgents') === 'function' &&
+    typeof Reflect.get(value, 'saveAgent') === 'function'
   );
 }
 
@@ -73,14 +124,18 @@ export function useResolvedServer(
       cpURL: controlPlaneURL,
       ...(gatewayPlaneURL ? { gatewayURL: gatewayPlaneURL } : {}),
     })
-      .then(server => {
+      .then(runtimeServer => {
         if (cancelled) return;
-        const resolved = server as unknown as AgentUIServer;
-        setState({
-          status: 'ready',
-          server: catalog != null ? ({ ...resolved, catalog } as AgentUIServer) : resolved,
-          error: null,
-        });
+        try {
+          setState({
+            status: 'ready',
+            server: toAgentUIServer(runtimeServer, catalog),
+            error: null,
+          });
+        } catch (error: unknown) {
+          onError?.(error);
+          setState({ status: 'error', server: null, error });
+        }
       })
       .catch((error: unknown) => {
         if (cancelled) return;

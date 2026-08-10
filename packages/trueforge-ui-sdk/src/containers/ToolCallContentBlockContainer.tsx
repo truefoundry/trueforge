@@ -7,22 +7,48 @@ import { useSlot } from '../theme/SlotsProvider.js';
 
 export function ToolCallContentBlockContainer(props: ToolCallContentBlockProps) {
   const ToolCallContentBlock = useSlot('ToolCallContentBlock');
+  const { isJson, onContentHeightChange: notifyContentHeightChange, resizable } = props;
   const [fullscreen, setFullscreen] = useState(false);
-  const [contentHeightRem, setContentHeightRem] = useState(1.5);
+  const [contentHeightRem, setContentHeightRem] = useState<number>();
   const observerRef = useRef<ResizeObserver | null>(null);
+  const contentNodeRef = useRef<HTMLDivElement | null>(null);
+  const hasMeasuredRef = useRef(false);
 
   const contentRef = useCallback(
     (node: HTMLDivElement | null) => {
       observerRef.current?.disconnect();
       observerRef.current = null;
-      if (!props.resizable || node == null) return;
+      contentNodeRef.current = node;
+      hasMeasuredRef.current = false;
+      if (node == null) return;
 
-      const updateHeight = () => setContentHeightRem(node.scrollHeight / 16);
+      setContentHeightRem(undefined);
+      if (!resizable) return;
+
+      const updateHeight = () => {
+        if (!hasMeasuredRef.current && isJson !== false) return;
+        const renderedHeight = node.getBoundingClientRect().height;
+        const height = hasMeasuredRef.current && renderedHeight > 0 ? renderedHeight : node.scrollHeight;
+        hasMeasuredRef.current = true;
+        setContentHeightRem(height / 16);
+      };
       updateHeight();
       observerRef.current = new ResizeObserver(updateHeight);
       observerRef.current.observe(node);
     },
-    [props.resizable],
+    [isJson, resizable],
+  );
+
+  const onContentHeightChange = useCallback(
+    (height: number) => {
+      const node = contentNodeRef.current;
+      if (node == null) return;
+      const renderedHeight = node.getBoundingClientRect().height;
+      hasMeasuredRef.current = true;
+      setContentHeightRem((renderedHeight > 0 ? renderedHeight : Math.max(height, node.scrollHeight)) / 16);
+      notifyContentHeightChange?.(height);
+    },
+    [notifyContentHeightChange],
   );
 
   useEffect(
@@ -39,6 +65,7 @@ export function ToolCallContentBlockContainer(props: ToolCallContentBlockProps) 
       onFullscreenChange={setFullscreen}
       contentHeightRem={contentHeightRem}
       contentRef={contentRef}
+      onContentHeightChange={onContentHeightChange}
     />
   );
 }
