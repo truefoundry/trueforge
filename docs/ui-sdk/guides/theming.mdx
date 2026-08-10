@@ -11,11 +11,11 @@ You can choose from four preset themes - Claude, ChaptGPT, Gemini, or TrueFoundr
 type ThemeConfig = {
   preset?: "truefoundry" | "claude" | "chatgpt" | "gemini"; // default "truefoundry"
   mode?: "light" | "dark" | "system";
-  brandName?: string;
-  brandLogo?: string;
-  className?: string;
-  icons?: IconMap;
-  classNames?: ContentClassNames;
+  brand?: {
+	name?: string;
+  	logo?: string | BrandLogo;
+  },
+  ...
 };
 ```
 
@@ -25,7 +25,10 @@ type ThemeConfig = {
   theme={{
     preset: "claude",
     mode: "system",
-    brand: { name: "Acme", icon: { src: "/logo.svg", alt: "Acme" } },
+    brand: {
+        name: "TrueForge",
+        logo: "/logo.svg",
+    }
   }}
 />
 ```
@@ -48,12 +51,29 @@ The `chatgpt`, `claude`, and `gemini` presets (the default is `truefoundry`):
 
 ## Light and dark mode
 
-Skip `theme.mode` to set the theme as system. and the provider is uncontrolled: it resolves `system`, lets the user toggle, and persists the choice to `localStorage` under `aui-theme-preference`. Pass `theme.mode` and the provider becomes controlled — `setTheme` from `useTheme()` becomes a no-op and you own the state.
+Skip means defaults to system theme. User can choose via UI.
 
-<Warning>
-  Dark mode toggles the `dark` class on `document.documentElement`. If your app already manages dark mode by the same mechanism, the two will fight. Pass a controlled `theme.mode` derived from your own state to keep them in sync.
-</Warning>
+Pass to set a theme to light, dark or system. User CANNOT update it. This is useful when you want to control the theme based on the main/top level app theme.
 
 <Frame caption="Dark mode applied to the chat UI.">
   ![The TrueForge UI SDK rendered in dark mode](/images/dark_theme.png)
 </Frame>
+
+### Set separate logo for light and dark theme 
+
+```tsx App.tsx
+<TrueforgeUI
+  ...
+  theme={{
+    ...
+    brand: {
+        name: "TrueForge",
+        logo: {
+		  "light": "/logo/light.svg",
+		  "dark": "/logo/dark.svg",
+		  "href": "https://trueforge.dev" //URL to redirect on logo click
+        },
+    }
+  }}
+/>
+```
