@@ -388,6 +388,30 @@
         "properties": {},
         "type": "object"
       },
+      "CatalogCustomModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "supported_reasoning_efforts": {
+            "description": "Supported reasoning-effort values for this provider.",
+            "items": {
+              "$ref": "#/components/schemas/ReasoningEffort"
+            },
+            "type": "array"
+          },
+          "type": {
+            "description": "Custom provider type (catalog includes `custom`).",
+            "enum": [
+              "custom"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "supported_reasoning_efforts"
+        ],
+        "type": "object"
+      },
       "CatalogDaytonaSandboxProvider": {
         "additionalProperties": false,
         "properties": {
@@ -471,46 +495,15 @@
         ],
         "type": "object"
       },
-      "CatalogProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "logo": {
-            "description": "URL of the provider logo asset.",
-            "format": "uri",
-            "type": "string"
+      "CatalogModelProvider": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/CatalogWellKnownModelProvider"
           },
-          "models": {
-            "description": "Preset models for this catalog provider.",
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "description": "Well-known provider type (catalog excludes `custom`).",
-            "enum": [
-              "openai",
-              "anthropic",
-              "google-gemini",
-              "fireworks",
-              "zai",
-              "moonshot",
-              "alibaba",
-              "together"
-            ],
-            "type": "string"
+          {
+            "$ref": "#/components/schemas/CatalogCustomModelProvider"
           }
-        },
-        "required": [
-          "type",
-          "name",
-          "models"
-        ],
-        "type": "object"
+        ]
       },
       "CatalogSkill": {
         "additionalProperties": false,
@@ -551,6 +544,42 @@
           "url",
           "ref",
           "description"
+        ],
+        "type": "object"
+      },
+      "CatalogWellKnownModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "logo": {
+            "description": "URL of the provider logo asset.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "description": "Preset models; empty on the `custom` sentinel.",
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "type": "array"
+          },
+          "type": {
+            "description": "Well-known provider type (catalog excludes `custom`).",
+            "enum": [
+              "openai",
+              "anthropic",
+              "google-gemini",
+              "fireworks",
+              "zai",
+              "moonshot",
+              "alibaba",
+              "together"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "models"
         ],
         "type": "object"
       },
@@ -1119,7 +1148,7 @@
         "properties": {
           "data": {
             "items": {
-              "$ref": "#/components/schemas/CatalogProvider"
+              "$ref": "#/components/schemas/CatalogModelProvider"
             },
             "type": "array"
           }
@@ -6363,7 +6392,7 @@
     },
     "/api/v1/settings/model-providers/catalog": {
       "get": {
-        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Custom providers are not listed here.",
+        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Includes a `custom` sentinel with `supported_reasoning_efforts` for the custom-provider form (not configurable from catalog).",
         "responses": {
           "200": {
             "content": {
@@ -6708,8 +6737,7 @@
   "security": [
     {
       "BearerAuth": []
-    },
-    {}
+    }
   ],
   "webhooks": {}
 }
