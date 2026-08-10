@@ -175,13 +175,16 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
         },
         transaction,
       );
-      if (dcrClientToSave !== undefined) {
+      if (dcrClientToSave) {
+        // New DCR registration (create, missing client, or URL change): replace client and drop any
+        // token issued for the previous resource/AS so we never report authenticated with stale creds.
         await deps.mcpServerStore.saveClient({ id: saved.id, record: dcrClientToSave }, transaction);
+        await deps.tokenStore.deleteToken({ id: saved.id, userRef }, transaction);
       }
       return saved;
     });
 
-    // A re-upsert preserves `id`, so a DCR server may already carry a token from a prior authorize.
+    // A re-upsert preserves `id`; token is only present when DCR was skipped and prior auth remains.
     const token =
       record.manifest.auth?.type === 'dcr' ? await deps.tokenStore.getToken({ id: record.id, userRef }) : undefined;
     return c.json({ data: toConfiguredMcpServer({ record, token }) }, 200);

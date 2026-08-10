@@ -228,6 +228,86 @@ describe('mcp-servers routers', () => {
     await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
   });
 
+  it('PUT URL change re-registers DCR and clears the previous access token', async () => {
+    const record = await seedDcrServerWithClient();
+    await tokenStore.saveToken({
+      id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
+      token: {
+        accessToken: 'stale-for-old-url',
+        refreshToken: 'stale-refresh',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        scope: null,
+      },
+    });
+
+    const newUrl = 'https://mcp.linear.app/v2/mcp';
+    const asOrigin = 'https://auth.example.com';
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+      if (url.includes('oauth-protected-resource')) {
+        return new Response(JSON.stringify({ resource: newUrl, authorization_servers: [asOrigin] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.includes('oauth-authorization-server') || url.includes('openid-configuration')) {
+        return new Response(
+          JSON.stringify({
+            issuer: asOrigin,
+            authorization_endpoint: `${asOrigin}/authorize`,
+            token_endpoint: `${asOrigin}/token`,
+            registration_endpoint: `${asOrigin}/register`,
+            response_types_supported: ['code'],
+            code_challenge_methods_supported: ['S256'],
+            grant_types_supported: ['authorization_code', 'refresh_token'],
+            token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.includes('/register') && init?.method === 'POST') {
+        return new Response(
+          JSON.stringify({
+            client_id: 'new-url-client',
+            client_secret: 'new-url-secret',
+            token_endpoint_auth_method: 'client_secret_post',
+            redirect_uris: [`${process.env['PUBLIC_BASE_URL'] ?? ''}/api/v1/mcp-servers/oauth/callback`],
+            grant_types: ['authorization_code', 'refresh_token'],
+            response_types: ['code'],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      return new Response(`unexpected url: ${url}`, { status: 404 });
+    }) as typeof fetch;
+
+    try {
+      const response = await settingsRouter.request(
+        '/',
+        putInit({
+          ...putBodyWithDcr,
+          url: newUrl,
+        }),
+      );
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        data: {
+          ...putBodyWithDcr,
+          url: newUrl,
+          auth_status: { status: 'auth_required' },
+        },
+      });
+      expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toBeUndefined();
+      expect(await mcpServerStore.getClient({ id: record.id })).toMatchObject({
+        client: { clientId: 'new-url-client' },
+      });
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
   it('PUT with header auth stores headers and reports authenticated', async () => {
     const response = await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
     expect(response.status).toBe(200);
