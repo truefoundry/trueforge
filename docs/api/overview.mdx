@@ -1,10 +1,10 @@
 ---
-title: 'Using the API'
+title: 'SDK Overview'
 sidebarTitle: 'Overview'
-description: 'Understand Agent, Session, Turn, Event, and Delta — then create sessions, run turns, and stream events over REST or the TypeScript SDK.'
+description: 'Understand Agent, Session, Turn, Event, and Delta — then drive TrueForge with the TypeScript SDK.'
 ---
 
-Everything the chat UI does goes through the HTTP API, so anything you can do in the UI you can automate. The API is served under `/api/v1`, documented interactively at `/api/v1/docs` (OpenAPI 3.1 at `/api/v1/openapi.json`). A generated TypeScript client, [`trueforge-sdk`](https://www.npmjs.com/package/trueforge-sdk), wraps the same API. For a full SDK cookbook (streaming, approvals, reconnects, threads), see [Use an agent](/api/use-agent).
+Everything the chat UI does is available programmatically. Use the TypeScript client [`trueforge-sdk`](https://www.npmjs.com/package/trueforge-sdk) to create sessions, stream turns, and handle approvals. For a full cookbook (streaming, approvals, reconnects, threads), see [Use an agent](/api/use-agent). For raw HTTP schemas and paths, use the **API Reference** tab.
 
 ## Core concepts
 
@@ -56,7 +56,7 @@ An **agent** is a definition, not a running process. You define it once — mode
 }
 ```
 
-You can save this spec as a named agent (`POST /api/v1/agents`) and reference it by id in every session, or pass it inline when creating a session. See the [agent spec reference](/api/agent-spec) for every field.
+You can save this spec as a named agent and reference it by name in every session, or pass it inline when creating a session. See the [agent spec reference](/api/agent-spec) for every field.
 
 ### Session
 
@@ -102,14 +102,14 @@ flowchart LR
 | **Turn 3** | Jane (or a support rep) | Approval: allow `process_refund`               | Agent runs the refund and sends a confirmation.                 |
 
 <Note>
-  A turn can also end paused when the agent asks a clarifying question ([`tool.response_required`](/ask-user-questions))
+  A turn can also end paused when the agent asks a clarifying question ([`tool.response_required`](/create-agent/ask-user-questions))
   or needs MCP OAuth ([`mcp.auth_required`](/mcp-servers#in-chat-authentication)). You resume with a new turn, just like
   Turn 3 above.
 </Note>
 
 ### Event
 
-While a turn runs, the agent emits **events** over Server-Sent Events (SSE) — one JSON object at a time. Events tell your app what the agent is doing: calling a tool, getting a result, writing a reply, or finishing.
+While a turn runs, the agent emits **events** on the SDK stream — one JSON object at a time. Events tell your app what the agent is doing: calling a tool, getting a result, writing a reply, or finishing.
 
 **Events during Turn 1** (Jane asks for order status):
 
@@ -166,7 +166,7 @@ Sample payloads:
 }
 ```
 
-Every event carries an `id` and a `thread_id` (`"main"` for the root agent, a generated id for [subagents](/context-engineering/subagents), or `null` for run-level events). The SSE message's `id:` field carries a per-stream **sequence number** used for [resuming after a disconnect](#non-streaming-reconnects-and-cancellation). The stream always opens with `turn.created` and closes with `turn.done`.
+Every event carries an `id` and a `thread_id` (`"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events). The stream also carries a **sequence number** used for [resuming after a disconnect](/api/use-agent). The stream always opens with `turn.created` and closes with `turn.done`.
 
 For field-level schemas of every event type, see the [turn events reference](/api/turn-events).
 
@@ -198,13 +198,13 @@ Deltas only exist on the live stream. When you list a turn's events afterwards (
 
 <Note>
   **Thread** is a related concept: an execution context inside a turn. The root agent runs on `thread_id: "main"`;
-  [subagents](/context-engineering/subagents) get their own thread ids, announced by `thread.created` / `thread.done`
+  [subagents](/key-features/subagents) get their own thread ids, announced by `thread.created` / `thread.done`
   events. Events carry `thread_id` so you can partition a single turn stream when subagents run in parallel.
 </Note>
 
 ## The three turns, end to end
 
-Here is Jane's whole refund session against the API — solid arrows are HTTP requests you make; dashed arrows are SSE events streamed back.
+Here is Jane's whole refund session — your app opens a session, runs turns, and consumes streamed events.
 
 {/* Mermaid source for regenerating the image below:
 
@@ -214,9 +214,9 @@ sequenceDiagram
   participant TF as TrueForge · support-bot · main thread
 
   Note over App,TF: Turn 1 — order status
-  App->>TF: POST /api/v1/sessions (agent: support-bot)
+  App->>TF: sessions.create (agent: support-bot)
   TF-->>App: { "id": "sess-7f2a9c1b" }
-  App->>TF: POST /sessions/sess-7f2a9c1b/turns (user.message: "status of ORD-2031?")
+  App->>TF: createTurnStream (user.message: "status of ORD-2031?")
   TF-->>App: turn.created { turn_id: "turn-001", previous_turn_id: null }
   TF-->>App: mcp.initialize { mcp_servers: [orders-api] }
   TF-->>App: model.message — tool call get_order({ order_id: "ORD-2031" })
@@ -225,14 +225,14 @@ sequenceDiagram
   TF-->>App: turn.done { output: reply, required_actions: [] }
 
   Note over App,TF: Turn 2 — refund request (pauses)
-  App->>TF: POST /sessions/sess-7f2a9c1b/turns (user.message: "issue a full refund")
+  App->>TF: createTurnStream (user.message: "issue a full refund")
   TF-->>App: turn.created { turn_id: "turn-002", previous_turn_id: "turn-001" }
   TF-->>App: model.message (id: msg-b2) — tool call process_refund({ order_id, amount })
   TF-->>App: tool.approval_required { tool_calls: [{ id: "call-refund-01" }] }
   TF-->>App: turn.done { output: null, required_actions: [tool.approval_required] }
 
   Note over App,TF: Turn 3 — approval resumes the run
-  App->>TF: POST /sessions/sess-7f2a9c1b/turns (user.tool_approval: allow call-refund-01)
+  App->>TF: createTurnStream (user.tool_approval: allow call-refund-01)
   TF-->>App: turn.created { turn_id: "turn-003", previous_turn_id: "turn-002" }
   TF-->>App: tool.response { refund_id: "RF-9914", status: completed }
   TF-->>App: model.message (id: msg-c3) + deltas: "Refund RF-9914 has been processed..."
@@ -241,10 +241,10 @@ sequenceDiagram
 
 */}
 
-<Frame caption="Three chained turns in one session: HTTP requests (solid) from your app and SSE events (dashed) streamed back from TrueForge, annotated with real payloads">
+<Frame caption="Three chained turns in one session: your app creates the session and turns; TrueForge streams events back">
   <img
     src="/images/api-sequence-diagram.png"
-    alt="Sequence diagram of the support-bot session sess-7f2a9c1b across three turns. Your app calls POST /api/v1/sessions and POST /sessions/sess-7f2a9c1b/turns against the TrueForge harness running the support-bot main thread. Turn 1 (order status) streams turn.created, mcp.initialize, a get_order tool call and tool.response, model.message plus deltas, and turn.done. Turn 2 (refund request) streams a process_refund tool call, tool.approval_required, and a paused turn.done with required_actions. Turn 3 (approval) sends user.tool_approval and streams tool.response, model.message plus deltas, and a final turn.done. Each event is annotated with its JSON payload."
+    alt="Sequence diagram of the support-bot session across three turns. Turn 1 streams tool calls and a reply; Turn 2 pauses for approval; Turn 3 resumes with the approval and streams the confirmation."
   />
 </Frame>
 
@@ -297,33 +297,11 @@ sequenceDiagram
 
 A separate issue — Bob's shipping question, or even Jane's next problem — runs in its own session, where Turn 1 starts fresh with no refund history carried over.
 
-## Run it
+## Run it with the SDK
 
 ### 1. Create a session
 
-Pass an inline agent spec (`{ "spec": ... }`), or reference a saved agent by name (`{ "name": "..." }`):
-
-<Tabs>
-<Tab title="curl">
-
-```bash
-curl -X POST http://localhost:8790/api/v1/sessions \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "agent": {
-      "spec": {
-        "model": { "name": "anthropic/claude-sonnet-4-6" },
-        "instructions": "You help customers with orders. Always confirm before processing refunds.",
-        "mcp_servers": [
-          { "name": "orders-api", "require_approval_for_tools": ["process_refund"] }
-        ]
-      }
-    }
-  }'
-```
-
-</Tab>
-<Tab title="TypeScript">
+Pass an inline agent spec, or reference a saved agent by name:
 
 ```typescript
 import { TrueForge } from 'trueforge-sdk';
@@ -341,26 +319,7 @@ const { data: session } = await client.sessions.create({
 });
 ```
 
-</Tab>
-</Tabs>
-
 ### 2. Run a turn and stream events
-
-<Tabs>
-<Tab title="curl">
-
-```bash
-curl -N -X POST http://localhost:8790/api/v1/sessions/sess-7f2a9c1b/turns \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "input": [
-      { "type": "user.message", "content": "What is the status of order ORD-2031?" }
-    ]
-  }'
-```
-
-</Tab>
-<Tab title="TypeScript">
 
 ```typescript
 const stream = await client.sessions.createTurnStream(session.id, {
@@ -381,22 +340,19 @@ for await (const { data: event } of stream.withMetadata()) {
 
 See [Use an agent](/api/use-agent) for delta merging, approvals, reconnects, and more.
 
-</Tab>
-</Tabs>
-
-The `input` field accepts three item types:
+Turn `input` accepts three item types:
 
 | `type`               | Purpose                                                                                     |
 | -------------------- | ------------------------------------------------------------------------------------------- |
 | `user.message`       | A message. `content` is a string or an array of `text` / `file` parts (files as data URIs). |
-| `user.tool_approval` | An [approval decision](/human-in-the-loop) for a paused tool call.                          |
-| `user.tool_response` | An [answer](/ask-user-questions) for a paused client-side tool call.                        |
+| `user.tool_approval` | An [approval decision](/create-agent/tool-approval) for a paused tool call.                 |
+| `user.tool_response` | An [answer](/create-agent/ask-user-questions) for a paused client-side tool call.           |
 
 A single turn cannot mix `user.message` items with approval or tool-response items.
 
 ### 3. Chain the next turn
 
-`previous_turn_id` defaults to `"auto"`, which chains to the session's last turn — you never resend history. Use `"none"` to start a fresh root turn in the same session, or pass an explicit turn id to branch from a specific point.
+Turns chain automatically to the session's last turn — you never resend history. You can also start a fresh root turn in the same session, or branch from a specific earlier turn. See [Use an agent](/api/use-agent).
 
 ### 4. Handle a pause (approvals and questions)
 
@@ -421,53 +377,31 @@ A single turn cannot mix `user.message` items with approval or tool-response ite
 
 Resume with a new turn carrying the decision:
 
-```bash
-curl -N -X POST http://localhost:8790/api/v1/sessions/sess-7f2a9c1b/turns \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "input": [{
-      "type": "user.tool_approval",
-      "thread_id": "main",
-      "tool_call_id": "call-refund-01",
-      "approval": { "status": "allow" }
-    }]
-  }'
+```typescript
+const resume = await client.sessions.createTurnStream(session.id, {
+  input: [
+    {
+      type: 'user.tool_approval',
+      thread_id: 'main',
+      tool_call_id: 'call-refund-01',
+      approval: { status: 'allow' },
+    },
+  ],
+});
+
+for await (const { data: event } of resume) {
+  // stream confirmation…
+}
 ```
 
-The same pattern applies to [`tool.response_required`](/ask-user-questions) (resume with `user.tool_response`) and [`mcp.auth_required`](/mcp-servers#in-chat-authentication) (resume after the user completes OAuth).
+The same pattern applies to [`tool.response_required`](/create-agent/ask-user-questions) (resume with `user.tool_response`) and [`mcp.auth_required`](/mcp-servers#in-chat-authentication) (resume after the user completes OAuth).
 
-## Non-streaming, reconnects, and cancellation
+## Reconnects, cancel, and history
 
-**Fire and poll.** Pass `"stream": false` to `POST .../turns` to get the running turn back immediately, then poll `GET .../turns/{turn_id}` until `state.status` is terminal.
+These are covered with SDK examples in [Use an agent](/api/use-agent):
 
-**Reconnect to a live turn.** If your SSE connection drops, resume from where you left off — pass the last sequence number you saw (the SSE `id:` field) as `after_sequence_number` or a `Last-Event-Id` header:
+- **Reconnect** after a dropped stream from the last sequence number you saw
+- **Cancel** a running turn on a session
+- **Replay** persisted session events (deltas already merged) to restore a conversation
 
-```text
-GET /api/v1/sessions/{session_id}/turns/{turn_id}/subscribe?after_sequence_number=N
-```
-
-**Cancel.** `POST /api/v1/sessions/{session_id}/cancel` cancels the session's running turn. The stream ends with `turn.done` and `state.status: "cancelled"`.
-
-**Replay history.** `GET .../sessions/{session_id}/events` lists the persisted event timeline (deltas pre-merged), which is how the chat UI restores a conversation.
-
-## Endpoint summary
-
-| Method         | Path                                              | Purpose                                                                          |
-| -------------- | ------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `POST`         | `/api/v1/sessions`                                | Create a session                                                                 |
-| `GET`          | `/api/v1/sessions`                                | List sessions                                                                    |
-| `GET`          | `/api/v1/sessions/{id}`                           | Get a session                                                                    |
-| `DELETE`       | `/api/v1/sessions/{id}`                           | Delete a session and its turns/events                                            |
-| `POST`         | `/api/v1/sessions/{id}/cancel`                    | Cancel the running turn                                                          |
-| `GET`          | `/api/v1/sessions/{id}/events`                    | List the session's event timeline                                                |
-| `POST`         | `/api/v1/sessions/{id}/turns`                     | Create and execute a turn (SSE by default)                                       |
-| `GET`          | `/api/v1/sessions/{id}/turns/{turn_id}`           | Get a turn and its state                                                         |
-| `GET`          | `/api/v1/sessions/{id}/turns/{turn_id}/events`    | List a turn's events                                                             |
-| `GET`          | `/api/v1/sessions/{id}/turns/{turn_id}/subscribe` | Reconnect to a live turn's stream                                                |
-| `GET`          | `/api/v1/sessions/{id}/turns/{turn_id}/download`  | Download a sandbox file                                                          |
-| `POST` / `GET` | `/api/v1/agents`                                  | Save / list named agents                                                         |
-| `GET` / `PUT`  | `/api/v1/settings/...`                            | Model providers, MCP servers, skills, sandbox providers (each with a `/catalog`) |
-| `GET`          | `/api/v1/models`                                  | All models across configured providers                                           |
-| `GET`          | `/api/v1/capabilities`                            | Which optional capabilities are configured                                       |
-
-The complete request/response schemas are in the interactive docs at `/api/v1/docs` on your running instance.
+For HTTP paths and OpenAPI schemas, see the **API Reference** tab.

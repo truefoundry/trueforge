@@ -153,6 +153,7 @@ export async function buildMcpAuthorizationUrl(params: {
   tokenStore: IOAuthTokenStore;
   mcpServerStore: IOAuthClientStore;
   serverId: string;
+  userRef: string;
   mcpServerUrl: string;
   mcpServerName: string;
   clientName: string;
@@ -184,6 +185,7 @@ export async function buildMcpAuthorizationUrl(params: {
   await params.tokenStore.savePendingAuthorization({
     state,
     id: params.serverId,
+    userRef: params.userRef,
     mcpServerUrl: params.mcpServerUrl,
     codeVerifier: started.codeVerifier,
     redirectUrl: params.redirectUrl ?? null,
@@ -195,13 +197,15 @@ export async function resolveMcpAuth(params: {
   tokenStore: IOAuthTokenStore;
   mcpServerStore: IOAuthClientStore;
   serverId: string;
+  userRef: string;
   mcpServerUrl: string;
   mcpServerName: string;
   clientName: string;
   redirectUrl?: string;
 }): Promise<ResolveMcpAuthResult> {
   const nowMs = Date.now();
-  const token = await params.tokenStore.getToken({ id: params.serverId });
+  const tokenKey = { id: params.serverId, userRef: params.userRef };
+  const token = await params.tokenStore.getToken(tokenKey);
   if (token && isOAuthAccessTokenUsable(token.expiresAt, nowMs)) {
     return { headers: { Authorization: `Bearer ${token.accessToken}` } };
   }
@@ -216,7 +220,7 @@ export async function resolveMcpAuth(params: {
           resource: resourceUrlFromServerUrl(params.mcpServerUrl),
         });
         const saved = oauthTokensToOAuthToken(refreshed, nowMs, token.refreshToken);
-        await params.tokenStore.saveToken({ id: params.serverId, token: saved });
+        await params.tokenStore.saveToken({ ...tokenKey, token: saved });
         return { headers: { Authorization: `Bearer ${saved.accessToken}` } };
       } catch {
         // Refresh failure falls through to a fresh authorization.
@@ -224,12 +228,13 @@ export async function resolveMcpAuth(params: {
     }
   }
   if (token) {
-    await params.tokenStore.deleteToken({ id: params.serverId });
+    await params.tokenStore.deleteToken(tokenKey);
   }
   const authUrl = await buildMcpAuthorizationUrl({
     tokenStore: params.tokenStore,
     mcpServerStore: params.mcpServerStore,
     serverId: params.serverId,
+    userRef: params.userRef,
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
     clientName: params.clientName,
@@ -277,7 +282,7 @@ export async function completeMcpAuthorization<TTransaction>(params: {
   } catch (error: unknown) {
     if (error instanceof InvalidClientError) {
       await params.withTransaction(async transaction => {
-        await params.tokenStore.deleteToken({ id: pending.id }, transaction);
+        await params.tokenStore.deleteToken({ id: pending.id, userRef: pending.userRef }, transaction);
         await params.mcpServerStore.deleteClient({ id: pending.id }, transaction);
       });
       throw new McpConnectionError('OAuth client registration is invalid; please retry connecting', 400, {
@@ -290,6 +295,7 @@ export async function completeMcpAuthorization<TTransaction>(params: {
   }
   await params.tokenStore.saveToken({
     id: pending.id,
+    userRef: pending.userRef,
     token: oauthTokensToOAuthToken(tokens, nowMs, null),
   });
 }

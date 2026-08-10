@@ -33,41 +33,49 @@
         "groups": [
           {
             "group": "Getting Started",
-            "pages": [
-              "introduction",
-              "quickstart",
-              {
-                "group": "Authentication",
-                "pages": ["authentication/overview", "authentication/okta"]
-              },
-              "evaluation"
-            ]
+            "pages": ["introduction", "quickstart"]
           },
           {
-            "group": "Capabilities",
+            "group": "TrueForge Harness",
             "pages": [
-              "models",
-              "mcp-servers",
-              "skills",
-              "sandbox",
               {
-                "group": "Context Engineering",
+                "group": "Initial Setup",
+                "pages": ["harness/initial-setup", "models", "mcp-servers", "skills", "sandbox"]
+              },
+              {
+                "group": "Create an Agent",
                 "pages": [
-                  "context-engineering/overview",
-                  "context-engineering/subagents",
-                  "context-engineering/deferred-tool-loading",
-                  "context-engineering/code-mode",
-                  "context-engineering/large-tool-responses"
+                  "create-agent/overview",
+                  "create-agent/tool-approval",
+                  "create-agent/ask-user-questions",
+                  "create-agent/generative-ui"
                 ]
               },
-              "human-in-the-loop",
-              "ask-user-questions",
-              "generative-ui"
+              "agent-library",
+              {
+                "group": "Key Features",
+                "pages": [
+                  "key-features/overview",
+                  "key-features/subagents",
+                  "key-features/deferred-tool-loading",
+                  "key-features/code-mode",
+                  "key-features/large-tool-responses"
+                ]
+              },
+              "benchmarking",
+              {
+                "group": "Setup Login",
+                "pages": ["authentication/overview", "authentication/okta"]
+              }
             ]
           },
           {
-            "group": "API",
+            "group": "SDK",
             "pages": ["api/overview", "api/use-agent", "api/agent-spec", "api/turn-events"]
+          },
+          {
+            "group": "Chat UI",
+            "pages": ["chat-ui"]
           },
           {
             "group": "Project",

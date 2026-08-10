@@ -56,8 +56,8 @@ flowchart LR
 Runs the agent loop. When a user sends a message, the server:
 
 - Plans the turn, calls the model, and executes tools — streaming every step back
-- Pauses for [human approval](/human-in-the-loop) on sensitive actions
-- Keeps context lean on long tasks with [context engineering](/context-engineering/overview)
+- Pauses for [human approval](/create-agent/tool-approval) on sensitive actions
+- Keeps context lean on long tasks with [key features](/key-features/overview) like subagents and compaction
 - Persists sessions, so conversations survive reconnects and restarts
 
 The services the loop talks to — [model providers](/models), [MCP servers](/mcp-servers), the [sandbox provider](/sandbox) — are **bring your own**: you configure them, TrueForge orchestrates them.
@@ -75,7 +75,7 @@ Everything the server does is exposed as an API, so anything you see in the UI y
 - REST + Server-Sent Events, with an OpenAPI spec and interactive docs at `/api/v1/docs`
 - A TypeScript SDK (`@truefoundry/trueforge-core`) to create and call agents from your own code
 
-See the [API overview](/api/overview).
+See the [SDK overview](/api/overview).
 
 ### Chat UI + UI SDK
 
@@ -83,7 +83,7 @@ A ready-made interface for the agents you create:
 
 - Browse your agents, chat with them, and manage models, MCP servers, skills, and sandbox settings
 - Bundled with the server and served on the same port — nothing extra to deploy
-- Also published as a customizable [UI SDK](/ui-sdk/index) (`@truefoundry/trueforge-ui`): theme it to your organization and launch your own Claude Desktop-like interface, backed by your TrueForge server
+- Also published as a customizable [UI SDK](/chat-ui) (`@truefoundry/trueforge-ui`): theme it to your organization and launch your own Claude Desktop-like interface, backed by your TrueForge server
 
 ## Two ways to run it
 
@@ -104,36 +104,26 @@ Like Claude's managed agents: one deployment the whole company uses, via Docker 
 - **Postgres** replaces SQLite as durable storage shared by all replicas
 - **Redis** peers the replicas — it hands off turn event streams and cancellation signals, so a client can reconnect to any replica and still resume a turn running on another one
 
-## Capabilities
+## Explore the docs
 
 <CardGroup cols={3}>
-  <Card title="Models" icon="brain" href="/models">
-    OpenAI, Anthropic, Google Gemini, and any OpenAI-compatible provider. Configure once, switch per agent.
+  <Card title="Initial Setup" icon="sliders" href="/harness/initial-setup">
+    Configure models, MCP servers, skills, and sandbox — and customize the shipped catalogs.
   </Card>
-  <Card title="MCP Servers" icon="plug" href="/mcp-servers">
-    Connect remote MCP servers with header auth or OAuth (dynamic client registration), including in-chat authorization.
+  <Card title="Create an Agent" icon="robot" href="/create-agent/overview">
+    Select a model, attach connectors and skills, then save to the Agent Library.
   </Card>
-  <Card title="Skills" icon="book" href="/skills">
-    Git-backed `SKILL.md` instruction packs, mounted into the sandbox and loaded on demand.
+  <Card title="Key Features" icon="layer-group" href="/key-features/overview">
+    Sandbox-as-tool, subagents, deferred tools, code mode, compaction, and human checkpoints.
   </Card>
-  <Card title="Sandbox" icon="cube" href="/sandbox">
-    An isolated execution environment for code, files, and shell commands — provisioned only when the agent needs one.
+  <Card title="Setup Login" icon="lock" href="/authentication/overview">
+    Optional OIDC for shared deployments — admin vs user, with a local no-auth default.
   </Card>
-  <Card title="Context Engineering" icon="layer-group" href="/context-engineering/overview">
-    Subagents, deferred tool loading, code mode, large-result offloading, and compaction — keep context lean
-    automatically.
+  <Card title="SDK" icon="code" href="/api/overview">
+    HTTP API and TypeScript SDK to create sessions, stream turns, and automate agents.
   </Card>
-  <Card title="Authentication" icon="lock" href="/authentication/overview">
-    Optional OIDC with your IdP, admin vs user roles, Bearer tokens for the SDK, and the no-auth local default.
-  </Card>
-  <Card title="Human in the Loop" icon="shield-check" href="/human-in-the-loop">
-    Pause sensitive tool calls and require explicit user approval before execution.
-  </Card>
-  <Card title="Ask User Questions" icon="message-question" href="/ask-user-questions">
-    Let the agent request clarification or pick between options during a run.
-  </Card>
-  <Card title="Generative UI" icon="sparkles" href="/generative-ui">
-    Stream structured UI blocks the client can render as cards, tables, and charts.
+  <Card title="Chat UI" icon="palette" href="/chat-ui">
+    Bundled chat experience, or embed `@truefoundry/trueforge-ui` in your React app.
   </Card>
 </CardGroup>
 
@@ -143,10 +133,10 @@ Like Claude's managed agents: one deployment the whole company uses, via Docker 
   <Card title="Quickstart" icon="rocket" href="/quickstart">
     Run TrueForge with one command, configure a model provider, and start chatting.
   </Card>
-  <Card title="Use the API" icon="code" href="/api/overview">
-    Create sessions, stream turn events, and integrate TrueForge into your application.
+  <Card title="Benchmarking" icon="chart-line" href="/benchmarking">
+    Same tasks and model vs Claude Managed Agents and deepagents — cost and accuracy.
   </Card>
-  <Card title="Build with the UI SDK" icon="palette" href="/ui-sdk/index">
-    Embed and customize the chat experience in your own React application.
+  <Card title="UI SDK reference" icon="book" href="/ui-sdk/index">
+    Themes, layouts, slots, and the full React component API.
   </Card>
 </CardGroup>

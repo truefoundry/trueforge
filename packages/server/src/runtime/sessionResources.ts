@@ -91,13 +91,15 @@ function dcrHeadersResolver(params: {
   tokenStore: IOAuthTokenStore;
   mcpServerStore: IMcpServerStore;
   clientName: string;
+  userRef: string;
 }): RemoteMcpHeaders {
-  const { record, tokenStore, mcpServerStore, clientName } = params;
+  const { record, tokenStore, mcpServerStore, clientName, userRef } = params;
   return async () => {
     const result = await resolveMcpAuth({
       tokenStore,
       mcpServerStore,
       serverId: record.id,
+      userRef,
       mcpServerUrl: record.manifest.url,
       mcpServerName: record.name,
       clientName,
@@ -126,12 +128,14 @@ export async function getMcpConnection({
   store,
   tokenStore,
   clientName,
+  userRef,
 }: {
   tenant_id: string;
   name: string;
   store: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   clientName: string;
+  userRef: string;
 }): Promise<McpConnection | undefined> {
   const record = await store.getServer({ tenant_id, name });
   if (record === undefined) {
@@ -145,6 +149,7 @@ export async function getMcpConnection({
         tokenStore,
         mcpServerStore: store,
         clientName,
+        userRef,
       }),
     };
   }
