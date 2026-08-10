@@ -1,9 +1,64 @@
 ---
-title: "Preset Themes"
-description: "Presets, branding, and dark mode."
+title: "Layout & Themes"
+description: "Layout, Presets themes, branding, and dark mode."
 ---
 
-You can choose from four preset themes - Claude, ChaptGPT, Gemini, or TrueFoundry
+## Preset Layouts
+
+The sidebar view is the default option. You can pass a predefined value - sidebar, drawer, dock, or widget to change the layout. You can also build a complete custom layout using the predefined components as [shown here](/ui-sdk/setup-custom-ui/custom-layout).
+
+<Tabs>
+  <Tab title="sidebar(default)">
+    Full-page chat with a persistent chat history in a left sidebar. The default choice for a dedicated chat surface.
+
+    ```tsx
+    <TrueforgeUI server={server} layout="sidebar" />
+    ```
+
+    <Frame caption="Sidebar: full-page chat with the thread list pinned on the left.">
+      ![Sidebar layout — a persistent thread list on the left beside a full-page chat](/images/sidebar.png)
+    </Frame>
+  </Tab>
+  <Tab title="drawer">
+    Chat history list collapses into an overlay drawer. Click on the history icon to view the past conversations. Suited to smaller viewports like tablets or small monitors.
+
+    ```tsx
+    <TrueforgeUI server={server} layout="drawer" />
+    ```
+
+    <Frame caption="Drawer: the thread list collapses into an overlay for narrow viewports.">
+      ![Drawer layout — the thread list collapsed into an overlay drawer](/images/drawer.png)
+    </Frame>
+  </Tab>
+  <Tab title="dock">
+    A panel pinned to the right edge, filling the available width up to a 400px cap.
+
+    ```tsx
+    <TrueforgeUI server={server} layout="dock" />
+    ```
+
+    <Frame caption="Dock: a compact panel pinned to the right edge, up to a 400px cap.">
+      ![Dock layout — a compact chat panel pinned to the right edge of the app](/images/dock.png)
+    </Frame>
+  </Tab>
+  <Tab title="widget">
+    Floating launcher that expands into a compact chat panel.
+
+    ```tsx
+    <TrueforgeUI server={server} layout="widget" />
+    ```
+
+    <Frame caption="Widget: a floating launcher that expands into a compact chat panel.">
+      ![Widget layout — a floating launcher expanded into a compact chat panel](/images/widget.png)
+    </Frame>
+  </Tab>
+</Tabs>
+
+Built-in layouts are code-split, so using one does not pull the other three into your bundle. A placeholder renders for the moment it takes to load.
+
+## Preset Themes
+
+You can choose from four preset themes - Claude, ChaptGPT, Gemini, TrueFoundry or you can create a [custom theme](setup-custom-ui/).
 
 ## The theme object
 
@@ -59,7 +114,7 @@ Pass to set a theme to light, dark or system. User CANNOT update it. This is use
   ![The TrueForge UI SDK rendered in dark mode](/images/dark_theme.png)
 </Frame>
 
-### Set separate logo for light and dark theme 
+### Set separate logo for light and dark theme
 
 ```tsx App.tsx
 <TrueforgeUI
