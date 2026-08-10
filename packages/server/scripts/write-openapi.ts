@@ -1,5 +1,5 @@
 /**
- * Writes the server's OpenAPI document to `fern/openapi/openapi.json` for Fern.
+ * Writes the server's OpenAPI document to `.github/fern/openapi/openapi.json` for Fern.
  *
  * The real app is built in-process and asked for its document, so the committed
  * spec cannot drift from what the server serves. Nothing listens or dials out:
@@ -70,7 +70,7 @@ const app = createServerApp({
 });
 
 const document = buildOpenApiDocument(app);
-const outputPath = path.join(import.meta.dirname, '../../../fern/openapi/openapi.json');
+const outputPath = path.join(import.meta.dirname, '../../../.github/fern/openapi/openapi.json');
 mkdirSync(path.dirname(outputPath), { recursive: true });
 writeFileSync(outputPath, `${JSON.stringify(canonicalise(document), null, 2)}\n`);
 console.log(`Wrote ${String(Object.keys(document.paths ?? {}).length)} paths to ${outputPath}`);
