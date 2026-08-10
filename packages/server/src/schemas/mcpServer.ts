@@ -78,7 +78,7 @@ export const ListMcpServersResponseSchema = z
   .object({ data: z.array(ConfiguredMcpServerSchema) })
   .openapi('ListMcpServersResponse');
 
-/** Chat/composer read view — no auth or auth_status. */
+/** Chat/composer read view — public fields plus per-user auth_status. */
 export const McpServerReadEntrySchema = z
   .object({
     name: NameSchema,
