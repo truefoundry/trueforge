@@ -4,7 +4,6 @@ import {
   isAuthRequired,
   McpConnectionError,
   RemoteMCP,
-  withTimeout,
 } from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
@@ -29,9 +28,6 @@ import { getMcpConnection } from '../runtime/sessionResources';
 import type { ConfiguredMcpServer, McpAuthStatus, McpServerManifest, McpServerReadEntry } from '../schemas/mcpServer';
 import { resolveMcpAuthStatus } from '../schemas/mcpServer';
 import { TENANT_ID } from './sessions';
-
-/** Registering a DCR OAuth client hits the MCP server's authorization server, so bound that call. */
-export const MCP_DCR_REGISTRATION_TIMEOUT_MS = 10_000;
 
 export interface SettingsMcpServersRouterDeps<TTransaction> {
   mcpCatalog: McpCatalog;
@@ -139,23 +135,25 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
 
     // DCR HTTP must finish before the txn so a failed registration never leaves a half-written row
     // (txn cannot roll back the AS, and AGENTS forbids remote I/O inside withTransaction).
+    // Per-request OAuth timeouts live on mcpOAuthFetch (MCP_OAUTH_HTTP_TIMEOUT_MS) — no outer
+    // withTimeout, so hung AS failures surface as TimeoutError with the intended message.
     let dcrClientToSave: OAuthClientRecord | undefined;
     if (manifest.auth?.type === 'dcr') {
       const prior = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name: manifest.name });
       const existingClient =
         prior !== undefined ? await deps.mcpServerStore.getClient({ id: prior.id }) : undefined;
-      if (existingClient === undefined) {
+      // Register when: brand-new server, client was cleared (e.g. invalid_client), or MCP URL changed
+      // (resource/AS may differ; reuse would keep stale oauth_server/client for the old AS).
+      const urlChanged = prior !== undefined && prior.manifest.url !== manifest.url;
+      const needsDcr = existingClient === undefined || urlChanged;
+      if (needsDcr) {
         try {
-          dcrClientToSave = await withTimeout(
-            createMcpOAuthClient({
-              mcpServerUrl: manifest.url,
-              mcpServerName: manifest.name,
-              redirectUri: mcpOAuthCallbackUrl(),
-              clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-            }),
-            MCP_DCR_REGISTRATION_TIMEOUT_MS,
-            `DCR client registration for MCP server "${manifest.name}"`,
-          );
+          dcrClientToSave = await createMcpOAuthClient({
+            mcpServerUrl: manifest.url,
+            mcpServerName: manifest.name,
+            redirectUri: mcpOAuthCallbackUrl(),
+            clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+          });
         } catch (error) {
           deps.logger.error(
             `DCR client registration failed for "${manifest.name}"; rejecting upsert`,
