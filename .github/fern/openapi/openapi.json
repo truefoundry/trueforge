@@ -1718,6 +1718,41 @@
         ],
         "type": "object"
       },
+      "McpServerAuthPublic": {
+        "description": "Auth mechanism when configured (no secrets). Omit when the server needs no credentials.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "dcr"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "header"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "McpServerDcrAuth": {
         "additionalProperties": false,
         "properties": {
@@ -1787,6 +1822,9 @@
       "McpServerReadEntry": {
         "additionalProperties": false,
         "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/McpServerAuthPublic"
+          },
           "auth_status": {
             "$ref": "#/components/schemas/McpAuthStatus"
           },
