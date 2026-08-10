@@ -27,7 +27,7 @@ import {
   putMcpServerRoute,
 } from '../routes/mcpServerRoutes';
 import { getMcpConnection } from '../runtime/sessionResources';
-import type { ConfiguredMcpServer, McpAuthStatus, McpServerManifest } from '../schemas/mcpServer';
+import type { ConfiguredMcpServer, McpAuthStatus, McpServerManifest, McpServerReadEntry } from '../schemas/mcpServer';
 import { resolveMcpAuthStatus } from '../schemas/mcpServer';
 import { TENANT_ID } from './sessions';
 
@@ -78,6 +78,26 @@ function toConfiguredMcpServer({
 }): ConfiguredMcpServer {
   return {
     ...record.manifest,
+    auth_status: resolveMcpAuthStatus({
+      manifest: record.manifest,
+      ...(token !== undefined ? { token } : {}),
+      nowMs,
+    }),
+  };
+}
+
+function toMcpServerReadEntry({
+  record,
+  token,
+  nowMs = Date.now(),
+}: {
+  record: McpServerRecord;
+  token: OAuthToken | undefined;
+  nowMs?: number;
+}): McpServerReadEntry {
+  return {
+    name: record.name,
+    url: record.manifest.url,
     auth_status: resolveMcpAuthStatus({
       manifest: record.manifest,
       ...(token !== undefined ? { token } : {}),
@@ -303,10 +323,14 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
 
   const router = new OpenAPIHono();
   router.openapi(listAvailableMcpServersRoute, async c => {
+    const userRef = deps.resolveUserContext(c).userRef;
     const records = await deps.mcpServerStore.listServers({ tenant_id: TENANT_ID, names: undefined });
+    const nowMs = Date.now();
+    const dcrIds = records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
+    const tokens = await deps.tokenStore.getTokens({ ids: dcrIds, userRef });
     return c.json(
       {
-        data: records.map(record => ({ name: record.name, url: record.manifest.url })),
+        data: records.map(record => toMcpServerReadEntry({ record, token: tokens.get(record.id), nowMs })),
       },
       200,
     );

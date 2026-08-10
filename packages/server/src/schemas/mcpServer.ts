@@ -83,6 +83,7 @@ export const McpServerReadEntrySchema = z
   .object({
     name: NameSchema,
     url: z.url().describe('URL of the remote MCP server.'),
+    auth_status: McpAuthStatusSchema.describe('Auth state for the calling user.'),
   })
   .strict()
   .openapi('McpServerReadEntry');
