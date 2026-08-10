@@ -13,6 +13,7 @@ import {
 } from 'react';
 
 import { cn } from '../atoms/lib/cn.js';
+import { ensureStyles } from './ensureStyles.js';
 import { resolvePresetTokens } from './presets/index.js';
 import {
   TOKEN_CSS_VARS,
@@ -69,11 +70,6 @@ function readStoredPreference(): ThemeMode {
   return 'system';
 }
 
-function applyDarkClass(mode: 'light' | 'dark') {
-  if (typeof document === 'undefined') return;
-  document.documentElement.classList.toggle('dark', mode === 'dark');
-}
-
 function tokensToStyle(tokens: Partial<SemanticTokens> | undefined): CSSProperties {
   if (!tokens) return {};
   const style: Record<string, string> = {};
@@ -90,18 +86,18 @@ export function ThemeProvider({ theme, children }: { theme?: ThemeConfig; childr
   const [mode, setMode] = useState<'light' | 'dark'>(() => resolveMode(theme?.mode ?? readStoredPreference()));
 
   useLayoutEffect(() => {
+    ensureStyles();
+  }, []);
+
+  useLayoutEffect(() => {
     if (theme?.mode !== undefined) {
       setPreference(theme.mode);
-      const resolved = resolveMode(theme.mode);
-      setMode(resolved);
-      applyDarkClass(resolved);
+      setMode(resolveMode(theme.mode));
       return;
     }
     const stored = readStoredPreference();
-    const resolved = resolveMode(stored);
     setPreference(stored);
-    setMode(resolved);
-    applyDarkClass(resolved);
+    setMode(resolveMode(stored));
   }, [theme?.mode]);
 
   useEffect(() => {
@@ -111,9 +107,7 @@ export function ThemeProvider({ theme, children }: { theme?: ThemeConfig; childr
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const onChange = () => {
       if (preference !== 'system') return;
-      const resolved = getSystemTheme();
-      setMode(resolved);
-      applyDarkClass(resolved);
+      setMode(getSystemTheme());
     };
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
@@ -122,10 +116,8 @@ export function ThemeProvider({ theme, children }: { theme?: ThemeConfig; childr
   const setTheme = useCallback(
     (next: ThemeMode) => {
       if (isControlled) return;
-      const resolved = resolveMode(next);
       setPreference(next);
-      setMode(resolved);
-      applyDarkClass(resolved);
+      setMode(resolveMode(next));
       try {
         localStorage.setItem(STORAGE_KEY, next);
       } catch {
@@ -158,7 +150,7 @@ export function ThemeProvider({ theme, children }: { theme?: ThemeConfig; childr
   return (
     <ThemeContext.Provider value={value}>
       <div
-        className={cn('aui-theme-root h-full min-h-0', theme?.className)}
+        className={cn('aui-theme-root h-full min-h-0', mode === 'dark' && 'dark', theme?.className)}
         data-theme={mode}
         data-preset={theme?.preset ?? 'truefoundry'}
         style={rootStyle}

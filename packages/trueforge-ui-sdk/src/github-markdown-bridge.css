@@ -6,8 +6,8 @@
  *
  * Source: github-markdown-css (auto theme variable blocks).
  */
-.dark .markdown-body,
-[data-theme='dark'] .markdown-body {
+.aui-theme-root.dark .markdown-body,
+.aui-theme-root[data-theme='dark'] .markdown-body {
   /*dark */
   color-scheme: dark;
   --fgColor-accent: #4493f8;
@@ -62,8 +62,8 @@
   --borderColor-neutral-muted: var(--borderColor-muted);
 }
 
-:root:not(.dark) .markdown-body,
-[data-theme='light'] .markdown-body {
+.aui-theme-root:not(.dark) .markdown-body,
+.aui-theme-root[data-theme='light'] .markdown-body {
   /*light */
   color-scheme: light;
   --fgColor-danger: #d1242f;

@@ -493,8 +493,9 @@ no longer depends on tfy.
 ## Migration notes (for consumers)
 
 - Remove `@import "tfy-web-components/theme.css"`.
-- Only `@import "@truefoundry/trueforge-ui/styles.css"` (+ host Tailwind
-  preflight as today).
+- Styles auto-inject from `ThemeProvider` (optional
+  `@import "@truefoundry/trueforge-ui/styles.css"` for SSR). Tokens are scoped
+  to `.aui-theme-root` — the host document is not rethemed.
 - Revisit `overrides` for `Button` / `IconButton` / bubbles (new props).
 - Prefer
   `theme={{ preset, tokens, brand, icons, className, classNames }}`
