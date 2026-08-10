@@ -260,7 +260,7 @@ export const subscribeTurnRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body.',
+      description: 'Invalid query parameters.',
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

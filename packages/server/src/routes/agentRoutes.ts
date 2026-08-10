@@ -37,6 +37,10 @@ export const listAgentsRoute = createRoute({
       content: { 'application/json': { schema: ListAgentsResponseSchema } },
       description: 'All configured agents.',
     },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
   },
 });
 
@@ -113,6 +117,10 @@ export const deleteAgentRoute = createRoute({
   responses: {
     204: {
       description: 'Agent deleted.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
     },
   },
 });

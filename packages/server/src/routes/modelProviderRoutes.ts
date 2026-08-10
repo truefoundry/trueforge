@@ -28,6 +28,14 @@ export const getModelProviderCatalogRoute = createRoute({
       content: { 'application/json': { schema: GetModelProviderCatalogResponseSchema } },
       description: 'The shipped catalog, verbatim.',
     },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the caller is authenticated but not an admin.',
+    },
   },
 });
 
@@ -43,6 +51,14 @@ export const listModelProvidersRoute = createRoute({
     200: {
       content: { 'application/json': { schema: ListModelProvidersResponseSchema } },
       description: 'All configured model providers.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the caller is authenticated but not an admin.',
     },
   },
 });
