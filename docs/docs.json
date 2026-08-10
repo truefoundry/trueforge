@@ -71,10 +71,6 @@
             "pages": ["ui-sdk/index", "ui-sdk/get-started/quickstart"]
           },
           {
-            "group": "Concepts",
-            "pages": ["ui-sdk/concepts/architecture"]
-          },
-          {
             "group": "Guides",
             "pages": [
               "ui-sdk/guides/layouts",
@@ -83,7 +79,7 @@
               "ui-sdk/guides/slot-overrides",
               "ui-sdk/guides/mcp-oauth",
               {
-                "group": "Setup Other Server",
+                "group": "Setup Custom Server",
                 "pages": [
                   "ui-sdk/setup-different-servers/server-contract",
                   "ui-sdk/setup-different-servers/custom-server",
