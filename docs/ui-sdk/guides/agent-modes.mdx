@@ -7,13 +7,11 @@ This can be configured by using the `agentConfig` object.
 
 ```ts
 type AgentConfig =
-  | { mode: "SingleAgent"; name: string }
+  | { mode: "SingleAgent"; name: string } //name is agent name
   | { mode: "AgentLibrary" }
-  | { mode: "AgentComposer"; defaultAgentSpec?: AgentSpec }
-  | { mode: "AgentLibraryWithComposer"; defaultAgentSpec?: AgentSpec };
+  | { mode: "AgentComposer" } //Composer is agent creation flow
+  | { mode: "AgentLibraryWithComposer" }; //Default mode
 ```
-
-The default is `{ mode: "AgentLibraryWithComposer" }`.
 
 | Mode | Library | Composer | New chat |
 | --- | --- | --- | --- |
@@ -24,26 +22,26 @@ The default is `{ mode: "AgentLibraryWithComposer" }`.
 
 ## Single Agent
 
-All chats are done with one named agent which can be configured in `defaultAgentSpec`. All selection controls are hidden and the user cannot switch agents or open the composer.
+All chats are done with one named agent which can be configured in `name`  param. All selection controls are hidden and the user cannot switch agents or open the composer.
 
 <Frame>
   ![Single Agent 1](/images/single-agent-1.png "Single Agent 1")
 </Frame>
 
-## AgentLibrary
-
-Users chat with agents from your agent library but cannot compose a new one. Note that “new chat” is disabled in this mode only.
-
-<Frame>
-  ![Agent Library 1](/images/agent-library-1.png "Agent Library 1")
-</Frame>
-
 ## AgentComposer
 
-Users compose/create a new agent by selecting models, skills, MCP servers and can save it back to the library.
+Users compose/create a new agent by selecting models, skills, MCP servers and can save it to the library.
 
 <Frame>
   ![Agent Composer 1](/images/agent-composer-1.png "Agent Composer 1")
+</Frame>
+
+## AgentLibrary
+
+Users chat with agents already saved in your library but cannot compose a new one. Note that “new chat” is disabled in this mode only. Ideally for restricting agent creation by users.
+
+<Frame>
+  ![Agent Library 1](/images/agent-library-1.png "Agent Library 1")
 </Frame>
 
 ## AgentLibraryWithComposer
@@ -53,15 +51,3 @@ Users can pick an existing agent from the library or create a new one.
 <Frame>
   ![Agent Library With Composer 1](/images/agent-library-with-composer-1.png "Agent Library With Composer 1")
 </Frame>
-
-## Troubleshoot
-
-<AccordionGroup>
-  <Accordion title="defaultAgentSpec changes are not reflecting in UI">
-    `defaultAgentSpec` changes are reflected in a new conversation rather than binding to the current one. Changing it does not alter the conversation on screen, and it does not apply on **clear chat** either. The new value is picked up when a **new chat** starts or when the app is refreshed.
-  </Accordion>
-
-  <Accordion title="Default model is showing as gpt-4.1">
-    Always pass an explicit `defaultAgentSpec` in composer modes. Omitting it falls back to `{ model: { name: "openai-main/gpt-4.1" } }`, and requests fail if your backend does not expose a model under that exact name.
-  </Accordion>
-</AccordionGroup>
