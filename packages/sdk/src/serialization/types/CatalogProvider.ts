@@ -3,8 +3,8 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { CatalogProviderType } from "./CatalogProviderType.js";
 import { ModelEntry } from "./ModelEntry.js";
+import { ProviderType } from "./ProviderType.js";
 import { ReasoningEffort } from "./ReasoningEffort.js";
 import { ResourceName } from "./ResourceName.js";
 
@@ -19,7 +19,7 @@ export const CatalogProvider: core.serialization.ObjectSchema<
         "supported_reasoning_efforts",
         core.serialization.list(ReasoningEffort).optional(),
     ),
-    type: CatalogProviderType,
+    type: ProviderType,
 });
 
 export declare namespace CatalogProvider {
@@ -28,6 +28,6 @@ export declare namespace CatalogProvider {
         models: ModelEntry.Raw[];
         name: ResourceName.Raw;
         supported_reasoning_efforts?: ReasoningEffort.Raw[] | null;
-        type: CatalogProviderType.Raw;
+        type: ProviderType.Raw;
     }
 }

@@ -275,7 +275,7 @@ describe('modelProviderCatalog mappers', () => {
   // Catalog presets are copied straight into this form, so a type the API accepts but this mapper
   // does not is a preset the user cannot save.
   it('builds a body for every provider type the API accepts', () => {
-    const types = [...Object.values(TrueForgeApi.CatalogProviderType), 'custom'];
+    const types = Object.values(TrueForgeApi.ProviderType);
     for (const type of types) {
       const body = toHarnessModelProvider({
         type,

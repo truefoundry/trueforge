@@ -500,7 +500,7 @@ List endpoints are paginated. The SDK provides an iterator so that you can simpl
 ```typescript
 import { TrueForge } from "trueforge-sdk";
 
-const client = new TrueForge({ baseUrl: "YOUR_BASE_URL" });
+const client = new TrueForge({ baseUrl: "YOUR_BASE_URL", token: "YOUR_TOKEN" });
 const pageableResponse = await client.sessions.list();
 for await (const item of pageableResponse) {
     console.log(item);

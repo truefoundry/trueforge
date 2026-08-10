@@ -498,7 +498,7 @@
             "type": "array"
           },
           "type": {
-            "$ref": "#/components/schemas/CatalogProviderType"
+            "$ref": "#/components/schemas/ProviderType"
           }
         },
         "required": [
@@ -507,20 +507,6 @@
           "models"
         ],
         "type": "object"
-      },
-      "CatalogProviderType": {
-        "enum": [
-          "openai",
-          "anthropic",
-          "google-gemini",
-          "fireworks",
-          "zai",
-          "moonshot",
-          "alibaba",
-          "together",
-          "custom"
-        ],
-        "type": "string"
       },
       "CatalogSkill": {
         "additionalProperties": false,
@@ -2321,6 +2307,20 @@
         ],
         "default": "auto",
         "description": "Defaults to 'auto' (chain to session last turn). Use 'none' for a new root turn."
+      },
+      "ProviderType": {
+        "enum": [
+          "openai",
+          "anthropic",
+          "google-gemini",
+          "fireworks",
+          "zai",
+          "moonshot",
+          "alibaba",
+          "together",
+          "custom"
+        ],
+        "type": "string"
       },
       "PutAgentResponse": {
         "properties": {
@@ -6718,8 +6718,7 @@
   "security": [
     {
       "BearerAuth": []
-    },
-    {}
+    }
   ],
   "webhooks": {}
 }

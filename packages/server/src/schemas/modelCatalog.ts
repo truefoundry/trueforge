@@ -3,12 +3,8 @@
  * configured provider manifests in modelProvider.ts.
  */
 import { z } from '@hono/zod-openapi';
-import { VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/utils-core/core';
 import { NameSchema, uniqueNames } from './common';
-import { ModelEntrySchema, ReasoningEffortSchema, refineUniqueModels } from './modelProvider';
-
-/** Includes `custom` so the catalog can carry a sentinel for supported_reasoning_efforts. */
-const CatalogProviderTypeSchema = z.enum(VERCEL_AI_PROVIDER_NAMES).openapi('CatalogProviderType');
+import { ModelEntrySchema, ProviderTypeSchema, ReasoningEffortSchema, refineUniqueModels } from './modelProvider';
 
 /**
  * Catalog entry. Well-known types list model presets; `custom` is a sentinel that
@@ -16,7 +12,7 @@ const CatalogProviderTypeSchema = z.enum(VERCEL_AI_PROVIDER_NAMES).openapi('Cata
  */
 export const CatalogProviderSchema = z
   .object({
-    type: CatalogProviderTypeSchema,
+    type: ProviderTypeSchema,
     name: NameSchema,
     logo: z.url().optional().describe('URL of the provider logo asset.'),
     models: z.array(ModelEntrySchema).describe('Preset models; empty on the `custom` sentinel.'),

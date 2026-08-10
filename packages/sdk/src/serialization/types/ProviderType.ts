@@ -4,22 +4,20 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const CatalogProviderType: core.serialization.Schema<
-    serializers.CatalogProviderType.Raw,
-    TrueForge.CatalogProviderType
-> = core.serialization.enum_([
-    "openai",
-    "anthropic",
-    "google-gemini",
-    "fireworks",
-    "zai",
-    "moonshot",
-    "alibaba",
-    "together",
-    "custom",
-]);
+export const ProviderType: core.serialization.Schema<serializers.ProviderType.Raw, TrueForge.ProviderType> =
+    core.serialization.enum_([
+        "openai",
+        "anthropic",
+        "google-gemini",
+        "fireworks",
+        "zai",
+        "moonshot",
+        "alibaba",
+        "together",
+        "custom",
+    ]);
 
-export declare namespace CatalogProviderType {
+export declare namespace ProviderType {
     export type Raw =
         | "openai"
         | "anthropic"
