@@ -2,19 +2,24 @@
  * tsup build configuration for @truefoundry/trueforge-ui.
  *
  * Produces an ESM-only bundle at `dist/index.js` (+ `.d.ts` + sourcemap).
+ * CSS must be built first (`dist/styles.css`) so `embedCssPlugin` can inline it.
  */
 import svgr from 'esbuild-plugin-svgr';
 import { defineConfig } from 'tsup';
+
+import { embedCssPlugin } from './embedCssPlugin.mjs';
 
 export default defineConfig({
   entry: ['src/index.ts', 'src/assistant-ui.ts'],
   format: ['esm'],
   dts: true,
   sourcemap: true,
-  // Watch mode must not wipe dist/styles.css (built by a sibling tailwind watcher).
-  clean: !process.argv.includes('--watch'),
+  // `package.json` `build` clears dist then writes styles.css before tsup; do not
+  // wipe that stylesheet here. Watch mode also keeps dist/styles.css from the CSS watcher.
+  clean: false,
   target: 'es2022',
   esbuildPlugins: [
+    embedCssPlugin(),
     svgr({
       icon: true,
       replaceAttrValues: {

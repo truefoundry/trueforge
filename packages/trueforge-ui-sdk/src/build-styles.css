@@ -9,4 +9,5 @@
 @import 'tailwindcss/utilities' layer(tfy-agent-ui-utilities);
 @import './styles.css';
 
-@custom-variant dark (&:is(.dark *));
+/* Match `.dark` on `.aui-theme-root` (not `html`) and its descendants. */
+@custom-variant dark (&:is(.dark, .dark *));
