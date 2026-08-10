@@ -1,12 +1,28 @@
 ---
 title: 'Skills'
 sidebarTitle: 'Skills'
-description: 'Teach agents specialized procedures with git-backed SKILL.md instruction packs, loaded on demand at runtime.'
+description: 'Teach agents specialized procedures with git-backed SKILL.md instruction packs — browse a shipped catalog or register your own repo, then load on demand at runtime.'
 ---
 
 Skills are reusable capability bundles that teach an agent how to perform specialized tasks — querying a database, triaging an alert, following an escalation playbook, or drafting release notes.
 
 In TrueForge, a skill is a **directory in a git repository** rooted at a `SKILL.md` file. You register skills once — in the UI under **Settings → Skills** or via the settings API — and attach them to agents by name.
+
+## Where the skills list comes from
+
+The starter skills you see under **Settings → Skills** come from a **shipped catalog YAML** on the server:
+
+[`packages/server/src/catalog/skill-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/skill-catalog.yaml)
+
+That file is discovery-only: each entry points at a git repo (and optional path/ref) with a short description. The server exposes it at `GET /api/v1/settings/skills/catalog`. Choosing a catalog skill in the UI (or copying an entry via the API) registers it for agents to attach; the catalog itself is never executed.
+
+| What you can do | How |
+| --- | --- |
+| Browse starter skills | Settings → Skills, or `GET /api/v1/settings/skills/catalog` |
+| Register a catalog skill | Save it from the UI, or `PUT /api/v1/settings/skills` with the catalog entry |
+| Register your own skill repo | Point at any GitHub/GitLab URL + path + ref |
+| Version and roll back | Pin `ref` to a tag or commit SHA; change the ref to update or revert |
+| Ship your own preset list | Point `SKILL_CATALOG_PATH` at an alternate YAML |
 
 ## What a skill contains
 
@@ -47,7 +63,7 @@ A skill manifest points at a GitHub or GitLab repository:
 | `ref`         | Branch name, tag, or commit SHA. **Pin a tag or SHA for production stability.** |
 | `description` | Concise guidance for when the agent should use the skill.                       |
 
-Register it with `PUT /api/v1/settings/skills` (or through the UI). Starter skills are available in the catalog at `GET /api/v1/settings/skills/catalog`.
+Register it with `PUT /api/v1/settings/skills` (or through the UI).
 
 <Tip>
   Because `ref` can be a branch, tag, or commit SHA, you get versioning through git itself: pin production agents to a

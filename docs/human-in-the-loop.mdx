@@ -4,13 +4,13 @@ sidebarTitle: 'Human in the Loop'
 description: 'Pause an agent before sensitive tool calls so the user can approve or deny execution.'
 ---
 
-Some agent actions — deploying to production, restarting a service, deleting data — should not happen without explicit user consent. Human in the Loop lets the harness pause the agent before a sensitive tool call, surface the tool name and arguments to the user, and resume only after an approval decision.
+Some agent actions — deploying to production, restarting a service, deleting data — should not happen without explicit user consent. **Human in the Loop** is how TrueForge pauses the agent before a sensitive MCP tool call, shows the tool name and arguments in the chat UI (or your client), and resumes only after the user approves or denies.
 
-This keeps the agent autonomous for safe operations while giving users a checkpoint before anything destructive or irreversible runs.
+Safe, read-only work stays autonomous. Destructive or write tools get a checkpoint.
 
 ## Which tools require approval
 
-Approval policy is set per MCP server on the agent spec via [`require_approval_for_tools`](/api/agent-spec#mcp_servers). The default is `["@write", "@destructive"]` — any tool that the MCP server does not mark as read-only, or marks as destructive, pauses for approval out of the box. You can also list literal tool names, or use `@all` to gate every tool.
+You set approval policy per MCP server on the agent via [`require_approval_for_tools`](/api/agent-spec#mcp_servers). The default is `["@write", "@destructive"]` — any tool the MCP server does not mark as read-only, or marks as destructive, pauses for approval out of the box. You can also list literal tool names, or use `@all` to gate every tool.
 
 ```json
 {

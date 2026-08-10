@@ -6,14 +6,14 @@ description: 'How TrueForge manages, optimizes, and constrains agent context wit
 
 ## What is context engineering?
 
-Context engineering is the practice of providing the **right information in the right format** so an agent can reliably accomplish tasks. In TrueForge, _context_ is everything the model sees on each step — from system instructions and skills to tool definitions, conversation history, and tool results.
+Context engineering is providing the **right information in the right format** so an agent can finish the job reliably. In TrueForge, _context_ is everything the model sees on each step — instructions, [skills](/skills), [MCP](/mcp-servers) tool definitions, conversation history, and tool results.
 
-Getting context right has a direct impact on agent quality:
+Getting that balance wrong hurts quality:
 
-- **Too little context** — the agent lacks the information it needs and produces wrong or incomplete answers.
-- **Too much context** — the model overflows its context window or the signal gets buried in noise, degrading reasoning quality and increasing cost and latency.
+- **Too little context** — the agent lacks what it needs and answers poorly.
+- **Too much context** — the window fills with noise, reasoning degrades, and cost/latency climb.
 
-TrueForge automates the balance through a layered set of strategies. To understand them, it helps to think of context in two phases:
+TrueForge manages the balance with layered strategies. Think of context in two phases:
 
 <CardGroup cols={2}>
   <Card title="Input context" icon="upload" href="#input-context">

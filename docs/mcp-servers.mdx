@@ -1,16 +1,49 @@
 ---
 title: 'MCP Servers'
 sidebarTitle: 'MCP Servers'
-description: 'Connect remote MCP servers to give your agent tools — with header auth or OAuth, per-tool enablement, and approval policies.'
+description: 'Connect remote MCP servers to give your agent tools — from a shipped catalog or your own URL, with header auth or OAuth, per-tool enablement, and approval policies.'
 ---
 
 MCP servers are how your agent reaches real systems: SaaS apps, internal APIs, data platforms, ticketing tools, and infrastructure controls.
 
 In TrueForge, MCP servers are registered once — in the UI under **Settings → Connectors** or via the settings API — and agents reference them by name. Credentials live in the server configuration, never in agent definitions.
 
-## Registering an MCP server
+## Where the connectors list comes from
 
-An MCP server is configured with a small manifest:
+The popular servers you see under **Settings → Connectors** come from a **shipped catalog YAML** on the server:
+
+[`packages/server/src/catalog/mcp-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/mcp-catalog.yaml)
+
+That file is discovery-only: each entry is a ready-made remote MCP preset (URL, logo, and default auth shape — for example Linear and Notion with OAuth/DCR, or GitHub with a header placeholder). The server exposes it at `GET /api/v1/settings/mcp-servers/catalog`. Choosing a catalog server in the UI (or copying an entry via the API) creates a configured connector you can attach to agents; the catalog itself is never executed against.
+
+| What you can do | How |
+| --- | --- |
+| Browse popular MCP servers | Settings → Connectors, or `GET /api/v1/settings/mcp-servers/catalog` |
+| Connect a catalog server | Fill in auth (API key / OAuth) and save |
+| Add any remote MCP URL | Register a custom remote server (same shape as catalog entries) |
+| Inspect live tools | `GET /api/v1/settings/mcp-servers/{name}/tools` |
+| Ship your own preset list | Point `MCP_CATALOG_PATH` at an alternate YAML |
+
+## Connecting a server
+
+### From the catalog (UI)
+
+Open **Settings → Connectors**, pick a server from the catalog, complete auth if required, and save. The server is then available to attach on any agent.
+
+<div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.75", padding: "40px 0" }}>
+  <iframe
+    src="https://app.supademo.com/embed/cmsk7ca2801l91t0jwyiwj78i?embed_v=2&utm_source=embed"
+    loading="lazy"
+    title="Register a remote MCP server in TrueForge"
+    allow="clipboard-write"
+    allowFullScreen
+    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
+  />
+</div>
+
+### From the API or a custom URL
+
+Whether you start from a catalog preset or your own endpoint, the stored shape is a small manifest:
 
 ```json
 {
@@ -28,18 +61,7 @@ An MCP server is configured with a small manifest:
 | `url`  | The MCP endpoint URL.                                                                                                                              |
 | `auth` | Optional. `{ "type": "header", "headers": { ... } }` for static credentials, or `{ "type": "dcr" }` for OAuth. Omit for servers that need no auth. |
 
-Register it with `PUT /api/v1/settings/mcp-servers` (or through the UI). A catalog of popular servers is available at `GET /api/v1/settings/mcp-servers/catalog`, and you can verify connectivity with `GET /api/v1/settings/mcp-servers/{name}/tools`, which lists the server's live tools.
-
-<div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.75", padding: "40px 0" }}>
-  <iframe
-    src="https://app.supademo.com/embed/cmsk7ca2801l91t0jwyiwj78i?embed_v=2&utm_source=embed"
-    loading="lazy"
-    title="Register a remote MCP server in TrueForge"
-    allow="clipboard-write"
-    allowFullScreen
-    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
-  />
-</div>
+Register it with `PUT /api/v1/settings/mcp-servers`.
 
 ### Authentication options
 
@@ -50,6 +72,25 @@ Register it with `PUT /api/v1/settings/mcp-servers` (or through the UI). A catal
 ## In-chat authentication
 
 If a server uses OAuth and the user has not yet authorized it, the agent does not fail — the turn pauses with an `mcp.auth_required` event that carries an `auth_url` for each server that needs authorization. The chat UI renders this as a **Connect** button: the user completes the OAuth flow in a popup and continues the conversation.
+
+{/* TODO: Add screenshot of in-chat MCP OAuth Connect button (mcp.auth_required in the chat UI). */}
+<Frame caption="TODO: Screenshot — in-chat MCP authentication showing the Connect button when OAuth is required.">
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 200,
+      border: "1px dashed #94a3b8",
+      borderRadius: 8,
+      color: "#64748b",
+      padding: 24,
+      textAlign: "center",
+    }}
+  >
+    TODO: Screenshot of in-chat MCP auth (Connect button in chat when `mcp.auth_required` fires)
+  </div>
+</Frame>
 
 ```mermaid
 sequenceDiagram

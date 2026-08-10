@@ -6,9 +6,35 @@ description: 'An isolated execution environment for code, files, and shell comma
 
 The sandbox gives your agent a secure, isolated environment to run code, manipulate files, and execute shell commands — completely separate from the TrueForge server and your infrastructure.
 
-## Sandbox as a tool
+## Integration patterns
 
-There are two architecture patterns for combining agents with sandboxes. TrueForge uses the **sandbox as tool** pattern: the agent and all orchestration logic run in the harness, and the sandbox is only used for code execution, file operations, and shell commands.
+There are two architecture patterns for combining agents with sandboxes, based on where the agent runs.
+
+### Agent in sandbox
+
+The agent runs **inside** the sandbox. You build an image with your agent framework pre-installed, run it inside the sandbox, and communicate with it over the network (WebSocket or HTTP).
+
+```mermaid
+flowchart LR
+    App[Your application] <-->|"Network"| SB
+    subgraph SB["Sandbox"]
+        Agent[Agent + LLM client]
+        FS[Filesystem]
+        Shell[Shell]
+        Agent --> FS
+        Agent --> Shell
+    end
+```
+
+| Advantages | Disadvantages |
+| --- | --- |
+| Mirrors local development closely | API keys and secrets must live inside the sandbox |
+| Tight coupling between agent and environment | Updates require rebuilding images |
+| | Requires infrastructure for agent communication |
+
+### Sandbox as tool
+
+The agent runs **outside** the sandbox — on your server. When it needs to execute code, it calls sandbox tools (`execute`, `read_file`, `write_file`) which run operations in the remote sandbox.
 
 ```mermaid
 flowchart LR
@@ -22,15 +48,34 @@ flowchart LR
     end
 ```
 
-This design has several consequences:
+| Advantages | Disadvantages |
+| --- | --- |
+| API keys and secrets stay outside the sandbox | Network latency on each execution call |
+| Update agent logic without rebuilding images | |
+| Sandbox failures don't lose agent state | |
+| Pay only for execution time | |
+
+## TrueForge's approach
+
+TrueForge uses the **sandbox as tool** pattern: the agent and all orchestration logic run in the harness, and the sandbox is only used for code execution, file operations, and shell commands.
+
+That design has several consequences:
 
 - **Secrets stay out of the sandbox** — model API keys and MCP credentials live in the harness. Even a sandbox compromised through prompt injection has no secrets to exfiltrate.
 - **Agent state survives sandbox failures** — conversation history, context, and tool definitions live in the harness. A sandbox crash doesn't lose the agent's progress.
 - **On-demand provisioning** — a sandbox is created only when the agent actually needs one. Simple Q&A and MCP tool calls incur no sandbox cost.
 
+## Where the sandbox provider list comes from
+
+The provider presets under **Settings → Sandbox providers** come from a **shipped catalog YAML**:
+
+[`packages/server/src/catalog/sandbox-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/sandbox-catalog.yaml)
+
+Today that catalog includes a [Daytona](https://www.daytona.io) preset. The server exposes it at `GET /api/v1/settings/sandbox-providers/catalog`. Copy a preset (or configure via the UI), fill in your API key, and TrueForge can provision sandboxes on demand. Override the shipped list with `SANDBOX_CATALOG_PATH` if you want custom presets. Whether a provider is configured is reported by `GET /api/v1/capabilities`.
+
 ## Configuring a sandbox provider
 
-TrueForge delegates sandbox compute to a provider. Configure it once — in the UI under **Settings → Sandbox providers** or via `PUT /api/v1/settings/sandbox-providers`. Today the supported provider is [Daytona](https://www.daytona.io):
+Configure the provider once — in the UI under **Settings → Sandbox providers** or via `PUT /api/v1/settings/sandbox-providers`:
 
 ```json
 {
@@ -52,8 +97,6 @@ TrueForge delegates sandbox compute to a provider. Configure it once — in the 
 | `auto_stop_interval_in_minutes`    | Idle time before a running sandbox is stopped (files preserved). |
 | `auto_archive_interval_in_minutes` | Time before a stopped sandbox is archived.                       |
 | `auto_delete_interval_in_minutes`  | Time before an archived sandbox is deleted.                      |
-
-A template with defaults is available at `GET /api/v1/settings/sandbox-providers/catalog`. Whether a provider is configured is reported by `GET /api/v1/capabilities`.
 
 <div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.75", padding: "40px 0" }}>
   <iframe
