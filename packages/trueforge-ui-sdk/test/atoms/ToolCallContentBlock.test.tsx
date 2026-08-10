@@ -122,7 +122,22 @@ describe('ToolCallContentBlock', () => {
     expect(screen.queryByTestId('json-editor')).not.toBeInTheDocument();
     const body = screen.getByTestId('markdown-content').parentElement?.parentElement;
     expect(body).toHaveStyle({ height: '10rem', resize: 'vertical' });
+    expect(body).toHaveClass('overflow-hidden');
     expect(contentRef).toHaveBeenCalledWith(body);
+  });
+
+  it('lets Monaco own scrolling after the resizable body is measured', () => {
+    renderBlock({
+      title: 'Response',
+      content: '{"items":[1,2,3]}',
+      resizable: true,
+      contentHeightRem: 8,
+    });
+
+    const editor = screen.getByTestId('json-editor');
+    expect(editor).toHaveAttribute('data-height', '100%');
+    expect(editor).toHaveAttribute('data-auto-height', 'false');
+    expect(editor.parentElement).toHaveClass('overflow-hidden');
   });
 
   it('requests fullscreen and closes the controlled fullscreen dialog', () => {

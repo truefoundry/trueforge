@@ -6,6 +6,7 @@ import { useId, useState, type FormEvent } from 'react';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import type { AgentSpec } from '../server/types.js';
+import { getErrorMessage } from '../utils/getErrorMessage.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { CenteredModal } from './primitives/CenteredModal.js';
 
@@ -75,13 +76,13 @@ export function SaveAgentButton() {
       shell.invalidateAgentsList();
       handleOpenChange(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : isUpdate ? 'Failed to update agent.' : 'Failed to save agent.');
+      setError(getErrorMessage(err, isUpdate ? 'Failed to update agent.' : 'Failed to save agent.'));
       setSaving(false);
     }
   };
 
-  const triggerLabel = isUpdate ? 'Update Agent' : 'Save as agent';
-  const modalTitle = isUpdate ? 'Update Agent' : 'Save as agent';
+  const triggerLabel = isUpdate ? 'Update Agent' : 'Save agent';
+  const modalTitle = isUpdate ? 'Update Agent' : 'Save agent';
   const modalDescription = isUpdate
     ? 'Save changes to this agent in the Agents library'
     : 'Reuse this setup later from the Agents library';

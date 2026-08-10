@@ -102,6 +102,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'computeAgentStepsSplit',
   'createTrueFoundryServer',
   'defaultSlots',
+  'getErrorMessage',
   'libraryAgentId',
   'mergeAgentSpec',
   'preloadMarkdownOpenUI',

@@ -10,5 +10,5 @@ export interface CatalogProvider {
     name: TrueForge.ResourceName;
     /** Efforts the custom-provider form may advertise. Present only when type is `custom`. */
     supportedReasoningEfforts?: TrueForge.ReasoningEffort[];
-    type: TrueForge.CatalogProviderType;
+    type: TrueForge.ProviderType;
 }

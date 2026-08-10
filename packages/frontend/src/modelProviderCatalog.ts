@@ -68,7 +68,7 @@ export function toUiCatalogEntry(provider: TrueForgeApi.CatalogProvider): UiMode
   };
 }
 
-const PROVIDER_TYPES: readonly string[] = Object.values(TrueForgeApi.CatalogProviderType);
+const PROVIDER_TYPES: readonly string[] = Object.values(TrueForgeApi.ProviderType);
 
 function isProviderType(type: string): type is TrueForgeApi.ModelProvider['type'] {
   return PROVIDER_TYPES.includes(type);

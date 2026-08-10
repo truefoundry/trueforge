@@ -111,18 +111,27 @@ describe('MonacoEditorCore', () => {
 
   it('clamps auto-height and responds to Monaco content-size changes', async () => {
     monacoMocks.editor.getContentHeight.mockReturnValue(500);
+    const onAutoHeightChange = vi.fn();
     const { container, unmount } = render(
-      <MonacoEditorCore value={'one\ntwo'} autoHeight minHeight={30} maxHeight={100} />,
+      <MonacoEditorCore
+        value={'one\ntwo'}
+        autoHeight
+        minHeight={30}
+        maxHeight={100}
+        onAutoHeightChange={onAutoHeightChange}
+      />,
     );
 
     await waitFor(() => expect(monacoMocks.editorApi.create).toHaveBeenCalledOnce());
     const editorContainer = container.querySelector('.aui-monaco');
     expect(editorContainer).toHaveStyle({ height: '100px' });
     expect(monacoMocks.editor.layout).toHaveBeenCalled();
+    expect(onAutoHeightChange).toHaveBeenLastCalledWith(100);
 
     monacoMocks.editor.getContentHeight.mockReturnValue(10);
     act(() => monacoMocks.invokeSizeChange());
     expect(editorContainer).toHaveStyle({ height: '30px' });
+    expect(onAutoHeightChange).toHaveBeenLastCalledWith(30);
 
     unmount();
     expect(monacoMocks.sizeDisposable.dispose).toHaveBeenCalledOnce();

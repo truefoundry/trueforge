@@ -9,6 +9,8 @@ import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
 let observedNodes: Element[] = [];
 let disconnectCount = 0;
+let reportContentHeight = true;
+let renderedContentHeight = 0;
 
 class ResizeObserverProbe implements ResizeObserver {
   readonly callback: ResizeObserverCallback;
@@ -40,15 +42,23 @@ function ToolCallContentBlockProbe({
   onFullscreenChange,
   contentHeightRem,
   contentRef,
+  onContentHeightChange,
 }: ToolCallContentBlockProps) {
   const measuredContentRef = useCallback(
     (node: HTMLDivElement | null) => {
       if (node !== null) {
         Object.defineProperty(node, 'scrollHeight', { configurable: true, value: 64 });
+        Object.defineProperty(node, 'getBoundingClientRect', {
+          configurable: true,
+          value: () => new DOMRect(0, 0, 100, renderedContentHeight),
+        });
       }
-      if (resizable) contentRef?.(node);
+      if (resizable) {
+        contentRef?.(node);
+        if (node !== null && reportContentHeight) onContentHeightChange?.(64);
+      }
     },
-    [contentRef, resizable],
+    [contentRef, onContentHeightChange, resizable],
   );
 
   return (
@@ -93,6 +103,8 @@ describe('ToolCallContentBlockContainer', () => {
   beforeEach(() => {
     observedNodes = [];
     disconnectCount = 0;
+    reportContentHeight = true;
+    renderedContentHeight = 0;
     vi.stubGlobal('ResizeObserver', ResizeObserverProbe);
   });
 
@@ -129,5 +141,21 @@ describe('ToolCallContentBlockContainer', () => {
     const disconnectsBeforeUnmount = disconnectCount;
     unmount();
     expect(disconnectCount).toBeGreaterThan(disconnectsBeforeUnmount);
+  });
+
+  it('does not lock JSON height before Monaco reports its measured content height', () => {
+    reportContentHeight = false;
+    render(<TestSubject resizable />);
+
+    expect(screen.getByTestId('content-block-probe')).toHaveAttribute('data-content-height', 'undefined');
+  });
+
+  it('preserves the rendered box height when Monaco finishes measuring', async () => {
+    renderedContentHeight = 72;
+    render(<TestSubject resizable />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('content-block-probe')).toHaveAttribute('data-content-height', '4.5');
+    });
   });
 });

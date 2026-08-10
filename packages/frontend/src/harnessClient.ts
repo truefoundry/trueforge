@@ -28,7 +28,7 @@ export const harnessClient = createHarnessClient();
 /**
  * Client for the pre-boot session probe. Unlike {@link harnessClient} it does NOT
  * redirect on 401, so the welcome gate can observe the unauthenticated state
- * (OIDC configured but no session cookie yet) and render "Let's Get Started"
+ * (auth enabled but no session cookie yet) and render "Let's Get Started"
  * instead of bouncing straight to the login flow.
  */
 export const harnessProbeClient = new TrueForge({

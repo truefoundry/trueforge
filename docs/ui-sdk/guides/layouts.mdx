@@ -3,42 +3,40 @@ title: "Layouts"
 description: "The four built-in layouts, and how to supply your own."
 ---
 
-`layout` is required. Pass one of the built-in names or your own component.
+The sidebar view is the default option. You can pass predefined values - sidebar, drawer, dock, or widget to change the layout.
 
 <Tabs>
-  <Tab title="sidebar">
-    Full-page chat with a persistent thread list on the left. The default choice for a
-    dedicated chat surface.
+  <Tab title="sidebar(default)">
+    Full-page chat with a persistent chat history on the left. The default choice for a dedicated chat surface.
 
     ```tsx
     <TrueforgeUI server={server} layout="sidebar" />
     ```
 
     <Frame caption="Sidebar: full-page chat with the thread list pinned on the left.">
-      <img src="/images/sidebar.png" alt="Sidebar layout — a persistent thread list on the left beside a full-page chat" />
+      ![Sidebar layout — a persistent thread list on the left beside a full-page chat](/images/sidebar.png)
     </Frame>
   </Tab>
   <Tab title="drawer">
-    Thread list collapses into an overlay drawer. Suited to narrower viewports.
+    Chat history list collapses into an overlay drawer. Click on the history icon to view the past conversations. Suited to narrower viewports.
 
     ```tsx
     <TrueforgeUI server={server} layout="drawer" />
     ```
 
     <Frame caption="Drawer: the thread list collapses into an overlay for narrow viewports.">
-      <img src="/images/drawer.png" alt="Drawer layout — the thread list collapsed into an overlay drawer" />
+      ![Drawer layout — the thread list collapsed into an overlay drawer](/images/drawer.png)
     </Frame>
   </Tab>
   <Tab title="dock">
-    A panel pinned to the right edge, filling the available width up to a 400px cap. The side is
-    not configurable.
+    A panel pinned to the right edge, filling the available width up to a 400px cap.
 
     ```tsx
     <TrueforgeUI server={server} layout="dock" />
     ```
 
     <Frame caption="Dock: a compact panel pinned to the right edge, up to a 400px cap.">
-      <img src="/images/dock.png" alt="Dock layout — a compact chat panel pinned to the right edge of the app" />
+      ![Dock layout — a compact chat panel pinned to the right edge of the app](/images/dock.png)
     </Frame>
   </Tab>
   <Tab title="widget">
@@ -49,73 +47,9 @@ description: "The four built-in layouts, and how to supply your own."
     ```
 
     <Frame caption="Widget: a floating launcher that expands into a compact chat panel.">
-      <img src="/images/widget.png" alt="Widget layout — a floating launcher expanded into a compact chat panel" />
+      ![Widget layout — a floating launcher expanded into a compact chat panel](/images/widget.png)
     </Frame>
   </Tab>
 </Tabs>
 
-Built-in layouts are code-split, so naming one does not pull the other three into your bundle.
-A placeholder renders for the moment it takes to load.
-
-`dock` and `widget` are compact layouts: rather than showing the thread list beside the
-conversation, they stack the two and let the user switch between them from a history control.
-`sidebar` and `drawer` keep the list available alongside the chat.
-
-## Custom layouts
-
-Pass a component instead of a string. It renders inside the full provider stack, so every
-container hook and `useSlot` lookup works normally.
-
-```tsx
-import { Thread, ThreadListContainer, TrueforgeUI } from "@truefoundry/trueforge-ui";
-
-function MyLayout() {
-  return (
-    <div className="flex h-full min-h-0">
-      <aside className="w-72 shrink-0 border-r">
-        <ThreadListContainer />
-      </aside>
-      <main className="min-h-0 flex-1">
-        <Thread />
-      </main>
-    </div>
-  );
-}
-
-<TrueforgeUI server={server} layout={MyLayout} />;
-```
-
-<Frame caption="A custom layout renders inside the full provider stack, so every container hook still works.">
-  <img src="/images/custom.png" alt="A custom TrueForge layout composed from a thread list and a chat pane" />
-</Frame>
-
-`Thread` is a convenience wrapper equal to
-`<ThreadContainer composer={<ComposerContainer />} />`. Split them apart when you need the
-composer somewhere other than directly beneath the transcript.
-
-<Warning>
-  The settings panel is part of the built-in layouts, so a custom layout does not get one. If
-  you need settings, either stay on a built-in layout or build your own panel against the
-  `catalog` server — see [Server](/ui-sdk/reference/server).
-</Warning>
-
-## Composing without TrueforgeUI
-
-For maximum control, mount the providers yourself. Order matters — `SlotsProvider` must be
-outside `TrueFoundryChatProvider`.
-
-```tsx
-<SlotsProvider overrides={overrides} theme={theme}>
-  <ServerProvider server={server}>
-    <ShellModeProvider agentConfig={{ mode: "AgentLibrary" }}>
-      <TrueFoundryChatProvider server={server}>
-        <MyLayout />
-      </TrueFoundryChatProvider>
-    </ShellModeProvider>
-  </ServerProvider>
-</SlotsProvider>
-```
-
-This path gives up the automatic runtime reset that `TrueforgeUI` performs when the selected
-agent changes, so you become responsible for remounting `TrueFoundryChatProvider` — change its
-`key` — at those moments.
+Built-in layouts are code-split, so using one does not pull the other three into your bundle. A placeholder renders for the moment it takes to load.

@@ -1,13 +1,13 @@
 ---
 title: "Quickstart"
-description: "Render a working agent chat UI against one of three backends."
+description: "Render a working agent chat UI"
 ---
 
 ## Installation
 
 <CodeGroup>
 
-```text npm
+```shellscript npm
 npm install @truefoundry/trueforge-ui
 ```
 
@@ -16,11 +16,12 @@ pnpm add @truefoundry/trueforge-ui
 ```
 
 ```text yarn
+yarn add @truefoundry/agent-ui-sdk
 ```
 
 </CodeGroup>
 
-`react` and `react-dom` are required peer dependencies and must be version 18 or 19. `@assistant-ui/core`, `@assistant-ui/react`, and `@types/react` are optional peers, you need to install them yourself only if you use their APIs directly or need to pin a version.
+`react` and `react-dom` are required peer dependencies and must be version 18 or 19.
 
 ## Connect with TrueForge Server
 
@@ -36,61 +37,11 @@ Typed for hosts adopting the harness adapter.
 />
 ```
 
+## Rendered UI
+
 <Frame caption="What `TrueforgeUI` renders — a full agent chat with streaming, history, and tool calls.">
   ![The TrueforgeUI component rendering an agent chat with an agent-steps panel and a streamed response](/images/landing-screen.png)
 </Frame>
-
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion title="Error: requires an AuiProvider">
-    Deduplicate the assistant-ui singletons `react`, `react-dom`, `@assistant-ui/core`, `@assistant-ui/react`, and `@assistant-ui/store` must each resolve to exactly one copy in your bundle. Two copies produce a runtime error along the lines of _"requires an AuiProvider"_.
-
-    <CodeGroup>
-
-    ```ts vite.config.ts
-    export default defineConfig({
-      resolve: {
-        dedupe: [
-          "react",
-          "react-dom",
-          "@assistant-ui/core",
-          "@assistant-ui/react",
-          "@assistant-ui/store",
-        ],
-      },
-    });
-    ```
-
-    ```json package.json
-    {
-      "resolutions": {
-        "@assistant-ui/core": "<version>",
-        "@assistant-ui/store": "<version>"
-      }
-    }
-    ```
-
-    </CodeGroup>
-
-    The `vite.config.ts` approach is usually enough. Reach for `resolutions` (or `overrides` on npm, `pnpm.overrides` on pnpm) when a transitive dependency drags in a second copy.
-
-    Note that `@assistant-ui/store` arrives transitively through `@assistant-ui/core` rather than being declared by the SDK, so there is no published version to look up — pin it to whatever your lockfile resolves `@assistant-ui/core` against.
-  </Accordion>
-
-  <Accordion title="The UI renders but is collapsed to zero height">
-    The SDK fills its parent container and does not set its own height. A parent with no resolved height collapses the entire chat UI, which is the single most common cause of a "blank" first install.
-
-    ```tsx
-    <div className="flex h-dvh min-h-0 w-full flex-1 flex-col">
-      <TrueforgeUI /* ... */ className="h-full min-h-0" />
-    </div>
-    ```
-
-    The SDK fills its parent container and does not set its own height. A parent with no resolved height collapses the entire chat UI, which is the single most common cause of a "blank" first install.
-  </Accordion>
-</AccordionGroup>
 
 ## Where to go next
 

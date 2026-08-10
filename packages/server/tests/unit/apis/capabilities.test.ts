@@ -86,7 +86,7 @@ describe('capabilities routers', () => {
     });
   });
 
-  describe('when OIDC is configured', () => {
+  describe('when auth is enabled', () => {
     const realFetch = globalThis.fetch;
     let privateKey: Awaited<ReturnType<typeof generateKeyPair>>['privateKey'];
     let oidcClient: Configuration;
