@@ -10,27 +10,31 @@ import { ModelEntrySchema, ModelProviderTypeSchema, ReasoningEffortSchema, refin
  * Catalog entry. Well-known types list model presets; `custom` is a sentinel that
  * carries `supported_reasoning_efforts` for the custom-provider settings form.
  */
+export const CatalogWellKnownModelProviderTypeSchema = ModelProviderTypeSchema.exclude(['custom']).openapi(
+  'CatalogWellKnownModelProviderType',
+);
+
 export const CatalogWellKnownModelProviderSchema = z
   .object({
-    type: ModelProviderTypeSchema.exclude(['custom']).describe('Well-known provider type (catalog excludes `custom`).'),
-    logo: z.url().optional().describe('URL of the provider logo asset.'),
-    models: z.array(ModelEntrySchema).describe('Preset models; empty on the `custom` sentinel.'),
+    type: CatalogWellKnownModelProviderTypeSchema,
+    logo: z.url().optional().describe('URL of the provider logo asset'),
+    models: z.array(ModelEntrySchema).describe('Preset models'),
   })
   .strict()
   .openapi('CatalogWellKnownModelProvider');
 
 export const CatalogCustomModelProviderSchema = z
   .object({
-    type: z.literal('custom').describe('Custom provider type (catalog includes `custom`).'),
+    type: z.literal('custom'),
     supported_reasoning_efforts: z
       .array(ReasoningEffortSchema)
-      .describe('Supported reasoning-effort values for this provider.'),
+      .describe('Supported reasoning-effort values for this provider'),
   })
   .strict()
   .openapi('CatalogCustomModelProvider');
 
 export const CatalogModelProviderSchema = z
-  .discriminatedUnion('type', [CatalogWellKnownModelProviderSchema, CatalogCustomModelProviderSchema])
+  .union([CatalogWellKnownModelProviderSchema, CatalogCustomModelProviderSchema])
   .openapi('CatalogModelProvider');
 
 export const ModelCatalogFileSchema = z
