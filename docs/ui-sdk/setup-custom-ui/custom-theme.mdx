@@ -3,109 +3,119 @@ title: "Custom Theme"
 description: "Build your own custom theme"
 ---
 
-Pass an `overrides` object to replace a built-in component. Your version is used everywhere
-that component appears, without you having to find each place it is rendered.
+## The Theme Object
 
-```tsx
-import { TrueforgeUI, type AssistantMessageBubbleProps } from "@truefoundry/trueforge-ui";
+Theme object supports params to pass `tokens` to override styles of UI components. You can also override app level classes
 
-function MyBubble({ children, error, actionBar, className }: AssistantMessageBubbleProps) {
-  return (
-    <div className={className} data-testid="my-bubble">
-      {error}
-      <div className="prose">{children}</div>
-      {actionBar}
-    </div>
-  );
-}
-
-<TrueforgeUI
-  server={server}
-  layout="sidebar"
-  overrides={{ AssistantMessageBubble: MyBubble }}
-/>;
+```jsx App.jsx
+type ThemeConfig = {
+  ...
+  tokens?: Partial<SemanticTokens>;
+  className?: string;
+  icons?: IconMap;
+  classNames?: ContentClassNames;
+};
 ```
 
-`SlotOverrides` is `Partial<AtomSlots>`, so overrides are type-checked against the default
-component's signature. Import the exported `*Props` type for the slot you are replacing and
-honor the props you receive — several are rendered nodes (`actionBar`, `error`,
-`approvalSlot`) that the container supplies and expects you to place.
+## The Token Object
 
-## Commonly overridden slots
+```json Token Object
+{
+    background: "#c18585",
+    foreground: "#1f1f1f",
+    card: "#ffffff",
+    cardForeground: "#1f1f1f",
+    popover: "#f0f4f9",
+    popoverForeground: "#1f1f1f",
+    primary: "#1f3b9b",
+    primaryForeground: "#ffffff",
+    secondary: "#e8eaed",
+    secondaryForeground: "#1f1f1f",
+    muted: "#f8fafd",
+    mutedForeground: "#444746",
+    accent: "#e9eef6",
+    accentForeground: "#1f1f1f",
+    destructive: "#b3261e",
+    destructiveForeground: "#ffffff",
+    border: "#dadce0",
+    input: "#dadce0",
+    ring: "#1f3b9b",
+    userBubble: "#f3f6fc",
+    userBubbleForeground: "#1f1f1f",
+    radius: "1rem",
+    composerRadius: "2rem",
+    fontSans: "\"GeistSans\", \"GeistSans Fallback\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+  }
+```
 
-<AccordionGroup>
-  <Accordion title="Messages and content">
-    `AssistantMessageBubble`, `UserMessageBubble`, `UserMessageEdit`,
-    `UserMessageActionBar`, `MessageActionBar`, `MessageErrorBanner`, `MessageIndicator`,
-    `MessageTimestamp`, `MessageGroup`, `Markdown`, `SyntaxHighlighter`, `OpenUiFenceBlock`,
-    `CodeEditor`, `MonacoEditorCore`, `WelcomeScreen`.
-  </Accordion>
-  <Accordion title="Composer">
-    `ComposerShell`, `ComposerLeftSection`, `ComposerRightSection`, `ComposerSendButton`,
-    `AttachmentCard`, `AttachmentPickerButton`, `AttachmentPreviewDialog`.
+## Precedence
 
-    The draft composer has its own slots — `DraftComposerLeftSection`,
-    `DraftComposerRightSection`, `DraftModelSelector`, and `DraftCompositeSelector` — so you can
-    restyle the draft chrome without touching the standard composer.
+The provider resolves the preset for the current mode, merges your `theme.tokens` over it, and writes the result as **inline styles** on the theme root. So within `theme.tokens`, your entries beat the preset — that part is straightforward.
 
-    The two sets interact. In a mutable draft the container substitutes the draft sections
-    behind `ComposerLeftSection` / `ComposerRightSection`, but only while those slots are still
-    at their defaults. Override either one and yours wins in draft mode too, which means the
-    model and composite selectors disappear unless you render them yourself.
-  </Accordion>
-  <Accordion title="Thread shell and list">
-    `ThreadRootShell`, `ThreadViewportShell`, `ThreadComposerAreaShell`,
-    `ScrollToBottomButton`, `MessageListSkeleton`, `HistoryLoader`, `ThreadListShell`,
-    `ThreadListNewButton`, `ThreadListRow`, `ThreadListRowSkeleton`,
-    `ThreadListEmptyState`.
-  </Accordion>
-  <Accordion title="Tools and prompts">
-    `ToolCallCard`, `ToolCallContentBlock`, `ToolApprovalBar`, `ToolGroupCard`,
-    `SubAgentCard`, `SandboxToolCallCard`, `SandboxArtifactDownload`, `ChatFileDownload`,
-    `AgentStepsCard`, and the prompt slots `AskUserPrompt`, `McpAuthPrompt`, `ReasoningCard`.
-  </Accordion>
-  <Accordion title="Agent library and shell">
-    `AgentsLibrary`, `AgentsLibraryButton`, `SaveAgentButton`, `SelectAgentEmptyState`,
-    `ClearChatButton`, `ShellActionsActionSlot`, `Toast`, `ToastStack`, `Accordion`,
-    `AccordionSummary`, `AccordionDetails`.
+<Warning>
+  Because those tokens land as inline styles, a `:root { --primary: … }` rule in your own CSS will **not** override them. This applies to every token a preset defines, whether or not you passed `theme.tokens`. Use `theme.tokens` to change these, not CSS.
+</Warning>
 
-    `ShellActionsActionSlot` exists purely to be overridden — it renders nothing by default and
-    is the supported place to add your own chrome, such as a logout control, beside the theme
-    and settings buttons. Layouts keep it mounted while Settings is open, so state in your
-    component survives.
-  </Accordion>
-</AccordionGroup>
+A few tokens are absent from the presets — `scrollbarThumb`, `assistantBubble`, and `assistantBubbleForeground`. Those are not written inline unless you set them, so they fall through to the stylesheet's low-precedence layer and a host `:root` rule does take effect.
+
+`theme.className` is applied to the theme root, for utility-class adjustments alongside the tokens.
 
 <Note>
-  `SlotOverrides` is derived directly from the SDK's default slot table, so autocomplete on the
-  `overrides` object is an exact list of what can be overridden — nothing more, nothing less.
+  `brand`, `icons`, and `classNames` are not part of this cascade — they are separate context values, not tokens that layer over one another.
 </Note>
 
-<Note>
-  Some slots are override-only, meaning you supply your own component rather than wrapping a
-  default: `AskUserPrompt`, `McpAuthPrompt`, and `ReasoningCard` publish their prop types but
-  not the components, and `Accordion`, `AccordionSummary`, and `AccordionDetails` publish
-  neither.
-</Note>
-
-<Note>
-  `Button` and `IconButton` publish their prop types for typing your own components. The
-  buttons themselves are restyled through semantic tokens and CSS rather than replaced — see
-  [Theming](/ui-sdk/guides/theming).
-</Note>
-
-## Discovering slot names
-
-`SlotOverrides` is a mapped type over every slot, so your editor autocompletes the available
-names as you type inside the `overrides` object, and hovering a name shows the component
-signature you need to match. That is the fastest way to find a slot. The groups above list the
-ones most applications touch.
-
-## Overriding outside TrueforgeUI
-
-If you compose providers manually, pass overrides to `SlotsProvider` and keep it outside
-`TrueFoundryChatProvider`:
+## Reading theme state
 
 ```tsx
-<SlotsProvider overrides={{ ThreadListRow: MyRow }}>{/* ... */}</SlotsProvider>
+import { useTheme, useThemeMode, useBrand } from "@truefoundry/trueforge-ui";
+
+const { preset, mode, preference, isDark, setTheme } = useTheme();
+const resolved = useThemeMode(); // "light" | "dark", defaults to "light" outside a provider
+const brand = useBrand();
 ```
+
+`BrandLogo` and `BrandIcon` render `theme.brand.logo` and `theme.brand.icon`. Their fallbacks differ: `BrandLogo` falls back to a default mark plus the brand name (default `"TrueFoundry"`), while `BrandIcon` falls back to the bare mark with no name.
+
+## Token naming
+
+`SemanticTokens` keys map to the kebab-cased CSS variable of the same name — `cardForeground` becomes `--card-foreground`, `composerRadius` becomes `--composer-radius`, `scrollbarThumb` becomes `--scrollbar-thumb`.
+
+One token breaks that rule:
+
+| Token | CSS variable |
+| --- | --- |
+| `fontFamily` | `--font-agent-ui` |
+
+Alongside the usual surface and text tokens, the palette includes status pairs for `destructive`, `success`, and `warning`, each with a matching `*Foreground`.
+
+<Note>
+  `theme.tokens` is a `Partial`, so you only supply the tokens you want to change and the preset fills in the rest. The status pairs matter only if you construct a complete `SemanticTokens` object — for instance when building your own preset — in which case all four of `success`, `successForeground`, `warning`, and `warningForeground` are required.
+</Note>
+
+## Styling rendered content
+
+`theme.classNames` targets the content renderers:
+
+```ts
+type ContentClassNames = {
+  markdown?: string;
+  inlineCode?: string;
+  syntaxHighlighter?: { root?: string; pre?: string; code?: string; lineNumber?: string };
+  openui?: { root?: string; scope?: string };
+  monaco?: { root?: string };
+};
+```
+
+For CSS-only adjustments you can instead target the stable class names directly: `.aui-markdown`, `.aui-syntax-highlighter`, `.aui-openui`, `.aui-monaco`.
+
+## Presets
+
+```ts
+import { PRESETS, resolvePresetTokens } from "@truefoundry/trueforge-ui";
+
+const tokens = resolvePresetTokens("gemini", "dark");
+```
+
+`PRESETS` is a `Record<ThemePreset, { light, dark }>` — useful for building a preset picker.
+
+Refer to [Building custom theme](/ui-sdk/setup-custom-ui/custom-theme) to build a theme from scratch

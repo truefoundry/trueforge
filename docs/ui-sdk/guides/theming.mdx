@@ -1,11 +1,9 @@
 ---
-title: "Theming"
-description: "Presets, semantic tokens, branding, and dark mode."
+title: "Preset Themes"
+description: "Presets, branding, and dark mode."
 ---
 
-Theming works the way shadcn/ui theming works: semantic tokens compiled to CSS custom
-properties. `ThemeProvider` writes them as inline styles on a wrapper `div.aui-theme-root`,
-tagged with `data-theme` and `data-preset`.
+You can choose from four preset themes - Claude, ChaptGPT, Gemini, or TrueFoundry
 
 ## The theme object
 
@@ -13,22 +11,24 @@ tagged with `data-theme` and `data-preset`.
 type ThemeConfig = {
   preset?: "truefoundry" | "claude" | "chatgpt" | "gemini"; // default "truefoundry"
   mode?: "light" | "dark" | "system";
-  tokens?: Partial<SemanticTokens>;
-  brand?: BrandConfig;
-  className?: string;
-  icons?: IconMap;
-  classNames?: ContentClassNames;
+  brand?: {
+	name?: string;
+  	logo?: string | BrandLogo;
+  },
+  ...
 };
 ```
 
-```tsx
+```tsx App.tsx
 <TrueforgeUI
-  server={server}
-  layout="sidebar"
+  ...
   theme={{
     preset: "claude",
-    tokens: { primary: "#0B5FFF", composerRadius: "1rem" },
-    brand: { name: "Acme", icon: { src: "/logo.svg", alt: "Acme" } },
+    mode: "system",
+    brand: {
+        name: "TrueForge",
+        logo: "/logo.svg",
+    }
   }}
 />
 ```
@@ -37,116 +37,43 @@ The `chatgpt`, `claude`, and `gemini` presets (the default is `truefoundry`):
 
 <Columns cols={3}>
   <Frame caption="chatgpt">
-    <img src="/images/theme-chatgpt.png" alt="TrueForge UI with the chatgpt theme preset" />
+    ![TrueForge UI with the chatgpt theme preset](/images/theme-chatgpt.png)
   </Frame>
+
   <Frame caption="claude">
-    <img src="/images/theme-claude.png" alt="TrueForge UI with the claude theme preset" />
+    ![TrueForge UI with the claude theme preset](/images/theme-claude.png)
   </Frame>
+
   <Frame caption="gemini">
-    <img src="/images/theme-gemini.png" alt="TrueForge UI with the gemini theme preset" />
+    ![TrueForge UI with the gemini theme preset](/images/theme-gemini.png)
   </Frame>
 </Columns>
 
-## Precedence
-
-The provider resolves the preset for the current mode, merges your `theme.tokens` over it, and
-writes the result as **inline styles** on the theme root. So within `theme.tokens`, your entries
-beat the preset — that part is straightforward.
-
-<Warning>
-  Because those tokens land as inline styles, a `:root { --primary: … }` rule in your own CSS
-  will **not** override them. This applies to every token a preset defines, whether or not you
-  passed `theme.tokens`. Use `theme.tokens` to change these, not CSS.
-</Warning>
-
-A few tokens are absent from the presets — `scrollbarThumb`, `assistantBubble`, and
-`assistantBubbleForeground`. Those are not written inline unless you set them, so they fall
-through to the stylesheet's low-precedence layer and a host `:root` rule does take effect.
-
-`theme.className` is applied to the theme root, for utility-class adjustments alongside the
-tokens.
-
-<Note>
-  `brand`, `icons`, and `classNames` are not part of this cascade — they are separate context
-  values, not tokens that layer over one another.
-</Note>
-
 ## Light and dark mode
 
-Omit `theme.mode` and the provider is uncontrolled: it resolves `system`, lets the user
-toggle, and persists the choice to `localStorage` under `aui-theme-preference`. Pass
-`theme.mode` and the provider becomes controlled — `setTheme` from `useTheme()` becomes a
-no-op and you own the state.
+Skip means defaults to system theme. User can choose via UI.
 
-<Warning>
-  Dark mode toggles the `dark` class on `document.documentElement`. If your app already
-  manages dark mode by the same mechanism, the two will fight. Pass a controlled
-  `theme.mode` derived from your own state to keep them in sync.
-</Warning>
+Pass to set a theme to light, dark or system. User CANNOT update it. This is useful when you want to control the theme based on the main/top level app theme.
 
 <Frame caption="Dark mode applied to the chat UI.">
-  <img src="/images/dark_theme.png" alt="The TrueForge UI SDK rendered in dark mode" />
+  ![The TrueForge UI SDK rendered in dark mode](/images/dark_theme.png)
 </Frame>
 
-## Reading theme state
+### Set separate logo for light and dark theme 
 
-```tsx
-import { useTheme, useThemeMode, useBrand } from "@truefoundry/trueforge-ui";
-
-const { preset, mode, preference, isDark, setTheme } = useTheme();
-const resolved = useThemeMode(); // "light" | "dark", defaults to "light" outside a provider
-const brand = useBrand();
+```tsx App.tsx
+<TrueforgeUI
+  ...
+  theme={{
+    ...
+    brand: {
+        name: "TrueForge",
+        logo: {
+		  "light": "/logo/light.svg",
+		  "dark": "/logo/dark.svg",
+		  "href": "https://trueforge.dev" //URL to redirect on logo click
+        },
+    }
+  }}
+/>
 ```
-
-`BrandLogo` and `BrandIcon` render `theme.brand.logo` and `theme.brand.icon`. Their fallbacks
-differ: `BrandLogo` falls back to a default mark plus the brand name (default `"TrueFoundry"`),
-while `BrandIcon` falls back to the bare mark with no name.
-
-## Token naming
-
-`SemanticTokens` keys map to the kebab-cased CSS variable of the same name — `cardForeground`
-becomes `--card-foreground`, `composerRadius` becomes `--composer-radius`, `scrollbarThumb`
-becomes `--scrollbar-thumb`.
-
-One token breaks that rule:
-
-| Token | CSS variable |
-| --- | --- |
-| `fontFamily` | `--font-agent-ui` |
-
-Alongside the usual surface and text tokens, the palette includes status pairs for
-`destructive`, `success`, and `warning`, each with a matching `*Foreground`.
-
-<Note>
-  `theme.tokens` is a `Partial`, so you only supply the tokens you want to change and the preset
-  fills in the rest. The status pairs matter only if you construct a complete `SemanticTokens`
-  object — for instance when building your own preset — in which case all four of `success`,
-  `successForeground`, `warning`, and `warningForeground` are required.
-</Note>
-
-## Styling rendered content
-
-`theme.classNames` targets the content renderers:
-
-```ts
-type ContentClassNames = {
-  markdown?: string;
-  inlineCode?: string;
-  syntaxHighlighter?: { root?: string; pre?: string; code?: string; lineNumber?: string };
-  openui?: { root?: string; scope?: string };
-  monaco?: { root?: string };
-};
-```
-
-For CSS-only adjustments you can instead target the stable class names directly:
-`.aui-markdown`, `.aui-syntax-highlighter`, `.aui-openui`, `.aui-monaco`.
-
-## Presets
-
-```ts
-import { PRESETS, resolvePresetTokens } from "@truefoundry/trueforge-ui";
-
-const tokens = resolvePresetTokens("gemini", "dark");
-```
-
-`PRESETS` is a `Record<ThemePreset, { light, dark }>` — useful for building a preset picker.

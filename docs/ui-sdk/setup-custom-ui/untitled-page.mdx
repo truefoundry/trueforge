@@ -1,0 +1,54 @@
+---
+title: "Custom Layout"
+---
+
+Define a custom layout but still use the existing components
+
+Pass a component instead of a string. It renders inside the full provider stack, so every container hook and `useSlot` lookup works normally.
+
+```tsx App.tsx
+import { Thread, ThreadListContainer, TrueforgeUI } from "@truefoundry/trueforge-ui";
+
+function MyLayout() {
+  return (
+    <div className="flex h-full min-h-0">
+      <aside className="w-72 shrink-0 border-r">
+        <ThreadListContainer />
+      </aside>
+      <main className="min-h-0 flex-1">
+        <Thread />
+      </main>
+    </div>
+  );
+}
+
+<TrueforgeUI server={server} layout={MyLayout} />;
+```
+
+<Frame caption="A custom layout renders inside the full provider stack, so every container hook still works.">
+  ![A custom TrueForge layout composed from a thread list and a chat pane](/images/custom.png)
+</Frame>
+
+`Thread` is a convenience wrapper equal to `<ThreadContainer composer={<ComposerContainer />} />`. Split them apart when you need the composer somewhere other than directly beneath the transcript.
+
+<Warning>
+  The settings panel is part of the built-in layouts, so a custom layout does not get one. If you need settings, either stay on a built-in layout or build your own panel against the `catalog` server — see [Server](/ui-sdk/reference/server).
+</Warning>
+
+## Composing without TrueforgeUI
+
+For maximum control, mount the providers yourself. Order matters — `SlotsProvider` must be outside `TrueFoundryChatProvider`.
+
+```tsx
+<SlotsProvider overrides={overrides} theme={theme}>
+  <ServerProvider server={server}>
+    <ShellModeProvider agentConfig={{ mode: "AgentLibrary" }}>
+      <TrueFoundryChatProvider server={server}>
+        <MyLayout />
+      </TrueFoundryChatProvider>
+    </ShellModeProvider>
+  </ServerProvider>
+</SlotsProvider>
+```
+
+This path gives up the automatic runtime reset that `TrueforgeUI` performs when the selected agent changes, so you become responsible for remounting `TrueFoundryChatProvider` — change its `key` — at those moments.
