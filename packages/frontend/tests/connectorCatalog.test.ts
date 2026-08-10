@@ -6,6 +6,7 @@ import {
   toUiAuthPublic,
   toUiCatalogEntry,
   toUiConnector,
+  toUiConnectorFromReadEntry,
   toUiTool,
 } from '../src/connectorCatalog';
 
@@ -93,6 +94,25 @@ describe('connectorCatalog mappers', () => {
     });
     assert.equal(connected.authenticated, true);
     assert.equal(connected.requiresAuth, false);
+  });
+
+  it('maps chat read entries from per-user auth_status', () => {
+    assert.deepEqual(
+      toUiConnectorFromReadEntry({
+        name: 'linear',
+        url: 'https://mcp.linear.app/mcp',
+        authStatus: { status: 'auth_required' },
+      }),
+      {
+        id: 'linear',
+        name: 'linear',
+        description: 'https://mcp.linear.app/mcp',
+        url: 'https://mcp.linear.app/mcp',
+        auth: { type: 'none' },
+        requiresAuth: true,
+        authenticated: false,
+      },
+    );
   });
 
   it('maps tool rows with description for getToolsByConnectorId', () => {

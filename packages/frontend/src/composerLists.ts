@@ -9,8 +9,8 @@ export async function listModels(): Promise<TrueForgeApi.Model[]> {
   const body = await client.models.list();
   return body.data;
 }
-export async function listConfiguredMcpServers(): Promise<TrueForgeApi.ConfiguredMcpServer[]> {
-  const body = await client.settings.mcpServers.list();
+export async function listConfiguredMcpServers(): Promise<TrueForgeApi.McpServerReadEntry[]> {
+  const body = await client.mcpServers.list();
   return body.data;
 }
 
