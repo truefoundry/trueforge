@@ -8,8 +8,14 @@ import { type Kysely, sql } from 'kysely';
  * SQLite cannot alter primary keys in place, so the token/pending tables are
  * rebuilt (empty after the deletes below). Mirrors
  * db/postgres/migrations/20260813_000001_mcp_oauth_user_scoped.ts.
+ *
+ * SQLite has no LOCK TABLE / ACCESS EXCLUSIVE. Migrations run in a deferred
+ * transaction; a no-op UPDATE before each delete escalates to a RESERVED write
+ * lock so concurrent connections cannot insert until this migration commits.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
+  // Escalate deferred txn → RESERVED (writer lock) before clearing the table.
+  await sql`UPDATE oauth_token SET updated_at = updated_at WHERE false`.execute(db);
   await sql`DELETE FROM oauth_token`.execute(db);
   await sql`DROP TABLE oauth_token`.execute(db);
   await sql`
@@ -23,6 +29,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   `.execute(db);
 
   // In-flight pending rows cannot be attributed to a user; drop them.
+  await sql`UPDATE oauth_pending_authorization SET created_at = created_at WHERE false`.execute(db);
   await sql`DELETE FROM oauth_pending_authorization`.execute(db);
   await sql`DROP TABLE oauth_pending_authorization`.execute(db);
   await sql`
@@ -38,6 +45,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
+  await sql`UPDATE oauth_pending_authorization SET created_at = created_at WHERE false`.execute(db);
   await sql`DELETE FROM oauth_pending_authorization`.execute(db);
   await sql`DROP TABLE oauth_pending_authorization`.execute(db);
   await sql`
@@ -50,6 +58,7 @@ export async function down(db: Kysely<unknown>): Promise<void> {
     ) STRICT
   `.execute(db);
 
+  await sql`UPDATE oauth_token SET updated_at = updated_at WHERE false`.execute(db);
   await sql`DELETE FROM oauth_token`.execute(db);
   await sql`DROP TABLE oauth_token`.execute(db);
   await sql`
