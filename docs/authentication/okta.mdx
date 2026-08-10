@@ -20,7 +20,7 @@ Sign-out redirect URI is unused by TrueForge (logout only clears the local cooki
 
 ## Authorization Server
 
-Point `OIDC_ISSUER_URL` at a **custom** Authorization Server, usually `https://<your-okta-domain>/oauth2/default`. On that server:
+Point `OIDC_ISSUER_URL` at a **custom** Authorization Server, usually `https://<your-oidc-domain>/oauth2/default`. On that server:
 
 1. **Access Policies** — a rule that includes this Web client, grant type Authorization Code, your users, and the scopes you request (`openid`, `profile`, `email`, and `groups` if used).
 2. **Scopes** — if you request `groups`, create a custom scope named `groups` (it is not built-in on custom authorization servers).
