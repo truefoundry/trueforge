@@ -70,11 +70,10 @@ docker compose up --build
 
 Then open [http://localhost:8791](http://localhost:8791).
 
-| Configuration                                               | Default                 | Description                                                           |
-| ----------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------- |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`       | `harness` (from `.env`) | Postgres credentials, read from `packages/server/.env`.               |
-| Host ports                                                  | `8791`, `5433`, `6380`  | App, Postgres, and Redis - offset so they don't clash with local dev. |
-| `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | unset                   | Optional: connect an identity provider. Unset = local admin identity. |
+| Configuration                                         | Default                 | Description                                                           |
+| ----------------------------------------------------- | ----------------------- | --------------------------------------------------------------------- |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `harness` (from `.env`) | Postgres credentials, read from `packages/server/.env`.               |
+| Host ports                                            | `8791`, `5433`, `6380`  | App, Postgres, and Redis - offset so they don't clash with local dev. |
 
 Every environment variable is documented in [`packages/server/.env.example`](packages/server/.env.example).
 
