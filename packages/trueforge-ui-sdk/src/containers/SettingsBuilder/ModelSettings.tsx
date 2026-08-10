@@ -7,6 +7,7 @@ import SearchInput from '../../atoms/primitives/SearchInput.js';
 import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { ModelEntry, ModelProviderBase, ModelProviderCatalogEntry } from '../../server/types.js';
+import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useErrorToasterOptional } from '../ErrorToasterContainer.js';
 import CustomModelProviderForm, { type CustomProviderDraft } from './CustomModelProviderForm.js';
 
@@ -49,7 +50,7 @@ const ModelSettings = () => {
       setConfigured(listed);
       setCatalog(available);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load model providers');
+      setError(getErrorMessage(err, 'Failed to load model providers'));
     } finally {
       setLoading(false);
     }
@@ -118,7 +119,7 @@ const ModelSettings = () => {
       if (toaster != null) {
         toaster.showError(err);
       } else {
-        setError(err instanceof Error ? err.message : 'Request failed');
+        setError(getErrorMessage(err, 'Request failed'));
       }
       throw err;
     } finally {

@@ -4041,10 +4041,18 @@
         ],
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "bearerFormat": "JWT",
+        "description": "ID token (`Authorization: Bearer <id_token>`). Required on protected routes. Browser sessions may use the HttpOnly `id_token` cookie instead.",
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
-    "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware stamps a local default user. When OIDC is configured, browser login sets an httpOnly `id_token` cookie; protected routes read that cookie (not `Authorization: Bearer`). There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
+    "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware stamps a local default user. When OIDC is configured, protected routes require a valid `id_token` cookie or `Authorization: Bearer` ID token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
     "title": "TrueForge API",
     "version": "0.1.0"
   },
@@ -4426,7 +4434,7 @@
     },
     "/api/v1/auth/me": {
       "get": {
-        "description": "Returns the authenticated caller identity. When OIDC is configured this requires a valid session cookie (401 otherwise). Without OIDC, returns the default anonymous identity.",
+        "description": "Returns the authenticated caller identity. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` ID token (401 otherwise). When auth is disabled, returns the default identity.",
         "responses": {
           "200": {
             "content": {
@@ -4446,7 +4454,7 @@
                 }
               }
             },
-            "description": "OIDC is configured and the request has no valid session cookie."
+            "description": "Auth is enabled and the request has no valid cookie or Bearer ID token."
           }
         },
         "summary": "Current session",
@@ -6697,5 +6705,10 @@
       }
     }
   },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
   "webhooks": {}
 }

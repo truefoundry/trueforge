@@ -17,7 +17,7 @@ export const LOCAL_USER_CONTEXT: UserContext = {
   role: 'admin',
 };
 
-/** Standalone/no IdP: always true. With OIDC: admin role only. */
+/** Auth disabled: always true. Auth enabled: admin role only. */
 export function isAdmin(user: UserContext): boolean {
   if (!getOidcVerify()) {
     return true;
