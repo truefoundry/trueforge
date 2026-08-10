@@ -122,4 +122,30 @@ describe('DraftCatalogProvider', () => {
     expect(screen.getByTestId('loading')).toHaveTextContent('false');
     expect(screen.getByTestId('models')).toBeEmptyDOMElement();
   });
+
+  it('keeps successful lists when a sibling catalog call fails', async () => {
+    const server = createMockAgentUIServer({
+      getModels: async () => [{ name: 'openai/gpt-4.1', provider: 'OpenAI' }],
+      getSkills: async () => {
+        throw new Error('Skills unavailable');
+      },
+      getMcp: async () => [{ id: 'mcp-1', name: 'GitHub' }],
+    });
+
+    render(
+      <ServerProvider server={server}>
+        <DraftCatalogProvider>
+          <CatalogProbe />
+        </DraftCatalogProvider>
+      </ServerProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load catalog' }));
+
+    await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'));
+    expect(screen.getByTestId('models')).toHaveTextContent('openai/gpt-4.1');
+    expect(screen.getByTestId('connectors')).toHaveTextContent('GitHub');
+    expect(screen.getByTestId('skills')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('error')).toHaveTextContent('Skills unavailable');
+  });
 });

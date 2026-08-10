@@ -96,7 +96,27 @@ describe('ErrorToasterProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'boom' }));
 
     expect(await screen.findByText('Request failed (422)')).toBeInTheDocument();
-    expect(screen.getByText(/"detail": "invalid agent"/)).toBeInTheDocument();
+    expect(screen.getByText(/"detail":"invalid agent"/)).toBeInTheDocument();
+  });
+
+  it('extracts nested error.message from HTTP body', async () => {
+    const httpError = Object.assign(new Error('Status code: 409'), {
+      statusCode: 409,
+      body: { error: { message: 'Name taken' } },
+    });
+
+    render(
+      <SlotsProvider>
+        <ErrorToasterProvider>
+          <Trigger errors={[httpError]} />
+        </ErrorToasterProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'boom' }));
+
+    expect(await screen.findByText('Request failed (409)')).toBeInTheDocument();
+    expect(screen.getByText('Name taken')).toBeInTheDocument();
   });
 
   it('keeps only the five most recent errors visible', async () => {

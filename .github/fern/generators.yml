@@ -7,8 +7,8 @@ readme:
     runtime that executes agent turns and streams them over Server-Sent Events.
 
 
-    The harness server has no built-in authentication, so point the client at
-    your own deployment's base URL.
+    When auth is enabled on the server, pass an ID token via the optional `token`
+    client option (`Authorization: Bearer`).
   # Fern keys this lookup on the stream flag, so the string form misses and fails.
   defaultEndpoint:
     method: POST
@@ -56,6 +56,7 @@ groups:
             client: TrueForge
           noSerdeLayer: false
           omitUndefined: true
+          optional-auth: true
           requireBaseUrl: true
           retainOriginalCasing: false
           skipResponseValidation: true

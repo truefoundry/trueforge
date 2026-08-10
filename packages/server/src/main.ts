@@ -204,9 +204,9 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
 
   const oidc = isOidcConfigured(configuration) ? configuration.OIDC : undefined;
   if (oidc) {
-    logger.info('OIDC is configured', { issuer: oidc.OIDC_ISSUER_URL });
+    logger.info('Auth is enabled', { issuer: oidc.OIDC_ISSUER_URL });
   } else {
-    logger.warn('OIDC is not configured; browser login is disabled');
+    logger.warn('Auth is disabled; browser login is off');
   }
   const oidcClient = await initOidc(oidc);
 

@@ -1,7 +1,7 @@
 /**
  * Admin/settings API surface under /api/v1/settings.
  * Sub-routers (model-providers, mcp-servers, skills, sandbox-providers) mount here.
- * Auth is applied at the /api/v1/settings mount boundary in app.ts (admin when OIDC is on).
+ * Auth is applied at the /api/v1/settings mount boundary in app.ts (admin when auth is enabled).
  */
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Logger } from 'winston';

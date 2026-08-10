@@ -7,7 +7,7 @@ import { useSlot } from '../theme/SlotsProvider.js';
 import { cn } from './lib/cn.js';
 import type { MonacoEditorCoreProps } from './MonacoEditorCore.js';
 
-export type CodeEditorProps = Omit<MonacoEditorCoreProps, 'options'> & {
+export type CodeEditorProps = Omit<MonacoEditorCoreProps, 'onAutoHeightChange' | 'options'> & {
   filename?: string;
   showToolbar?: boolean;
 };
