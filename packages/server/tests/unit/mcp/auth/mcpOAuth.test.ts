@@ -39,6 +39,7 @@ const SERVER_URL = 'https://mcp.example.com/sse';
 const AS_ORIGIN = 'https://auth.example.com';
 const SERVER_ID = 'mcp-server-id-1';
 const SERVER_NAME = 'svc';
+const USER_REF = 'user-a';
 
 const realFetch = globalThis.fetch;
 const previousPublicBaseUrl = configuration.PUBLIC_BASE_URL;
@@ -335,6 +336,7 @@ describe('buildMcpAuthorizationUrl', () => {
       tokenStore,
       mcpServerStore,
       serverId: SERVER_ID,
+      userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
       clientName: CLIENT_NAME,
@@ -355,6 +357,7 @@ describe('buildMcpAuthorizationUrl', () => {
     expect(pending).toMatchObject({
       state,
       id: SERVER_ID,
+      userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
       redirectUrl: 'https://app.example.com/after',
     });
@@ -375,6 +378,7 @@ describe('buildMcpAuthorizationUrl', () => {
       tokenStore,
       mcpServerStore,
       serverId: SERVER_ID,
+      userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
       clientName: CLIENT_NAME,
@@ -415,6 +419,7 @@ describe('buildMcpAuthorizationUrl', () => {
         tokenStore,
         mcpServerStore,
         serverId: SERVER_ID,
+        userRef: USER_REF,
         mcpServerUrl: SERVER_URL,
         mcpServerName: SERVER_NAME,
         clientName: CLIENT_NAME,
@@ -431,6 +436,7 @@ const resolveParams = (stores: Stores, mcpServerUrl = SERVER_URL) => ({
   tokenStore: stores.tokenStore,
   mcpServerStore: stores.mcpServerStore,
   serverId: SERVER_ID,
+  userRef: USER_REF,
   mcpServerUrl,
   mcpServerName: SERVER_NAME,
   clientName: CLIENT_NAME,
@@ -441,6 +447,7 @@ describe('resolveMcpAuth', () => {
     const stores = newStores();
     await stores.tokenStore.saveToken({
       id: SERVER_ID,
+      userRef: USER_REF,
       token: {
         accessToken: 'live-token',
         refreshToken: null,
@@ -454,11 +461,35 @@ describe('resolveMcpAuth', () => {
     expect(result).toEqual({ headers: { Authorization: 'Bearer live-token' } });
   });
 
+  it("does not reuse another user's token for the same server", async () => {
+    const stores = newStores();
+    await stores.mcpServerStore.saveClient({ id: SERVER_ID, record: sampleClient });
+    await stores.tokenStore.saveToken({
+      id: SERVER_ID,
+      userRef: 'other-user',
+      token: {
+        accessToken: 'other-user-token',
+        refreshToken: null,
+        expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+        scope: null,
+      },
+    });
+    stubOauthFetch({});
+
+    const result = await resolveMcpAuth(resolveParams(stores));
+
+    expect(isMcpAuthRequired(result)).toBe(true);
+    expect(await stores.tokenStore.getToken({ id: SERVER_ID, userRef: 'other-user' })).toMatchObject({
+      accessToken: 'other-user-token',
+    });
+  });
+
   it('refreshes an expired token when a refresh_token is stored', async () => {
     const stores = newStores();
     await stores.mcpServerStore.saveClient({ id: SERVER_ID, record: sampleClient });
     await stores.tokenStore.saveToken({
       id: SERVER_ID,
+      userRef: USER_REF,
       token: {
         accessToken: 'old-access',
         refreshToken: 'old-refresh',
@@ -483,7 +514,7 @@ describe('resolveMcpAuth', () => {
     // Secret present → client_secret_post (form body), not HTTP Basic.
     expect(String(tokenBodies[0])).toContain('client_secret=cached-secret');
     expect(tokenAuthHeaders[0]).toBe('');
-    const saved = await stores.tokenStore.getToken({ id: SERVER_ID });
+    const saved = await stores.tokenStore.getToken({ id: SERVER_ID, userRef: USER_REF });
     expect(saved?.accessToken).toBe('new-access');
     expect(saved?.refreshToken).toBe('new-refresh');
   });
@@ -493,6 +524,7 @@ describe('resolveMcpAuth', () => {
     await stores.mcpServerStore.saveClient({ id: SERVER_ID, record: sampleClient });
     await stores.tokenStore.saveToken({
       id: SERVER_ID,
+      userRef: USER_REF,
       token: {
         accessToken: 'old-access',
         refreshToken: 'old-refresh',
@@ -513,7 +545,7 @@ describe('resolveMcpAuth', () => {
     const afterMs = Date.now();
 
     expect(result).toEqual({ headers: { Authorization: 'Bearer new-access' } });
-    const saved = await stores.tokenStore.getToken({ id: SERVER_ID });
+    const saved = await stores.tokenStore.getToken({ id: SERVER_ID, userRef: USER_REF });
     const expiresAtMs = Date.parse(saved!.expiresAt);
     expect(expiresAtMs).toBeGreaterThanOrEqual(beforeMs + DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS * 1000);
     expect(expiresAtMs).toBeLessThanOrEqual(afterMs + DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS * 1000);
@@ -527,6 +559,7 @@ describe('resolveMcpAuth', () => {
     await stores.mcpServerStore.saveClient({ id: SERVER_ID, record: sampleClient });
     await stores.tokenStore.saveToken({
       id: SERVER_ID,
+      userRef: USER_REF,
       token: {
         accessToken: 'old-access',
         refreshToken: 'old-refresh',
@@ -541,7 +574,7 @@ describe('resolveMcpAuth', () => {
     expect(isMcpAuthRequired(result)).toBe(true);
     if (!isMcpAuthRequired(result)) throw new Error('unreachable');
     expect(result.authUrl).toBeInstanceOf(URL);
-    expect(await stores.tokenStore.getToken({ id: SERVER_ID })).toBeUndefined();
+    expect(await stores.tokenStore.getToken({ id: SERVER_ID, userRef: USER_REF })).toBeUndefined();
     expect(await stores.mcpServerStore.getClient({ id: SERVER_ID })).toEqual(sampleClient);
   });
 
@@ -550,6 +583,7 @@ describe('resolveMcpAuth', () => {
     await stores.mcpServerStore.saveClient({ id: SERVER_ID, record: sampleClient });
     await stores.tokenStore.saveToken({
       id: SERVER_ID,
+      userRef: USER_REF,
       token: {
         accessToken: 'old-access',
         refreshToken: null,
@@ -565,7 +599,7 @@ describe('resolveMcpAuth', () => {
     if (!isMcpAuthRequired(result)) throw new Error('unreachable');
     expect(result.authUrl).toBeInstanceOf(URL);
     expect(result.authUrl.href).toContain('/authorize');
-    expect(await stores.tokenStore.getToken({ id: SERVER_ID })).toBeUndefined();
+    expect(await stores.tokenStore.getToken({ id: SERVER_ID, userRef: USER_REF })).toBeUndefined();
     expect(await stores.mcpServerStore.getClient({ id: SERVER_ID })).toEqual(sampleClient);
   });
 
@@ -645,7 +679,7 @@ describe('completeMcpAuthorization', () => {
 
     // The row was claimed once; a duplicate callback finds nothing left to redeem.
     expect(await stores.tokenStore.consumePendingAuthorization({ state })).toBeUndefined();
-    const saved = await stores.tokenStore.getToken({ id: SERVER_ID });
+    const saved = await stores.tokenStore.getToken({ id: SERVER_ID, userRef: USER_REF });
     expect(saved?.accessToken).toBe('exchanged-access');
     expect(saved?.refreshToken).toBe('exchanged-refresh');
     const expiresAtMs = Date.parse(saved!.expiresAt);
@@ -669,6 +703,7 @@ describe('completeMcpAuthorization', () => {
         pending: {
           state: 'state-1',
           id: SERVER_ID,
+          userRef: USER_REF,
           mcpServerUrl: SERVER_URL,
           codeVerifier: 'verifier-1',
           redirectUrl: null,
@@ -724,10 +759,10 @@ describe('completeMcpAuthorization', () => {
       message: expect.stringContaining('registration is invalid'),
     });
     expect(withTransactionCalls).toBe(1);
-    expect(deleteToken).toHaveBeenCalledWith({ id: SERVER_ID }, transaction);
+    expect(deleteToken).toHaveBeenCalledWith({ id: SERVER_ID, userRef: USER_REF }, transaction);
     expect(deleteClient).toHaveBeenCalledWith({ id: SERVER_ID }, transaction);
     expect(await stores.mcpServerStore.getClient({ id: SERVER_ID })).toBeUndefined();
-    expect(await stores.tokenStore.getToken({ id: SERVER_ID })).toBeUndefined();
+    expect(await stores.tokenStore.getToken({ id: SERVER_ID, userRef: USER_REF })).toBeUndefined();
   });
 });
 

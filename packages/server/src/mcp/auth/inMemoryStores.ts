@@ -4,9 +4,14 @@ import type {
   OAuthClientRecord,
   OAuthPendingAuthorization,
   OAuthToken,
+  OAuthTokenKey,
 } from './types';
 
 const PENDING_AUTHORIZATION_TTL_MS = 10 * 60 * 1000;
+
+function tokenMapKey(params: OAuthTokenKey): string {
+  return `${params.id}\0${params.userRef}`;
+}
 
 /** In-memory OAuth token store for tests and development without a database. */
 /* eslint-disable @typescript-eslint/require-await -- synchronous implementation of an async store contract */
@@ -27,18 +32,18 @@ export class InMemoryOAuthTokenStore implements IOAuthTokenStore {
     return entry.row;
   }
 
-  async saveToken(params: { id: string; token: OAuthToken }): Promise<void> {
-    this.tokens.set(params.id, params.token);
+  async saveToken(params: OAuthTokenKey & { token: OAuthToken }): Promise<void> {
+    this.tokens.set(tokenMapKey(params), params.token);
   }
 
-  async getToken(params: { id: string }): Promise<OAuthToken | undefined> {
-    return this.tokens.get(params.id);
+  async getToken(params: OAuthTokenKey): Promise<OAuthToken | undefined> {
+    return this.tokens.get(tokenMapKey(params));
   }
 
-  async getTokens(params: { ids: string[] }): Promise<Map<string, OAuthToken>> {
+  async getTokens(params: { ids: string[]; userRef: string }): Promise<Map<string, OAuthToken>> {
     const tokens = new Map<string, OAuthToken>();
     for (const id of params.ids) {
-      const token = this.tokens.get(id);
+      const token = this.tokens.get(tokenMapKey({ id, userRef: params.userRef }));
       if (token !== undefined) {
         tokens.set(id, token);
       }
@@ -46,8 +51,8 @@ export class InMemoryOAuthTokenStore implements IOAuthTokenStore {
     return tokens;
   }
 
-  async deleteToken(params: { id: string }): Promise<void> {
-    this.tokens.delete(params.id);
+  async deleteToken(params: OAuthTokenKey): Promise<void> {
+    this.tokens.delete(tokenMapKey(params));
   }
 }
 

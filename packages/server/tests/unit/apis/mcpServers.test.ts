@@ -1,6 +1,7 @@
 import winston from 'winston';
 import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../../src/apis/mcpServers';
 import { TENANT_ID } from '../../../src/apis/sessions';
+import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -62,12 +63,14 @@ describe('mcp-servers routers', () => {
       tokenStore,
       withTransaction: callback => db.transaction().execute(callback),
       logger,
+      resolveUserContext: () => LOCAL_USER_CONTEXT,
     });
     mcpServersRouter = createMcpServersRouter({
       mcpServerStore,
       tokenStore,
       withTransaction: callback => db.transaction().execute(callback),
       logger,
+      resolveUserContext: () => LOCAL_USER_CONTEXT,
     });
   });
 
@@ -129,6 +132,7 @@ describe('mcp-servers routers', () => {
 
     await tokenStore.saveToken({
       id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
       token: {
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
@@ -145,6 +149,7 @@ describe('mcp-servers routers', () => {
 
     await tokenStore.saveToken({
       id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
       token: {
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
@@ -159,7 +164,7 @@ describe('mcp-servers routers', () => {
       status: 'auth_required',
     });
 
-    await tokenStore.deleteToken({ id: record.id });
+    await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
   });
 
   it('PUT re-upsert of a DCR server reports authenticated when a usable token already exists', async () => {
@@ -170,6 +175,7 @@ describe('mcp-servers routers', () => {
 
     await tokenStore.saveToken({
       id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
       token: {
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
@@ -185,7 +191,7 @@ describe('mcp-servers routers', () => {
       data: { ...putBodyWithDcr, auth_status: { status: 'authenticated' } },
     });
 
-    await tokenStore.deleteToken({ id: record.id });
+    await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
   });
 
   it('PUT with header auth stores headers and reports authenticated', async () => {
@@ -387,6 +393,7 @@ describe('mcp-servers routers', () => {
     });
     await tokenStore.saveToken({
       id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
       token: {
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
@@ -400,7 +407,7 @@ describe('mcp-servers routers', () => {
     expect(await response.json()).toEqual({
       data: { ...putBodyWithDcr, auth_status: { status: 'auth_required' } },
     });
-    expect(await tokenStore.getToken({ id: record.id })).toBeUndefined();
+    expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toBeUndefined();
     expect(await mcpServerStore.getClient({ id: record.id })).toEqual({
       server: {
         authorizationEndpoint: 'https://auth.example.com/authorize',

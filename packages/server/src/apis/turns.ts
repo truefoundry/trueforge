@@ -126,6 +126,7 @@ function createTurnResolver(deps: {
   modelProviderStore: IModelProviderStore;
   logger: Logger;
   signal: AbortSignal;
+  userRef: string;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -136,6 +137,7 @@ function createTurnResolver(deps: {
     modelProviderStore,
     logger,
     signal,
+    userRef,
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
@@ -157,6 +159,7 @@ function createTurnResolver(deps: {
         store: mcpServerStore,
         tokenStore,
         clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+        userRef,
       });
       if (connection === undefined) {
         throw new HTTPException(422, {
@@ -486,6 +489,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       modelProviderStore: deps.modelProviderStore,
       logger: deps.logger,
       signal: abortController.signal,
+      userRef: deps.resolveUserContext(c).userRef,
     });
 
     // First turn only: derive the title from the first user message. The store
