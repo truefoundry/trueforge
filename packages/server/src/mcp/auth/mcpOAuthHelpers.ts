@@ -18,7 +18,7 @@ export function mcpOAuthCallbackUrl(): string {
   try {
     const publicBaseUrl = getPublicBaseUrl();
     return `${publicBaseUrl}${MCP_OAUTH_CALLBACK_PATH}`;
-  } catch (error) {
+  } catch {
     throw new McpConnectionError('PUBLIC_BASE_URL is required for MCP OAuth registration but was empty', 500);
   }
 }
