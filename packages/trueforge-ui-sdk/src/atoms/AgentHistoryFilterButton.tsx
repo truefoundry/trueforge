@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
-import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { libraryAgentId, useOptionalShellMode } from '../server/ShellModeContext.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { useCompactLayout } from './lib/CompactLayoutContext.js';
@@ -111,12 +111,13 @@ export function AgentHistoryFilterButton() {
         ) : (
           <>
             {agents.map(agent => {
-              const active = selected === agent.agentId;
+              const id = libraryAgentId(agent);
+              const active = selected === id;
               return (
                 <DropdownMenuItem
-                  key={agent.agentId}
+                  key={id}
                   className={cn('justify-between gap-2 text-left', active && 'bg-accent text-accent-foreground')}
-                  onClick={() => pick(agent.agentId)}
+                  onClick={() => pick(id)}
                 >
                   <span className="min-w-0 truncate">{agent.name}</span>
                   {active ? <Icon name="check" className="size-3.5 shrink-0" /> : null}
