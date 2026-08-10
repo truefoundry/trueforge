@@ -81,7 +81,12 @@ export function toHarnessModelProvider(req: {
   baseUrl?: string;
   models: UiModelEntry[];
 }): TrueForgeApi.ModelProvider {
-  const models = req.models.map(toHarnessModelEntry);
+  // Custom form may send only reasoningEfforts; catalog rows must keep intentional omissions.
+  const models = req.models.map(model =>
+    toHarnessModelEntry(
+      req.type === 'custom' ? { ...model, properties: { ...DEFAULT_MODEL_PROPERTIES, ...model.properties } } : model,
+    ),
+  );
   const auth = { apiKey: req.apiKey };
   if (!isProviderType(req.type)) {
     throw new Error(`Unsupported model provider type: ${req.type}`);

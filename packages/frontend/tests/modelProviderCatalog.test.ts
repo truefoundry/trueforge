@@ -30,14 +30,82 @@ describe('modelProviderCatalog mappers', () => {
   });
 
   it('fills default properties when the UI custom form omits them', () => {
-    assert.deepEqual(toHarnessModelEntry({ id: 'llama3', name: 'llama3' }), {
-      modelId: 'llama3',
-      name: 'llama3',
-      properties: {
-        contextLength: 128_000,
-        maxOutputTokens: 16_384,
+    assert.deepEqual(
+      toHarnessModelProvider({
+        type: 'custom',
+        name: 'local-llama',
+        apiKey: 'sk-local',
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        models: [{ id: 'llama3', name: 'llama3' }],
+      }).models,
+      [
+        {
+          modelId: 'llama3',
+          name: 'llama3',
+          properties: {
+            contextLength: 128_000,
+            maxOutputTokens: 16_384,
+          },
+        },
+      ],
+    );
+  });
+
+  it('keeps default context/output when the form only sends reasoningEfforts', () => {
+    assert.deepEqual(
+      toHarnessModelProvider({
+        type: 'custom',
+        name: 'local-llama',
+        apiKey: 'sk-local',
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        models: [
+          {
+            id: 'llama3',
+            name: 'llama3',
+            properties: { reasoningEfforts: ['low', 'high'] },
+          },
+        ],
+      }).models,
+      [
+        {
+          modelId: 'llama3',
+          name: 'llama3',
+          properties: {
+            contextLength: 128_000,
+            maxOutputTokens: 16_384,
+            reasoningEfforts: ['low', 'high'],
+          },
+        },
+      ],
+    );
+  });
+
+  it('does not fabricate omitted catalog limits when configuring a preset', () => {
+    assert.deepEqual(
+      toHarnessModelProvider({
+        type: 'fireworks',
+        name: 'fireworks',
+        apiKey: 'fw-key',
+        models: [
+          {
+            id: 'accounts/fireworks/models/glm-5p2',
+            name: 'glm-5p2',
+            properties: { contextLength: 202752 },
+          },
+        ],
+      }),
+      {
+        type: 'fireworks',
+        auth: { apiKey: 'fw-key' },
+        models: [
+          {
+            modelId: 'accounts/fireworks/models/glm-5p2',
+            name: 'glm-5p2',
+            properties: { contextLength: 202752 },
+          },
+        ],
       },
-    });
+    );
   });
 
   it('names a well-known provider after its type and strips auth from the list card', () => {
