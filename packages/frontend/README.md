@@ -69,7 +69,7 @@ callbacks; `App.tsx` spreads them into `createTrueFoundryServer` (settings CRUD 
 | Callback       | Source                                                            |
 | -------------- | ----------------------------------------------------------------- |
 | `getModels`    | `GET /api/v1/models` (also seeds `defaultAgentSpec.model`)        |
-| `getMcp`       | `GET /api/v1/settings/mcp-servers` (carries auth status)          |
+| `getMcp`       | `GET /api/v1/mcp-servers` (name/url + per-user auth_status)       |
 | `getSkills`    | `GET /api/v1/skills` when `GET /api/v1/capabilities` has skill on |
 | `searchAgents` | `GET /api/v1/agents`, filtered by `query` and paged client-side   |
 | `saveAgent`    | `PUT`/`POST /api/v1/agents` — updates by name, else creates       |

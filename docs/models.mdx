@@ -1,10 +1,10 @@
 ---
-title: 'Models'
+title: 'Setup Models'
 sidebarTitle: 'Models'
-description: 'Configure model providers once, then reference models by name in any agent — switching models is a config change, not a code change.'
+description: 'Connect model providers from the shipped catalog or add a custom OpenAI-compatible endpoint.'
 ---
 
-TrueForge works with the major model providers and any OpenAI-compatible endpoint. Provider credentials are configured once — in the UI under **Settings → Models** or via the settings API — and agents reference models by name. Agent definitions never contain API keys.
+TrueForge works with the major model providers and any OpenAI-compatible endpoint. Configure credentials once under **Settings → Models**. Agents reference models by name — agent definitions never contain API keys.
 
 ## Supported providers
 
@@ -20,32 +20,9 @@ TrueForge works with the major model providers and any OpenAI-compatible endpoin
 | `alibaba`       | Alibaba (Qwen)                                                         |
 | `custom`        | Any OpenAI-compatible endpoint — self-hosted models, gateways, proxies |
 
-The shipped catalog (`GET /api/v1/settings/model-providers/catalog`) contains ready-to-fill templates for each provider. Use the `custom` type to connect vLLM, Ollama, a corporate gateway, or any other OpenAI-compatible API.
+## Configuring a standard provider
 
-<Frame caption="Adding a custom OpenAI-compatible provider (vLLM, Ollama, a gateway) with base URL, API key, and model IDs.">
-  <img src="/images/add-custom-model-provider.png" alt="The Add Custom Provider dialog with name, base URL, API key, and model fields" />
-</Frame>
-
-## Configuring a provider
-
-<Tabs>
-  <Tab title="UI">
-    Open **Settings → Models**, pick a provider from the catalog, and paste your API key. Models from that provider become available immediately in the model selector.
-  </Tab>
-  <Tab title="API">
-    Fetch a template from the catalog, fill in the credentials, and upsert it:
-
-    ```bash
-    curl http://localhost:8790/api/v1/settings/model-providers/catalog
-    curl -X PUT http://localhost:8790/api/v1/settings/model-providers \
-      -H 'Content-Type: application/json' \
-      -d '<provider manifest from the catalog, with your API key>'
-    ```
-
-    List every available model across configured providers with `GET /api/v1/models`.
-
-  </Tab>
-</Tabs>
+Open **Settings → Models**, pick a provider, and paste your API key. Models from that provider become available immediately in the agent model selector.
 
 <div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.75", padding: "40px 0" }}>
   <iframe
@@ -58,45 +35,26 @@ The shipped catalog (`GET /api/v1/settings/model-providers/catalog`) contains re
   />
 </div>
 
-## Referencing a model in an agent
+## Where the model list comes from
 
-Models are addressed as `provider/model` in the agent spec:
+The providers and models in **Settings → Models** come from a shipped catalog YAML:
 
-```json
-{
-  "model": {
-    "name": "anthropic/claude-sonnet-4-6",
-    "params": {
-      "max_tokens": 4096,
-      "temperature": 0.2
-    }
-  }
-}
-```
+[`model-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/model-catalog.yaml)
 
-`model.params` supports `max_tokens`, `temperature`, `top_p`, `top_k`, `parallel_tool_calls`, and `reasoning_effort` — plus any extra provider-specific parameters, which are passed through as-is. See the [agent spec reference](/api/agent-spec#model).
+That file lists the standard provider presets and model IDs. When you pick a provider in the UI, you paste your API key and TrueForge stores a configured provider — the catalog itself is never called with your credentials.
 
-Switching models is a one-line change to the agent spec (or one click in the UI). No code edits, no new credentials.
+To change which presets appear, see [Initial Setup](/harness/initial-setup#changing-what-the-ui-offers).
 
-## Why model choice matters for agents
+## Adding a custom provider
 
-Agent workloads are different from single-turn chat. They involve multiple tool calls, retries, long context, and structured outputs. Model selection directly affects:
+Use the `custom` provider type for vLLM, Ollama, a corporate gateway, or any other OpenAI-compatible API. Custom providers are not in the catalog — you add them yourself with a base URL, API key, and the model IDs you want exposed.
 
-- Reliability of tool calling and structured output
-- Latency across multi-step tasks
-- Total run cost over many turns
-- Accuracy on planning and complex reasoning
+<Frame caption="Adding a custom OpenAI-compatible provider (vLLM, Ollama, a gateway) with base URL, API key, and model IDs.">
+  <img src="/images/add-custom-model-provider.png" alt="The Add Custom Provider dialog with name, base URL, API key, and model fields" />
+</Frame>
 
-| Category                   | Best for                                                        |
-| -------------------------- | --------------------------------------------------------------- |
-| Balanced general-purpose   | Most production assistants and tool-driven workflows            |
-| Cost-optimized high-volume | High request volume, triage, lightweight actions                |
-| High reasoning depth       | Complex planning, multi-step analysis, long tool chains         |
-| Open / self-hosted         | Data residency, cost control, private deployment (via `custom`) |
-
-<Tip>
-  Start with a balanced model and a tight [agent spec](/api/agent-spec), then measure. Token usage per model call is
-  reported on every `model.message` event (`usage.input_tokens`, `usage.output_tokens`, and a breakdown of where input
-  tokens went), and per-turn totals appear in `turn.done` metrics — so you can see exactly what a model choice costs
-  before switching.
-</Tip>
+<Note>
+  **Planned:** automatic model selection for different turns or subagents. Today each agent uses the model you
+  configure. In the future, TrueForge will be able to pick among a set of models per turn or subagent based on task
+  complexity, latency, and cost.
+</Note>

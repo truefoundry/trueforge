@@ -1,0 +1,50 @@
+---
+title: 'Create an Agent'
+sidebarTitle: 'Select resources'
+description: 'Pick a model, attach MCP servers and skills, write instructions, and save a reusable agent.'
+---
+
+After [initial setup](/harness/initial-setup), build an agent in the chat UI composer (or via the [SDK](/api/overview)).
+
+An agent is a saved combination of:
+
+1. **Model** — which LLM runs the loop
+2. **MCP servers** — which tools it can call
+3. **Skills** — which procedures it can load
+4. **Instructions** — the system prompt for this agent's role
+5. **Optional config** — sandbox, tool approvals, ask-user-questions, generative UI
+
+## In the UI
+
+1. Open TrueForge and use the composer to create or edit an agent.
+2. **Select a model** from the providers you configured under Settings → Models.
+3. **Attach connectors** (MCP servers) the agent should use. Prefer only the servers it needs.
+4. **Attach skills** if the agent should follow specialized procedures (requires [sandbox](/sandbox) enabled on the agent).
+5. Write focused **instructions** — role, audience, and behavior. Put long playbooks in skills, not the prompt.
+6. **Save** the agent so it appears in the [Agent Library](/agent-library).
+
+<Frame caption="Save a reusable agent from the composer.">
+  <img src="/images/quickstart-save-agent.png" alt="Save agent dialog in the TrueForge composer" />
+</Frame>
+
+## Selecting models, MCP servers, and skills
+
+| Resource | What you choose | Tips |
+| --- | --- | --- |
+| Model | One model from configured providers | Switch anytime without changing credentials |
+| MCP servers | Zero or more connectors by name | Smaller tool surface → better tool-call quality |
+| Skills | Zero or more registered skills by name | Enable sandbox when attaching skills |
+
+Switching the model is a one-click (or one-field) change. No new API keys in the agent definition.
+
+## Related configuration
+
+These knobs are available on the agent today primarily through the **API / SDK** (not yet fully exposed in the builder UI):
+
+| Capability | Default | Docs |
+| --- | --- | --- |
+| [Tool approval](/create-agent/tool-approval) | Write/destructive tools pause for approval | Configure which tools require confirmation |
+| [Ask User Questions](/create-agent/ask-user-questions) | Enabled | Let the agent ask structured multiple-choice questions |
+| [Generative UI](/create-agent/generative-ui) | Enabled | Let the agent render charts, tables, and cards |
+
+For the full field list, see the [agent spec](/api/agent-spec) in the SDK section.

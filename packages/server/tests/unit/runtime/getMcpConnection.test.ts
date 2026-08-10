@@ -1,4 +1,5 @@
 import { TENANT_ID } from '../../../src/apis/sessions';
+import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -77,6 +78,7 @@ describe('getMcpConnection', () => {
         store: mcpServerStore,
         tokenStore,
         clientName: 'test-client',
+        userRef: LOCAL_USER_CONTEXT.userRef,
       });
       expect(connection).toBeDefined();
       if (connection === undefined) {
@@ -120,6 +122,7 @@ describe('getMcpConnection', () => {
     });
     await tokenStore.saveToken({
       id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
       token: {
         accessToken: 'live-access',
         refreshToken: null,
@@ -134,6 +137,7 @@ describe('getMcpConnection', () => {
       store: mcpServerStore,
       tokenStore,
       clientName: 'test-client',
+      userRef: LOCAL_USER_CONTEXT.userRef,
     });
     expect(connection).toBeDefined();
     if (connection === undefined || typeof connection.headers !== 'function') {
@@ -161,6 +165,7 @@ describe('getMcpConnection', () => {
       store: mcpServerStore,
       tokenStore,
       clientName: 'test-client',
+      userRef: LOCAL_USER_CONTEXT.userRef,
     });
     expect(connection).toBeDefined();
     if (connection === undefined) {
@@ -189,6 +194,7 @@ describe('getMcpConnection', () => {
       store: mcpServerStore,
       tokenStore,
       clientName: 'test-client',
+      userRef: LOCAL_USER_CONTEXT.userRef,
     });
     expect(connection).toBeDefined();
     if (connection === undefined) {
@@ -207,6 +213,7 @@ describe('getMcpConnection', () => {
         store: mcpServerStore,
         tokenStore,
         clientName: 'test-client',
+        userRef: LOCAL_USER_CONTEXT.userRef,
       }),
     ).resolves.toBeUndefined();
   });

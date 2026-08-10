@@ -9,7 +9,9 @@ describe("McpServersClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = { data: [{ name: "name", url: "url" }] };
+        const rawResponseBody = {
+            data: [{ auth: { type: "dcr" }, auth_status: { status: "authenticated" }, name: "name", url: "url" }],
+        };
 
         server
             .mockEndpoint()
@@ -23,6 +25,12 @@ describe("McpServersClient", () => {
         expect(response).toEqual({
             data: [
                 {
+                    auth: {
+                        type: "dcr",
+                    },
+                    authStatus: {
+                        status: "authenticated",
+                    },
                     name: "name",
                     url: "url",
                 },
