@@ -69,7 +69,10 @@ const app = createServerApp({
   oidcClient: undefined,
 });
 
-const document = buildOpenApiDocument(app);
+// Runtime apps only advertise BearerAuth when OIDC is configured. The committed
+// Fern OpenAPI still documents optional Bearer so the SDK keeps `token` support
+// (`buildOpenApiDocument` registers the scheme when authEnabled).
+const document = buildOpenApiDocument(app, { authEnabled: true });
 const sdkOutputPath = path.join(import.meta.dirname, '../../../.github/fern/openapi/openapi.json');
 mkdirSync(path.dirname(sdkOutputPath), { recursive: true });
 writeFileSync(sdkOutputPath, `${JSON.stringify(canonicalise(document), null, 2)}\n`);

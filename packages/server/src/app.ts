@@ -35,6 +35,8 @@ import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
+const BEARER_AUTH_SCHEME = 'BearerAuth';
+
 const openApiDocConfig = {
   openapi: '3.1.0',
   info: {
@@ -43,17 +45,39 @@ const openApiDocConfig = {
       'HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` ' +
       '(OpenAPI JSON at `/api/v1/openapi.json`).\n\n' +
       '**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware ' +
-      'stamps a local default user. When OIDC is configured, browser login sets an httpOnly `id_token` cookie; ' +
-      'protected routes read that cookie (not `Authorization: Bearer`). There is no built-in API-key scheme; ' +
+      'stamps a local default user. When OIDC is configured, protected routes require a valid `id_token` cookie ' +
+      'or `Authorization: Bearer` ID token. There is no built-in API-key scheme; ' +
       'pass custom headers only if your reverse proxy or IdP layer requires them.\n\n' +
       'Covers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.',
     version: '0.1.0',
   },
 };
 
-/** Single source for both the served document and the one the SDK is built from. */
-export function buildOpenApiDocument(app: OpenAPIHono) {
-  return app.getOpenAPI31Document(openApiDocConfig);
+/** Registers the Bearer ID-token scheme used by {@link buildOpenApiDocument}. */
+export function registerOpenApiBearerAuth(app: OpenAPIHono): void {
+  app.openAPIRegistry.registerComponent('securitySchemes', BEARER_AUTH_SCHEME, {
+    type: 'http',
+    scheme: 'bearer',
+    bearerFormat: 'JWT',
+    description:
+      'ID token (`Authorization: Bearer <id_token>`). Required on protected routes. ' +
+      'Browser sessions may use the HttpOnly `id_token` cookie instead.',
+  });
+}
+
+/**
+ * Single source for both the served document and the one the SDK is built from.
+ * When `authEnabled`, advertises required Bearer auth on operations that inherit global security.
+ */
+export function buildOpenApiDocument(app: OpenAPIHono, options?: { authEnabled?: boolean }) {
+  const authEnabled = options?.authEnabled ?? false;
+  if (authEnabled) {
+    registerOpenApiBearerAuth(app);
+  }
+  return app.getOpenAPI31Document({
+    ...openApiDocConfig,
+    ...(authEnabled ? { security: [{ [BEARER_AUTH_SCHEME]: [] }] } : {}),
+  });
 }
 
 function routeNotFound(c: Context) {
@@ -104,6 +128,7 @@ export interface ServerDeps<TTransaction> {
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
+  const authEnabled = deps.oidcClient != null;
 
   app.get('/healthz', c => c.text('OK!'));
 
@@ -227,7 +252,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   );
 
   app.get('/api/v1/docs', swaggerUI({ url: '/api/v1/openapi.json' }));
-  app.get('/api/v1/openapi.json', c => c.json(buildOpenApiDocument(app)));
+  app.get('/api/v1/openapi.json', c => c.json(buildOpenApiDocument(app, { authEnabled })));
 
   app.notFound(routeNotFound);
 

@@ -24,7 +24,7 @@ export function resetOidcSessionCacheForTests(): void {
 
 /**
  * True when the current session is a browser OIDC login (`type: "oidc-connected"`).
- * When OIDC is configured, unauthenticated callers get HTTP 401 from `/me`.
+ * When auth is enabled, unauthenticated callers get HTTP 401 from `/me`.
  */
 export async function isOidcConnectedSession(client: TrueForge = harnessClient): Promise<boolean> {
   const session = await client.auth.me();
@@ -39,7 +39,7 @@ export async function logout(client: TrueForge = harnessClient): Promise<void> {
 
 /**
  * Pre-boot gate: GET `/me` without the 401→login redirect.
- * Any failure (e.g. OIDC configured but no session cookie yet) is treated as
+ * Any failure (e.g. auth enabled but no session cookie yet) is treated as
  * unauthenticated so the app can render the welcome / "Let's Get Started" screen
  * rather than bouncing to login before the user asks for it.
  */

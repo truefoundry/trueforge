@@ -42,7 +42,6 @@ export interface HarnessAgentSpec extends AgentSpec<
   instructions?: string;
   messages?: TrueForgeApi.AgentSpecUserMessage[];
   responseFormat?: TrueForgeApi.ResponseFormat;
-  variables?: Record<string, string>;
 }
 
 export type CreateHarnessServerOptions = CreateHarnessClientOptions;
