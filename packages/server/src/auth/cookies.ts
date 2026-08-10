@@ -15,16 +15,23 @@ const OAuthStateSchema = z.object({
 
 export type OAuthState = z.infer<typeof OAuthStateSchema>;
 
-const AUTH_COOKIE_ATTRIBUTES = {
-  httpOnly: true,
-  sameSite: 'Lax' as const,
-  secure: getPublicBaseUrl().startsWith('https://'),
-  path: '/',
-};
+function getAuthCookieAttributes(): {
+  httpOnly: boolean;
+  sameSite: 'Lax' | 'Strict' | 'None';
+  secure: boolean;
+  path: string;
+} {
+  return {
+    httpOnly: true,
+    sameSite: 'Lax' as const,
+    secure: getPublicBaseUrl().startsWith('https://'),
+    path: '/',
+  };
+}
 
 export function setAuthCookie(params: { context: Context; name: string; value: string; maxAgeSeconds: number }): void {
   setCookie(params.context, params.name, params.value, {
-    ...AUTH_COOKIE_ATTRIBUTES,
+    ...getAuthCookieAttributes(),
     maxAge: params.maxAgeSeconds,
   });
 }
@@ -51,7 +58,7 @@ export function readOAuthStateCookie(params: { context: Context; logger: Logger 
 }
 
 export function clearAuthCookie(params: { context: Context; name: string }): void {
-  deleteCookie(params.context, params.name, AUTH_COOKIE_ATTRIBUTES);
+  deleteCookie(params.context, params.name, getAuthCookieAttributes());
 }
 
 export function readIdTokenCookie(params: { context: Context }): string | undefined {

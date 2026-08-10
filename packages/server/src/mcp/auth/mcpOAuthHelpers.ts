@@ -15,8 +15,12 @@ export const DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS = 3600;
 
 /** Builds the server-owned MCP OAuth callback URL. */
 export function mcpOAuthCallbackUrl(): string {
-  const publicBaseUrl = getPublicBaseUrl();
-  return `${publicBaseUrl}${MCP_OAUTH_CALLBACK_PATH}`;
+  try {
+    const publicBaseUrl = getPublicBaseUrl();
+    return `${publicBaseUrl}${MCP_OAUTH_CALLBACK_PATH}`;
+  } catch (error) {
+    throw new McpConnectionError('PUBLIC_BASE_URL is required for MCP OAuth registration but was empty', 500);
+  }
 }
 
 /** Uses form-body client authentication when a secret is present. */
