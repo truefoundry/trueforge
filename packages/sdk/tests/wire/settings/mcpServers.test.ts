@@ -7,7 +7,7 @@ import { mockServerPool } from "../../mock-server/MockServerPool";
 describe("McpServersClient", () => {
     test("list", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [
@@ -49,7 +49,7 @@ describe("McpServersClient", () => {
 
     test("upsert (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { name: "name", type: "remote", url: "url" };
         const rawResponseBody = {
             data: {
@@ -92,7 +92,7 @@ describe("McpServersClient", () => {
 
     test("upsert (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { name: "xy", type: "remote", url: "url" };
         const rawResponseBody = { error: { message: "message" } };
 
@@ -115,7 +115,7 @@ describe("McpServersClient", () => {
 
     test("upsert (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { name: "xy", type: "remote", url: "url" };
         const rawResponseBody = { error: { message: "message" } };
 
@@ -138,7 +138,7 @@ describe("McpServersClient", () => {
 
     test("catalog", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: [{ auth: { type: "dcr" }, logo: "logo", name: "name", type: "remote", url: "url" }],
@@ -170,7 +170,7 @@ describe("McpServersClient", () => {
 
     test("get (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
             data: {
@@ -209,7 +209,7 @@ describe("McpServersClient", () => {
 
     test("get (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -228,7 +228,7 @@ describe("McpServersClient", () => {
 
     test("list_tools (1)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { data: [{ key: "value" }] };
 
@@ -252,7 +252,7 @@ describe("McpServersClient", () => {
 
     test("list_tools (2)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { key: "value" };
 
@@ -271,7 +271,7 @@ describe("McpServersClient", () => {
 
     test("list_tools (3)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -290,7 +290,7 @@ describe("McpServersClient", () => {
 
     test("list_tools (4)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 
@@ -309,7 +309,7 @@ describe("McpServersClient", () => {
 
     test("list_tools (5)", async () => {
         const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = { error: { message: "message" } };
 

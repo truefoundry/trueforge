@@ -3843,6 +3843,14 @@
         ],
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "bearerFormat": "JWT",
+        "description": "ID token (`Authorization: Bearer <id_token>`). Required on protected routes when auth is enabled; ignored when auth is disabled. Browser sessions may use the HttpOnly `id_token` cookie instead.",
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -4206,7 +4214,7 @@
     },
     "/api/v1/auth/me": {
       "get": {
-        "description": "Returns the authenticated caller identity. When OIDC is configured this requires a valid session cookie (401 otherwise). Without OIDC, returns the default anonymous identity.",
+        "description": "Returns the authenticated caller identity. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` ID token (401 otherwise). When auth is disabled, returns the default anonymous identity.",
         "responses": {
           "200": {
             "content": {
@@ -4219,7 +4227,7 @@
             "description": "Session type and identity for the current request."
           },
           "401": {
-            "description": "OIDC is configured and the request has no valid session cookie."
+            "description": "Auth is enabled and the request has no valid cookie or Bearer ID token."
           }
         },
         "summary": "Current session",
@@ -6284,5 +6292,11 @@
       }
     }
   },
+  "security": [
+    {
+      "BearerAuth": []
+    },
+    {}
+  ],
   "webhooks": {}
 }

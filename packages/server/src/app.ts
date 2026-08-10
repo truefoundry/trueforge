@@ -35,6 +35,8 @@ import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
+const BEARER_AUTH_SCHEME = 'BearerAuth';
+
 const openApiDocConfig = {
   openapi: '3.1.0',
   info: {
@@ -43,7 +45,24 @@ const openApiDocConfig = {
       'Agent server with DB-backed sessions, agent registry, settings catalogs, and model/MCP/skill providers.',
     version: '0.1.0',
   },
+  // Optional auth: Bearer ID token OR unauthenticated. When auth is enabled,
+  // protected routes require a valid token (or cookie); when auth is disabled, no
+  // credentials are needed.
+  security: [{ [BEARER_AUTH_SCHEME]: [] }, {}],
 };
+
+/** Registers the Bearer ID-token scheme used by {@link buildOpenApiDocument}. Call once per app. */
+export function registerOpenApiBearerAuth(app: OpenAPIHono): void {
+  app.openAPIRegistry.registerComponent('securitySchemes', BEARER_AUTH_SCHEME, {
+    type: 'http',
+    scheme: 'bearer',
+    bearerFormat: 'JWT',
+    description:
+      'ID token (`Authorization: Bearer <id_token>`). Required on protected routes when auth ' +
+      'is enabled; ignored when auth is disabled. Browser sessions may use the HttpOnly ' +
+      '`id_token` cookie instead.',
+  });
+}
 
 /** Single source for both the served document and the one the SDK is built from. */
 export function buildOpenApiDocument(app: OpenAPIHono) {
@@ -98,6 +117,7 @@ export interface ServerDeps<TTransaction> {
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
+  registerOpenApiBearerAuth(app);
 
   app.get('/healthz', c => c.text('OK!'));
 

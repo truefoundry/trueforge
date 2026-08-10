@@ -61,8 +61,9 @@ export const meRoute = createRoute({
   tags: [AUTH_TAG],
   summary: 'Current session',
   description:
-    'Returns the authenticated caller identity. When OIDC is configured this requires a valid session cookie ' +
-    '(401 otherwise). Without OIDC, returns the default anonymous identity.',
+    'Returns the authenticated caller identity. When auth is enabled this requires a valid ' +
+    '`id_token` cookie or `Authorization: Bearer` ID token (401 otherwise). When auth is disabled, ' +
+    'returns the default identity.',
   'x-fern-sdk-group-name': ['auth'],
   'x-fern-sdk-method-name': 'me',
   responses: {
@@ -70,6 +71,8 @@ export const meRoute = createRoute({
       content: { 'application/json': { schema: MeResponseSchema } },
       description: 'Session type and identity for the current request.',
     },
-    401: { description: 'OIDC is configured and the request has no valid session cookie.' },
+    401: {
+      description: 'Auth is enabled and the request has no valid cookie or Bearer ID token.',
+    },
   },
 });

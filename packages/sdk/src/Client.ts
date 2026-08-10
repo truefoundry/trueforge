@@ -9,7 +9,7 @@ import { SessionsClient } from "./api/resources/sessions/client/Client.js";
 import { SettingsClient } from "./api/resources/settings/client/Client.js";
 import { SkillsClient } from "./api/resources/skills/client/Client.js";
 import type { BaseClientOptions, BaseRequestOptions } from "./BaseClient.js";
-import { type NormalizedClientOptions, normalizeClientOptions } from "./BaseClient.js";
+import { type NormalizedClientOptionsWithAuth, normalizeClientOptionsWithAuth } from "./BaseClient.js";
 import * as core from "./core/index.js";
 
 export declare namespace TrueForge {
@@ -19,7 +19,7 @@ export declare namespace TrueForge {
 }
 
 export class TrueForge {
-    protected readonly _options: NormalizedClientOptions<TrueForge.Options>;
+    protected readonly _options: NormalizedClientOptionsWithAuth<TrueForge.Options>;
     protected _agents: AgentsClient | undefined;
     protected _auth: AuthClient | undefined;
     protected _server: ServerClient | undefined;
@@ -30,7 +30,7 @@ export class TrueForge {
     protected _settings: SettingsClient | undefined;
 
     constructor(options: TrueForge.Options) {
-        this._options = normalizeClientOptions(options);
+        this._options = normalizeClientOptionsWithAuth(options);
     }
 
     public get agents(): AgentsClient {
@@ -90,6 +90,7 @@ export class TrueForge {
                 maxRetries: this._options.maxRetries,
                 fetch: this._options.fetch,
                 logging: this._options.logging,
+                getAuthHeaders: async () => (await this._options.authProvider.getAuthRequest()).headers,
             },
             requestOptions,
         );

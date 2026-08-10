@@ -56,7 +56,7 @@ function createApp() {
 }
 
 describe('authMiddleware', () => {
-  it('allows settings without admin role when OIDC is not configured', async () => {
+  it('allows settings without admin role when auth is disabled', async () => {
     disableOidcAuth();
     const res = await createApp().request('/api/v1/settings');
     expect(res.status).toBe(200);
@@ -66,7 +66,7 @@ describe('authMiddleware', () => {
     });
   });
 
-  it('sets default user when OIDC is not configured', async () => {
+  it('sets default user when auth is disabled', async () => {
     disableOidcAuth();
     const res = await createApp().request('/api/v1/models');
     expect(res.status).toBe(200);
@@ -76,7 +76,7 @@ describe('authMiddleware', () => {
     });
   });
 
-  describe('when OIDC is configured', () => {
+  describe('when auth is enabled', () => {
     const realFetch = globalThis.fetch;
     let privateKey: Awaited<ReturnType<typeof generateKeyPair>>['privateKey'];
     let oidcClient: Configuration;

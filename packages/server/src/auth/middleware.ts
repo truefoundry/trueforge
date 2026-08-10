@@ -34,7 +34,7 @@ export function readIdToken(c: Context): string | undefined {
 }
 
 /**
- * Bearer or cookie ID token → {@link UserContext} when OIDC is on and the JWT is valid.
+ * Bearer or cookie ID token → {@link UserContext} when auth is enabled and the JWT is valid.
  * Missing/invalid JWT → `undefined`. Claim mapping failures after a successful verify rethrow.
  */
 export async function resolveAuthUser(c: Context): Promise<UserContext | undefined> {
@@ -62,7 +62,7 @@ export async function resolveAuthUser(c: Context): Promise<UserContext | undefin
   return toUserContext(claims, oidcVerify.oidcConfig);
 }
 
-/** Set `c.var.user` and continue, or throw 401. Without OIDC, sets {@link LOCAL_USER_CONTEXT}. */
+/** Set `c.var.user` and continue, or throw 401. When auth is disabled, sets {@link LOCAL_USER_CONTEXT}. */
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   if (!getOidcVerify()) {
     c.set('user_context', LOCAL_USER_CONTEXT);
@@ -85,7 +85,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   return next();
 };
 
-/** Standalone admin gate: no-op without OIDC; with OIDC requires an authenticated admin. */
+/** Admin gate: no-op when auth is disabled; when auth is enabled requires an authenticated admin. */
 export const adminAuthMiddleware: MiddlewareHandler = async (c, next) => {
   if (!getOidcVerify()) {
     return next();

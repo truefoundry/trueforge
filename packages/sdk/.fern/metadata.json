@@ -21,16 +21,16 @@
         },
         "noSerdeLayer": false,
         "omitUndefined": true,
+        "optional-auth": true,
         "requireBaseUrl": true,
         "retainOriginalCasing": false,
         "skipResponseValidation": true,
         "streamType": "web",
         "useDefaultRequestParameterValues": true
     },
-    "originGitCommit": "60032ffbb02cf4a302dfaadcd1b27ee63115db92",
-    "originGitCommitIsDirty": false,
-    "invokedBy": "ci",
+    "originGitCommit": "2cea13bed96cd2ddb2e52ffcad175a8dcf4dac8d",
+    "originGitCommitIsDirty": true,
+    "invokedBy": "manual",
     "requestedVersion": "0.0.0",
-    "ciProvider": "github",
     "sdkVersion": "0.0.0"
 }
