@@ -114,6 +114,31 @@ describe('modelProviderCatalog mappers', () => {
     );
   });
 
+  it('forwards supportedReasoningEfforts from the custom catalog sentinel', () => {
+    assert.deepEqual(
+      toUiCatalogEntry({
+        type: 'custom',
+        name: 'custom',
+        models: [],
+        supportedReasoningEfforts: [
+          TrueForgeApi.ReasoningEffort.None,
+          TrueForgeApi.ReasoningEffort.Minimal,
+          TrueForgeApi.ReasoningEffort.Low,
+          TrueForgeApi.ReasoningEffort.Medium,
+          TrueForgeApi.ReasoningEffort.High,
+          TrueForgeApi.ReasoningEffort.Xhigh,
+          TrueForgeApi.ReasoningEffort.Max,
+        ],
+      }),
+      {
+        type: 'custom',
+        name: 'custom',
+        models: [],
+        supportedReasoningEfforts: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
+      },
+    );
+  });
+
   it('builds discriminated harness upsert bodies from UI create/update requests', () => {
     assert.deepEqual(
       toHarnessModelProvider({

@@ -56,11 +56,20 @@ export function toUiModelProvider(provider: TrueForgeApi.ModelProvider): UiModel
   };
 }
 
-export function toUiCatalogEntry(provider: TrueForgeApi.CatalogProvider): UiModelProviderCatalogEntry {
+/** Accepts catalog rows before/after Fern adds `custom` + `supportedReasoningEfforts`. */
+type UiCatalogProviderSource = TrueForgeApi.CatalogProvider & {
+  type: TrueForgeApi.CatalogProvider['type'] | 'custom';
+  supportedReasoningEfforts?: TrueForgeApi.ReasoningEffort[];
+};
+
+export function toUiCatalogEntry(provider: UiCatalogProviderSource): UiModelProviderCatalogEntry {
   return {
     type: provider.type,
     name: provider.name,
     ...(provider.logo === undefined ? {} : { logo: provider.logo }),
+    ...(provider.supportedReasoningEfforts === undefined
+      ? {}
+      : { supportedReasoningEfforts: [...provider.supportedReasoningEfforts] }),
     models: provider.models.map(toUiModelEntry),
   };
 }

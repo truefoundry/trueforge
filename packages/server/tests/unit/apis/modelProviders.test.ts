@@ -83,13 +83,21 @@ describe('settings model-providers and models routers', () => {
   it('GET /model-providers/catalog returns the shipped catalog verbatim', async () => {
     const response = await settingsRouter.request('/model-providers/catalog');
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { data: { type: string; name: string }[] };
+    const body = (await response.json()) as {
+      data: { type: string; name: string; models: unknown[]; supported_reasoning_efforts?: string[] }[];
+    };
     expect(body.data.map(provider => provider.name)).toEqual(
       ModelCatalog.load()
         .list()
         .map(provider => provider.name),
     );
-    expect(body.data.every(provider => provider.type !== 'custom')).toBe(true);
+    const custom = body.data.find(provider => provider.type === 'custom');
+    expect(custom).toEqual({
+      type: 'custom',
+      name: 'custom',
+      models: [],
+      supported_reasoning_efforts: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
+    });
   });
 
   it('PUT upserts a well-known provider without base_url and echoes the stored auth', async () => {
@@ -190,7 +198,12 @@ describe('well-known types are limited to one provider', () => {
 
 describe('catalog presets are configurable', () => {
   // A preset is copied into a PUT body with an api_key added, so every catalog type must parse.
-  it.each(ModelCatalog.load().list())('PUT accepts the $type preset', async preset => {
+  // Skip the `custom` sentinel — it is form options only, not a configure-from-catalog preset.
+  it.each(
+    ModelCatalog.load()
+      .list()
+      .filter(provider => provider.type !== 'custom'),
+  )('PUT accepts the $type preset', async preset => {
     const { settingsRouter } = await createRouters();
     // `logo` is catalog-only metadata and a well-known provider takes its name from `type`; the rest
     // copies straight into a PUT body.

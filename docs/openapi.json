@@ -487,29 +487,25 @@
             "type": "string"
           },
           "models": {
-            "description": "Preset models for this catalog provider.",
+            "description": "Preset models; empty on the `custom` sentinel.",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
-            "minItems": 1,
             "type": "array"
           },
           "name": {
             "$ref": "#/components/schemas/ResourceName"
           },
+          "supported_reasoning_efforts": {
+            "description": "Efforts the custom-provider form may advertise. Present only when type is `custom`.",
+            "items": {
+              "$ref": "#/components/schemas/ReasoningEffort"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
           "type": {
-            "description": "Well-known provider type (catalog excludes `custom`).",
-            "enum": [
-              "openai",
-              "anthropic",
-              "google-gemini",
-              "fireworks",
-              "zai",
-              "moonshot",
-              "alibaba",
-              "together"
-            ],
-            "type": "string"
+            "$ref": "#/components/schemas/CatalogProviderType"
           }
         },
         "required": [
@@ -518,6 +514,20 @@
           "models"
         ],
         "type": "object"
+      },
+      "CatalogProviderType": {
+        "enum": [
+          "openai",
+          "anthropic",
+          "google-gemini",
+          "fireworks",
+          "zai",
+          "moonshot",
+          "alibaba",
+          "together",
+          "custom"
+        ],
+        "type": "string"
       },
       "CatalogSkill": {
         "additionalProperties": false,
@@ -6369,7 +6379,7 @@
     },
     "/api/v1/settings/model-providers/catalog": {
       "get": {
-        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Custom providers are not listed here.",
+        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Includes a `custom` sentinel with `supported_reasoning_efforts` for the custom-provider form (not configurable from catalog).",
         "responses": {
           "200": {
             "content": {

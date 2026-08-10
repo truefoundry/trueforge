@@ -365,3 +365,16 @@ providers:
           reasoning_efforts:
             - high
             - max
+
+  # Sentinel for the custom-provider settings form (not a configure-from-catalog preset).
+  - type: custom
+    name: custom
+    models: []
+    supported_reasoning_efforts:
+      - none
+      - minimal
+      - low
+      - medium
+      - high
+      - xhigh
+      - max
