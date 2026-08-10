@@ -1,5 +1,5 @@
 ---
-title: "Theming"
+title: "Preset Themes"
 description: "Presets, branding, and dark mode."
 ---
 
@@ -45,22 +45,6 @@ The `chatgpt`, `claude`, and `gemini` presets (the default is `truefoundry`):
     ![TrueForge UI with the gemini theme preset](/images/theme-gemini.png)
   </Frame>
 </Columns>
-
-## Precedence
-
-The provider resolves the preset for the current mode, merges your `theme.tokens` over it, and writes the result as **inline styles** on the theme root. So within `theme.tokens`, your entries beat the preset — that part is straightforward.
-
-<Warning>
-  Because those tokens land as inline styles, a `:root { --primary: … }` rule in your own CSS will **not** override them. This applies to every token a preset defines, whether or not you passed `theme.tokens`. Use `theme.tokens` to change these, not CSS.
-</Warning>
-
-A few tokens are absent from the presets — `scrollbarThumb`, `assistantBubble`, and `assistantBubbleForeground`. Those are not written inline unless you set them, so they fall through to the stylesheet's low-precedence layer and a host `:root` rule does take effect.
-
-`theme.className` is applied to the theme root, for utility-class adjustments alongside the tokens.
-
-<Note>
-  `brand`, `icons`, and `classNames` are not part of this cascade — they are separate context values, not tokens that layer over one another.
-</Note>
 
 ## Light and dark mode
 
