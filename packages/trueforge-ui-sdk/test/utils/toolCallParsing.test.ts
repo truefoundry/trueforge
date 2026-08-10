@@ -47,9 +47,19 @@ describe('toolCallParsing', () => {
       command: 'ls',
       intent: 'list',
     });
+    expect(parseSandboxArgs('{"command":"pnpm test","intent":"still stream')).toEqual({
+      command: 'pnpm test',
+      intent: 'still stream',
+      argsJson: '{"command":"pnpm test","intent":"still stream',
+    });
     expect(parseSandboxResult(JSON.stringify({ response: { exitCode: 0, result: 'ok' } }))).toMatchObject({
       exitCode: 0,
       resultText: 'ok',
+    });
+    expect(parseSandboxResult('{"response":{"exitCode":0,"result":"streamed output"')).toEqual({
+      exitCode: 0,
+      resultText: 'streamed output',
+      resultJson: '{"response":{"exitCode":0,"result":"streamed output"',
     });
     expect(parseSandboxResult('plain')).toEqual({ resultText: 'plain' });
   });
@@ -75,6 +85,10 @@ describe('toolCallParsing', () => {
     expect(getJsonDisplayValue('{"a":1}')).toEqual({
       value: '{\n  "a": 1\n}',
       isJson: true,
+    });
+    expect(getJsonDisplayValue('{"a":1,"streaming":"unfinished')).toEqual({
+      value: '{"a":1,"streaming":"unfinished',
+      isJson: false,
     });
     expect(getJsonDisplayValue('hello')).toEqual({
       value: 'hello',
