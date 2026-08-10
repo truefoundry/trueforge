@@ -79,12 +79,12 @@ describe('SkillSettings', () => {
       </Wrapper>,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Select Code Review' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Enable Code Review' }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Remove Code Review' })).toBeTruthy();
     });
-    expect(screen.queryByRole('button', { name: 'Select Code Review' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Enable Code Review' })).toBeNull();
     expect(host.created).toEqual([
       {
         catalogId: catalogEntry.id,
@@ -116,7 +116,7 @@ describe('SkillSettings', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Remove Code Review' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Select Code Review' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Enable Code Review' })).toBeTruthy();
     });
   });
 
@@ -165,10 +165,10 @@ describe('SkillSettings', () => {
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: 'https://github.com/org/repo' },
     });
-    fireEvent.change(screen.getByLabelText('Path'), {
+    fireEvent.change(screen.getByLabelText('Folder containing the SKILL.md'), {
       target: { value: 'skills/house-style' },
     });
-    fireEvent.change(screen.getByLabelText('Ref'), { target: { value: 'main' } });
+    fireEvent.change(screen.getByLabelText('Branch'), { target: { value: 'main' } });
     fireEvent.click(screen.getByRole('button', { name: 'Import' }));
 
     await waitFor(() => {
