@@ -243,9 +243,7 @@ const SandboxSettings = () => {
                         </span>
                         <div className="min-w-0">
                           <h5 className="truncate text-sm font-medium text-foreground">{entry.name}</h5>
-                          <p className="truncate text-[0.8125rem] text-muted-foreground">
-                            {entry.snapshotName} · {entry.type}
-                          </p>
+                          <p className="truncate text-[0.8125rem] text-muted-foreground">{entry.snapshotName}</p>
                         </div>
                       </div>
 
