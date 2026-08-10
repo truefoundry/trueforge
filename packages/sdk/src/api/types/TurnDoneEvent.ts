@@ -3,10 +3,13 @@
 import type * as TrueForge from "../index.js";
 
 export interface TurnDoneEvent {
-    createdAt: string;
-    /** Unique identifier for the event */
+    /** ISO 8601 event timestamp. */
+    createdAt: Date;
+    /** Unique identifier for the event (monotonic ULID). */
     id: string;
+    /** Terminal turn state (done, cancelled, or error). */
     state: TrueForge.TurnDoneEventState;
+    /** Thread that owns the event; null for turn-level lifecycle events. */
     threadId: string | null;
     type: "turn.done";
 }

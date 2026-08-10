@@ -4,6 +4,8 @@ import type * as TrueForge from "../index.js";
 
 export interface ChatCompletionMessageToolCall {
     function: TrueForge.ChatCompletionMessageToolCallFunction;
+    /** Tool call id. */
     id: string;
+    /** Tool call type. */
     type: "function";
 }

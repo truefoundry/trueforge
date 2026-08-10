@@ -8,11 +8,11 @@ import { SessionAgent } from "./SessionAgent.js";
 export const Session: core.serialization.ObjectSchema<serializers.Session.Raw, TrueForge.Session> =
     core.serialization.object({
         agent: SessionAgent,
-        createdAt: core.serialization.property("created_at", core.serialization.string()),
+        createdAt: core.serialization.property("created_at", core.serialization.date()),
         createdBy: core.serialization.property("created_by", core.serialization.string()),
         id: core.serialization.string(),
         title: core.serialization.string().nullable(),
-        updatedAt: core.serialization.property("updated_at", core.serialization.string()),
+        updatedAt: core.serialization.property("updated_at", core.serialization.date()),
     });
 
 export declare namespace Session {

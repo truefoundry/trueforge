@@ -3,10 +3,13 @@
 import type * as TrueForge from "../index.js";
 
 export interface McpInitializeEvent {
-    createdAt: string;
-    /** Unique identifier for the event */
+    /** ISO 8601 event timestamp. */
+    createdAt: Date;
+    /** Unique identifier for the event (monotonic ULID). */
     id: string;
+    /** Servers that were initialized. */
     mcpServers: TrueForge.McpServerInitInfo[];
+    /** Thread that triggered initialization. */
     threadId: string;
     type: "mcp.initialize";
 }

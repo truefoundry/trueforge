@@ -5,7 +5,9 @@ import type * as TrueForge from "../index.js";
 export interface CatalogProvider {
     /** URL of the provider logo asset. */
     logo?: string;
+    /** Preset models for this catalog provider. */
     models: TrueForge.ModelEntry[];
     name: TrueForge.ResourceName;
+    /** Well-known provider type (catalog excludes `custom`). */
     type: TrueForge.CatalogProviderType;
 }

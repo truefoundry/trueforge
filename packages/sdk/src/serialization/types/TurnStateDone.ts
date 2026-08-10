@@ -9,7 +9,7 @@ import { TurnMetrics } from "./TurnMetrics.js";
 
 export const TurnStateDone: core.serialization.ObjectSchema<serializers.TurnStateDone.Raw, TrueForge.TurnStateDone> =
     core.serialization.object({
-        completedAt: core.serialization.property("completed_at", core.serialization.string()),
+        completedAt: core.serialization.property("completed_at", core.serialization.date()),
         metrics: TurnMetrics.optional(),
         output: ModelMessageEvent.nullable(),
         requiredActions: core.serialization.property("required_actions", core.serialization.list(ActionRequiredEvent)),

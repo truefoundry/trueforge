@@ -2,8 +2,14 @@
 
 import type * as TrueForge from "../index.js";
 
+/**
+ * Optional model capability metadata.
+ */
 export interface ModelProperties {
+    /** Maximum context window size in tokens. */
     contextLength?: number;
+    /** Maximum output tokens the model can generate. */
     maxOutputTokens?: number;
+    /** Supported reasoning-effort values for this model. */
     reasoningEfforts?: TrueForge.ReasoningEffort[];
 }

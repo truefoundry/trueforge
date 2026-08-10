@@ -11,7 +11,7 @@ export const ThreadDoneEvent: core.serialization.ObjectSchema<
     TrueForge.ThreadDoneEvent
 > = core.serialization
     .object({
-        createdAt: core.serialization.property("created_at", core.serialization.string()),
+        createdAt: core.serialization.property("created_at", core.serialization.date()),
         id: core.serialization.string(),
         state: ThreadState,
         type: core.serialization.stringLiteral("thread.done"),

@@ -8,7 +8,7 @@ export const BaseMcpAuthRequiredEvent: core.serialization.ObjectSchema<
     serializers.BaseMcpAuthRequiredEvent.Raw,
     TrueForge.BaseMcpAuthRequiredEvent
 > = core.serialization.object({
-    createdAt: core.serialization.property("created_at", core.serialization.string()),
+    createdAt: core.serialization.property("created_at", core.serialization.date()),
     id: core.serialization.string(),
     threadId: core.serialization.property("thread_id", core.serialization.string().nullable()),
 });

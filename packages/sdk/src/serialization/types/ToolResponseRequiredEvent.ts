@@ -9,7 +9,7 @@ export const ToolResponseRequiredEvent: core.serialization.ObjectSchema<
     serializers.ToolResponseRequiredEvent.Raw,
     TrueForge.ToolResponseRequiredEvent
 > = core.serialization.object({
-    createdAt: core.serialization.property("created_at", core.serialization.string()),
+    createdAt: core.serialization.property("created_at", core.serialization.date()),
     id: core.serialization.string(),
     threadId: core.serialization.property("thread_id", core.serialization.string()),
     toolCalls: core.serialization.property("tool_calls", core.serialization.list(ToolCallRef)),

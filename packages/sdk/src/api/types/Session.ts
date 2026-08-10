@@ -4,9 +4,14 @@ import type * as TrueForge from "../index.js";
 
 export interface Session {
     agent: TrueForge.SessionAgent;
-    createdAt: string;
+    /** ISO 8601 creation timestamp. */
+    createdAt: Date;
+    /** Caller identity that created the session (immutable). */
     createdBy: string;
+    /** Unique session id. */
     id: string;
+    /** Optional human-readable title; null until set. */
     title: string | null;
-    updatedAt: string;
+    /** ISO 8601 last-update timestamp. */
+    updatedAt: Date;
 }

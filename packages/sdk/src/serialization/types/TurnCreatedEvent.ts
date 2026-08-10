@@ -10,7 +10,7 @@ export const TurnCreatedEvent: core.serialization.ObjectSchema<
     serializers.TurnCreatedEvent.Raw,
     TrueForge.TurnCreatedEvent
 > = core.serialization.object({
-    createdAt: core.serialization.property("created_at", core.serialization.string()),
+    createdAt: core.serialization.property("created_at", core.serialization.date()),
     id: core.serialization.string(),
     input: core.serialization.list(TurnInputItem).optional(),
     previousTurnId: core.serialization.property("previous_turn_id", core.serialization.string().nullable()),

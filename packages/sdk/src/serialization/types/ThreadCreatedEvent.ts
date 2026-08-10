@@ -11,7 +11,7 @@ export const ThreadCreatedEvent: core.serialization.ObjectSchema<
     TrueForge.ThreadCreatedEvent
 > = core.serialization.object({
     agentInfo: core.serialization.property("agent_info", AgentInfo),
-    createdAt: core.serialization.property("created_at", core.serialization.string()),
+    createdAt: core.serialization.property("created_at", core.serialization.date()),
     id: core.serialization.string(),
     parent: AgentParent,
     threadId: core.serialization.property("thread_id", core.serialization.string()),

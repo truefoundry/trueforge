@@ -35,7 +35,7 @@ describe("AuthClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
 
-        const rawResponseBody = { key: "value" };
+        const rawResponseBody = { error: { message: "message" } };
 
         server.mockEndpoint().get("/api/v1/auth/me").respondWith().statusCode(401).jsonBody(rawResponseBody).build();
 

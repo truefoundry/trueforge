@@ -9,7 +9,7 @@ export const McpInitializeEvent: core.serialization.ObjectSchema<
     serializers.McpInitializeEvent.Raw,
     TrueForge.McpInitializeEvent
 > = core.serialization.object({
-    createdAt: core.serialization.property("created_at", core.serialization.string()),
+    createdAt: core.serialization.property("created_at", core.serialization.date()),
     id: core.serialization.string(),
     mcpServers: core.serialization.property("mcp_servers", core.serialization.list(McpServerInitInfo)),
     threadId: core.serialization.property("thread_id", core.serialization.string()),

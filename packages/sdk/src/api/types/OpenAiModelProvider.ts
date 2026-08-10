@@ -6,6 +6,7 @@ export interface OpenAiModelProvider {
     auth: TrueForge.ModelProviderAuth;
     /** Override of the provider's default API base URL. */
     baseUrl?: string;
+    /** Models exposed by this provider (at least one). */
     models: TrueForge.ModelEntry[];
     name?: "openai";
     type: "openai";

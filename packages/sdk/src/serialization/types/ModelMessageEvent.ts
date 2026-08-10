@@ -13,7 +13,7 @@ export const ModelMessageEvent: core.serialization.ObjectSchema<
     TrueForge.ModelMessageEvent
 > = core.serialization.object({
     content: ModelMessageEventContent.optionalNullable(),
-    createdAt: core.serialization.property("created_at", core.serialization.string()),
+    createdAt: core.serialization.property("created_at", core.serialization.date()),
     finishReason: core.serialization.property("finish_reason", FinishReason.optionalNullable()),
     id: core.serialization.string(),
     name: core.serialization.string().optional(),
