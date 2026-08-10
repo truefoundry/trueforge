@@ -1,0 +1,155 @@
+---
+title: 'Authentication'
+sidebarTitle: 'Overview'
+description: 'OIDC login with identity providers, admin vs user roles, Bearer tokens for the SDK, and what happens when auth is disabled.'
+---
+
+TrueForge authentication is optional and identity-provider–driven. When OIDC is configured, every protected API call must present a valid ID token (browser cookie or `Authorization: Bearer`). When it is not, the server runs with a fixed local admin identity — useful for local mode and trusted networks, not for shared production.
+
+## Modes at a glance
+
+| Mode | When | Who you are | API access |
+| ---- | ---- | ----------- | ---------- |
+| **No OIDC** | `OIDC_*` unset (or standalone / local mode) | Fixed user `trueforge-default` with role `admin` | No login required |
+| **OIDC enabled** | `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET` all set | Claim-mapped `userRef` + `admin` or `user` | Cookie or Bearer ID token required |
+
+All OIDC variables must be set together, or all left unset. Partial configuration fails startup.
+
+Standalone / local mode (`STANDALONE=true`) ignores OIDC even if env vars are present.
+
+## No auth
+
+This is the default for local development and for hosted deploys that never set `OIDC_*`.
+
+- There is **no login screen**. The UI and API treat every caller as the same identity.
+- That identity is **`trueforge-default`** with role **`admin`**.
+- Settings (model providers, MCP servers, skills, sandbox) are open to anyone who can reach the server.
+- Session ownership still uses `created_by`, but every request shares the same `userRef`, so there is no per-person isolation.
+
+Use this only on localhost or behind network controls you trust. For a shared team deployment, enable OIDC.
+
+## Enabling OIDC
+
+Set on the server (env, Compose `.env`, or Helm `server.extraEnv`):
+
+| Variable | Required | Default | Purpose |
+| -------- | -------- | ------- | ------- |
+| `OIDC_ISSUER_URL` | yes* | — | IdP issuer (discovery at `/.well-known/openid-configuration`) |
+| `OIDC_CLIENT_ID` | yes* | — | OIDC client ID |
+| `OIDC_CLIENT_SECRET` | yes* | — | OIDC client secret (confidential / Web client) |
+| `PUBLIC_BASE_URL` | yes | — | Public origin used to build the callback URL |
+| `OIDC_USER_REFERENCE_CLAIM` | no | `sub` | Claim used as `userRef` (session ownership) |
+| `OIDC_USER_ROLE_CLAIM` | no | `groups` | Claim inspected for admin membership |
+| `OIDC_ADMIN_ROLE_VALUE` | no | `admin` | Exact string that grants `admin` (case-sensitive) |
+| `OIDC_SCOPES` | no | `openid,profile,email` | Comma-separated scopes for the authorize request |
+
+\*Required only when enabling OIDC; otherwise leave all three unset.
+
+Also set `PUBLIC_BASE_URL` to the origin users and the IdP see, for example `https://trueforge.example.com` (no trailing path). In Helm that is the first-class value `server.publicBaseUrl`. The redirect URI registered with the IdP must be:
+
+```text
+{PUBLIC_BASE_URL}/api/v1/auth/callback
+```
+
+OIDC env vars are not first-class Helm values yet — pass them through `server.extraEnv` or `server.extraEnvFrom`, and keep the client secret in a Kubernetes Secret (for example via `extraObjects`).
+
+### How credentials are sent
+
+The UI stores the ID token in an HttpOnly `id_token` cookie after login. `POST /api/v1/auth/logout` clears that cookie (local logout only — no IdP end-session redirect). `GET /api/v1/auth/me` returns the mapped identity.
+
+Login requests the reference and role claims as **essential** in the ID token. If the IdP cannot produce them, login fails instead of silently treating the user as non-admin.
+
+### API and SDK (Bearer)
+
+The same ID token is also accepted as:
+
+```http
+Authorization: Bearer <id_token>
+```
+
+If both a Bearer token and the cookie are present, **Bearer wins**.
+
+TypeScript SDK example:
+
+```typescript
+import { TrueForge } from "trueforge-sdk";
+
+const client = new TrueForge({
+  baseUrl: "https://trueforge.example.com",
+  headers: {
+    Authorization: `Bearer ${idToken}`,
+  },
+});
+```
+
+There is no first-class device/client-credentials flow yet. Callers must obtain an ID token from the IdP (or reuse one from a browser session). Refresh is the caller's responsibility.
+
+<Warning>
+  Keep ID token lifetimes short at the IdP (minutes, not days). The same JWT unlocks the API whether it arrives as a cookie or `Authorization: Bearer`, so a long-lived token is a long-lived credential.
+</Warning>
+
+## Roles: admin vs user
+
+Every authenticated principal is mapped to:
+
+```ts
+{ userRef: string; role: "admin" | "user" }
+```
+
+- **`userRef`** — from `OIDC_USER_REFERENCE_CLAIM` (default `sub`). Used as `created_by` on sessions and for ownership checks.
+- **`role`** — `admin` if the role claim’s values **include** `OIDC_ADMIN_ROLE_VALUE` (exact, case-sensitive); otherwise `user`.
+
+The role claim may be a string or an array of strings (typical for Okta `groups`).
+
+### What each role can do
+
+| Capability | `admin` | `user` |
+| ---------- | ------- | ------ |
+| Chat, sessions, turns, agents, models list, MCP authorize (user flows) | yes | yes |
+| See / change **Settings** (`/api/v1/settings/*` — providers, connectors, skills, sandbox) | yes | no |
+| Access another user’s sessions | no | no |
+
+Admins are **not** global session superusers today: session read/update/delete is still owner-only. The UI hides Settings for non-admins.
+
+Without OIDC, `isAdmin` is always true (the fixed local identity is admin), so settings stay available.
+
+## Identity providers
+
+TrueForge speaks standard OIDC (authorization code + PKCE) against any IdP that issues ID tokens. Provider-specific setup differs; the server only needs a working issuer, confidential client, redirect URI, and the claims you map for `userRef` / admin.
+
+**Common requirements for any IdP:**
+
+- **Confidential (Web) client** with a client secret — public/SPA clients are not supported
+- Grant type **Authorization Code** (server also sends PKCE)
+- Redirect URI `{PUBLIC_BASE_URL}/api/v1/auth/callback`
+- ID token includes the reference claim and role claim you configured (requested as essential at login)
+- Users who should sign in are assigned / allowed by the IdP
+
+Provider guides:
+
+- [Okta](/authentication/okta)
+
+### Verify
+
+After login with any provider:
+
+```bash
+curl -s -H "Cookie: id_token=..." https://trueforge.example.com/api/v1/auth/me
+# or
+curl -s -H "Authorization: Bearer ..." https://trueforge.example.com/api/v1/auth/me
+```
+
+Expected shape:
+
+```json
+{ "type": "oidc-connected", "email": "you@example.com", "role": "admin" }
+```
+
+(`email` here is the mapped `userRef` from `OIDC_USER_REFERENCE_CLAIM`.)
+
+If `role` is `user` but you expect admin, decode the ID token and confirm the role claim contains exactly `OIDC_ADMIN_ROLE_VALUE`. Re-login after changing IdP claims; an old cookie will not pick up new claims.
+
+## Security notes
+
+- Prefer Kubernetes Secrets (or `extraObjects` Secret) for `OIDC_CLIENT_SECRET`; avoid committing secrets in values files when you can.
+- Disabling OIDC on a publicly reachable host effectively grants every caller admin settings access under one shared identity.

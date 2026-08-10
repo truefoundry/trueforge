@@ -33,7 +33,15 @@
         "groups": [
           {
             "group": "Getting Started",
-            "pages": ["introduction", "quickstart", "evaluation"]
+            "pages": [
+              "introduction",
+              "quickstart",
+              {
+                "group": "Authentication",
+                "pages": ["authentication/overview", "authentication/okta"]
+              },
+              "evaluation"
+            ]
           },
           {
             "group": "Capabilities",
