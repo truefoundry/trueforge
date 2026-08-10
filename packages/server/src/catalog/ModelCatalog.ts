@@ -7,14 +7,14 @@
  * override: `MODEL_CATALOG_PATH` (file on disk).
  */
 import configuration from '../config';
-import { ModelCatalogFileSchema, type CatalogModelProvider } from '../schemas/modelCatalog';
+import { ModelCatalogFileSchema, type CatalogWellKnownModelProvider } from '../schemas/modelCatalog';
 import { loadYamlAtPath, parseYamlString } from './loadYaml';
 import { shippedModelCatalogYaml } from './modelCatalog.gen';
 
 export class ModelCatalog {
-  private readonly providers: readonly CatalogModelProvider[];
+  private readonly providers: readonly CatalogWellKnownModelProvider[];
 
-  constructor(providers: readonly CatalogModelProvider[]) {
+  constructor(providers: readonly CatalogWellKnownModelProvider[]) {
     this.providers = providers;
   }
 
@@ -28,7 +28,7 @@ export class ModelCatalog {
     return new ModelCatalog(file.providers);
   }
 
-  list(): readonly CatalogModelProvider[] {
+  list(): readonly CatalogWellKnownModelProvider[] {
     return this.providers;
   }
 }

@@ -51,5 +51,6 @@ export const GetModelProviderCatalogResponseSchema = z
   })
   .openapi('GetModelProviderCatalogResponse');
 
+export type CatalogWellKnownModelProvider = z.infer<typeof CatalogWellKnownModelProviderSchema>;
 export type CatalogModelProvider = z.infer<typeof CatalogModelProviderSchema>;
 export type ModelCatalogFile = z.infer<typeof ModelCatalogFileSchema>;

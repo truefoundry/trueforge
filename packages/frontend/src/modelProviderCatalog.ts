@@ -57,12 +57,14 @@ export function toUiCatalogModelProviderEntry(
   if (provider.type === 'custom') {
     return {
       type: provider.type,
+      name: provider.type,
       supportedReasoningEfforts: provider.supportedReasoningEfforts,
       models: [],
     };
   }
   return {
     type: provider.type,
+    name: provider.type,
     ...(provider.logo === undefined ? {} : { logo: provider.logo }),
     models: provider.models.map(toUiModelEntry),
   };

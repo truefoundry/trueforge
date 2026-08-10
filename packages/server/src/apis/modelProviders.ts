@@ -8,6 +8,7 @@ import {
   listModelProvidersRoute,
   putModelProviderRoute,
 } from '../routes/modelProviderRoutes';
+import type { CatalogModelProvider } from '../schemas/modelCatalog';
 import { modelProviderName } from '../schemas/modelProvider';
 import { TENANT_ID } from './sessions';
 
@@ -21,7 +22,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
   const catalogHandler: RouteHandler<typeof getModelProviderCatalogRoute> = c => {
     const loadedProvidersCatalog = deps.modelCatalog.list();
     // make a copy of the loaded providers catalog and add the custom provider sentinel
-    const providersCatalog = [...loadedProvidersCatalog];
+    const providersCatalog: CatalogModelProvider[] = [...loadedProvidersCatalog];
     providersCatalog.push({
       type: 'custom',
       supported_reasoning_efforts: [...SUPPORTED_REASONING_EFFORTS],

@@ -73,7 +73,7 @@ const ModelProviderManifestBaseSchema = z
  * one of each because the `(tenant_id, name)` primary key replaces the row rather than adding a
  * sibling. `base_url` defaults to the adapter's endpoint and stays overridable.
  */
-function wellKnownProviderSchema<Type extends Exclude<ProviderType, 'custom'>>({
+function wellKnownProviderSchema<Type extends Exclude<ModelProviderType, 'custom'>>({
   type,
   base_url,
 }: {

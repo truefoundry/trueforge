@@ -1,7 +1,6 @@
 import winston from 'winston';
 import { createModelsRouter } from '../../../src/apis/models';
 import { createSettingsRouter } from '../../../src/apis/settings';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
@@ -65,7 +64,6 @@ async function createRouters(): Promise<{
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),
-      resolveUserContext: () => LOCAL_USER_CONTEXT,
     }),
     modelsRouter: createModelsRouter({
       modelProviderStore,
@@ -82,16 +80,16 @@ describe('settings model-providers and models routers', () => {
     ({ settingsRouter, modelsRouter } = await createRouters());
   });
 
-  it('GET /model-providers/catalog returns the shipped catalog verbatim', async () => {
+  it('GET /model-providers/catalog returns shipped presets plus a custom sentinel', async () => {
     const response = await settingsRouter.request('/model-providers/catalog');
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { data: { type: string; name: string }[] };
-    expect(body.data.map(provider => provider.name)).toEqual(
-      ModelCatalog.load()
-        .list()
-        .map(provider => provider.name),
-    );
-    expect(body.data.every(provider => provider.type !== 'custom')).toBe(true);
+    const body = (await response.json()) as { data: { type: string; supported_reasoning_efforts?: string[] }[] };
+    const shipped = ModelCatalog.load().list();
+    expect(body.data.slice(0, -1)).toEqual([...shipped]);
+    expect(body.data.at(-1)).toEqual({
+      type: 'custom',
+      supported_reasoning_efforts: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
+    });
   });
 
   it('PUT upserts a well-known provider without base_url and echoes the stored auth', async () => {
@@ -196,10 +194,10 @@ describe('catalog presets are configurable', () => {
     const { settingsRouter } = await createRouters();
     // `logo` is catalog-only metadata and a well-known provider takes its name from `type`; the rest
     // copies straight into a PUT body.
-    const { logo, name, ...presetFields } = preset;
+    const { logo, ...presetFields } = preset;
     const body = {
       ...presetFields,
-      auth: { api_key: `sk-${name}` },
+      auth: { api_key: `sk-${preset.type}` },
     };
     expect(logo === undefined || typeof logo === 'string').toBe(true);
     const response = await settingsRouter.request('/model-providers', putInit(body));
