@@ -2,13 +2,11 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface CatalogProvider {
+export interface CatalogWellKnownModelProvider {
     /** URL of the provider logo asset. */
     logo?: string;
     /** Preset models; empty on the `custom` sentinel. */
     models: TrueForge.ModelEntry[];
-    name: TrueForge.ResourceName;
-    /** Efforts the custom-provider form may advertise. Present only when type is `custom`. */
-    supportedReasoningEfforts?: TrueForge.ReasoningEffort[];
-    type: TrueForge.ProviderType;
+    /** Well-known provider type (catalog excludes `custom`). */
+    type: TrueForge.CatalogWellKnownModelProviderType;
 }

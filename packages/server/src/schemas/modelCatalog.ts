@@ -3,68 +3,43 @@
  * configured provider manifests in modelProvider.ts.
  */
 import { z } from '@hono/zod-openapi';
-import { NameSchema, uniqueNames } from './common';
-import { ModelEntrySchema, ProviderTypeSchema, ReasoningEffortSchema, refineUniqueModels } from './modelProvider';
+import { uniqueTypes } from './common';
+import { ModelEntrySchema, ModelProviderTypeSchema, ReasoningEffortSchema, refineUniqueModels } from './modelProvider';
 
 /**
  * Catalog entry. Well-known types list model presets; `custom` is a sentinel that
  * carries `supported_reasoning_efforts` for the custom-provider settings form.
  */
-export const CatalogProviderSchema = z
+export const CatalogWellKnownModelProviderSchema = z
   .object({
-    type: ProviderTypeSchema,
-    name: NameSchema,
+    type: ModelProviderTypeSchema.exclude(['custom']).describe('Well-known provider type (catalog excludes `custom`).'),
     logo: z.url().optional().describe('URL of the provider logo asset.'),
     models: z.array(ModelEntrySchema).describe('Preset models; empty on the `custom` sentinel.'),
-    supported_reasoning_efforts: z
-      .array(ReasoningEffortSchema)
-      .min(1)
-      .optional()
-      .describe('Efforts the custom-provider form may advertise. Present only when type is `custom`.'),
   })
   .strict()
-  .superRefine((provider, ctx) => {
-    if (provider.type === 'custom') {
-      if (provider.supported_reasoning_efforts === undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Catalog entry type "custom" requires supported_reasoning_efforts',
-          path: ['supported_reasoning_efforts'],
-        });
-      }
-      if (provider.models.length > 0) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Catalog entry type "custom" must have an empty models list',
-          path: ['models'],
-        });
-      }
-      return;
-    }
-    if (provider.models.length < 1) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Well-known catalog providers require at least one model',
-        path: ['models'],
-      });
-    }
-    if (provider.supported_reasoning_efforts !== undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'supported_reasoning_efforts is only allowed on catalog type "custom"',
-        path: ['supported_reasoning_efforts'],
-      });
-    }
+  .openapi('CatalogWellKnownModelProvider');
+
+export const CatalogCustomModelProviderSchema = z
+  .object({
+    type: z.literal('custom').describe('Custom provider type (catalog includes `custom`).'),
+    supported_reasoning_efforts: z
+      .array(ReasoningEffortSchema)
+      .describe('Supported reasoning-effort values for this provider.'),
   })
-  .openapi('CatalogProvider');
+  .strict()
+  .openapi('CatalogCustomModelProvider');
+
+export const CatalogModelProviderSchema = z
+  .union([CatalogWellKnownModelProviderSchema, CatalogCustomModelProviderSchema])
+  .openapi('CatalogModelProvider');
 
 export const ModelCatalogFileSchema = z
   .object({
-    providers: z.array(CatalogProviderSchema),
+    providers: z.array(CatalogWellKnownModelProviderSchema),
   })
   .strict()
   .superRefine((file, ctx) => {
-    uniqueNames(file.providers, ctx);
+    uniqueTypes(file.providers, ctx);
     for (const provider of file.providers) {
       refineUniqueModels(provider.models, ctx);
     }
@@ -72,9 +47,9 @@ export const ModelCatalogFileSchema = z
 
 export const GetModelProviderCatalogResponseSchema = z
   .object({
-    data: z.array(CatalogProviderSchema),
+    data: z.array(CatalogModelProviderSchema),
   })
   .openapi('GetModelProviderCatalogResponse');
 
-export type CatalogProvider = z.infer<typeof CatalogProviderSchema>;
+export type CatalogModelProvider = z.infer<typeof CatalogModelProviderSchema>;
 export type ModelCatalogFile = z.infer<typeof ModelCatalogFileSchema>;

@@ -8,9 +8,9 @@ import { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES } from '@truefoun
 import { NameSchema, uniqueNames, type ResourceName } from './common';
 
 /** Every type the harness has an adapter for; a test asserts each one has a schema below. */
-export const ProviderTypeSchema = z.enum(VERCEL_AI_PROVIDER_NAMES).openapi('ProviderType');
+export const ModelProviderTypeSchema = z.enum(VERCEL_AI_PROVIDER_NAMES).openapi('ModelProviderType');
 
-export type ProviderType = z.infer<typeof ProviderTypeSchema>;
+export type ModelProviderType = z.infer<typeof ModelProviderTypeSchema>;
 
 export const ReasoningEffortSchema = z.enum(SUPPORTED_REASONING_EFFORTS).openapi('ReasoningEffort');
 
