@@ -68,15 +68,6 @@ function getEnv(key: string, options?: GetEnvOptions): string | undefined {
   return undefined;
 }
 
-/** Same as `getEnv(key, { required: true })`, but blank / whitespace-only also fails. */
-function requireNonEmptyEnv(key: string): string {
-  const value = getEnv(key);
-  if (value === undefined || value.trim() === '') {
-    throw new Error(`Environment variable ${key} is required but was not specified.`);
-  }
-  return value;
-}
-
 function randomAlphanumeric(length: number): string {
   return Array.from({ length }, () => Math.floor(Math.random() * 36).toString(36)).join('');
 }
@@ -324,12 +315,6 @@ export interface SharedServerConfiguration {
   /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
   MCP_CONNECT_TIMEOUT_MS: number;
   /**
-   * Public base URL of this server used as the origin of MCP OAuth and OIDC
-   * callbacks. Required. Not trimmed when non-empty.
-   * Env: `PUBLIC_BASE_URL`.
-   */
-  PUBLIC_BASE_URL: string;
-  /**
    * Client name used for Dynamic Client Registration (DCR) of MCP servers.
    * This is the client name shown on authorization-server consent screens.
    * Env: `MCP_DCR_OAUTH_CLIENT_NAME`. Default: "truefoundry-harness".
@@ -411,6 +396,12 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   STANDALONE: false;
   /**
+   * Public base URL of this server used as the origin of MCP OAuth and OIDC
+   * callbacks. Optional at boot; MCP OAuth and OIDC callback construction fail
+   * if empty.
+   */
+  PUBLIC_BASE_URL: string;
+  /**
    * Postgres connection string derived from `POSTGRES_*` (not read from env directly).
    * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` with user/password URL-encoded.
    */
@@ -466,7 +457,6 @@ const shared: SharedServerConfiguration = {
   SKILL_CATALOG_PATH: resolveOptionalPathEnv('SKILL_CATALOG_PATH'),
   SANDBOX_CATALOG_PATH: resolveOptionalPathEnv('SANDBOX_CATALOG_PATH'),
   FRONTEND_DIR: resolveFrontendDir(),
-  PUBLIC_BASE_URL: requireNonEmptyEnv('PUBLIC_BASE_URL'),
 
   MCP_REQUEST_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MCP_REQUEST_TIMEOUT_MS',
@@ -537,6 +527,7 @@ const configuration: ServerConfiguration = standalone
   : {
       ...shared,
       STANDALONE: false,
+      PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { defaultValue: '' }) ?? '',
       DATABASE_URL: resolvePostgresDatabaseUrl(),
       DATABASE_POOL_MAX: parsePositiveInt({
         envKey: 'DATABASE_POOL_MAX',
@@ -561,6 +552,14 @@ export function isOidcConfigured(
   value: ServerConfiguration,
 ): value is DistributedServerConfiguration & { OIDC: OIDCConfig } {
   return !value.STANDALONE && value.OIDC !== undefined;
+}
+
+/**
+ * Public origin for OAuth callbacks.
+ * Standalone → `http://localhost:$PORT`; distributed → `PUBLIC_BASE_URL` (may be `''`).
+ */
+export function getPublicBaseUrl(config: ServerConfiguration = configuration): string {
+  return config.STANDALONE ? `http://localhost:${String(config.PORT)}` : config.PUBLIC_BASE_URL;
 }
 
 export default configuration;

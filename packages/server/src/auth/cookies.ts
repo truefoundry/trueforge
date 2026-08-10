@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import configuration from '../config';
+import { getPublicBaseUrl } from '../config';
 
 export const OAUTH_STATE_COOKIE = 'oauth_state';
 export const ID_TOKEN_COOKIE = 'id_token';
@@ -18,7 +18,7 @@ export type OAuthState = z.infer<typeof OAuthStateSchema>;
 const AUTH_COOKIE_ATTRIBUTES = {
   httpOnly: true,
   sameSite: 'Lax' as const,
-  secure: configuration.PUBLIC_BASE_URL.startsWith('https://'),
+  secure: getPublicBaseUrl().startsWith('https://'),
   path: '/',
 };
 
