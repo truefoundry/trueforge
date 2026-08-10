@@ -14,6 +14,7 @@ export type MonacoEditorCoreProps = {
   onChange?: (value: string) => void;
   onMount?: (editor: unknown, monaco: unknown) => void;
   beforeMount?: (monaco: unknown) => void;
+  onAutoHeightChange?: (height: number) => void; // Reports Monaco's measured, clamped content height while `autoHeight` is active.
   className?: string;
   /**
    * Fixed height. Ignored when `autoHeight` is true (except as an initial
@@ -156,6 +157,7 @@ export function MonacoEditorCore({
   onChange,
   onMount,
   beforeMount,
+  onAutoHeightChange,
   className,
   height = 400,
   autoHeight = false,
@@ -171,9 +173,11 @@ export function MonacoEditorCore({
   const onChangeRef = useRef(onChange);
   const onMountRef = useRef(onMount);
   const beforeMountRef = useRef(beforeMount);
+  const onAutoHeightChangeRef = useRef(onAutoHeightChange);
   onChangeRef.current = onChange;
   onMountRef.current = onMount;
   beforeMountRef.current = beforeMount;
+  onAutoHeightChangeRef.current = onAutoHeightChange;
 
   const minPx = toPx(minHeight, DEFAULT_LINE_HEIGHT + DEFAULT_VERTICAL_PADDING);
   const maxPx = toPx(maxHeight, toPx(DEFAULT_MAX_HEIGHT, 168));
@@ -193,6 +197,7 @@ export function MonacoEditorCore({
     setAutoPx(next);
     wrapper.style.height = `${next}px`;
     editor.layout();
+    onAutoHeightChangeRef.current?.(next);
   };
 
   useEffect(() => {

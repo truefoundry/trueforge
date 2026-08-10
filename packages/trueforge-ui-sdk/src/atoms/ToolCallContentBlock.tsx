@@ -19,6 +19,7 @@ export type ToolCallContentBlockProps = {
   onFullscreenChange?: (fullscreen: boolean) => void;
   contentHeightRem?: number;
   contentRef?: (node: HTMLDivElement | null) => void;
+  onContentHeightChange?: (height: number) => void;
   dataTestPrefix?: string;
   className?: string;
 };
@@ -28,11 +29,13 @@ function JsonEditor({
   height,
   autoHeight = false,
   maxHeight,
+  onAutoHeightChange,
 }: {
   content: string;
   height?: string | number;
   autoHeight?: boolean;
   maxHeight?: string | number;
+  onAutoHeightChange?: (height: number) => void;
 }) {
   const MonacoEditorCore = useSlot('MonacoEditorCore');
 
@@ -43,6 +46,7 @@ function JsonEditor({
       height={height}
       autoHeight={autoHeight}
       maxHeight={maxHeight}
+      onAutoHeightChange={onAutoHeightChange}
       options={{
         readOnly: true,
         minimap: { enabled: false },
@@ -52,7 +56,7 @@ function JsonEditor({
         folding: true,
         fontSize: 12,
       }}
-      className="!border-0"
+      className="border-0!"
     />
   );
 }
@@ -68,6 +72,7 @@ export function ToolCallContentBlock({
   onFullscreenChange,
   contentHeightRem,
   contentRef,
+  onContentHeightChange,
   dataTestPrefix,
   className,
 }: ToolCallContentBlockProps) {
@@ -127,7 +132,7 @@ export function ToolCallContentBlock({
       <div
         ref={resizable ? contentRef : undefined}
         className={cn(
-          'relative min-h-[1.875rem] rounded-b-lg border border-t-0 border-border bg-background',
+          'relative min-h-7.5 rounded-b-lg border border-t-0 border-border bg-background',
           resizable && 'overflow-hidden',
         )}
         style={bodyStyle}
@@ -138,6 +143,7 @@ export function ToolCallContentBlock({
             height={hasMeasuredResizableHeight ? '100%' : undefined}
             autoHeight={!hasMeasuredResizableHeight}
             maxHeight={maxHeight}
+            onAutoHeightChange={resizable ? onContentHeightChange : undefined}
           />
         ) : (
           <div
