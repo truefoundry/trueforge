@@ -88,8 +88,6 @@
               "ui-sdk/guides/layouts",
               "ui-sdk/guides/theming",
               "ui-sdk/guides/agent-modes",
-              "ui-sdk/guides/",
-              "ui-sdk/guides/",
               {
                 "group": "Setup Custom UI",
                 "pages": [
