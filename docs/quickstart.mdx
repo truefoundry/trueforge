@@ -30,15 +30,14 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
 
     Then open [http://localhost:8791](http://localhost:8791).
 
-    | Configuration                                         | Default                 | Description                                              |
-    | ----------------------------------------------------- | ----------------------- | -------------------------------------------------------- |
-    | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env`             | Postgres credentials, read from `packages/server/.env`.  |
-    | `PUBLIC_BASE_URL`                                     | `http://localhost:8791` | Public origin, used for MCP OAuth callbacks.             |
+    | Configuration                                         | Default     | Description                                              |
+    | ----------------------------------------------------- | ----------- | -------------------------------------------------------- |
+    | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env` | Postgres credentials, read from `packages/server/.env`.  |
     | Host ports                                            | `8791`, `5433`, `6380`  | App, Postgres, and Redis.                                |
 
   </Tab>
   <Tab title="Hosted mode (Kubernetes)">
-    The Helm chart deploys the server in hosted mode with bundled Postgres and Redis (or point it at your own). No values are required for a basic install:
+    The Helm chart deploys the server in hosted mode with bundled Postgres and Redis (or point it at your own):
 
     ```bash
     # TODO: replace <HELM_REPO> with the published Helm repo URL
@@ -48,7 +47,6 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
 
     | Value                  | Default | Description                                                             |
     | ---------------------- | ------- | ------------------------------------------------------------------------ |
-    | `server.publicBaseUrl` | `""`    | Public origin for MCP OAuth / OIDC callbacks; set once you expose the service. |
     | `replicaCount`         | `1`     | Number of server replicas (peered over Redis).                           |
     | `postgresql.enabled`   | `true`  | Bundle Postgres; set `false` + `externalPostgres.*` to bring your own.   |
     | `redis.enabled`        | `true`  | Bundle Redis; set `false` + `externalRedis.url` or `existingSecret`.     |
@@ -180,18 +178,6 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
     ```bash
     SQLITE_PATH=~/trueforge/db.sqlite npx @truefoundry/trueforge
     ```
-
-  </Accordion>
-  <Accordion title="What is PUBLIC_BASE_URL and when do I need to set it?">
-    The public origin the server hands to MCP servers for OAuth callbacks. It defaults to `http://localhost:<port>`, which is correct as long as you access TrueForge from the same machine.
-
-    Set it when the server is reachable at a different address — behind a domain, reverse proxy, or on another host:
-
-    ```bash
-    PUBLIC_BASE_URL=https://agents.example.com npx @truefoundry/trueforge
-    ```
-
-    In hosted mode, set it in `packages/server/.env` (Docker Compose) or via `server.publicBaseUrl` (Helm).
 
   </Accordion>
 </AccordionGroup>

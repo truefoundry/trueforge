@@ -5,7 +5,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { Icon } from '../../icons/Icon.js';
 import { useServerCapabilities } from '../../server/ServerContext.js';
-import type { AgentSkill, ConnectorState, McpServerMount, SkillMount } from '../../server/types.js';
+import type { AgentSkill, ConnectorState } from '../../server/types.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
@@ -13,6 +13,26 @@ import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 
+/** Catalog-backed mount shape used by the draft picker (runtime mounts stay opaque). */
+type DraftMount = { id: string; name: string };
+
+/**
+ * Harness wire mounts are name-keyed (`{ name }` only). Catalog rows use
+ * `id === name`, so missing ids hydrate from name — otherwise save/load drops
+ * mounts from the picker and the next flush can wipe them from the spec.
+ */
+function draftMountsFromSpec(value: unknown): DraftMount[] {
+  if (!Array.isArray(value)) return [];
+  const mounts: DraftMount[] = [];
+  for (const item of value) {
+    if (typeof item !== 'object' || item === null) continue;
+    const name = Reflect.get(item, 'name');
+    if (typeof name !== 'string') continue;
+    const id = Reflect.get(item, 'id');
+    mounts.push({ id: typeof id === 'string' ? id : name, name });
+  }
+  return mounts;
+}
 type AttachTab = 'connectors' | 'skills' | 'files';
 
 const TABS: { id: AttachTab; label: string; icon: string }[] = [
@@ -123,8 +143,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const [pinnedMcpIds, setPinnedMcpIds] = useState<Set<string>>(() => new Set());
   const [pinnedSkillIds, setPinnedSkillIds] = useState<Set<string>>(() => new Set());
   // Local working copy while open — flush to AgentSpec on debounce / close.
-  const [localMcp, setLocalMcp] = useState<McpServerMount[]>([]);
-  const [localSkills, setLocalSkills] = useState<SkillMount[]>([]);
+  const [localMcp, setLocalMcp] = useState<DraftMount[]>([]);
+  const [localSkills, setLocalSkills] = useState<DraftMount[]>([]);
   const dirtyRef = useRef(false);
   const flushTimerRef = useRef<number | null>(null);
   const localMcpRef = useRef(localMcp);
@@ -139,8 +159,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const skillsDisabled = capabilities?.skill.enabled !== true;
   const skillsDisabledReason = capabilities?.skill.reason;
 
-  const specMcp = useMemo(() => (agentSpec?.mcpServers as McpServerMount[] | undefined) ?? [], [agentSpec?.mcpServers]);
-  const specSkills = useMemo(() => (agentSpec?.skills as SkillMount[] | undefined) ?? [], [agentSpec?.skills]);
+  const specMcp = useMemo(() => draftMountsFromSpec(agentSpec?.mcpServers), [agentSpec?.mcpServers]);
+  const specSkills = useMemo(() => draftMountsFromSpec(agentSpec?.skills), [agentSpec?.skills]);
 
   const selectedMcp = open ? localMcp : specMcp;
   const selectedSkills = open ? localSkills : specSkills;
