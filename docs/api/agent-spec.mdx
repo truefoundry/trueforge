@@ -4,7 +4,7 @@ sidebarTitle: 'Agent Spec'
 description: 'Every field on the AgentSpec — model, instructions, MCP servers, skills, and runtime config.'
 ---
 
-An `AgentSpec` is the complete definition of an agent. It is used inline when creating a session (`agent.type: "value"`) or saved as a named agent (`POST /api/v1/agents`) and referenced by id (`agent.type: "ref"`). All fields are `snake_case`.
+An `AgentSpec` is the complete definition of an agent. Pass it inline when creating a session, or save it as a named agent and reference it by name. All fields are `snake_case`.
 
 ```json A complete example
 {
@@ -106,7 +106,7 @@ Runtime behavior. Every field has a default, so `config` can be omitted entirely
 | Field                        | Default | Description                                                                                                                                                                                             |
 | ---------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`                    | `false` | Give the agent a sandbox. Required for skills and Code Mode.                                                                                                                                            |
-| `file_downloads`             | `true`  | Allow downloading agent-produced files via the turn download endpoint.                                                                                                                                  |
+| `file_downloads`             | `true`  | Allow clients to download files the agent produces in the sandbox.                                                                                                                                      |
 | `network_policy.auth_inject` | —       | Up to one rule injecting git basic-auth credentials for exact hosts: `{ "type": "git", "match": { "hosts": ["github.com"] }, "auth_data": { "type": "basic", "username": "...", "password": "..." } }`. |
 
 ### `config.context_management`

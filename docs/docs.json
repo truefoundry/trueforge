@@ -62,12 +62,12 @@
                   "key-features/large-tool-responses"
                 ]
               },
-              "benchmarking"
+              "benchmarking",
+              {
+                "group": "Setup Login",
+                "pages": ["authentication/overview", "authentication/okta"]
+              }
             ]
-          },
-          {
-            "group": "Setup Login",
-            "pages": ["authentication/overview", "authentication/okta"]
           },
           {
             "group": "SDK",
