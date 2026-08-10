@@ -5,6 +5,5 @@ import type * as TrueForge from "../index.js";
 export interface CatalogCustomModelProvider {
     /** Supported reasoning-effort values for this provider. */
     supportedReasoningEfforts: TrueForge.ReasoningEffort[];
-    /** Custom provider type (catalog includes `custom`). */
     type: "custom";
 }

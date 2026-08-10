@@ -496,7 +496,21 @@
         "type": "object"
       },
       "CatalogModelProvider": {
-        "anyOf": [
+        "discriminator": {
+          "mapping": {
+            "alibaba": "#/components/schemas/CatalogWellKnownModelProvider",
+            "anthropic": "#/components/schemas/CatalogWellKnownModelProvider",
+            "custom": "#/components/schemas/CatalogCustomModelProvider",
+            "fireworks": "#/components/schemas/CatalogWellKnownModelProvider",
+            "google-gemini": "#/components/schemas/CatalogWellKnownModelProvider",
+            "moonshot": "#/components/schemas/CatalogWellKnownModelProvider",
+            "openai": "#/components/schemas/CatalogWellKnownModelProvider",
+            "together": "#/components/schemas/CatalogWellKnownModelProvider",
+            "zai": "#/components/schemas/CatalogWellKnownModelProvider"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
           {
             "$ref": "#/components/schemas/CatalogWellKnownModelProvider"
           },
