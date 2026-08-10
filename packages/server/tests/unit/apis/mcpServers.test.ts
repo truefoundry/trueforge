@@ -128,7 +128,7 @@ describe('mcp-servers routers', () => {
     });
   });
 
-  it('DCR server reads authenticated once an unexpired token is stored, auth_required once expired', async () => {
+  it('DCR server reads authenticated when a token row exists, auth_required once deleted', async () => {
     await settingsRouter.request('/', putInit(putBodyWithDcr));
     const record = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithDcr.name });
     if (record === undefined) throw new Error('expected DCR server to exist');
@@ -150,6 +150,7 @@ describe('mcp-servers routers', () => {
       status: 'authenticated',
     });
 
+    // List auth_status is presence-based; expiry is handled at resolve/refresh time.
     await tokenStore.saveToken({
       id: record.id,
       userRef: LOCAL_USER_CONTEXT.userRef,
@@ -164,10 +165,16 @@ describe('mcp-servers routers', () => {
     const expired = await settingsRouter.request('/');
     const expiredBody = (await expired.json()) as { data: { name: string; auth_status: { status: string } }[] };
     expect(expiredBody.data.find(server => server.name === putBodyWithDcr.name)?.auth_status).toEqual({
-      status: 'auth_required',
+      status: 'authenticated',
     });
 
     await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
+
+    const cleared = await settingsRouter.request('/');
+    const clearedBody = (await cleared.json()) as { data: { name: string; auth_status: { status: string } }[] };
+    expect(clearedBody.data.find(server => server.name === putBodyWithDcr.name)?.auth_status).toEqual({
+      status: 'auth_required',
+    });
   });
 
   it('PUT re-upsert of a DCR server reports authenticated when a usable token already exists', async () => {
