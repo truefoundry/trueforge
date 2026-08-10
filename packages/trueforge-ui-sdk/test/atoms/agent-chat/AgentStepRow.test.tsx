@@ -76,6 +76,7 @@ describe('AgentStepRow', () => {
         title="Process files"
         expanded={false}
         dataTestPrefix="process"
+        showPersistentContentConnector={false}
         persistentChildren={<div>Always-visible progress</div>}
       >
         <div>Expanded details</div>
@@ -85,12 +86,14 @@ describe('AgentStepRow', () => {
     expect(screen.queryByTestId('process-expanded-content')).not.toBeInTheDocument();
     expect(screen.queryByText('Expanded details')).not.toBeInTheDocument();
     expect(screen.getByTestId('process-persistent-content')).toHaveTextContent('Always-visible progress');
+    expect(screen.getByTestId('process-persistent-content')).toHaveClass('gap-2');
 
     rerender(
       <TestSubject
         title="Process files"
         expanded
         dataTestPrefix="process"
+        showPersistentContentConnector={false}
         persistentChildren={<div>Always-visible progress</div>}
       >
         <div>Expanded details</div>

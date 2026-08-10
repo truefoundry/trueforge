@@ -66,7 +66,7 @@ export function ToolCallContentBlock({
   resizable = false,
   fullscreen = false,
   onFullscreenChange,
-  contentHeightRem = 1.5,
+  contentHeightRem,
   contentRef,
   dataTestPrefix,
   className,
@@ -82,9 +82,10 @@ export function ToolCallContentBlock({
     });
   };
 
+  const hasMeasuredResizableHeight = resizable && contentHeightRem !== undefined;
   const bodyStyle = resizable
     ? {
-        height: `${Math.min(contentHeightRem, 10)}rem`,
+        ...(hasMeasuredResizableHeight ? { height: `${Math.min(contentHeightRem, 10)}rem` } : {}),
         resize: 'vertical' as const,
         padding: '0.25rem',
       }
@@ -127,14 +128,22 @@ export function ToolCallContentBlock({
         ref={resizable ? contentRef : undefined}
         className={cn(
           'relative min-h-[1.875rem] rounded-b-lg border border-t-0 border-border bg-background',
-          resizable && 'overflow-y-auto',
+          resizable && 'overflow-hidden',
         )}
         style={bodyStyle}
       >
         {isJson ? (
-          <JsonEditor content={content} autoHeight maxHeight={maxHeight} />
+          <JsonEditor
+            content={content}
+            height={hasMeasuredResizableHeight ? '100%' : undefined}
+            autoHeight={!hasMeasuredResizableHeight}
+            maxHeight={maxHeight}
+          />
         ) : (
-          <div className="overflow-y-auto" style={maxHeight ? { maxHeight } : undefined}>
+          <div
+            className={cn('overflow-y-auto', hasMeasuredResizableHeight && 'h-full')}
+            style={!hasMeasuredResizableHeight && maxHeight ? { maxHeight } : undefined}
+          >
             <Markdown content={content} className="text-xs text-muted-foreground" />
           </div>
         )}
