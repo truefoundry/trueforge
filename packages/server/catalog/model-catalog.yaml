@@ -3,7 +3,6 @@
 # PUT /api/v1/settings/model-providers bodies. Discovery-only — never executed against.
 providers:
   - type: openai
-    name: openai
     logo: https://assets.production.truefoundry.com/openai.svg
     models:
       - model_id: gpt-5.4-mini
@@ -65,7 +64,6 @@ providers:
             - xhigh
             - max
   - type: anthropic
-    name: anthropic
     logo: https://assets.production.truefoundry.com/anthropic.svg
     models:
       - model_id: claude-fable-5
@@ -128,7 +126,6 @@ providers:
             - xhigh
             - max
   - type: google-gemini
-    name: google-gemini
     logo: https://assets.production.truefoundry.com/google-gemini.svg
     models:
       - model_id: gemini-3.1-pro-preview
@@ -151,7 +148,6 @@ providers:
             - medium
             - high
   - type: fireworks
-    name: fireworks
     logo: https://assets.production.truefoundry.com/fireworks.svg
     models:
       - model_id: accounts/fireworks/models/deepseek-v4-pro
@@ -210,7 +206,6 @@ providers:
             - xhigh
             - max
   - type: zai
-    name: zai
     logo: https://assets.production.truefoundry.com/zai.svg
     models:
       - model_id: glm-5-turbo
@@ -237,7 +232,6 @@ providers:
             - xhigh
             - max
   - type: moonshot
-    name: moonshot
     logo: https://assets.production.truefoundry.com/moonshot.png
     models:
       - model_id: kimi-k2.7-code
@@ -253,7 +247,6 @@ providers:
             - high
             - max
   - type: alibaba
-    name: alibaba
     logo: https://assets.production.truefoundry.com/alibaba.png
     models:
       - model_id: qwen3.7-flash
@@ -306,7 +299,6 @@ providers:
             - xhigh
             - max
   - type: together
-    name: together
     logo: https://assets.production.truefoundry.com/togetherai.svg
     models:
       - model_id: deepseek-ai/DeepSeek-V4-Pro
