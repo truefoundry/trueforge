@@ -80,9 +80,14 @@ export type ToastStackProps = {
 };
 
 const openToastStack = (element: HTMLDivElement | null): void => {
-  if (element === null || typeof element.showPopover !== 'function') return;
-  if (element.matches(':popover-open')) element.hidePopover();
-  element.showPopover();
+  if (element === null) return;
+  try {
+    if (typeof element.showPopover !== 'function') return;
+    if (element.matches(':popover-open')) element.hidePopover();
+    element.showPopover();
+  } catch {
+    // Popover APIs can reject during attachment; the fixed stack remains usable.
+  }
 };
 
 export function ToastStack({ children, duration: _duration = Number.POSITIVE_INFINITY }: ToastStackProps) {

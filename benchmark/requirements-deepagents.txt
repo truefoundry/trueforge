@@ -1,0 +1,5 @@
+# deepagents arm only — install in a separate venv from the core stack.
+deepagents>=0.1
+langgraph>=0.2
+langchain-openai>=0.2
+langchain-mcp-adapters>=0.1

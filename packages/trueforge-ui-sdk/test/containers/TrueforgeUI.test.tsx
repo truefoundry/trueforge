@@ -113,6 +113,49 @@ describe('TrueforgeUI', () => {
     });
   });
 
+  it('refetches composer data when starting a new chat', async () => {
+    const getCapabilities = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { sandbox: { enabled: true }, skill: { enabled: true } } })
+      .mockResolvedValueOnce({
+        data: {
+          sandbox: { enabled: false },
+          skill: { enabled: false, reason: 'Select Sandbox first' },
+        },
+      });
+    const getModels = vi.fn(async () => []);
+    const getSkills = vi.fn(async () => []);
+    const getMcp = vi.fn(async () => []);
+
+    render(
+      <TrueforgeUI
+        server={createMockAgentUIServer({ getCapabilities, getModels, getSkills, getMcp })}
+        agentConfig={{ mode: 'AgentComposer' }}
+        layout="sidebar"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getCapabilities).toHaveBeenCalledTimes(1);
+      expect(getModels).toHaveBeenCalledTimes(1);
+      expect(getSkills).toHaveBeenCalledTimes(1);
+      expect(getMcp).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start new chat' }));
+
+    await waitFor(() => {
+      expect(getCapabilities).toHaveBeenCalledTimes(2);
+      expect(getModels).toHaveBeenCalledTimes(2);
+      expect(getSkills).toHaveBeenCalledTimes(2);
+      expect(getMcp).toHaveBeenCalledTimes(2);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' }));
+    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Select Sandbox first');
+  });
+
   it('renders only the MCP authorization screen when requested by the URL', async () => {
     const originalUrl = window.location.href;
     const postMessage = vi.fn();

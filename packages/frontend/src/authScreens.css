@@ -9,7 +9,14 @@
   background: var(--background);
   color: var(--foreground);
   font-family:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, 'Apple Color Emoji',
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    'Apple Color Emoji',
     'Segoe UI Emoji';
 }
 

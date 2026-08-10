@@ -33,7 +33,7 @@
         "groups": [
           {
             "group": "Getting Started",
-            "pages": ["introduction", "quickstart"]
+            "pages": ["introduction", "quickstart", "evaluation"]
           },
           {
             "group": "Capabilities",
