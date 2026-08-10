@@ -106,15 +106,17 @@ The `chatgpt`, `claude`, and `gemini` presets (the default is `truefoundry`):
 
 ## Light and dark mode
 
-Skip means defaults to system theme. User can choose via UI.
+When you skip this key then the SDK defaults to system theme. User will get an option to switch to dark or light theme via UI.
 
-Pass to set a theme to light, dark or system. User CANNOT update it. This is useful when you want to control the theme based on the main/top level app theme.
+If you want to control the theme based on the app level theme then pass a value to set a theme to light, dark or system to match the main app theme. Please note, user does not get an option to update it via UI.
 
 <Frame caption="Dark mode applied to the chat UI.">
   ![The TrueForge UI SDK rendered in dark mode](/images/dark_theme.png)
 </Frame>
 
 ### Set separate logo for light and dark theme
+
+You can also provide different logos for dark and light mode as shown below: 
 
 ```tsx App.tsx
 <TrueforgeUI
