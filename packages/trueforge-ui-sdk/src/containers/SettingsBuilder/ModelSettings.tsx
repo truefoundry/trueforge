@@ -66,7 +66,7 @@ const ModelSettings = () => {
     () =>
       configured.filter(
         provider =>
-          provider.name.toLowerCase().includes(normalizedQuery) ||
+          provider.name?.toLowerCase().includes(normalizedQuery) ||
           provider.models.some(
             model =>
               model.name.toLowerCase().includes(normalizedQuery) || model.id.toLowerCase().includes(normalizedQuery),
