@@ -10,7 +10,7 @@ import type { DaytonaSandboxProviderOptions } from '@truefoundry/utils-core/core
 
 const DaytonaSandboxProviderAuthSchema = z
   .object({
-    api_key: z.string().min(1),
+    api_key: z.string().min(1).describe('Daytona API key.'),
   })
   .strict()
   .openapi('DaytonaSandboxProviderAuth');
@@ -21,13 +21,25 @@ const DaytonaSandboxProviderAuthSchema = z
  */
 export const DaytonaSandboxProviderSchema = z
   .object({
-    type: z.literal('daytona'),
+    type: z.literal('daytona').describe('Daytona sandbox provider.'),
     snapshot_name: z.string().min(1).describe('Daytona snapshot used when creating sandboxes.'),
-    auth: DaytonaSandboxProviderAuthSchema,
+    auth: DaytonaSandboxProviderAuthSchema.describe('Daytona authentication credentials.'),
     exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
-    auto_stop_interval_in_minutes: z.number().int().nonnegative(),
-    auto_archive_interval_in_minutes: z.number().int().nonnegative(),
-    auto_delete_interval_in_minutes: z.number().int().nonnegative(),
+    auto_stop_interval_in_minutes: z
+      .number()
+      .int()
+      .nonnegative()
+      .describe('Minutes of idle time before Daytona auto-stops the sandbox (0 disables).'),
+    auto_archive_interval_in_minutes: z
+      .number()
+      .int()
+      .nonnegative()
+      .describe('Minutes before Daytona auto-archives the sandbox (0 disables).'),
+    auto_delete_interval_in_minutes: z
+      .number()
+      .int()
+      .nonnegative()
+      .describe('Minutes before Daytona auto-deletes the sandbox (0 disables).'),
   })
   .strict()
   .openapi('DaytonaSandboxProvider');

@@ -5,7 +5,7 @@ import { TrueForge } from "../../../src/Client";
 import { mockServerPool } from "../../mock-server/MockServerPool";
 
 describe("ModelProvidersClient", () => {
-    test("list", async () => {
+    test("list (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
 
@@ -15,7 +15,6 @@ describe("ModelProvidersClient", () => {
                     auth: { api_key: "api_key" },
                     base_url: "base_url",
                     models: [{ model_id: "model_id", name: "name", properties: {} }],
-                    name: "alibaba",
                     type: "alibaba",
                 },
             ],
@@ -44,11 +43,48 @@ describe("ModelProvidersClient", () => {
                             properties: {},
                         },
                     ],
-                    name: "alibaba",
                     type: "alibaba",
                 },
             ],
         });
+    });
+
+    test("list (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/settings/model-providers")
+            .respondWith()
+            .statusCode(401)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.modelProviders.list();
+        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
+    });
+
+    test("list (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/settings/model-providers")
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.modelProviders.list();
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
     });
 
     test("upsert (1)", async () => {
@@ -64,7 +100,6 @@ describe("ModelProvidersClient", () => {
                 auth: { api_key: "api_key" },
                 base_url: "base_url",
                 models: [{ model_id: "model_id", name: "name", properties: {} }],
-                name: "alibaba",
                 type: "alibaba",
             },
         };
@@ -104,7 +139,6 @@ describe("ModelProvidersClient", () => {
                         properties: {},
                     },
                 ],
-                name: "alibaba",
                 type: "alibaba",
             },
         });
@@ -154,7 +188,7 @@ describe("ModelProvidersClient", () => {
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
 
-    test("catalog", async () => {
+    test("catalog (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
 
@@ -194,5 +228,43 @@ describe("ModelProvidersClient", () => {
                 },
             ],
         });
+    });
+
+    test("catalog (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/settings/model-providers/catalog")
+            .respondWith()
+            .statusCode(401)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.modelProviders.catalog();
+        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
+    });
+
+    test("catalog (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/settings/model-providers/catalog")
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.modelProviders.catalog();
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
     });
 });

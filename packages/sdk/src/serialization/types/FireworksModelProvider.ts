@@ -13,7 +13,6 @@ export const FireworksModelProvider: core.serialization.ObjectSchema<
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    name: core.serialization.stringLiteral("fireworks").optional(),
     type: core.serialization.stringLiteral("fireworks"),
 });
 
@@ -22,7 +21,6 @@ export declare namespace FireworksModelProvider {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
-        name?: "fireworks" | null;
         type: "fireworks";
     }
 }

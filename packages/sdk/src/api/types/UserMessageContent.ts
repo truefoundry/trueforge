@@ -2,4 +2,7 @@
 
 import type * as TrueForge from "../index.js";
 
+/**
+ * Plain string or structured text/file content parts.
+ */
 export type UserMessageContent = string | TrueForge.UserMessageContentItem[];

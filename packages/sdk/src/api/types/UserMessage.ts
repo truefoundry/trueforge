@@ -3,6 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface UserMessage {
+    /** Plain string or structured text/file content parts. */
     content: TrueForge.UserMessageContent;
     type: "user.message";
 }

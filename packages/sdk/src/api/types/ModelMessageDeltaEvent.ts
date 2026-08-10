@@ -3,13 +3,18 @@
 import type * as TrueForge from "../index.js";
 
 export interface ModelMessageDeltaEvent {
+    /** Incremental assistant text content. */
     content?: string | null;
+    /** Optional ISO 8601 event timestamp. */
     createdAt?: string;
+    /** Finish reason when this delta completes the stream. */
     finishReason?: TrueForge.FinishReason | null;
-    /** Unique identifier for the event */
+    /** Unique identifier for the event (monotonic ULID). */
     id: string;
     reasoningContent?: string;
+    /** Incremental refusal text when present. */
     refusal?: string | null;
+    /** Thread that emitted this delta. */
     threadId: string;
     toolCalls?: TrueForge.ExtendedChunkDeltaToolCall[];
     type: "model.message.delta";

@@ -16,7 +16,7 @@ export const McpServerTypeSchema = z.enum(['remote']).openapi('McpServerType');
 
 const McpServerHeaderAuthSchema = z
   .object({
-    type: z.literal('header'),
+    type: z.literal('header').describe('Authenticate with static HTTP headers.'),
     headers: z
       .record(z.string().min(1), z.string().min(1))
       .refine(headers => Object.keys(headers).length > 0, {
@@ -30,7 +30,7 @@ const McpServerHeaderAuthSchema = z
 /** OAuth Dynamic Client Registration — stub until authorize/token exchange is wired. */
 const McpServerDcrAuthSchema = z
   .object({
-    type: z.literal('dcr'),
+    type: z.literal('dcr').describe('Authenticate via OAuth Dynamic Client Registration.'),
   })
   .strict()
   .openapi('McpServerDcrAuth');
@@ -42,10 +42,12 @@ export const McpServerAuthSettingsSchema = z
 /** Configured MCP server document persisted as `mcp_server.manifest`. */
 export const McpServerManifestObjectSchema = z
   .object({
-    type: McpServerTypeSchema,
+    type: McpServerTypeSchema.describe('MCP server kind (`remote` today).'),
     name: NameSchema,
     url: z.url().describe('URL of the remote MCP server.'),
-    auth: McpServerAuthSettingsSchema.optional(),
+    auth: McpServerAuthSettingsSchema.optional().describe(
+      'Optional auth settings. Omit when the server needs no credentials.',
+    ),
   })
   .strict();
 
@@ -53,7 +55,9 @@ export const McpServerManifestSchema = McpServerManifestObjectSchema.openapi('Mc
 
 export const McpAuthStatusSchema = z
   .object({
-    status: z.enum(['authenticated', 'auth_required', 'not_required']),
+    status: z
+      .enum(['authenticated', 'auth_required', 'not_required'])
+      .describe('Current auth state for this MCP server.'),
     authorization_url: z
       .url()
       .optional()
@@ -78,7 +82,7 @@ export const ListMcpServersResponseSchema = z
 export const McpServerReadEntrySchema = z
   .object({
     name: NameSchema,
-    url: z.url(),
+    url: z.url().describe('URL of the remote MCP server.'),
   })
   .strict()
   .openapi('McpServerReadEntry');

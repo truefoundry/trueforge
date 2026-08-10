@@ -3,14 +3,20 @@
 import type * as TrueForge from "../index.js";
 
 export interface ModelMessageEvent {
+    /** Assistant message content as text or content parts. */
     content?: TrueForge.ModelMessageEventContent | null;
+    /** ISO 8601 event timestamp. */
     createdAt: string;
+    /** Model finish reason; null when the provider omitted it. */
     finishReason?: TrueForge.FinishReason | null;
-    /** Unique identifier for the event */
+    /** Unique identifier for the event (monotonic ULID). */
     id: string;
+    /** Optional participant name. */
     name?: string;
     reasoningContent?: string;
+    /** Optional refusal text. */
     refusal?: string | null;
+    /** Thread that emitted this message (`main` for the root agent). */
     threadId: string;
     toolCalls?: TrueForge.ToolCall[];
     type: "model.message";
