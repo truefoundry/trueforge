@@ -222,17 +222,39 @@ describe('RemoteMCP + ToolSet', () => {
     expect(state.callToolCalls).toBe(0);
   });
 
-  it('enforces the write/destructive approval floor even when the agent narrows require_approval_for_tools', async () => {
+  it('honors an empty require_approval_for_tools list (no approvals)', async () => {
     const state = installFakeConnection();
-    // Agent explicitly clears its approval selectors; the write/destructive floor must still apply.
     const server = makeServer({
       selectors: { enableTools: ['@all'], disableTools: [], preloadTools: [], requireApprovalForTools: [] },
     });
     await server.listTools();
 
     const res = await server.callTool({ name: 'write_thing', arguments: {} });
-    expect(isApprovalRequiredResponse(res)).toBe(true);
+    if (!isCallToolResponseResult(res)) throw new Error('expected result response');
+    expect(res.result.isError).toBeFalsy();
+    expect(state.callToolCalls).toBe(1);
+  });
+
+  it('honors literal require_approval_for_tools without gating other write tools', async () => {
+    const state = installFakeConnection();
+    const server = makeServer({
+      selectors: {
+        enableTools: ['@all'],
+        disableTools: [],
+        preloadTools: [],
+        requireApprovalForTools: ['write_thing'],
+      },
+    });
+    await server.listTools();
+
+    const gated = await server.callTool({ name: 'write_thing', arguments: {} });
+    expect(isApprovalRequiredResponse(gated)).toBe(true);
     expect(state.callToolCalls).toBe(0);
+
+    const ungated = await server.callTool({ name: 'read_thing', arguments: {} });
+    if (!isCallToolResponseResult(ungated)) throw new Error('expected result response');
+    expect(ungated.result.isError).toBeFalsy();
+    expect(state.callToolCalls).toBe(1);
   });
 
   it('short-circuits a denied tool call without hitting the transport', async () => {
