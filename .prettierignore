@@ -2,7 +2,7 @@ node_modules/
 dist/
 # Fern-generated: formatted by the generator, not by this repo's config.
 packages/sdk/
-fern/openapi/
+.github/fern/openapi/
 # Helm chart sources and downloaded Bitnami subcharts; not ours to reformat.
 charts/
 coverage/
