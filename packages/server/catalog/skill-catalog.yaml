@@ -2,43 +2,25 @@
 # GET /api/v1/settings/skills/catalog for the settings UI to copy into
 # PUT /api/v1/settings/skills bodies. Discovery-only — never executed against.
 #
-# Entries reference upstream skill repos directly (url + path + ref). The schema
-# only stores {type, name, url, path, ref, description}; source license and the
-# MCP a skill pairs with are recorded in the comments below for provenance.
+# Entries reference upstream skill repos directly (url + path + ref); installing
+# a preset sparse-clones that subdirectory into the sandbox. Only permissively
+# licensed skills (Apache-2.0 / MIT) are listed — licenses were verified against
+# each skill's upstream LICENSE and are noted in the comments below. The schema
+# stores only {type, name, url, path, ref, description}; license and the MCP a
+# skill pairs with live in the comments for provenance.
+#
+# NOTE: Anthropic's document skills (pdf, docx, pptx, xlsx) are intentionally
+# excluded — their LICENSE.txt is proprietary ("All rights reserved", usable
+# only within Anthropic's Services) and forbids extracting/retaining/redistributing
+# the materials, which a clone-into-sandbox preset would do.
 skills:
-  # ── Anthropic skills (github.com/anthropics/skills · Apache-2.0) ──
+  # ── Anthropic skills (github.com/anthropics/skills · per-skill LICENSE, all Apache-2.0) ──
   - type: git
     name: algorithmic-art
     url: https://github.com/anthropics/skills
     path: skills/algorithmic-art
     ref: main
     description: Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration.
-
-  # Document skills — read/create/edit common office file formats.
-  - type: git
-    name: pdf
-    url: https://github.com/anthropics/skills
-    path: skills/pdf
-    ref: main
-    description: Work with PDF files — extract text and tables, merge or split, fill forms, and OCR scanned pages.
-  - type: git
-    name: docx
-    url: https://github.com/anthropics/skills
-    path: skills/docx
-    ref: main
-    description: Create, read, and edit Microsoft Word documents (.docx) — formatting, tables, headings, and templates.
-  - type: git
-    name: pptx
-    url: https://github.com/anthropics/skills
-    path: skills/pptx
-    ref: main
-    description: Create, read, and edit PowerPoint presentations (.pptx) — slides, layouts, and speaker notes.
-  - type: git
-    name: xlsx
-    url: https://github.com/anthropics/skills
-    path: skills/xlsx
-    ref: main
-    description: Create, read, and edit Excel spreadsheets (.xlsx/.csv) — formulas, formatting, and charts.
 
   # Agent-builder skills — author skills, MCP servers, and web artifacts.
   - type: git
@@ -92,37 +74,38 @@ skills:
     ref: main
     description: Answer questions about a repository from its generated wiki (DeepWiki); companion to wiki-architect.
 
-  # openai/skills · Apache-2.0. NOTE: this repo is deprecated upstream — plan to
-  # re-vendor these from openai/plugins later and update the url/path/ref.
-  # linear — pairs with the Linear MCP.
+  # openai/skills — per-skill licenses (verified). Apache-2.0 unless noted.
+  # NOTE: this repo is deprecated upstream — plan to re-vendor from openai/plugins
+  # later and update the url/path/ref.
+  # linear — pairs with the Linear MCP. (Apache-2.0)
   - type: git
     name: linear
     url: https://github.com/openai/skills
     path: skills/.curated/linear
     ref: main
     description: Triage and manage Linear issues (create, update, search) via the Linear MCP.
-  # gh-fix-ci — pairs with the GitHub MCP.
+  # gh-fix-ci — pairs with the GitHub MCP. (Apache-2.0)
   - type: git
     name: gh-fix-ci
     url: https://github.com/openai/skills
     path: skills/.curated/gh-fix-ci
     ref: main
     description: Diagnose and fix failing GitHub CI checks on a pull request via the GitHub MCP.
-  # notion-knowledge-capture — pairs with the Notion MCP.
+  # notion-knowledge-capture — pairs with the Notion MCP. (MIT · Notion Labs, Inc.)
   - type: git
     name: notion-knowledge-capture
     url: https://github.com/openai/skills
     path: skills/.curated/notion-knowledge-capture
     ref: main
     description: Capture and organize knowledge into Notion pages and databases via the Notion MCP.
-  # sentry — pairs with the Sentry MCP.
+  # sentry — pairs with the Sentry MCP. (Apache-2.0)
   - type: git
     name: sentry
     url: https://github.com/openai/skills
     path: skills/.curated/sentry
     ref: main
     description: Investigate and triage Sentry errors and issues via the Sentry MCP.
-  # jupyter-notebook — data analysis (pairs with data/DB MCPs such as Supabase).
+  # jupyter-notebook — data analysis (pairs with data/DB MCPs such as Supabase). (Apache-2.0)
   - type: git
     name: jupyter-notebook
     url: https://github.com/openai/skills
