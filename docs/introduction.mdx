@@ -19,6 +19,12 @@ An agent harness is the runtime layer around an LLM that turns it into a reliabl
 
 TrueForge is an **open-source agent harness** with three parts: a **core server** that runs the agent loop, an **HTTP API** (with a TypeScript SDK) to drive it from code, and a **chat UI** (with a React UI SDK) to drive it from the browser.
 
+<Frame caption="The bundled chat UI — streaming responses, an expandable agent-steps panel, and tool calls.">
+  <img src="/images/getting-started-chat.png" alt="The TrueForge chat UI showing an agent response with an agent-steps panel and tool calls" />
+</Frame>
+
+### Key Components 
+
 ```mermaid
 flowchart LR
   ui[Chat UI<br/><small>@truefoundry/trueforge-ui</small>]
@@ -97,10 +103,6 @@ Like Claude's managed agents: one deployment the whole company uses, via Docker 
 - Multiple server replicas run behind a load balancer
 - **Postgres** replaces SQLite as durable storage shared by all replicas
 - **Redis** peers the replicas — it hands off turn event streams and cancellation signals, so a client can reconnect to any replica and still resume a turn running on another one
-
-<Frame caption="The bundled chat UI — streaming responses, an expandable agent-steps panel, and tool calls.">
-  <img src="/images/getting-started-chat.png" alt="The TrueForge chat UI showing an agent response with an agent-steps panel and tool calls" />
-</Frame>
 
 ## Capabilities
 
