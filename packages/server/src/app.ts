@@ -37,18 +37,21 @@ import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
 const BEARER_AUTH_SCHEME = 'BearerAuth';
 
-const openApiInfo = {
-  title: 'TrueForge API',
-  description:
-    'HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` ' +
-    '(OpenAPI JSON at `/api/v1/openapi.json`).\n\n' +
-    '**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware ' +
-    'stamps a local default user. When OIDC is configured, protected routes require a valid `id_token` cookie ' +
-    'or `Authorization: Bearer` ID token. There is no built-in API-key scheme; ' +
-    'pass custom headers only if your reverse proxy or IdP layer requires them.\n\n' +
-    'Covers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.',
-  version: '0.1.0',
-} as const;
+const openApiDocConfig = {
+  openapi: '3.1.0',
+  info: {
+    title: 'TrueForge API',
+    description:
+      'HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` ' +
+      '(OpenAPI JSON at `/api/v1/openapi.json`).\n\n' +
+      '**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware ' +
+      'stamps a local default user. When OIDC is configured, protected routes require a valid `id_token` cookie ' +
+      'or `Authorization: Bearer` ID token. There is no built-in API-key scheme; ' +
+      'pass custom headers only if your reverse proxy or IdP layer requires them.\n\n' +
+      'Covers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.',
+    version: '0.1.0',
+  },
+};
 
 /** Registers the Bearer ID-token scheme used by {@link buildOpenApiDocument}. */
 export function registerOpenApiBearerAuth(app: OpenAPIHono): void {
@@ -64,7 +67,7 @@ export function registerOpenApiBearerAuth(app: OpenAPIHono): void {
 
 /**
  * Single source for both the served document and the one the SDK is built from.
- * When `authEnabled`, advertises optional Bearer auth (Bearer OR unauthenticated).
+ * When `authEnabled`, advertises required Bearer auth on operations that inherit global security.
  */
 export function buildOpenApiDocument(app: OpenAPIHono, options?: { authEnabled?: boolean }) {
   const authEnabled = options?.authEnabled ?? false;
@@ -72,9 +75,8 @@ export function buildOpenApiDocument(app: OpenAPIHono, options?: { authEnabled?:
     registerOpenApiBearerAuth(app);
   }
   return app.getOpenAPI31Document({
-    openapi: '3.1.0',
-    info: openApiInfo,
-    ...(authEnabled ? { security: [{ [BEARER_AUTH_SCHEME]: [] }, {}] } : {}),
+    ...openApiDocConfig,
+    ...(authEnabled ? { security: [{ [BEARER_AUTH_SCHEME]: [] }] } : {}),
   });
 }
 
