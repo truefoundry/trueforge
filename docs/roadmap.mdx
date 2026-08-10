@@ -1,0 +1,32 @@
+---
+title: 'Roadmap'
+sidebarTitle: 'Roadmap'
+description: 'Where TrueForge is headed — planned work across gateway integration, local mode, the harness, agent authoring, approvals, and evaluation.'
+---
+
+This page tracks the major directions we're investing in. It is directional, not a committed schedule — priorities and ordering may change. To influence it, open an issue or discussion on [GitHub](https://github.com/truefoundry/trueforge).
+
+## Gateway integration
+
+- **Models and MCP servers from a gateway** — pull model providers and MCP servers from a gateway like [TrueFoundry](https://www.truefoundry.com), instead of configuring each one by hand. One place for credentials, access control, and usage across every agent.
+
+## Local mode
+
+- **Local sandbox execution** — run the sandbox on your own machine in [local mode](/introduction#two-ways-to-run-it), so the Claude Desktop-like setup gets code execution without a remote sandbox provider.
+
+## Smarter harness
+
+- **Automatic model selection** — let the harness pick the right model for each task, balancing accuracy and cost instead of pinning one model per agent.
+- **AI-assisted agent authoring** — save an agent directly from a chat thread, with the instructions auto-composed from what worked in the conversation.
+
+## Agent authoring and management
+
+- **More flexible agent saving** — expose every agent option in the UI layer, including sandbox configuration, security policies, and the rest of the [agent spec](/api/agent-spec).
+
+## Approvals and governance
+
+- **Approve once** — configure certain tools so one approval covers subsequent calls, instead of re-prompting the user on every invocation.
+
+## Evaluation
+
+- **Evaluation pipeline in CI/CD** — regression-test agents as part of CI/CD, so changes to instructions, models, or tools are evaluated before they ship.

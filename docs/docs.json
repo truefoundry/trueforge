@@ -60,6 +60,10 @@
           {
             "group": "API",
             "pages": ["api/overview", "api/agent-spec", "api/turn-events"]
+          },
+          {
+            "group": "Project",
+            "pages": ["roadmap"]
           }
         ]
       },
