@@ -23,8 +23,7 @@ export function readBearerIdToken(c: Context): string | undefined {
     return undefined;
   }
   const match = /^Bearer\s+(\S+)/i.exec(header.trim());
-  const token = match?.[1];
-  return token || undefined;
+  return match?.[1];
 }
 
 /**
