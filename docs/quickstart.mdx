@@ -68,7 +68,7 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
 
 <Steps>
   <Step title="Add a model provider">
-    Open **Settings → Models**, pick a provider from the catalog, and paste your API key. Its models become available immediately — no restart needed.
+    Open **Settings → Models**, pick a provider from the catalog, and paste your API key. Its models become available immediately.
 
     <Frame>
       <img src="/images/quickstart-models.png" alt="Settings → Models with the OpenAI provider expanded, showing an API key field and a Create button" />
@@ -76,18 +76,33 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
   </Step>
 
   <Step title="Connect a tool">
-    Open **Settings → Connectors** and connect a [Model Context Protocol (MCP)](/mcp-servers) server so your agent can reach external tools and data. Pick one from the catalog and click **Connect** (via OAuth, an API key, or no auth), or use **Add MCP Server** to register your own by URL.
+    Open **Settings → Connectors** and add a [Model Context Protocol (MCP)](/mcp-servers) server — this is how your agent reaches external tools and data. TrueForge ships a catalog you can connect in one click (some use OAuth, some an API key, some need no auth), and you can register your own server by URL with **Add MCP Server**.
+
+    For this walkthrough, connect **DeepWiki** — it needs no authentication and lets the agent read and answer questions about any public GitHub repo. Find it in the catalog and click **Connect**.
 
     <Frame>
-      <img src="/images/quickstart-connectors.png" alt="Settings → Connectors with deepwiki connected, above a catalog of more MCP servers to connect" />
+      <img src="/images/quickstart-connectors.png" alt="Settings → Connectors with DeepWiki connected, above a catalog of more MCP servers" />
     </Frame>
   </Step>
 
   <Step title="Add a skill">
-    Open **Settings → Skills**. Select a built-in skill, or click **Import from GitHub** to add a [git-backed skill](/skills) from any repository.
+    Open **Settings → Skills**. A [skill](/skills) is a git-backed `SKILL.md` instruction pack the agent loads on demand. Enable one from the built-in list, or click **Import from GitHub** to add a skill from any public repository.
 
-    <Frame>
-      <img src="/images/quickstart-skills.png" alt="Settings → Skills: a selected skill and an available skill with a Select button, plus an Import from GitHub action" />
+    For this walkthrough, import the **pdf** skill so the agent can turn its findings into a PDF. Click **Import from GitHub** and fill in:
+
+    - **Name** — `pdf`
+    - **Description** — `Use this skill whenever the user wants to do anything with PDF files`
+    - **Repository URL** — `https://github.com/anthropics/skills`
+    - **Path** — `skills/pdf`
+    - **Ref** — `main`
+
+    Click **Import**; the skill moves to **Selected**.
+
+    <Frame caption="Import from GitHub — point TrueForge at a SKILL.md in any public repo.">
+      <img src="/images/quickstart-skill-1.png" alt="The Import from GitHub dialog filled in for the pdf skill" />
+    </Frame>
+    <Frame caption="The imported pdf skill, now under Selected.">
+      <img src="/images/quickstart-skill-2.png" alt="Settings → Skills with the pdf skill under Selected and more skills available" />
     </Frame>
   </Step>
 
@@ -96,10 +111,10 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
 
     1. **Create a Daytona API key** with permission to write and delete snapshots and write sandboxes.
     2. **Sync the TrueForge sandbox image** to your Daytona account (a one-time CLI step).
-    3. **Add the provider** under **Settings → Sandbox providers** — choose Daytona and enter your API key and snapshot name.
+    3. **Add the provider** under **Settings → Sandbox providers** — choose Daytona and enter your API key.
 
     <Frame>
-      <img src="/images/quickstart-sandbox.png" alt="The Daytona sandbox provider dialog with snapshot name, exec timeout, lifecycle intervals, and an API key field" />
+      <img src="/images/quickstart-sandbox.png" alt="The Configure Daytona dialog: snapshot name, API key, and a collapsed Advanced settings section" />
     </Frame>
 
     See the [Sandbox guide](/sandbox) for provider setup details.
@@ -111,7 +126,13 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
     1. **Pick a model** from the selector in the composer.
     2. Open the **+** menu → **Connectors** and enable the MCP server you connected.
     3. In the same menu → **Skills**, enable your skill.
-    4. Send your message. Streaming, tool calls, sandbox output, and [approvals](/create-agent/tool-approval) all show up live.
+    4. **Send your first message.** Streaming, tool calls, sandbox output, and [approvals](/create-agent/tool-approval) all show up live.
+
+    For example, paste this to try the GitHub repo explainer:
+
+    ```text
+    Use DeepWiki to explain the facebook/react repository — what it does, its architecture, and how to get started. Then use the pdf skill to save a one-page brief as a PDF.
+    ```
 
     <Frame caption="Pick a model, then add your connector and skill to the turn from the + menu.">
       <img src="/images/quickstart-composer-connectors.png" alt="The composer with a model selected and the + menu open on the Connectors tab, a connector checked" />
@@ -122,7 +143,14 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
   </Step>
 
   <Step title="Save it as an agent">
-    Happy with the setup? Click **Save as agent**, give it a name and system instructions, and **Save**. This captures the model, connectors, skills, and prompt together as a reusable agent.
+    Happy with the setup? Click **Save as agent**, enter a name and system instructions, and click **Save** — this captures the model, connectors, skills, and prompt together as a reusable agent. For this example:
+
+    - **Name** — `github-repo-explainer`
+    - **System instructions** —
+
+    ```text
+    You are a GitHub repo explainer. Given a public repository, use DeepWiki to understand what it does and how it's structured, then produce a clear one-page PDF brief covering its purpose, architecture, and how to run it.
+    ```
 
     <Frame>
       <img src="/images/quickstart-save-agent.png" alt="The Save as agent dialog with a name and system instructions" />
