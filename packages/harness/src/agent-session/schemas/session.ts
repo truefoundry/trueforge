@@ -38,8 +38,8 @@ export const SessionSchema = z
     title: z.string().nullable().describe('Optional human-readable title; null until set.'),
     /** Caller identity that created the session (immutable). */
     created_by: z.string().describe('Caller identity that created the session (immutable).'),
-    created_at: z.string().openapi({ description: 'ISO 8601 creation timestamp.', format: 'date-time' }),
-    updated_at: z.string().openapi({ description: 'ISO 8601 last-update timestamp.', format: 'date-time' }),
+    created_at: z.string().describe('ISO 8601 creation timestamp.'),
+    updated_at: z.string().describe('ISO 8601 last-update timestamp.'),
   })
   .openapi('Session');
 

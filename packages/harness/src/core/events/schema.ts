@@ -160,7 +160,7 @@ export const ModelMessageEventSchema = EnrichedAssistantMessageSchema.omit({ rol
       .union([FinishReasonSchema, z.null()])
       .optional()
       .describe('Model finish reason; null when the provider omitted it.'),
-    created_at: z.string().openapi({ description: 'ISO 8601 event timestamp.', format: 'date-time' }),
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
     usage: ModelMessageUsageSchema.optional(),
   })
   .openapi('ModelMessageEvent');
@@ -174,10 +174,7 @@ export const ModelMessageDeltaEventSchema = ExtendedChunkDeltaSchema.omit({
     type: z.literal(EventType.MODEL_MESSAGE_DELTA).describe('Streaming delta for a model.message.'),
     id: EventIdSchema,
     thread_id: z.string().describe('Thread that emitted this delta.'),
-    created_at: z
-      .string()
-      .optional()
-      .openapi({ description: 'Optional ISO 8601 event timestamp.', format: 'date-time' }),
+    created_at: z.string().optional().describe('Optional ISO 8601 event timestamp.'),
     finish_reason: z
       .union([FinishReasonSchema, z.null()])
       .optional()
@@ -191,7 +188,7 @@ export const ToolResponseEventSchema = LLMToolMessageSchema.omit({ role: true })
     type: z.literal(EventType.TOOL_RESPONSE).describe('Result of a tool execution.'),
     id: EventIdSchema,
     thread_id: z.string().describe('Thread that owns the tool call.'),
-    created_at: z.string().openapi({ description: 'ISO 8601 event timestamp.', format: 'date-time' }),
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
   })
   .openapi('ToolResponseEvent');
 
@@ -200,7 +197,7 @@ export const ThreadCreatedEventSchema = z
     type: z.literal(EventType.THREAD_CREATED).describe('A dynamic subagent thread was created.'),
     id: EventIdSchema,
     agent_info: AgentInfoSchema,
-    created_at: z.string().openapi({ description: 'ISO 8601 event timestamp.', format: 'date-time' }),
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
     parent: AgentParentSchema,
     thread_id: z.string().describe('Id of the new thread.'),
     title: z.string().describe('Human-readable thread title.'),
@@ -237,7 +234,7 @@ export const BaseThreadDoneEventSchema = z
 export const ThreadDoneEventSchema = BaseThreadDoneEventSchema.extend({
   type: z.literal(EventType.THREAD_DONE).describe('A thread reached a terminal state.'),
   id: EventIdSchema,
-  created_at: z.string().openapi({ description: 'ISO 8601 event timestamp.', format: 'date-time' }),
+  created_at: z.string().describe('ISO 8601 event timestamp.'),
   state: ThreadStateSchema,
 }).openapi('ThreadDoneEvent');
 
@@ -276,7 +273,7 @@ export const MCPServerAuthInfoSchema = z
 export const BaseMCPAuthRequiredEventSchema = z
   .object({
     id: EventIdSchema,
-    created_at: z.string().openapi({ description: 'ISO 8601 event timestamp.', format: 'date-time' }),
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
     // This is a run-level event, not tied to a single thread.
     thread_id: z.string().nullable().describe('Always null — this is a run-level event.'),
   })
@@ -303,7 +300,7 @@ export const MCPInitializeEventSchema = z
   .object({
     type: z.literal(EventType.MCP_INITIALIZE).describe('MCP server(s) initialized for this turn.'),
     id: EventIdSchema,
-    created_at: z.string().openapi({ description: 'ISO 8601 event timestamp.', format: 'date-time' }),
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
     thread_id: z.string().describe('Thread that triggered initialization.'),
     mcp_servers: z.array(MCPServerInitInfoSchema).describe('Servers that were initialized.'),
   })
@@ -313,7 +310,7 @@ export const SandboxCreatedEventSchema = z
   .object({
     type: z.literal(EventType.SANDBOX_CREATED).describe('A sandbox was created for this session.'),
     id: EventIdSchema,
-    created_at: z.string().openapi({ description: 'ISO 8601 event timestamp.', format: 'date-time' }),
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
     sandbox_id: z.string().describe('Provider sandbox id.'),
     // This is a run-level event, sandbox once created is reused by all threads,
     // and future turns as well.
@@ -332,7 +329,7 @@ export const ToolApprovalRequiredEventSchema = z
   .object({
     type: z.literal(EventType.TOOL_APPROVAL_REQUIRED).describe('One or more tool calls need human approval.'),
     id: EventIdSchema,
-    created_at: z.string().openapi({ description: 'ISO 8601 event timestamp.', format: 'date-time' }),
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
     thread_id: z.string().describe('Thread that owns the pending tool calls.'),
     tool_calls: z.array(ToolCallRefSchema).describe('Tool calls waiting for approval.'),
   })
@@ -344,7 +341,7 @@ export const ToolResponseRequiredEventSchema = z
       .literal(EventType.TOOL_RESPONSE_REQUIRED)
       .describe('One or more client-side tool calls need a user/tool response.'),
     id: EventIdSchema,
-    created_at: z.string().openapi({ description: 'ISO 8601 event timestamp.', format: 'date-time' }),
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
     thread_id: z.string().describe('Thread that owns the pending tool calls.'),
     tool_calls: z.array(ToolCallRefSchema).describe('Tool calls waiting for a client response.'),
   })

@@ -77,9 +77,7 @@ export const TurnStateCancelledSchema = z
   .object({
     status: z.literal('cancelled').describe('Turn was cancelled before completion.'),
     reason: TurnStateCancelledReasonSchema,
-    completed_at: z
-      .string()
-      .openapi({ description: 'ISO 8601 time when cancellation completed.', format: 'date-time' }),
+    completed_at: z.string().describe('ISO 8601 time when cancellation completed.'),
     metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for work done before cancel.'),
   })
   .openapi('TurnStateCancelled');
@@ -88,9 +86,7 @@ export const TurnStateErrorSchema = z
   .object({
     status: z.literal('error').describe('Turn ended with an error.'),
     message: z.string().describe('Human-readable error message.'),
-    completed_at: z
-      .string()
-      .openapi({ description: 'ISO 8601 time when the error state was recorded.', format: 'date-time' }),
+    completed_at: z.string().describe('ISO 8601 time when the error state was recorded.'),
     metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for work done before the error.'),
   })
   .openapi('TurnStateError');
@@ -106,9 +102,7 @@ export const TurnStateDoneSchema = z
       .describe(
         'Pending actions (`tool.approval_required`, `tool.response_required`, `mcp.auth_required`); empty when none.',
       ),
-    completed_at: z
-      .string()
-      .openapi({ description: 'ISO 8601 time when the turn reached a terminal state.', format: 'date-time' }),
+    completed_at: z.string().describe('ISO 8601 time when the turn reached a terminal state.'),
     metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for the whole turn.'),
   })
   .openapi('TurnStateDone');
@@ -137,7 +131,7 @@ export const TurnSchema = z
     previous_turn_id: z.string().nullable().describe('Prior turn this turn chains from; null for a root turn.'),
     input: z.array(TurnInputItemSchema).optional().describe('Input items supplied when the turn was created.'),
     state: TurnStateSchema,
-    created_at: z.string().openapi({ description: 'ISO 8601 creation timestamp.', format: 'date-time' }),
+    created_at: z.string().describe('ISO 8601 creation timestamp.'),
   })
   .openapi('Turn');
 
