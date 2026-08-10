@@ -1,15 +1,21 @@
 {
   "$schema": "https://mintlify.com",
+  "theme": "mint",
   "name": "TrueForge",
   "logo": {
     "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "dark": "/logo/dark.svg",
+    "href": "https://trueforge.dev"
   },
-  "favicon": "/favicon.png",
+  "favicon": {
+    "light": "/logo/favicon-light.svg",
+    "dark": "/logo/favicon-dark.svg"
+  },
+  "description": "Open-source agent harness — MCP tools, skills, sandboxing, approvals, and subagents.",
   "colors": {
-    "primary": "#0D9488",
-    "light": "#14B8A6",
-    "dark": "#0F766E"
+    "primary": "#4f46e5",
+    "light": "#4f46e5",
+    "dark": "#4f46e5"
   },
   "topbarLinks": [
     {
@@ -17,10 +23,114 @@
       "url": "https://example.com"
     }
   ],
-  "navigation": [
-    {
-      "group": "Getting Started",
-      "pages": ["introduction", "quickstart"]
+  "appearance": {
+    "default": "system"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": ["introduction", "quickstart", "evaluation"]
+          },
+          {
+            "group": "Capabilities",
+            "pages": [
+              "models",
+              "mcp-servers",
+              "skills",
+              "sandbox",
+              {
+                "group": "Context Engineering",
+                "pages": [
+                  "context-engineering/overview",
+                  "context-engineering/subagents",
+                  "context-engineering/deferred-tool-loading",
+                  "context-engineering/code-mode",
+                  "context-engineering/large-tool-responses"
+                ]
+              },
+              "human-in-the-loop",
+              "ask-user-questions",
+              "generative-ui"
+            ]
+          },
+          {
+            "group": "API",
+            "pages": ["api/overview", "api/use-agent", "api/agent-spec", "api/turn-events"]
+          },
+          {
+            "group": "Project",
+            "pages": ["roadmap"]
+          }
+        ]
+      },
+      {
+        "tab": "UI SDK",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": ["ui-sdk/index", "ui-sdk/get-started/installation", "ui-sdk/get-started/quickstart"]
+          },
+          {
+            "group": "Concepts",
+            "pages": ["ui-sdk/concepts/architecture", "ui-sdk/concepts/agent-modes", "ui-sdk/concepts/server-contract"]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "ui-sdk/guides/layouts",
+              "ui-sdk/guides/theming",
+              "ui-sdk/guides/slot-overrides",
+              "ui-sdk/guides/custom-server",
+              "ui-sdk/guides/mcp-oauth",
+              "ui-sdk/guides/troubleshooting"
+            ]
+          },
+          {
+            "group": "API reference",
+            "pages": [
+              "ui-sdk/reference/trueforge-ui",
+              "ui-sdk/reference/theme",
+              "ui-sdk/reference/containers",
+              "ui-sdk/reference/atoms",
+              "ui-sdk/reference/hooks",
+              "ui-sdk/reference/server",
+              "ui-sdk/reference/events",
+              "ui-sdk/reference/catalog"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "openapi": {
+          "source": "./openapi.json",
+          "directory": "docs/api-reference"
+        }
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "type": "github",
+        "href": "https://github.com/truefoundry/trueforge"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "TrueFoundry",
+      "href": "https://www.truefoundry.com"
     }
-  ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/truefoundry",
+      "x": "https://x.com/truefoundry",
+      "linkedin": "https://in.linkedin.com/company/truefoundry"
+    }
+  }
 }

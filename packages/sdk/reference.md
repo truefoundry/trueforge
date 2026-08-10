@@ -186,6 +186,69 @@ await client.agents.get("agent_id");
 </dl>
 </details>
 
+<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">delete</a>(agent_id) -> void</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Delete a configured agent by immutable id. Idempotent if already gone.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.agents.delete("agent_id");
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**agent_id:** `string` — Immutable agent identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `AgentsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">update</a>(name, { ...params }) -> TrueForge.PutAgentResponse</code></summary>
 <dl>
 <dd>
@@ -290,6 +353,61 @@ Ends the local harness session only — does not hit the IdP end-session endpoin
 
 ```typescript
 await client.auth.logout();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `AuthClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.auth.<a href="/src/api/resources/auth/client/Client.ts">me</a>() -> TrueForge.MeResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Returns the authenticated caller identity. When OIDC is configured this requires a valid session cookie (401 otherwise). Without OIDC, returns the default anonymous identity.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.auth.me();
 
 ```
 </dd>
@@ -632,7 +750,7 @@ await client.models.list();
 <dl>
 <dd>
 
-List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent; optional `created_by` filters by creator identity. Pass `page_token` to fetch the next page, keeping the other query params constant.
+List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
 </dd>
 </dl>
 </dd>
@@ -695,7 +813,7 @@ await client.sessions.list();
 <dl>
 <dd>
 
-Create a session with `agent` as either `{ type: "value", agent_spec }` (draft) or `{ type: "ref", agent_id }` (named). Named sessions resolve the live agent on each turn.
+Create a session with `agent` as either `{ name }` (named registry binding) or `{ spec: AgentSpec }` (inline). Named sessions snapshot the agent name at create and resolve the live agent on each turn. Responses use `{ type: "reference", name, id }` or `{ type: "inline", spec }`.
 </dd>
 </dl>
 </dd>
@@ -712,8 +830,7 @@ Create a session with `agent` as either `{ type: "value", agent_spec }` (draft) 
 ```typescript
 await client.sessions.create({
     agent: {
-        agentId: "agent_id",
-        type: "ref"
+        name: "name"
     }
 });
 
@@ -763,7 +880,7 @@ await client.sessions.create({
 <dl>
 <dd>
 
-Fetch a session by ID.
+Fetch a session by ID. Only the session creator (`created_by`) may fetch it.
 </dd>
 </dl>
 </dd>
@@ -826,7 +943,7 @@ await client.sessions.get("session_id");
 <dl>
 <dd>
 
-Delete a session and all related turns, events, and internal state. Idempotent if already gone.
+Delete a session and all related turns, events, and internal state. Only the session creator (`created_by`) may delete it. Idempotent if already gone.
 </dd>
 </dl>
 </dd>
@@ -889,7 +1006,7 @@ await client.sessions.delete("session_id");
 <dl>
 <dd>
 
-Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.
+Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.
 </dd>
 </dl>
 </dd>
@@ -960,7 +1077,7 @@ await client.sessions.update("session_id");
 <dl>
 <dd>
 
-Cancel the running last turn for a session.
+Cancel the running last turn for a session. Only the session creator (`created_by`) may cancel.
 </dd>
 </dl>
 </dd>
@@ -1031,7 +1148,7 @@ await client.sessions.cancel("session_id");
 <dl>
 <dd>
 
-List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor.
+List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator (`created_by`) may list events.
 </dd>
 </dl>
 </dd>
@@ -1102,7 +1219,7 @@ await client.sessions.listEvents("session_id");
 <dl>
 <dd>
 
-List turns for a session (newest first by default), token-paginated.
+List turns for a session (newest first by default), token-paginated. Only the session creator (`created_by`) may list turns.
 </dd>
 </dl>
 </dd>
@@ -1174,6 +1291,7 @@ await client.sessions.listTurns("session_id");
 <dd>
 
 Create a turn within a session and execute it.
+Only the session creator (`created_by`) may create turns.
 When `stream` is true (default), respond with a Server-Sent Events stream of turn events.
 When `stream` is false, return the turn immediately with `state.status: "running"` while execution continues in the background; use get turn or subscribe to observe completion.
 Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.
@@ -1251,6 +1369,7 @@ for await (const item of response) {
 <dd>
 
 Create a turn within a session and execute it.
+Only the session creator (`created_by`) may create turns.
 When `stream` is true (default), respond with a Server-Sent Events stream of turn events.
 When `stream` is false, return the turn immediately with `state.status: "running"` while execution continues in the background; use get turn or subscribe to observe completion.
 Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.
@@ -1324,7 +1443,7 @@ await client.sessions.createTurn("session_id", {});
 <dl>
 <dd>
 
-Fetch a single turn by ID.
+Fetch a single turn by ID. Only the session creator (`created_by`) may fetch it.
 </dd>
 </dl>
 </dd>
@@ -1395,7 +1514,7 @@ await client.sessions.getTurn("session_id", "turn_id");
 <dl>
 <dd>
 
-Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block.
+Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator (`created_by`) may download.
 </dd>
 </dl>
 </dd>
@@ -1476,7 +1595,7 @@ await client.sessions.downloadSandboxFile("session_id", "turn_id", {
 <dl>
 <dd>
 
-Paginated persisted events for a turn (insertion order by default).
+Paginated persisted events for a turn (insertion order by default). Only the session creator (`created_by`) may list events.
 </dd>
 </dl>
 </dd>
@@ -1555,7 +1674,7 @@ await client.sessions.listTurnEvents("session_id", "turn_id");
 <dl>
 <dd>
 
-Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
+Subscribe to the live SSE stream for a turn. Only the session creator (`created_by`) may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
 </dd>
 </dl>
 </dd>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 import { Icon } from '../icons/Icon.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
@@ -34,7 +35,7 @@ export function Toast({ title, description, open, onOpenChange, className }: Toa
     <div
       role="alert"
       className={cn(
-        'font-sans-flex bg-background text-foreground pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-gray-200 px-4 py-4 shadow-md dark:bg-card',
+        'font-sans-flex bg-background text-foreground pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-border px-4 py-4 shadow-md dark:bg-card',
         'animate-in fade-in-0 slide-in-from-bottom-4',
         className,
       )}
@@ -43,7 +44,7 @@ export function Toast({ title, description, open, onOpenChange, className }: Toa
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <div className="text-destructive text-sm leading-none font-semibold dark:text-red-200">{title}</div>
+          <div className="text-destructive text-sm leading-none font-semibold">{title}</div>
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
@@ -78,12 +79,32 @@ export type ToastStackProps = {
   duration?: number;
 };
 
+const openToastStack = (element: HTMLDivElement | null): void => {
+  if (element === null) return;
+  try {
+    if (typeof element.showPopover !== 'function') return;
+    if (element.matches(':popover-open')) element.hidePopover();
+    element.showPopover();
+  } catch {
+    // Popover APIs can reject during attachment; the fixed stack remains usable.
+  }
+};
+
 export function ToastStack({ children, duration: _duration = Number.POSITIVE_INFINITY }: ToastStackProps) {
-  return (
-    <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 flex-col-reverse gap-2 px-4">
+  const stack = (
+    <div
+      ref={openToastStack}
+      popover="manual"
+      className="pointer-events-none fixed top-auto right-auto bottom-4 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 flex-col-reverse gap-2 overflow-visible bg-transparent px-4"
+    >
       {children}
     </div>
   );
+
+  if (typeof document === 'undefined') return stack;
+  const dialogs = document.querySelectorAll<HTMLDialogElement>('dialog[open]');
+  const activeDialog = dialogs.item(dialogs.length - 1);
+  return activeDialog === null ? stack : createPortal(stack, activeDialog);
 }
 
 declare module '../theme/SlotsProvider.js' {

@@ -11,7 +11,8 @@ export default defineConfig({
   format: ['esm'],
   dts: true,
   sourcemap: true,
-  clean: true,
+  // Watch mode must not wipe dist/styles.css (built by a sibling tailwind watcher).
+  clean: !process.argv.includes('--watch'),
   target: 'es2022',
   esbuildPlugins: [
     svgr({
@@ -22,6 +23,7 @@ export default defineConfig({
       },
     }),
   ],
+  noExternal: ['react-syntax-highlighter/dist/esm/styles/prism'],
   external: [
     'react',
     'react-dom',
@@ -36,7 +38,6 @@ export default defineConfig({
     'react-markdown',
     'remark-gfm',
     'react-syntax-highlighter',
-    'react-syntax-highlighter/dist/esm/styles/prism',
     'monaco-editor',
   ],
 });

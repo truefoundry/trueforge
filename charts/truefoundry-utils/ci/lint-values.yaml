@@ -1,0 +1,7 @@
+# Empty overlay so `helm lint` / `helm template` exercise chart defaults
+# (no required values when Postgres and Redis are bundled). Not packaged
+# (see .helmignore).
+#
+# Requires the subchart dependencies to be present first: run `pnpm chart:deps`
+# (pulls the public Bitnami OCI charts, no auth) before linting/templating.
+{}

@@ -6,8 +6,6 @@ import { useAui } from '../assistant-ui.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
-import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
-import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import TruefoundrySettingsBuilder from '../containers/SettingsBuilder/index.js';
 import { Thread } from '../containers/Thread.js';
@@ -27,6 +25,8 @@ export function SidebarLayout({ className }: { className?: string }) {
   const brand = useBrand();
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const ClearChatButton = useSlot('ClearChatButton');
+  const SaveAgentButton = useSlot('SaveAgentButton');
+  const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const [collapsed, setCollapsed] = useState(desktopCollapsed);
   const setDesktopCollapsed = (value: boolean | ((prev: boolean) => boolean)) => {
     setCollapsed(prev => {
@@ -116,7 +116,7 @@ export function SidebarLayout({ className }: { className?: string }) {
                 className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
                 onClick={handleNewChat}
               >
-                <Icon name="pencil" />
+                <Icon name="square-pen" />
               </button>
             ) : null}
             <AgentsLibraryButton compact />
@@ -138,33 +138,39 @@ export function SidebarLayout({ className }: { className?: string }) {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Thread header: always on mobile; on desktop when Clear Chat / Save are relevant. Hidden while Settings owns the pane. */}
-        {!settingsOpen ? (
-          <header
-            className={cn(
-              'flex shrink-0 items-center gap-1 border-b border-border bg-background px-2 py-1.5',
-              isIdle && 'md:hidden',
-            )}
-          >
-            <button
-              ref={menuBtnRef}
-              type="button"
-              aria-label="Sessions"
-              aria-expanded={mobileNavOpen}
-              className={cn(auiButtonClass({ variant: 'ghost', size: 'icon' }), 'md:hidden')}
-              onClick={() => setMobileNavOpen(true)}
-            >
-              <Icon name="bars" />
-            </button>
-            <NamedAgentHeaderLabel />
+        {/* Mobile ShellActions stay mounted while Settings is open so host overrides (e.g. logout) do not remount.
+            Desktop keeps shell chrome in the aside footer (always mounted). */}
+        <header
+          className={cn(
+            'flex shrink-0 items-center gap-1 border-b border-border bg-background px-2 py-1.5',
+            // Settings / idle: desktop uses aside chrome; mobile still needs ShellActions.
+            (settingsOpen || isIdle) && 'md:hidden',
+          )}
+        >
+          {!settingsOpen ? (
+            <>
+              <button
+                ref={menuBtnRef}
+                type="button"
+                aria-label="Sessions"
+                aria-expanded={mobileNavOpen}
+                className={cn(auiButtonClass({ variant: 'ghost', size: 'icon' }), 'md:hidden')}
+                onClick={() => setMobileNavOpen(true)}
+              >
+                <Icon name="bars" />
+              </button>
+              <NamedAgentHeaderLabel />
+              <span className="min-w-0 flex-1" />
+              <ClearChatButton />
+              <SaveAgentButton />
+            </>
+          ) : (
             <span className="min-w-0 flex-1" />
-            <ClearChatButton />
-            <SaveAgentButton />
-            <div className="md:hidden">
-              <ShellActions />
-            </div>
-          </header>
-        ) : null}
+          )}
+          <div key="mobile-shell-actions" className="md:hidden">
+            <ShellActions />
+          </div>
+        </header>
 
         <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
           {settingsOpen ? <TruefoundrySettingsBuilder /> : isIdle ? <SelectAgentEmptyState /> : <Thread />}

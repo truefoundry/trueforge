@@ -1,4 +1,4 @@
-import type { ExpressionBuilder, Kysely } from 'kysely';
+import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { Model, ModelProvider } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
@@ -21,15 +21,16 @@ function recordColumns(eb: ExpressionBuilder<Database, 'model_provider'>) {
   ];
 }
 
-export class SqliteModelProviderStore implements IModelProviderStore {
+export class SqliteModelProviderStore implements IModelProviderStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
   }
 
-  async listProviders(tenantId: string): Promise<ModelProviderRecord[]> {
-    return await this.#db
+  async listProviders(tenantId: string, transaction?: Transaction<Database>): Promise<ModelProviderRecord[]> {
+    const db = transaction ?? this.#db;
+    return await db
       .selectFrom('model_provider')
       .select(recordColumns)
       .where('tenant_id', '=', tenantId)
@@ -37,8 +38,12 @@ export class SqliteModelProviderStore implements IModelProviderStore {
       .execute();
   }
 
-  async getProvider(input: GetProviderInput): Promise<ModelProviderRecord | undefined> {
-    return await this.#db
+  async getProvider(
+    input: GetProviderInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ModelProviderRecord | undefined> {
+    const db = transaction ?? this.#db;
+    return await db
       .selectFrom('model_provider')
       .select(recordColumns)
       .where('tenant_id', '=', input.tenant_id)
@@ -46,9 +51,10 @@ export class SqliteModelProviderStore implements IModelProviderStore {
       .executeTakeFirst();
   }
 
-  async upsertProvider(input: UpsertProviderInput): Promise<ModelProviderRecord> {
+  async upsertProvider(input: UpsertProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {
+    const db = transaction ?? this.#db;
     const timestamp = nowIso();
-    return await this.#db
+    return await db
       .insertInto('model_provider')
       .values({
         tenant_id: input.tenant_id,
@@ -67,7 +73,7 @@ export class SqliteModelProviderStore implements IModelProviderStore {
       .executeTakeFirstOrThrow();
   }
 
-  async listModels(tenantId: string): Promise<Model[]> {
-    return flattenProviderModels(await this.listProviders(tenantId));
+  async listModels(tenantId: string, transaction?: Transaction<Database>): Promise<Model[]> {
+    return flattenProviderModels(await this.listProviders(tenantId, transaction));
   }
 }

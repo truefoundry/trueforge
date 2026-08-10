@@ -10,16 +10,6 @@ body,
   height: 100%;
 }
 
-/* Tokens for chrome outside the SDK shell (boot screen). The SDK sets its own
-   on `.aui-theme-root`, which wins for everything inside. */
-:root {
-  color-scheme: dark;
-  --background: #161618;
-  --foreground: #ececee;
-  --muted-foreground: #9b9ba3;
-  --destructive: #f87171;
-}
-
 body {
   color: var(--foreground);
   background: var(--background);
@@ -44,4 +34,28 @@ body {
 
 .boot-screen[data-error='true'] {
   color: var(--destructive);
+}
+
+.harness-logout {
+  display: inline-flex;
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.harness-logout:hover:not(:disabled) {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.harness-logout:disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
 }

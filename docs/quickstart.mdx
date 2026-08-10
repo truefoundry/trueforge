@@ -1,0 +1,219 @@
+---
+title: 'Quickstart'
+sidebarTitle: 'Quickstart'
+description: 'Run TrueForge with one command, configure a model provider, and have your first agent conversation in minutes.'
+---
+
+## Run TrueForge
+
+TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** — a single process on your machine, like a personal productivity tool — and **hosted mode** — a shared deployment for your team, with Postgres for storage and Redis for cross-replica peering. The agent features are identical in both.
+
+<Tabs>
+  <Tab title="Local mode (npx)">
+    Requires [Node.js](https://nodejs.org) 22.13 or newer. One command, no other infrastructure — the UI and backend run locally, and data is stored in a local SQLite file:
+
+    ```bash
+    npx @truefoundry/trueforge
+    ```
+
+    Then open [http://localhost:8790](http://localhost:8790). The defaults work out of the box — see the [FAQ](#faq) to change the port or data location.
+
+  </Tab>
+  <Tab title="Hosted mode (Docker Compose)">
+    Runs the full hosted topology on your machine: the server (UI + API), Postgres, and Redis.
+
+    ```bash
+    git clone https://github.com/truefoundry/trueforge && cd trueforge
+    cp packages/server/.env.example packages/server/.env
+    docker compose up --build
+    ```
+
+    Then open [http://localhost:8791](http://localhost:8791).
+
+    | Configuration                                         | Default                 | Description                                              |
+    | ----------------------------------------------------- | ----------------------- | -------------------------------------------------------- |
+    | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env`             | Postgres credentials, read from `packages/server/.env`.  |
+    | `PUBLIC_BASE_URL`                                     | `http://localhost:8791` | Public origin, used for MCP OAuth callbacks.             |
+    | Host ports                                            | `8791`, `5433`, `6380`  | App, Postgres, and Redis.                                |
+
+  </Tab>
+  <Tab title="Hosted mode (Kubernetes)">
+    The Helm chart deploys the server in hosted mode with bundled Postgres and Redis (or point it at your own). No values are required for a basic install:
+
+    ```bash
+    # TODO: replace <HELM_REPO> with the published Helm repo URL
+    helm install truefoundry-utils oci://<HELM_REPO>/truefoundry-utils \
+      --version <x.y.z>
+    ```
+
+    | Value                  | Default | Description                                                             |
+    | ---------------------- | ------- | ------------------------------------------------------------------------ |
+    | `server.publicBaseUrl` | `""`    | Public origin for MCP OAuth / OIDC callbacks; set once you expose the service. |
+    | `replicaCount`         | `1`     | Number of server replicas (peered over Redis).                           |
+    | `postgresql.enabled`   | `true`  | Bundle Postgres; set `false` + `externalPostgres.*` to bring your own.   |
+    | `redis.enabled`        | `true`  | Bundle Redis; set `false` + `externalRedis.url` or `existingSecret`.     |
+
+  </Tab>
+</Tabs>
+
+<Note>
+  Local mode (`npx`) uses SQLite and needs no other services. Docker Compose and Kubernetes run hosted mode: Postgres
+  replaces SQLite as durable storage, and Redis peers the replicas so streams and cancellations follow the client
+  across them.
+</Note>
+
+## Configure a model provider
+
+TrueForge ships with a catalog of model providers. Configure one before your first chat:
+
+<Steps>
+  <Step title="Open Settings">
+    In the UI, open **Settings → Models**.
+
+    <Frame>
+      <img src="/images/model-settings.png" alt="The Settings → Models page listing configured and available providers" />
+    </Frame>
+  </Step>
+  <Step title="Pick a provider">
+    Choose a provider from the catalog — OpenAI, Anthropic, Google Gemini, or an OpenAI-compatible endpoint — and paste
+    your API key.
+
+    <Frame>
+      <img src="/images/model-configure.png" alt="Configuring a provider — pasting the API key and clicking Create" />
+    </Frame>
+  </Step>
+  <Step title="Select a model">
+    Back in the chat, pick a model. Models are addressed as `provider/model`, for example `anthropic/claude-sonnet-4-6`.
+
+    <Frame>
+      <img src="/images/model-pick.png" alt="Selecting a model from the chat composer's model picker" />
+    </Frame>
+  </Step>
+</Steps>
+
+Everything you can do in Settings is also available through the API — see `GET /api/v1/settings/model-providers/catalog` and `PUT /api/v1/settings/model-providers` in the interactive API docs at `/api/v1/docs`.
+
+## Start chatting
+
+Send your first message. Out of the box the agent supports multi-turn conversations with streaming. To give it more capabilities:
+
+<Steps>
+  <Step title="Connect tools">
+    Add [MCP servers](/mcp-servers) under **Settings → Connectors**.
+
+    <Frame>
+      <img src="/images/getting-started-connectors.png" alt="The Connectors settings page listing connected and available MCP servers" />
+    </Frame>
+  </Step>
+  <Step title="Enable the sandbox">
+    Configure a [sandbox provider](/sandbox) under **Settings → Sandbox providers** so the agent can run code and use [skills](/skills).
+
+    <Frame>
+      <img src="/images/getting-started-sandbox.png" alt="The Sandbox providers settings page with Daytona connected" />
+    </Frame>
+  </Step>
+  <Step title="Add skills">
+    Register [git-backed skills](/skills) under **Settings → Skills**.
+
+    <Frame>
+      <img src="/images/getting-started-skills.png" alt="The Skills settings page with a selected skill" />
+    </Frame>
+  </Step>
+</Steps>
+
+<Frame caption="Composing an agent — pick a model, add connectors and skills, then save it to the library.">
+  <div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.46", padding: "40px 0" }}>
+    <iframe
+      src="https://app.supademo.com/embed/cmsk13xio00k81p0j1wj6amj6?embed_v=2&utm_source=embed"
+      loading="lazy"
+      title="Chat with an agent in TrueForge"
+      allow="clipboard-write"
+      allowFullScreen
+      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
+    />
+  </div>
+</Frame>
+
+## Call the API
+
+Every conversation in the UI is a session in the API. Create one yourself:
+
+```bash
+curl -X POST http://localhost:8790/api/v1/sessions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "agent": {
+      "type": "value",
+      "agent_spec": {
+        "model": { "name": "anthropic/claude-sonnet-4-6" },
+        "instructions": "You are a helpful assistant."
+      }
+    }
+  }'
+```
+
+Then start a turn and stream events over SSE:
+
+```bash
+curl -N -X POST http://localhost:8790/api/v1/sessions/{session_id}/turns \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "input": [{ "type": "user.message", "content": "Hello!" }]
+  }'
+```
+
+See the [API overview](/api/overview) for the full lifecycle — turn chaining, approvals, and event handling.
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="How do I run the server on a different port?">
+    Pass `--port`, or set the `PORT` environment variable:
+
+    ```bash
+    npx @truefoundry/trueforge --port 3000
+    # or
+    PORT=3000 npx @truefoundry/trueforge
+    ```
+
+    In hosted mode, change the host port mappings in `docker-compose.yml` instead.
+
+  </Accordion>
+  <Accordion title="Where does local mode store its data?">
+    In a SQLite file in your OS's application data directory. To put it somewhere else, set the `SQLITE_PATH` environment variable:
+
+    ```bash
+    SQLITE_PATH=~/trueforge/db.sqlite npx @truefoundry/trueforge
+    ```
+
+  </Accordion>
+  <Accordion title="What is PUBLIC_BASE_URL and when do I need to set it?">
+    The public origin the server hands to MCP servers for OAuth callbacks. It defaults to `http://localhost:<port>`, which is correct as long as you access TrueForge from the same machine.
+
+    Set it when the server is reachable at a different address — behind a domain, reverse proxy, or on another host:
+
+    ```bash
+    PUBLIC_BASE_URL=https://agents.example.com npx @truefoundry/trueforge
+    ```
+
+    In hosted mode, set it in `packages/server/.env` (Docker Compose) or via `server.publicBaseUrl` (Helm).
+
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Connect MCP servers" icon="plug" href="/mcp-servers">
+    Give your agent tools — with per-tool enablement and approval policies.
+  </Card>
+  <Card title="Enable the sandbox" icon="cube" href="/sandbox">
+    Let the agent run code, work with files, and use skills.
+  </Card>
+  <Card title="Context engineering" icon="layer-group" href="/context-engineering/overview">
+    How TrueForge keeps agent context lean on long tasks.
+  </Card>
+  <Card title="API reference" icon="code" href="/api/overview">
+    Sessions, turns, events, and the agent spec.
+  </Card>
+</CardGroup>

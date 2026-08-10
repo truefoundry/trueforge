@@ -54,7 +54,7 @@ export class ToolSet implements IToolSet {
     if (missingTools.length > 0) {
       throw new McpConnectionError(
         `Requested tools not found in MCP server ${this.name}: ${missingTools.join(', ')}`,
-        400,
+        422,
       );
     }
 

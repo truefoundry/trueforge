@@ -8,8 +8,8 @@ import type {
   ModelSelection,
   SearchAgentsParams,
 } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi as Harness } from 'trueforge';
-import { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './composerLists';
+import type { TrueForgeApi } from 'trueforge-sdk';
+import { listConfiguredMcpServers, listModels, listSkills } from './composerLists';
 import { toUiConnector } from './connectorCatalog';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 import { agentManifest, toHarnessAgentSpec, toUiAgentSpec, type HarnessAgentSpec } from './harnessServer';
@@ -20,7 +20,7 @@ export function providerOf(name: string): string {
 }
 
 /** Map harness model rows onto the UI picker shape (incl. reasoning-effort options). */
-export function toModelSelection(model: Harness.Model): ModelSelection {
+export function toModelSelection(model: TrueForgeApi.Model): ModelSelection {
   const efforts = model.properties.reasoningEfforts;
   return {
     name: model.name,
@@ -29,7 +29,7 @@ export function toModelSelection(model: Harness.Model): ModelSelection {
   };
 }
 
-function toLibraryEntry(agent: Harness.Agent): AgentLibraryEntry {
+function toLibraryEntry(agent: TrueForgeApi.Agent): AgentLibraryEntry {
   return {
     name: agent.name,
     agentId: agent.id,
@@ -44,13 +44,12 @@ export function createHarnessBuilderServer(
     options.baseUrl === undefined && options.fetch === undefined ? harnessClient : createHarnessClient(options);
 
   return {
+    getCapabilities: () => client.server.getCapabilities(),
     getModels: async () => (await listModels()).map(toModelSelection),
     // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
     getSkills: async () => {
-      const [capabilities, skills] = await Promise.all([getCapabilities(), listSkills()]);
-      return capabilities.skill.enabled
-        ? skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }))
-        : [];
+      const skills = await listSkills();
+      return skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }));
     },
     getMcp: async () => (await listConfiguredMcpServers()).map(toUiConnector),
 

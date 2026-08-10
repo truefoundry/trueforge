@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import { useOptionalRefreshServerCapabilities, useServerCapabilities } from './ServerContext.js';
 import type { AgentLibraryEntry, AgentSpec } from './types.js';
 
 /** Host-facing shell configuration for agent / library / composer chrome. */
@@ -132,17 +133,22 @@ function initialMode(config: AgentConfig, mutableSeed: AgentSpec): ShellMode {
   }
 }
 
-function libraryAgentId(agent: Pick<AgentLibraryEntry, 'agentId' | 'name'>): string {
-  return agent.agentId ?? agent.name;
+function libraryAgentId(agent: Pick<AgentLibraryEntry, 'agentId'>): string {
+  return agent.agentId;
 }
 
 export function ShellModeProvider({
   agentConfig = DEFAULT_AGENT_CONFIG,
+  initialSettingsOpen = false,
   children,
 }: {
   agentConfig?: AgentConfig;
+  /** Open settings on first paint (e.g. host boot with no models). Does not re-open later. */
+  initialSettingsOpen?: boolean;
   children: ReactNode;
 }) {
+  const capabilities = useServerCapabilities();
+  const refreshCapabilities = useOptionalRefreshServerCapabilities();
   const mutableSeedRef = useRef(mutableSeedFromConfig(agentConfig));
   if (
     (agentConfig.mode === 'AgentComposer' || agentConfig.mode === 'AgentLibraryWithComposer') &&
@@ -161,9 +167,23 @@ export function ShellModeProvider({
   const [mutableEpoch, setMutableEpoch] = useState(0);
   const [clearEpoch, setClearEpoch] = useState(0);
   const [agentsListEpoch, setAgentsListEpoch] = useState(0);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpenState, setSettingsOpenState] = useState(initialSettingsOpen);
   const [historyAgentFilter, setHistoryAgentFilter] = useState<string | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
+  const settingsEnabled = capabilities?.settings?.enabled !== false;
+  const settingsOpen = settingsEnabled && settingsOpenState;
+  const setSettingsOpen = useCallback(
+    (open: boolean) => {
+      setSettingsOpenState(settingsEnabled && open);
+    },
+    [settingsEnabled],
+  );
+
+  useEffect(() => {
+    if (!settingsEnabled) {
+      setSettingsOpenState(false);
+    }
+  }, [settingsEnabled]);
 
   const invalidateAgentsList = useCallback(() => {
     setAgentsListEpoch(n => n + 1);
@@ -223,7 +243,7 @@ export function ShellModeProvider({
       });
       bumpEpoch(false);
     },
-    [isComposerEnabled, isLibraryEnabled, bumpEpoch],
+    [isComposerEnabled, isLibraryEnabled, bumpEpoch, setSettingsOpen],
   );
 
   const bindMutableAgent = useCallback(
@@ -252,8 +272,10 @@ export function ShellModeProvider({
   );
 
   const openDraft = useCallback(() => {
+    if (!isComposerEnabled) return;
+    refreshCapabilities?.();
     selectLibraryAgent({ isMutable: true, agentSpec: mutableSeedRef.current });
-  }, [selectLibraryAgent]);
+  }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 
   const openHistorySession = useCallback(
     ({
@@ -293,7 +315,7 @@ export function ShellModeProvider({
       });
       bumpEpoch(false);
     },
-    [isLibraryEnabled, isComposerEnabled, locked, lockedAgentName, bumpEpoch],
+    [isLibraryEnabled, isComposerEnabled, locked, lockedAgentName, bumpEpoch, setSettingsOpen],
   );
 
   const clearChat = useCallback(() => {
@@ -356,6 +378,7 @@ export function ShellModeProvider({
       isComposerEnabled,
       isNewChatEnabled,
       settingsOpen,
+      setSettingsOpen,
       selectLibraryAgent,
       bindMutableAgent,
       selectAgent,

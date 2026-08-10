@@ -172,18 +172,18 @@ describe('RemoteMCP + ToolSet', () => {
     expect(server.getAllowedToolNamesForSandbox()).toEqual(['read_thing']);
   });
 
-  it('throws a 400 McpConnectionError when a literal enable tool is missing', async () => {
+  it('throws a 422 McpConnectionError when a literal enable tool is missing', async () => {
     installFakeConnection();
     const server = makeServer({
       selectors: { enableTools: ['does_not_exist'], disableTools: [], preloadTools: [] },
     });
     await expect(server.listTools()).rejects.toMatchObject({
       constructor: McpConnectionError,
-      statusCode: 400,
+      statusCode: 422,
     });
   });
 
-  it('does not throw the missing-enable-literal 400 during annotation lookups (only explicit listTools)', async () => {
+  it('does not throw the missing-enable-literal 422 during annotation lookups (only explicit listTools)', async () => {
     const state = installFakeConnection();
     const server = makeServer({
       selectors: { enableTools: ['does_not_exist'], disableTools: [], preloadTools: [] },
@@ -195,7 +195,7 @@ describe('RemoteMCP + ToolSet', () => {
     });
     expect(state.connectCalls).toBe(1);
     // The guard still fires on an explicit listTools().
-    await expect(server.listTools()).rejects.toMatchObject({ statusCode: 400 });
+    await expect(server.listTools()).rejects.toMatchObject({ statusCode: 422 });
   });
 
   it('rejects a disallowed tool call with a 403 McpConnectionError', async () => {

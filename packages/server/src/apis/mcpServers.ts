@@ -11,6 +11,7 @@ import type { Logger } from 'winston';
 import type { McpCatalog } from '../catalog/McpCatalog';
 import configuration from '../config';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
+import type { WithTransaction } from '../db/transaction';
 import { ensureMcpClientRegistered, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import { validateRedirectUris } from '../mcp/auth/mcpOAuthHelpers';
 import type { IOAuthTokenStore, OAuthToken } from '../mcp/auth/types';
@@ -32,16 +33,18 @@ import { TENANT_ID } from './sessions';
 /** Registering a DCR OAuth client hits the MCP server's authorization server, so bound that call. */
 export const MCP_DCR_REGISTRATION_TIMEOUT_MS = 10_000;
 
-export interface SettingsMcpServersRouterDeps {
+export interface SettingsMcpServersRouterDeps<TTransaction> {
   mcpCatalog: McpCatalog;
-  mcpServerStore: IMcpServerStore;
-  tokenStore: IOAuthTokenStore;
+  mcpServerStore: IMcpServerStore<TTransaction>;
+  tokenStore: IOAuthTokenStore<TTransaction>;
+  withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
 }
 
-export interface McpServersRouterDeps {
-  mcpServerStore: IMcpServerStore;
-  tokenStore: IOAuthTokenStore;
+export interface McpServersRouterDeps<TTransaction> {
+  mcpServerStore: IMcpServerStore<TTransaction>;
+  tokenStore: IOAuthTokenStore<TTransaction>;
+  withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
 }
 
@@ -82,7 +85,7 @@ function toConfiguredMcpServer({
 /** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers).
  *  TODO: Remove the server via txn if DCR fails to register
  */
-export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDeps) {
+export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpServersRouterDeps<TTransaction>) {
   const registerDcrClient = async (params: {
     serverId: string;
     mcpServerUrl: string;
@@ -146,13 +149,13 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
         });
       } catch (error) {
         // Permanent config error (server advertises no DCR support): a retry can never succeed, so
-        // surface it now as a 400 for immediate feedback instead of a silently-broken server.
+        // surface it now as a 422 for immediate feedback instead of a silently-broken server.
         if (error instanceof McpDcrConfigurationError) {
           deps.logger.error(
             `DCR misconfiguration for "${record.manifest.name}"; rejecting upsert`,
             extractErrorLogFields(error),
           );
-          return c.json({ error: { message: error.message } }, 400);
+          return c.json({ error: { message: error.message } }, 422);
         }
         // Transient (network / timeout / flaky authorization server): keep the saved server and let
         // the next authorize retry, rather than failing the upsert on a temporary fault.
@@ -193,7 +196,7 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
     try {
       const response = await remote.listTools();
       if (isAuthRequired(response)) {
-        return c.json({ error: { message: `MCP server "${name}" requires authentication` } }, 401);
+        return c.json({ error: { message: `MCP server "${name}" requires authentication` } }, 422);
       }
       const data = response.result.tools.map(tool => omitUndefinedEntries({ ...tool }));
       return c.json({ data }, 200);
@@ -201,7 +204,7 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
       if (error instanceof McpConnectionError) {
         deps.logger.warn(`MCP tools/list failed for "${name}"`, extractErrorLogFields(error));
         if (error.statusCode === 401) {
-          return c.json({ error: { message: error.message } }, 401);
+          return c.json({ error: { message: error.message } }, 422);
         }
         return c.json({ error: { message: error.message } }, 502);
       }
@@ -221,7 +224,7 @@ export function createSettingsMcpServersRouter(deps: SettingsMcpServersRouterDep
 }
 
 /** List + authorize (mounted at /api/v1/mcp-servers). */
-export function createMcpServersRouter(deps: McpServersRouterDeps) {
+export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
   const authorizeHandler: RouteHandler<typeof authorizeMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const { redirect_url: redirectUrl } = c.req.valid('query');
@@ -257,6 +260,12 @@ export function createMcpServersRouter(deps: McpServersRouterDeps) {
         deps.logger.warn(`MCP authorize failed for "${name}"`, extractErrorLogFields(error));
         if (error.statusCode === 400) {
           return c.json({ error: { message: error.message } }, 400);
+        }
+        if (error.statusCode === 422) {
+          return c.json({ error: { message: error.message } }, 422);
+        }
+        if (error.statusCode === 424) {
+          return c.json({ error: { message: error.message } }, 424);
         }
         return c.json({ error: { message: error.message } }, 500);
       }

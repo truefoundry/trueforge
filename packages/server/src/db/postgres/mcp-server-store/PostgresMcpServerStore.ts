@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from 'kysely';
+import type { Kysely, Selectable, Transaction } from 'kysely';
 import { ulid } from 'ulid';
 import type { OAuthClientRecord } from '../../../mcp/auth/types';
 import {
@@ -24,18 +24,19 @@ function toRecord(row: Selectable<McpServerTable>): McpServerRecord {
   };
 }
 
-export class PostgresMcpServerStore implements IMcpServerStore {
+export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
   }
 
-  async listServers(input: ListMcpServersInput): Promise<McpServerRecord[]> {
+  async listServers(input: ListMcpServersInput, transaction?: Transaction<Database>): Promise<McpServerRecord[]> {
     if (input.names?.length === 0) {
       return [];
     }
-    let query = this.#db.selectFrom('mcp_server').selectAll().where('tenant_id', '=', input.tenant_id);
+    const db = transaction ?? this.#db;
+    let query = db.selectFrom('mcp_server').selectAll().where('tenant_id', '=', input.tenant_id);
     if (input.names !== undefined) {
       query = query.where('name', 'in', [...input.names]);
     }
@@ -43,8 +44,9 @@ export class PostgresMcpServerStore implements IMcpServerStore {
     return rows.map(toRecord);
   }
 
-  async getServer(input: GetMcpServerInput): Promise<McpServerRecord | undefined> {
-    const row = await this.#db
+  async getServer(input: GetMcpServerInput, transaction?: Transaction<Database>): Promise<McpServerRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .selectFrom('mcp_server')
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
@@ -53,8 +55,9 @@ export class PostgresMcpServerStore implements IMcpServerStore {
     return row === undefined ? undefined : toRecord(row);
   }
 
-  async upsertServer(input: UpsertMcpServerInput): Promise<McpServerRecord> {
-    const row = await this.#db
+  async upsertServer(input: UpsertMcpServerInput, transaction?: Transaction<Database>): Promise<McpServerRecord> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .insertInto('mcp_server')
       .values({
         id: ulid(),
@@ -77,8 +80,9 @@ export class PostgresMcpServerStore implements IMcpServerStore {
     return toRecord(row);
   }
 
-  async getClient(params: { id: string }): Promise<OAuthClientRecord | undefined> {
-    const row = await this.#db
+  async getClient(params: { id: string }, transaction?: Transaction<Database>): Promise<OAuthClientRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .selectFrom('mcp_server')
       .select(['oauth_server', 'oauth_client'])
       .where('id', '=', params.id)
@@ -89,9 +93,13 @@ export class PostgresMcpServerStore implements IMcpServerStore {
     return fromStoredOAuthClientRecord({ server: row.oauth_server, client: row.oauth_client });
   }
 
-  async saveClient(params: { id: string; record: OAuthClientRecord }): Promise<void> {
+  async saveClient(
+    params: { id: string; record: OAuthClientRecord },
+    transaction?: Transaction<Database>,
+  ): Promise<void> {
+    const db = transaction ?? this.#db;
     const stored = toStoredOAuthClientRecord(params.record);
-    await this.#db
+    await db
       .updateTable('mcp_server')
       .set({
         oauth_server: json(stored.server),
@@ -101,8 +109,9 @@ export class PostgresMcpServerStore implements IMcpServerStore {
       .execute();
   }
 
-  async deleteClient(params: { id: string }): Promise<void> {
-    await this.#db
+  async deleteClient(params: { id: string }, transaction?: Transaction<Database>): Promise<void> {
+    const db = transaction ?? this.#db;
+    await db
       .updateTable('mcp_server')
       .set({
         oauth_server: null,

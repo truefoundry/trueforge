@@ -1,13 +1,15 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, McpConnectionError } from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
+import type { WithTransaction } from '../db/transaction';
 import { completeMcpAuthorization } from '../mcp/auth/mcpDcr';
 import type { IOAuthClientStore, IOAuthTokenStore, OAuthPendingAuthorization } from '../mcp/auth/types';
 import { mcpOAuthCallbackRoute } from '../routes/mcpOAuthRoutes';
 
-export interface McpOAuthRouterDeps {
-  tokenStore: IOAuthTokenStore;
-  mcpServerStore: IOAuthClientStore;
+export interface McpOAuthRouterDeps<TTransaction> {
+  tokenStore: IOAuthTokenStore<TTransaction>;
+  mcpServerStore: IOAuthClientStore<TTransaction>;
+  withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
 }
 
@@ -50,7 +52,7 @@ function callbackFailure(params: {
 }
 
 /** Shared OAuth callback (mounted at /api/v1/mcp-servers/oauth). */
-export function createMcpOAuthRouter(deps: McpOAuthRouterDeps) {
+export function createMcpOAuthRouter<TTransaction>(deps: McpOAuthRouterDeps<TTransaction>) {
   const callbackHandler: RouteHandler<typeof mcpOAuthCallbackRoute> = async c => {
     const { state, code, error, error_description: errorDescription } = c.req.valid('query');
 
@@ -75,6 +77,7 @@ export function createMcpOAuthRouter(deps: McpOAuthRouterDeps) {
       await completeMcpAuthorization({
         tokenStore: deps.tokenStore,
         mcpServerStore: deps.mcpServerStore,
+        withTransaction: deps.withTransaction,
         pending,
         code,
       });

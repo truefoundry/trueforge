@@ -20,6 +20,7 @@ vi.mock('@assistant-ui/react', () => ({
         isLoadingMore: false,
         hasMore: true,
         threadIds: ['t1'],
+        threadItems: [{ id: 't1', remoteId: 's1', lastMessageAt: undefined }],
         mainThreadId: 't1',
       },
       threadListItem: {
@@ -30,6 +31,7 @@ vi.mock('@assistant-ui/react', () => ({
         custom: undefined,
       },
     }),
+  ThreadListItemByIndexProvider: ({ children }: { children?: ReactNode }) => <>{children}</>,
   ThreadListPrimitive: {
     Root: ({ children, className }: { children?: ReactNode; className?: string }) => (
       <div className={className}>{children}</div>

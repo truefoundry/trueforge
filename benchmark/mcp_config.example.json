@@ -1,0 +1,5 @@
+{
+  "pm": "https://<host>/mcp/pm/server",
+  "crm": "https://<host>/mcp/crm/server",
+  "file-server": "https://<host>/mcp/file-server/server"
+}

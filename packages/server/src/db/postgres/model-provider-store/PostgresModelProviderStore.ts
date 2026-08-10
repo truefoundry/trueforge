@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from 'kysely';
+import type { Kysely, Selectable, Transaction } from 'kysely';
 import type { Model } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
@@ -20,15 +20,16 @@ function toRecord(row: Selectable<ModelProviderTable>): ModelProviderRecord {
   };
 }
 
-export class PostgresModelProviderStore implements IModelProviderStore {
+export class PostgresModelProviderStore implements IModelProviderStore<Transaction<Database>> {
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
   }
 
-  async listProviders(tenantId: string): Promise<ModelProviderRecord[]> {
-    const rows = await this.#db
+  async listProviders(tenantId: string, transaction?: Transaction<Database>): Promise<ModelProviderRecord[]> {
+    const db = transaction ?? this.#db;
+    const rows = await db
       .selectFrom('model_provider')
       .selectAll()
       .where('tenant_id', '=', tenantId)
@@ -37,8 +38,12 @@ export class PostgresModelProviderStore implements IModelProviderStore {
     return rows.map(toRecord);
   }
 
-  async getProvider(input: GetProviderInput): Promise<ModelProviderRecord | undefined> {
-    const row = await this.#db
+  async getProvider(
+    input: GetProviderInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ModelProviderRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .selectFrom('model_provider')
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
@@ -47,8 +52,9 @@ export class PostgresModelProviderStore implements IModelProviderStore {
     return row === undefined ? undefined : toRecord(row);
   }
 
-  async upsertProvider(input: UpsertProviderInput): Promise<ModelProviderRecord> {
-    const row = await this.#db
+  async upsertProvider(input: UpsertProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {
+    const db = transaction ?? this.#db;
+    const row = await db
       .insertInto('model_provider')
       .values({
         tenant_id: input.tenant_id,
@@ -68,7 +74,7 @@ export class PostgresModelProviderStore implements IModelProviderStore {
     return toRecord(row);
   }
 
-  async listModels(tenantId: string): Promise<Model[]> {
-    return flattenProviderModels(await this.listProviders(tenantId));
+  async listModels(tenantId: string, transaction?: Transaction<Database>): Promise<Model[]> {
+    return flattenProviderModels(await this.listProviders(tenantId, transaction));
   }
 }

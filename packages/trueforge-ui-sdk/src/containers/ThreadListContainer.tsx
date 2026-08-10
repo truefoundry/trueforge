@@ -1,19 +1,25 @@
 'use client';
 
 import {
+  ThreadListItemByIndexProvider,
   ThreadListItemMorePrimitive,
   ThreadListItemPrimitive,
   ThreadListPrimitive,
   useAui,
   useAuiState,
 } from '@assistant-ui/react';
-import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 
 import { AgentHistoryFilterButton } from '../atoms/AgentHistoryFilterButton.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
-import { canReuseMutableShell, readThreadAgentName, threadListItemIsMutable } from '../atoms/lib/threadListMeta.js';
+import {
+  canReuseMutableShell,
+  readThreadAgentName,
+  threadListIndicesByRecency,
+  threadListItemIsMutable,
+} from '../atoms/lib/threadListMeta.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
 import { Icon } from '../icons/Icon.js';
@@ -101,7 +107,13 @@ function ThreadListItemDeleteMenu() {
   );
 }
 
-function ThreadListItemRow({ onThreadOpen, showDelete }: { onThreadOpen?: () => void; showDelete: boolean }) {
+function ThreadListItemRow({
+  onThreadOpen,
+  canDeleteSession,
+}: {
+  onThreadOpen?: () => void;
+  canDeleteSession: boolean;
+}) {
   const aui = useAui();
   const shell = useOptionalShellMode();
   const ThreadListRow = useSlot('ThreadListRow');
@@ -112,6 +124,7 @@ function ThreadListItemRow({ onThreadOpen, showDelete }: { onThreadOpen?: () => 
   const custom = useAuiState(s => s.threadListItem.custom);
   const mainThreadId = useAuiState(s => s.threads.mainThreadId);
   const agentName = readThreadAgentName(custom);
+  const showDelete = canDeleteSession && remoteId != null;
 
   return (
     <ThreadListItemPrimitive.Root className="min-w-0">
@@ -160,6 +173,38 @@ function ThreadListItemRow({ onThreadOpen, showDelete }: { onThreadOpen?: () => 
         actions={showDelete ? <ThreadListItemDeleteMenu /> : undefined}
       />
     </ThreadListItemPrimitive.Root>
+  );
+}
+
+function useThreadListIndicesByRecency(): number[] {
+  const threadIds = useAuiState(s => s.threads.threadIds);
+  const threadItems = useAuiState(s => s.threads.threadItems);
+
+  return useMemo(() => threadListIndicesByRecency({ threadIds, threadItems }), [threadIds, threadItems]);
+}
+
+function ThreadListItemsByRecency({
+  onThreadOpen,
+  canDeleteSession,
+}: {
+  onThreadOpen?: () => void;
+  canDeleteSession: boolean;
+}) {
+  // Newest-first: remount/switchToThread can append the active session to threadIds.
+  const indices = useThreadListIndicesByRecency();
+  const threadIds = useAuiState(s => s.threads.threadIds);
+
+  return (
+    <>
+      {indices.map(index => {
+        const key = threadIds[index] ?? String(index);
+        return (
+          <ThreadListItemByIndexProvider key={key} index={index} archived={false}>
+            <ThreadListItemRow onThreadOpen={onThreadOpen} canDeleteSession={canDeleteSession} />
+          </ThreadListItemByIndexProvider>
+        );
+      })}
+    </>
   );
 }
 
@@ -281,14 +326,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   } else {
     listBody = (
       <ThreadListPrimitive.Root className="flex min-h-0 flex-col gap-0.5">
-        <ThreadListPrimitive.Items>
-          {({ threadListItem }) => (
-            <ThreadListItemRow
-              onThreadOpen={onThreadOpen}
-              showDelete={canDeleteSession && threadListItem.remoteId != null}
-            />
-          )}
-        </ThreadListPrimitive.Items>
+        <ThreadListItemsByRecency onThreadOpen={onThreadOpen} canDeleteSession={canDeleteSession} />
       </ThreadListPrimitive.Root>
     );
   }

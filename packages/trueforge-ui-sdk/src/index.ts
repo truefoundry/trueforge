@@ -5,8 +5,9 @@ import './icons/registerAgentIcons.js';
 export { BrandIcon, BrandLogo } from './theme/brand.js';
 export { defaultSlots } from './theme/defaultSlots.js';
 export { PRESETS, resolvePresetTokens } from './theme/presets/index.js';
+export type { PublicAtomSlots as AtomSlots, SlotOverrides } from './theme/publicSlots.js';
 export { SlotsProvider, useSlot, useThemeMode } from './theme/SlotsProvider.js';
-export type { AtomSlots, SlotOverrides, ThemeMode } from './theme/SlotsProvider.js';
+export type { ThemeMode } from './theme/SlotsProvider.js';
 export {
   ThemeProvider,
   useBrand,
@@ -217,6 +218,7 @@ export type {
 // Server port types + factory
 export { ClearChatButton } from './atoms/ClearChatButton.js';
 export { SelectAgentEmptyState } from './atoms/SelectAgentEmptyState.js';
+export { ShellActionsActionSlot } from './atoms/ShellActionsActionSlot.js';
 export { createTrueFoundryServer } from './server/createTrueFoundryServer.js';
 export type { CreateTrueFoundryServerOptions, TrueFoundryServer } from './server/createTrueFoundryServer.js';
 export {
@@ -225,6 +227,7 @@ export {
   useOptionalCatalogServer,
   useOptionalServer,
   useServer,
+  useServerCapabilities,
 } from './server/ServerContext.js';
 export {
   DEFAULT_AGENT_CONFIG,
@@ -236,6 +239,7 @@ export {
 } from './server/ShellModeContext.js';
 export type { AgentConfig, SelectLibraryAgentRequest, ShellMode } from './server/ShellModeContext.js';
 export type {
+  AgentBuilderCapabilitiesResponse,
   AgentBuilderServer,
   AgentChatServer,
   AgentLibraryEntry,
@@ -322,7 +326,7 @@ export type {
 
 // Utils
 export { computeAgentStepsSplit } from './utils/computeAgentStepsSplit.js';
-export type { AgentStepsSplitResult } from './utils/computeAgentStepsSplit.js';
+export type { AgentStepPart, AgentStepsSplitResult } from './utils/computeAgentStepsSplit.js';
 
 export { AgentsLibrary } from './atoms/AgentsLibrary.js';
 export type { AgentsLibraryProps } from './atoms/AgentsLibrary.js';

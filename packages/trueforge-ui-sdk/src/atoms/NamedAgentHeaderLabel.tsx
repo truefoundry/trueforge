@@ -1,5 +1,6 @@
 'use client';
 
+import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { cn } from './lib/cn.js';
 
@@ -12,8 +13,12 @@ export function NamedAgentHeaderLabel({ className }: { className?: string }) {
   if (name == null || name.length === 0) return null;
 
   return (
-    <h1 className={cn('min-w-0 truncate px-1 text-sm font-medium text-foreground', className)} title={name}>
-      {name}
+    <h1
+      className={cn('flex min-w-0 items-center gap-1.5 px-1 text-sm font-medium text-foreground', className)}
+      title={name}
+    >
+      <Icon name="robot" className="size-3.5 shrink-0" />
+      <span className="truncate">{name}</span>
     </h1>
   );
 }

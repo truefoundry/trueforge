@@ -713,11 +713,21 @@
         ],
         "type": "object"
       },
+      "CreateSessionAgent": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SessionAgentNameRef"
+          },
+          {
+            "$ref": "#/components/schemas/SessionAgentSpecBody"
+          }
+        ]
+      },
       "CreateSessionRequest": {
         "additionalProperties": false,
         "properties": {
           "agent": {
-            "$ref": "#/components/schemas/SessionAgent"
+            "$ref": "#/components/schemas/CreateSessionAgent"
           }
         },
         "required": [
@@ -1706,6 +1716,32 @@
         ],
         "type": "string"
       },
+      "MeResponse": {
+        "properties": {
+          "email": {
+            "description": "User email from the ID token when connected; `\"default\"` when anonymous.",
+            "type": "string"
+          },
+          "role": {
+            "description": "Caller role.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Session kind: `default` when no valid OIDC session; `oidc-connected` after a successful browser login.",
+            "enum": [
+              "default",
+              "oidc-connected"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "email",
+          "role"
+        ],
+        "type": "object"
+      },
       "Model": {
         "additionalProperties": false,
         "properties": {
@@ -2571,56 +2607,87 @@
       "SessionAgent": {
         "discriminator": {
           "mapping": {
-            "ref": "#/components/schemas/SessionAgentRef",
-            "value": "#/components/schemas/SessionAgentValue"
+            "inline": "#/components/schemas/SessionAgentInline",
+            "reference": "#/components/schemas/SessionAgentReference"
           },
           "propertyName": "type"
         },
         "oneOf": [
           {
-            "$ref": "#/components/schemas/SessionAgentRef"
+            "$ref": "#/components/schemas/SessionAgentReference"
           },
           {
-            "$ref": "#/components/schemas/SessionAgentValue"
+            "$ref": "#/components/schemas/SessionAgentInline"
           }
         ]
       },
-      "SessionAgentRef": {
+      "SessionAgentInline": {
         "additionalProperties": false,
         "properties": {
-          "agent_id": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "type": {
-            "enum": [
-              "ref"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "agent_id"
-        ],
-        "type": "object"
-      },
-      "SessionAgentValue": {
-        "additionalProperties": false,
-        "properties": {
-          "agent_spec": {
+          "spec": {
             "$ref": "#/components/schemas/AgentSpec"
           },
           "type": {
             "enum": [
-              "value"
+              "inline"
             ],
             "type": "string"
           }
         },
         "required": [
           "type",
-          "agent_spec"
+          "spec"
+        ],
+        "type": "object"
+      },
+      "SessionAgentNameRef": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "SessionAgentReference": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "enum": [
+              "reference"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "SessionAgentSpecBody": {
+        "additionalProperties": false,
+        "properties": {
+          "spec": {
+            "$ref": "#/components/schemas/AgentSpec"
+          }
+        },
+        "required": [
+          "spec"
         ],
         "type": "object"
       },
@@ -3577,9 +3644,10 @@
         "type": "object"
       },
       "UpdateSessionRequest": {
+        "additionalProperties": false,
         "properties": {
           "agent": {
-            "$ref": "#/components/schemas/SessionAgentValue"
+            "$ref": "#/components/schemas/SessionAgentSpecBody"
           }
         },
         "type": "object"
@@ -3817,6 +3885,36 @@
       }
     },
     "/api/v1/agents/{agent_id}": {
+      "delete": {
+        "description": "Delete a configured agent by immutable id. Idempotent if already gone.",
+        "parameters": [
+          {
+            "description": "Immutable agent identifier.",
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Agent deleted."
+          }
+        },
+        "summary": "Delete an agent",
+        "tags": [
+          "Agents"
+        ],
+        "x-fern-sdk-group-name": [
+          "agents"
+        ],
+        "x-fern-sdk-method-name": "delete"
+      },
       "get": {
         "description": "Fetch a configured agent by immutable id.",
         "parameters": [
@@ -3995,7 +4093,7 @@
         ],
         "responses": {
           "302": {
-            "description": "Redirect back into the app on success, or to /?error=login_failed on failure."
+            "description": "Redirect back into the app on success, or to /?error=<reason> on failure."
           }
         },
         "summary": "Login callback",
@@ -4048,6 +4146,34 @@
           "auth"
         ],
         "x-fern-sdk-method-name": "logout"
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "description": "Returns the authenticated caller identity. When OIDC is configured this requires a valid session cookie (401 otherwise). Without OIDC, returns the default anonymous identity.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Session type and identity for the current request."
+          },
+          "401": {
+            "description": "OIDC is configured and the request has no valid session cookie."
+          }
+        },
+        "summary": "Current session",
+        "tags": [
+          "Auth"
+        ],
+        "x-fern-sdk-group-name": [
+          "auth"
+        ],
+        "x-fern-sdk-method-name": "me"
       }
     },
     "/api/v1/capabilities": {
@@ -4289,7 +4415,7 @@
                 }
               }
             },
-            "description": "DCR or authorize URL construction failed (e.g. server lacks registration_endpoint)."
+            "description": "Invalid redirect_url."
           },
           "404": {
             "content": {
@@ -4300,6 +4426,26 @@
               }
             },
             "description": "MCP server not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "DCR could not be completed for this server (e.g. it lacks a registration_endpoint)."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The authorization server failed dynamic client registration or authorization startup."
           },
           "500": {
             "content": {
@@ -4349,7 +4495,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List sessions (newest first by default), token-paginated. Optional `agent_id` filters to sessions bound to that named agent; optional `created_by` filters by creator identity. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "description": "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
         "parameters": [
           {
             "description": "Page size. Defaults to 10, max 100.",
@@ -4415,17 +4561,6 @@
               "minLength": 1,
               "type": "string"
             }
-          },
-          {
-            "description": "When set, only sessions created by this identity are returned.",
-            "in": "query",
-            "name": "created_by",
-            "required": false,
-            "schema": {
-              "description": "When set, only sessions created by this identity are returned.",
-              "minLength": 1,
-              "type": "string"
-            }
           }
         ],
         "responses": {
@@ -4465,7 +4600,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "post": {
-        "description": "Create a session with `agent` as either `{ type: \"value\", agent_spec }` (draft) or `{ type: \"ref\", agent_id }` (named). Named sessions resolve the live agent on each turn.",
+        "description": "Create a session with `agent` as either `{ name }` (named registry binding) or `{ spec: AgentSpec }` (inline). Named sessions snapshot the agent name at create and resolve the live agent on each turn. Responses use `{ type: \"reference\", name, id }` or `{ type: \"inline\", spec }`.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4505,7 +4640,7 @@
                 }
               }
             },
-            "description": "Named `agent_id` not found."
+            "description": "Named agent not found."
           },
           "422": {
             "content": {
@@ -4530,7 +4665,7 @@
     },
     "/api/v1/sessions/{session_id}": {
       "delete": {
-        "description": "Delete a session and all related turns, events, and internal state. Idempotent if already gone.",
+        "description": "Delete a session and all related turns, events, and internal state. Only the session creator (`created_by`) may delete it. Idempotent if already gone.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4548,6 +4683,16 @@
         "responses": {
           "204": {
             "description": "Session and all related data deleted."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
           }
         },
         "summary": "Delete a session",
@@ -4560,7 +4705,7 @@
         "x-fern-sdk-method-name": "delete"
       },
       "get": {
-        "description": "Fetch a session by ID.",
+        "description": "Fetch a session by ID. Only the session creator (`created_by`) may fetch it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4586,6 +4731,16 @@
             },
             "description": "Session data."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -4607,7 +4762,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a draft session by replacing `agent` with a value arm. Named (ref) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`.",
+        "description": "Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4651,7 +4806,17 @@
                 }
               }
             },
-            "description": "Invalid request body, or named session rejected an agent update."
+            "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
           },
           "404": {
             "content": {
@@ -4671,7 +4836,7 @@
                 }
               }
             },
-            "description": "The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
+            "description": "Named session rejected an agent update, or the agent spec references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
           }
         },
         "summary": "Update a session",
@@ -4686,7 +4851,7 @@
     },
     "/api/v1/sessions/{session_id}/cancel": {
       "post": {
-        "description": "Cancel the running last turn for a session.",
+        "description": "Cancel the running last turn for a session. Only the session creator (`created_by`) may cancel.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4722,6 +4887,16 @@
             },
             "description": "Turn cancelled."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -4755,7 +4930,7 @@
     },
     "/api/v1/sessions/{session_id}/events": {
       "get": {
-        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor.",
+        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator (`created_by`) may list events.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4824,6 +4999,16 @@
             },
             "description": "Invalid page token."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -4852,7 +5037,7 @@
     },
     "/api/v1/sessions/{session_id}/turns": {
       "get": {
-        "description": "List turns for a session (newest first by default), token-paginated.",
+        "description": "List turns for a session (newest first by default), token-paginated. Only the session creator (`created_by`) may list turns.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4911,6 +5096,16 @@
             },
             "description": "Invalid page token."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -4937,7 +5132,7 @@
         "x-fern-sdk-method-name": "list_turns"
       },
       "post": {
-        "description": "Create a turn within a session and execute it.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
+        "description": "Create a turn within a session and execute it.\nOnly the session creator (`created_by`) may create turns.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -4988,6 +5183,16 @@
             },
             "description": "Invalid request body."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -5016,7 +5221,7 @@
                 }
               }
             },
-            "description": "The session is valid but a required resource is no longer available (e.g. named agent, model, MCP server, skill, or sandbox provider)."
+            "description": "The request is well-formed but cannot be processed: a referenced resource is missing (named agent, model, MCP server, skill, or sandbox provider), sandbox is required but unavailable (e.g. file uploads), or the turn input conflicts with current state (e.g. unresolved tool calls or approvals, tool name collision)."
           }
         },
         "summary": "Create and execute a turn in a session",
@@ -5042,7 +5247,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}": {
       "get": {
-        "description": "Fetch a single turn by ID.",
+        "description": "Fetch a single turn by ID. Only the session creator (`created_by`) may fetch it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5079,6 +5284,16 @@
             },
             "description": "Turn data."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -5102,7 +5317,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/download": {
       "get": {
-        "description": "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block.",
+        "description": "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator (`created_by`) may download.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5169,7 +5384,7 @@
                 }
               }
             },
-            "description": "Sandbox belongs to another tenant."
+            "description": "Caller is not the session creator, or sandbox belongs to another tenant."
           },
           "404": {
             "content": {
@@ -5234,7 +5449,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/events": {
       "get": {
-        "description": "Paginated persisted events for a turn (insertion order by default).",
+        "description": "Paginated persisted events for a turn (insertion order by default). Only the session creator (`created_by`) may list events.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5313,6 +5528,16 @@
             },
             "description": "Invalid page token."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -5341,7 +5566,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {
       "get": {
-        "description": "Subscribe to the live SSE stream for a turn. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
+        "description": "Subscribe to the live SSE stream for a turn. Only the session creator (`created_by`) may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5399,6 +5624,16 @@
               }
             },
             "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
           },
           "404": {
             "content": {
@@ -5492,6 +5727,16 @@
               }
             },
             "description": "Invalid request body."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint)."
           }
         },
         "summary": "Create or replace an MCP server",
@@ -5615,7 +5860,7 @@
                 }
               }
             },
-            "description": "The MCP server requires authentication."
+            "description": "Harness session login required."
           },
           "404": {
             "content": {
@@ -5626,6 +5871,16 @@
               }
             },
             "description": "MCP server not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The MCP server requires authentication (does not trigger browser OIDC login)."
           },
           "502": {
             "content": {

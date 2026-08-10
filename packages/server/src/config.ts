@@ -39,6 +39,7 @@ const DEFAULT_REDIS_URL = 'redis://localhost:6379';
 const DEFAULT_OIDC_USER_REFERENCE_CLAIM = 'sub';
 const DEFAULT_OIDC_USER_ROLE_CLAIM = 'groups';
 const DEFAULT_OIDC_ADMIN_ROLE_VALUE = 'admin';
+const DEFAULT_OIDC_SCOPES = 'openid,profile,email';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -80,6 +81,17 @@ function parsePort(raw: string | undefined): number {
     throw new Error(`Environment variable PORT must be an integer between 1 and 65535, got "${raw}"`);
   }
   return port;
+}
+
+export function parseOidcScopes(raw: string): string[] {
+  const scopes = raw
+    .split(',')
+    .map(part => part.trim())
+    .filter(part => part.length > 0);
+  if (scopes.length === 0) {
+    throw new Error('OIDC_SCOPES must contain at least one scope.');
+  }
+  return scopes;
 }
 
 /** Parses a positive-integer env var, falling back to `defaultValue` when unset/blank. */
@@ -200,13 +212,25 @@ function buildPostgresConnectionString(parts: {
   return `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
 }
 
-/** Defaults to `http://localhost:${PORT}` so local standalone boots without an env file. */
-function resolvePublicBaseUrl(port: number): string {
-  const override = getEnv('PUBLIC_BASE_URL');
+/**
+ * Resolves `PUBLIC_BASE_URL` for callback origins (MCP OAuth / OIDC).
+ * - Non-empty env → that value (not trimmed).
+ * - Standalone + unset/blank → `http://localhost:${port}` so local boots without an env file.
+ * - Distributed + unset/blank → `""` (callbacks fail lazily until configured).
+ */
+export function resolvePublicBaseUrl(options: {
+  port: number;
+  standalone: boolean;
+  override: string | undefined;
+}): string {
+  const { port, standalone, override } = options;
   if (override !== undefined && override.trim() !== '') {
     return override;
   }
-  return `http://localhost:${String(port)}`;
+  if (standalone) {
+    return `http://localhost:${String(port)}`;
+  }
+  return '';
 }
 
 function resolveOIDCConfig(): OIDCConfig | undefined {
@@ -234,6 +258,7 @@ function resolveOIDCConfig(): OIDCConfig | undefined {
       getEnv('OIDC_USER_ROLE_CLAIM', { defaultValue: DEFAULT_OIDC_USER_ROLE_CLAIM }) ?? DEFAULT_OIDC_USER_ROLE_CLAIM,
     OIDC_ADMIN_ROLE_VALUE:
       getEnv('OIDC_ADMIN_ROLE_VALUE', { defaultValue: DEFAULT_OIDC_ADMIN_ROLE_VALUE }) ?? DEFAULT_OIDC_ADMIN_ROLE_VALUE,
+    OIDC_SCOPES: parseOidcScopes(getEnv('OIDC_SCOPES', { defaultValue: DEFAULT_OIDC_SCOPES }) ?? DEFAULT_OIDC_SCOPES),
   };
 }
 
@@ -260,6 +285,11 @@ export interface OIDCConfig {
    * Case sensitive. Optional; defaults to "admin"
    */
   OIDC_ADMIN_ROLE_VALUE: string;
+  /** Comma-separated OAuth scopes for the authorization request. Env: `OIDC_SCOPES`.
+   * Optional; defaults to "openid,profile,email,groups". Whitespace around entries is stripped.
+   * Okta `groups` claims require the `groups` scope; Azure AD app roles typically omit it.
+   */
+  OIDC_SCOPES: string[];
 }
 
 export interface SharedServerConfiguration {
@@ -306,9 +336,11 @@ export interface SharedServerConfiguration {
   /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
   MCP_CONNECT_TIMEOUT_MS: number;
   /**
-   * Public base URL of this server used as the origin of the MCP OAuth callback
-   * (`{PUBLIC_BASE_URL}/api/v1/mcp-servers/oauth/callback`). Not trimmed.
-   * Env: `PUBLIC_BASE_URL`. Default: `http://localhost:${PORT}`.
+   * Public base URL of this server used as the origin of MCP OAuth and OIDC
+   * callbacks. Not trimmed when non-empty.
+   * Env: `PUBLIC_BASE_URL`.
+   * Standalone default (unset/blank): `http://localhost:${PORT}`.
+   * Distributed (unset/blank): `""` — callbacks fail until set.
    */
   PUBLIC_BASE_URL: string;
   /**
@@ -448,7 +480,11 @@ const shared: SharedServerConfiguration = {
   SKILL_CATALOG_PATH: resolveOptionalPathEnv('SKILL_CATALOG_PATH'),
   SANDBOX_CATALOG_PATH: resolveOptionalPathEnv('SANDBOX_CATALOG_PATH'),
   FRONTEND_DIR: resolveFrontendDir(),
-  PUBLIC_BASE_URL: resolvePublicBaseUrl(port),
+  PUBLIC_BASE_URL: resolvePublicBaseUrl({
+    port,
+    standalone,
+    override: getEnv('PUBLIC_BASE_URL'),
+  }),
 
   MCP_REQUEST_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MCP_REQUEST_TIMEOUT_MS',

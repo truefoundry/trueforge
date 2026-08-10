@@ -7,10 +7,12 @@ import SearchInput from '../../atoms/primitives/SearchInput.js';
 import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { ModelEntry, ModelProviderBase, ModelProviderCatalogEntry } from '../../server/types.js';
+import { useErrorToasterOptional } from '../ErrorToasterContainer.js';
 import CustomModelProviderForm, { type CustomProviderDraft } from './CustomModelProviderForm.js';
 
 const ModelSettings = () => {
   const { modelCatalog } = useCatalogServer();
+  const toaster = useErrorToasterOptional();
 
   const [query, setQuery] = useState('');
   const [configured, setConfigured] = useState<ModelProviderBase[]>([]);
@@ -87,6 +89,10 @@ const ModelSettings = () => {
     [catalog, configuredTypes, normalizedQuery],
   );
 
+  const supportedReasoningEfforts = useMemo(() => {
+    return catalog.find(provider => provider.type === 'custom')?.supportedReasoningEfforts;
+  }, [catalog]);
+
   const catalogModelsByType = useMemo(() => {
     const map = new Map<string, ModelEntry[]>();
     for (const entry of catalog) {
@@ -109,7 +115,11 @@ const ModelSettings = () => {
       await refresh();
       closeKeyEditor();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Request failed');
+      if (toaster != null) {
+        toaster.showError(err);
+      } else {
+        setError(err instanceof Error ? err.message : 'Request failed');
+      }
       throw err;
     } finally {
       setBusy(false);
@@ -200,7 +210,7 @@ const ModelSettings = () => {
         onChange={event => {
           setApiKey(event.target.value);
         }}
-        placeholder="sk-..."
+        placeholder="Enter API Key"
         autoFocus
         className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
       />
@@ -459,6 +469,7 @@ const ModelSettings = () => {
             open={customProviderOpen}
             onOpenChange={setCustomProviderOpen}
             onAdd={handleAddCustomProvider}
+            reasoningEffortOptions={supportedReasoningEfforts}
             busy={busy}
           />
         </div>

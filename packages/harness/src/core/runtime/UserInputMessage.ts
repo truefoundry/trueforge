@@ -1,5 +1,5 @@
 import type { ChatCompletionContentPart } from 'openai/resources/chat';
-import { AgentSandboxRequiredError, InvalidAgentInputError } from '../errors';
+import { AgentSandboxRequiredError, InvalidFileInputError } from '../errors';
 import {
   EventType,
   type AgentInputUserMessage,
@@ -42,7 +42,7 @@ function isImageMime(mime: string): boolean {
 function parseMimeFromFileData(fileData: string): string {
   const match = /^data:([^;,]+)/.exec(fileData);
   if (!match?.[1]) {
-    throw new InvalidAgentInputError('File data URI is missing or has unparseable MIME type');
+    throw new InvalidFileInputError('File data URI is missing or has unparseable MIME type');
   }
   return match[1];
 }
@@ -50,28 +50,28 @@ function parseMimeFromFileData(fileData: string): string {
 function extractBase64(dataUri: string): Buffer {
   const commaIndex = dataUri.indexOf(',');
   if (commaIndex === -1) {
-    throw new InvalidAgentInputError('File data URI has no base64 payload');
+    throw new InvalidFileInputError('File data URI has no base64 payload');
   }
   const raw = dataUri.substring(commaIndex + 1);
   if (!raw) {
-    throw new InvalidAgentInputError('File data URI has empty base64 payload');
+    throw new InvalidFileInputError('File data URI has empty base64 payload');
   }
   const buffer = Buffer.from(raw, 'base64');
   if (buffer.length === 0) {
-    throw new InvalidAgentInputError('File data URI decoded to zero bytes');
+    throw new InvalidFileInputError('File data URI decoded to zero bytes');
   }
   return buffer;
 }
 
 function validatePublicFilename(filename: string): void {
   if (!filename.length) {
-    throw new InvalidAgentInputError('File name must not be empty');
+    throw new InvalidFileInputError('File name must not be empty');
   }
   const normalized = filename.replace(/\\/g, '/');
   const parts = normalized.split('/');
   for (const part of parts) {
     if (part === '..') {
-      throw new InvalidAgentInputError(`File name contains path traversal: ${filename}`);
+      throw new InvalidFileInputError(`File name contains path traversal: ${filename}`);
     }
   }
 }
@@ -131,7 +131,7 @@ export async function processAgentUserInput(
   for (const filePart of fileParts) {
     const filename = filePart.name.replace(/^\/+/, '');
     if (!filename.length) {
-      throw new InvalidAgentInputError('File name must not be empty');
+      throw new InvalidFileInputError('File name must not be empty');
     }
     validatePublicFilename(filename);
 

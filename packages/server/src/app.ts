@@ -1,6 +1,6 @@
 /** The API: resource routers, the OpenAPI document and Swagger UI, all under /api/v1. */
 import { swaggerUI } from '@hono/swagger-ui';
-import { OpenAPIHono } from '@hono/zod-openapi';
+import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/utils-core/agent-session';
 import type { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import type { Context } from 'hono';
@@ -18,6 +18,8 @@ import { createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
+import { resolveUserContext } from './auth/identity';
+import { adminAuthMiddleware, authMiddleware } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -27,9 +29,11 @@ import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { ISkillStore } from './db/skillStore';
+import type { WithTransaction } from './db/transaction';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
+import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
 const openApiDocConfig = {
   openapi: '3.1.0',
@@ -50,17 +54,34 @@ function routeNotFound(c: Context) {
   return c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404);
 }
 
-export interface ServerDeps {
+/** Sub-app shell: `.use('*', authMiddleware)` then child routes — same as gateway routers. */
+function withAuth(router: OpenAPIHono): OpenAPIHono {
+  const shell = new OpenAPIHono();
+  shell.use('*', authMiddleware);
+  shell.route('/', router);
+  return shell;
+}
+
+/** Admin-only routes: standalone passes through; with OIDC requires an authenticated admin. */
+function withAdminAuth(router: OpenAPIHono): OpenAPIHono {
+  const shell = new OpenAPIHono();
+  shell.use('*', adminAuthMiddleware);
+  shell.route('/', router);
+  return shell;
+}
+
+export interface ServerDeps<TTransaction> {
   modelCatalog: ModelCatalog;
   mcpCatalog: McpCatalog;
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
-  modelProviderStore: IModelProviderStore;
-  mcpServerStore: IMcpServerStore;
-  tokenStore: IOAuthTokenStore;
-  skillStore: ISkillStore;
-  sandboxProviderStore: ISandboxProviderStore;
-  agentStore: IAgentStore;
+  modelProviderStore: IModelProviderStore<TTransaction>;
+  withTransaction: WithTransaction<TTransaction>;
+  mcpServerStore: IMcpServerStore<TTransaction>;
+  tokenStore: IOAuthTokenStore<TTransaction>;
+  skillStore: ISkillStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  agentStore: IAgentStore<TTransaction>;
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
@@ -75,87 +96,128 @@ export interface ServerDeps {
   oidcClient: Configuration | undefined;
 }
 
-export function createServerApp(deps: ServerDeps) {
-  const app = new OpenAPIHono();
+export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
+  const app = new OpenAPIHono({ defaultHook: zodValidationHook });
 
   app.get('/healthz', c => c.text('OK!'));
 
   app.route('/api/v1/auth', createAuthRouter({ oidcClient: deps.oidcClient, logger: deps.logger }));
-  app.route('/api/v1/capabilities', createCapabilitiesRouter({ sandboxProviderStore: deps.sandboxProviderStore }));
-  app.route('/api/v1/models', createModelsRouter(deps.modelProviderStore));
   app.route(
-    '/api/v1/mcp-servers',
-    createMcpServersRouter({
-      mcpServerStore: deps.mcpServerStore,
-      tokenStore: deps.tokenStore,
-      logger: deps.logger,
-    }),
+    '/api/v1/capabilities',
+    withAuth(
+      createCapabilitiesRouter({
+        sandboxProviderStore: deps.sandboxProviderStore,
+        withTransaction: deps.withTransaction,
+      }),
+    ),
   );
-  // Shared OAuth callback — path must match the server-owned MCP_OAUTH_CALLBACK_PATH.
+  app.route(
+    '/api/v1/models',
+    withAuth(
+      createModelsRouter({
+        modelProviderStore: deps.modelProviderStore,
+        withTransaction: deps.withTransaction,
+      }),
+    ),
+  );
+  // Public MCP OAuth callback must be registered before the gated `/mcp-servers` mount so
+  // `withAuth` cannot intercept IdP redirects to `/api/v1/mcp-servers/oauth/*`.
   app.route(
     '/api/v1/mcp-servers/oauth',
     createMcpOAuthRouter({
       tokenStore: deps.tokenStore,
       mcpServerStore: deps.mcpServerStore,
+      withTransaction: deps.withTransaction,
       logger: deps.logger,
     }),
   );
-  app.route('/api/v1/skills', createAvailableSkillsRouter(deps.skillStore));
+  app.route(
+    '/api/v1/mcp-servers',
+    withAuth(
+      createMcpServersRouter({
+        mcpServerStore: deps.mcpServerStore,
+        tokenStore: deps.tokenStore,
+        withTransaction: deps.withTransaction,
+        logger: deps.logger,
+      }),
+    ),
+  );
+  app.route(
+    '/api/v1/skills',
+    withAuth(
+      createAvailableSkillsRouter({
+        skillStore: deps.skillStore,
+        withTransaction: deps.withTransaction,
+      }),
+    ),
+  );
   app.route(
     '/api/v1/agents',
-    createAgentsRouter({
-      agentStore: deps.agentStore,
-      modelProviderStore: deps.modelProviderStore,
-      mcpServerStore: deps.mcpServerStore,
-      skillStore: deps.skillStore,
-      sandboxProviderStore: deps.sandboxProviderStore,
-    }),
+    withAuth(
+      createAgentsRouter({
+        agentStore: deps.agentStore,
+        modelProviderStore: deps.modelProviderStore,
+        mcpServerStore: deps.mcpServerStore,
+        skillStore: deps.skillStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        withTransaction: deps.withTransaction,
+      }),
+    ),
   );
   app.route(
     '/api/v1/settings',
-    createSettingsRouter({
-      modelCatalog: deps.modelCatalog,
-      modelProviderStore: deps.modelProviderStore,
-      mcpCatalog: deps.mcpCatalog,
-      mcpServerStore: deps.mcpServerStore,
-      tokenStore: deps.tokenStore,
-      skillCatalog: deps.skillCatalog,
-      skillStore: deps.skillStore,
-      sandboxCatalog: deps.sandboxCatalog,
-      sandboxProviderStore: deps.sandboxProviderStore,
-      logger: deps.logger,
-    }),
+    withAdminAuth(
+      createSettingsRouter({
+        modelCatalog: deps.modelCatalog,
+        modelProviderStore: deps.modelProviderStore,
+        mcpCatalog: deps.mcpCatalog,
+        mcpServerStore: deps.mcpServerStore,
+        tokenStore: deps.tokenStore,
+        skillCatalog: deps.skillCatalog,
+        skillStore: deps.skillStore,
+        sandboxCatalog: deps.sandboxCatalog,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        withTransaction: deps.withTransaction,
+        logger: deps.logger,
+      }),
+    ),
   );
   app.route(
     '/api/v1/sessions',
-    createSessionsRouter({
-      sessions: deps.sessions,
-      sessionStore: deps.sessionStore,
-      activeTurns: deps.activeTurns,
-      modelProviderStore: deps.modelProviderStore,
-      mcpServerStore: deps.mcpServerStore,
-      skillStore: deps.skillStore,
-      agentStore: deps.agentStore,
-      sandboxProviderStore: deps.sandboxProviderStore,
-      redis: deps.redis,
-      requestReplyRouter: deps.requestReplyRouter,
-    }),
+    withAuth(
+      createSessionsRouter({
+        sessions: deps.sessions,
+        sessionStore: deps.sessionStore,
+        activeTurns: deps.activeTurns,
+        modelProviderStore: deps.modelProviderStore,
+        mcpServerStore: deps.mcpServerStore,
+        skillStore: deps.skillStore,
+        agentStore: deps.agentStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        redis: deps.redis,
+        requestReplyRouter: deps.requestReplyRouter,
+        resolveUserContext: resolveUserContext,
+      }),
+    ),
   );
   app.route(
     '/api/v1/sessions',
-    createTurnsRouter({
-      sessions: deps.sessions,
-      sessionStore: deps.sessionStore,
-      activeTurns: deps.activeTurns,
-      modelProviderStore: deps.modelProviderStore,
-      mcpServerStore: deps.mcpServerStore,
-      tokenStore: deps.tokenStore,
-      skillStore: deps.skillStore,
-      agentStore: deps.agentStore,
-      eventSubscriptions: deps.eventSubscriptions,
-      sandboxProviderStore: deps.sandboxProviderStore,
-      logger: deps.logger,
-    }),
+    withAuth(
+      createTurnsRouter({
+        sessions: deps.sessions,
+        sessionStore: deps.sessionStore,
+        activeTurns: deps.activeTurns,
+        modelProviderStore: deps.modelProviderStore,
+        mcpServerStore: deps.mcpServerStore,
+        tokenStore: deps.tokenStore,
+        skillStore: deps.skillStore,
+        agentStore: deps.agentStore,
+        eventSubscriptions: deps.eventSubscriptions,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        logger: deps.logger,
+        resolveUserContext: resolveUserContext,
+      }),
+    ),
   );
 
   app.get('/api/v1/docs', swaggerUI({ url: '/api/v1/openapi.json' }));
@@ -164,6 +226,9 @@ export function createServerApp(deps: ServerDeps) {
   app.notFound(routeNotFound);
 
   app.onError((error, c) => {
+    if (error instanceof z.ZodError) {
+      return zodErrorResponse(c, error);
+    }
     if (error instanceof HTTPException) {
       return c.json({ error: { message: error.message } }, error.status);
     }

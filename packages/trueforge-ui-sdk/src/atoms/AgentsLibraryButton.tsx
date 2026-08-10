@@ -5,9 +5,10 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { AgentsLibrary } from './AgentsLibrary.js';
+import { useSlot } from '../theme/SlotsProvider.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { SEARCH_AGENTS_PAGE_SIZE } from './lib/useSearchAgentsList.js';
 
 export type AgentsLibraryButtonProps = {
   className?: string;
@@ -16,10 +17,11 @@ export type AgentsLibraryButtonProps = {
 };
 
 export function AgentsLibraryButton({ className, compact = false, onSelectAgent }: AgentsLibraryButtonProps) {
+  const AgentsLibrary = useSlot('AgentsLibrary');
   const server = useOptionalServer();
   const shell = useOptionalShellMode();
   const [open, setOpen] = useState(false);
-  const [count, setCount] = useState<number | null>(null);
+  const [countLabel, setCountLabel] = useState<string | null>(null);
 
   const enabled = shell?.isLibraryEnabled === true && server != null;
   const agentsListEpoch = shell?.agentsListEpoch ?? 0;
@@ -28,9 +30,11 @@ export function AgentsLibraryButton({ className, compact = false, onSelectAgent 
     if (!enabled || !server) return;
     let cancelled = false;
     void server
-      .searchAgents({ limit: 50 })
+      .searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE })
       .then(rows => {
-        if (!cancelled) setCount(rows.length);
+        if (cancelled) return;
+        // API has no total; a full page means there may be more.
+        setCountLabel(rows.length >= SEARCH_AGENTS_PAGE_SIZE ? `${SEARCH_AGENTS_PAGE_SIZE}+` : String(rows.length));
       })
       .catch(() => undefined);
     return () => {
@@ -64,7 +68,7 @@ export function AgentsLibraryButton({ className, compact = false, onSelectAgent 
             <>
               <span className="truncate">
                 Agents Library
-                {count != null ? <span className="text-muted-foreground"> ({count})</span> : null}
+                {countLabel != null ? <span className="text-muted-foreground"> ({countLabel})</span> : null}
               </span>
               <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
             </>

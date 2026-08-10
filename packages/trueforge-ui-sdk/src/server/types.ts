@@ -17,6 +17,8 @@ export interface ModelSelection {
   provider: string;
   /** When non-empty, UI shows a reasoning-effort picker beside the model selector. */
   reasoningEfforts?: string[];
+  /** Provider logo URL from the model catalog; selector falls back to a monogram when omitted. */
+  providerLogo?: string;
 }
 
 /** Skill picker row. Host extends for fqn, preload, etc. */
@@ -40,12 +42,12 @@ export interface ConnectorState {
 /**
  * Agents library row — SDK-minimal.
  * Hosts extend via `TAgent extends AgentLibraryEntry` for richer metadata/spec shapes.
- * `agentSpec` enables Edit (mutable); Try Agent works with `name` alone.
+ * `agentSpec` enables Edit (mutable); Try works with `name` + `agentId`.
  */
 export interface AgentLibraryEntry {
   name: string;
-  /** Stable id when distinct from display `name`. Falls back to `name` when omitted. */
-  agentId?: string;
+  /** Stable id used for selection, history filters, and session binding. */
+  agentId: string;
   /** Published agent spec — required for Edit; optional for Try-only hosts. */
   agentSpec?: AgentSpec;
 }
@@ -341,6 +343,14 @@ export interface AgentChatServer<
  *
  * Generics let hosts type their catalog rows richer than SDK base.
  */
+export interface AgentBuilderCapabilitiesResponse {
+  data: {
+    sandbox: { enabled: boolean };
+    skill: { enabled: boolean; reason?: string };
+    settings?: { enabled: boolean };
+  };
+}
+
 export interface AgentBuilderServer<
   TSpec extends AgentSpec = AgentSpec,
   TModel extends ModelSelection = ModelSelection,
@@ -348,7 +358,9 @@ export interface AgentBuilderServer<
   TMcp extends ConnectorState = ConnectorState,
   TAgent extends AgentLibraryEntry = AgentLibraryEntry,
   TSave = unknown,
+  TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
 > {
+  getCapabilities(): Promise<TCapabilities>;
   getModels(): Promise<TModel[]>;
   getSkills(): Promise<TSkill[]>;
   getMcp(): Promise<TMcp[]>;
@@ -414,6 +426,7 @@ export interface ModelProviderCatalogEntry<TModel extends ModelEntry = ModelEntr
   type: ProviderType;
   name: string;
   models: TModel[];
+  supportedReasoningEfforts?: string[];
   logo?: string;
 }
 
@@ -709,7 +722,8 @@ export type AgentUIServer<
   TAgent extends AgentLibraryEntry = AgentLibraryEntry,
   TSave = unknown,
   TCatalog extends CatalogServer = CatalogServer,
+  TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
 > = AgentChatServer<TSpec, TSession, TCreate, TList, TUpdate, TTurn, TEvent, TStreamEvent> &
-  AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave> & {
+  AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> & {
     catalog?: TCatalog;
   };

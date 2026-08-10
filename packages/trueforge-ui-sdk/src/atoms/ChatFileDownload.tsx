@@ -93,3 +93,9 @@ export function ChatFileDownload({ files, fileDownloadBaseUrl, onDownloadArtifac
     </details>
   );
 }
+
+declare module '../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    ChatFileDownload: typeof ChatFileDownload;
+  }
+}

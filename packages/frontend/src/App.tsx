@@ -1,34 +1,17 @@
-import {
-  createTrueFoundryServer,
-  TrueforgeUI,
-  useShellMode,
-  WelcomeScreen,
-  type SlotOverrides,
-  type WelcomeScreenProps,
-} from '@truefoundry/trueforge-ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import './agentUiSlots';
+import { createTrueFoundryServer, TrueforgeUI, type SlotOverrides } from '@truefoundry/trueforge-ui';
+import { useEffect, useMemo, useState } from 'react';
+import { AuthErrorScreen } from './AuthErrorScreen';
+import { probeSession, type SessionState } from './authSession';
+import { parseAuthErrorReason } from './authStatusSearch';
 import { getCapabilities, listModels } from './composerLists';
 import { createConnectorCatalog } from './connectorCatalog';
+import { GetStartedScreen } from './GetStartedScreen';
 import { createHarnessBuilderServer } from './harnessBuilderServer';
 import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';
+import { LogoutButton } from './LogoutButton';
 import { createModelProviderCatalog } from './modelProviderCatalog';
 import { createSandboxProviderCatalog } from './sandboxProviderCatalog';
 import { createSkillCatalog } from './skillCatalog';
-
-/** Opens settings once when the empty welcome screen mounts (no models configured). */
-function OpenSettingsWelcomeScreen(props: WelcomeScreenProps) {
-  const { setSettingsOpen } = useShellMode();
-  const openedRef = useRef(false);
-  useEffect(() => {
-    if (openedRef.current) {
-      return;
-    }
-    openedRef.current = true;
-    setSettingsOpen(true);
-  }, [setSettingsOpen]);
-  return <WelcomeScreen {...props} />;
-}
 
 const chatServer = createHarnessChatServer();
 
@@ -49,9 +32,31 @@ type BootState =
   | { status: 'ready'; defaultAgentSpec: HarnessAgentSpec; openSettings: boolean };
 
 export function App() {
+  const authError = parseAuthErrorReason(window.location.search);
+  const [session, setSession] = useState<SessionState | 'checking'>('checking');
   const [boot, setBoot] = useState<BootState>({ status: 'loading' });
 
+  // Gate boot on a non-redirecting `/me` probe: unauthenticated users see the
+  // welcome screen instead of being bounced to login by the auth-aware fetch.
   useEffect(() => {
+    if (authError != null) {
+      return;
+    }
+    const state = { cancelled: false };
+    void probeSession().then(result => {
+      if (!state.cancelled) {
+        setSession(result);
+      }
+    });
+    return () => {
+      state.cancelled = true;
+    };
+  }, [authError]);
+
+  useEffect(() => {
+    if (session !== 'authenticated') {
+      return;
+    }
     const state = { cancelled: false };
     void (async () => {
       try {
@@ -96,14 +101,21 @@ export function App() {
     return () => {
       state.cancelled = true;
     };
-  }, []);
+  }, [session]);
 
-  const overrides: SlotOverrides = useMemo(
-    () => ({
-      ...(boot.status === 'ready' && boot.openSettings ? { WelcomeScreen: OpenSettingsWelcomeScreen } : {}),
-    }),
-    [boot],
-  );
+  const overrides: SlotOverrides = useMemo(() => ({ ShellActionsActionSlot: LogoutButton }), []);
+
+  if (authError != null) {
+    return <AuthErrorScreen reason={authError} />;
+  }
+
+  if (session === 'checking') {
+    return <div className="boot-screen">Loading application…</div>;
+  }
+
+  if (session === 'unauthenticated') {
+    return <GetStartedScreen />;
+  }
 
   if (boot.status === 'error') {
     return (
@@ -131,6 +143,7 @@ export function App() {
           mode: 'AgentLibraryWithComposer',
           defaultAgentSpec: boot.defaultAgentSpec,
         }}
+        initialSettingsOpen={boot.openSettings}
         overrides={overrides}
         className="app-assistant"
       />

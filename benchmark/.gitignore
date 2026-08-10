@@ -1,0 +1,6 @@
+.env
+results/
+mcp_config.json
+dataset/
+__pycache__/
+*.pyc

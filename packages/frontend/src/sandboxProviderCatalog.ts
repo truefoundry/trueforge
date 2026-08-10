@@ -12,7 +12,7 @@ import type {
   SandboxProviderCatalogEntry,
   SandboxProviderConfig,
 } from '@truefoundry/trueforge-ui';
-import { TrueForgeApi as Harness } from 'trueforge';
+import { TrueForgeApi } from 'trueforge-sdk';
 import { harnessClient as client } from './harnessClient';
 
 export type UiSandboxProvider = SandboxProviderBase;
@@ -29,7 +29,7 @@ function displayNameForType(type: string): string {
 }
 
 export function configFromHarness(
-  provider: Harness.CatalogDaytonaSandboxProvider | Harness.DaytonaSandboxProvider,
+  provider: TrueForgeApi.CatalogDaytonaSandboxProvider | TrueForgeApi.DaytonaSandboxProvider,
 ): SandboxProviderConfig {
   return {
     snapshotName: provider.snapshotName,
@@ -40,7 +40,7 @@ export function configFromHarness(
   };
 }
 
-export function toUiCatalogEntry(provider: Harness.CatalogDaytonaSandboxProvider): UiSandboxProviderCatalogEntry {
+export function toUiCatalogEntry(provider: TrueForgeApi.CatalogDaytonaSandboxProvider): UiSandboxProviderCatalogEntry {
   return {
     id: provider.type,
     name: displayNameForType(provider.type),
@@ -49,7 +49,7 @@ export function toUiCatalogEntry(provider: Harness.CatalogDaytonaSandboxProvider
   };
 }
 
-export function toUiSandboxProvider(provider: Harness.DaytonaSandboxProvider): UiSandboxProvider {
+export function toUiSandboxProvider(provider: TrueForgeApi.DaytonaSandboxProvider): UiSandboxProvider {
   return {
     id: provider.type,
     name: displayNameForType(provider.type),
@@ -64,7 +64,7 @@ export function toHarnessManifest(
     type: string;
     apiKey: string;
   } & SandboxProviderConfig,
-): Harness.DaytonaSandboxProvider {
+): TrueForgeApi.DaytonaSandboxProvider {
   if (req.type !== DAYTONA_TYPE) {
     throw new Error(`Unsupported sandbox provider type: ${req.type}`);
   }
@@ -101,7 +101,7 @@ export function createSandboxProviderCatalog(): SandboxCatalogServer {
         const body = await client.settings.sandboxProviders.get();
         providers = [toUiSandboxProvider(body.data)];
       } catch (err) {
-        if (err instanceof Harness.NotFoundError) {
+        if (err instanceof TrueForgeApi.NotFoundError) {
           providers = [];
         } else {
           throw err;

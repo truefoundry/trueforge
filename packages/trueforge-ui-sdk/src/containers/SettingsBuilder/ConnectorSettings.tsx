@@ -362,7 +362,7 @@ const ConnectorSettings = () => {
   return (
     <>
       <h3 className="text-xl font-semibold tracking-tight text-foreground">Connectors</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Enable the tools agents may call.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Connect tools your agents can use.</p>
 
       {error ? (
         <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

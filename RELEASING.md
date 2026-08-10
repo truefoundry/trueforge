@@ -136,14 +136,105 @@ Publish a real version when CI or teammates need it.
 
 ## Deferred to the real OSS release — grep for `TODO(oss)`
 
+Done: root LICENSE + MIT license fields, CONTRIBUTING, SECURITY,
+CODE_OF_CONDUCT, issue/PR templates.
+
 | Item                                                                            | Where                                                   |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| License: UNLICENSED → Apache-2.0 + LICENSE file                                 | both package.jsons, repo root                           |
 | Ship README (guard lives in make-dist-package-json.mjs)                         | packages/harness/scripts                                |
 | Add repository/homepage/bugs/keywords metadata                                  | packages/harness/package.json                           |
 | Add `--provenance` to publish                                                   | .github/workflows/release.yml                           |
 | Replace `internal.devtest.truefoundry.tech` URLs                                | packages/server/src/config                              |
 | Private-repo links in shipped sandbox scripts                                   | packages/harness/src/core/sandbox/scripts/mcp_client.py |
 | Sourcemaps/declarationMap decision                                              | packages/harness/tsup.config.ts, tsconfig.build.json    |
-| CONTRIBUTING / SECURITY / CODE_OF_CONDUCT / CODEOWNERS / CI for external PRs    | .github/                                                |
+| CODEOWNERS / CI for external (fork) PRs                                         | .github/                                                |
 | Secret-scan history, enable secret scanning + push protection, flip repo public | GitHub settings                                         |
+
+---
+
+# Releasing the server image + Helm chart
+
+A separate pipeline ships the deployable artifacts: the server container image
+(API + UI, built from the root `Dockerfile`) and the `charts/truefoundry-utils` Helm
+chart. It is driven by `.github/workflows/release-image-and-chart.yml` and runs
+only on manual **`workflow_dispatch`** (Actions → "Release image and Helm chart"
+→ Run workflow).
+
+## What the workflow does
+
+The dispatch commit SHA is the image tag. The workflow:
+
+1. **Builds and pushes the image** via the shared reusable workflow
+   `truefoundry/github-workflows-public/.github/workflows/build.yml@main` to the
+   JFrog public Artifactory repo, tagged with `github.sha`. The chart pulls the
+   image from JFrog, so JFrog is the only publish target (public ECR is disabled).
+2. **Stamps the chart in the runner workspace** — sets `Chart.yaml`
+   `version` to `0.0.0-<sha>` (Helm SemVer-compatible prerelease), and
+   `appVersion` / `image.tag` to the raw SHA. It does **not** commit those
+   stamps back to `main`.
+3. **Publishes the chart** — packages `charts/truefoundry-utils` and pushes it to
+   the JFrog public OCI Helm repo. It does not attach artifacts to a GitHub
+   Release.
+
+## Per-release flow
+
+1. On the commit you want to ship, run the workflow from the Actions tab (or
+   `gh workflow run release-image-and-chart.yml`).
+2. Watch the run. The image and chart land in JFrog; the job summary prints the
+   image URI.
+
+> npm publish of `@truefoundry/utils-core` is a separate pipeline
+> (`release.yml`) triggered by a `vX.Y.Z` GitHub Release tag that must match
+> `packages/harness/package.json`. It is independent of this image/chart
+> workflow.
+
+## Required repository configuration
+
+Org/repo **variables**: `TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL`,
+`TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY`,
+`TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY`.
+
+Org/repo **secrets**: `TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME`,
+`TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD`.
+
+## Bundled dependencies
+
+The chart bundles Postgres and Redis as optional Bitnami subcharts, declared in
+`charts/truefoundry-utils/Chart.yaml` against the public Bitnami OCI archive
+(`oci://registry-1.docker.io/bitnamicharts`) and pinned by the committed
+`Chart.lock`. The workflow fetches them with `helm dependency build` before
+packaging (the archive is public, no auth). Disable them with
+`postgresql.enabled=false` / `redis.enabled=false` to target external services.
+
+**Images vs charts.** Bitnami left the charts public but relocated their
+container images to `docker.io/bitnamilegacy` (frozen, no security updates). So
+`charts/truefoundry-utils/values.yaml` overrides the subchart images to pinned legacy
+tags mirrored to the TrueFoundry JFrog registry, and sets
+`global.security.allowInsecureImages: true` (required once the registry differs
+from Bitnami's default). Mirror the images once per pinned tag:
+
+```bash
+for img in \
+  postgresql:17.6.0-debian-12-r4 \
+  redis:8.2.1-debian-12-r0; do
+  crane copy "docker.io/bitnamilegacy/${img}" "tfy.jfrog.io/tfy-mirror/bitnamilegacy/${img}"
+done
+# If you enable metrics/volumePermissions, also mirror:
+#   postgres-exporter:0.17.1-debian-12-r16  os-shell:12-debian-12-r51
+#   redis-exporter:1.76.0-debian-12-r0
+```
+
+To bump a bundled version: change the version under `dependencies:` in
+`Chart.yaml`, run `pnpm chart:deps` to refresh `Chart.lock`, then update the
+matching `image.tag` in `values.yaml` and mirror that new legacy tag to JFrog.
+
+## Validating the chart locally
+
+Fetch the subchart deps first (public archive, no auth), then lint/template:
+
+```bash
+pnpm chart:deps       # helm dependency build (writes charts/, uses Chart.lock)
+pnpm chart:lint       # helm lint with charts/truefoundry-utils/ci/lint-values.yaml
+pnpm chart:template   # render the manifests
+pnpm chart:package    # package to dist/ (gitignored)
+```

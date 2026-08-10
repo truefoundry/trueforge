@@ -40,6 +40,8 @@ export type TrueforgeUIProps = {
    * Defaults to `{ mode: "AgentLibraryWithComposer" }`.
    */
   agentConfig?: AgentConfig;
+  /** Open settings on first paint only (host boot with no models configured). */
+  initialSettingsOpen?: boolean;
 };
 
 function LayoutFallback({ className }: { className?: string }) {
@@ -189,8 +191,14 @@ export function TrueforgeUI(props: TrueforgeUIProps) {
   const isMcpAuthScreen =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('screenType') === 'mcp-auth';
 
-  // Kept in a wrapper so the OAuth callback screen renders without resolving a server.
-  return isMcpAuthScreen ? <PostMcpOauthScreen /> : <TrueforgeUIShell {...props} />;
+  // The callback skips server resolution but still inherits host theme and slots.
+  return isMcpAuthScreen ? (
+    <SlotsProvider overrides={props.overrides} theme={props.theme}>
+      <PostMcpOauthScreen />
+    </SlotsProvider>
+  ) : (
+    <TrueforgeUIShell {...props} />
+  );
 }
 
 function TrueforgeUIShell(props: TrueforgeUIProps) {
@@ -200,6 +208,7 @@ function TrueforgeUIShell(props: TrueforgeUIProps) {
     theme,
     className,
     agentConfig = DEFAULT_AGENT_CONFIG,
+    initialSettingsOpen = false,
     server: serverConfig,
     onError,
     ...providerRest
@@ -229,7 +238,7 @@ function TrueforgeUIShell(props: TrueforgeUIProps) {
   return (
     <SlotsProvider overrides={overrides} theme={theme}>
       <ServerProvider server={server}>
-        <ShellModeProvider agentConfig={agentConfig}>
+        <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
           <ChatProviderFromShell server={server} onError={onError} {...providerRest}>
             {layoutTree}
           </ChatProviderFromShell>
