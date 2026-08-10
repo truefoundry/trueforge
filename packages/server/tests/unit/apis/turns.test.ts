@@ -106,6 +106,7 @@ describe('turns', () => {
       const modelProviderStore = new SqliteModelProviderStore(db);
       await modelProviderStore.upsertProvider({
         tenant_id: 'default',
+        name: 'test-provider',
         manifest: {
           // Caller-named, so `custom` is the only type it can be.
           type: 'custom',
@@ -222,6 +223,7 @@ describe('turns', () => {
       const modelProviderStore = new SqliteModelProviderStore(db);
       await modelProviderStore.upsertProvider({
         tenant_id: 'default',
+        name: 'test-provider',
         manifest: {
           // Caller-named, so `custom` is the only type it can be.
           type: 'custom',
