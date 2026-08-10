@@ -1,6 +1,6 @@
 ---
-title: 'Evaluation'
-sidebarTitle: 'Evaluation'
+title: 'Benchmarking'
+sidebarTitle: 'Benchmarking'
 description: 'How TrueForge compares to Claude Managed Agents and deepagents on the same tasks, tools, and model — and how to reproduce it.'
 ---
 
@@ -67,7 +67,7 @@ Most of the cost in an agent run is the loop, not the final answer — every too
 
 - **Leaner context each turn.** It drives from a compact instruction rather than heavy scaffolding; deepagents also carries planning, a virtual filesystem, and sub-agent machinery on every turn.
 - **Fewer tool calls.** It planned the fewest calls of the three to reach the same result — 19 per task, versus 32 and 40.
-- **[Compaction](/context-engineering/overview) instead of replay.** It trims history and [offloads large tool responses](/context-engineering/large-tool-responses) instead of re-sending everything verbatim; deepagents re-reads its accumulated context step after step, which is how it lands at three to four times the tokens for the same task.
+- **[Compaction](/key-features/overview#context-compaction) instead of replay.** It trims history and [offloads large tool responses](/key-features/large-tool-responses) instead of re-sending everything verbatim; deepagents re-reads its accumulated context step after step, which is how it lands at three to four times the tokens for the same task.
 
 ## Reproduce it
 

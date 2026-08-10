@@ -102,7 +102,7 @@ flowchart LR
 | **Turn 3** | Jane (or a support rep) | Approval: allow `process_refund`               | Agent runs the refund and sends a confirmation.                 |
 
 <Note>
-  A turn can also end paused when the agent asks a clarifying question ([`tool.response_required`](/ask-user-questions))
+  A turn can also end paused when the agent asks a clarifying question ([`tool.response_required`](/create-agent/ask-user-questions))
   or needs MCP OAuth ([`mcp.auth_required`](/mcp-servers#in-chat-authentication)). You resume with a new turn, just like
   Turn 3 above.
 </Note>
@@ -166,7 +166,7 @@ Sample payloads:
 }
 ```
 
-Every event carries an `id` and a `thread_id` (`"main"` for the root agent, a generated id for [subagents](/context-engineering/subagents), or `null` for run-level events). The SSE message's `id:` field carries a per-stream **sequence number** used for [resuming after a disconnect](#non-streaming-reconnects-and-cancellation). The stream always opens with `turn.created` and closes with `turn.done`.
+Every event carries an `id` and a `thread_id` (`"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events). The SSE message's `id:` field carries a per-stream **sequence number** used for [resuming after a disconnect](#non-streaming-reconnects-and-cancellation). The stream always opens with `turn.created` and closes with `turn.done`.
 
 For field-level schemas of every event type, see the [turn events reference](/api/turn-events).
 
@@ -198,7 +198,7 @@ Deltas only exist on the live stream. When you list a turn's events afterwards (
 
 <Note>
   **Thread** is a related concept: an execution context inside a turn. The root agent runs on `thread_id: "main"`;
-  [subagents](/context-engineering/subagents) get their own thread ids, announced by `thread.created` / `thread.done`
+  [subagents](/key-features/subagents) get their own thread ids, announced by `thread.created` / `thread.done`
   events. Events carry `thread_id` so you can partition a single turn stream when subagents run in parallel.
 </Note>
 
@@ -389,8 +389,8 @@ The `input` field accepts three item types:
 | `type`               | Purpose                                                                                     |
 | -------------------- | ------------------------------------------------------------------------------------------- |
 | `user.message`       | A message. `content` is a string or an array of `text` / `file` parts (files as data URIs). |
-| `user.tool_approval` | An [approval decision](/human-in-the-loop) for a paused tool call.                          |
-| `user.tool_response` | An [answer](/ask-user-questions) for a paused client-side tool call.                        |
+| `user.tool_approval` | An [approval decision](/create-agent/tool-approval) for a paused tool call.                          |
+| `user.tool_response` | An [answer](/create-agent/ask-user-questions) for a paused client-side tool call.                        |
 
 A single turn cannot mix `user.message` items with approval or tool-response items.
 
@@ -434,7 +434,7 @@ curl -N -X POST http://localhost:8790/api/v1/sessions/sess-7f2a9c1b/turns \
   }'
 ```
 
-The same pattern applies to [`tool.response_required`](/ask-user-questions) (resume with `user.tool_response`) and [`mcp.auth_required`](/mcp-servers#in-chat-authentication) (resume after the user completes OAuth).
+The same pattern applies to [`tool.response_required`](/create-agent/ask-user-questions) (resume with `user.tool_response`) and [`mcp.auth_required`](/mcp-servers#in-chat-authentication) (resume after the user completes OAuth).
 
 ## Non-streaming, reconnects, and cancellation
 

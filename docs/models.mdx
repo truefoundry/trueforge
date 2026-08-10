@@ -1,10 +1,10 @@
 ---
-title: 'Models'
+title: 'Setup Models'
 sidebarTitle: 'Models'
-description: 'Configure model providers once from a shipped catalog, then reference models by name in any agent — switching models is a config change, not a code change.'
+description: 'Connect model providers from the shipped catalog or add a custom OpenAI-compatible endpoint.'
 ---
 
-TrueForge works with the major model providers and any OpenAI-compatible endpoint. Provider credentials are configured once — in the UI under **Settings → Models** or via the settings API — and agents reference models by name. Agent definitions never contain API keys.
+TrueForge works with the major model providers and any OpenAI-compatible endpoint. Configure credentials once under **Settings → Models**. Agents reference models by name — agent definitions never contain API keys.
 
 ## Supported providers
 
@@ -37,11 +37,13 @@ Open **Settings → Models**, pick a provider, and paste your API key. Models fr
 
 ## Where the model list comes from
 
-The providers and models in **Settings → Models** come from a shipped catalog YAML on the server:
+The providers and models in **Settings → Models** come from a shipped catalog YAML:
 
 [`model-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/model-catalog.yaml)
 
 That file lists the standard provider presets and model IDs. When you pick a provider in the UI, you paste your API key and TrueForge stores a configured provider — the catalog itself is never called with your credentials.
+
+To change which presets appear, see [Initial Setup](/harness/initial-setup#changing-what-the-ui-offers).
 
 ## Adding a custom provider
 
@@ -51,34 +53,8 @@ Use the `custom` provider type for vLLM, Ollama, a corporate gateway, or any oth
   <img src="/images/add-custom-model-provider.png" alt="The Add Custom Provider dialog with name, base URL, API key, and model fields" />
 </Frame>
 
-## Referencing a model in an agent
-
-Models are addressed as `provider/model` in the agent spec:
-
-```json
-{
-  "model": {
-    "name": "anthropic/claude-sonnet-4-6",
-    "params": {
-      "max_tokens": 4096,
-      "temperature": 0.2
-    }
-  }
-}
-```
-
-`model.params` supports `max_tokens`, `temperature`, `top_p`, `top_k`, `parallel_tool_calls`, and `reasoning_effort` — plus any extra provider-specific parameters, which are passed through as-is. See the [agent spec reference](/api/agent-spec#model).
-
-Switching models is a one-line change to the agent spec (or one click in the UI). No code edits, no new credentials.
-
-<Tip>
-  Token usage per model call is reported on every `model.message` event (`usage.input_tokens`, `usage.output_tokens`,
-  and a breakdown of where input tokens went), and per-turn totals appear in `turn.done` metrics — so you can see
-  exactly what a model choice costs before switching.
-</Tip>
-
 <Note>
-  **Planned:** automatic model selection for different turns or subagents. Today each agent (and each subagent
-  invocation) uses the model you configure. In the future, TrueForge will be able to pick among a set of models per
-  turn or subagent based on task complexity, latency, and cost — without changing agent code.
+  **Planned:** automatic model selection for different turns or subagents. Today each agent uses the model you
+  configure. In the future, TrueForge will be able to pick among a set of models per turn or subagent based on task
+  complexity, latency, and cost.
 </Note>
