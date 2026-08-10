@@ -3,9 +3,13 @@
 import type * as TrueForge from "../index.js";
 
 export interface ModelMessageUsage {
+    /** Optional cache-read tokens. */
     cacheReadTokens?: number;
+    /** Optional cache-write tokens. */
     cacheWriteTokens?: number;
+    /** Input tokens for this model call. */
     inputTokens: number;
     inputTokensBreakdown: TrueForge.ModelMessageUsageInputTokensBreakdown;
+    /** Output tokens for this model call. */
     outputTokens: number;
 }

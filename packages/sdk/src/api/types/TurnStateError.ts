@@ -3,8 +3,11 @@
 import type * as TrueForge from "../index.js";
 
 export interface TurnStateError {
+    /** ISO 8601 time when the error state was recorded. */
     completedAt: string;
+    /** Human-readable error message. */
     message: string;
-    metrics?: TrueForge.TurnMetrics;
+    /** Optional billable aggregate for work done before the error. */
+    metrics?: TrueForge.TurnStateErrorMetrics;
     status: "error";
 }

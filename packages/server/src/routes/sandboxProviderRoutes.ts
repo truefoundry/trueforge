@@ -28,6 +28,14 @@ export const getSandboxProviderCatalogRoute = createRoute({
       content: { 'application/json': { schema: GetSandboxProviderCatalogResponseSchema } },
       description: 'The shipped catalog, verbatim.',
     },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the caller is authenticated but not an admin.',
+    },
   },
 });
 

@@ -3,6 +3,7 @@
 export interface FileContent {
     /** Data URI: `data:<mime>;base64,<payload>`. MIME type is parsed from the URI. */
     data: string;
+    /** Filename presented to the agent. */
     name: string;
     type: "file";
 }

@@ -8,8 +8,12 @@ import type { CompletionUsage } from '../llm/LLMTypes';
  */
 export const CurrentContextUsageSchema = z
   .object({
-    prompt_tokens: z.number().int().nonnegative(),
-    completion_tokens: z.number().int().nonnegative(),
+    prompt_tokens: z.number().int().nonnegative().describe('Live prompt-side context tokens for the next LLM call.'),
+    completion_tokens: z
+      .number()
+      .int()
+      .nonnegative()
+      .describe('Live completion-side context tokens for the next LLM call.'),
   })
   .openapi('CurrentContextUsage');
 

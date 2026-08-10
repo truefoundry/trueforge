@@ -2,4 +2,7 @@
 
 import type * as TrueForge from "../index.js";
 
+/**
+ * Assistant message content as text or content parts.
+ */
 export type ModelMessageEventContent = string | TrueForge.ModelMessageEventContentOneItem[];

@@ -9,10 +9,10 @@ import { ModelEntrySchema, ProviderTypeSchema, refineUniqueModels } from './mode
 /** Catalog entry: no `custom` providers — those exist only as tenant configuration. */
 export const CatalogProviderSchema = z
   .object({
-    type: ProviderTypeSchema.exclude(['custom']),
+    type: ProviderTypeSchema.exclude(['custom']).describe('Well-known provider type (catalog excludes `custom`).'),
     name: NameSchema,
     logo: z.url().optional().describe('URL of the provider logo asset.'),
-    models: z.array(ModelEntrySchema).min(1),
+    models: z.array(ModelEntrySchema).min(1).describe('Preset models for this catalog provider.'),
   })
   .strict()
   .openapi('CatalogProvider');

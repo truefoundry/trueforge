@@ -9,11 +9,11 @@ import { McpServerAuthSettingsSchema, McpServerTypeSchema } from './mcpServer';
 /** Catalog entry — discovery preset the settings UI copies into a PUT body. */
 export const CatalogMcpServerSchema = z
   .object({
-    type: McpServerTypeSchema,
+    type: McpServerTypeSchema.describe('MCP server kind (`remote` today).'),
     name: NameSchema,
     logo: z.url().optional().describe('URL of the MCP server logo asset.'),
     url: z.url().describe('URL of the remote MCP server.'),
-    auth: McpServerAuthSettingsSchema.optional(),
+    auth: McpServerAuthSettingsSchema.optional().describe('Optional default auth settings for the preset.'),
   })
   .strict()
   .openapi('CatalogMcpServer');

@@ -3,8 +3,9 @@
 import type * as TrueForge from "../index.js";
 
 export interface ThreadDoneEvent extends TrueForge.BaseThreadDoneEvent {
+    /** ISO 8601 event timestamp. */
     createdAt: string;
-    /** Unique identifier for the event */
+    /** Unique identifier for the event (monotonic ULID). */
     id: string;
     state: TrueForge.ThreadState;
     type: "thread.done";

@@ -3,13 +3,18 @@
 import type * as TrueForge from "../index.js";
 
 export interface TurnCreatedEvent {
+    /** ISO 8601 event timestamp. */
     createdAt: string;
-    /** Unique identifier for the event */
+    /** Unique identifier for the event (monotonic ULID). */
     id: string;
+    /** Input items supplied when the turn was created. */
     input?: TrueForge.TurnInputItem[];
+    /** Prior turn this turn chains from; null for a root turn. */
     previousTurnId: string | null;
     state: TrueForge.TurnStateRunning;
+    /** Thread that owns the event; null for turn-level lifecycle events. */
     threadId: string | null;
+    /** Id of the newly created turn. */
     turnId: string;
     type: "turn.created";
 }
