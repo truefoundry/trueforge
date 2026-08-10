@@ -80,8 +80,8 @@ export function SaveAgentButton() {
     }
   };
 
-  const triggerLabel = isUpdate ? 'Update Agent' : 'Save as agent';
-  const modalTitle = isUpdate ? 'Update Agent' : 'Save as agent';
+  const triggerLabel = isUpdate ? 'Update Agent' : 'Save agent';
+  const modalTitle = isUpdate ? 'Update Agent' : 'Save agent';
   const modalDescription = isUpdate
     ? 'Save changes to this agent in the Agents library'
     : 'Reuse this setup later from the Agents library';
