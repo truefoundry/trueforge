@@ -12,7 +12,6 @@ export async function savePendingAuthorization(
   db: Kysely<Database>,
   pending: OAuthPendingAuthorization,
 ): Promise<void> {
-  // `state` and `id` are their own columns; only the remainder goes in the blob.
   const authData = toStoredOAuthPendingAuthorizationData(pending);
 
   await db
@@ -20,6 +19,7 @@ export async function savePendingAuthorization(
     .values({
       id: pending.state,
       oauth_server_id: pending.id,
+      user_id: pending.userRef,
       auth_data: json(authData),
       created_at: now(),
     })
@@ -38,7 +38,7 @@ export async function consumePendingAuthorization(
     .deleteFrom('oauth_pending_authorization')
     .where('id', '=', params.state)
     .where('created_at', '>', nowMinusMs(PENDING_AUTHORIZATION_TTL_MS))
-    .returning(['id', 'oauth_server_id', 'auth_data'])
+    .returning(['id', 'oauth_server_id', 'user_id', 'auth_data'])
     .executeTakeFirst();
 
   if (row === undefined) {
@@ -48,6 +48,7 @@ export async function consumePendingAuthorization(
   return {
     state: row.id,
     id: row.oauth_server_id,
+    userRef: row.user_id,
     ...fromStoredOAuthPendingAuthorizationData(row.auth_data),
   };
 }

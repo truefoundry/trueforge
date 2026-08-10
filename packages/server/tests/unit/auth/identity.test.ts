@@ -27,7 +27,7 @@ describe('isAdmin', () => {
     expect(isAdmin(LOCAL_USER_CONTEXT)).toBe(true);
   });
 
-  it('checks role when OIDC is configured', async () => {
+  it('checks role when auth is enabled', async () => {
     globalThis.fetch = async () =>
       new Response(
         JSON.stringify({

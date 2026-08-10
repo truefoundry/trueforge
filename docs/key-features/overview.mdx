@@ -1,19 +1,34 @@
 ---
-title: 'Context Engineering'
+title: 'Key Features'
 sidebarTitle: 'Overview'
-description: 'How TrueForge manages, optimizes, and constrains agent context within model limits.'
+description: 'Sandbox-as-tool, context engineering, human checkpoints, and Generative UI — how TrueForge keeps agents reliable and efficient.'
 ---
+
+TrueForge is more than model + tools. These harness features keep long agent runs accurate, cheaper, and safer.
+
+| Feature | What it does |
+| --- | --- |
+| [Sandbox as a tool](/sandbox) | Isolated code/file execution without putting secrets or the agent loop inside the sandbox |
+| [Context engineering](#what-is-context-engineering) | Progressive skills, deferred tools, subagents, offloading, Code Mode, compaction |
+| [Tool approval](/create-agent/tool-approval) | Pause before write/destructive MCP tools |
+| [Ask User Questions](/create-agent/ask-user-questions) | Structured clarification mid-run |
+| [Generative UI](/create-agent/generative-ui) | Charts, tables, and cards streamed into chat |
+| [In-chat MCP OAuth](/mcp-servers#in-chat-authentication) | Connect button when a connector needs authorization |
+
+## Sandbox as a tool
+
+Unlike harnesses that run the whole agent inside a VM, TrueForge keeps the agent loop on the server and uses the [sandbox](/sandbox) only for code, files, and shell. Secrets stay out of the sandbox; compute is provisioned only when needed. Skills and Code Mode require it.
 
 ## What is context engineering?
 
-Context engineering is the practice of providing the **right information in the right format** so an agent can reliably accomplish tasks. In TrueForge, _context_ is everything the model sees on each step — from system instructions and skills to tool definitions, conversation history, and tool results.
+Context engineering is providing the **right information in the right format** so an agent can finish the job reliably. In TrueForge, _context_ is everything the model sees on each step — instructions, [skills](/skills), [MCP](/mcp-servers) tool definitions, conversation history, and tool results.
 
-Getting context right has a direct impact on agent quality:
+Getting that balance wrong hurts quality:
 
-- **Too little context** — the agent lacks the information it needs and produces wrong or incomplete answers.
-- **Too much context** — the model overflows its context window or the signal gets buried in noise, degrading reasoning quality and increasing cost and latency.
+- **Too little context** — the agent lacks what it needs and answers poorly.
+- **Too much context** — the window fills with noise, reasoning degrades, and cost/latency climb.
 
-TrueForge automates the balance through a layered set of strategies. To understand them, it helps to think of context in two phases:
+TrueForge manages the balance with layered strategies. Think of context in two phases:
 
 <CardGroup cols={2}>
   <Card title="Input context" icon="upload" href="#input-context">
@@ -56,7 +71,7 @@ Input context is everything the model receives at the **start** of a run. It is 
   <Accordion title="MCP tool definitions" icon="plug">
     Each tool definition — name, description, input schema, output schema — consumes tokens. With many MCP servers each exposing dozens of tools, the schemas alone can fill a large portion of the context window before the user types anything.
 
-    By default (`preload: false`), each attached MCP server contributes only its `name` and `description`; individual tool schemas are discovered on demand. Turn `preload` on only for small, frequently-used servers. See [Deferred tool loading](/context-engineering/deferred-tool-loading).
+    By default (`preload: false`), each attached MCP server contributes only its `name` and `description`; individual tool schemas are discovered on demand. Turn `preload` on only for small, frequently-used servers. See [Deferred tool loading](/key-features/deferred-tool-loading).
 
   </Accordion>
 </AccordionGroup>
@@ -71,22 +86,22 @@ Runtime context is everything added to the model's context **as the run progress
 | **Assistant messages** | The model's reasoning and replies on each step                                    |
 | **Tool calls**         | Each tool invocation made by the agent, with its arguments                        |
 | **Tool results**       | Whatever the tool returns — JSON payloads, file contents, search results, errors  |
-| **Subagent outputs**   | Final results returned from delegated [subagents](/context-engineering/subagents) |
+| **Subagent outputs**   | Final results returned from delegated [subagents](/key-features/subagents) |
 
 Runtime context is where most of the **context bloat problem** happens. A single tool call returning a 50,000-token JSON payload, or a long conversation with dozens of intermediate steps, can quickly approach the model's limit. This is the part the harness actively manages.
 
 ## Managing runtime context
 
 <CardGroup cols={2}>
-  <Card title="Subagents" icon="diagram-project" href="/context-engineering/subagents">
+  <Card title="Subagents" icon="diagram-project" href="/key-features/subagents">
     Delegate focused subtasks to parallel subagents, each with its own clean context. Only the final result flows back —
     the intermediate tool calls never touch the main context.
   </Card>
-  <Card title="Large Result Offloading" icon="file-export" href="/context-engineering/large-tool-responses">
+  <Card title="Large Result Offloading" icon="file-export" href="/key-features/large-tool-responses">
     When a tool returns more data than fits comfortably in context, the harness writes the full output to a sandbox file
     and replaces it with a short preview and the file path.
   </Card>
-  <Card title="Code Mode" icon="code" href="/context-engineering/code-mode">
+  <Card title="Code Mode" icon="code" href="/key-features/code-mode">
     The agent calls MCP tools from a Python script in the sandbox, processing results in code. Only the printed summary
     enters context.
   </Card>

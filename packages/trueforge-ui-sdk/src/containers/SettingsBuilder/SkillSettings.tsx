@@ -7,6 +7,7 @@ import SearchInput from '@/atoms/primitives/SearchInput.js';
 import { Icon } from '@/icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { RegistrySkill, SkillBase, SkillCatalogEntry, SkillConfigBase } from '../../server/types.js';
+import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import ImportGithubSkillForm from './ImportGithubSkillForm.js';
 
 const matchesQuery = (query: string, name: string, description: string) =>
@@ -34,7 +35,7 @@ const SkillSettings = () => {
       setSkills(defined);
       setCatalog(available);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load skills');
+      setError(getErrorMessage(err, 'Failed to load skills'));
     } finally {
       setLoading(false);
     }
@@ -65,7 +66,7 @@ const SkillSettings = () => {
       await fn();
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Request failed');
+      setError(getErrorMessage(err, 'Request failed'));
       throw err;
     } finally {
       setBusy(false);
