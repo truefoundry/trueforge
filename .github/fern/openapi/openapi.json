@@ -138,13 +138,6 @@
               "$ref": "#/components/schemas/SkillNameRef"
             },
             "type": "array"
-          },
-          "variables": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "description": "Optional string key–value map reserved for parameterizing agent definitions.",
-            "type": "object"
           }
         },
         "required": [
@@ -3887,13 +3880,6 @@
               "$ref": "#/components/schemas/SkillNameRef"
             },
             "type": "array"
-          },
-          "variables": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "description": "Optional string key–value map reserved for parameterizing agent definitions.",
-            "type": "object"
           }
         },
         "required": [

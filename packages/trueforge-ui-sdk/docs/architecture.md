@@ -45,8 +45,9 @@ provider. See [customization.md](./customization.md) for the keep-list.
 
 ## Theming
 
-Default atoms use CSS variables from `styles.css`. Override colours in host
-`:root` / `.dark` after importing the SDK stylesheet, or via `theme.tokens`.
+Default atoms use CSS variables from the auto-injected stylesheet (scoped to
+`.aui-theme-root`). Override colours via `theme.tokens` or host CSS on
+`.aui-theme-root` / `.aui-theme-root.dark`.
 
 ## Errors
 

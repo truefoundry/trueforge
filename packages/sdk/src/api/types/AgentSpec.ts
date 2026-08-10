@@ -17,6 +17,4 @@ export interface AgentSpec {
     responseFormat?: TrueForge.ResponseFormat;
     /** Optional name-only skill references. Requires `config.sandbox.enabled: true`. */
     skills?: TrueForge.SkillNameRef[];
-    /** Optional string key–value map reserved for parameterizing agent definitions. */
-    variables?: Record<string, string>;
 }

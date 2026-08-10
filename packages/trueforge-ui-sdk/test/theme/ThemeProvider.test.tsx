@@ -39,11 +39,25 @@ describe('ThemeProvider', () => {
   beforeEach(() => {
     localStorage.clear();
     document.documentElement.classList.remove('dark');
+    document.getElementById('trueforge-ui-styles')?.remove();
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     document.documentElement.classList.remove('dark');
+    document.getElementById('trueforge-ui-styles')?.remove();
+  });
+
+  it('applies controlled dark mode on the theme root only', () => {
+    const { container } = render(
+      <ThemeProvider theme={{ mode: 'dark' }}>
+        <ModeProbe />
+      </ThemeProvider>,
+    );
+    expect(screen.getByTestId('mode')).toHaveTextContent('dark');
+    expect(getThemeRoot(container)).toHaveClass('dark');
+    expect(getThemeRoot(container)).toHaveAttribute('data-theme', 'dark');
+    expect(document.documentElement).not.toHaveClass('dark');
   });
 
   it('requires a provider for useTheme', () => {
@@ -73,7 +87,8 @@ describe('ThemeProvider', () => {
       screen.getByRole('button', { name: 'dark' }).click();
     });
     expect(screen.getByTestId('mode')).toHaveTextContent('dark');
-    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(getThemeRoot(document.body).classList.contains('dark')).toBe(true);
     expect(localStorage.getItem('aui-theme-preference')).toBe('dark');
   });
 
@@ -98,7 +113,7 @@ describe('ThemeProvider', () => {
     );
     localStorage.setItem('aui-theme-preference', 'system');
 
-    const { unmount } = render(
+    const { unmount, container } = render(
       <ThemeProvider>
         <ModeProbe />
       </ThemeProvider>,
@@ -106,6 +121,7 @@ describe('ThemeProvider', () => {
 
     expect(screen.getByTestId('preference')).toHaveTextContent('system');
     expect(screen.getByTestId('mode')).toHaveTextContent('light');
+    expect(getThemeRoot(container).classList.contains('dark')).toBe(false);
 
     systemDark = true;
     act(() => {
@@ -113,7 +129,8 @@ describe('ThemeProvider', () => {
     });
 
     expect(screen.getByTestId('mode')).toHaveTextContent('dark');
-    expect(document.documentElement).toHaveClass('dark');
+    expect(document.documentElement).not.toHaveClass('dark');
+    expect(getThemeRoot(container).classList.contains('dark')).toBe(true);
 
     unmount();
     expect(removeEventListener).toHaveBeenCalledWith('change', expect.any(Function));

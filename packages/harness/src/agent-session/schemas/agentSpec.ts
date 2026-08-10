@@ -318,10 +318,6 @@ export const AgentSpecSchema = z
       .describe('Optional name-only skill references. Requires `config.sandbox.enabled: true`.'),
     // Factory must parse so nested RuntimeConfig field defaults materialize.
     config: RuntimeConfigSchema.default(() => RuntimeConfigSchema.parse({})),
-    variables: z
-      .record(z.string(), z.string())
-      .optional()
-      .describe('Optional string key–value map reserved for parameterizing agent definitions.'),
   })
   .describe('Complete agent definition used inline on a session or saved as a named agent.')
   .openapi('AgentSpec');
