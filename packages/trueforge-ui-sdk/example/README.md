@@ -13,9 +13,10 @@ yarn build
 ```
 
 `link:..` symlinks the SDK so example picks up a fresh `dist/` after each
-`yarn build`. Re-run `yarn` in `example/` if the link is missing. The SDK
-injects its stylesheet from `ThemeProvider` — no Tailwind or CSS import in
-the host.
+`yarn build`. Re-run `yarn` in `example/` if the link is missing. The example
+imports Tailwind via `@tailwindcss/vite` (`@import "tailwindcss"` in
+`src/index.css`) for host preflight and chrome utilities; SDK styles inject
+from `ThemeProvider`.
 
 2. Configure env:
 

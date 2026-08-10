@@ -16,13 +16,14 @@
     "@truefoundry/trueforge-ui": "link:..",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "tailwind": "^4.0.0",
     "truefoundry-gateway-sdk": "^0.4.0-rc.5"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",
+    "tailwindcss": "^4.3.2",
     "typescript": "^5.9.3",
     "vite": "^6.3.5"
   },
