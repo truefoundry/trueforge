@@ -50,7 +50,7 @@ const openApiInfo = {
   version: '0.1.0',
 } as const;
 
-/** Registers the Bearer ID-token scheme used by {@link buildOpenApiDocument}. Call once per app. */
+/** Registers the Bearer ID-token scheme used by {@link buildOpenApiDocument}. */
 export function registerOpenApiBearerAuth(app: OpenAPIHono): void {
   app.openAPIRegistry.registerComponent('securitySchemes', BEARER_AUTH_SCHEME, {
     type: 'http',
@@ -68,6 +68,9 @@ export function registerOpenApiBearerAuth(app: OpenAPIHono): void {
  */
 export function buildOpenApiDocument(app: OpenAPIHono, options?: { authEnabled?: boolean }) {
   const authEnabled = options?.authEnabled ?? false;
+  if (authEnabled) {
+    registerOpenApiBearerAuth(app);
+  }
   return app.getOpenAPI31Document({
     openapi: '3.1.0',
     info: openApiInfo,
@@ -124,9 +127,6 @@ export interface ServerDeps<TTransaction> {
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
   const authEnabled = deps.oidcClient != null;
-  if (authEnabled) {
-    registerOpenApiBearerAuth(app);
-  }
 
   app.get('/healthz', c => c.text('OK!'));
 

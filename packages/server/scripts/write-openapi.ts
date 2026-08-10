@@ -11,7 +11,7 @@ import { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import winston from 'winston';
-import { buildOpenApiDocument, createServerApp, registerOpenApiBearerAuth } from '../src/app';
+import { buildOpenApiDocument, createServerApp } from '../src/app';
 import { McpCatalog } from '../src/catalog/McpCatalog';
 import { ModelCatalog } from '../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../src/catalog/SandboxCatalog';
@@ -70,8 +70,8 @@ const app = createServerApp({
 });
 
 // Runtime apps only advertise BearerAuth when OIDC is configured. The committed
-// Fern OpenAPI still documents optional Bearer so the SDK keeps `token` support.
-registerOpenApiBearerAuth(app);
+// Fern OpenAPI still documents optional Bearer so the SDK keeps `token` support
+// (`buildOpenApiDocument` registers the scheme when authEnabled).
 const document = buildOpenApiDocument(app, { authEnabled: true });
 const sdkOutputPath = path.join(import.meta.dirname, '../../../.github/fern/openapi/openapi.json');
 mkdirSync(path.dirname(sdkOutputPath), { recursive: true });
