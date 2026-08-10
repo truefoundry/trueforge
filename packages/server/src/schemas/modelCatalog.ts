@@ -30,7 +30,7 @@ export const CatalogCustomModelProviderSchema = z
   .openapi('CatalogCustomModelProvider');
 
 export const CatalogModelProviderSchema = z
-  .union([CatalogWellKnownModelProviderSchema, CatalogCustomModelProviderSchema])
+  .discriminatedUnion('type', [CatalogWellKnownModelProviderSchema, CatalogCustomModelProviderSchema])
   .openapi('CatalogModelProvider');
 
 export const ModelCatalogFileSchema = z

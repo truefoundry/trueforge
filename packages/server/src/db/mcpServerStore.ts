@@ -145,7 +145,7 @@ export function fromStoredOAuthClientRecord(params: {
   };
 }
 
-/** The blob half of a pending authorization; `state`/`id` live in their own columns. */
+/** The blob half of a pending authorization; `state`/`id`/`user_id` live in their own columns. */
 export function toStoredOAuthPendingAuthorizationData(
   pending: ContractOAuthPendingAuthorization,
 ): OAuthPendingAuthorizationData {

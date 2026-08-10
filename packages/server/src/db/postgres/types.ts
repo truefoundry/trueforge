@@ -382,14 +382,15 @@ export interface McpServerTable {
 }
 
 /**
- * PRIMARY KEY (oauth_server_id)
- * No `tenant_id` — already 1:1 with tenant via the FK. Any tenant-scoped read resolves
- * `oauth_server_id` through mcp_server (by tenant_id + name) first; this table is never
- * queried by tenant_id directly.
+ * PRIMARY KEY (oauth_server_id, user_id)
+ * No `tenant_id` — already scoped to tenant via the FK. Tokens are per harness user
+ * (`user_id` = `UserContext.userRef`); any tenant-scoped read resolves `oauth_server_id`
+ * through mcp_server (by tenant_id + name) first.
  */
 export interface OAuthTokenTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
+  user_id: string;
   /** access_token, refresh_token, expires_at, scope. */
   token: JSONColumnType<OAuthToken, OAuthToken, OAuthToken>;
   updated_at: Date;
@@ -405,6 +406,7 @@ export interface OAuthPendingAuthorizationTable {
   id: string;
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
+  user_id: string;
   auth_data: JSONColumnType<
     OAuthPendingAuthorizationData,
     OAuthPendingAuthorizationData,

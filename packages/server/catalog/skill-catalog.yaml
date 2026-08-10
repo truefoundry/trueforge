@@ -1,10 +1,114 @@
 # Shipped skill catalog: skill presets offered by
 # GET /api/v1/settings/skills/catalog for the settings UI to copy into
 # PUT /api/v1/settings/skills bodies. Discovery-only — never executed against.
+#
+# Entries reference upstream skill repos directly (url + path + ref); installing
+# a preset sparse-clones that subdirectory into the sandbox. Only permissively
+# licensed skills (Apache-2.0 / MIT) are listed — licenses were verified against
+# each skill's upstream LICENSE and are noted in the comments below. The schema
+# stores only {type, name, url, path, ref, description}; license and the MCP a
+# skill pairs with live in the comments for provenance.
+#
+# NOTE: Anthropic's document skills (pdf, docx, pptx, xlsx) are intentionally
+# excluded — their LICENSE.txt is proprietary ("All rights reserved", usable
+# only within Anthropic's Services) and forbids extracting/retaining/redistributing
+# the materials, which a clone-into-sandbox preset would do.
 skills:
+  # ── Anthropic skills (github.com/anthropics/skills · per-skill LICENSE, all Apache-2.0) ──
   - type: git
     name: algorithmic-art
     url: https://github.com/anthropics/skills
     path: skills/algorithmic-art
     ref: main
     description: Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration.
+
+  # Agent-builder skills — author skills, MCP servers, and web artifacts.
+  - type: git
+    name: skill-creator
+    url: https://github.com/anthropics/skills
+    path: skills/skill-creator
+    ref: main
+    description: Scaffold, refine, and package new Agent Skills, including SKILL.md structure and evaluation.
+  - type: git
+    name: mcp-builder
+    url: https://github.com/anthropics/skills
+    path: skills/mcp-builder
+    ref: main
+    description: Build Model Context Protocol (MCP) servers — tool definitions, transports, and packaging.
+  - type: git
+    name: web-artifacts-builder
+    url: https://github.com/anthropics/skills
+    path: skills/web-artifacts-builder
+    ref: main
+    description: Build self-contained web artifacts (HTML/JS/CSS) that render as interactive standalone pages.
+
+  # ── MCP-paired workflow skills (each pairs with the noted MCP connector) ──
+
+  # tavily-research — pairs with the Tavily retrieval MCP. (tavily-ai/skills · MIT)
+  - type: git
+    name: tavily-research
+    url: https://github.com/tavily-ai/skills
+    path: skills/tavily-research
+    ref: main
+    description: Run structured web research with the Tavily MCP — search, extract, and synthesize sources.
+
+  # supabase — pairs with the Supabase MCP. (supabase/agent-skills · MIT)
+  - type: git
+    name: supabase
+    url: https://github.com/supabase/agent-skills
+    path: skills/supabase
+    ref: main
+    description: Query and manage a Supabase Postgres database via SQL through the Supabase MCP.
+
+  # wiki-architect / wiki-qa — pair with DeepWiki / GitHub for repo briefs. (microsoft/skills · MIT)
+  - type: git
+    name: wiki-architect
+    url: https://github.com/microsoft/skills
+    path: .github/plugins/deep-wiki/skills/wiki-architect
+    ref: main
+    description: Plan and structure a repository wiki / brief from a codebase (DeepWiki).
+  - type: git
+    name: wiki-qa
+    url: https://github.com/microsoft/skills
+    path: .github/plugins/deep-wiki/skills/wiki-qa
+    ref: main
+    description: Answer questions about a repository from its generated wiki (DeepWiki); companion to wiki-architect.
+
+  # openai/skills — per-skill licenses (verified). Apache-2.0 unless noted.
+  # NOTE: this repo is deprecated upstream — plan to re-vendor from openai/plugins
+  # later and update the url/path/ref.
+  # linear — pairs with the Linear MCP. (Apache-2.0)
+  - type: git
+    name: linear
+    url: https://github.com/openai/skills
+    path: skills/.curated/linear
+    ref: main
+    description: Triage and manage Linear issues (create, update, search) via the Linear MCP.
+  # gh-fix-ci — pairs with the GitHub MCP. (Apache-2.0)
+  - type: git
+    name: gh-fix-ci
+    url: https://github.com/openai/skills
+    path: skills/.curated/gh-fix-ci
+    ref: main
+    description: Diagnose and fix failing GitHub CI checks on a pull request via the GitHub MCP.
+  # notion-knowledge-capture — pairs with the Notion MCP. (MIT · Notion Labs, Inc.)
+  - type: git
+    name: notion-knowledge-capture
+    url: https://github.com/openai/skills
+    path: skills/.curated/notion-knowledge-capture
+    ref: main
+    description: Capture and organize knowledge into Notion pages and databases via the Notion MCP.
+  # sentry — pairs with the Sentry MCP. (Apache-2.0)
+  - type: git
+    name: sentry
+    url: https://github.com/openai/skills
+    path: skills/.curated/sentry
+    ref: main
+    description: Investigate and triage Sentry errors and issues via the Sentry MCP.
+  # jupyter-notebook — data analysis (pairs with data/DB MCPs such as Supabase). (Apache-2.0)
+  - type: git
+    name: jupyter-notebook
+    url: https://github.com/openai/skills
+    path: skills/.curated/jupyter-notebook
+    ref: main
+    description: Perform data analysis in Jupyter notebooks — load data, compute, and visualize results.

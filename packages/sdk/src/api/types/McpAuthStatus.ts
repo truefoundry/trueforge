@@ -2,6 +2,9 @@
 
 import type * as TrueForge from "../index.js";
 
+/**
+ * Auth state for the calling user.
+ */
 export interface McpAuthStatus {
     /** When auth is required, this contains the URL to redirect the user to for authorization. */
     authorizationUrl?: string;

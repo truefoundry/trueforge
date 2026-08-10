@@ -102,7 +102,7 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
       <img src="/images/quickstart-sandbox.png" alt="The Daytona sandbox provider dialog with snapshot name, exec timeout, lifecycle intervals, and an API key field" />
     </Frame>
 
-    See the [Sandbox guide](/sandbox) for the exact API-key permissions and the image-sync command.
+    See the [Sandbox guide](/sandbox) for provider setup details.
   </Step>
 
   <Step title="Compose an agent and start chatting">
@@ -111,7 +111,7 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
     1. **Pick a model** from the selector in the composer.
     2. Open the **+** menu → **Connectors** and enable the MCP server you connected.
     3. In the same menu → **Skills**, enable your skill.
-    4. Send your message. Streaming, tool calls, sandbox output, and [approvals](/human-in-the-loop) all show up live.
+    4. Send your message. Streaming, tool calls, sandbox output, and [approvals](/create-agent/tool-approval) all show up live.
 
     <Frame caption="Pick a model, then add your connector and skill to the turn from the + menu.">
       <img src="/images/quickstart-composer-connectors.png" alt="The composer with a model selected and the + menu open on the Connectors tab, a connector checked" />
@@ -130,45 +130,13 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
   </Step>
 
   <Step title="Find it in the Agents Library">
-    Open **Agents Library** from the sidebar. Your saved agent is there — click **Try** to start a fresh chat with the same setup, or **Edit** to tweak it.
+    Open **Agents Library** from the sidebar. Your saved agent is there — click **Try** to start a fresh chat with the same setup, or **Edit** to tweak it. See [Agent Library](/agent-library) for shared-visibility notes in hosted mode.
 
     <Frame>
       <img src="/images/quickstart-agents-library.png" alt="The Agents Library listing the saved github-repo-explainer agent with Edit and Try actions" />
     </Frame>
   </Step>
 </Steps>
-
-Everything you configure in Settings is also available through the API — see the interactive docs at `/api/v1/docs`.
-
-## Call the API
-
-Every conversation in the UI is a session in the API. Create one yourself:
-
-```bash
-curl -X POST http://localhost:8790/api/v1/sessions \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "agent": {
-      "type": "value",
-      "agent_spec": {
-        "model": { "name": "anthropic/claude-sonnet-4-6" },
-        "instructions": "You are a helpful assistant."
-      }
-    }
-  }'
-```
-
-Then start a turn and stream events over SSE:
-
-```bash
-curl -N -X POST http://localhost:8790/api/v1/sessions/{session_id}/turns \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "input": [{ "type": "user.message", "content": "Hello!" }]
-  }'
-```
-
-See the [API overview](/api/overview) for the full lifecycle — turn chaining, approvals, and event handling.
 
 ## FAQ
 
@@ -210,16 +178,16 @@ See the [API overview](/api/overview) for the full lifecycle — turn chaining, 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Connect MCP servers" icon="plug" href="/mcp-servers">
-    Give your agent tools — with per-tool enablement and approval policies.
+  <Card title="Initial Setup" icon="sliders" href="/harness/initial-setup">
+    Models, MCP servers, skills, sandbox — and how catalogs work.
   </Card>
-  <Card title="Enable the sandbox" icon="cube" href="/sandbox">
-    Let the agent run code, work with files, and use skills.
+  <Card title="Create an Agent" icon="robot" href="/create-agent/overview">
+    Select resources and configure approvals, questions, and Generative UI.
   </Card>
-  <Card title="Context engineering" icon="layer-group" href="/context-engineering/overview">
-    How TrueForge keeps agent context lean on long tasks.
+  <Card title="Key Features" icon="layer-group" href="/key-features/overview">
+    Subagents, deferred tools, code mode, compaction, and more.
   </Card>
-  <Card title="API reference" icon="code" href="/api/overview">
+  <Card title="SDK" icon="code" href="/api/overview">
     Sessions, turns, events, and the agent spec.
   </Card>
 </CardGroup>
