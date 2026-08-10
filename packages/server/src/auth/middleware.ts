@@ -12,18 +12,24 @@ declare module 'hono' {
   }
 }
 
+const AUTH_HEADER_TYPE = 'Bearer';
+
 /**
  * OIDC ID token from `Authorization: Bearer <jwt>` when present.
  * Case-insensitive scheme; rejects empty credentials. Non-Bearer schemes → undefined
  * so cookie auth can still apply.
  */
 export function readBearerIdToken(c: Context): string | undefined {
-  const header = c.req.header('Authorization');
+  const header = c.req.header('Authorization')?.trim();
   if (!header) {
     return undefined;
   }
-  const match = /^Bearer\s+(\S+)/i.exec(header.trim());
-  return match?.[1];
+  const prefix = `${AUTH_HEADER_TYPE} `;
+  if (!header.toLowerCase().startsWith(prefix.toLowerCase())) {
+    return undefined;
+  }
+  const token = header.slice(prefix.length).trim();
+  return token.length > 0 ? token : undefined;
 }
 
 /**
