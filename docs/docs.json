@@ -88,14 +88,20 @@
               "ui-sdk/guides/layouts",
               "ui-sdk/guides/theming",
               "ui-sdk/guides/agent-modes",
-              "ui-sdk/guides/slot-overrides",
-              "ui-sdk/guides/mcp-oauth",
+              {
+                "group": "Setup Custom UI",
+                "pages": [
+                  "ui-sdk/setup-custom-ui/custom-theme",
+                  "ui-sdk/setup-custom-ui/slot-overrides",
+                  "ui-sdk/setup-custom-ui/mcp-oauth"
+                ]
+              },
               {
                 "group": "Setup Custom Server",
                 "pages": [
-                  "ui-sdk/setup-different-servers/server-contract",
-                  "ui-sdk/setup-different-servers/custom-server",
-                  "ui-sdk/setup-different-servers/connect-with-truefoundry"
+                  "ui-sdk/setup-custom-servers/server-contract",
+                  "ui-sdk/setup-custom-servers/custom-server",
+                  "ui-sdk/setup-custom-servers/connect-with-truefoundry"
                 ]
               },
               "ui-sdk/guides/troubleshooting"
