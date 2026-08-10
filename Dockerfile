@@ -17,8 +17,8 @@ WORKDIR /app
 
 # Native dependencies (for example better-sqlite3) compile in build stages.
 FROM base AS build-base
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends g++ make python3 \
+RUN apt update \
+  && apt install -y --no-install-recommends g++ make python3 \
   && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
