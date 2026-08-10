@@ -104,14 +104,11 @@ export class ToolSelectorPolicy {
   }
 
   /**
-   * Approvals are always enabled. Required if the agent's own selectors match OR the tool is
-   * write/destructive — the default set is a floor the per-agent selectors can widen but never
-   * drop below.
+   * Whether the tool requires human approval. Honors `requireApprovalForTools` exactly: omit /
+   * undefined defaults to write+destructive (constructor); an explicit list — including empty —
+   * is exact.
    */
   requiresApproval(toolName: string, annotations: ToolAnnotations | undefined): boolean {
-    return (
-      toolRequiresApproval(toolName, annotations, this.requireApprovalForTools) ||
-      toolRequiresApproval(toolName, annotations, DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS)
-    );
+    return toolRequiresApproval(toolName, annotations, this.requireApprovalForTools);
   }
 }
