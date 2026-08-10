@@ -7,10 +7,9 @@ import type { ModelProvider } from '../../src/schemas/modelProvider';
 
 const TENANT = 'default';
 
-/** Each type pins its own `name`, so one fixture per provider. */
+/** The API derives the row's name from the document; these fixtures pass it explicitly. */
 const anthropic = {
   type: 'anthropic',
-  name: 'anthropic',
   base_url: 'https://api.anthropic.com/v1',
   auth: { api_key: 'sk-ant-test' },
   models: [
@@ -24,7 +23,6 @@ const anthropic = {
 
 const openai = {
   type: 'openai',
-  name: 'openai',
   base_url: 'https://api.openai.com/v1',
   auth: { api_key: 'sk-oai-test' },
   models: [
@@ -45,7 +43,7 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 export function runModelProviderStoreContractSuite(getStore: () => IModelProviderStore): void {
   it('upsert creates a provider and round-trips the document', async () => {
     const store = getStore();
-    const created = await store.upsertProvider({ tenant_id: TENANT, manifest: anthropic });
+    const created = await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: anthropic });
 
     expect(created.tenant_id).toBe(TENANT);
     expect(created.name).toBe('anthropic');
@@ -64,7 +62,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
 
   it('upsert replaces the whole document and preserves created_at', async () => {
     const store = getStore();
-    const created = await store.upsertProvider({ tenant_id: TENANT, manifest: anthropic });
+    const created = await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: anthropic });
 
     const replacement = {
       ...anthropic,
@@ -77,7 +75,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
         },
       ],
     };
-    const updated = await store.upsertProvider({ tenant_id: TENANT, manifest: replacement });
+    const updated = await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: replacement });
 
     expect(updated.manifest).toEqual(replacement);
     expect(updated.created_at).toBe(created.created_at);
@@ -89,9 +87,9 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
 
   it('listProviders returns only the tenant, ordered by name', async () => {
     const store = getStore();
-    await store.upsertProvider({ tenant_id: TENANT, manifest: openai });
-    await store.upsertProvider({ tenant_id: TENANT, manifest: anthropic });
-    await store.upsertProvider({ tenant_id: 'other-tenant', manifest: anthropic });
+    await store.upsertProvider({ tenant_id: TENANT, name: 'openai', manifest: openai });
+    await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: anthropic });
+    await store.upsertProvider({ tenant_id: 'other-tenant', name: 'anthropic', manifest: anthropic });
 
     const providers = await store.listProviders(TENANT);
     expect(providers.map(record => record.name)).toEqual(['anthropic', 'openai']);
@@ -100,15 +98,15 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
 
   it('stores custom providers with base_url', async () => {
     const store = getStore();
-    const created = await store.upsertProvider({ tenant_id: TENANT, manifest: custom });
+    const created = await store.upsertProvider({ tenant_id: TENANT, name: custom.name, manifest: custom });
     expect(created.manifest.base_url).toBe('https://llm.internal.example.com/v1');
   });
 
   it('listModels flattens documents into fully qualified names', async () => {
     const store = getStore();
-    await store.upsertProvider({ tenant_id: TENANT, manifest: anthropic });
-    await store.upsertProvider({ tenant_id: TENANT, manifest: openai });
-    await store.upsertProvider({ tenant_id: 'other-tenant', manifest: openai });
+    await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: anthropic });
+    await store.upsertProvider({ tenant_id: TENANT, name: 'openai', manifest: openai });
+    await store.upsertProvider({ tenant_id: 'other-tenant', name: 'openai', manifest: openai });
 
     const models = await store.listModels(TENANT);
     expect(models).toEqual([

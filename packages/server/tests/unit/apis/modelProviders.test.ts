@@ -25,8 +25,8 @@ const anthropicBody = {
   models: [model],
 };
 
-/** What the body above is stored and echoed as: named after its type, endpoint from its schema. */
-const anthropicProvider = { ...anthropicBody, name: 'anthropic', base_url: 'https://api.anthropic.com/v1' };
+/** What the body above is stored and echoed as: no name of its own, endpoint from its schema. */
+const anthropicProvider = { ...anthropicBody, base_url: 'https://api.anthropic.com/v1' };
 
 const customBody = {
   type: 'custom' as const,
@@ -113,7 +113,7 @@ describe('settings model-providers and models routers', () => {
   });
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {
-    const badName = await settingsRouter.request('/model-providers', putInit({ ...anthropicBody, name: 'Not A Name' }));
+    const badName = await settingsRouter.request('/model-providers', putInit({ ...customBody, name: 'Not A Name' }));
     expect(badName.status).toBe(400);
   });
 
@@ -155,10 +155,15 @@ describe('well-known types are limited to one provider', () => {
     ]);
   });
 
-  it('PUT rejects a name of its own for a well-known type', async () => {
+  it('PUT takes no name for a well-known type, not even its own', async () => {
     const { settingsRouter } = await createRouters();
-    const named = await settingsRouter.request('/model-providers', putInit({ ...anthropicBody, name: 'anthropic-eu' }));
-    expect(named.status).toBe(400);
+    const sibling = await settingsRouter.request(
+      '/model-providers',
+      putInit({ ...anthropicBody, name: 'anthropic-eu' }),
+    );
+    expect(sibling.status).toBe(400);
+    const echoed = await settingsRouter.request('/model-providers', putInit({ ...anthropicBody, name: 'anthropic' }));
+    expect(echoed.status).toBe(400);
 
     const list = await settingsRouter.request('/model-providers');
     expect(await list.json()).toEqual({ data: [] });
@@ -187,11 +192,12 @@ describe('catalog presets are configurable', () => {
   // A preset is copied into a PUT body with an api_key added, so every catalog type must parse.
   it.each(ModelCatalog.load().list())('PUT accepts the $type preset', async preset => {
     const { settingsRouter } = await createRouters();
-    // `logo` is catalog-only metadata; everything else copies straight into a PUT body.
-    const { logo, ...presetWithoutLogo } = preset;
+    // `logo` is catalog-only metadata and a well-known provider takes its name from `type`; the rest
+    // copies straight into a PUT body.
+    const { logo, name, ...presetFields } = preset;
     const body = {
-      ...presetWithoutLogo,
-      auth: { api_key: `sk-${preset.name}` },
+      ...presetFields,
+      auth: { api_key: `sk-${name}` },
     };
     expect(logo === undefined || typeof logo === 'string').toBe(true);
     const response = await settingsRouter.request('/model-providers', putInit(body));

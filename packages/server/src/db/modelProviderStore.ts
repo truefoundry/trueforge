@@ -23,7 +23,8 @@ export interface GetProviderInput {
 
 export interface UpsertProviderInput {
   tenant_id: string;
-  /** Stored whole; its `name` becomes the row's key column. */
+  /** Derived from the document by `modelProviderName`, never chosen by the caller. */
+  name: ResourceName;
   manifest: ModelProvider;
 }
 

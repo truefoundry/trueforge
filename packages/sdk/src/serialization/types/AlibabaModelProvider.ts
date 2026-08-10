@@ -13,7 +13,6 @@ export const AlibabaModelProvider: core.serialization.ObjectSchema<
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
     models: core.serialization.list(ModelEntry),
-    name: core.serialization.stringLiteral("alibaba").optional(),
     type: core.serialization.stringLiteral("alibaba"),
 });
 
@@ -22,7 +21,6 @@ export declare namespace AlibabaModelProvider {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
         models: ModelEntry.Raw[];
-        name?: "alibaba" | null;
         type: "alibaba";
     }
 }

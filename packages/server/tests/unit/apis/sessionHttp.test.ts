@@ -45,9 +45,9 @@ describe('sessions HTTP agent binding', () => {
 
     await modelProviderStore.upsertProvider({
       tenant_id: TENANT_ID,
+      name: 'anthropic',
       manifest: {
         type: 'anthropic',
-        name: 'anthropic',
         base_url: 'https://api.anthropic.com/v1',
         auth: { api_key: 'sk-ant-secret' },
         models: [
