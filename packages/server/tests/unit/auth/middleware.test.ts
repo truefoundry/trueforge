@@ -141,7 +141,7 @@ describe('authMiddleware', () => {
         .sign(privateKey);
     }
 
-    it('returns 401 when the id_token cookie is missing', async () => {
+    it('returns 401 when the id_token cookie and Bearer token are missing', async () => {
       const res = await createApp().request('/api/v1/models');
       expect(res.status).toBe(401);
       expect(await res.json()).toEqual({ error: { message: 'Authentication required' } });
@@ -150,6 +150,14 @@ describe('authMiddleware', () => {
     it('returns 401 when the token is invalid', async () => {
       const res = await createApp().request('/api/v1/models', {
         headers: { Cookie: 'id_token=not-a-jwt' },
+      });
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: { message: 'Authentication required' } });
+    });
+
+    it('returns 401 when the Bearer token is invalid', async () => {
+      const res = await createApp().request('/api/v1/models', {
+        headers: { Authorization: 'Bearer not-a-jwt' },
       });
       expect(res.status).toBe(401);
       expect(await res.json()).toEqual({ error: { message: 'Authentication required' } });
@@ -194,10 +202,65 @@ describe('authMiddleware', () => {
       });
     });
 
+    it('sets user context from Authorization Bearer ID token', async () => {
+      const token = await createIdToken({ sub: 'alice', groups: ['admin'] });
+      const res = await createApp().request('/api/v1/models', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        ok: true,
+        user: { userRef: 'alice', role: 'admin' },
+      });
+    });
+
+    it('prefers Bearer over cookie when both are present', async () => {
+      const cookieToken = await createIdToken({ sub: 'cookie-user', groups: [] });
+      const bearerToken = await createIdToken({ sub: 'bearer-user', groups: ['admin'] });
+      const res = await createApp().request('/api/v1/models', {
+        headers: {
+          Cookie: `id_token=${cookieToken}`,
+          Authorization: `Bearer ${bearerToken}`,
+        },
+      });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        ok: true,
+        user: { userRef: 'bearer-user', role: 'admin' },
+      });
+    });
+
+    it('ignores non-Bearer Authorization and falls back to cookie', async () => {
+      const token = await createIdToken({ sub: 'alice', groups: ['admin'] });
+      const res = await createApp().request('/api/v1/models', {
+        headers: {
+          Authorization: `Basic ${token}`,
+          Cookie: `id_token=${token}`,
+        },
+      });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        ok: true,
+        user: { userRef: 'alice', role: 'admin' },
+      });
+    });
+
     it('allows settings when the caller has admin role', async () => {
       const token = await createIdToken({ sub: 'alice', groups: ['admin'] });
       const res = await createApp().request('/api/v1/settings', {
         headers: { Cookie: `id_token=${token}` },
+      });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        ok: true,
+        user: { userRef: 'alice', role: 'admin' },
+      });
+    });
+
+    it('allows settings with Bearer when the caller has admin role', async () => {
+      const token = await createIdToken({ sub: 'alice', groups: ['admin'] });
+      const res = await createApp().request('/api/v1/settings', {
+        headers: { Authorization: `Bearer ${token}` },
       });
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({

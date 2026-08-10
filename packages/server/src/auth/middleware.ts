@@ -13,7 +13,29 @@ declare module 'hono' {
 }
 
 /**
- * Cookie → {@link UserContext} when OIDC is on and the token is valid.
+ * OIDC ID token from `Authorization: Bearer <jwt>` when present.
+ * Case-insensitive scheme; rejects empty credentials. Non-Bearer schemes → undefined
+ * so cookie auth can still apply.
+ */
+export function readBearerIdToken(c: Context): string | undefined {
+  const header = c.req.header('Authorization');
+  if (!header) {
+    return undefined;
+  }
+  const match = /^Bearer\s+(\S+)/i.exec(header.trim());
+  const token = match?.[1];
+  return token || undefined;
+}
+
+/**
+ * Prefer Bearer over the browser cookie when both are sent (explicit API auth wins).
+ */
+export function readIdToken(c: Context): string | undefined {
+  return readBearerIdToken(c) ?? readIdTokenCookie({ context: c });
+}
+
+/**
+ * Bearer or cookie ID token → {@link UserContext} when OIDC is on and the JWT is valid.
  * Missing/invalid JWT → `undefined`. Claim mapping failures after a successful verify rethrow.
  */
 export async function resolveAuthUser(c: Context): Promise<UserContext | undefined> {
@@ -22,7 +44,7 @@ export async function resolveAuthUser(c: Context): Promise<UserContext | undefin
     return undefined;
   }
 
-  const token = readIdTokenCookie({ context: c });
+  const token = readIdToken(c);
   if (!token) {
     return undefined;
   }

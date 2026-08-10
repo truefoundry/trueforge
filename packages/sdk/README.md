@@ -5,7 +5,20 @@
 
 TypeScript client for the TrueFoundry agent harness server: a self-hosted runtime that executes agent turns and streams them over Server-Sent Events.
 
-The harness server has no built-in authentication, so point the client at your own deployment's base URL.
+Point the client at your deployment's base URL. When the server has authentication enabled, pass an ID token on every request:
+
+```typescript
+import { TrueForge } from "trueforge-sdk";
+
+const client = new TrueForge({
+    baseUrl: "https://truefoundry-utils.example.com",
+    headers: {
+        Authorization: `Bearer ${idToken}`,
+    },
+});
+```
+
+Without auth configured on the server, no auth header is required.
 
 
 ## Table of Contents
