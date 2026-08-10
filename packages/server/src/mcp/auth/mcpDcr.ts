@@ -34,7 +34,7 @@ import type {
 } from './types';
 
 /** Per-request timeout for MCP OAuth discovery, DCR, and token HTTP calls. */
-export const MCP_OAUTH_HTTP_TIMEOUT_MS = 60_000;
+export const MCP_OAUTH_HTTP_TIMEOUT_MS = 15_000;
 
 /**
  * Abort hung authorization-server HTTP. Merges with any caller `signal` so both can cancel the request.
@@ -46,6 +46,19 @@ const mcpOAuthFetch: FetchLike = (url, init) => {
   const signal = init?.signal != null ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
   return fetch(url, { ...init, signal });
 };
+
+function isTimeoutError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'TimeoutError';
+}
+
+/** Same status as non-timeout faults; appends a timeout note so the API body is actionable. */
+function mcpOAuthConnectionError(message: string, error: unknown, statusCode: number): McpConnectionError {
+  let body = message;
+  if (isTimeoutError(error)) {
+    body = `${message}: timed out after ${MCP_OAUTH_HTTP_TIMEOUT_MS / 1000}s waiting for the authorization server`;
+  }
+  return new McpConnectionError(body, statusCode, { cause: error });
+}
 
 export function isMcpAuthRequired(result: ResolveMcpAuthResult): result is McpAuthRequiredResult {
   return 'authUrl' in result;
@@ -70,10 +83,10 @@ async function registerMcpClientWithAuthMethodFallback(params: {
     });
   } catch (firstError: unknown) {
     if (!(firstError instanceof InvalidClientMetadataError)) {
-      throw new McpConnectionError(
+      throw mcpOAuthConnectionError(
         `Failed to dynamically register OAuth client for MCP server '${mcpServerName}'`,
+        firstError,
         424,
-        { cause: firstError instanceof Error ? firstError : undefined },
       );
     }
     try {
@@ -83,10 +96,10 @@ async function registerMcpClientWithAuthMethodFallback(params: {
         fetchFn: mcpOAuthFetch,
       });
     } catch (secondError: unknown) {
-      throw new McpConnectionError(
+      throw mcpOAuthConnectionError(
         `Failed to dynamically register OAuth client for MCP server '${mcpServerName}'`,
+        secondError,
         424,
-        { cause: secondError instanceof Error ? secondError : firstError },
       );
     }
   }
@@ -116,10 +129,17 @@ export async function createMcpOAuthClient(params: {
   clientName: string;
 }): Promise<OAuthClientRecord> {
   const { mcpServerUrl, mcpServerName, redirectUri, clientName } = params;
-  const { authorizationServerUrl, authorizationServerMetadata: metadata } = await discoverOAuthServerInfo(
-    mcpServerUrl,
-    { fetchFn: mcpOAuthFetch },
-  );
+  let discovered: Awaited<ReturnType<typeof discoverOAuthServerInfo>>;
+  try {
+    discovered = await discoverOAuthServerInfo(mcpServerUrl, { fetchFn: mcpOAuthFetch });
+  } catch (error: unknown) {
+    throw mcpOAuthConnectionError(
+      `Failed to discover OAuth authorization server for MCP server '${mcpServerName}'`,
+      error,
+      424,
+    );
+  }
+  const { authorizationServerUrl, authorizationServerMetadata: metadata } = discovered;
   if (!metadata?.registration_endpoint) {
     throw new McpDcrConfigurationError(
       `MCP server '${mcpServerName}' has no DCR support (missing registration_endpoint); auth.type: dcr is misconfigured for this server`,
@@ -162,6 +182,7 @@ export async function ensureMcpClientRegistered(params: {
   if (existing) {
     return existing;
   }
+  // Remote DCR finishes before any DB write so we never hold a connection during HTTP.
   const client = await createMcpOAuthClient({
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
@@ -314,9 +335,7 @@ export async function completeMcpAuthorization<TTransaction>(params: {
         cause: error,
       });
     }
-    throw new McpConnectionError('OAuth token exchange failed', 400, {
-      cause: error instanceof Error ? error : undefined,
-    });
+    throw mcpOAuthConnectionError('OAuth token exchange failed', error, 400);
   }
   await params.tokenStore.saveToken({
     id: pending.id,

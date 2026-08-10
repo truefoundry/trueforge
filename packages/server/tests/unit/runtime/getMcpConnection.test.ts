@@ -8,11 +8,12 @@ import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
 import { getMcpConnection } from '../../../src/runtime/sessionResources';
 
 describe('getMcpConnection', () => {
+  let db: ReturnType<typeof createSqliteDb>;
   let mcpServerStore: SqliteMcpServerStore;
   let tokenStore: SqliteOAuthTokenStore;
 
   beforeAll(async () => {
-    const db = createSqliteDb(':memory:');
+    db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     mcpServerStore = new SqliteMcpServerStore(db);
     tokenStore = new SqliteOAuthTokenStore(db);
