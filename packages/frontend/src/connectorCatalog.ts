@@ -84,6 +84,18 @@ export function toUiConnector(server: TrueForgeApi.ConfiguredMcpServer): UiConne
   };
 }
 
+export function toUiConnectorFromReadEntry(server: TrueForgeApi.McpServerReadEntry): UiConnector {
+  return {
+    id: server.name,
+    name: server.name,
+    description: server.url,
+    url: server.url,
+    auth: { type: 'none' },
+    requiresAuth: server.authStatus.status === 'auth_required',
+    authenticated: server.authStatus.status !== 'auth_required',
+  };
+}
+
 export interface HarnessMcpUpsert {
   name: string;
   url: string;

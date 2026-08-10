@@ -1,6 +1,7 @@
 import winston from 'winston';
 import { createModelsRouter } from '../../../src/apis/models';
 import { createSettingsRouter } from '../../../src/apis/settings';
+import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
@@ -64,6 +65,7 @@ async function createRouters(): Promise<{
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),
+      resolveUserContext: () => LOCAL_USER_CONTEXT,
     }),
     modelsRouter: createModelsRouter({
       modelProviderStore,

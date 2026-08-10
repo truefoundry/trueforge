@@ -10,7 +10,7 @@ import type {
 } from '@truefoundry/trueforge-ui';
 import type { TrueForgeApi } from 'trueforge-sdk';
 import { listConfiguredMcpServers, listModels, listSkills } from './composerLists';
-import { toUiConnector } from './connectorCatalog';
+import { toUiConnectorFromReadEntry } from './connectorCatalog';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 import { agentManifest, toHarnessAgentSpec, toUiAgentSpec, type HarnessAgentSpec } from './harnessServer';
 
@@ -51,7 +51,7 @@ export function createHarnessBuilderServer(
       const skills = await listSkills();
       return skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }));
     },
-    getMcp: async () => (await listConfiguredMcpServers()).map(toUiConnector),
+    getMcp: async () => (await listConfiguredMcpServers()).map(toUiConnectorFromReadEntry),
 
     async searchAgents(req?: SearchAgentsParams) {
       const { data } = await client.agents.list();

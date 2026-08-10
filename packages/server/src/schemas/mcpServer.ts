@@ -7,7 +7,6 @@
  * turn execution resolves DCR tokens via resolveMcpAuth.
  */
 import { z } from '@hono/zod-openapi';
-import { isOAuthAccessTokenUsable } from '../mcp/auth/mcpOAuthHelpers';
 import type { OAuthToken } from '../mcp/auth/types';
 import { NameSchema } from './common';
 
@@ -78,11 +77,23 @@ export const ListMcpServersResponseSchema = z
   .object({ data: z.array(ConfiguredMcpServerSchema) })
   .openapi('ListMcpServersResponse');
 
-/** Chat/composer read view — no auth or auth_status. */
+/** Public auth mechanism for chat/composer (no secrets). */
+export const McpServerAuthPublicSchema = z
+  .discriminatedUnion('type', [
+    z.object({ type: z.literal('dcr') }).strict(),
+    z.object({ type: z.literal('header') }).strict(),
+  ])
+  .openapi('McpServerAuthPublic');
+
+/** Chat/composer read view — public fields plus per-user auth_status. */
 export const McpServerReadEntrySchema = z
   .object({
     name: NameSchema,
     url: z.url().describe('URL of the remote MCP server.'),
+    auth: McpServerAuthPublicSchema.optional().describe(
+      'Auth mechanism when configured (no secrets). Omit when the server needs no credentials.',
+    ),
+    auth_status: McpAuthStatusSchema.describe('Auth state for the calling user.'),
   })
   .strict()
   .openapi('McpServerReadEntry');
@@ -95,6 +106,7 @@ export type McpServerType = z.infer<typeof McpServerTypeSchema>;
 export type McpServerAuthSettings = z.infer<typeof McpServerAuthSettingsSchema>;
 export type McpServerManifest = z.infer<typeof McpServerManifestSchema>;
 export type McpAuthStatus = z.infer<typeof McpAuthStatusSchema>;
+export type McpServerAuthPublic = z.infer<typeof McpServerAuthPublicSchema>;
 export type ConfiguredMcpServer = z.infer<typeof ConfiguredMcpServerSchema>;
 export type McpServerReadEntry = z.infer<typeof McpServerReadEntrySchema>;
 
@@ -113,15 +125,12 @@ export function resolveConfiguredMcpRequestHeaders(manifest: McpServerManifest):
 export function resolveMcpAuthStatus({
   manifest,
   token,
-  nowMs = Date.now(),
 }: {
   manifest: McpServerManifest;
   token?: OAuthToken;
-  nowMs?: number;
 }): McpAuthStatus {
   if (manifest.auth?.type === 'dcr') {
-    const authenticated = token && isOAuthAccessTokenUsable(token.expiresAt, nowMs);
-    return authenticated ? { status: 'authenticated' } : { status: 'auth_required' };
+    return token ? { status: 'authenticated' } : { status: 'auth_required' };
   }
   if (manifest.auth?.type === 'header') {
     return { status: 'authenticated' };

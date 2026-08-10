@@ -1696,6 +1696,7 @@
       },
       "McpAuthStatus": {
         "additionalProperties": false,
+        "description": "Auth state for the calling user.",
         "properties": {
           "authorization_url": {
             "description": "When auth is required, this contains the URL to redirect the user to for authorization.",
@@ -1716,6 +1717,41 @@
           "status"
         ],
         "type": "object"
+      },
+      "McpServerAuthPublic": {
+        "description": "Auth mechanism when configured (no secrets). Omit when the server needs no credentials.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "dcr"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "header"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "McpServerDcrAuth": {
         "additionalProperties": false,
@@ -1786,6 +1822,12 @@
       "McpServerReadEntry": {
         "additionalProperties": false,
         "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/McpServerAuthPublic"
+          },
+          "auth_status": {
+            "$ref": "#/components/schemas/McpAuthStatus"
+          },
           "name": {
             "$ref": "#/components/schemas/ResourceName"
           },
@@ -1797,7 +1839,8 @@
         },
         "required": [
           "name",
-          "url"
+          "url",
+          "auth_status"
         ],
         "type": "object"
       },
