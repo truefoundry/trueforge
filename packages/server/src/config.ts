@@ -68,6 +68,15 @@ function getEnv(key: string, options?: GetEnvOptions): string | undefined {
   return undefined;
 }
 
+/** Same as `getEnv(key, { required: true })`, but blank / whitespace-only also fails. */
+function requireNonEmptyEnv(key: string): string {
+  const value = getEnv(key);
+  if (value === undefined || value.trim() === '') {
+    throw new Error(`Environment variable ${key} is required but was not specified.`);
+  }
+  return value;
+}
+
 function randomAlphanumeric(length: number): string {
   return Array.from({ length }, () => Math.floor(Math.random() * 36).toString(36)).join('');
 }
@@ -212,27 +221,6 @@ function buildPostgresConnectionString(parts: {
   return `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
 }
 
-/**
- * Resolves `PUBLIC_BASE_URL` for callback origins (MCP OAuth / OIDC).
- * - Non-empty env → that value (not trimmed).
- * - Standalone + unset/blank → `http://localhost:${port}` so local boots without an env file.
- * - Distributed + unset/blank → `""` (callbacks fail lazily until configured).
- */
-export function resolvePublicBaseUrl(options: {
-  port: number;
-  standalone: boolean;
-  override: string | undefined;
-}): string {
-  const { port, standalone, override } = options;
-  if (override !== undefined && override.trim() !== '') {
-    return override;
-  }
-  if (standalone) {
-    return `http://localhost:${String(port)}`;
-  }
-  return '';
-}
-
 function resolveOIDCConfig(): OIDCConfig | undefined {
   const issuerUrl = getEnv('OIDC_ISSUER_URL');
   const clientId = getEnv('OIDC_CLIENT_ID');
@@ -286,7 +274,7 @@ export interface OIDCConfig {
    */
   OIDC_ADMIN_ROLE_VALUE: string;
   /** Comma-separated OAuth scopes for the authorization request. Env: `OIDC_SCOPES`.
-   * Optional; defaults to "openid,profile,email,groups". Whitespace around entries is stripped.
+   * Optional; defaults to "openid,profile,email". Whitespace around entries is stripped.
    * Okta `groups` claims require the `groups` scope; Azure AD app roles typically omit it.
    */
   OIDC_SCOPES: string[];
@@ -337,10 +325,8 @@ export interface SharedServerConfiguration {
   MCP_CONNECT_TIMEOUT_MS: number;
   /**
    * Public base URL of this server used as the origin of MCP OAuth and OIDC
-   * callbacks. Not trimmed when non-empty.
+   * callbacks. Required. Not trimmed when non-empty.
    * Env: `PUBLIC_BASE_URL`.
-   * Standalone default (unset/blank): `http://localhost:${PORT}`.
-   * Distributed (unset/blank): `""` — callbacks fail until set.
    */
   PUBLIC_BASE_URL: string;
   /**
@@ -480,11 +466,7 @@ const shared: SharedServerConfiguration = {
   SKILL_CATALOG_PATH: resolveOptionalPathEnv('SKILL_CATALOG_PATH'),
   SANDBOX_CATALOG_PATH: resolveOptionalPathEnv('SANDBOX_CATALOG_PATH'),
   FRONTEND_DIR: resolveFrontendDir(),
-  PUBLIC_BASE_URL: resolvePublicBaseUrl({
-    port,
-    standalone,
-    override: getEnv('PUBLIC_BASE_URL'),
-  }),
+  PUBLIC_BASE_URL: requireNonEmptyEnv('PUBLIC_BASE_URL'),
 
   MCP_REQUEST_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MCP_REQUEST_TIMEOUT_MS',

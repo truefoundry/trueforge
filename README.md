@@ -44,6 +44,8 @@ npx @truefoundry/trueforge
 
 Then open [http://localhost:8790](http://localhost:8790), add a model provider under **Settings**, and start chatting.
 
+`PUBLIC_BASE_URL` is required (for example `PUBLIC_BASE_URL=http://localhost:8790 npx @truefoundry/trueforge`).
+
 ### Option 2: From source (pnpm)
 
 Runs the standalone (SQLite) topology from a clone of this repo — no Docker, no Postgres, no Redis. Requires [Node.js](https://nodejs.org) 22.13+ and [pnpm](https://pnpm.io)
@@ -73,7 +75,7 @@ Then open [http://localhost:8791](http://localhost:8791).
 | Configuration                                               | Default                 | Description                                                           |
 | ----------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------- |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`       | `harness` (from `.env`) | Postgres credentials, read from `packages/server/.env`.               |
-| `PUBLIC_BASE_URL`                                           | `http://localhost:8791` | Public origin, used for MCP OAuth callbacks.                          |
+| `PUBLIC_BASE_URL`                                           | required (compose sets `http://localhost:8791`) | Public origin for MCP OAuth / OIDC callbacks.                         |
 | Host ports                                                  | `8791`, `5433`, `6380`  | App, Postgres, and Redis - offset so they don't clash with local dev. |
 | `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | unset                   | Optional: connect an identity provider. Unset = local admin identity. |
 
@@ -81,7 +83,7 @@ Every environment variable is documented in [`packages/server/.env.example`](pac
 
 ### Option 4: Kubernetes (Helm)
 
-The [`charts/truefoundry-utils`](charts/truefoundry-utils) Helm chart deploys the server in distributed mode (`STANDALONE=false`) with bundled Postgres and Redis (or point it at your own). No values are required for a basic install:
+The [`charts/truefoundry-utils`](charts/truefoundry-utils) Helm chart deploys the server in distributed mode (`STANDALONE=false`) with bundled Postgres and Redis (or point it at your own). Set `server.publicBaseUrl` to the public origin:
 
 <!-- TODO: replace <HELM_REPO> with the published Helm repo URL -->
 
@@ -92,7 +94,7 @@ helm install truefoundry-utils oci://<HELM_REPO>/truefoundry-utils \
 
 | Configuration          | Default | Description                                                                    |
 | ---------------------- | ------- | ------------------------------------------------------------------------------ |
-| `server.publicBaseUrl` | `""`    | Public origin for MCP OAuth / OIDC callbacks; set once you expose the service. |
+| `server.publicBaseUrl` | required | Public origin for MCP OAuth / OIDC callbacks.                          |
 | `replicaCount`         | `1`     | Number of server replicas (turn cancel/streaming peers over Redis).            |
 | `postgresql.enabled`   | `true`  | Bundle Postgres; set `false` and fill `externalPostgres.*` to bring your own.  |
 | `redis.enabled`        | `true`  | Bundle Redis; set `false` and set `externalRedis.url` or `existingSecret`.     |
