@@ -11,13 +11,28 @@ export const SubscribeTurnQuerySchema = z
     // cannot silently become a resume cursor (and so OpenAPI does not advertise null).
     after_sequence_number: z.preprocess(
       val => (val === null || val === '' ? undefined : val),
-      z.coerce.number().int().nonnegative().optional(),
+      z.coerce
+        .number()
+        .int()
+        .nonnegative()
+        .optional()
+        .describe(
+          'Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.',
+        ),
     ),
   })
   .openapi('SubscribeTurnQuery');
 
-export const CancelSessionRequestSchema = z.object({}).openapi('CancelSessionRequest');
-export const CancelSessionResponseSchema = z.object({}).openapi('CancelSessionResponse');
+/** Intentionally empty — cancel takes no body fields. */
+export const CancelSessionRequestSchema = z
+  .object({})
+  .describe('Empty request body. Cancel identifies the session via the path only.')
+  .openapi('CancelSessionRequest');
+/** Intentionally empty — success is signaled by HTTP 200 with `{}`. */
+export const CancelSessionResponseSchema = z
+  .object({})
+  .describe('Empty success body. HTTP 200 means the cancel request was accepted (or nothing was running).')
+  .openapi('CancelSessionResponse');
 
 export const DEFAULT_TURNS_LIMIT = 10;
 export const TURNS_MAX_LIMIT = 100;

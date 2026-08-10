@@ -18,11 +18,14 @@ export const OAuthCallbackQuerySchema = z.object({
     .string()
     .optional()
     .describe('Error code from the identity provider, present instead of `code` if the user denied consent.'),
-  error_description: z.string().optional(),
+  error_description: z
+    .string()
+    .optional()
+    .describe('Human-readable error detail from the identity provider when `error` is set.'),
 });
 
 export const OAuthCallbackSuccessSchema = z.object({
-  success: z.literal(true),
+  success: z.literal(true).describe('Present when the OAuth callback completed without a redirect_url.'),
 });
 
 export const MeResponseSchema = z

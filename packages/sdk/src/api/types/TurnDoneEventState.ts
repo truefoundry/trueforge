@@ -2,4 +2,7 @@
 
 import type * as TrueForge from "../index.js";
 
+/**
+ * Terminal turn state (done, cancelled, or error).
+ */
 export type TurnDoneEventState = TrueForge.TurnStateCancelled | TrueForge.TurnStateDone | TrueForge.TurnStateError;

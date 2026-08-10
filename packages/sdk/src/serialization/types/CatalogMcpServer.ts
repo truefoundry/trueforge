@@ -3,7 +3,7 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ConfiguredMcpServerAuth } from "./ConfiguredMcpServerAuth.js";
+import { CatalogMcpServerAuth } from "./CatalogMcpServerAuth.js";
 import { McpServerType } from "./McpServerType.js";
 import { ResourceName } from "./ResourceName.js";
 
@@ -11,7 +11,7 @@ export const CatalogMcpServer: core.serialization.ObjectSchema<
     serializers.CatalogMcpServer.Raw,
     TrueForge.CatalogMcpServer
 > = core.serialization.object({
-    auth: ConfiguredMcpServerAuth.optional(),
+    auth: CatalogMcpServerAuth.optional(),
     logo: core.serialization.string().optional(),
     name: ResourceName,
     type: McpServerType,
@@ -20,7 +20,7 @@ export const CatalogMcpServer: core.serialization.ObjectSchema<
 
 export declare namespace CatalogMcpServer {
     export interface Raw {
-        auth?: ConfiguredMcpServerAuth.Raw | null;
+        auth?: CatalogMcpServerAuth.Raw | null;
         logo?: string | null;
         name: ResourceName.Raw;
         type: McpServerType.Raw;

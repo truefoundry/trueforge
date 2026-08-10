@@ -4,12 +4,16 @@ import type * as TrueForge from "../index.js";
 
 export interface DaytonaSandboxProvider {
     auth: TrueForge.DaytonaSandboxProviderAuth;
+    /** Minutes before Daytona auto-archives the sandbox (0 disables). */
     autoArchiveIntervalInMinutes: number;
+    /** Minutes before Daytona auto-deletes the sandbox (0 disables). */
     autoDeleteIntervalInMinutes: number;
+    /** Minutes of idle time before Daytona auto-stops the sandbox (0 disables). */
     autoStopIntervalInMinutes: number;
     /** Default sandbox command exec timeout in milliseconds. */
     execTimeoutMs: number;
     /** Daytona snapshot used when creating sandboxes. */
     snapshotName: string;
+    /** Daytona sandbox provider. */
     type: "daytona";
 }

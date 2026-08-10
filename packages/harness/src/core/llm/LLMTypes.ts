@@ -19,46 +19,46 @@ import {
 
 export const ThinkingBlockSchema = z
   .object({
-    type: z.literal('thinking'),
-    thinking: z.string(),
-    signature: z.string().optional(),
+    type: z.literal('thinking').describe('Structured thinking block.'),
+    thinking: z.string().describe('Thinking text content.'),
+    signature: z.string().optional().describe('Optional provider signature for multi-turn replay.'),
   })
   .openapi('ThinkingBlock');
 
 export const RedactedThinkingBlockSchema = z
   .object({
-    type: z.literal('redacted_thinking'),
-    data: z.string(),
+    type: z.literal('redacted_thinking').describe('Redacted thinking block.'),
+    data: z.string().describe('Opaque redacted thinking payload from the provider.'),
   })
   .openapi('RedactedThinkingBlock');
 
 export const ThinkingBlockUnionSchema = z.union([ThinkingBlockSchema, RedactedThinkingBlockSchema]);
 
 export const InternalToolCallInfoSchema = z.object({
-  type: z.enum(['truefoundry-system', 'mcp']),
-  mcp_server_id: z.string(),
-  mcp_server_name: z.string(),
-  original_tool_name: z.string(),
-  is_approval_required: z.boolean().optional(),
-  is_deferred: z.boolean().optional(),
-  is_client_side: z.boolean().optional(),
+  type: z.enum(['truefoundry-system', 'mcp']).describe('Whether the tool is a system tool or MCP tool.'),
+  mcp_server_id: z.string().describe('Internal MCP server id (empty for system tools).'),
+  mcp_server_name: z.string().describe('Configured MCP server name (empty for system tools).'),
+  original_tool_name: z.string().describe('Original tool name before any remapping.'),
+  is_approval_required: z.boolean().optional().describe('Whether this tool call requires human approval.'),
+  is_deferred: z.boolean().optional().describe('Whether the tool was loaded via deferred discovery.'),
+  is_client_side: z.boolean().optional().describe('Whether the client must supply the tool result.'),
   // Runtime + wire: deviation from origin/main OpenAPI (which omitted this field) is accepted.
-  is_thread_creation: z.boolean().optional(),
+  is_thread_creation: z.boolean().optional().describe('Whether this tool call creates a subagent thread.'),
 });
 
 export const TrueFoundrySystemToolInfoSchema = z
   .object({
-    type: z.literal('truefoundry-system'),
-    name: z.string(),
+    type: z.literal('truefoundry-system').describe('Built-in harness system tool.'),
+    name: z.string().describe('System tool name.'),
   })
   .openapi('TrueFoundrySystemToolInfo');
 
 export const MCPToolInfoSchema = z
   .object({
-    type: z.literal('mcp'),
-    server_id: z.string(),
-    server_name: z.string(),
-    name: z.string(),
+    type: z.literal('mcp').describe('Tool hosted on an MCP server.'),
+    server_id: z.string().describe('Internal MCP server id.'),
+    server_name: z.string().describe('Configured MCP server name.'),
+    name: z.string().describe('Tool name on the MCP server.'),
   })
   .openapi('MCPToolInfo');
 
@@ -136,13 +136,13 @@ export const LLMToolMessageSchema = ChatCompletionToolMessageParamSchema.omit({ 
 
 export const CompletionUsageSchema = z
   .object({
-    input_tokens: z.number().int().nonnegative(),
-    output_tokens: z.number().int().nonnegative(),
-    total_tokens: z.number().int().nonnegative(),
-    cache_read_tokens: z.number().int().nonnegative().optional(),
-    cache_write_tokens: z.number().int().nonnegative().optional(),
-    reasoning_tokens: z.number().int().nonnegative().optional(),
-    cost_in_usd: z.number().nonnegative().optional(),
+    input_tokens: z.number().int().nonnegative().describe('Input tokens for this completion.'),
+    output_tokens: z.number().int().nonnegative().describe('Output tokens for this completion.'),
+    total_tokens: z.number().int().nonnegative().describe('Total tokens (input + output).'),
+    cache_read_tokens: z.number().int().nonnegative().optional().describe('Optional cache-read tokens.'),
+    cache_write_tokens: z.number().int().nonnegative().optional().describe('Optional cache-write tokens.'),
+    reasoning_tokens: z.number().int().nonnegative().optional().describe('Optional reasoning tokens.'),
+    cost_in_usd: z.number().nonnegative().optional().describe('Optional estimated cost in USD.'),
   })
   .openapi('CompletionUsage');
 

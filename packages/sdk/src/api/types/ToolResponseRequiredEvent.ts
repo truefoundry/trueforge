@@ -3,10 +3,13 @@
 import type * as TrueForge from "../index.js";
 
 export interface ToolResponseRequiredEvent {
+    /** ISO 8601 event timestamp. */
     createdAt: string;
-    /** Unique identifier for the event */
+    /** Unique identifier for the event (monotonic ULID). */
     id: string;
+    /** Thread that owns the pending tool calls. */
     threadId: string;
+    /** Tool calls waiting for a client response. */
     toolCalls: TrueForge.ToolCallRef[];
     type: "tool.response_required";
 }

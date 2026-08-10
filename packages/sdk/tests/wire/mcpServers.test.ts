@@ -5,7 +5,7 @@ import { TrueForge } from "../../src/Client";
 import { mockServerPool } from "../mock-server/MockServerPool";
 
 describe("McpServersClient", () => {
-    test("list", async () => {
+    test("list (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
 
@@ -28,6 +28,25 @@ describe("McpServersClient", () => {
                 },
             ],
         });
+    });
+
+    test("list (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/mcp-servers")
+            .respondWith()
+            .statusCode(401)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.mcpServers.list();
+        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 
     test("authorize (1)", async () => {

@@ -32,6 +32,14 @@ export const getMcpServerCatalogRoute = createRoute({
       content: { 'application/json': { schema: GetMcpServerCatalogResponseSchema } },
       description: 'The shipped catalog, verbatim.',
     },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the caller is authenticated but not an admin.',
+    },
   },
 });
 
@@ -49,6 +57,10 @@ export const listAvailableMcpServersRoute = createRoute({
       content: { 'application/json': { schema: ListAvailableMcpServersResponseSchema } },
       description: 'All MCP servers (chat projection).',
     },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
   },
 });
 
@@ -64,6 +76,14 @@ export const listMcpServersRoute = createRoute({
     200: {
       content: { 'application/json': { schema: ListMcpServersResponseSchema } },
       description: 'All MCP servers.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the caller is authenticated but not an admin.',
     },
   },
 });
@@ -129,6 +149,7 @@ export const putMcpServerRoute = createRoute({
 
 const ListMcpServerToolsResponseSchema = z
   .object({
+    // TODO: Type tools/list entries to the MCP tool shape (name, description, inputSchema, …) for OpenAPI quality.
     data: z
       .array(z.record(z.string(), z.unknown()))
       .describe('MCP `tools/list` entries, passed through verbatim from the MCP server.'),

@@ -53,21 +53,25 @@
             "type": "object"
           }
         ],
-        "description": "Agent Definition"
+        "description": "Complete agent definition used inline on a session or saved as a named agent."
       },
       "AgentInfo": {
         "properties": {
           "input": {
+            "description": "Input prompt passed to the subagent.",
             "type": "string"
           },
           "model": {
+            "description": "Optional model override for the subagent.",
             "minLength": 1,
             "type": "string"
           },
           "name": {
+            "description": "Display name of the dynamic subagent.",
             "type": "string"
           },
           "type": {
+            "description": "Subagent kind.",
             "enum": [
               "dynamic"
             ],
@@ -84,9 +88,11 @@
       "AgentParent": {
         "properties": {
           "thread_id": {
+            "description": "Parent thread that spawned the child agent.",
             "type": "string"
           },
           "tool_call_id": {
+            "description": "Tool call on the parent thread that created the child.",
             "type": "string"
           }
         },
@@ -97,21 +103,24 @@
         "type": "object"
       },
       "AgentSpec": {
-        "description": "Agent Definition",
+        "description": "Complete agent definition used inline on a session or saved as a named agent.",
         "properties": {
           "config": {
             "$ref": "#/components/schemas/RuntimeConfig"
           },
           "instructions": {
+            "description": "Optional system prompt — the agent's role, behavior, and constraints.",
             "type": "string"
           },
           "mcp_servers": {
+            "description": "Optional MCP servers attached by configured name.",
             "items": {
               "$ref": "#/components/schemas/MCPServer"
             },
             "type": "array"
           },
           "messages": {
+            "description": "Optional seed user messages injected at the start of every session.",
             "items": {
               "$ref": "#/components/schemas/AgentSpecUserMessage"
             },
@@ -124,6 +133,7 @@
             "$ref": "#/components/schemas/ResponseFormat"
           },
           "skills": {
+            "description": "Optional name-only skill references. Requires `config.sandbox.enabled: true`.",
             "items": {
               "$ref": "#/components/schemas/SkillNameRef"
             },
@@ -133,6 +143,7 @@
             "additionalProperties": {
               "type": "string"
             },
+            "description": "Optional string key–value map reserved for parameterizing agent definitions.",
             "type": "object"
           }
         },
@@ -144,6 +155,7 @@
       "AgentSpecModel": {
         "properties": {
           "name": {
+            "description": "Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.",
             "minLength": 1,
             "type": "string"
           },
@@ -159,10 +171,12 @@
       "AgentSpecUserMessage": {
         "properties": {
           "content": {
+            "description": "Seed user message content injected at the start of every session.",
             "minLength": 1,
             "type": "string"
           },
           "type": {
+            "description": "Seed message type.",
             "enum": [
               "user.message"
             ],
@@ -192,7 +206,7 @@
             "type": "object"
           }
         ],
-        "description": "Agent Definition"
+        "description": "Complete agent definition used inline on a session or saved as a named agent."
       },
       "AlibabaModelProvider": {
         "additionalProperties": false,
@@ -207,6 +221,7 @@
             "type": "string"
           },
           "models": {
+            "description": "Models exposed by this provider (at least one).",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
@@ -247,6 +262,7 @@
             "type": "string"
           },
           "models": {
+            "description": "Models exposed by this provider (at least one).",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
@@ -277,6 +293,7 @@
       "ApprovalAllow": {
         "properties": {
           "status": {
+            "description": "Allow the pending tool call(s).",
             "enum": [
               "allow"
             ],
@@ -308,9 +325,11 @@
       "ApprovalDeny": {
         "properties": {
           "reason": {
+            "description": "Optional reason shown to the agent when denied.",
             "type": "string"
           },
           "status": {
+            "description": "Deny the pending tool call(s).",
             "enum": [
               "deny"
             ],
@@ -329,6 +348,7 @@
         "properties": {
           "enabled": {
             "default": true,
+            "description": "Enable the `ask_user_question` tool. Default: true.",
             "type": "boolean"
           }
         },
@@ -337,13 +357,15 @@
       "BaseMCPAuthRequiredEvent": {
         "properties": {
           "created_at": {
+            "description": "ISO 8601 event timestamp.",
             "type": "string"
           },
           "id": {
-            "description": "Unique identifier for the event",
+            "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
           "thread_id": {
+            "description": "Always null — this is a run-level event.",
             "type": [
               "string",
               "null"
@@ -363,9 +385,11 @@
             "$ref": "#/components/schemas/AgentParent"
           },
           "thread_id": {
+            "description": "Thread that finished.",
             "type": "string"
           },
           "title": {
+            "description": "Human-readable thread title.",
             "type": "string"
           }
         },
@@ -376,10 +400,12 @@
         "type": "object"
       },
       "CancelSessionRequest": {
+        "description": "Empty request body. Cancel identifies the session via the path only.",
         "properties": {},
         "type": "object"
       },
       "CancelSessionResponse": {
+        "description": "Empty success body. HTTP 200 means the cancel request was accepted (or nothing was running).",
         "properties": {},
         "type": "object"
       },
@@ -387,14 +413,17 @@
         "additionalProperties": false,
         "properties": {
           "auto_archive_interval_in_minutes": {
+            "description": "Minutes before Daytona auto-archives the sandbox (0 disables).",
             "minimum": 0,
             "type": "integer"
           },
           "auto_delete_interval_in_minutes": {
+            "description": "Minutes before Daytona auto-deletes the sandbox (0 disables).",
             "minimum": 0,
             "type": "integer"
           },
           "auto_stop_interval_in_minutes": {
+            "description": "Minutes of idle time before Daytona auto-stops the sandbox (0 disables).",
             "minimum": 0,
             "type": "integer"
           },
@@ -409,6 +438,7 @@
             "type": "string"
           },
           "type": {
+            "description": "Daytona sandbox provider.",
             "enum": [
               "daytona"
             ],
@@ -429,7 +459,14 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
-            "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+              },
+              {
+                "description": "Optional default auth settings for the preset."
+              }
+            ]
           },
           "logo": {
             "description": "URL of the MCP server logo asset.",
@@ -464,6 +501,7 @@
             "type": "string"
           },
           "models": {
+            "description": "Preset models for this catalog provider.",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
@@ -474,6 +512,7 @@
             "$ref": "#/components/schemas/ResourceName"
           },
           "type": {
+            "description": "Well-known provider type (catalog excludes `custom`).",
             "enum": [
               "openai",
               "anthropic",
@@ -541,22 +580,27 @@
           "function": {
             "properties": {
               "arguments": {
+                "description": "Partial or complete JSON arguments string.",
                 "type": "string"
               },
               "name": {
+                "description": "Partial or complete function name.",
                 "type": "string"
               }
             },
             "type": "object"
           },
           "id": {
+            "description": "Tool call id (may arrive across multiple deltas).",
             "type": "string"
           },
           "index": {
+            "description": "Index of this tool call in the streaming delta array.",
             "minimum": 0,
             "type": "integer"
           },
           "type": {
+            "description": "Tool call type when present on this delta.",
             "enum": [
               "function"
             ],
@@ -571,9 +615,11 @@
       "ChatCompletionContentPartRefusal": {
         "properties": {
           "refusal": {
+            "description": "Refusal message text.",
             "type": "string"
           },
           "type": {
+            "description": "Model refusal content part.",
             "enum": [
               "refusal"
             ],
@@ -589,9 +635,11 @@
       "ChatCompletionContentPartText": {
         "properties": {
           "text": {
+            "description": "Plain-text content.",
             "type": "string"
           },
           "type": {
+            "description": "Text content part.",
             "enum": [
               "text"
             ],
@@ -609,9 +657,11 @@
           "function": {
             "properties": {
               "arguments": {
+                "description": "JSON-encoded function arguments string.",
                 "type": "string"
               },
               "name": {
+                "description": "Function/tool name.",
                 "type": "string"
               }
             },
@@ -622,9 +672,11 @@
             "type": "object"
           },
           "id": {
+            "description": "Tool call id.",
             "type": "string"
           },
           "type": {
+            "description": "Tool call type.",
             "enum": [
               "function"
             ],
@@ -668,6 +720,7 @@
         "type": "object"
       },
       "ConfiguredMcpServerAuth": {
+        "description": "Optional auth settings. Omit when the server needs no credentials.",
         "discriminator": {
           "mapping": {
             "dcr": "#/components/schemas/McpServerDcrAuth",
@@ -700,11 +753,13 @@
             },
             "properties": {
               "compaction_threshold_tokens": {
+                "description": "Context size in tokens that triggers compaction. Default: 50000.",
                 "exclusiveMinimum": 0,
                 "type": "integer"
               },
               "enabled": {
                 "default": true,
+                "description": "Summarize older history when context grows too large. Default: true.",
                 "type": "boolean"
               }
             },
@@ -752,6 +807,7 @@
       "CreateTurnRequest": {
         "properties": {
           "input": {
+            "description": "Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.",
             "items": {
               "$ref": "#/components/schemas/TurnInputItem"
             },
@@ -780,6 +836,7 @@
             "type": "string"
           },
           "models": {
+            "description": "Models exposed by this provider (at least one).",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
@@ -812,14 +869,17 @@
             "$ref": "#/components/schemas/DaytonaSandboxProviderAuth"
           },
           "auto_archive_interval_in_minutes": {
+            "description": "Minutes before Daytona auto-archives the sandbox (0 disables).",
             "minimum": 0,
             "type": "integer"
           },
           "auto_delete_interval_in_minutes": {
+            "description": "Minutes before Daytona auto-deletes the sandbox (0 disables).",
             "minimum": 0,
             "type": "integer"
           },
           "auto_stop_interval_in_minutes": {
+            "description": "Minutes of idle time before Daytona auto-stops the sandbox (0 disables).",
             "minimum": 0,
             "type": "integer"
           },
@@ -834,6 +894,7 @@
             "type": "string"
           },
           "type": {
+            "description": "Daytona sandbox provider.",
             "enum": [
               "daytona"
             ],
@@ -853,8 +914,10 @@
       },
       "DaytonaSandboxProviderAuth": {
         "additionalProperties": false,
+        "description": "Daytona authentication credentials.",
         "properties": {
           "api_key": {
+            "description": "Daytona API key.",
             "minLength": 1,
             "type": "string"
           }
@@ -871,6 +934,7 @@
         "properties": {
           "enabled": {
             "default": true,
+            "description": "Allow the agent to spawn dynamic subagents. Default: true.",
             "type": "boolean"
           }
         },
@@ -902,9 +966,11 @@
             "type": "string"
           },
           "name": {
+            "description": "Filename presented to the agent.",
             "type": "string"
           },
           "type": {
+            "description": "File attachment content part.",
             "enum": [
               "file"
             ],
@@ -919,6 +985,7 @@
         "type": "object"
       },
       "FinishReason": {
+        "description": "Why the model stopped generating.",
         "enum": [
           "stop",
           "length",
@@ -941,6 +1008,7 @@
             "type": "string"
           },
           "models": {
+            "description": "Models exposed by this provider (at least one).",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
@@ -975,6 +1043,7 @@
         "properties": {
           "enabled": {
             "default": true,
+            "description": "Enable Generative UI (OpenUI blocks). Default: true.",
             "type": "boolean"
           }
         },
@@ -1162,6 +1231,7 @@
             "type": "string"
           },
           "models": {
+            "description": "Models exposed by this provider (at least one).",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
@@ -1196,6 +1266,7 @@
         "properties": {
           "enabled": {
             "default": true,
+            "description": "Offload oversized tool responses to a sandbox file. Default: true.",
             "type": "boolean"
           }
         },
@@ -1413,12 +1484,14 @@
           {
             "properties": {
               "mcp_servers": {
+                "description": "Servers that need authorization, each with an auth_url.",
                 "items": {
                   "$ref": "#/components/schemas/MCPServerAuthInfo"
                 },
                 "type": "array"
               },
               "type": {
+                "description": "One or more MCP servers need OAuth before tools can run.",
                 "enum": [
                   "mcp.auth_required"
                 ],
@@ -1436,22 +1509,26 @@
       "MCPInitializeEvent": {
         "properties": {
           "created_at": {
+            "description": "ISO 8601 event timestamp.",
             "type": "string"
           },
           "id": {
-            "description": "Unique identifier for the event",
+            "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
           "mcp_servers": {
+            "description": "Servers that were initialized.",
             "items": {
               "$ref": "#/components/schemas/MCPServerInitInfo"
             },
             "type": "array"
           },
           "thread_id": {
+            "description": "Thread that triggered initialization.",
             "type": "string"
           },
           "type": {
+            "description": "MCP server(s) initialized for this turn.",
             "enum": [
               "mcp.initialize"
             ],
@@ -1471,6 +1548,7 @@
         "properties": {
           "disable_tools": {
             "default": [],
+            "description": "Tools subtracted from the enabled set. Default: none.",
             "items": {
               "anyOf": [
                 {
@@ -1492,6 +1570,7 @@
             "default": [
               "@all"
             ],
+            "description": "Tools exposed to the agent: `@all`, `@read-only`, or literal tool names. Default: `[\"@all\"]`.",
             "items": {
               "anyOf": [
                 {
@@ -1510,15 +1589,18 @@
             "type": "array"
           },
           "name": {
+            "description": "Name of a configured MCP server (Settings → Connectors).",
             "minLength": 1,
             "type": "string"
           },
           "preload": {
             "default": false,
+            "description": "When true, load all tool schemas upfront. Default: false (deferred discovery).",
             "type": "boolean"
           },
           "preload_tools": {
             "default": [],
+            "description": "Tools loaded eagerly into context while the rest stay deferred. A non-empty list implies `preload: false`.",
             "items": {
               "anyOf": [
                 {
@@ -1541,6 +1623,7 @@
               "@write",
               "@destructive"
             ],
+            "description": "Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `[\"@write\", \"@destructive\"]`.",
             "items": {
               "anyOf": [
                 {
@@ -1568,12 +1651,15 @@
       "MCPServerAuthInfo": {
         "properties": {
           "auth_url": {
+            "description": "URL the user must visit to complete OAuth for this server.",
             "type": "string"
           },
           "id": {
+            "description": "Internal MCP server id.",
             "type": "string"
           },
           "name": {
+            "description": "Configured MCP server name.",
             "type": "string"
           }
         },
@@ -1587,15 +1673,19 @@
       "MCPServerInitInfo": {
         "properties": {
           "id": {
+            "description": "Internal MCP server id.",
             "type": "string"
           },
           "name": {
+            "description": "Configured MCP server name.",
             "type": "string"
           },
           "session_id": {
+            "description": "Optional MCP session id from the transport.",
             "type": "string"
           },
           "transport_type": {
+            "description": "Transport used to connect to the MCP server.",
             "enum": [
               "streamable-http",
               "sse"
@@ -1612,15 +1702,19 @@
       "MCPToolInfo": {
         "properties": {
           "name": {
+            "description": "Tool name on the MCP server.",
             "type": "string"
           },
           "server_id": {
+            "description": "Internal MCP server id.",
             "type": "string"
           },
           "server_name": {
+            "description": "Configured MCP server name.",
             "type": "string"
           },
           "type": {
+            "description": "Tool hosted on an MCP server.",
             "enum": [
               "mcp"
             ],
@@ -1644,6 +1738,7 @@
             "type": "string"
           },
           "status": {
+            "description": "Current auth state for this MCP server.",
             "enum": [
               "authenticated",
               "auth_required",
@@ -1661,6 +1756,7 @@
         "additionalProperties": false,
         "properties": {
           "type": {
+            "description": "Authenticate via OAuth Dynamic Client Registration.",
             "enum": [
               "dcr"
             ],
@@ -1684,6 +1780,7 @@
             "type": "object"
           },
           "type": {
+            "description": "Authenticate with static HTTP headers.",
             "enum": [
               "header"
             ],
@@ -1728,6 +1825,7 @@
             "$ref": "#/components/schemas/ResourceName"
           },
           "url": {
+            "description": "URL of the remote MCP server.",
             "format": "uri",
             "type": "string"
           }
@@ -1739,6 +1837,7 @@
         "type": "object"
       },
       "McpServerType": {
+        "description": "MCP server kind (`remote` today).",
         "enum": [
           "remote"
         ],
@@ -1824,12 +1923,14 @@
       "ModelMessageDeltaEvent": {
         "properties": {
           "content": {
+            "description": "Incremental assistant text content.",
             "type": [
               "string",
               "null"
             ]
           },
           "created_at": {
+            "description": "Optional ISO 8601 event timestamp.",
             "type": "string"
           },
           "finish_reason": {
@@ -1840,22 +1941,25 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Finish reason when this delta completes the stream."
           },
           "id": {
-            "description": "Unique identifier for the event",
+            "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
           "reasoning_content": {
             "type": "string"
           },
           "refusal": {
+            "description": "Incremental refusal text when present.",
             "type": [
               "string",
               "null"
             ]
           },
           "thread_id": {
+            "description": "Thread that emitted this delta.",
             "type": "string"
           },
           "tool_calls": {
@@ -1865,6 +1969,7 @@
             "type": "array"
           },
           "type": {
+            "description": "Streaming delta for a model.message.",
             "enum": [
               "model.message.delta"
             ],
@@ -1904,9 +2009,11 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Assistant message content as text or content parts."
           },
           "created_at": {
+            "description": "ISO 8601 event timestamp.",
             "type": "string"
           },
           "finish_reason": {
@@ -1917,25 +2024,29 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Model finish reason; null when the provider omitted it."
           },
           "id": {
-            "description": "Unique identifier for the event",
+            "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
           "name": {
+            "description": "Optional participant name.",
             "type": "string"
           },
           "reasoning_content": {
             "type": "string"
           },
           "refusal": {
+            "description": "Optional refusal text.",
             "type": [
               "string",
               "null"
             ]
           },
           "thread_id": {
+            "description": "Thread that emitted this message (`main` for the root agent).",
             "type": "string"
           },
           "tool_calls": {
@@ -1945,6 +2056,7 @@
             "type": "array"
           },
           "type": {
+            "description": "Complete assistant model message.",
             "enum": [
               "model.message"
             ],
@@ -1965,36 +2077,44 @@
       "ModelMessageUsage": {
         "properties": {
           "cache_read_tokens": {
+            "description": "Optional cache-read tokens.",
             "minimum": 0,
             "type": "integer"
           },
           "cache_write_tokens": {
+            "description": "Optional cache-write tokens.",
             "minimum": 0,
             "type": "integer"
           },
           "input_tokens": {
+            "description": "Input tokens for this model call.",
             "minimum": 0,
             "type": "integer"
           },
           "input_tokens_breakdown": {
             "properties": {
               "harness": {
+                "description": "Tokens attributed to harness system framing.",
                 "minimum": 0,
                 "type": "integer"
               },
               "instructions": {
+                "description": "Tokens attributed to agent instructions.",
                 "minimum": 0,
                 "type": "integer"
               },
               "messages": {
+                "description": "Tokens attributed to conversation messages.",
                 "minimum": 0,
                 "type": "integer"
               },
               "skills": {
+                "description": "Tokens attributed to skill instructions.",
                 "minimum": 0,
                 "type": "integer"
               },
               "tool_definitions": {
+                "description": "Tokens attributed to tool schemas.",
                 "minimum": 0,
                 "type": "integer"
               }
@@ -2009,6 +2129,7 @@
             "type": "object"
           },
           "output_tokens": {
+            "description": "Output tokens for this model call.",
             "minimum": 0,
             "type": "integer"
           }
@@ -2022,23 +2143,30 @@
       },
       "ModelParams": {
         "additionalProperties": {},
+        "description": "Model call parameters passed through to the provider. Known keys are documented; extra keys are allowed and forwarded as-is.",
         "properties": {
           "max_tokens": {
+            "description": "Maximum tokens to generate in the model response.",
             "type": "number"
           },
           "parallel_tool_calls": {
+            "description": "Whether the model may emit multiple tool calls in one response.",
             "type": "boolean"
           },
           "reasoning_effort": {
+            "description": "Provider-specific reasoning effort (e.g. low/medium/high).",
             "type": "string"
           },
           "temperature": {
+            "description": "Sampling temperature; higher values increase randomness.",
             "type": "number"
           },
           "top_k": {
+            "description": "Top-k sampling; keep only the k highest-probability tokens.",
             "type": "number"
           },
           "top_p": {
+            "description": "Nucleus sampling probability mass.",
             "type": "number"
           }
         },
@@ -2046,16 +2174,20 @@
       },
       "ModelProperties": {
         "additionalProperties": false,
+        "description": "Optional model capability metadata.",
         "properties": {
           "context_length": {
+            "description": "Maximum context window size in tokens.",
             "exclusiveMinimum": 0,
             "type": "integer"
           },
           "max_output_tokens": {
+            "description": "Maximum output tokens the model can generate.",
             "exclusiveMinimum": 0,
             "type": "integer"
           },
           "reasoning_efforts": {
+            "description": "Supported reasoning-effort values for this model.",
             "items": {
               "$ref": "#/components/schemas/ReasoningEffort"
             },
@@ -2112,8 +2244,10 @@
       },
       "ModelProviderAuth": {
         "additionalProperties": false,
+        "description": "Provider authentication credentials.",
         "properties": {
           "api_key": {
+            "description": "API key used to authenticate with the provider.",
             "minLength": 1,
             "type": "string"
           }
@@ -2136,6 +2270,7 @@
             "type": "string"
           },
           "models": {
+            "description": "Models exposed by this provider (at least one).",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
@@ -2176,6 +2311,7 @@
             "type": "string"
           },
           "models": {
+            "description": "Models exposed by this provider (at least one).",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
@@ -2313,21 +2449,25 @@
           "error": {
             "properties": {
               "code": {
+                "description": "Optional machine-readable error code; null when not applicable.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "message": {
+                "description": "Human-readable explanation of the failure.",
                 "type": "string"
               },
               "param": {
+                "description": "Optional request field that caused the error; null when not field-specific.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "type": {
+                "description": "Optional error category (e.g. validation vs conflict).",
                 "type": "string"
               }
             },
@@ -2372,8 +2512,10 @@
       },
       "ResponseFormatJsonObject": {
         "additionalProperties": {},
+        "description": "JSON object response format. Extra provider fields are allowed.",
         "properties": {
           "type": {
+            "description": "Model must return a JSON object.",
             "enum": [
               "json_object"
             ],
@@ -2387,21 +2529,27 @@
       },
       "ResponseFormatJsonSchema": {
         "additionalProperties": {},
+        "description": "JSON Schema response format. Extra provider fields are allowed.",
         "properties": {
           "json_schema": {
             "additionalProperties": {},
+            "description": "JSON Schema payload. Extra provider fields are allowed.",
             "properties": {
               "description": {
+                "description": "Optional schema description for the model.",
                 "type": "string"
               },
               "name": {
+                "description": "Schema name sent to the provider.",
                 "type": "string"
               },
               "schema": {
                 "additionalProperties": {},
+                "description": "JSON Schema object for the response.",
                 "type": "object"
               },
               "strict": {
+                "description": "When true, ask the provider to enforce the schema strictly.",
                 "type": [
                   "boolean",
                   "null"
@@ -2414,6 +2562,7 @@
             "type": "object"
           },
           "type": {
+            "description": "Model must return JSON matching a schema.",
             "enum": [
               "json_schema"
             ],
@@ -2428,8 +2577,10 @@
       },
       "ResponseFormatText": {
         "additionalProperties": {},
+        "description": "Default text response format. Extra provider fields are allowed.",
         "properties": {
           "type": {
+            "description": "Unconstrained text output.",
             "enum": [
               "text"
             ],
@@ -2481,6 +2632,7 @@
           },
           "iteration_limit": {
             "default": 100,
+            "description": "Max agent-loop iterations per turn (1–1024). Default: 100.",
             "exclusiveMinimum": 0,
             "maximum": 1024,
             "type": "integer"
@@ -2498,10 +2650,12 @@
         },
         "properties": {
           "enabled": {
+            "description": "Give the agent a sandbox. Required for skills and Code Mode.",
             "type": "boolean"
           },
           "file_downloads": {
             "default": true,
+            "description": "Allow downloading agent-produced files via the turn download endpoint. Default: true.",
             "type": "boolean"
           },
           "network_policy": {
@@ -2516,22 +2670,26 @@
       "SandboxCreatedEvent": {
         "properties": {
           "created_at": {
+            "description": "ISO 8601 event timestamp.",
             "type": "string"
           },
           "id": {
-            "description": "Unique identifier for the event",
+            "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
           "sandbox_id": {
+            "description": "Provider sandbox id.",
             "type": "string"
           },
           "thread_id": {
+            "description": "Always null — sandbox is session-scoped.",
             "type": [
               "string",
               "null"
             ]
           },
           "type": {
+            "description": "A sandbox was created for this session.",
             "enum": [
               "sandbox.created"
             ],
@@ -2550,21 +2708,25 @@
       "SandboxNetworkPolicy": {
         "properties": {
           "auth_inject": {
+            "description": "Up to one rule injecting git basic-auth credentials for exact hosts.",
             "items": {
               "properties": {
                 "auth_data": {
                   "properties": {
                     "password": {
+                      "description": "Basic-auth password.",
                       "minLength": 1,
                       "type": "string"
                     },
                     "type": {
+                      "description": "Basic auth credential type.",
                       "enum": [
                         "basic"
                       ],
                       "type": "string"
                     },
                     "username": {
+                      "description": "Basic-auth username (no whitespace).",
                       "pattern": "^\\S+$",
                       "type": "string"
                     }
@@ -2579,7 +2741,9 @@
                 "match": {
                   "properties": {
                     "hosts": {
+                      "description": "Hostnames that receive injected credentials.",
                       "items": {
+                        "description": "Exact hostname to match (no wildcards).",
                         "minLength": 1,
                         "type": "string"
                       },
@@ -2593,6 +2757,7 @@
                   "type": "object"
                 },
                 "type": {
+                  "description": "Inject credentials for git HTTPS clones.",
                   "enum": [
                     "git"
                   ],
@@ -2618,21 +2783,26 @@
             "$ref": "#/components/schemas/SessionAgent"
           },
           "created_at": {
+            "description": "ISO 8601 creation timestamp.",
             "type": "string"
           },
           "created_by": {
+            "description": "Caller identity that created the session (immutable).",
             "type": "string"
           },
           "id": {
+            "description": "Unique session id.",
             "type": "string"
           },
           "title": {
+            "description": "Optional human-readable title; null until set.",
             "type": [
               "string",
               "null"
             ]
           },
           "updated_at": {
+            "description": "ISO 8601 last-update timestamp.",
             "type": "string"
           }
         },
@@ -2670,6 +2840,7 @@
             "$ref": "#/components/schemas/AgentSpec"
           },
           "type": {
+            "description": "Bind the session to an inline AgentSpec (not a registry id).",
             "enum": [
               "inline"
             ],
@@ -2698,16 +2869,19 @@
         "additionalProperties": false,
         "properties": {
           "id": {
+            "description": "Registry agent id.",
             "minLength": 1,
             "type": "string"
           },
           "name": {
+            "description": "Create-time snapshot of the registry agent name; null for legacy or orphan rows.",
             "type": [
               "string",
               "null"
             ]
           },
           "type": {
+            "description": "Bind the session to a named registry agent.",
             "enum": [
               "reference"
             ],
@@ -2792,6 +2966,7 @@
             "$ref": "#/components/schemas/SessionEvent"
           },
           "turn_id": {
+            "description": "Turn that emitted this event.",
             "type": "string"
           }
         },
@@ -2847,7 +3022,7 @@
         "additionalProperties": false,
         "properties": {
           "name": {
-            "description": "Name for the skill, used as directory name in sandbox.",
+            "description": "Name of a configured skill (also used as the skill directory name in the sandbox).",
             "maxLength": 64,
             "minLength": 1,
             "pattern": "^[A-Za-z0-9._-]+$",
@@ -2886,9 +3061,11 @@
       "TextContent": {
         "properties": {
           "text": {
+            "description": "Plain-text content.",
             "type": "string"
           },
           "type": {
+            "description": "Text content part.",
             "enum": [
               "text"
             ],
@@ -2907,22 +3084,26 @@
             "$ref": "#/components/schemas/AgentInfo"
           },
           "created_at": {
+            "description": "ISO 8601 event timestamp.",
             "type": "string"
           },
           "id": {
-            "description": "Unique identifier for the event",
+            "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
           "parent": {
             "$ref": "#/components/schemas/AgentParent"
           },
           "thread_id": {
+            "description": "Id of the new thread.",
             "type": "string"
           },
           "title": {
+            "description": "Human-readable thread title.",
             "type": "string"
           },
           "type": {
+            "description": "A dynamic subagent thread was created.",
             "enum": [
               "thread.created"
             ],
@@ -2948,16 +3129,18 @@
           {
             "properties": {
               "created_at": {
+                "description": "ISO 8601 event timestamp.",
                 "type": "string"
               },
               "id": {
-                "description": "Unique identifier for the event",
+                "description": "Unique identifier for the event (monotonic ULID).",
                 "type": "string"
               },
               "state": {
                 "$ref": "#/components/schemas/ThreadState"
               },
               "type": {
+                "description": "A thread reached a terminal state.",
                 "enum": [
                   "thread.done"
                 ],
@@ -2997,6 +3180,7 @@
             "$ref": "#/components/schemas/ModelMessageEvent"
           },
           "status": {
+            "description": "Thread completed successfully.",
             "enum": [
               "done"
             ],
@@ -3012,12 +3196,14 @@
       "ThreadStateError": {
         "properties": {
           "error": {
+            "description": "Human-readable error message.",
             "type": "string"
           },
           "output": {
             "$ref": "#/components/schemas/ModelMessageEvent"
           },
           "status": {
+            "description": "Thread ended with an error.",
             "enum": [
               "error"
             ],
@@ -3043,6 +3229,7 @@
             "type": "string"
           },
           "models": {
+            "description": "Models exposed by this provider (at least one).",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
@@ -3073,13 +3260,16 @@
       "TokenPagination": {
         "properties": {
           "limit": {
+            "description": "Page size used for this response.",
             "exclusiveMinimum": 0,
             "type": "integer"
           },
           "next_page_token": {
+            "description": "Opaque token for the next page. Omit or absent when there is no next page.",
             "type": "string"
           },
           "previous_page_token": {
+            "description": "Opaque token for the previous page. Omit or absent when there is no previous page.",
             "type": "string"
           }
         },
@@ -3091,22 +3281,26 @@
       "ToolApprovalRequiredEvent": {
         "properties": {
           "created_at": {
+            "description": "ISO 8601 event timestamp.",
             "type": "string"
           },
           "id": {
-            "description": "Unique identifier for the event",
+            "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
           "thread_id": {
+            "description": "Thread that owns the pending tool calls.",
             "type": "string"
           },
           "tool_calls": {
+            "description": "Tool calls waiting for approval.",
             "items": {
               "$ref": "#/components/schemas/ToolCallRef"
             },
             "type": "array"
           },
           "type": {
+            "description": "One or more tool calls need human approval.",
             "enum": [
               "tool.approval_required"
             ],
@@ -3143,9 +3337,11 @@
       "ToolCallRef": {
         "properties": {
           "id": {
+            "description": "Tool call id awaiting action.",
             "type": "string"
           },
           "source_event_id": {
+            "description": "Event id of the model.message that requested the tool call.",
             "type": "string"
           }
         },
@@ -3178,19 +3374,23 @@
             "type": "string"
           },
           "created_at": {
+            "description": "ISO 8601 event timestamp.",
             "type": "string"
           },
           "id": {
-            "description": "Unique identifier for the event",
+            "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
           "thread_id": {
+            "description": "Thread that owns the tool call.",
             "type": "string"
           },
           "tool_call_id": {
+            "description": "Id of the tool call this message responds to.",
             "type": "string"
           },
           "type": {
+            "description": "Result of a tool execution.",
             "enum": [
               "tool.response"
             ],
@@ -3210,22 +3410,26 @@
       "ToolResponseRequiredEvent": {
         "properties": {
           "created_at": {
+            "description": "ISO 8601 event timestamp.",
             "type": "string"
           },
           "id": {
-            "description": "Unique identifier for the event",
+            "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
           "thread_id": {
+            "description": "Thread that owns the pending tool calls.",
             "type": "string"
           },
           "tool_calls": {
+            "description": "Tool calls waiting for a client response.",
             "items": {
               "$ref": "#/components/schemas/ToolCallRef"
             },
             "type": "array"
           },
           "type": {
+            "description": "One or more client-side tool calls need a user/tool response.",
             "enum": [
               "tool.response_required"
             ],
@@ -3244,9 +3448,11 @@
       "TrueFoundrySystemToolInfo": {
         "properties": {
           "name": {
+            "description": "System tool name.",
             "type": "string"
           },
           "type": {
+            "description": "Built-in harness system tool.",
             "enum": [
               "truefoundry-system"
             ],
@@ -3262,24 +3468,29 @@
       "Turn": {
         "properties": {
           "created_at": {
+            "description": "ISO 8601 creation timestamp.",
             "type": "string"
           },
           "id": {
+            "description": "Unique turn id.",
             "type": "string"
           },
           "input": {
+            "description": "Input items supplied when the turn was created.",
             "items": {
               "$ref": "#/components/schemas/TurnInputItem"
             },
             "type": "array"
           },
           "previous_turn_id": {
+            "description": "Prior turn this turn chains from; null for a root turn.",
             "type": [
               "string",
               "null"
             ]
           },
           "session_id": {
+            "description": "Session that owns this turn.",
             "type": "string"
           },
           "state": {
@@ -3298,19 +3509,22 @@
       "TurnCreatedEvent": {
         "properties": {
           "created_at": {
+            "description": "ISO 8601 event timestamp.",
             "type": "string"
           },
           "id": {
-            "description": "Unique identifier for the event",
+            "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
           "input": {
+            "description": "Input items supplied when the turn was created.",
             "items": {
               "$ref": "#/components/schemas/TurnInputItem"
             },
             "type": "array"
           },
           "previous_turn_id": {
+            "description": "Prior turn this turn chains from; null for a root turn.",
             "type": [
               "string",
               "null"
@@ -3320,15 +3534,18 @@
             "$ref": "#/components/schemas/TurnStateRunning"
           },
           "thread_id": {
+            "description": "Thread that owns the event; null for turn-level lifecycle events.",
             "type": [
               "string",
               "null"
             ]
           },
           "turn_id": {
+            "description": "Id of the newly created turn.",
             "type": "string"
           },
           "type": {
+            "description": "Emitted when a turn starts.",
             "enum": [
               "turn.created"
             ],
@@ -3349,13 +3566,15 @@
       "TurnDoneEvent": {
         "properties": {
           "created_at": {
+            "description": "ISO 8601 event timestamp.",
             "type": "string"
           },
           "id": {
-            "description": "Unique identifier for the event",
+            "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
           "state": {
+            "description": "Terminal turn state (done, cancelled, or error).",
             "discriminator": {
               "mapping": {
                 "cancelled": "#/components/schemas/TurnStateCancelled",
@@ -3377,12 +3596,14 @@
             ]
           },
           "thread_id": {
+            "description": "Thread that owns the event; null for turn-level lifecycle events.",
             "type": [
               "string",
               "null"
             ]
           },
           "type": {
+            "description": "Emitted when a turn reaches a terminal state.",
             "enum": [
               "turn.done"
             ],
@@ -3420,32 +3641,40 @@
         ]
       },
       "TurnMetrics": {
+        "description": "Optional billable aggregate for the whole turn.",
         "properties": {
           "total_cache_read_tokens": {
+            "description": "Total cache-read tokens across model calls in this turn.",
             "minimum": 0,
             "type": "integer"
           },
           "total_cache_write_tokens": {
+            "description": "Total cache-write tokens across model calls in this turn.",
             "minimum": 0,
             "type": "integer"
           },
           "total_cost_in_usd": {
+            "description": "Estimated total cost in USD for this turn.",
             "minimum": 0,
             "type": "number"
           },
           "total_input_tokens": {
+            "description": "Total input tokens across model calls in this turn.",
             "minimum": 0,
             "type": "integer"
           },
           "total_output_tokens": {
+            "description": "Total output tokens across model calls in this turn.",
             "minimum": 0,
             "type": "integer"
           },
           "total_reasoning_tokens": {
+            "description": "Total reasoning tokens across model calls in this turn.",
             "minimum": 0,
             "type": "integer"
           },
           "total_tokens": {
+            "description": "Total tokens (input + output) across model calls in this turn.",
             "minimum": 0,
             "type": "integer"
           }
@@ -3480,15 +3709,24 @@
       "TurnStateCancelled": {
         "properties": {
           "completed_at": {
+            "description": "ISO 8601 time when cancellation completed.",
             "type": "string"
           },
           "metrics": {
-            "$ref": "#/components/schemas/TurnMetrics"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TurnMetrics"
+              },
+              {
+                "description": "Optional billable aggregate for work done before cancel."
+              }
+            ]
           },
           "reason": {
             "$ref": "#/components/schemas/TurnStateCancelledReason"
           },
           "status": {
+            "description": "Turn was cancelled before completion.",
             "enum": [
               "cancelled"
             ],
@@ -3515,6 +3753,7 @@
       "TurnStateDone": {
         "properties": {
           "completed_at": {
+            "description": "ISO 8601 time when the turn reached a terminal state.",
             "type": "string"
           },
           "metrics": {
@@ -3528,15 +3767,18 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Final `model.message` for the turn, or null when the turn ended paused without a final message."
           },
           "required_actions": {
+            "description": "Pending actions (`tool.approval_required`, `tool.response_required`, `mcp.auth_required`); empty when none.",
             "items": {
               "$ref": "#/components/schemas/ActionRequiredEvent"
             },
             "type": "array"
           },
           "status": {
+            "description": "Turn finished (possibly paused for required actions).",
             "enum": [
               "done"
             ],
@@ -3554,15 +3796,25 @@
       "TurnStateError": {
         "properties": {
           "completed_at": {
+            "description": "ISO 8601 time when the error state was recorded.",
             "type": "string"
           },
           "message": {
+            "description": "Human-readable error message.",
             "type": "string"
           },
           "metrics": {
-            "$ref": "#/components/schemas/TurnMetrics"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TurnMetrics"
+              },
+              {
+                "description": "Optional billable aggregate for work done before the error."
+              }
+            ]
           },
           "status": {
+            "description": "Turn ended with an error.",
             "enum": [
               "error"
             ],
@@ -3579,6 +3831,7 @@
       "TurnStateRunning": {
         "properties": {
           "status": {
+            "description": "Turn is still executing.",
             "enum": [
               "running"
             ],
@@ -3648,21 +3901,24 @@
         ]
       },
       "UpdateAgentRequest": {
-        "description": "Agent Definition",
+        "description": "Complete agent definition used inline on a session or saved as a named agent.",
         "properties": {
           "config": {
             "$ref": "#/components/schemas/RuntimeConfig"
           },
           "instructions": {
+            "description": "Optional system prompt — the agent's role, behavior, and constraints.",
             "type": "string"
           },
           "mcp_servers": {
+            "description": "Optional MCP servers attached by configured name.",
             "items": {
               "$ref": "#/components/schemas/MCPServer"
             },
             "type": "array"
           },
           "messages": {
+            "description": "Optional seed user messages injected at the start of every session.",
             "items": {
               "$ref": "#/components/schemas/AgentSpecUserMessage"
             },
@@ -3675,6 +3931,7 @@
             "$ref": "#/components/schemas/ResponseFormat"
           },
           "skills": {
+            "description": "Optional name-only skill references. Requires `config.sandbox.enabled: true`.",
             "items": {
               "$ref": "#/components/schemas/SkillNameRef"
             },
@@ -3684,6 +3941,7 @@
             "additionalProperties": {
               "type": "string"
             },
+            "description": "Optional string key–value map reserved for parameterizing agent definitions.",
             "type": "object"
           }
         },
@@ -3714,9 +3972,11 @@
                 },
                 "type": "array"
               }
-            ]
+            ],
+            "description": "Plain string or structured text/file content parts."
           },
           "type": {
+            "description": "User message input item.",
             "enum": [
               "user.message"
             ],
@@ -3752,14 +4012,17 @@
             "$ref": "#/components/schemas/ApprovalDecision"
           },
           "thread_id": {
+            "description": "Thread that owns the pending tool call.",
             "minLength": 1,
             "type": "string"
           },
           "tool_call_id": {
+            "description": "Tool call id being approved or denied.",
             "minLength": 1,
             "type": "string"
           },
           "type": {
+            "description": "Client resume after tool.approval_required.",
             "enum": [
               "user.tool_approval"
             ],
@@ -3777,18 +4040,22 @@
       "UserToolResponseEvent": {
         "properties": {
           "content": {
+            "description": "Client-side tool result content.",
             "minLength": 1,
             "type": "string"
           },
           "thread_id": {
+            "description": "Thread that owns the pending tool call.",
             "minLength": 1,
             "type": "string"
           },
           "tool_call_id": {
+            "description": "Tool call id receiving the client response.",
             "minLength": 1,
             "type": "string"
           },
           "type": {
+            "description": "Client resume after tool.response_required.",
             "enum": [
               "user.tool_response"
             ],
@@ -3816,6 +4083,7 @@
             "type": "string"
           },
           "models": {
+            "description": "Models exposed by this provider (at least one).",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
@@ -3846,8 +4114,8 @@
     }
   },
   "info": {
-    "description": "Agent server with DB-backed sessions, agent registry, settings catalogs, and model/MCP/skill providers.",
-    "title": "Agent Server",
+    "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware stamps a local default user. When OIDC is configured, browser login sets an httpOnly `id_token` cookie; protected routes read that cookie (not `Authorization: Bearer`). There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
+    "title": "TrueForge API",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",
@@ -3865,6 +4133,16 @@
               }
             },
             "description": "All configured agents."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
           }
         },
         "summary": "List agents",
@@ -3960,6 +4238,16 @@
         "responses": {
           "204": {
             "description": "Agent deleted."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
           }
         },
         "summary": "Delete an agent",
@@ -4139,10 +4427,12 @@
             }
           },
           {
+            "description": "Human-readable error detail from the identity provider when `error` is set.",
             "in": "query",
             "name": "error_description",
             "required": false,
             "schema": {
+              "description": "Human-readable error detail from the identity provider when `error` is set.",
               "type": "string"
             }
           }
@@ -4219,6 +4509,13 @@
             "description": "Session type and identity for the current request."
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
             "description": "OIDC is configured and the request has no valid session cookie."
           }
         },
@@ -4245,6 +4542,16 @@
               }
             },
             "description": "Server capabilities."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
           }
         },
         "summary": "Get server capabilities",
@@ -4270,6 +4577,16 @@
               }
             },
             "description": "All MCP servers (chat projection)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
           }
         },
         "summary": "List MCP servers for chat",
@@ -4284,6 +4601,7 @@
     },
     "/api/v1/mcp-servers/oauth/callback": {
       "get": {
+        "description": "Browser redirect target for MCP server OAuth. The authorization server redirects here with `code`/`state` (or `error`). Exchanges the code for tokens, then either returns JSON or redirects to the `redirect_url` supplied at authorize time. Not called by the SDK — browsers hit this URL directly.",
         "parameters": [
           {
             "description": "Authorization code, present when the user granted consent.",
@@ -4318,10 +4636,12 @@
             }
           },
           {
+            "description": "Human-readable error detail from the identity provider when `error` is set.",
             "in": "query",
             "name": "error_description",
             "required": false,
             "schema": {
+              "description": "Human-readable error detail from the identity provider when `error` is set.",
               "type": "string"
             }
           }
@@ -4333,6 +4653,7 @@
                 "schema": {
                   "properties": {
                     "success": {
+                      "description": "Present when the OAuth callback completed without a redirect_url.",
                       "enum": [
                         true
                       ],
@@ -4537,6 +4858,16 @@
               }
             },
             "description": "All models of all configured providers."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
           }
         },
         "summary": "List models",
@@ -5648,10 +5979,12 @@
             }
           },
           {
+            "description": "Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.",
             "in": "query",
             "name": "after_sequence_number",
             "required": false,
             "schema": {
+              "description": "Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.",
               "minimum": 0,
               "type": [
                 "integer",
@@ -5679,7 +6012,7 @@
                 }
               }
             },
-            "description": "Invalid request body."
+            "description": "Invalid query parameters."
           },
           "403": {
             "content": {
@@ -5739,6 +6072,26 @@
               }
             },
             "description": "All MCP servers."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the caller is authenticated but not an admin."
           }
         },
         "summary": "List MCP servers",
@@ -5819,6 +6172,26 @@
               }
             },
             "description": "The shipped catalog, verbatim."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the caller is authenticated but not an admin."
           }
         },
         "summary": "Get the MCP catalog",
@@ -5973,6 +6346,26 @@
               }
             },
             "description": "All configured model providers."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the caller is authenticated but not an admin."
           }
         },
         "summary": "List configured model providers",
@@ -6043,6 +6436,26 @@
               }
             },
             "description": "The shipped catalog, verbatim."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the caller is authenticated but not an admin."
           }
         },
         "summary": "Get the model catalog",
@@ -6149,6 +6562,26 @@
               }
             },
             "description": "The shipped catalog, verbatim."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the caller is authenticated but not an admin."
           }
         },
         "summary": "Get the sandbox provider catalog",
@@ -6175,6 +6608,26 @@
               }
             },
             "description": "All configured skills."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the caller is authenticated but not an admin."
           }
         },
         "summary": "List configured skills",
@@ -6245,6 +6698,26 @@
               }
             },
             "description": "The shipped catalog, verbatim."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the caller is authenticated but not an admin."
           }
         },
         "summary": "Get the skill catalog",
@@ -6271,6 +6744,16 @@
               }
             },
             "description": "All configured skills (chat projection)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
           }
         },
         "summary": "List skills for chat",

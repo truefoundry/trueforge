@@ -18,9 +18,13 @@ export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
 
 export const ModelPropertiesSchema = z
   .object({
-    context_length: z.number().int().positive().optional(),
-    max_output_tokens: z.number().int().positive().optional(),
-    reasoning_efforts: z.array(ReasoningEffortSchema).min(1).optional(),
+    context_length: z.number().int().positive().optional().describe('Maximum context window size in tokens.'),
+    max_output_tokens: z.number().int().positive().optional().describe('Maximum output tokens the model can generate.'),
+    reasoning_efforts: z
+      .array(ReasoningEffortSchema)
+      .min(1)
+      .optional()
+      .describe('Supported reasoning-effort values for this model.'),
   })
   .strict()
   .openapi('ModelProperties');
@@ -29,7 +33,7 @@ export const ModelEntrySchema = z
   .object({
     model_id: z.string().min(1).describe('Upstream, provider-specific identifier sent to the provider API.'),
     name: NameSchema.describe('Internal identifier; forms the fully qualified name `name/model_name`.'),
-    properties: ModelPropertiesSchema,
+    properties: ModelPropertiesSchema.describe('Optional model capability metadata.'),
   })
   .strict()
   .openapi('ModelEntry');
@@ -52,15 +56,15 @@ export function refineUniqueModels(models: { model_id: string; name: string }[],
 
 const ModelProviderAuthSchema = z
   .object({
-    api_key: z.string().min(1),
+    api_key: z.string().min(1).describe('API key used to authenticate with the provider.'),
   })
   .strict()
   .openapi('ModelProviderAuth');
 
 const ModelProviderManifestBaseSchema = z
   .object({
-    auth: ModelProviderAuthSchema,
-    models: z.array(ModelEntrySchema).min(1),
+    auth: ModelProviderAuthSchema.describe('Provider authentication credentials.'),
+    models: z.array(ModelEntrySchema).min(1).describe('Models exposed by this provider (at least one).'),
   })
   .strict();
 
@@ -181,7 +185,7 @@ export const ModelSchema = z
       .string()
       .describe('Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant.'),
     model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
-    properties: ModelPropertiesSchema,
+    properties: ModelPropertiesSchema.describe('Optional model capability metadata.'),
   })
   .strict()
   .openapi('Model');

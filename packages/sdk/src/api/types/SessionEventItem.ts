@@ -4,5 +4,6 @@ import type * as TrueForge from "../index.js";
 
 export interface SessionEventItem {
     event: TrueForge.SessionEvent;
+    /** Turn that emitted this event. */
     turnId: string;
 }

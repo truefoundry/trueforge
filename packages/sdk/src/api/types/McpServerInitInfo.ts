@@ -3,8 +3,12 @@
 import type * as TrueForge from "../index.js";
 
 export interface McpServerInitInfo {
+    /** Internal MCP server id. */
     id: string;
+    /** Configured MCP server name. */
     name: string;
+    /** Optional MCP session id from the transport. */
     sessionId?: string;
+    /** Transport used to connect to the MCP server. */
     transportType?: TrueForge.McpServerInitInfoTransportType;
 }
