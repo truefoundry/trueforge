@@ -29,6 +29,7 @@ import {
 import { getMcpConnection } from '../runtime/sessionResources';
 import type { ConfiguredMcpServer, McpAuthStatus, McpServerManifest, McpServerReadEntry } from '../schemas/mcpServer';
 import { resolveMcpAuthStatus } from '../schemas/mcpServer';
+import { resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
 /** Registering a DCR OAuth client hits the MCP server's authorization server, so bound that call. */
@@ -62,6 +63,56 @@ function omitUndefinedEntries(obj: Record<string, unknown>): Record<string, unkn
   return out;
 }
 
+/** Settings wire view: redact header secrets; leave DCR / no-auth manifests unchanged. */
+function redactMcpServerManifest(manifest: McpServerManifest): McpServerManifest {
+  if (manifest.auth?.type !== 'header') {
+    return manifest;
+  }
+  const headers: Record<string, string> = {};
+  for (const [name, value] of Object.entries(manifest.auth.headers)) {
+    headers[name] = toRedactedSecretValue(value);
+  }
+  return {
+    ...manifest,
+    auth: { type: 'header', headers },
+  };
+}
+
+/**
+ * Strict PUT merge for `auth.type === 'header'`: each header value is always required;
+ * redacted values keep the stored secret for the same header name.
+ */
+function resolveMcpServerManifestForWrite({
+  incoming,
+  existing,
+}: {
+  incoming: McpServerManifest;
+  existing: McpServerManifest | undefined;
+}): { ok: true; manifest: McpServerManifest } | { ok: false } {
+  if (incoming.auth?.type !== 'header') {
+    return { ok: true, manifest: incoming };
+  }
+  const existingHeaders = existing?.auth?.type === 'header' ? existing.auth.headers : undefined;
+  const headers: Record<string, string> = {};
+  for (const [name, value] of Object.entries(incoming.auth.headers)) {
+    const resolved = resolveStoredSecretValue({
+      incoming: value,
+      existing: existingHeaders?.[name],
+    });
+    if (!resolved.ok) {
+      return { ok: false };
+    }
+    headers[name] = resolved.value;
+  }
+  return {
+    ok: true,
+    manifest: {
+      ...incoming,
+      auth: { type: 'header', headers },
+    },
+  };
+}
+
 /**
  * `token` is the calling user's DCR access token for this server (keyed by `record.id` +
  * `userRef`), or undefined for header/no-auth servers and DCR servers that have never
@@ -75,7 +126,7 @@ function toConfiguredMcpServer({
   token: OAuthToken | undefined;
 }): ConfiguredMcpServer {
   return {
-    ...record.manifest,
+    ...redactMcpServerManifest(record.manifest),
     auth_status: resolveMcpAuthStatus({
       manifest: record.manifest,
       ...(token !== undefined ? { token } : {}),
@@ -156,11 +207,19 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
 
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
     const userRef = deps.resolveUserContext(c).userRef;
-    const manifest: McpServerManifest = c.req.valid('json');
+    const incoming: McpServerManifest = c.req.valid('json');
+    const existing = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name: incoming.name });
+    const resolved = resolveMcpServerManifestForWrite({
+      incoming,
+      existing: existing?.manifest,
+    });
+    if (!resolved.ok) {
+      return c.json({ error: { message: 'Header secret is required' } }, 400);
+    }
     const record = await deps.mcpServerStore.upsertServer({
       tenant_id: TENANT_ID,
-      name: manifest.name,
-      manifest,
+      name: resolved.manifest.name,
+      manifest: resolved.manifest,
     });
     if (record.manifest.auth?.type === 'dcr') {
       try {

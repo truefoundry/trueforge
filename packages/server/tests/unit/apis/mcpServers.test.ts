@@ -8,6 +8,7 @@ import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
+import { toRedactedSecretValue } from '../../../src/utils/secretRedaction';
 
 const putBody = {
   type: 'remote' as const,
@@ -22,13 +23,23 @@ const putBodyWithDcr = {
   auth: { type: 'dcr' as const },
 };
 
+const HEADER_TOKEN = 'Bearer test-token';
+
 const putBodyWithHeaderAuth = {
   type: 'remote' as const,
   name: 'private-mcp',
   url: 'https://mcp.example.com/mcp',
   auth: {
     type: 'header' as const,
-    headers: { Authorization: 'Bearer test-token' },
+    headers: { Authorization: HEADER_TOKEN },
+  },
+};
+
+const putBodyWithHeaderAuthWire = {
+  ...putBodyWithHeaderAuth,
+  auth: {
+    type: 'header' as const,
+    headers: { Authorization: toRedactedSecretValue(HEADER_TOKEN) },
   },
 };
 
@@ -205,12 +216,89 @@ describe('mcp-servers routers', () => {
     await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
   });
 
-  it('PUT with header auth stores headers and reports authenticated', async () => {
+  it('PUT with header auth stores plaintext and returns redacted headers', async () => {
     const response = await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: { ...putBodyWithHeaderAuth, auth_status: { status: 'authenticated' } },
+      data: { ...putBodyWithHeaderAuthWire, auth_status: { status: 'authenticated' } },
     });
+
+    const stored = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithHeaderAuth.name });
+    expect(stored?.manifest.auth).toEqual(putBodyWithHeaderAuth.auth);
+  });
+
+  it('PUT create with a redacted header value returns 400', async () => {
+    const redactedOnly = {
+      ...putBodyWithHeaderAuth,
+      name: 'redacted-only-mcp',
+      auth: {
+        type: 'header' as const,
+        headers: { Authorization: toRedactedSecretValue(HEADER_TOKEN) },
+      },
+    };
+    const response = await settingsRouter.request('/', putInit(redactedOnly));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: { message: 'Header secret is required' } });
+  });
+
+  it('PUT with a redacted header value keeps the stored secret', async () => {
+    await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
+
+    const keep = {
+      ...putBodyWithHeaderAuth,
+      url: 'https://mcp.example.com/v2/mcp',
+      auth: {
+        type: 'header' as const,
+        headers: { Authorization: toRedactedSecretValue(HEADER_TOKEN) },
+      },
+    };
+    const response = await settingsRouter.request('/', putInit(keep));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      data: {
+        ...keep,
+        auth: {
+          type: 'header',
+          headers: { Authorization: toRedactedSecretValue(HEADER_TOKEN) },
+        },
+        auth_status: { status: 'authenticated' },
+      },
+    });
+
+    const stored = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithHeaderAuth.name });
+    expect(stored?.manifest).toEqual({
+      ...putBodyWithHeaderAuth,
+      url: keep.url,
+      auth: putBodyWithHeaderAuth.auth,
+    });
+  });
+
+  it('PUT with a real header value rotates the stored secret', async () => {
+    await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
+
+    const rotatedToken = 'Bearer rotated-token';
+    const rotated = {
+      ...putBodyWithHeaderAuth,
+      auth: {
+        type: 'header' as const,
+        headers: { Authorization: rotatedToken },
+      },
+    };
+    const response = await settingsRouter.request('/', putInit(rotated));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      data: {
+        ...rotated,
+        auth: {
+          type: 'header',
+          headers: { Authorization: toRedactedSecretValue(rotatedToken) },
+        },
+        auth_status: { status: 'authenticated' },
+      },
+    });
+
+    const stored = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithHeaderAuth.name });
+    expect(stored?.manifest.auth).toEqual(rotated.auth);
   });
 
   it('GET / on the chat router returns per-user auth_status and public auth type', async () => {
@@ -503,10 +591,12 @@ describe('mcp-servers routers', () => {
       data: { ...putBody, auth_status: { status: 'not_required' } },
     });
 
+    // Ensure header-auth fixture is present with a known secret (later tests may have rotated it).
+    await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
     const headerAuth = await mcpServersRouter.request('/private-mcp/authorize', { method: 'DELETE' });
     expect(headerAuth.status).toBe(200);
     expect(await headerAuth.json()).toEqual({
-      data: { ...putBodyWithHeaderAuth, auth_status: { status: 'authenticated' } },
+      data: { ...putBodyWithHeaderAuthWire, auth_status: { status: 'authenticated' } },
     });
 
     const missing = await mcpServersRouter.request('/missing/authorize', { method: 'DELETE' });
