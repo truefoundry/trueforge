@@ -148,7 +148,7 @@ function resolveOptionalPathEnv(envKey: string): string | undefined {
 
 /**
  * Absolute SQLite file path for standalone mode.
- * Env: `SQLITE_PATH` (optional). Default: `{env-paths data}/db.sqlite`.
+ * Env: `SQLITE_PATH` (optional). Default: `{env-paths data}/db/db.sqlite`.
  */
 function resolveSqlitePath(): string {
   const override = getEnv('SQLITE_PATH');
@@ -382,7 +382,7 @@ export type StandaloneServerConfiguration = SharedServerConfiguration & {
   STANDALONE: true;
   /**
    * Absolute SQLite database file path.
-   * Env: `SQLITE_PATH` (optional). Default: env-paths data dir + `db.sqlite`.
+   * Env: `SQLITE_PATH` (optional). Default: env-paths data dir + `db/db.sqlite`.
    */
   SQLITE_PATH: string;
 };
