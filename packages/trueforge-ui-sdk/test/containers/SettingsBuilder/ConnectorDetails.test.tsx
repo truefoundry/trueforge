@@ -38,13 +38,13 @@ function wrapperFor(tools: ToolBase[]) {
 }
 
 describe('ConnectorDetails tool descriptions', () => {
-  it('clamps long tool descriptions and expands on Read more', async () => {
+  it('clamps long tool descriptions to one line and expands on Read more', async () => {
     const longDescription =
       'First line of the tool description that should wrap. Second line continues with more detail. Third line must stay hidden until the reader expands the description fully.';
 
-    // jsdom does not layout line-clamp; stub overflow detection.
-    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(64);
-    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(32);
+    // jsdom does not layout text overflow; stub horizontal overflow detection.
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(400);
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(200);
 
     const Wrapper = wrapperFor([
       { id: 'tool-1', name: 'create_issue', description: longDescription },
@@ -61,22 +61,23 @@ describe('ConnectorDetails tool descriptions', () => {
     });
 
     const description = screen.getByText(longDescription);
-    expect(description).toHaveClass('line-clamp-2');
+    expect(description).toHaveClass('whitespace-nowrap');
 
     const readMore = await screen.findByRole('button', { name: 'Read more' });
     expect(readMore).toHaveAttribute('aria-expanded', 'false');
-    expect(readMore).toHaveClass('absolute', 'right-0', 'bottom-0');
+    expect(readMore).toHaveClass('absolute', 'right-0');
+    expect(readMore).toHaveTextContent('…Read more');
 
     fireEvent.click(readMore);
 
     expect(screen.getByRole('button', { name: 'Show less' })).toHaveAttribute('aria-expanded', 'true');
-    expect(description).not.toHaveClass('line-clamp-2');
+    expect(description).not.toHaveClass('whitespace-nowrap');
     expect(screen.queryByRole('button', { name: 'Read more' })).not.toBeInTheDocument();
   });
 
-  it('hides Read more when the description fits in two lines', async () => {
-    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(32);
-    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(32);
+  it('hides Read more when the description fits in one line', async () => {
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(120);
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(200);
 
     const Wrapper = wrapperFor([{ id: 'tool-2', name: 'list_issues', description: 'Short description' }]);
 

@@ -17,53 +17,75 @@ type ConnectorDetailsProps = {
   busy?: boolean;
 };
 
-/** Two-line clamp with animated expand; toggle only when content actually overflows. */
+/** One-line clamp with animated expand; toggle only when content actually overflows. */
 function ExpandableDescription({ text }: { text: string }) {
   const contentRef = useRef<HTMLParagraphElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [canExpand, setCanExpand] = useState(false);
-  const [expandedHeight, setExpandedHeight] = useState(0);
+  const [maxHeight, setMaxHeight] = useState(16);
 
   useLayoutEffect(() => {
     setExpanded(false);
+    setMaxHeight(16);
   }, [text]);
 
   useLayoutEffect(() => {
     const el = contentRef.current;
-    if (!el || expanded) return;
-    setCanExpand(el.scrollHeight > el.clientHeight + 1);
+    if (!el) return;
+
+    if (!expanded) {
+      setMaxHeight(16);
+      setCanExpand(el.scrollWidth > el.clientWidth + 1);
+      return;
+    }
+
+    // Keep collapsed height for one frame (wrap enabled), then grow so max-height can transition.
+    setMaxHeight(16);
+    const frame = requestAnimationFrame(() => {
+      setMaxHeight(el.scrollHeight);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [text, expanded]);
 
   if (!text) return null;
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <p
         ref={contentRef}
-        style={{ maxHeight: expanded ? expandedHeight : 32 }}
+        style={{ maxHeight }}
         className={cn(
           'mt-0.5 overflow-hidden font-mono text-xs leading-4 text-muted-foreground transition-[max-height] duration-300 ease-in-out',
-          !expanded && 'line-clamp-2',
+          !expanded && 'whitespace-nowrap',
+          !expanded && canExpand && 'pr-[5.75rem]',
         )}
       >
         {text}
+        {expanded && canExpand ? (
+          <>
+            {' '}
+            <button
+              type="button"
+              className="cursor-pointer font-mono text-xs font-medium text-foreground/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              aria-expanded
+              onClick={() => setExpanded(false)}
+            >
+              Show less
+            </button>
+          </>
+        ) : null}
       </p>
-      {canExpand ? (
+      {!expanded && canExpand ? (
         <button
           type="button"
-          className="absolute right-0 bottom-0 cursor-pointer bg-card pl-2 text-xs font-medium text-foreground/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          aria-expanded={expanded}
-          onClick={() => {
-            if (expanded) {
-              setExpanded(false);
-              return;
-            }
-            const el = contentRef.current;
-            if (el) setExpandedHeight(el.scrollHeight);
-            setExpanded(true);
-          }}
+          className="absolute top-0.5 right-0 cursor-pointer bg-card pl-1.5 font-mono text-xs font-medium leading-4 text-foreground/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          aria-expanded={false}
+          onClick={() => setExpanded(true)}
         >
-          {expanded ? 'Show less' : 'Read more'}
+          <span aria-hidden className="text-muted-foreground">
+            …
+          </span>
+          <span className="ml-1">Read more</span>
         </button>
       ) : null}
     </div>
