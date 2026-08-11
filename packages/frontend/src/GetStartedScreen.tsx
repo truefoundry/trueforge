@@ -1,4 +1,4 @@
-import { BrandIcon } from '@truefoundry/trueforge-ui';
+import { BrandLogo } from '@truefoundry/trueforge-ui';
 import { AUTH_LOGIN_HREF } from './authFetch';
 import './authScreens.css';
 
@@ -10,7 +10,7 @@ export function GetStartedScreen() {
   return (
     <main className="auth-screen">
       <div className="auth-screen-card">
-        <BrandIcon className="auth-screen-logo" />
+        <BrandLogo className="auth-screen-logo" />
         <h1 className="auth-screen-title">Welcome to TrueForge</h1>
         <button
           type="button"

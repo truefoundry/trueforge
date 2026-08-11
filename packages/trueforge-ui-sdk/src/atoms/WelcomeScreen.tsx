@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { Icon } from '../icons/Icon.js';
-import { BrandIcon } from '../theme/brand.js';
+import { useSlot } from '../theme/SlotsProvider.js';
 import { useOptionalThemePreset } from '../theme/ThemeProvider.js';
 import { cn } from './lib/cn.js';
 
@@ -13,13 +13,14 @@ export type WelcomeScreenProps = {
 
 export function WelcomeScreen({ heading = 'How can I help you today?', icon, className }: WelcomeScreenProps) {
   const preset = useOptionalThemePreset();
+  const BrandLogo = useSlot('BrandLogo');
   const resolvedIcon =
     icon !== undefined ? (
       icon
     ) : preset === 'chatgpt' ? null : preset === 'claude' ? (
       <Icon name="welcome-sparkle" className="size-5 fill-current text-primary" />
     ) : (
-      <BrandIcon className={'size-10'} />
+      <BrandLogo className={'size-10'} />
     );
 
   return (

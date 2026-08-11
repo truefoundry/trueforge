@@ -6,11 +6,12 @@ import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { CompactLayoutProvider } from '../atoms/lib/CompactLayoutContext.js';
 import { Icon } from '../icons/Icon.js';
-import { BrandIcon } from '../theme/brand.js';
+import { useSlot } from '../theme/SlotsProvider.js';
 import { StackChatPanel } from './StackChatPanel.js';
 
 /** FAB-anchored panel with the same list ↔ thread stack as `dock`. */
 export function WidgetLayout({ className }: { className?: string }) {
+  const BrandLogo = useSlot('BrandLogo');
   const [open, setOpen] = useState(false);
   const fabRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -86,7 +87,7 @@ export function WidgetLayout({ className }: { className?: string }) {
             ×
           </span>
         ) : (
-          <BrandIcon className="size-6" />
+          <BrandLogo className="size-6" />
         )}
       </button>
     </div>

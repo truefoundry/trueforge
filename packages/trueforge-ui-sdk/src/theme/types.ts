@@ -55,12 +55,29 @@ export type IconEntry = IconComponent | ReactNode;
 
 export type IconMap = Record<string, IconEntry>;
 
-export type BrandImage = { src: string; alt?: string } | ReactNode | ((props: { className?: string }) => ReactNode);
+/**
+ * Logo sources. `light` / `dark` pick per resolved theme mode and fall back to
+ * each other, then to `src`. `href` wraps the logo in a same-tab link. The logo
+ * is labelled with `name`; replace the mark itself through the slot table when
+ * an image URL is not enough.
+ */
+export type BrandLogoConfig = {
+  src?: string;
+  light?: string;
+  dark?: string;
+  href?: string;
+};
 
+/**
+ * Setting `brand` requires a `name`: it labels the logo, so a logo without one has
+ * no accessible name. `logo` is optional — omit it to pair host text with the stock
+ * mark.
+ */
 export type BrandConfig = {
-  logo?: BrandImage;
-  icon?: BrandImage;
-  name?: string;
+  /** Display name, and the logo's accessible label. */
+  name: string;
+  /** Image URL, or per-mode sources. Omit to keep the default mark. */
+  logo?: string | BrandLogoConfig;
 };
 
 export type ContentClassNames = {

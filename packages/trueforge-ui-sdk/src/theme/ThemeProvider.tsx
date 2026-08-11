@@ -34,7 +34,8 @@ export type ThemeContextValue = {
   preference: ThemeMode;
   isDark: boolean;
   setTheme: (mode: ThemeMode) => void;
-  brand: BrandConfig;
+  /** Partial: `theme.brand` is optional, so consumers fall back to SDK defaults. */
+  brand: Partial<BrandConfig>;
   icons: IconMap;
   classNames: ContentClassNames;
   tokens: Partial<SemanticTokens>;
@@ -174,7 +175,8 @@ export function useTheme(): Pick<ThemeContextValue, 'preset' | 'mode' | 'prefere
   return { preset, mode, preference, isDark, setTheme };
 }
 
-export function useBrand(): BrandConfig {
+/** Configured branding. Fields are optional — `theme.brand` may be omitted entirely. */
+export function useBrand(): Partial<BrandConfig> {
   return useThemeContext().brand;
 }
 

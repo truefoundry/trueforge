@@ -168,12 +168,12 @@ const SkillSettings = () => {
           {loading ? <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p> : null}
 
           {!loading && selectedSkills.length > 0 ? (
-            <section aria-labelledby="selected-skills-heading">
+            <section aria-labelledby="enabled-skills-heading">
               <h4
-                id="selected-skills-heading"
+                id="enabled-skills-heading"
                 className="mb-2 text-[0.8125rem] font-semibold uppercase text-muted-foreground"
               >
-                Selected · {selectedSkills.length}
+                Enabled · {selectedSkills.length}
               </h4>
               <div className="overflow-hidden rounded-xl border border-border bg-card">
                 {selectedSkills.map(skill =>
@@ -221,12 +221,12 @@ const SkillSettings = () => {
                         size="sm"
                         type="button"
                         disabled={busy}
-                        aria-label={`Select ${entry.name}`}
+                        aria-label={`Enable ${entry.name}`}
                         onClick={() => {
                           handleSelect(entry);
                         }}
                       >
-                        Select
+                        Enable
                       </Button>
                     ),
                   }),

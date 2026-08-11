@@ -12,9 +12,8 @@ import { Thread } from '../containers/Thread.js';
 import { ThreadListContainer } from '../containers/ThreadListContainer.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { BrandIcon } from '../theme/brand.js';
+import { useBrandName } from '../theme/brand.js';
 import { useSlot } from '../theme/SlotsProvider.js';
-import { useBrand } from '../theme/ThemeProvider.js';
 
 const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuilder/index.js'));
 
@@ -24,7 +23,8 @@ let desktopCollapsed = false;
 export function SidebarLayout({ className }: { className?: string }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
-  const brand = useBrand();
+  const brandName = useBrandName();
+  const BrandLogo = useSlot('BrandLogo');
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const ClearChatButton = useSlot('ClearChatButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
@@ -91,10 +91,8 @@ export function SidebarLayout({ className }: { className?: string }) {
           className={cn('flex shrink-0 items-center px-3 py-3', collapsed ? 'flex-col gap-3' : 'justify-between gap-2')}
         >
           <div className={cn('flex min-w-0 items-center text-foreground', collapsed ? 'justify-center' : 'gap-2')}>
-            <BrandIcon className="size-6 shrink-0 object-contain" />
-            {!collapsed ? (
-              <span className="truncate text-lg font-semibold tracking-tight">{brand.name ?? 'TrueFoundry'}</span>
-            ) : null}
+            <BrandLogo className="size-6 shrink-0 object-contain" />
+            {!collapsed ? <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span> : null}
           </div>
           <button
             type="button"
@@ -214,8 +212,8 @@ export function SidebarLayout({ className }: { className?: string }) {
             tabIndex={-1}
           >
             <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-3 text-foreground">
-              <BrandIcon className="size-6 shrink-0 object-contain" />
-              <span className="truncate text-lg font-semibold tracking-tight">{brand.name ?? 'TrueFoundry'}</span>
+              <BrandLogo className="size-6 shrink-0 object-contain" />
+              <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span>
             </div>
             <ThreadListContainer onThreadOpen={() => setMobileNavOpen(false)} />
           </div>
