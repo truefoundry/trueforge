@@ -121,7 +121,7 @@ export class ModelProvidersClient {
     }
 
     /**
-     * Full upsert: creates the provider or replaces its entire configuration (models included). The key is the returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named by the caller.
+     * Create or replace a provider (models included). Well-known types use `type` as `name` (one each); `custom` is named by the caller. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
      *
      * @param {TrueForge.ModelProvider} request
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.

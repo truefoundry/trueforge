@@ -24,7 +24,7 @@ export class McpServersClient {
     }
 
     /**
-     * All MCP servers with nested auth_status (settings / admin projection).
+     * All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.
      *
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -116,7 +116,7 @@ export class McpServersClient {
     }
 
     /**
-     * Full upsert keyed by `name`: creates the server or replaces its manifest. Does not start DCR or modify stored oauth_server / oauth_client columns.
+     * Create or replace by `name`. Does not start DCR or change oauth client columns. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).
      *
      * @param {TrueForge.settings.McpServerManifest} request
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -325,7 +325,7 @@ export class McpServersClient {
     }
 
     /**
-     * A single MCP server by name, with nested auth_status (settings / admin projection).
+     * A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.
      *
      * @param {string} name - MCP server name.
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.

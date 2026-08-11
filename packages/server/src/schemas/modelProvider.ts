@@ -1,7 +1,7 @@
 /**
  * Model-provider domain + wire schemas: configured provider manifests (DB /
- * PUT body) and OpenAPI request/response shapes. Catalog file schemas live on
- * ModelCatalog.
+ * PUT body / response) and OpenAPI request/response shapes. Catalog file schemas
+ * live on ModelCatalog.
  */
 import { z } from '@hono/zod-openapi';
 import { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/utils-core/core';
@@ -56,7 +56,12 @@ export function refineUniqueModels(models: { model_id: string; name: string }[],
 
 const ModelProviderAuthSchema = z
   .object({
-    api_key: z.string().min(1).describe('API key used to authenticate with the provider.'),
+    api_key: z
+      .string()
+      .min(1)
+      .describe(
+        'Provider API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key.',
+      ),
   })
   .strict()
   .openapi('ModelProviderAuth');

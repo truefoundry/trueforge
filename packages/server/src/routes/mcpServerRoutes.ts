@@ -69,13 +69,14 @@ export const listMcpServersRoute = createRoute({
   path: '/',
   tags: [MCP_SERVERS_TAG],
   summary: 'List MCP servers',
-  description: 'All MCP servers with nested auth_status (settings / admin projection).',
+  description:
+    'All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
       content: { 'application/json': { schema: ListMcpServersResponseSchema } },
-      description: 'All MCP servers.',
+      description: 'All MCP servers',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -97,7 +98,8 @@ export const getMcpServerRoute = createRoute({
   path: '/{name}',
   tags: [MCP_SERVERS_TAG],
   summary: 'Get a single MCP server by name',
-  description: 'A single MCP server by name, with nested auth_status (settings / admin projection).',
+  description:
+    'A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'get',
   request: {
@@ -106,7 +108,7 @@ export const getMcpServerRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: GetMcpServerResponseSchema } },
-      description: 'The MCP server.',
+      description: 'The MCP server',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -121,8 +123,8 @@ export const putMcpServerRoute = createRoute({
   tags: [MCP_SERVERS_TAG],
   summary: 'Create or replace an MCP server',
   description:
-    'Full upsert keyed by `name`: creates the server or replaces its manifest. Does not start DCR or ' +
-    'modify stored oauth_server / oauth_client columns.',
+    'Create or replace by `name`. Does not start DCR or change oauth client columns. ' +
+    'Header secrets: real value sets/rotates; redacted keeps existing (400 if none).',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'upsert',
   request: {
@@ -134,11 +136,11 @@ export const putMcpServerRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: PutMcpServerResponseSchema } },
-      description: 'The saved MCP server with stub auth_status.',
+      description: 'The saved MCP server with auth_status',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body.',
+      description: 'Invalid request body, or redacted header secret with no stored value to keep.',
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

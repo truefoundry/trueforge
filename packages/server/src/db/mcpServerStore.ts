@@ -50,6 +50,12 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
   listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]>;
   getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined>;
   /**
+   * Load one server while holding a row lock for the lifetime of `transaction`.
+   * Postgres: `SELECT … FOR UPDATE`. SQLite: plain read under a write txn (BEGIN IMMEDIATE).
+   * Required before read-modify-write of header secrets so concurrent keep/rotate cannot interleave.
+   */
+  getServerForUpdate(input: GetMcpServerInput, transaction: TTransaction): Promise<McpServerRecord | undefined>;
+  /**
    * Creates the server or replaces `manifest` (+ `updated_at`) only.
    * Never overwrites `id`, `oauth_server`, or `oauth_client`.
    */

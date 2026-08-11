@@ -52,6 +52,20 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
     return row === undefined ? undefined : toRecord(row);
   }
 
+  async getProviderForUpdate(
+    input: GetProviderInput,
+    transaction: Transaction<Database>,
+  ): Promise<ModelProviderRecord | undefined> {
+    const row = await transaction
+      .selectFrom('model_provider')
+      .selectAll()
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
+      .forUpdate()
+      .executeTakeFirst();
+    return row ? toRecord(row) : undefined;
+  }
+
   async upsertProvider(input: UpsertProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {
     const db = transaction ?? this.#db;
     const row = await db

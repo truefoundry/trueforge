@@ -1807,7 +1807,7 @@
               "minLength": 1,
               "type": "string"
             },
-            "description": "HTTP headers sent on each request to this MCP server.",
+            "description": "Request headers for this MCP server. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored secret for that header name.",
             "type": "object"
           },
           "type": {
@@ -2285,7 +2285,7 @@
         "description": "Provider authentication credentials.",
         "properties": {
           "api_key": {
-            "description": "API key used to authenticate with the provider.",
+            "description": "Provider API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key.",
             "minLength": 1,
             "type": "string"
           }
@@ -6072,7 +6072,7 @@
     },
     "/api/v1/settings/mcp-servers": {
       "get": {
-        "description": "All MCP servers with nested auth_status (settings / admin projection).",
+        "description": "All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.",
         "responses": {
           "200": {
             "content": {
@@ -6082,7 +6082,7 @@
                 }
               }
             },
-            "description": "All MCP servers."
+            "description": "All MCP servers"
           },
           "401": {
             "content": {
@@ -6116,7 +6116,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "put": {
-        "description": "Full upsert keyed by `name`: creates the server or replaces its manifest. Does not start DCR or modify stored oauth_server / oauth_client columns.",
+        "description": "Create or replace by `name`. Does not start DCR or change oauth client columns. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6136,7 +6136,7 @@
                 }
               }
             },
-            "description": "The saved MCP server with stub auth_status."
+            "description": "The saved MCP server with auth_status"
           },
           "400": {
             "content": {
@@ -6146,7 +6146,7 @@
                 }
               }
             },
-            "description": "Invalid request body."
+            "description": "Invalid request body, or redacted header secret with no stored value to keep."
           },
           "422": {
             "content": {
@@ -6218,7 +6218,7 @@
     },
     "/api/v1/settings/mcp-servers/{name}": {
       "get": {
-        "description": "A single MCP server by name, with nested auth_status (settings / admin projection).",
+        "description": "A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.",
         "parameters": [
           {
             "description": "MCP server name.",
@@ -6241,7 +6241,7 @@
                 }
               }
             },
-            "description": "The MCP server."
+            "description": "The MCP server"
           },
           "404": {
             "content": {
@@ -6356,7 +6356,7 @@
                 }
               }
             },
-            "description": "All configured model providers."
+            "description": "All configured model providers"
           },
           "401": {
             "content": {
@@ -6390,7 +6390,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "put": {
-        "description": "Full upsert: creates the provider or replaces its entire configuration (models included). The key is the returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named by the caller.",
+        "description": "Create or replace a provider (models included). Well-known types use `type` as `name` (one each); `custom` is named by the caller. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6410,7 +6410,7 @@
                 }
               }
             },
-            "description": "The saved provider."
+            "description": "The saved provider"
           },
           "400": {
             "content": {
@@ -6420,7 +6420,7 @@
                 }
               }
             },
-            "description": "Invalid request body."
+            "description": "Invalid request body, or redacted API key with no stored secret to keep."
           }
         },
         "summary": "Create or replace a model provider",
