@@ -228,7 +228,7 @@ describe('mcp-servers routers', () => {
     await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
   });
 
-  it('PUT URL change re-registers DCR and clears the previous access token', async () => {
+  it('PUT URL change re-registers DCR and keeps existing tokens', async () => {
     const record = await seedDcrServerWithClient();
     await tokenStore.saveToken({
       id: record.id,
@@ -292,14 +292,17 @@ describe('mcp-servers routers', () => {
         }),
       );
       expect(response.status).toBe(200);
+      // List/GET auth_status is presence-based; tokens are not cleared on re-DCR.
       expect(await response.json()).toEqual({
         data: {
           ...putBodyWithDcr,
           url: newUrl,
-          auth_status: { status: 'auth_required' },
+          auth_status: { status: 'authenticated' },
         },
       });
-      expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toBeUndefined();
+      expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toMatchObject({
+        accessToken: 'stale-for-old-url',
+      });
       expect(await mcpServerStore.getClient({ id: record.id })).toMatchObject({
         client: { clientId: 'new-url-client' },
       });
