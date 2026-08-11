@@ -75,6 +75,21 @@ describe('Tooltip', () => {
 
     expect(onClick).not.toHaveBeenCalled();
   });
+
+  it('opens below the trigger when side is bottom', () => {
+    render(
+      <Tooltip content="Below tip" side="bottom">
+        <button>Anchor</button>
+      </Tooltip>,
+    );
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Anchor' }));
+
+    const tooltip = screen.getByRole('tooltip');
+    expect(tooltip).toHaveTextContent('Below tip');
+    expect(tooltip).toHaveStyle({ transform: 'translate(-50%, 0)' });
+    expect(tooltip.className).toMatch(/fixed/);
+  });
 });
 
 describe('LightTooltip', () => {
