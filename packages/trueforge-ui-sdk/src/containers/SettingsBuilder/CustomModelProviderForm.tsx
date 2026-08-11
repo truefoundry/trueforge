@@ -279,7 +279,9 @@ const CustomModelProviderForm = ({
                 const idError = modelIdError(model);
                 const showIdError = (model.idTouched || submitAttempted) && idError;
                 const nameFieldError = modelNameError(model);
-                const showNameFieldError = (model.nameDirty || submitAttempted) && nameFieldError;
+                // Surface auto-derived name problems too: editing the Model ID (idTouched)
+                // can produce an empty/invalid slug the user never typed directly.
+                const showNameFieldError = (model.idTouched || model.nameDirty || submitAttempted) && nameFieldError;
                 return (
                   <div
                     key={index}

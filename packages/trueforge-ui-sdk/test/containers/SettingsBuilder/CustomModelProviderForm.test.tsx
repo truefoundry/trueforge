@@ -141,6 +141,20 @@ describe('CustomModelProviderForm', () => {
     expect(screen.getByRole('button', { name: 'Add provider' })).toBeDisabled();
   });
 
+  it('surfaces a Model name error when the Model ID slugifies to nothing usable', () => {
+    renderForm();
+    fireEvent.change(screen.getByPlaceholderText('local-llama'), { target: { value: 'local-llama' } });
+    fireEvent.change(screen.getByPlaceholderText('http://localhost:11434/v1'), {
+      target: { value: 'http://localhost:11434/v1' },
+    });
+    const id = screen.getByPlaceholderText('llama3.1:70b');
+    fireEvent.change(id, { target: { value: '123' } }); // derives an empty model name
+    fireEvent.blur(id);
+    // The auto-derived name error is visible even though the user never touched the name field.
+    expect(screen.getByText('Model name is required.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add provider' })).toBeDisabled();
+  });
+
   it('submits the derived slug as the model name', async () => {
     const onAdd = renderForm();
     fillValid();
