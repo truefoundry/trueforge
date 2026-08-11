@@ -67,6 +67,31 @@ Container image reference; tag falls back to the chart appVersion.
 {{- end }}
 
 {{/*
+True when .value is a non-empty string (vs a valueFrom map).
+Expects dict with key "value".
+*/}}
+{{- define "truefoundry-utils.isLiteralString" -}}
+{{- $v := index . "value" -}}
+{{- if and (kindIs "string" $v) (ne $v "") -}}true{{- end -}}
+{{- end }}
+
+{{/*
+Fail unless .value is a non-empty string or a map with valueFrom.
+Expects dict with keys "name" and "value".
+*/}}
+{{- define "truefoundry-utils.requireStringOrValueFrom" -}}
+{{- $v := index . "value" -}}
+{{- $name := index . "name" -}}
+{{- if kindIs "string" $v -}}
+{{- if eq $v "" -}}{{- fail (printf "%s is required (string or valueFrom.secretKeyRef)" $name) -}}{{- end -}}
+{{- else if kindIs "map" $v -}}
+{{- if not $v.valueFrom -}}{{- fail (printf "%s map must set valueFrom" $name) -}}{{- end -}}
+{{- else -}}
+{{- fail (printf "%s must be a string or a valueFrom object" $name) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Postgres connection. Sourced from the bundled Bitnami postgresql subchart when
 postgresql.enabled, otherwise from externalPostgres.
 */}}
@@ -91,43 +116,78 @@ postgresql.enabled, otherwise from externalPostgres.
 {{- end }}
 
 {{/*
-Name of the Secret holding the Postgres password, and its key.
-- bundled: the subchart's Secret (existingSecret override or <release>-postgresql, key `password`).
-- external existingSecret: that Secret and its passwordKey.
-- external literal password: a Secret this chart renders (see secret.yaml).
+Name of the Secret holding the Postgres password when using the bundled
+postgresql subchart (existingSecret override or <release>-postgresql).
 */}}
 {{- define "truefoundry-utils.postgres.secretName" -}}
-{{- if .Values.postgresql.enabled -}}
 {{- default (printf "%s-postgresql" .Release.Name) .Values.postgresql.auth.existingSecret -}}
-{{- else if .Values.externalPostgres.existingSecret -}}
-{{- .Values.externalPostgres.existingSecret -}}
-{{- else -}}
-{{- $_ := required "externalPostgres.password or externalPostgres.existingSecret is required when postgresql.enabled is false" .Values.externalPostgres.password -}}
-{{- printf "%s-postgres" (include "truefoundry-utils.fullname" .) -}}
-{{- end -}}
 {{- end }}
 
-{{- define "truefoundry-utils.postgres.secretKey" -}}
-{{- if .Values.postgresql.enabled -}}password{{- else -}}{{ .Values.externalPostgres.passwordKey }}{{- end -}}
-{{- end }}
-
-{{/*
-True when REDIS_URL should be loaded from externalRedis.existingSecret.
-*/}}
-{{- define "truefoundry-utils.redis.useSecret" -}}
-{{- if and (not .Values.redis.enabled) .Values.externalRedis.existingSecret -}}true{{- end -}}
-{{- end }}
-
-{{/*
-Redis connection URL literal. Used when redis is bundled, or when external
-Redis is configured via externalRedis.url (not existingSecret).
-*/}}
-{{- define "truefoundry-utils.redis.url" -}}
-{{- if .Values.redis.enabled -}}
+{{- define "truefoundry-utils.redis.bundledUrl" -}}
 {{- printf "redis://%s-redis-master:6379" .Release.Name -}}
-{{- else if .Values.externalRedis.existingSecret -}}
-{{- fail "truefoundry-utils.redis.url must not be used when externalRedis.existingSecret is set" -}}
+{{- end }}
+
+{{/*
+JSON env entry from a string | { valueFrom: ... } field.
+Expects: name (env var), field (values path for errors), value.
+Literals become env value; valueFrom maps are passed through. The chart does
+not create Secrets — callers who need secretKeyRef must supply valueFrom.
+*/}}
+{{- define "truefoundry-utils.env.fromStringOrValueFrom" -}}
+{{- $name := index . "name" -}}
+{{- $field := index . "field" -}}
+{{- $value := index . "value" -}}
+{{- include "truefoundry-utils.requireStringOrValueFrom" (dict "name" $field "value" $value) -}}
+{{- if eq (include "truefoundry-utils.isLiteralString" (dict "value" $value)) "true" -}}
+{{- dict "name" $name "value" $value | toJson -}}
 {{- else -}}
-{{- required "externalRedis.url or externalRedis.existingSecret is required when redis.enabled is false (the server always needs Redis)" .Values.externalRedis.url -}}
+{{- dict "name" $name "valueFrom" $value.valueFrom | toJson -}}
 {{- end -}}
+{{- end }}
+
+{{/*
+Full server container env list (YAML). Validates required string|valueFrom
+fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
+*/}}
+{{- define "truefoundry-utils.server.env" -}}
+{{- $env := list -}}
+{{- $env = append $env (dict "name" "NODE_ENV" "value" "production") -}}
+{{- $env = append $env (dict "name" "PORT" "value" (.Values.server.port | toString)) -}}
+{{- $env = append $env (dict "name" "PUBLIC_BASE_URL" "value" .Values.server.publicBaseUrl) -}}
+{{- $env = append $env (dict "name" "STANDALONE" "value" "false") -}}
+{{- $env = append $env (dict "name" "GRACEFUL_TIMEOUT_SECONDS" "value" (.Values.server.gracefulTimeoutSeconds | toString)) -}}
+
+{{- if .Values.redis.enabled -}}
+{{- $env = append $env (dict "name" "REDIS_URL" "value" (include "truefoundry-utils.redis.bundledUrl" .)) -}}
+{{- else -}}
+{{- $env = append $env (include "truefoundry-utils.env.fromStringOrValueFrom" (dict "name" "REDIS_URL" "field" "externalRedis.url" "value" .Values.externalRedis.url) | fromJson) -}}
+{{- end -}}
+
+{{- $env = append $env (dict "name" "POSTGRES_HOST" "value" (include "truefoundry-utils.postgres.host" .)) -}}
+{{- $env = append $env (dict "name" "POSTGRES_PORT" "value" (include "truefoundry-utils.postgres.port" . | toString)) -}}
+{{- $env = append $env (dict "name" "POSTGRES_DB" "value" (include "truefoundry-utils.postgres.database" .)) -}}
+{{- $env = append $env (dict "name" "POSTGRES_USER" "value" (include "truefoundry-utils.postgres.user" .)) -}}
+{{- if .Values.postgresql.enabled -}}
+{{- $env = append $env (dict "name" "POSTGRES_PASSWORD" "valueFrom" (dict "secretKeyRef" (dict "name" (include "truefoundry-utils.postgres.secretName" .) "key" "password"))) -}}
+{{- else -}}
+{{- $env = append $env (include "truefoundry-utils.env.fromStringOrValueFrom" (dict "name" "POSTGRES_PASSWORD" "field" "externalPostgres.password" "value" .Values.externalPostgres.password) | fromJson) -}}
+{{- end -}}
+
+{{- if .Values.configs.oidc.enabled -}}
+{{- $_ := required "configs.oidc.issuerUrl is required when configs.oidc.enabled is true" .Values.configs.oidc.issuerUrl -}}
+{{- $_ := required "configs.oidc.clientId is required when configs.oidc.enabled is true" .Values.configs.oidc.clientId -}}
+{{- $env = append $env (dict "name" "OIDC_ISSUER_URL" "value" .Values.configs.oidc.issuerUrl) -}}
+{{- $env = append $env (dict "name" "OIDC_CLIENT_ID" "value" .Values.configs.oidc.clientId) -}}
+{{- $env = append $env (include "truefoundry-utils.env.fromStringOrValueFrom" (dict "name" "OIDC_CLIENT_SECRET" "field" "configs.oidc.clientSecret" "value" .Values.configs.oidc.clientSecret) | fromJson) -}}
+{{- $env = append $env (dict "name" "OIDC_USER_REFERENCE_CLAIM" "value" .Values.configs.oidc.userReferenceClaim) -}}
+{{- $env = append $env (dict "name" "OIDC_USER_ROLE_CLAIM" "value" .Values.configs.oidc.userRoleClaim) -}}
+{{- $env = append $env (dict "name" "OIDC_ADMIN_ROLE_VALUE" "value" .Values.configs.oidc.adminRoleValue) -}}
+{{- $env = append $env (dict "name" "OIDC_SCOPES" "value" .Values.configs.oidc.scopes) -}}
+{{- end -}}
+
+{{- range .Values.server.extraEnv -}}
+{{- $env = append $env . -}}
+{{- end -}}
+
+{{- toYaml $env -}}
 {{- end }}

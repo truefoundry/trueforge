@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftCompositeSelector, type DraftCompositeSelectorProps } from '@/atoms/draft/DraftCompositeSelector.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentBuilderCapabilitiesResponse, AgentSpec } from '@/server/types.js';
+import type { AgentBuilderCapabilitiesResponse, AgentSpec, AgentUIServer } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec;
@@ -19,19 +19,25 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
 type RenderSelectorOptions = {
   props?: DraftCompositeSelectorProps;
   getCapabilities?: () => Promise<AgentBuilderCapabilitiesResponse>;
+  getSkills?: AgentUIServer['getSkills'];
+  getMcp?: AgentUIServer['getMcp'];
 };
 
-function renderSelector({ props = {}, getCapabilities }: RenderSelectorOptions = {}) {
+function renderSelector({ props = {}, getCapabilities, getSkills, getMcp }: RenderSelectorOptions = {}) {
   const server = createMockAgentUIServer({
     ...(getCapabilities === undefined ? {} : { getCapabilities }),
-    getSkills: async () => [
-      { id: 'research', name: 'Research', description: 'Find relevant sources' },
-      { id: 'writer', name: 'Writer', description: 'Draft polished copy' },
-    ],
-    getMcp: async () => [
-      { id: 'github', name: 'GitHub', description: 'Code hosting' },
-      { id: 'slack', name: 'Slack', description: 'Team messages' },
-    ],
+    getSkills:
+      getSkills ??
+      (async () => [
+        { id: 'research', name: 'Research', description: 'Find relevant sources' },
+        { id: 'writer', name: 'Writer', description: 'Draft polished copy' },
+      ]),
+    getMcp:
+      getMcp ??
+      (async () => [
+        { id: 'github', name: 'GitHub', description: 'Code hosting' },
+        { id: 'slack', name: 'Slack', description: 'Team messages' },
+      ]),
   });
 
   return render(
@@ -77,6 +83,43 @@ describe('DraftCompositeSelector', () => {
         { id: 'github', name: 'GitHub' },
       ],
       skills: [{ id: 'research', name: 'Research' }],
+    });
+  });
+
+  it('hydrates name-only wire mounts so a toggle does not wipe them', async () => {
+    agentSpec = {
+      model: { name: 'openai/gpt-4.1' },
+      // Harness round-trip: id stripped; catalog keys by name.
+      mcpServers: [{ name: 'slack' }],
+      skills: [{ name: 'research' }],
+    };
+    renderSelector({
+      getSkills: async () => [
+        { id: 'research', name: 'research', description: 'Find relevant sources' },
+        { id: 'writer', name: 'writer', description: 'Draft polished copy' },
+      ],
+      getMcp: async () => [
+        { id: 'github', name: 'github', description: 'Code hosting' },
+        { id: 'slack', name: 'slack', description: 'Team messages' },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' }));
+    const slack = await screen.findByRole('menuitemcheckbox', { name: /slack/ });
+    expect(slack).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /github/ }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      mcpServers: [
+        { id: 'slack', name: 'slack' },
+        { id: 'github', name: 'github' },
+      ],
+      skills: [{ id: 'research', name: 'research' }],
     });
   });
 

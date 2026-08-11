@@ -31,6 +31,19 @@ describe('resolveReasoningEffort', () => {
     expect(resolveReasoningEffort(['low', 'high'], undefined)).toBe('low');
     expect(resolveReasoningEffort(['low', 'high'], 'medium')).toBe('low');
   });
+
+  it('defaults to the lowest non-"none" effort, skipping "none"', () => {
+    expect(resolveReasoningEffort(['none', 'low', 'high'], undefined)).toBe('low');
+    expect(resolveReasoningEffort(['none', 'minimal', 'low'], 'bogus')).toBe('minimal');
+  });
+
+  it('still honors an explicit "none" selection', () => {
+    expect(resolveReasoningEffort(['none', 'low', 'high'], 'none')).toBe('none');
+  });
+
+  it('falls back to "none" only when it is the sole effort', () => {
+    expect(resolveReasoningEffort(['none'], undefined)).toBe('none');
+  });
 });
 
 describe('modelPatchWithReasoningEffort', () => {

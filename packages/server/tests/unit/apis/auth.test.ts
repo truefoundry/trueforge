@@ -17,14 +17,17 @@ jest.mock('../../../src/config', () => {
     OIDC_ADMIN_ROLE_VALUE: 'admin',
     OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
   };
+  const config = {
+    STANDALONE: false as const,
+    PUBLIC_BASE_URL: 'https://harness.example.com',
+    OIDC,
+    PORT: 8790,
+  };
   return {
     __esModule: true,
-    default: {
-      STANDALONE: false,
-      PUBLIC_BASE_URL: 'https://harness.example.com',
-      OIDC,
-      PORT: 8790,
-    },
+    default: config,
+    getPublicBaseUrl: (value = config) =>
+      value.STANDALONE ? `http://localhost:${String(value.PORT)}` : value.PUBLIC_BASE_URL,
   };
 });
 

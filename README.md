@@ -64,11 +64,10 @@ docker compose up --build
 
 Then open [http://localhost:8791](http://localhost:8791).
 
-| Configuration                                         | Default                 | Description                                    |
-| ----------------------------------------------------- | ----------------------- | ---------------------------------------------- |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env`             | Postgres credentials (`packages/server/.env`). |
-| `PUBLIC_BASE_URL`                                     | `http://localhost:8791` | Public origin for MCP OAuth / OIDC callbacks.  |
-| Host ports                                            | `8791`, `5433`, `6380`  | App, Postgres, and Redis.                      |
+| Configuration                                         | Default                | Description                                    |
+| ----------------------------------------------------- | ---------------------- | ---------------------------------------------- |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env`            | Postgres credentials (`packages/server/.env`). |
+| Host ports                                            | `8791`, `5433`, `6380` | App, Postgres, and Redis.                      |
 
 Every environment variable is documented in [`packages/server/.env.example`](packages/server/.env.example).
 
@@ -82,7 +81,7 @@ helm install truefoundry-utils oci://<HELM_REPO>/truefoundry-utils \
   --version <x.y.z>
 ```
 
-See the [chart README](charts/truefoundry-utils/README.md) and [Quickstart](https://trueforge.dev/quickstart) for values and details.
+See the [chart README](charts/truefoundry-utils/README.md) (including [`configs.oidc`](charts/truefoundry-utils/README.md#oidc)) and [Quickstart](https://trueforge.dev/quickstart) for values and details.
 
 ## Build your first agent
 

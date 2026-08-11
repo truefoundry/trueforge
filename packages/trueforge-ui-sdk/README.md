@@ -166,7 +166,7 @@ export default function App() {
   }}
   theme={{
     preset: 'claude',
-    brand: { name: 'Acme', icon: { src: '/logo.svg', alt: 'Acme' } },
+    brand: { name: 'Acme', logo: '/logo.svg' },
   }}
   overrides={{/* slot overrides */}}
   className="h-full"
@@ -234,7 +234,7 @@ See [docs/theming.md](./docs/theming.md) for presets, controlled vs uncontrolled
 
 ## Brand / logo
 
-**Base layouts** — pass `theme.brand` and the SDK positions name + icon in the default slots:
+**Base layouts** — pass `theme.brand` and the SDK positions the mark + name in the default slots:
 
 ```tsx
 <TrueforgeUI
@@ -243,14 +243,38 @@ See [docs/theming.md](./docs/theming.md) for presets, controlled vs uncontrolled
   theme={{
     brand: {
       name: 'Acme',
-      icon: { src: '/brand/icon.svg', alt: 'Acme' },
-      logo: { src: '/brand/logo.svg', alt: 'Acme' },
+      logo: '/brand/logo.svg',
     },
   }}
 />
 ```
 
-**Custom layouts** — import `BrandLogo` / `BrandIcon` and place them anywhere (see [Custom layouts](#custom-layouts)).
+**Light / dark marks** — pass `light` / `dark` sources instead and the SDK picks the one matching
+the resolved mode. `href` wraps the logo in a same-tab link:
+
+```tsx
+<TrueforgeUI
+  server={server}
+  layout="sidebar"
+  theme={{
+    brand: {
+      name: 'Acme',
+      logo: { light: '/brand/logo-light.svg', dark: '/brand/logo-dark.svg', href: '/' },
+    },
+  }}
+/>
+```
+
+Set only one mode and it is used for both. `name` labels the image, so no `alt` is needed.
+
+**Component marks** — `theme.brand` takes image URLs only. To render an inline SVG or a custom
+component, override the `BrandLogo` slot, the same way you replace any other atom:
+
+```tsx
+<TrueforgeUI server={server} layout="sidebar" overrides={{ BrandLogo: MyMark }} />
+```
+
+**Custom layouts** — import `BrandLogo` and place it anywhere; pair it with `useBrandName()` when you also want the name as text (see [Custom layouts](#custom-layouts)).
 
 > _Screenshot: external brand mark rendered in the base layout header._
 
@@ -322,15 +346,17 @@ The [example app](./example/) switches between these four modes.
 For full control, pass a React component as `layout`. The SDK still wires server, shell mode, slots, and runtime behind it.
 
 ```tsx
-import { Thread, ThreadListContainer, BrandIcon, useTheme } from '@truefoundry/trueforge-ui';
+import { Thread, ThreadListContainer, BrandLogo, useBrandName, useTheme } from '@truefoundry/trueforge-ui';
 
 function Layout({ className }: { className?: string }) {
   const { mode, setTheme } = useTheme();
+  const brandName = useBrandName();
 
   return (
     <div className={className} style={{ display: 'flex', height: '100%' }}>
       <aside style={{ width: 256 }}>
-        <BrandIcon className="size-6" />
+        <BrandLogo className="size-6" />
+        <span>{brandName}</span>
         <ThreadListContainer />
       </aside>
       <main style={{ flex: 1, minWidth: 0 }}>
@@ -348,7 +374,7 @@ function Layout({ className }: { className?: string }) {
 
 For deeper composition without `TrueforgeUI`, nest `SlotsProvider` outside `TrueFoundryChatProvider` — see [docs/customization.md](./docs/customization.md).
 
-> _Screenshot: a custom layout assembled from_ `BrandIcon`_,_ `ThreadListContainer`_, and_ `Thread`_._
+> _Screenshot: a custom layout assembled from_ `BrandLogo`_,_ `ThreadListContainer`_, and_ `Thread`_._
 
 ---
 
@@ -467,7 +493,7 @@ See [docs/server.md](./docs/server.md) for the full method list and BYO guidance
 | `TrueforgeUI`                                                | Component  | Root component — accepts all props above                     |
 | `TrueforgeServerConfig`                                      | Type       | `server` prop: `truefoundry` / `trueforge` / `AgentUIServer` |
 | `createTrueFoundryServer`                                    | Function   | Compose chat + builder into `AgentUIServer`                  |
-| `Thread`, `ThreadListContainer`, `BrandLogo`, `BrandIcon`    | Components | Layout primitives for custom layouts                         |
+| `Thread`, `ThreadListContainer`, `BrandLogo`                 | Components | Layout primitives for custom layouts                         |
 | Composer / message / tool atoms                              | Components | Overridable, themeable building blocks                       |
 | `SlotsProvider`, `useSlot`, `useTheme`                       | API        | Overrides + theme mode                                       |
 | `AgentUIServer`, `AgentChatServer`, `AgentBuilderServer`     | Types      | Resolved server contract                                     |

@@ -3,27 +3,47 @@
  * configured provider manifests in modelProvider.ts.
  */
 import { z } from '@hono/zod-openapi';
-import { NameSchema, uniqueNames } from './common';
-import { ModelEntrySchema, ProviderTypeSchema, refineUniqueModels } from './modelProvider';
+import { uniqueTypes } from './common';
+import { ModelEntrySchema, ModelProviderTypeSchema, ReasoningEffortSchema, refineUniqueModels } from './modelProvider';
 
-/** Catalog entry: no `custom` providers — those exist only as tenant configuration. */
-export const CatalogProviderSchema = z
+/**
+ * Catalog entry. Well-known types list model presets; `custom` is a sentinel that
+ * carries `supported_reasoning_efforts` for the custom-provider settings form.
+ */
+export const CatalogWellKnownModelProviderTypeSchema = ModelProviderTypeSchema.exclude(['custom']).openapi(
+  'CatalogWellKnownModelProviderType',
+);
+
+export const CatalogWellKnownModelProviderSchema = z
   .object({
-    type: ProviderTypeSchema.exclude(['custom']).describe('Well-known provider type (catalog excludes `custom`).'),
-    name: NameSchema,
-    logo: z.url().optional().describe('URL of the provider logo asset.'),
-    models: z.array(ModelEntrySchema).min(1).describe('Preset models for this catalog provider.'),
+    type: CatalogWellKnownModelProviderTypeSchema,
+    logo: z.url().optional().describe('URL of the provider logo asset'),
+    models: z.array(ModelEntrySchema).describe('Preset models'),
   })
   .strict()
-  .openapi('CatalogProvider');
+  .openapi('CatalogWellKnownModelProvider');
+
+export const CatalogCustomModelProviderSchema = z
+  .object({
+    type: z.literal('custom'),
+    supported_reasoning_efforts: z
+      .array(ReasoningEffortSchema)
+      .describe('Supported reasoning-effort values for this provider'),
+  })
+  .strict()
+  .openapi('CatalogCustomModelProvider');
+
+export const CatalogModelProviderSchema = z
+  .union([CatalogWellKnownModelProviderSchema, CatalogCustomModelProviderSchema])
+  .openapi('CatalogModelProvider');
 
 export const ModelCatalogFileSchema = z
   .object({
-    providers: z.array(CatalogProviderSchema),
+    providers: z.array(CatalogWellKnownModelProviderSchema),
   })
   .strict()
   .superRefine((file, ctx) => {
-    uniqueNames(file.providers, ctx);
+    uniqueTypes(file.providers, ctx);
     for (const provider of file.providers) {
       refineUniqueModels(provider.models, ctx);
     }
@@ -31,9 +51,10 @@ export const ModelCatalogFileSchema = z
 
 export const GetModelProviderCatalogResponseSchema = z
   .object({
-    data: z.array(CatalogProviderSchema),
+    data: z.array(CatalogModelProviderSchema),
   })
   .openapi('GetModelProviderCatalogResponse');
 
-export type CatalogProvider = z.infer<typeof CatalogProviderSchema>;
+export type CatalogWellKnownModelProvider = z.infer<typeof CatalogWellKnownModelProviderSchema>;
+export type CatalogModelProvider = z.infer<typeof CatalogModelProviderSchema>;
 export type ModelCatalogFile = z.infer<typeof ModelCatalogFileSchema>;

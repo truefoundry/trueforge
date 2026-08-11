@@ -60,7 +60,7 @@ const fetchMock: typeof fetch = async (input, init) => {
 };
 
 describe('createHarnessChatServer', () => {
-  it('derives mount ids Harness does not store', async () => {
+  it('forwards gateway-shaped mounts without synthesizing ids', async () => {
     const server = createHarnessChatServer({ fetch: fetchMock });
     const spec: HarnessAgentSpec = { model: { name: 'test/model' } };
 
@@ -68,8 +68,8 @@ describe('createHarnessChatServer', () => {
 
     assert.equal(created.isMutable, true);
     assert.equal(created.title, undefined);
-    assert.deepEqual(created.agentSpec?.mcpServers?.[0]?.id, 'github');
-    assert.deepEqual(created.agentSpec?.skills?.[0], { id: 'review', name: 'review' });
+    assert.deepEqual(created.agentSpec?.mcpServers?.[0], { name: 'github', enableTools: ['@all'] });
+    assert.deepEqual(created.agentSpec?.skills?.[0], { name: 'review' });
   });
 
   it('sends skill name refs and strips UI-only mount ids before admission', async () => {
@@ -78,9 +78,9 @@ describe('createHarnessChatServer', () => {
     await server.createSession({
       agentSpec: {
         model: { name: 'test/model' },
-        // The picker round-trips a mount as `{ id, name }`.
-        skills: [{ id: 'review', name: 'review' }],
-        mcpServers: [{ id: 'github', name: 'github', enableTools: ['@all'] }],
+        // Draft picker may round-trip a mount as `{ id, name }`.
+        skills: [{ name: 'review' }],
+        mcpServers: [{ name: 'github', enableTools: ['@all'] }],
       },
     });
 
@@ -95,14 +95,13 @@ describe('createHarnessChatServer', () => {
     });
   });
 
-  it('reports pages under both the SDK and runtime pagination contracts', async () => {
+  it('reports pages under the ListResult pagination contract', async () => {
     const server = createHarnessChatServer({ fetch: fetchMock });
 
     const page = await server.listSessions({ limit: 20 });
 
     assert.equal(page.data[0]?.id, 'ses_1');
-    assert.equal(page.hasNextPage(), true);
-    assert.equal(page.response.pagination.nextPageToken, 'tok_2');
+    assert.equal(page.nextPageToken, 'tok_2');
   });
 
   it('preserves SSE sequence numbers and roots chains Harness-style', async () => {
@@ -201,7 +200,7 @@ describe('createHarnessChatServer', () => {
     assert.ok(listUrl !== undefined);
     assert.equal(new URL(listUrl, 'http://test.local').searchParams.get('agent_id'), 'ghost');
     assert.deepEqual(page.data, []);
-    assert.equal(page.hasNextPage(), false);
+    assert.equal(page.nextPageToken, undefined);
   });
 
   it('getSession takes the agentName of a ref session from the wire, without a registry lookup', async () => {

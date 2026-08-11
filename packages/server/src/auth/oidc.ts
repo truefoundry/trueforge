@@ -9,7 +9,7 @@ import {
   randomPKCECodeVerifier,
   randomState,
 } from 'openid-client';
-import configuration, { type OIDCConfig } from '../config';
+import { getPublicBaseUrl, type OIDCConfig } from '../config';
 import { buildAuthorizationRequestParams } from './claims';
 import { ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, setAuthCookie } from './cookies';
 
@@ -66,10 +66,7 @@ export async function initOidc(oidc: OIDCConfig | undefined): Promise<Configurat
 }
 
 function authCallbackUrl(): string {
-  const publicBaseUrl = configuration.PUBLIC_BASE_URL;
-  if (publicBaseUrl === '') {
-    throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
-  }
+  const publicBaseUrl = getPublicBaseUrl();
   return `${publicBaseUrl}${CALLBACK_PATH}`;
 }
 

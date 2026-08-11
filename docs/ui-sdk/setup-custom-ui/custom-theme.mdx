@@ -67,14 +67,15 @@ A few tokens are absent from the presets — `scrollbarThumb`, `assistantBubble`
 ## Reading theme state
 
 ```tsx
-import { useTheme, useThemeMode, useBrand } from "@truefoundry/trueforge-ui";
+import { useTheme, useThemeMode, useBrand, useBrandName } from "@truefoundry/trueforge-ui";
 
 const { preset, mode, preference, isDark, setTheme } = useTheme();
 const resolved = useThemeMode(); // "light" | "dark", defaults to "light" outside a provider
 const brand = useBrand();
+const brandName = useBrandName(); // brand.name, or "TrueForge"
 ```
 
-`BrandLogo` and `BrandIcon` render `theme.brand.logo` and `theme.brand.icon`. Their fallbacks differ: `BrandLogo` falls back to a default mark plus the brand name (default `"TrueFoundry"`), while `BrandIcon` falls back to the bare mark with no name.
+`BrandLogo` renders `theme.brand.logo`, resolved against the active mode and labelled with `theme.brand.name`. Omit `logo` — or `brand` entirely — and it falls back to the default mark; `brand` is optional, but setting it requires a `name`. Pair it with `useBrandName()` when you also want the name as text. It is an overridable slot — use `overrides` to render a component instead of an image.
 
 ## Token naming
 

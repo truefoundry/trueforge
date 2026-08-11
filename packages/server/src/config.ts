@@ -27,8 +27,6 @@ const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const LOCAL_EXECUTOR_ID = 'local';
 /** OS-standard data dir for SQLite in standalone mode. */
 const ENV_PATHS_APP_NAME = 'truefoundry-utils';
-const DEFAULT_SQLITE_FILENAME = 'db.sqlite';
-
 const DEFAULT_POSTGRES_USER = 'harness';
 const DEFAULT_POSTGRES_PASSWORD = 'harness';
 const DEFAULT_POSTGRES_DB = 'harness';
@@ -150,7 +148,7 @@ function resolveOptionalPathEnv(envKey: string): string | undefined {
 
 /**
  * Absolute SQLite file path for standalone mode.
- * Env: `SQLITE_PATH` (optional). Default: `{env-paths data}/db.sqlite`.
+ * Env: `SQLITE_PATH` (optional). Default: `{env-paths data}/db/db.sqlite`.
  */
 function resolveSqlitePath(): string {
   const override = getEnv('SQLITE_PATH');
@@ -158,7 +156,7 @@ function resolveSqlitePath(): string {
     return path.resolve(override);
   }
   const paths = envPaths(ENV_PATHS_APP_NAME, { suffix: '' });
-  return path.join(paths.data, DEFAULT_SQLITE_FILENAME);
+  return path.join(paths.data, 'db', 'db.sqlite');
 }
 
 /** Redis peering URL for distributed mode. Env: `REDIS_URL`. */
@@ -210,27 +208,6 @@ function buildPostgresConnectionString(parts: {
   database: string;
 }): string {
   return `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
-}
-
-/**
- * Resolves `PUBLIC_BASE_URL` for callback origins (MCP OAuth / OIDC).
- * - Non-empty env → that value (not trimmed).
- * - Standalone + unset/blank → `http://localhost:${port}` so local boots without an env file.
- * - Distributed + unset/blank → `""` (callbacks fail lazily until configured).
- */
-export function resolvePublicBaseUrl(options: {
-  port: number;
-  standalone: boolean;
-  override: string | undefined;
-}): string {
-  const { port, standalone, override } = options;
-  if (override !== undefined && override.trim() !== '') {
-    return override;
-  }
-  if (standalone) {
-    return `http://localhost:${String(port)}`;
-  }
-  return '';
 }
 
 function resolveOIDCConfig(): OIDCConfig | undefined {
@@ -286,7 +263,7 @@ export interface OIDCConfig {
    */
   OIDC_ADMIN_ROLE_VALUE: string;
   /** Comma-separated OAuth scopes for the authorization request. Env: `OIDC_SCOPES`.
-   * Optional; defaults to "openid,profile,email,groups". Whitespace around entries is stripped.
+   * Optional; defaults to "openid,profile,email". Whitespace around entries is stripped.
    * Okta `groups` claims require the `groups` scope; Azure AD app roles typically omit it.
    */
   OIDC_SCOPES: string[];
@@ -335,14 +312,6 @@ export interface SharedServerConfiguration {
   MCP_REQUEST_TIMEOUT_MS: number;
   /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
   MCP_CONNECT_TIMEOUT_MS: number;
-  /**
-   * Public base URL of this server used as the origin of MCP OAuth and OIDC
-   * callbacks. Not trimmed when non-empty.
-   * Env: `PUBLIC_BASE_URL`.
-   * Standalone default (unset/blank): `http://localhost:${PORT}`.
-   * Distributed (unset/blank): `""` — callbacks fail until set.
-   */
-  PUBLIC_BASE_URL: string;
   /**
    * Client name used for Dynamic Client Registration (DCR) of MCP servers.
    * This is the client name shown on authorization-server consent screens.
@@ -413,7 +382,7 @@ export type StandaloneServerConfiguration = SharedServerConfiguration & {
   STANDALONE: true;
   /**
    * Absolute SQLite database file path.
-   * Env: `SQLITE_PATH` (optional). Default: env-paths data dir + `db.sqlite`.
+   * Env: `SQLITE_PATH` (optional). Default: env-paths data dir + `db/db.sqlite`.
    */
   SQLITE_PATH: string;
 };
@@ -424,6 +393,12 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `STANDALONE`. Default: true (so this branch requires an explicit `false`).
    */
   STANDALONE: false;
+  /**
+   * Public base URL of this server used as the origin of MCP OAuth and OIDC
+   * callbacks. Optional at boot; MCP OAuth and OIDC callback construction fail
+   * if empty.
+   */
+  PUBLIC_BASE_URL: string;
   /**
    * Postgres connection string derived from `POSTGRES_*` (not read from env directly).
    * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` with user/password URL-encoded.
@@ -480,11 +455,6 @@ const shared: SharedServerConfiguration = {
   SKILL_CATALOG_PATH: resolveOptionalPathEnv('SKILL_CATALOG_PATH'),
   SANDBOX_CATALOG_PATH: resolveOptionalPathEnv('SANDBOX_CATALOG_PATH'),
   FRONTEND_DIR: resolveFrontendDir(),
-  PUBLIC_BASE_URL: resolvePublicBaseUrl({
-    port,
-    standalone,
-    override: getEnv('PUBLIC_BASE_URL'),
-  }),
 
   MCP_REQUEST_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MCP_REQUEST_TIMEOUT_MS',
@@ -555,6 +525,7 @@ const configuration: ServerConfiguration = standalone
   : {
       ...shared,
       STANDALONE: false,
+      PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { defaultValue: '' }) ?? '',
       DATABASE_URL: resolvePostgresDatabaseUrl(),
       DATABASE_POOL_MAX: parsePositiveInt({
         envKey: 'DATABASE_POOL_MAX',
@@ -579,6 +550,20 @@ export function isOidcConfigured(
   value: ServerConfiguration,
 ): value is DistributedServerConfiguration & { OIDC: OIDCConfig } {
   return !value.STANDALONE && value.OIDC !== undefined;
+}
+
+/**
+ * Public origin for OAuth callbacks.
+ * Standalone → `http://localhost:$PORT`; distributed → `PUBLIC_BASE_URL` (may be `''`).
+ */
+export function getPublicBaseUrl(config: ServerConfiguration = configuration): string {
+  if (config.STANDALONE) {
+    return `http://localhost:${String(config.PORT)}`;
+  }
+  if (config.PUBLIC_BASE_URL === '') {
+    throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
+  }
+  return config.PUBLIC_BASE_URL;
 }
 
 export default configuration;

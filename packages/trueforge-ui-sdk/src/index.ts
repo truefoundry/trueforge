@@ -2,7 +2,7 @@
 
 import './icons/registerAgentIcons.js';
 
-export { BrandIcon, BrandLogo } from './theme/brand.js';
+export { BrandLogo, useBrandName } from './theme/brand.js';
 export { defaultSlots } from './theme/defaultSlots.js';
 export { PRESETS, resolvePresetTokens } from './theme/presets/index.js';
 export type { PublicAtomSlots as AtomSlots, SlotOverrides } from './theme/publicSlots.js';
@@ -17,7 +17,7 @@ export {
 } from './theme/ThemeProvider.js';
 export type {
   BrandConfig,
-  BrandImage,
+  BrandLogoConfig,
   ContentClassNames,
   IconMap,
   LayoutProp,
@@ -273,11 +273,9 @@ export type {
   DefinedSkill,
   GithubSkill,
   ImportGithubSkillRequest,
-  ListSessionEventsResponse,
+  ListResult,
   ListSessionsOrder,
   ListSessionsParams,
-  ListSessionsResponse,
-  ListTurnsResponse,
   McpServerMount,
   Model,
   ModelCatalogServer,
@@ -288,7 +286,6 @@ export type {
   ModelProviderConfigBase,
   ModelSelection,
   PageParams,
-  PageResult,
   PreviousTurnIdInput,
   ProviderType,
   RegistrySkill,
@@ -300,14 +297,12 @@ export type {
   SearchAgentsParams,
   SelectRegistrySkillRequest,
   Session,
-  SessionEvent,
   SessionEventItem,
   SkillBase,
   SkillCatalogEntry,
   SkillCatalogServer,
   SkillConfigBase,
   SkillMount,
-  TokenPagination,
   ToolBase,
   Turn,
   TurnInputItem,

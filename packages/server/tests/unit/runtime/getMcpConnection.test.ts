@@ -4,14 +4,16 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
 import { getMcpConnection } from '../../../src/runtime/sessionResources';
 
 describe('getMcpConnection', () => {
+  let db: ReturnType<typeof createSqliteDb>;
   let mcpServerStore: SqliteMcpServerStore;
   let tokenStore: SqliteOAuthTokenStore;
 
   beforeAll(async () => {
-    const db = createSqliteDb(':memory:');
+    db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     mcpServerStore = new SqliteMcpServerStore(db);
     tokenStore = new SqliteOAuthTokenStore(db);
@@ -50,7 +52,7 @@ describe('getMcpConnection', () => {
             client_id: 'dyn-client-1',
             client_secret: 'dyn-secret-1',
             token_endpoint_auth_method: 'client_secret_post',
-            redirect_uris: [`${process.env['PUBLIC_BASE_URL'] ?? ''}/api/v1/mcp-servers/oauth/callback`],
+            redirect_uris: [mcpOAuthCallbackUrl()],
             grant_types: ['authorization_code', 'refresh_token'],
             response_types: ['code'],
           }),

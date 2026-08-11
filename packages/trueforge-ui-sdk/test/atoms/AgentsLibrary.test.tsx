@@ -270,4 +270,22 @@ describe('AgentsLibraryButton', () => {
       expect(screen.getByRole('button', { name: /Agents Library \(50\+\)/ })).toBeInTheDocument();
     });
   });
+
+  it('does not fetch agent count when compact', () => {
+    const searchAgents = vi.fn(async () => [{ name: 'alpha', agentId: 'alpha' }]);
+    const server = createMockAgentUIServer({ searchAgents });
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <AgentsLibraryButton compact />
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Agents Library' })).toBeInTheDocument();
+    expect(searchAgents).not.toHaveBeenCalled();
+  });
 });

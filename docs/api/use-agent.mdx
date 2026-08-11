@@ -9,7 +9,7 @@ This guide covers everything you need to **run** an agent with [`trueforge-sdk`]
 For the conceptual hierarchy (Agent → Session → Turn → Event → Delta) and a short end-to-end walkthrough, see [SDK Overview](/api/overview). For every event field, see [Turn events](/api/turn-events).
 
 <Note>
-Prerequisite: a named agent in the registry, or an inline [agent spec](/api/agent-spec) you pass when creating the session. The quickest path to a named agent is the [Quickstart](/quickstart) UI.
+Prerequisite: a named agent in the registry, or an inline [agent spec](/create-agent/agent-spec) you pass when creating the session. The quickest path to a named agent is the [Quickstart](/quickstart) UI.
 </Note>
 
 ## Install and connect
@@ -46,7 +46,7 @@ stateDiagram-v2
 
 ### Open a session
 
-Create a session by agent name, or pass an inline [agent spec](/api/agent-spec):
+Create a session by agent name, or pass an inline [agent spec](/create-agent/agent-spec):
 
 ```typescript
 import { TrueForge } from 'trueforge-sdk';

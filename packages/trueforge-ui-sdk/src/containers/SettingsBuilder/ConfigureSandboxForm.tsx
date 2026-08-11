@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 
+import { cn } from '../../atoms/lib/cn.js';
+import { Accordion, AccordionDetails, AccordionSummary } from '../../atoms/primitives/Accordion.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
 import { Icon } from '../../icons/Icon.js';
@@ -24,12 +26,13 @@ type ConfigureSandboxFormProps = {
   busy?: boolean;
 };
 
+/** Sensible defaults so the advanced fields are never blank, even without a catalog preset. */
 const EMPTY_CONFIG: SandboxProviderConfig = {
   snapshotName: '',
-  execTimeoutMs: 0,
-  autoStopIntervalInMinutes: 0,
-  autoArchiveIntervalInMinutes: 0,
-  autoDeleteIntervalInMinutes: 0,
+  execTimeoutMs: 300000,
+  autoStopIntervalInMinutes: 15,
+  autoArchiveIntervalInMinutes: 10080,
+  autoDeleteIntervalInMinutes: 43200,
 };
 
 const inputClassName =
@@ -58,6 +61,7 @@ const ConfigureSandboxForm = ({
   const [autoArchiveIntervalInMinutes, setAutoArchiveIntervalInMinutes] = useState('');
   const [autoDeleteIntervalInMinutes, setAutoDeleteIntervalInMinutes] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const resetForm = () => {
     setSnapshotName('');
@@ -66,6 +70,7 @@ const ConfigureSandboxForm = ({
     setAutoArchiveIntervalInMinutes('');
     setAutoDeleteIntervalInMinutes('');
     setApiKey('');
+    setAdvancedOpen(false);
   };
 
   useEffect(() => {
@@ -77,6 +82,7 @@ const ConfigureSandboxForm = ({
     setAutoArchiveIntervalInMinutes(String(config.autoArchiveIntervalInMinutes));
     setAutoDeleteIntervalInMinutes(String(config.autoDeleteIntervalInMinutes));
     setApiKey('');
+    setAdvancedOpen(false);
   }, [open, initialConfig]);
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -157,78 +163,6 @@ const ConfigureSandboxForm = ({
           </div>
 
           <div>
-            <label htmlFor="sandbox-exec-timeout" className="mb-1.5 block text-sm font-medium text-foreground">
-              Exec timeout (ms)
-            </label>
-            <input
-              id="sandbox-exec-timeout"
-              type="number"
-              min={0}
-              required
-              value={execTimeoutMs}
-              onChange={event => {
-                setExecTimeoutMs(event.target.value);
-              }}
-              placeholder="300000"
-              className={inputClassName}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="sandbox-auto-stop" className="mb-1.5 block text-sm font-medium text-foreground">
-              Auto-stop interval (minutes)
-            </label>
-            <input
-              id="sandbox-auto-stop"
-              type="number"
-              min={0}
-              required
-              value={autoStopIntervalInMinutes}
-              onChange={event => {
-                setAutoStopIntervalInMinutes(event.target.value);
-              }}
-              placeholder="15"
-              className={inputClassName}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="sandbox-auto-archive" className="mb-1.5 block text-sm font-medium text-foreground">
-              Auto-archive interval (minutes)
-            </label>
-            <input
-              id="sandbox-auto-archive"
-              type="number"
-              min={0}
-              required
-              value={autoArchiveIntervalInMinutes}
-              onChange={event => {
-                setAutoArchiveIntervalInMinutes(event.target.value);
-              }}
-              placeholder="10080"
-              className={inputClassName}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="sandbox-auto-delete" className="mb-1.5 block text-sm font-medium text-foreground">
-              Auto-delete interval (minutes)
-            </label>
-            <input
-              id="sandbox-auto-delete"
-              type="number"
-              min={0}
-              required
-              value={autoDeleteIntervalInMinutes}
-              onChange={event => {
-                setAutoDeleteIntervalInMinutes(event.target.value);
-              }}
-              placeholder="43200"
-              className={inputClassName}
-            />
-          </div>
-
-          <div>
             <label htmlFor="sandbox-api-key" className="mb-1.5 block text-sm font-medium text-foreground">
               API key
               {!requireApiKey ? <span className="font-normal text-muted-foreground"> (optional)</span> : null}
@@ -245,6 +179,98 @@ const ConfigureSandboxForm = ({
               className={inputClassName}
             />
           </div>
+
+          <Accordion
+            expanded={advancedOpen}
+            onChange={(_event, next) => setAdvancedOpen(next)}
+            className="rounded-md border border-border"
+          >
+            <AccordionSummary className="px-3 py-2.5">
+              <span className="flex w-full items-center justify-between text-sm font-medium text-foreground">
+                Advanced settings
+                <Icon
+                  name="chevron-down"
+                  className={cn(
+                    'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
+                    advancedOpen ? 'rotate-0' : '-rotate-90',
+                  )}
+                />
+              </span>
+            </AccordionSummary>
+            <AccordionDetails className="space-y-4 border-t border-border px-3 pb-3 pt-4">
+              <div>
+                <label htmlFor="sandbox-exec-timeout" className="mb-1.5 block text-sm font-medium text-foreground">
+                  Exec timeout (ms)
+                </label>
+                <input
+                  id="sandbox-exec-timeout"
+                  type="number"
+                  min={0}
+                  required
+                  value={execTimeoutMs}
+                  onChange={event => {
+                    setExecTimeoutMs(event.target.value);
+                  }}
+                  placeholder="300000"
+                  className={inputClassName}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="sandbox-auto-stop" className="mb-1.5 block text-sm font-medium text-foreground">
+                  Auto-stop interval (minutes)
+                </label>
+                <input
+                  id="sandbox-auto-stop"
+                  type="number"
+                  min={0}
+                  required
+                  value={autoStopIntervalInMinutes}
+                  onChange={event => {
+                    setAutoStopIntervalInMinutes(event.target.value);
+                  }}
+                  placeholder="15"
+                  className={inputClassName}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="sandbox-auto-archive" className="mb-1.5 block text-sm font-medium text-foreground">
+                  Auto-archive interval (minutes)
+                </label>
+                <input
+                  id="sandbox-auto-archive"
+                  type="number"
+                  min={0}
+                  required
+                  value={autoArchiveIntervalInMinutes}
+                  onChange={event => {
+                    setAutoArchiveIntervalInMinutes(event.target.value);
+                  }}
+                  placeholder="10080"
+                  className={inputClassName}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="sandbox-auto-delete" className="mb-1.5 block text-sm font-medium text-foreground">
+                  Auto-delete interval (minutes)
+                </label>
+                <input
+                  id="sandbox-auto-delete"
+                  type="number"
+                  min={0}
+                  required
+                  value={autoDeleteIntervalInMinutes}
+                  onChange={event => {
+                    setAutoDeleteIntervalInMinutes(event.target.value);
+                  }}
+                  placeholder="43200"
+                  className={inputClassName}
+                />
+              </div>
+            </AccordionDetails>
+          </Accordion>
         </div>
 
         <Button type="submit" size="lg" disabled={!isValid || busy} className="mt-6 w-full shrink-0">

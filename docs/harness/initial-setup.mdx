@@ -6,25 +6,20 @@ description: 'Configure models, MCP servers, skills, and a sandbox provider once
 
 Before you build agents, configure the shared resources TrueForge orchestrates. You do this once in **Settings**; agents then pick from what you have connected.
 
-| Resource | Settings page | Purpose |
-| --- | --- | --- |
-| [Models](/models) | **Settings → Models** | Provider credentials and available model IDs |
-| [MCP servers](/mcp-servers) | **Settings → Connectors** | Tools and data from external systems |
-| [Skills](/skills) | **Settings → Skills** | Git-backed procedures the agent can load on demand |
-| [Sandbox](/sandbox) | **Settings → Sandbox providers** | Isolated compute for code, files, and skill execution |
+| Resource | Settings page | Purpose | Shipped catalog |
+| --- | --- | --- | --- |
+| [Models](/models) | **Settings → Models** | Provider credentials and available model IDs | [`model-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/model-catalog.yaml) |
+| [MCP servers](/mcp-servers) | **Settings → Connectors** | Tools and data from external systems | [`mcp-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/mcp-catalog.yaml) |
+| [Skills](/skills) | **Settings → Skills** | Git-backed procedures the agent can load on demand | [`skill-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/skill-catalog.yaml) |
+| [Sandbox](/sandbox) | **Settings → Sandbox providers** | Isolated compute for code, files, and skill execution | [`sandbox-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/sandbox-catalog.yaml) |
 
 ## What is supported out of the box
 
-Each Settings page is backed by a **shipped catalog** — a YAML file in the TrueForge server that lists presets the UI can offer:
+Each Settings page is backed by its **shipped catalog** — a YAML file in the TrueForge server (linked above) that lists the presets the UI can offer.
 
-| Catalog | Source |
-| --- | --- |
-| Models | [`model-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/model-catalog.yaml) |
-| MCP servers | [`mcp-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/mcp-catalog.yaml) |
-| Skills | [`skill-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/skill-catalog.yaml) |
-| Sandbox | [`sandbox-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/sandbox-catalog.yaml) |
+Catalogs are discovery lists only. Choosing a preset in the UI asks you for credentials (API key, OAuth, and so on); TrueForge stores the configured resource in its database and then they are used in the agent configuration. 
 
-Catalogs are discovery lists only. Choosing a preset in the UI asks you for credentials (API key, OAuth, and so on); TrueForge stores the configured resource separately. The catalog itself is never called with your secrets.
+<Note>If you remove an entry from the catalog after configuring it in the UI, it will still be available for selection in the agent configuration.</Note>
 
 You can also add entries that are **not** in a catalog — for example a custom OpenAI-compatible model endpoint, or an MCP server at any URL.
 

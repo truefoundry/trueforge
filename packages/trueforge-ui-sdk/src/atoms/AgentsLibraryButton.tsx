@@ -27,7 +27,9 @@ export function AgentsLibraryButton({ className, compact = false, onSelectAgent 
   const agentsListEpoch = shell?.agentsListEpoch ?? 0;
 
   useEffect(() => {
-    if (!enabled || !server) return;
+    // Compact trigger has no count badge; skip so SidebarLayout can keep both
+    // collapsed + expanded trees mounted without a duplicate catalog request.
+    if (!enabled || !server || compact) return;
     let cancelled = false;
     void server
       .searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE })
@@ -40,7 +42,7 @@ export function AgentsLibraryButton({ className, compact = false, onSelectAgent 
     return () => {
       cancelled = true;
     };
-  }, [enabled, server, agentsListEpoch]);
+  }, [enabled, server, agentsListEpoch, compact]);
 
   if (!enabled) return null;
 

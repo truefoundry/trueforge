@@ -1,4 +1,4 @@
-import { BrandIcon } from '@truefoundry/trueforge-ui';
+import { BrandLogo } from '@truefoundry/trueforge-ui';
 import { AUTH_LOGIN_HREF } from './authFetch';
 import './authScreens.css';
 
@@ -8,7 +8,7 @@ export function AuthErrorScreen({ reason }: { reason: string }) {
   return (
     <main className="auth-screen">
       <div className="auth-screen-card">
-        <BrandIcon className="auth-screen-logo" />
+        <BrandLogo className="auth-screen-logo" />
         <h1 className="auth-screen-title">Sign-in failed</h1>
         <p className="auth-screen-message">{message}</p>
         <a className="auth-screen-button" href={AUTH_LOGIN_HREF}>

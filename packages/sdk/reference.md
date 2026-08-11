@@ -2244,7 +2244,7 @@ await client.settings.modelProviders.upsert({
 <dl>
 <dd>
 
-Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Custom providers are not listed here.
+Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Includes a `custom` sentinel with `supported_reasoning_efforts` for the custom-provider form (not configurable from catalog).
 </dd>
 </dl>
 </dd>
