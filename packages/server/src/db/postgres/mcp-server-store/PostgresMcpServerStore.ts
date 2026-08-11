@@ -66,7 +66,7 @@ export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Datab
       .where('name', '=', input.name)
       .forUpdate()
       .executeTakeFirst();
-    return row === undefined ? undefined : toRecord(row);
+    return row ? toRecord(row) : undefined;
   }
 
   async upsertServer(input: UpsertMcpServerInput, transaction?: Transaction<Database>): Promise<McpServerRecord> {

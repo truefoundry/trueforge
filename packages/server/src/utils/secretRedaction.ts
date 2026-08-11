@@ -22,8 +22,21 @@ export function isRedactedSecretValue(value: string): boolean {
 }
 
 /**
+ * Thrown when a redacted keep is requested but no stored secret exists
+ * (create with redacted stand-in, or keep for a missing field/header).
+ * Callers map this to a domain-specific 400 message.
+ */
+export class MissingStoredSecretError extends Error {
+  constructor() {
+    super('Missing stored secret');
+    this.name = 'MissingStoredSecretError';
+  }
+}
+
+/**
  * Resolve the secret to persist for a strict PUT field (always a non-empty string).
  * Real secrets are stored as-is; redacted stand-ins keep `existing` when present.
+ * @throws {MissingStoredSecretError} when keep is requested with no stored secret
  */
 export function resolveStoredSecretValue({
   incoming,
@@ -31,12 +44,12 @@ export function resolveStoredSecretValue({
 }: {
   incoming: string;
   existing: string | undefined;
-}): { ok: true; value: string } | { ok: false } {
+}): string {
   if (!isRedactedSecretValue(incoming)) {
-    return { ok: true, value: incoming };
+    return incoming;
   }
   if (existing) {
-    return { ok: true, value: existing };
+    return existing;
   }
-  return { ok: false };
+  throw new MissingStoredSecretError();
 }

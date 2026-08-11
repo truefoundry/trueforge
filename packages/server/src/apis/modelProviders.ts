@@ -10,7 +10,7 @@ import {
 } from '../routes/modelProviderRoutes';
 import type { CatalogModelProvider } from '../schemas/modelCatalog';
 import { modelProviderName, type ModelProvider } from '../schemas/modelProvider';
-import { resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
+import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
 export interface ModelProvidersRouterDeps<TTransaction> {
@@ -46,31 +46,32 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
   const putHandler: RouteHandler<typeof putModelProviderRoute> = async c => {
     const provider = c.req.valid('json');
     const name = modelProviderName(provider);
-    // Lock → resolve secret from that snapshot → upsert, all in one txn so concurrent keep
-    // cannot re-write a secret over a rotate that committed in between.
-    const outcome = await deps.withTransaction(async transaction => {
-      const existing = await deps.modelProviderStore.getProviderForUpdate({ tenant_id: TENANT_ID, name }, transaction);
-      const resolved = resolveStoredSecretValue({
-        incoming: provider.auth.api_key,
-        existing: existing?.manifest.auth.api_key,
+    try {
+      // Lock → resolve secret from that snapshot → upsert, all in one txn so concurrent keep
+      // cannot re-write a secret over a rotate that committed in between.
+      const record = await deps.withTransaction(async transaction => {
+        const existing = await deps.modelProviderStore.getProviderForUpdate(
+          { tenant_id: TENANT_ID, name },
+          transaction,
+        );
+        const manifest: ModelProvider = {
+          ...provider,
+          auth: {
+            api_key: resolveStoredSecretValue({
+              incoming: provider.auth.api_key,
+              existing: existing?.manifest.auth.api_key,
+            }),
+          },
+        };
+        return deps.modelProviderStore.upsertProvider({ tenant_id: TENANT_ID, name, manifest }, transaction);
       });
-      if (!resolved.ok) {
-        return { ok: false as const };
+      return c.json({ data: redactModelProvider(record.manifest) }, 200);
+    } catch (error) {
+      if (error instanceof MissingStoredSecretError) {
+        return c.json({ error: { message: 'API key is required' } }, 400);
       }
-      const manifest: ModelProvider = {
-        ...provider,
-        auth: { api_key: resolved.value },
-      };
-      const record = await deps.modelProviderStore.upsertProvider(
-        { tenant_id: TENANT_ID, name, manifest },
-        transaction,
-      );
-      return { ok: true as const, record };
-    });
-    if (!outcome.ok) {
-      return c.json({ error: { message: 'API key is required' } }, 400);
+      throw error;
     }
-    return c.json({ data: redactModelProvider(outcome.record.manifest) }, 200);
   };
 
   const router = new OpenAPIHono();
