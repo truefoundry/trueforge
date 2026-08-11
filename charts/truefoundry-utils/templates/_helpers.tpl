@@ -174,8 +174,10 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 
 {{- if .Values.configs.oidc.enabled -}}
-{{- $env = append $env (include "truefoundry-utils.env.fromStringOrValueFrom" (dict "name" "OIDC_ISSUER_URL" "field" "configs.oidc.issuerUrl" "value" .Values.configs.oidc.issuerUrl) | fromJson) -}}
-{{- $env = append $env (include "truefoundry-utils.env.fromStringOrValueFrom" (dict "name" "OIDC_CLIENT_ID" "field" "configs.oidc.clientId" "value" .Values.configs.oidc.clientId) | fromJson) -}}
+{{- $_ := required "configs.oidc.issuerUrl is required when configs.oidc.enabled is true" .Values.configs.oidc.issuerUrl -}}
+{{- $_ := required "configs.oidc.clientId is required when configs.oidc.enabled is true" .Values.configs.oidc.clientId -}}
+{{- $env = append $env (dict "name" "OIDC_ISSUER_URL" "value" .Values.configs.oidc.issuerUrl) -}}
+{{- $env = append $env (dict "name" "OIDC_CLIENT_ID" "value" .Values.configs.oidc.clientId) -}}
 {{- $env = append $env (include "truefoundry-utils.env.fromStringOrValueFrom" (dict "name" "OIDC_CLIENT_SECRET" "field" "configs.oidc.clientSecret" "value" .Values.configs.oidc.clientSecret) | fromJson) -}}
 {{- $env = append $env (dict "name" "OIDC_USER_REFERENCE_CLAIM" "value" .Values.configs.oidc.userReferenceClaim) -}}
 {{- $env = append $env (dict "name" "OIDC_USER_ROLE_CLAIM" "value" .Values.configs.oidc.userRoleClaim) -}}

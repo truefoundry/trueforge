@@ -91,10 +91,9 @@ For passworded Redis, prefer an external instance and load `REDIS_URL` via
 ## OIDC
 
 Configure IdP login under `configs.oidc`. When `enabled` is false, no `OIDC_*`
-env is set (fixed local admin identity). When enabled, set `issuerUrl`,
-`clientId`, and `clientSecret` — each accepts a string or
-`valueFrom.secretKeyRef` (issuer/client id valueFrom is optional convenience;
-`clientSecret` is the real secret).
+env is set (fixed local admin identity). When enabled, set string `issuerUrl`
+and `clientId`, and `clientSecret` as a string or `valueFrom.secretKeyRef`
+(prefer valueFrom in production).
 
 Also set `server.publicBaseUrl` to the public origin and register
 `{publicBaseUrl}/api/v1/auth/callback` at your IdP.
@@ -119,38 +118,15 @@ configs:
     # scopes: "openid,profile,email"
 ```
 
-All three from one Secret:
-
-```yaml
-configs:
-  oidc:
-    enabled: true
-    issuerUrl:
-      valueFrom:
-        secretKeyRef:
-          name: truefoundry-utils-oidc
-          key: issuer-url
-    clientId:
-      valueFrom:
-        secretKeyRef:
-          name: truefoundry-utils-oidc
-          key: client-id
-    clientSecret:
-      valueFrom:
-        secretKeyRef:
-          name: truefoundry-utils-oidc
-          key: client-secret
-```
-
 ## Using Secrets
 
 Prefer Kubernetes Secrets over literals in values files for production. This
 chart does **not** create Secrets for chart-owned fields — supply
 `valueFrom.secretKeyRef` (or create Secrets yourself and point at them).
 
-Chart-owned fields (`externalPostgres.password`, `externalRedis.url`,
-`configs.oidc.issuerUrl` / `clientId` / `clientSecret`) use one shape: a string
-literal (becomes env `value`), or `{ valueFrom: { secretKeyRef: { name, key } } }`.
+Fields that accept string | `valueFrom.secretKeyRef`:
+`externalPostgres.password`, `externalRedis.url`, `configs.oidc.clientSecret`.
+`configs.oidc.issuerUrl` and `clientId` are plain strings only.
 
 **Bundled Postgres password** still uses Bitnami's API (`postgresql.auth.existingSecret`,
 key `password`):

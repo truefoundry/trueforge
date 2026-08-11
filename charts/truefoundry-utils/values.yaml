@@ -57,14 +57,13 @@ server:
   extraEnv: []
 
 # Application feature config (maps to env vars in packages/server/src/config.ts).
-# Sensitive / injectable fields accept a string or { valueFrom: { secretKeyRef: ... } }.
+# clientSecret (and other secret-like fields) accept a string or
+# { valueFrom: { secretKeyRef: ... } }.
 configs:
   oidc:
     # When false, no OIDC_* env is set (fixed local admin identity).
     enabled: false
-    # string or valueFrom
     issuerUrl: ""
-    # string or valueFrom
     clientId: ""
     # string or valueFrom.secretKeyRef (prefer valueFrom in production).
     clientSecret: ""
@@ -76,7 +75,7 @@ configs:
     userReferenceClaim: sub
     userRoleClaim: groups
     adminRoleValue: admin
-    scopes: "openid,profile,email"
+    scopes: "openid,profile,email,groups"
 
 # Bitnami relocated its versioned container images to docker.io/bitnamilegacy and
 # left only rolling `latest` tags under docker.io/bitnami, so the subchart image
