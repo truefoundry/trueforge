@@ -187,14 +187,15 @@ describe('custom providers may omit auth', () => {
       models: [model],
       ...(auth === undefined ? {} : { auth }),
     };
+    const expectedWire = auth === undefined ? body : withRedactedApiKey(body);
 
     const put = await settingsRouter.request('/model-providers', putInit(body));
     expect(put.status).toBe(200);
-    expect(await put.json()).toEqual({ data: body });
+    expect(await put.json()).toEqual({ data: expectedWire });
 
     const list = await settingsRouter.request('/model-providers');
     expect(list.status).toBe(200);
-    expect(await list.json()).toEqual({ data: [body] });
+    expect(await list.json()).toEqual({ data: [expectedWire] });
   });
 
   it('rejects empty api_key', async () => {
