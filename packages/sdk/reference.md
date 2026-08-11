@@ -1813,7 +1813,7 @@ await client.skills.list();
 <dl>
 <dd>
 
-All MCP servers with nested auth_status (settings / admin projection).
+All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.
 </dd>
 </dl>
 </dd>
@@ -1868,7 +1868,7 @@ await client.settings.mcpServers.list();
 <dl>
 <dd>
 
-Full upsert keyed by `name`: creates the server or replaces its manifest. Does not start DCR or modify stored oauth_server / oauth_client columns.
+Full upsert keyed by `name`: creates the server or replaces its manifest. Does not start DCR or modify stored oauth_server / oauth_client columns. For `auth.type: header`, each header value is required: a real value creates/rotates; a redacted value from a prior GET keeps the existing secret for that header name (400 if there is none). Responses redact header secrets.
 </dd>
 </dl>
 </dd>
@@ -1989,7 +1989,7 @@ await client.settings.mcpServers.catalog();
 <dl>
 <dd>
 
-A single MCP server by name, with nested auth_status (settings / admin projection).
+A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.
 </dd>
 </dl>
 </dd>
@@ -2116,7 +2116,7 @@ await client.settings.mcpServers.listTools("name");
 <dl>
 <dd>
 
-All configured providers with their models.
+All configured providers with their models. Secret fields (e.g. auth.api_key) are redacted.
 </dd>
 </dl>
 </dd>
@@ -2171,7 +2171,7 @@ await client.settings.modelProviders.list();
 <dl>
 <dd>
 
-Full upsert: creates the provider or replaces its entire configuration (models included). The key is the returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named by the caller.
+Full upsert: creates the provider or replaces its entire configuration (models included). The key is the returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named by the caller. `auth.api_key` is always required: a real key creates/rotates; a redacted value from a prior GET keeps the existing secret (400 if there is none). Responses return a redacted `auth.api_key`.
 </dd>
 </dl>
 </dd>

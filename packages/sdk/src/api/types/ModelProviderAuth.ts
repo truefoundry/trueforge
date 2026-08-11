@@ -4,6 +4,6 @@
  * Provider authentication credentials.
  */
 export interface ModelProviderAuth {
-    /** API key used to authenticate with the provider. */
+    /** API key used to authenticate with the provider. Settings responses return a redacted form; on PUT, send a real key to create/rotate, or the redacted value from a prior GET to keep the existing secret. */
     apiKey: string;
 }

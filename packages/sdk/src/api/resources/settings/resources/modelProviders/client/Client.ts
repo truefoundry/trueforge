@@ -24,7 +24,7 @@ export class ModelProvidersClient {
     }
 
     /**
-     * All configured providers with their models.
+     * All configured providers with their models. Secret fields (e.g. auth.api_key) are redacted.
      *
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -121,7 +121,7 @@ export class ModelProvidersClient {
     }
 
     /**
-     * Full upsert: creates the provider or replaces its entire configuration (models included). The key is the returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named by the caller.
+     * Full upsert: creates the provider or replaces its entire configuration (models included). The key is the returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named by the caller. `auth.api_key` is always required: a real key creates/rotates; a redacted value from a prior GET keeps the existing secret (400 if there is none). Responses return a redacted `auth.api_key`.
      *
      * @param {TrueForge.ModelProvider} request
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
