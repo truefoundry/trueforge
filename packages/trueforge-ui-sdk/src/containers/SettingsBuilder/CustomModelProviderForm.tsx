@@ -74,8 +74,7 @@ const CustomModelProviderForm = ({
     onOpenChange(nextOpen);
   };
 
-  const isValid =
-    !!name.trim() && !!baseUrl.trim() && !!apiKey.trim() && models.every(model => model.id.trim() && model.name.trim());
+  const isValid = !!name.trim() && !!baseUrl.trim() && models.every(model => model.id.trim() && model.name.trim());
 
   const updateModel = (index: number, patch: Partial<ModelRow>) => {
     setModels(current => current.map((model, i) => (i === index ? { ...model, ...patch } : model)));
@@ -156,17 +155,16 @@ const CustomModelProviderForm = ({
         <div>
           <label htmlFor="custom-provider-api-key" className="mb-1.5 block text-sm font-medium text-foreground">
             API key
-            <RequiredMark />
+            <span className="font-normal text-muted-foreground"> (optional)</span>
           </label>
           <input
             id="custom-provider-api-key"
             type="password"
-            required
             value={apiKey}
             onChange={event => {
               setApiKey(event.target.value);
             }}
-            placeholder="Enter API Key"
+            placeholder="Omit for unauthenticated endpoints"
             className={inputClassName}
           />
         </div>

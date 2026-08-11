@@ -11,7 +11,7 @@ export const CustomModelProvider: core.serialization.ObjectSchema<
     serializers.CustomModelProvider.Raw,
     TrueForge.CustomModelProvider
 > = core.serialization.object({
-    auth: ModelProviderAuth,
+    auth: ModelProviderAuth.optional(),
     baseUrl: core.serialization.property("base_url", core.serialization.string()),
     models: core.serialization.list(ModelEntry),
     name: ResourceName,
@@ -20,7 +20,7 @@ export const CustomModelProvider: core.serialization.ObjectSchema<
 
 export declare namespace CustomModelProvider {
     export interface Raw {
-        auth: ModelProviderAuth.Raw;
+        auth?: ModelProviderAuth.Raw | null;
         base_url: string;
         models: ModelEntry.Raw[];
         name: ResourceName.Raw;

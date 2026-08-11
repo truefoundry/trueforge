@@ -20,6 +20,9 @@ export interface ModelProvidersRouterDeps<TTransaction> {
 }
 
 function redactModelProvider(manifest: ModelProvider): ModelProvider {
+  if (manifest.auth === undefined) {
+    return manifest;
+  }
   return {
     ...manifest,
     auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) },
@@ -54,15 +57,18 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
           { tenant_id: TENANT_ID, name },
           transaction,
         );
-        const manifest: ModelProvider = {
-          ...provider,
-          auth: {
-            api_key: resolveStoredSecretValue({
-              incoming: provider.auth.api_key,
-              existing: existing?.manifest.auth.api_key,
-            }),
-          },
-        };
+        const manifest: ModelProvider =
+          provider.auth === undefined
+            ? provider
+            : {
+                ...provider,
+                auth: {
+                  api_key: resolveStoredSecretValue({
+                    incoming: provider.auth.api_key,
+                    existing: existing?.manifest.auth?.api_key,
+                  }),
+                },
+              };
         return deps.modelProviderStore.upsertProvider({ tenant_id: TENANT_ID, name, manifest }, transaction);
       });
       return c.json({ data: redactModelProvider(record.manifest) }, 200);
