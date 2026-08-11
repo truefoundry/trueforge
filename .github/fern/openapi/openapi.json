@@ -837,7 +837,14 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ModelProviderAuth"
+              },
+              {
+                "description": "Provider authentication credentials. Omit for unauthenticated endpoints."
+              }
+            ]
           },
           "base_url": {
             "description": "Base URL of the provider's API.",
@@ -863,7 +870,6 @@
           }
         },
         "required": [
-          "auth",
           "models",
           "type",
           "name",
