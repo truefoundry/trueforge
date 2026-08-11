@@ -1,85 +1,226 @@
 ---
 title: 'Setup Login'
-sidebarTitle: 'Overview'
-description: 'Turn on OIDC login for shared deployments — or keep the no-auth default for local use.'
+sidebarTitle: 'Setup Login'
+description: 'Keep the no-auth default for local use, or turn on OIDC so your team signs in with your identity provider.'
 ---
 
-TrueForge authentication is optional. For local use you can leave it off. For a shared team deployment, turn on OIDC so people sign in with your identity provider and Settings stay admin-only.
+Login in TrueForge is **optional**. Run it without auth for personal, local use, or connect an OIDC identity provider (Okta, Microsoft Entra ID, or any standard OIDC IdP) so your team signs in and Settings stay admin-only.
 
 ## Choose your mode
 
 | Mode | When to use | What users see |
 | --- | --- | --- |
-| **No login** | Local `npx`, trusted networks | No login screen; everyone is a fixed local admin |
-| **OIDC login** | Hosted / shared teams | Sign-in with your IdP; roles `admin` or `user` |
+| **No login** (default) | Local `npx`, or a network you fully trust | No login screen; everyone is a single shared local admin |
+| **OIDC login** | Hosted or shared team deployments | Sign-in with your IdP; each person is an `admin` or a `user` |
 
-Standalone / local mode ignores OIDC even if env vars are present.
+<Note>
+  Standalone / local mode ignores OIDC even if the variables are set. OIDC login applies to hosted deployments (Docker Compose or Helm).
+</Note>
 
-## Guide: leave auth off (local)
+## Option A — leave login off
 
-1. Do **not** set `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, or `OIDC_CLIENT_SECRET`.
-2. Run TrueForge as usual ([Quickstart](/quickstart)).
-3. Open the UI — there is no login screen. Settings and chat are available immediately.
+The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Quickstart](/quickstart)), and open the UI — there is no login screen, and Settings and chat are available immediately.
 
-Use this only on localhost or behind network controls you trust. On a public host, anyone who can reach the server gets admin Settings access under one shared identity.
+<Warning>
+  Use this only on `localhost` or behind network controls you trust. On a public host, anyone who can reach the server gets full admin access under one shared identity.
+</Warning>
 
-## Guide: enable OIDC for your team
+## Option B — enable OIDC login
 
-### 1. Prepare your identity provider
+<Steps>
+  <Step title="Register an app with your identity provider">
+    Create a **confidential (Web)** OIDC application. Whatever the provider, you need:
 
-Create a **confidential (Web)** OIDC app with:
+    - Grant type **Authorization Code** (PKCE is also used)
+    - Redirect URI: `https://<trueforge-url>/api/v1/auth/callback`, where `<trueforge-url>` is the public address of your TrueForge instance (the same value you set as `PUBLIC_BASE_URL`)
+    - The users or groups allowed to sign in
+    - An **ID token** claim carrying group/role membership, so TrueForge can tell admins from users
 
-- Grant type **Authorization Code** (PKCE is also used)
-- Redirect URI: `{PUBLIC_BASE_URL}/api/v1/auth/callback`
-- Users/groups allowed to sign in
-- ID token claims for identity and admin membership (see below)
+    <Warning>
+      Public / SPA clients are **not** supported — TrueForge authenticates to the token endpoint with a client secret, so a SPA app fails token exchange with an `invalid client secret` error.
+    </Warning>
 
-Public / SPA clients are not supported — TrueForge needs a client secret.
+    TrueForge speaks standard OIDC, so any IdP that issues ID tokens works. Pick your provider for exact steps:
 
-Provider-specific steps: [Okta](/authentication/okta).
+    <Tabs>
+      <Tab title="Okta">
+        **1. Create the application**
 
-### 2. Set server environment
+        1. Applications → **Create App Integration** → **OIDC** → **Web Application**.
+        2. Grant type: **Authorization Code**.
+        3. Sign-in redirect URI: `https://<trueforge-url>/api/v1/auth/callback`.
+        4. Assign the users or groups who should sign in.
+        5. Copy the **Client ID** and **Client secret**.
 
-Set all three OIDC variables together (partial config fails startup), plus the public origin:
+        The sign-out redirect URI is unused — logout only clears the local cookie.
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `PUBLIC_BASE_URL` | yes | Public origin users and the IdP see (no trailing path) |
-| `OIDC_ISSUER_URL` | yes* | IdP issuer (discovery at `/.well-known/openid-configuration`) |
-| `OIDC_CLIENT_ID` | yes* | OIDC client ID |
-| `OIDC_CLIENT_SECRET` | yes* | OIDC client secret |
-| `OIDC_USER_REFERENCE_CLAIM` | no (default `sub`) | Claim used as the user id for session ownership |
-| `OIDC_USER_ROLE_CLAIM` | no (default `groups`) | Claim inspected for admin membership |
-| `OIDC_ADMIN_ROLE_VALUE` | no (default `admin`) | Exact string that grants `admin` (case-sensitive) |
-| `OIDC_SCOPES` | no (default `openid,profile,email`) | Scopes for the authorize request |
+        **2. Configure the Authorization Server**
 
-\*Required when enabling OIDC; otherwise leave all three unset.
+        Point `OIDC_ISSUER_URL` at a **custom** Authorization Server, usually `https://<your-okta-domain>/oauth2/default`. On that server:
 
-In Helm, set `server.publicBaseUrl` and pass `OIDC_*` through `server.extraEnv` / `server.extraEnvFrom`. Keep the client secret in a Kubernetes Secret.
+        - **Access Policies** — add a rule that includes this Web client, grant type Authorization Code, your users, and the scopes you request (`openid`, `profile`, `email`, and `groups` if used).
+        - **Scopes** — if you request `groups`, create a custom scope named `groups` (it is not built in on custom authorization servers).
+        - **Claims** — add an **ID token** claim named to match `OIDC_USER_ROLE_CLAIM` (default `groups`): Groups value type, filtered as needed, included in the **ID token**.
 
-### 3. Map admin vs user
+        **3. Example values** (group `harness-admin` → admin role)
 
-| Role | Who | What they can do |
-| --- | --- | --- |
-| **admin** | Role claim contains `OIDC_ADMIN_ROLE_VALUE` | Chat + change Settings (models, connectors, skills, sandbox) |
-| **user** | Everyone else who can sign in | Chat and use agents; Settings hidden |
+        ```bash
+        OIDC_ISSUER_URL=https://integrator-XXXX.okta.com/oauth2/default
+        OIDC_CLIENT_ID=0oa...
+        OIDC_CLIENT_SECRET=...
+        OIDC_USER_REFERENCE_CLAIM=email
+        OIDC_USER_ROLE_CLAIM=groups
+        OIDC_ADMIN_ROLE_VALUE=harness-admin
+        OIDC_SCOPES=openid,profile,email,groups
+        ```
 
-Session history is still owner-only — admins are not global session superusers today. The [Agent Library](/agent-library) is currently shared: agents created by anyone are visible to everyone on the instance.
+        Plug these into the environment variables in the next step.
+      </Tab>
+      <Tab title="Microsoft Entra ID (Azure AD)">
+        **1. Register the application**
 
-### 4. Sign in and verify
+        1. Microsoft Entra admin center → **App registrations** → **New registration**.
+        2. Under **Authentication** → **Add a platform** → **Web**, add the redirect URI `https://<trueforge-url>/api/v1/auth/callback`.
+        3. Under **Certificates & secrets** → **New client secret**, create a secret and copy its **value** (not the ID).
+        4. From the **Overview** page, copy the **Application (client) ID** and **Directory (tenant) ID**.
 
-1. Open the UI — you should get the IdP login.
-2. After login, confirm admins see **Settings** and non-admins do not.
-3. If someone expected admin but got user, decode their ID token and check the role claim value (exact, case-sensitive). Sign out and back in after IdP claim changes.
+        **2. Set the issuer and group claims**
 
-### 5. Call the API with a token (optional)
+        - Issuer: use the v2.0 endpoint `https://login.microsoftonline.com/<tenant-id>/v2.0`.
+        - Under **Token configuration** → **Add groups claim**, emit the groups claim in the **ID token**.
 
-The UI stores an HttpOnly cookie after login. For the [SDK](/api/overview), send the same ID token as `Authorization: Bearer <id_token>`. Obtain the token from your IdP (or reuse a browser session); there is no device/client-credentials flow yet.
+        <Note>
+          Entra emits **group Object IDs** (GUIDs) in the `groups` claim, not group names — so set `OIDC_ADMIN_ROLE_VALUE` to your admin group's Object ID. To use a readable value instead, define an **App role** and point `OIDC_USER_ROLE_CLAIM` at the `roles` claim.
+        </Note>
 
-Keep ID token lifetimes short at the IdP — the same JWT unlocks the API as cookie or Bearer.
+        **3. Example values** (admin group Object ID → admin role)
+
+        ```bash
+        OIDC_ISSUER_URL=https://login.microsoftonline.com/<tenant-id>/v2.0
+        OIDC_CLIENT_ID=<application-client-id>
+        OIDC_CLIENT_SECRET=...
+        OIDC_USER_REFERENCE_CLAIM=email
+        OIDC_USER_ROLE_CLAIM=groups
+        OIDC_ADMIN_ROLE_VALUE=<admin-group-object-id>
+        OIDC_SCOPES=openid,profile,email
+        ```
+
+        If the `email` claim is missing for some users, use `preferred_username` or `oid` for `OIDC_USER_REFERENCE_CLAIM`.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Set the server environment">
+    Set all three required OIDC variables together — partial config fails startup — plus the public origin.
+
+    | Variable | Required | Purpose |
+    | --- | --- | --- |
+    | <Tooltip tip="Public origin at which users and external services reach TrueForge (e.g. https://trueforge.myorg.com). The server uses it to build MCP OAuth and OIDC login callbacks.">`PUBLIC_BASE_URL`</Tooltip> | Yes | Public origin users and the IdP see (no trailing path) |
+    | `OIDC_ISSUER_URL` | Yes | IdP issuer (discovery at `/.well-known/openid-configuration`) |
+    | `OIDC_CLIENT_ID` | Yes | OIDC client ID |
+    | `OIDC_CLIENT_SECRET` | Yes | OIDC client secret |
+    | `OIDC_USER_REFERENCE_CLAIM` | No (default `sub`) | Claim used as the user id for session ownership |
+    | `OIDC_USER_ROLE_CLAIM` | No (default `groups`) | Claim inspected for admin membership |
+    | `OIDC_ADMIN_ROLE_VALUE` | No (default `admin`) | Exact string that grants `admin` (case-sensitive) |
+    | `OIDC_SCOPES` | No (default `openid,profile,email`) | Scopes for the authorize request |
+
+    How you pass these depends on how you run TrueForge:
+
+    <Tabs>
+      <Tab title="Docker Compose">
+        Add the variables to `packages/server/.env` (the source Compose reads):
+
+        ```bash packages/server/.env
+        PUBLIC_BASE_URL=https://trueforge.myorg.com
+        OIDC_ISSUER_URL=https://integrator-XXXX.okta.com/oauth2/default
+        OIDC_CLIENT_ID=0oa...
+        OIDC_CLIENT_SECRET=...
+        OIDC_USER_REFERENCE_CLAIM=email
+        OIDC_USER_ROLE_CLAIM=groups
+        OIDC_ADMIN_ROLE_VALUE=harness-admin
+        OIDC_SCOPES=openid,profile,email,groups
+        ```
+      </Tab>
+      <Tab title="Helm">
+        Set `server.publicBaseUrl`, pass the `OIDC_*` variables via `server.extraEnv`, and keep the client secret in a Kubernetes Secret:
+
+        ```yaml values.yaml
+        server:
+          publicBaseUrl: "https://trueforge.myorg.com"
+          extraEnv:
+            - name: OIDC_ISSUER_URL
+              value: "https://integrator-XXXX.okta.com/oauth2/default"
+            - name: OIDC_CLIENT_ID
+              value: "0oa..."
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: truefoundry-utils-oidc
+                  key: client-secret
+            - name: OIDC_USER_REFERENCE_CLAIM
+              value: email
+            - name: OIDC_USER_ROLE_CLAIM
+              value: groups
+            - name: OIDC_ADMIN_ROLE_VALUE
+              value: harness-admin
+            - name: OIDC_SCOPES
+              value: openid,profile,email,groups
+        extraObjects:
+          - apiVersion: v1
+            kind: Secret
+            metadata:
+              name: truefoundry-utils-oidc
+            type: Opaque
+            stringData:
+              client-secret: "..."
+        ```
+      </Tab>
+    </Tabs>
+
+    <Warning>
+      Keep `OIDC_CLIENT_SECRET` in a secret store — never commit it to version control.
+    </Warning>
+  </Step>
+
+  <Step title="Sign in and verify roles">
+    1. Open the UI — you should be redirected to your IdP login.
+    2. After login, confirm admins see **Settings** and non-admins do not.
+    3. If someone expected admin but got `user`, decode their ID token and check the role claim value (exact match, case-sensitive). Sign out and back in after any IdP claim change.
+  </Step>
+</Steps>
+
+## Roles: admin vs user
+
+Each signed-in person maps to exactly one role, decided by the role claim in their ID token.
+
+| Role | Who | Can chat & use agents | Can change Settings |
+| --- | --- | --- | --- |
+| **admin** | Role claim contains `OIDC_ADMIN_ROLE_VALUE` | Yes | Yes — models, connectors, skills, sandbox |
+| **user** | Everyone else who can sign in | Yes | No — Settings hidden |
+
+<Note>
+  Two current limitations:
+  - **Session history is owner-only** — admins are not global session superusers today.
+  - **The [Agent Library](/agent-library) is shared** — agents created by anyone are visible to everyone on the instance.
+</Note>
+
+## Call the API with a token (optional)
+
+The UI stores an HttpOnly cookie after login. For the [SDK](/api/overview), send the same ID token as `Authorization: Bearer <id_token>`. Obtain the token from your IdP (or reuse a browser session) — there is no device or client-credentials flow yet. Keep ID token lifetimes short at the IdP, since the same JWT unlocks the API as either a cookie or a bearer token.
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+| --- | --- |
+| `no_matching_policy` / policy evaluation failed | Authorization Server access policy does not include this client, grant, scopes, or user (Okta) |
+| `You are not allowed to access this app` | User not assigned to the application, or the app sign-on policy denies them |
+| `invalid client secret` | App is SPA/public — recreate it as a **Web** (confidential) app with a client secret |
+| Blank authorize screen when requesting `groups` | Custom Authorization Server is missing the `groups` scope and/or ID-token groups claim (Okta) |
+| Login works but everyone is `role: "user"` | Groups/roles claim missing from the ID token, wrong claim name, or admin value mismatch (case-sensitive) |
+| SDK returns `401` | OIDC is on and the request has no `Authorization: Bearer` header or session cookie |
 
 ## Security checklist
 
-- Prefer secrets storage for `OIDC_CLIENT_SECRET`; do not commit it.
+- Store `OIDC_CLIENT_SECRET` in a secret manager; never commit it.
 - Do not expose a no-OIDC deployment on the public internet.
 - Register the exact callback URL your users hit (scheme + host).

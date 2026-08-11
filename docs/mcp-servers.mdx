@@ -25,15 +25,7 @@ You can also use **Add MCP Server** to register any remote URL that is not in th
   />
 </div>
 
-## Where the connectors list comes from
-
-The popular servers under **Settings → Connectors** come from a shipped catalog YAML:
-
-[`mcp-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/mcp-catalog.yaml)
-
-Each entry is a ready-made remote MCP preset (URL, logo, and default auth shape — for example Linear and Notion with OAuth, or GitHub with a header placeholder). Choosing a catalog server creates a configured connector; the catalog itself is never executed against.
-
-To change which presets appear, see [Initial Setup](/harness/initial-setup#changing-what-the-ui-offers).
+The catalog entries under **Settings → Connectors** (Linear, Notion, GitHub, and others) come from the shipped MCP catalog — see [Initial Setup](/harness/initial-setup#what-is-supported-out-of-the-box) for how catalogs work and how to change what the UI offers.
 
 ## Authentication options
 
@@ -41,7 +33,14 @@ To change which presets appear, see [Initial Setup](/harness/initial-setup#chang
 - **Header auth** — static HTTP headers (API keys, bearer tokens) sent on every request.
 - **OAuth (Dynamic Client Registration)** — TrueForge registers as an OAuth client, runs the authorization-code flow, and stores and refreshes tokens. Users never paste tokens into the agent.
 
-Set `PUBLIC_BASE_URL` on the server so OAuth callbacks resolve to the right origin.
+<Info>
+  For OAuth to work, the MCP server must redirect the user back to your TrueForge instance — so the server needs to
+  know its own public address. That is the `PUBLIC_BASE_URL` environment variable. It defaults to
+  `http://localhost:<port>`, which is fine on your own machine; set it whenever TrueForge is reached at a different
+  address (a domain, reverse proxy, or another host). Where to set it depends on how you run TrueForge — as an env var
+  for `npx`, in `packages/server/.env` for Docker Compose, or `server.publicBaseUrl` for Helm. See the
+  [Quickstart FAQ](/quickstart#faq).
+</Info>
 
 ## In-chat authentication
 

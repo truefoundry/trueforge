@@ -35,15 +35,7 @@ Open **Settings → Models**, pick a provider, and paste your API key. Models fr
   />
 </div>
 
-## Where the model list comes from
-
-The providers and models in **Settings → Models** come from a shipped catalog YAML:
-
-[`model-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/model-catalog.yaml)
-
-That file lists the standard provider presets and model IDs. When you pick a provider in the UI, you paste your API key and TrueForge stores a configured provider — the catalog itself is never called with your credentials.
-
-To change which presets appear, see [Initial Setup](/harness/initial-setup#changing-what-the-ui-offers).
+The provider list comes from the shipped model catalog — see [Initial Setup](/harness/initial-setup#what-is-supported-out-of-the-box) for how catalogs work and how to change what the UI offers.
 
 ## Adding a custom provider
 

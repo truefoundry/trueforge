@@ -30,9 +30,10 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
 
     Then open [http://localhost:8791](http://localhost:8791).
 
-    | Configuration                                         | Default     | Description                                              |
-    | ----------------------------------------------------- | ----------- | -------------------------------------------------------- |
-    | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env` | Postgres credentials, read from `packages/server/.env`.  |
+    | Configuration                                         | Default                 | Description                                              |
+    | ----------------------------------------------------- | ----------------------- | -------------------------------------------------------- |
+    | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env`             | Postgres credentials, read from `packages/server/.env`.  |
+    | <Tooltip tip="Public origin at which users and external services reach TrueForge (e.g. https://trueforge.myorg.com). The server uses it to build MCP OAuth and OIDC login callbacks." cta="See the FAQ" href="/quickstart#faq">`PUBLIC_BASE_URL`</Tooltip> | `http://localhost:8791` | Public origin, used for MCP OAuth callbacks.             |
     | Host ports                                            | `8791`, `5433`, `6380`  | App, Postgres, and Redis.                                |
 
   </Tab>
@@ -178,6 +179,18 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
     ```bash
     SQLITE_PATH=~/trueforge/db.sqlite npx @truefoundry/trueforge
     ```
+
+  </Accordion>
+  <Accordion title="What is PUBLIC_BASE_URL and when do I need to set it?">
+    The public origin the server hands to MCP servers for OAuth callbacks. It defaults to `http://localhost:<port>`, which is correct as long as you access TrueForge from the same machine.
+
+    Set it when the server is reachable at a different address — behind a domain, reverse proxy, or on another host:
+
+    ```bash
+    PUBLIC_BASE_URL=https://trueforge.myorg.com npx @truefoundry/trueforge
+    ```
+
+    In hosted mode, set it in `packages/server/.env` (Docker Compose) or via `server.publicBaseUrl` (Helm).
 
   </Accordion>
 </AccordionGroup>
