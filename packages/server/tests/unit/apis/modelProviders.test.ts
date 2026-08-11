@@ -149,8 +149,7 @@ describe('custom providers may omit api_key', () => {
   };
 
   it.each([
-    { label: 'auth {}', auth: {}, storedAuth: { api_key: '' }, name: 'llama-no-key' },
-    { label: 'auth empty api_key', auth: { api_key: '' }, storedAuth: { api_key: '' }, name: 'llama-empty-key' },
+    { label: 'auth {}', auth: {}, storedAuth: {}, name: 'llama-no-key' },
     {
       label: 'auth set api_key',
       auth: { api_key: 'qwerty' },
@@ -175,6 +174,21 @@ describe('custom providers may omit api_key', () => {
     const list = await settingsRouter.request('/model-providers');
     expect(list.status).toBe(200);
     expect(await list.json()).toEqual({ data: [stored] });
+  });
+
+  it('rejects empty api_key', async () => {
+    const { settingsRouter } = await createRouters();
+    const put = await settingsRouter.request(
+      '/model-providers',
+      putInit({
+        type: 'custom',
+        name: 'llama-empty-key',
+        base_url: 'http://localhost:11434/v1',
+        auth: { api_key: '' },
+        models: [model],
+      }),
+    );
+    expect(put.status).toBe(400);
   });
 });
 

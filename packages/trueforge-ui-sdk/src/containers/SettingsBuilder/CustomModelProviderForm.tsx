@@ -164,7 +164,7 @@ const CustomModelProviderForm = ({
             onChange={event => {
               setApiKey(event.target.value);
             }}
-            placeholder="Leave blank for unauthenticated endpoints"
+            placeholder="Omit for unauthenticated endpoints"
             className={inputClassName}
           />
         </div>

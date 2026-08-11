@@ -84,7 +84,8 @@ export function toHarnessModelProvider(req: {
   models: UiModelEntry[];
 }): TrueForgeApi.ModelProvider {
   const models = req.models.map(toHarnessModelEntry);
-  const auth = { apiKey: req.apiKey };
+  // Blank form field is ""; custom must omit the key on the wire (empty string is rejected).
+  const auth = req.type === 'custom' && req.apiKey === '' ? {} : { apiKey: req.apiKey };
   if (!isProviderType(req.type)) {
     throw new Error(`Unsupported model provider type: ${req.type}`);
   }
@@ -107,8 +108,8 @@ async function resolveApiKey(req: { id?: string; type?: string; apiKey: string }
   if (trimmed !== '') {
     return trimmed;
   }
-  // Only custom create may omit the key (local endpoints that need no auth).
   if (req.id === undefined) {
+    // Create with a blank key: allow only for custom; "" is mapped to auth:{} below.
     if (req.type === 'custom') {
       return '';
     }
