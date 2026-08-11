@@ -1,14 +1,16 @@
 'use client';
 
+import { useChatChromeActionsVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 
-/** Resets the current named or draft chat. Hidden while the shell is idle. */
+/** Resets the current named or draft chat. Hidden on empty new chats and drafts without a model. */
 export function ClearChatButton() {
   const shell = useOptionalShellMode();
+  const visible = useChatChromeActionsVisible();
 
-  if (shell == null || shell.mode.status === 'idle') return null;
+  if (!visible || shell == null) return null;
 
   return (
     <button
