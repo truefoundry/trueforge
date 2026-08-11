@@ -1868,7 +1868,7 @@ await client.settings.mcpServers.list();
 <dl>
 <dd>
 
-Full upsert keyed by `name`: creates the server or replaces its manifest. Does not start DCR or modify stored oauth_server / oauth_client columns. For `auth.type: header`, each header value is required: a real value creates/rotates; a redacted value from a prior GET keeps the existing secret for that header name (400 if there is none). Responses redact header secrets.
+Create or replace by `name`. Does not start DCR or change oauth client columns. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).
 </dd>
 </dl>
 </dd>
@@ -2171,7 +2171,7 @@ await client.settings.modelProviders.list();
 <dl>
 <dd>
 
-Full upsert: creates the provider or replaces its entire configuration (models included). The key is the returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named by the caller. `auth.api_key` is always required: a real key creates/rotates; a redacted value from a prior GET keeps the existing secret (400 if there is none). Responses return a redacted `auth.api_key`.
+Create or replace a provider (models included). Well-known types use `type` as `name` (one each); `custom` is named by the caller. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
 </dd>
 </dl>
 </dd>
