@@ -47,90 +47,95 @@ helm upgrade --install truefoundry-utils oci://<jfrog-public-helm-repo>/truefoun
 ## Postgres
 
 Bundled by default (`postgresql.enabled=true`). Set `postgresql.auth.username`,
-`postgresql.auth.password` (or `postgresql.auth.existingSecret`), and
+`postgresql.auth.password` (or Bitnami's `postgresql.auth.existingSecret`), and
 `postgresql.auth.database`; the server connects to it automatically.
 
 To use an **external** Postgres, set `postgresql.enabled=false` and provide
-`externalPostgres.host` (+ `port`, `database`, `user`) with the password one of
-two ways:
-
-- Set `externalPostgres.password` and the chart renders a `Secret`, or
-- Set `externalPostgres.existingSecret` (and optionally `externalPostgres.passwordKey`,
-  default `password`) to reference a `Secret` you manage.
-
-## Redis
-
-The server always runs peered (`STANDALONE=false`), so Redis is always required.
-Bundled by default (`redis.enabled=true`, auth disabled). To use an **external**
-Redis, set `redis.enabled=false` and provide the connection URL one of two ways:
-
-- Set `externalRedis.url` (literal; fine for local/dev), or
-- Set `externalRedis.existingSecret` (and optionally `externalRedis.urlKey`,
-  default `redis-url`) to reference a `Secret` you manage.
-
-For passworded Redis, prefer an external instance and load `REDIS_URL` from a Secret.
-
-## Using Secrets
-
-Prefer Kubernetes Secrets over literals in values files for production.
-
-**Bundled Postgres password** — Bitnami `postgresql.auth.existingSecret` (key `password`):
-
-```yaml
-postgresql:
-  auth:
-    existingSecret: my-postgres-secret
-    # leave password empty / unused when existingSecret is set
-```
-
-**External Postgres password**:
+`externalPostgres.host` (+ `port`, `database`, `user`). Set
+`externalPostgres.password` as a string (inlined as env `value`) or as
+`valueFrom.secretKeyRef` (preferred in production — you create the Secret):
 
 ```yaml
 postgresql:
   enabled: false
 externalPostgres:
   host: postgres.databases.svc
-  existingSecret: my-postgres-secret
-  passwordKey: password
+  password:
+    valueFrom:
+      secretKeyRef:
+        name: my-postgres-secret
+        key: password
 ```
 
-**External Redis URL**:
+## Redis
+
+The server always runs peered (`STANDALONE=false`), so Redis is always required.
+Bundled by default (`redis.enabled=true`, auth disabled). To use an **external**
+Redis, set `redis.enabled=false` and provide `externalRedis.url` as a string or
+`valueFrom.secretKeyRef`:
 
 ```yaml
 redis:
   enabled: false
 externalRedis:
-  existingSecret: my-redis-secret
-  urlKey: redis-url
+  url:
+    valueFrom:
+      secretKeyRef:
+        name: my-redis-secret
+        key: redis-url
 ```
 
-**OIDC and other env secrets** — use `server.extraEnv` / `server.extraEnvFrom`
-(first-class OIDC values are not wired yet):
+For passworded Redis, prefer an external instance and load `REDIS_URL` via
+`valueFrom`.
+
+## OIDC
+
+Configure IdP login under `configs.oidc`. When `enabled` is false, no `OIDC_*`
+env is set (fixed local admin identity). When enabled, set string `issuerUrl`
+and `clientId`, and `clientSecret` as a string or `valueFrom.secretKeyRef`
+(prefer valueFrom in production).
+
+Also set `server.publicBaseUrl` to the public origin and register
+`{publicBaseUrl}/api/v1/auth/callback` at your IdP.
 
 ```yaml
 server:
-  extraEnv:
-    - name: OIDC_ISSUER_URL
-      value: https://idp.example.com
-    - name: OIDC_CLIENT_ID
-      valueFrom:
-        secretKeyRef:
-          name: truefoundry-utils-oidc
-          key: client-id
-    - name: OIDC_CLIENT_SECRET
+  publicBaseUrl: https://truefoundry-utils.example.com
+configs:
+  oidc:
+    enabled: true
+    issuerUrl: https://idp.example.com/oauth2/default
+    clientId: truefoundry-utils
+    clientSecret:
       valueFrom:
         secretKeyRef:
           name: truefoundry-utils-oidc
           key: client-secret
+    # optional claim overrides (defaults shown):
+    # userReferenceClaim: sub
+    # userRoleClaim: groups
+    # adminRoleValue: admin
+    # scopes: "openid,profile,email,groups"
 ```
 
-Or load a whole Secret as env:
+## Using Secrets
+
+Prefer Kubernetes Secrets over literals in values files for production. This
+chart does **not** create Secrets for chart-owned fields — supply
+`valueFrom.secretKeyRef` (or create Secrets yourself and point at them).
+
+Fields that accept string | `valueFrom.secretKeyRef`:
+`externalPostgres.password`, `externalRedis.url`, `configs.oidc.clientSecret`.
+`configs.oidc.issuerUrl` and `clientId` are plain strings only.
+
+**Bundled Postgres password** still uses Bitnami's API (`postgresql.auth.existingSecret`,
+key `password`):
 
 ```yaml
-server:
-  extraEnvFrom:
-    - secretRef:
-        name: truefoundry-utils-oidc
+postgresql:
+  auth:
+    existingSecret: my-postgres-secret
+    # leave password empty / unused when existingSecret is set
 ```
 
 ## Extra objects
@@ -166,7 +171,8 @@ extraObjects:
 | `replicaCount`        | `1`                                 | Number of server replicas.            |
 | `image.repository`    | `tfy.jfrog.io/tfy-images/truefoundry-utils` | Image repository.                     |
 | `image.tag`           | chart `appVersion`                  | Image tag; stamped on release.        |
-| `server.publicBaseUrl`| `""`                                | Public origin for OAuth/OIDC callbacks (optional; required for MCP OAuth / OIDC). |
+| `server.publicBaseUrl`| `""`                                | Public origin for OAuth/OIDC callbacks (required for MCP OAuth / OIDC). |
+| `configs.oidc.enabled`| `false`                             | Inject `OIDC_*` env for IdP login.    |
 | `postgresql.enabled`  | `true`                              | Bundle the Bitnami Postgres subchart. |
 | `redis.enabled`       | `true`                              | Bundle the Bitnami Redis subchart.    |
 | `service.type`        | `ClusterIP`                         | Service type.                         |
@@ -184,9 +190,9 @@ Also available (defaults inert): `strategy`, `priorityClassName`,
 ## Production checklist
 
 - Set `server.publicBaseUrl` to the real public origin before using MCP OAuth or OIDC.
-- Prefer `existingSecret` for Postgres and Redis credentials; do not commit passwords in values files.
+- Prefer `valueFrom.secretKeyRef` for Postgres password, Redis URL, and OIDC client secret; do not commit secrets in values files.
 - Prefer external managed Postgres/Redis over the bundled subcharts for production HA.
 - Set container `resources` (especially CPU requests) before enabling HPA.
 - Add `imagePullSecrets` when pulling from `tfy.jfrog.io`.
-- Configure OIDC via `server.extraEnv` / `extraEnvFrom` when you need IdP login.
+- Configure IdP login via `configs.oidc` when you need OIDC.
 - Enable `podDisruptionBudget` when running multiple replicas (defaults to `minAvailable: 1`; set exactly one of `minAvailable` or `maxUnavailable`).

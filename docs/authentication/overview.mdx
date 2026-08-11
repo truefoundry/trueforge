@@ -142,29 +142,27 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
         ```
       </Tab>
       <Tab title="Helm">
-        Set `server.publicBaseUrl`, pass the `OIDC_*` variables via `server.extraEnv`, and keep the client secret in a Kubernetes Secret:
+        Set `server.publicBaseUrl` and `configs.oidc`. Prefer `clientSecret` as
+        `valueFrom.secretKeyRef` to a Kubernetes Secret you manage — the chart does
+        not create Secrets for you:
 
         ```yaml values.yaml
         server:
           publicBaseUrl: "https://trueforge.myorg.com"
-          extraEnv:
-            - name: OIDC_ISSUER_URL
-              value: "https://integrator-XXXX.okta.com/oauth2/default"
-            - name: OIDC_CLIENT_ID
-              value: "0oa..."
-            - name: OIDC_CLIENT_SECRET
+        configs:
+          oidc:
+            enabled: true
+            issuerUrl: "https://integrator-XXXX.okta.com/oauth2/default"
+            clientId: "0oa..."
+            clientSecret:
               valueFrom:
                 secretKeyRef:
                   name: truefoundry-utils-oidc
                   key: client-secret
-            - name: OIDC_USER_REFERENCE_CLAIM
-              value: email
-            - name: OIDC_USER_ROLE_CLAIM
-              value: groups
-            - name: OIDC_ADMIN_ROLE_VALUE
-              value: harness-admin
-            - name: OIDC_SCOPES
-              value: openid,profile,email,groups
+            userReferenceClaim: email
+            userRoleClaim: groups
+            adminRoleValue: harness-admin
+            scopes: "openid,profile,email,groups"
         extraObjects:
           - apiVersion: v1
             kind: Secret
@@ -174,6 +172,8 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
             stringData:
               client-secret: "..."
         ```
+
+        See the [chart README](https://github.com/truefoundry/trueforge/blob/main/charts/truefoundry-utils/README.md#oidc) for the full values shape.
       </Tab>
     </Tabs>
 
