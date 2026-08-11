@@ -46,24 +46,31 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
   const putHandler: RouteHandler<typeof putModelProviderRoute> = async c => {
     const provider = c.req.valid('json');
     const name = modelProviderName(provider);
-    const existing = await deps.modelProviderStore.getProvider({ tenant_id: TENANT_ID, name });
-    const resolved = resolveStoredSecretValue({
-      incoming: provider.auth.api_key,
-      existing: existing?.manifest.auth.api_key,
+    // Lock → resolve secret from that snapshot → upsert, all in one txn so concurrent keep
+    // cannot re-write a secret over a rotate that committed in between.
+    const outcome = await deps.withTransaction(async transaction => {
+      const existing = await deps.modelProviderStore.getProviderForUpdate({ tenant_id: TENANT_ID, name }, transaction);
+      const resolved = resolveStoredSecretValue({
+        incoming: provider.auth.api_key,
+        existing: existing?.manifest.auth.api_key,
+      });
+      if (!resolved.ok) {
+        return { ok: false as const };
+      }
+      const manifest: ModelProvider = {
+        ...provider,
+        auth: { api_key: resolved.value },
+      };
+      const record = await deps.modelProviderStore.upsertProvider(
+        { tenant_id: TENANT_ID, name, manifest },
+        transaction,
+      );
+      return { ok: true as const, record };
     });
-    if (!resolved.ok) {
+    if (!outcome.ok) {
       return c.json({ error: { message: 'API key is required' } }, 400);
     }
-    const manifest: ModelProvider = {
-      ...provider,
-      auth: { api_key: resolved.value },
-    };
-    const record = await deps.modelProviderStore.upsertProvider({
-      tenant_id: TENANT_ID,
-      name,
-      manifest,
-    });
-    return c.json({ data: redactModelProvider(record.manifest) }, 200);
+    return c.json({ data: redactModelProvider(outcome.record.manifest) }, 200);
   };
 
   const router = new OpenAPIHono();
