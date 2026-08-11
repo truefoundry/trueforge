@@ -863,7 +863,6 @@
           }
         },
         "required": [
-          "auth",
           "models",
           "type",
           "name",
