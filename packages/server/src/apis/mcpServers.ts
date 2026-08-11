@@ -144,6 +144,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
         prior !== undefined ? await deps.mcpServerStore.getClient({ id: prior.id }) : undefined;
       // Register when: brand-new server, client was cleared (e.g. invalid_client), or MCP URL changed
       // (resource/AS may differ; reuse would keep stale oauth_server/client for the old AS).
+      // TODO: make manifest URL immutable after create so re-DCR / stale OAuth tokens are not possible via PUT.
       const urlChanged = prior !== undefined && prior.manifest.url !== manifest.url;
       const needsDcr = existingClient === undefined || urlChanged;
       if (needsDcr) {
