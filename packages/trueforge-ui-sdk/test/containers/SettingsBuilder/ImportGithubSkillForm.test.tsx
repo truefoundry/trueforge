@@ -25,10 +25,10 @@ describe('ImportGithubSkillForm', () => {
     fireEvent.change(screen.getByLabelText('Repository URL'), {
       target: { value: ' https://github.com/org/repo ' },
     });
-    fireEvent.change(screen.getByLabelText('Path'), {
+    fireEvent.change(screen.getByLabelText('Folder containing the SKILL.md'), {
       target: { value: ' skills/release-notes ' },
     });
-    fireEvent.change(screen.getByLabelText('Ref'), {
+    fireEvent.change(screen.getByLabelText('Branch'), {
       target: { value: ' main ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Import' }));

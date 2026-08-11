@@ -27,8 +27,6 @@ const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const LOCAL_EXECUTOR_ID = 'local';
 /** OS-standard data dir for SQLite in standalone mode. */
 const ENV_PATHS_APP_NAME = 'truefoundry-utils';
-const DEFAULT_SQLITE_FILENAME = 'db.sqlite';
-
 const DEFAULT_POSTGRES_USER = 'harness';
 const DEFAULT_POSTGRES_PASSWORD = 'harness';
 const DEFAULT_POSTGRES_DB = 'harness';
@@ -150,7 +148,7 @@ function resolveOptionalPathEnv(envKey: string): string | undefined {
 
 /**
  * Absolute SQLite file path for standalone mode.
- * Env: `SQLITE_PATH` (optional). Default: `{env-paths data}/db.sqlite`.
+ * Env: `SQLITE_PATH` (optional). Default: `{env-paths data}/db/db.sqlite`.
  */
 function resolveSqlitePath(): string {
   const override = getEnv('SQLITE_PATH');
@@ -158,7 +156,7 @@ function resolveSqlitePath(): string {
     return path.resolve(override);
   }
   const paths = envPaths(ENV_PATHS_APP_NAME, { suffix: '' });
-  return path.join(paths.data, DEFAULT_SQLITE_FILENAME);
+  return path.join(paths.data, 'db', 'db.sqlite');
 }
 
 /** Redis peering URL for distributed mode. Env: `REDIS_URL`. */
@@ -384,7 +382,7 @@ export type StandaloneServerConfiguration = SharedServerConfiguration & {
   STANDALONE: true;
   /**
    * Absolute SQLite database file path.
-   * Env: `SQLITE_PATH` (optional). Default: env-paths data dir + `db.sqlite`.
+   * Env: `SQLITE_PATH` (optional). Default: env-paths data dir + `db/db.sqlite`.
    */
   SQLITE_PATH: string;
 };

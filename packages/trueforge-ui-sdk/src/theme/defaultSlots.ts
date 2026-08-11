@@ -53,6 +53,7 @@ import { UserMessageActionBar } from '../atoms/UserMessageActionBar.js';
 import { UserMessageBubble } from '../atoms/UserMessageBubble.js';
 import { UserMessageEdit } from '../atoms/UserMessageEdit.js';
 import { WelcomeScreen } from '../atoms/WelcomeScreen.js';
+import { BrandLogo } from './brand.js';
 import type { AtomSlots } from './SlotsProvider.js';
 
 // ponytail: primitives stay CSS/token-styled (not slots) — see docs/customization.md.
@@ -68,6 +69,7 @@ export const defaultSlots = {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  BrandLogo,
   ComposerShell,
   ComposerLeftSection,
   ComposerRightSection,

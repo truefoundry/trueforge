@@ -13,7 +13,7 @@ Safe read-only tools stay autonomous. Write and destructive tools get a checkpoi
 <Note>
   Today, configuring `require_approval_for_tools` (and related enable/disable tool lists) is done via the **API / SDK**
   when you create or update an agent. The chat UI already handles the Approve / Deny experience at runtime, but the
-  builder does not yet expose the full approval policy editor. See the [agent spec](/api/agent-spec#mcp_servers).
+  builder does not yet expose the full approval policy editor. See the [agent spec](/create-agent/agent-spec#mcp_servers).
 </Note>
 
 Approval policy is set **per MCP server** on the agent. The default is write and destructive tools — any tool the MCP server does not mark as read-only, or marks as destructive. You can also list specific tool names, or gate every tool.
