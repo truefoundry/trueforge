@@ -84,8 +84,6 @@ export function toHarnessModelProvider(req: {
   models: UiModelEntry[];
 }): TrueForgeApi.ModelProvider {
   const models = req.models.map(toHarnessModelEntry);
-  // Blank form field is ""; custom must omit the key on the wire (empty string is rejected).
-  const auth = req.type === 'custom' && req.apiKey === '' ? {} : { apiKey: req.apiKey };
   if (!isProviderType(req.type)) {
     throw new Error(`Unsupported model provider type: ${req.type}`);
   }
@@ -95,8 +93,11 @@ export function toHarnessModelProvider(req: {
     if (baseUrl === undefined) {
       throw new Error(`Model providers of type "${req.type}" require a base URL`);
     }
+    // Blank form field is ""; custom must omit the key on the wire (empty string is rejected).
+    const auth = req.apiKey === '' ? {} : { apiKey: req.apiKey };
     return { type: req.type, name: req.name, auth, models, baseUrl };
   }
+  const auth = { apiKey: req.apiKey };
   if (baseUrl !== undefined) {
     return { type: req.type, auth, models, baseUrl };
   }
