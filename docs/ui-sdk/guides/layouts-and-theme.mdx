@@ -67,8 +67,8 @@ type ThemeConfig = {
   preset?: "truefoundry" | "claude" | "chatgpt" | "gemini"; // default "truefoundry"
   mode?: "light" | "dark" | "system";
   brand?: {
-	name?: string;
-  	logo?: string | BrandLogo;
+    name: string; // required when `brand` is set
+    logo?: string | BrandLogoConfig;
   },
   ...
 };
@@ -122,13 +122,24 @@ Pass to set a theme to light, dark or system. User CANNOT update it. This is use
   theme={{
     ...
     brand: {
-        name: "TrueForge",
-        logo: {
-		  "light": "/logo/light.svg",
-		  "dark": "/logo/dark.svg",
-		  "href": "https://trueforge.dev" //URL to redirect on logo click
-        },
+      name: "TrueForge",
+      logo: {
+        light: "/logo/light.svg",
+        dark: "/logo/dark.svg",
+        href: "https://trueforge.dev", // URL to redirect on logo click
+      },
     }
   }}
 />
+```
+
+The source is picked from the resolved mode, so this follows the system theme when `mode` is
+omitted. Set only one of `light` / `dark` and it is used for both modes; use `src` for a
+mode-agnostic mark. `name` labels the image, and the link when `href` is set.
+
+To render a component instead of an image — an inline SVG, an animated mark — override the
+`BrandLogo` slot rather than passing a node through `theme`:
+
+```tsx App.tsx
+<TrueforgeUI ... overrides={{ BrandLogo: MyMark }} />
 ```

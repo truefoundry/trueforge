@@ -1,47 +1,61 @@
 'use client';
 
-import type { ReactNode } from 'react';
-
 import { useContext } from 'react';
 
-import { cn } from '../atoms/lib/cn.js';
 import { Icon } from '../icons/Icon.js';
 import { ThemeContext } from './ThemeProvider.js';
-import type { BrandConfig, BrandImage } from './types.js';
+import type { BrandLogoConfig } from './types.js';
 
-function DefaultBrandIcon({ className }: { className?: string }) {
-  return <Icon name="robot" className={className} />;
+const DEFAULT_BRAND_NAME = 'TrueForge';
+
+/** Mode-matched source, falling back to the other mode then the mode-agnostic `src`. */
+function resolveLogoSrc({
+  logo,
+  mode,
+}: {
+  logo: string | BrandLogoConfig;
+  mode: 'light' | 'dark';
+}): string | undefined {
+  if (typeof logo === 'string') return logo;
+  const preferred = mode === 'dark' ? logo.dark : logo.light;
+  return preferred ?? logo.light ?? logo.dark ?? logo.src;
 }
 
-function DefaultBrandLogo({ className, name }: { className?: string; name: string }) {
+/** Configured brand name, or the SDK default. Safe outside a `ThemeProvider`. */
+export function useBrandName(): string {
+  return useContext(ThemeContext)?.brand.name ?? DEFAULT_BRAND_NAME;
+}
+
+/**
+ * The product mark: `theme.brand.logo` resolved against the active theme mode,
+ * labelled with the brand name, and linked when the config carries an `href`.
+ * Falls back to the default mark when no logo is configured.
+ *
+ * Callers that also want the name as text render it themselves — the SDK layouts
+ * pair this with `useBrandName()` so each one controls its own arrangement.
+ */
+export function BrandLogo({ className }: { className?: string }) {
+  const theme = useContext(ThemeContext);
+  const logo = theme?.brand.logo;
+  const name = theme?.brand.name ?? DEFAULT_BRAND_NAME;
+
+  const src = logo == null ? undefined : resolveLogoSrc({ logo, mode: theme?.mode ?? 'light' });
+  if (src == null) return <Icon name="robot" className={className} />;
+
+  // `name` is the accessible label: the image itself carries no text alternative.
+  const image = <img src={src} alt={name} className={className} />;
+  const href = typeof logo === 'string' ? undefined : logo?.href;
+  if (href == null) return image;
+
   return (
-    <span className={cn('inline-flex items-center gap-2 font-semibold tracking-tight', className)}>
-      <BrandIcon className="size-5" />
-      <span>{name}</span>
-    </span>
+    <a href={href} aria-label={name} className="inline-flex items-center">
+      {image}
+    </a>
   );
 }
 
-function renderBrandImage(image: BrandImage | undefined, fallback: ReactNode, className?: string): ReactNode {
-  if (image == null) return fallback;
-  if (typeof image === 'function') return image({ className });
-  if (typeof image === 'object' && image !== null && 'src' in image) {
-    return <img src={image.src} alt={image.alt ?? ''} className={className} />;
+declare module './SlotsProvider.js' {
+  interface AtomSlots {
+    BrandLogo: typeof BrandLogo;
   }
-  return image;
-}
-
-function useOptionalBrand(): BrandConfig {
-  return useContext(ThemeContext)?.brand ?? {};
-}
-
-export function BrandLogo({ className }: { className?: string }) {
-  const brand = useOptionalBrand();
-  const name = brand.name ?? 'TrueFoundry';
-  return <>{renderBrandImage(brand.logo, <DefaultBrandLogo className={className} name={name} />, className)}</>;
-}
-
-export function BrandIcon({ className }: { className?: string }) {
-  const brand = useOptionalBrand();
-  return <>{renderBrandImage(brand.icon, <DefaultBrandIcon className={className} />, className)}</>;
 }
