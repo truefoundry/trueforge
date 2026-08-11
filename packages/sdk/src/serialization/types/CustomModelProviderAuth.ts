@@ -8,11 +8,11 @@ export const CustomModelProviderAuth: core.serialization.ObjectSchema<
     serializers.CustomModelProviderAuth.Raw,
     TrueForge.CustomModelProviderAuth
 > = core.serialization.object({
-    apiKey: core.serialization.property("api_key", core.serialization.string().optional()),
+    apiKey: core.serialization.property("api_key", core.serialization.string()),
 });
 
 export declare namespace CustomModelProviderAuth {
     export interface Raw {
-        api_key?: string | null;
+        api_key: string;
     }
 }
