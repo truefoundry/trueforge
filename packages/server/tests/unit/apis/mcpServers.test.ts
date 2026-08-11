@@ -273,7 +273,8 @@ describe('mcp-servers routers', () => {
             client_id: 'new-url-client',
             client_secret: 'new-url-secret',
             token_endpoint_auth_method: 'client_secret_post',
-            redirect_uris: [`${process.env['PUBLIC_BASE_URL'] ?? ''}/api/v1/mcp-servers/oauth/callback`],
+            // Absolute URLs only — SDK parses registration responses with SafeUrlSchema.
+            redirect_uris: [mcpOAuthCallbackUrl()],
             grant_types: ['authorization_code', 'refresh_token'],
             response_types: ['code'],
           }),
@@ -308,6 +309,27 @@ describe('mcp-servers routers', () => {
       });
     } finally {
       globalThis.fetch = realFetch;
+      // Restore baseline for later suite cases that still expect original linear URL / no token.
+      await mcpServerStore.upsertServer({
+        tenant_id: TENANT_ID,
+        name: putBodyWithDcr.name,
+        manifest: putBodyWithDcr,
+      });
+      await mcpServerStore.saveClient({
+        id: record.id,
+        record: {
+          server: {
+            authorizationEndpoint: 'https://auth.example.com/authorize',
+            tokenEndpoint: 'https://auth.example.com/token',
+            codeChallengeMethodsSupported: ['S256'],
+          },
+          client: {
+            clientId: 'seed-client',
+            clientSecret: 'seed-secret',
+          },
+        },
+      });
+      await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
     }
   });
 
