@@ -2,7 +2,7 @@
 
 import './icons/registerAgentIcons.js';
 
-export { BrandIcon, BrandLogo } from './theme/brand.js';
+export { BrandLogo, useBrandName } from './theme/brand.js';
 export { defaultSlots } from './theme/defaultSlots.js';
 export { PRESETS, resolvePresetTokens } from './theme/presets/index.js';
 export type { PublicAtomSlots as AtomSlots, SlotOverrides } from './theme/publicSlots.js';
@@ -17,7 +17,7 @@ export {
 } from './theme/ThemeProvider.js';
 export type {
   BrandConfig,
-  BrandImage,
+  BrandLogoConfig,
   ContentClassNames,
   IconMap,
   LayoutProp,

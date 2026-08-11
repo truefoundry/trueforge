@@ -24,6 +24,7 @@
     "migrate": "NODE_OPTIONS='--conditions=development' STANDALONE=false tsx --env-file=.env src/db/postgres/migrate-cli.ts",
     "openapi:write": "pnpm run build:gen && NODE_OPTIONS='--conditions=development' tsx --env-file=.env.test scripts/write-openapi.ts",
     "pack:dry": "pnpm pack --dry-run",
+    "migrate:legacy-sqlite-path": "node scripts/migrate-legacy-sqlite-path.mjs",
     "predev:no-watch": "pnpm --filter @truefoundry/utils-core build:gen && pnpm run build:gen",
     "predev": "pnpm --filter @truefoundry/utils-core build:gen && pnpm run build:gen",
     "test:eventsub": "jest --config jest.eventsub.config.cjs",

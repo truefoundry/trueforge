@@ -3,7 +3,7 @@ import { act, render, renderHook, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WelcomeScreen } from '@/atoms/WelcomeScreen.js';
-import { BrandIcon, BrandLogo } from '@/theme/brand.js';
+import { BrandLogo } from '@/theme/brand.js';
 import { ThemeProvider, useBrand, useTheme } from '@/theme/ThemeProvider.js';
 
 function ModeProbe() {
@@ -136,16 +136,15 @@ describe('ThemeProvider', () => {
     expect(removeEventListener).toHaveBeenCalledWith('change', expect.any(Function));
   });
 
-  it('exposes brand config and BrandLogo / BrandIcon', () => {
+  it('exposes brand config and labels BrandLogo with the brand name', () => {
     render(
-      <ThemeProvider theme={{ brand: { name: 'Acme' } }}>
+      <ThemeProvider theme={{ brand: { name: 'Acme', logo: '/acme.svg' } }}>
         <BrandProbe />
-        <BrandLogo />
-        <BrandIcon className="size-4" />
+        <BrandLogo className="size-4" />
       </ThemeProvider>,
     );
     expect(screen.getByTestId('brand-name')).toHaveTextContent('Acme');
-    expect(screen.getAllByText('Acme').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('img', { name: 'Acme' })).toHaveAttribute('src', '/acme.svg');
   });
 
   it('writes token CSS vars on the theme root', () => {

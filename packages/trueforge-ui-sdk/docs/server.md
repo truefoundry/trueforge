@@ -802,7 +802,6 @@ export function App() {
         brand: {
           name: 'MyCo',
           logo: { src: '/myco-wordmark.svg' },
-          icon: { src: '/myco-mark.svg' },
         },
       }}
     />

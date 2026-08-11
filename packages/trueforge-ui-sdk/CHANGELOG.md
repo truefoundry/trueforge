@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Light/dark brand logo** — `theme.brand.logo` accepts a `BrandLogoConfig`
+  (`{ src?, light?, dark?, href? }`). The source is picked from the resolved theme
+  mode, falling back to the other mode and then `src`, so a single configured mode
+  covers both and `{ light }` alone never renders a missing image. `href` wraps the
+  logo in a same-tab link. A bare string (`logo: '/logo.svg'`) is shorthand for a
+  mode-agnostic source. A config with no usable source falls back to the default
+  mark rather than an empty `<img>`.
+- **`BrandLogo` slot** — now in the slot table and resolved through `useSlot` by
+  every layout, so `overrides={{ BrandLogo: MyMark }}` reaches the sidebar header,
+  widget FAB, and welcome screen.
+- **`useBrandName()`** — the configured brand name or the default, so layouts no
+  longer inline the fallback string.
+
 ### Changed
 
 - **Styles auto-inject** — `ThemeProvider` injects the SDK stylesheet at runtime.
@@ -40,6 +55,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`AgentUIServer` / mounts follow the runtime contract** — composed port matches
   runtime `AgentUIServerPort`; `SkillMount` / `McpServerMount` stay opaque `object`
   (hosts widen via generics). Implement `getCapabilities()` on every builder host.
+- **One brand component** — removed the `BrandIcon` export; `BrandLogo` is the only
+  product mark and renders the mark alone. Callers that also want the name as text
+  pair it with `useBrandName()` (as the sidebar header does), rather than relying on
+  a second component that hard-codes one arrangement. Replace `<BrandIcon />` with
+  `<BrandLogo />`, and `overrides={{ BrandIcon }}` with `overrides={{ BrandLogo }}`.
+- **`brand.name` is required** — `theme.brand` stays optional, but setting it now
+  requires `name`, since it labels the logo and a logo with no name has no accessible
+  name. `logo` remains optional, so `brand: { name: 'Acme' }` still pairs host text
+  with the default mark. `useBrand()` returns `Partial<BrandConfig>`, since `brand`
+  may be absent entirely.
+- **`theme.brand` is images-only** — removed `brand.icon`; there is one logo source.
+  Removed the `ReactNode` and render-function variants of the logo value (and with
+  them the `BrandImage` type export), so `brand.logo` is now
+  `string | BrandLogoConfig`. Component-valued marks move to the slot table:
+  `overrides={{ BrandLogo: MyMark }}`, which is how every other atom is replaced.
+  Also removed `alt` — the logo is labelled with `brand.name`, so there is one place
+  to set the accessible name.
+- **Default brand name is `"TrueForge"`** (was `"TrueFoundry"`), used by
+  `BrandLogo`, the sidebar header, and `useBrandName()`.
 - **`ShellMode` shape** — replaced `type: 'idle' | 'named' | 'draft'` with
   `status: 'idle' | 'active'` plus `isMutable` on active bindings. Composer /
   Save Agent / welcome chrome key off `isMutable`, not draft|named.

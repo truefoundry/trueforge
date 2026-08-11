@@ -116,19 +116,36 @@ import { TrueforgeUI } from "@truefoundry/trueforge-ui";
       </Expandable>
     </ParamField>
     <ParamField path="brand" type="BrandConfig">
+      Optional. Omit it to keep the default mark and the `"TrueForge"` name; setting it
+      requires a `name`.
+
       <Expandable title="BrandConfig">
-        <ParamField path="logo" type="BrandImage">
-          Falls back to the default mark plus the brand name.
+        <ParamField path="name" type="string" required>
+          Shown beside the mark, and used as the logo's accessible label.
         </ParamField>
-        <ParamField path="icon" type="BrandImage">
-          Falls back to the bare mark — no name.
-        </ParamField>
-        <ParamField path="name" type="string" default='"TrueFoundry"'>
-          Shown beside the default logo.
+        <ParamField path="logo" type="string | BrandLogoConfig">
+          Image URL, or per-mode sources. Omit to pair your name with the default mark.
         </ParamField>
       </Expandable>
 
-      `BrandImage` accepts `{ src, alt? }`, a React node, or a render function.
+      <Expandable title="BrandLogoConfig">
+        <ParamField path="light" type="string">
+          Source used when the resolved mode is light.
+        </ParamField>
+        <ParamField path="dark" type="string">
+          Source used when the resolved mode is dark.
+        </ParamField>
+        <ParamField path="src" type="string">
+          Mode-agnostic source, used when neither `light` nor `dark` is set.
+        </ParamField>
+        <ParamField path="href" type="string">
+          Wraps the logo in a same-tab link, labelled with `name`.
+        </ParamField>
+      </Expandable>
+
+      A single configured mode is used for both modes, so `{ light }` alone never renders a
+      missing image. To render a component rather than an image, override the `BrandLogo` slot
+      through `overrides`.
     </ParamField>
     <ParamField path="icons" type="IconMap">
       Replace registry icons by name. Values are Lucide components, React nodes, render
@@ -194,7 +211,7 @@ Persisted sessions remain available through the thread list.
   server={{ type: "truefoundry", apiKey, controlPlaneURL }}
   layout="sidebar"
   agentConfig={{ mode: "AgentComposer", defaultAgentSpec: { model: { name: "openai-main/gpt-4.1" } } }}
-  theme={{ preset: "claude", brand: { name: "Acme" } }}
+  theme={{ preset: "claude", brand: { name: "Acme", logo: "/logo.svg" } }}
   overrides={{ ClearChatButton: MyClearButton }}
   className="h-full min-h-0"
   onError={(e) => reportError(e)}

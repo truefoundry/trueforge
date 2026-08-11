@@ -271,11 +271,10 @@ export default function App() {
         theme={{
           preset: 'claude',
           brand: {
-            icon: {
+            logo: {
               src: 'https://media.licdn.com/dms/image/v2/C560BAQGQ9Tfeof4MbA/company-logo_200_200/company-logo_200_200/0/1644494262340/truefoundry_logo?e=2147483647&v=beta&t=Xm6c1LGNbVPD2Ehtj21Z5OcuSCGLhYwlJ763oEYb92M',
-              alt: 'TrueFoundry',
             },
-            name: 'TFY',
+            name: 'TrueForge',
           },
         }}
         layout="sidebar"
