@@ -1,10 +1,5 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import {
-  extractErrorLogFields,
-  isAuthRequired,
-  McpConnectionError,
-  RemoteMCP,
-} from '@truefoundry/utils-core/core';
+import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
 import type { McpCatalog } from '../catalog/McpCatalog';
@@ -140,8 +135,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     let dcrClientToSave: OAuthClientRecord | undefined;
     if (manifest.auth?.type === 'dcr') {
       const prior = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name: manifest.name });
-      const existingClient =
-        prior !== undefined ? await deps.mcpServerStore.getClient({ id: prior.id }) : undefined;
+      const existingClient = prior !== undefined ? await deps.mcpServerStore.getClient({ id: prior.id }) : undefined;
       // Register when: brand-new server, client was cleared (e.g. invalid_client), or MCP URL changed
       // (resource/AS may differ; reuse would keep stale oauth_server/client for the old AS).
       // TODO: make manifest URL immutable after create so re-DCR / stale OAuth tokens are not possible via PUT.
