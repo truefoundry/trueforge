@@ -35,7 +35,6 @@ export * from "./ContextManagementConfigCompaction.js";
 export * from "./CreateAgentResponse.js";
 export * from "./CreateSessionAgent.js";
 export * from "./CustomModelProvider.js";
-export * from "./CustomModelProviderAuth.js";
 export * from "./DaytonaSandboxProvider.js";
 export * from "./DaytonaSandboxProviderAuth.js";
 export * from "./DynamicSubAgentsConfig.js";

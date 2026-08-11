@@ -392,13 +392,14 @@
         "additionalProperties": false,
         "properties": {
           "supported_reasoning_efforts": {
-            "description": "Supported reasoning-effort values for this provider",
+            "description": "Supported reasoning-effort values for this provider.",
             "items": {
               "$ref": "#/components/schemas/ReasoningEffort"
             },
             "type": "array"
           },
           "type": {
+            "description": "Custom provider type (catalog includes `custom`).",
             "enum": [
               "custom"
             ],
@@ -550,19 +551,30 @@
         "additionalProperties": false,
         "properties": {
           "logo": {
-            "description": "URL of the provider logo asset",
+            "description": "URL of the provider logo asset.",
             "format": "uri",
             "type": "string"
           },
           "models": {
-            "description": "Preset models",
+            "description": "Preset models; empty on the `custom` sentinel.",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
             "type": "array"
           },
           "type": {
-            "$ref": "#/components/schemas/CatalogWellKnownModelProviderType"
+            "description": "Well-known provider type (catalog excludes `custom`).",
+            "enum": [
+              "openai",
+              "anthropic",
+              "google-gemini",
+              "fireworks",
+              "zai",
+              "moonshot",
+              "alibaba",
+              "together"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -570,19 +582,6 @@
           "models"
         ],
         "type": "object"
-      },
-      "CatalogWellKnownModelProviderType": {
-        "enum": [
-          "openai",
-          "anthropic",
-          "google-gemini",
-          "fireworks",
-          "zai",
-          "moonshot",
-          "alibaba",
-          "together"
-        ],
-        "type": "string"
       },
       "ChatCompletionChunkDeltaToolCall": {
         "properties": {
@@ -837,14 +836,7 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ModelProviderAuth"
-              },
-              {
-                "description": "Provider authentication credentials. Omit for unauthenticated endpoints."
-              }
-            ]
+            "$ref": "#/components/schemas/ModelProviderAuth"
           },
           "base_url": {
             "description": "Base URL of the provider's API.",
@@ -870,6 +862,7 @@
           }
         },
         "required": [
+          "auth",
           "models",
           "type",
           "name",
@@ -1732,7 +1725,6 @@
       },
       "McpAuthStatus": {
         "additionalProperties": false,
-        "description": "Auth state for the calling user.",
         "properties": {
           "authorization_url": {
             "description": "When auth is required, this contains the URL to redirect the user to for authorization.",
@@ -1753,41 +1745,6 @@
           "status"
         ],
         "type": "object"
-      },
-      "McpServerAuthPublic": {
-        "description": "Auth mechanism when configured (no secrets). Omit when the server needs no credentials.",
-        "oneOf": [
-          {
-            "additionalProperties": false,
-            "properties": {
-              "type": {
-                "enum": [
-                  "dcr"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type"
-            ],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "type": {
-                "enum": [
-                  "header"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type"
-            ],
-            "type": "object"
-          }
-        ]
       },
       "McpServerDcrAuth": {
         "additionalProperties": false,
@@ -1858,12 +1815,6 @@
       "McpServerReadEntry": {
         "additionalProperties": false,
         "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/McpServerAuthPublic"
-          },
-          "auth_status": {
-            "$ref": "#/components/schemas/McpAuthStatus"
-          },
           "name": {
             "$ref": "#/components/schemas/ResourceName"
           },
@@ -1875,8 +1826,7 @@
         },
         "required": [
           "name",
-          "url",
-          "auth_status"
+          "url"
         ],
         "type": "object"
       },
