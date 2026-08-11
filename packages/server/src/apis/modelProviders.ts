@@ -9,13 +9,21 @@ import {
   putModelProviderRoute,
 } from '../routes/modelProviderRoutes';
 import type { CatalogModelProvider } from '../schemas/modelCatalog';
-import { modelProviderName } from '../schemas/modelProvider';
+import { modelProviderName, type ModelProvider } from '../schemas/modelProvider';
+import { resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
 export interface ModelProvidersRouterDeps<TTransaction> {
   modelCatalog: ModelCatalog;
   modelProviderStore: IModelProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
+}
+
+function redactModelProvider(manifest: ModelProvider): ModelProvider {
+  return {
+    ...manifest,
+    auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) },
+  };
 }
 
 export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRouterDeps<TTransaction>) {
@@ -32,17 +40,30 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
 
   const listHandler: RouteHandler<typeof listModelProvidersRoute> = async c => {
     const records = await deps.modelProviderStore.listProviders(TENANT_ID);
-    return c.json({ data: records.map(record => record.manifest) }, 200);
+    return c.json({ data: records.map(record => redactModelProvider(record.manifest)) }, 200);
   };
 
   const putHandler: RouteHandler<typeof putModelProviderRoute> = async c => {
     const provider = c.req.valid('json');
+    const name = modelProviderName(provider);
+    const existing = await deps.modelProviderStore.getProvider({ tenant_id: TENANT_ID, name });
+    const resolved = resolveStoredSecretValue({
+      incoming: provider.auth.api_key,
+      existing: existing?.manifest.auth.api_key,
+    });
+    if (!resolved.ok) {
+      return c.json({ error: { message: 'API key is required' } }, 400);
+    }
+    const manifest: ModelProvider = {
+      ...provider,
+      auth: { api_key: resolved.value },
+    };
     const record = await deps.modelProviderStore.upsertProvider({
       tenant_id: TENANT_ID,
-      name: modelProviderName(provider),
-      manifest: provider,
+      name,
+      manifest,
     });
-    return c.json({ data: record.manifest }, 200);
+    return c.json({ data: redactModelProvider(record.manifest) }, 200);
   };
 
   const router = new OpenAPIHono();

@@ -15,15 +15,14 @@ export function toRedactedSecretValue(secret: string): string {
 }
 
 /**
- * True when the client sent a redacted stand-in from a prior GET. Callers must
- * handle omitted fields (`undefined`) themselves — empty strings are not keep.
+ * True when the client sent a redacted stand-in from a prior GET.
  */
 export function isRedactedSecretValue(value: string): boolean {
   return value.includes(SECRET_REDACTION);
 }
 
 /**
- * Resolve the secret to persist when the request body included a string field.
+ * Resolve the secret to persist for a strict PUT field (always a non-empty string).
  * Real secrets are stored as-is; redacted stand-ins keep `existing` when present.
  */
 export function resolveStoredSecretValue({

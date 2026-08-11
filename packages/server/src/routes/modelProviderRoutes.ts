@@ -45,13 +45,13 @@ export const listModelProvidersRoute = createRoute({
   path: '/',
   tags: [MODEL_PROVIDERS_TAG],
   summary: 'List configured model providers',
-  description: 'All configured providers with their models.',
+  description: 'All configured providers with their models. Secret fields (e.g. auth.api_key) are redacted.',
   'x-fern-sdk-group-name': ['settings', 'modelProviders'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
       content: { 'application/json': { schema: ListModelProvidersResponseSchema } },
-      description: 'All configured model providers.',
+      description: 'All configured model providers (secrets redacted).',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -72,7 +72,9 @@ export const putModelProviderRoute = createRoute({
   description:
     'Full upsert: creates the provider or replaces its entire configuration (models included). The key is the ' +
     'returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one ' +
-    'configured provider and a repeat call replaces it; only `custom` providers are named by the caller.',
+    'configured provider and a repeat call replaces it; only `custom` providers are named by the caller. ' +
+    '`auth.api_key` is always required: a real key creates/rotates; a redacted value from a prior GET keeps ' +
+    'the existing secret (400 if there is none). Responses return a redacted `auth.api_key`.',
   'x-fern-sdk-group-name': ['settings', 'modelProviders'],
   'x-fern-sdk-method-name': 'upsert',
   request: {
@@ -84,11 +86,11 @@ export const putModelProviderRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: PutModelProviderResponseSchema } },
-      description: 'The saved provider.',
+      description: 'The saved provider (secrets redacted).',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body.',
+      description: 'Invalid request body, or redacted API key with no stored secret to keep.',
     },
   },
 });
