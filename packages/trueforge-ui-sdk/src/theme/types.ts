@@ -167,13 +167,47 @@ export const TOKEN_CSS_VARS: Record<keyof SemanticTokens, string> = {
 };
 
 /**
+ * Color tokens exposed in the designer token editor.
+ * Subset of `SemanticTokens` — excludes radius/font and internal extras.
+ */
+export type EditableTokenKey =
+  | 'background'
+  | 'foreground'
+  | 'card'
+  | 'cardForeground'
+  | 'popover'
+  | 'popoverForeground'
+  | 'primary'
+  | 'primaryForeground'
+  | 'secondary'
+  | 'secondaryForeground'
+  | 'accent'
+  | 'accentForeground'
+  | 'ring'
+  | 'muted'
+  | 'mutedForeground'
+  | 'destructive'
+  | 'destructiveForeground'
+  | 'success'
+  | 'successForeground'
+  | 'warning'
+  | 'warningForeground'
+  | 'border'
+  | 'input'
+  | 'userBubble'
+  | 'userBubbleForeground'
+  | 'assistantBubble'
+  | 'assistantBubbleForeground'
+  | 'scrollbarThumb';
+
+/**
  * The finalized, designer-facing color tokens, grouped for the token editor.
  * Excludes non-color keys (`radius`, `fontFamily`, `composerRadius`) and the
  * internal extras (`overlay`, `shadowColor`, `composerBg`).
  */
 export const EDITABLE_TOKEN_GROUPS: ReadonlyArray<{
   label: string;
-  keys: ReadonlyArray<keyof SemanticTokens>;
+  keys: ReadonlyArray<EditableTokenKey>;
 }> = [
   {
     label: 'Surfaces',
@@ -206,15 +240,13 @@ export const EDITABLE_TOKEN_GROUPS: ReadonlyArray<{
 ];
 
 /** Flat list of the 28 editable token keys, in group order. */
-export const EDITABLE_TOKEN_KEYS: ReadonlyArray<keyof SemanticTokens> = EDITABLE_TOKEN_GROUPS.flatMap(
-  group => group.keys,
-);
+export const EDITABLE_TOKEN_KEYS: ReadonlyArray<EditableTokenKey> = EDITABLE_TOKEN_GROUPS.flatMap(group => group.keys);
 
 /**
  * Short designer copy for the token editor: what to look at when changing a color.
  * Keys match `EDITABLE_TOKEN_KEYS`.
  */
-export const TOKEN_DESCRIPTIONS: Record<(typeof EDITABLE_TOKEN_KEYS)[number], string> = {
+export const TOKEN_DESCRIPTIONS: Record<EditableTokenKey, string> = {
   background: 'App canvas — thread shell, settings pages, and layout panels.',
   foreground: 'Default body text and icons across the UI.',
   card: 'Raised panels — Agent steps card, settings sections, and the composer surface.',

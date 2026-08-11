@@ -22,6 +22,7 @@ export type {
   BrandConfig,
   BrandLogoConfig,
   ContentClassNames,
+  EditableTokenKey,
   IconMap,
   LayoutProp,
   SemanticTokens,

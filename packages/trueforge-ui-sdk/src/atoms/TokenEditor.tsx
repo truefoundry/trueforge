@@ -9,6 +9,7 @@ import {
   EDITABLE_TOKEN_KEYS,
   TOKEN_CSS_VARS,
   TOKEN_DESCRIPTIONS,
+  type EditableTokenKey,
   type SemanticTokens,
   type TokenOverrides,
 } from '../theme/types.js';
@@ -45,7 +46,7 @@ function TokenRow({
   value,
   onChange,
 }: {
-  tokenKey: (typeof EDITABLE_TOKEN_KEYS)[number];
+  tokenKey: EditableTokenKey;
   value: string;
   onChange: (next: string) => void;
 }) {
@@ -95,7 +96,7 @@ export function TokenEditorModal({ open, onOpenChange }: { open: boolean; onOpen
     setDraft({ light: pickEditable(resolveTokens('light')), dark: pickEditable(resolveTokens('dark')) });
   }, [open, resolveTokens]);
 
-  const updateToken = (key: keyof SemanticTokens, next: string) => {
+  const updateToken = (key: EditableTokenKey, next: string) => {
     setDraft(prev => ({ ...prev, [activeMode]: { ...prev[activeMode], [key]: next } }));
   };
 
