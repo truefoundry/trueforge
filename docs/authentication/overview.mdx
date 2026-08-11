@@ -55,7 +55,10 @@ Set all three OIDC variables together (partial config fails startup), plus the p
 
 \*Required when enabling OIDC; otherwise leave all three unset.
 
-In Helm, set `server.publicBaseUrl` and pass `OIDC_*` through `server.extraEnv` / `server.extraEnvFrom`. Keep the client secret in a Kubernetes Secret.
+In Helm, set `server.publicBaseUrl` and configure [`configs.oidc`](https://github.com/truefoundry/trueforge/blob/main/charts/truefoundry-utils/README.md#oidc)
+(`enabled`, `issuerUrl`, `clientId`, `clientSecret`, optional claim overrides). Prefer
+`clientSecret` as `valueFrom.secretKeyRef` to a Kubernetes Secret you manage — the chart
+does not create Secrets for you.
 
 ### 3. Map admin vs user
 

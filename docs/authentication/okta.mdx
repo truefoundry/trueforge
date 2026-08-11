@@ -41,29 +41,26 @@ OIDC_ADMIN_ROLE_VALUE=harness-admin
 OIDC_SCOPES=openid,profile,email,groups
 ```
 
-Helm: set `server.publicBaseUrl` for the callback origin. Pass `OIDC_*` through `server.extraEnv` (or `extraEnvFrom`); keep the client secret in a Kubernetes Secret:
+Helm: set `server.publicBaseUrl` and `configs.oidc`. Prefer `clientSecret` via
+`valueFrom.secretKeyRef` to a Secret you manage:
 
 ```yaml
 server:
   publicBaseUrl: "https://trueforge.example.com"
-  extraEnv:
-    - name: OIDC_ISSUER_URL
-      value: "https://integrator-XXXX.okta.com/oauth2/default"
-    - name: OIDC_CLIENT_ID
-      value: "0oa..."
-    - name: OIDC_CLIENT_SECRET
+configs:
+  oidc:
+    enabled: true
+    issuerUrl: "https://integrator-XXXX.okta.com/oauth2/default"
+    clientId: "0oa..."
+    clientSecret:
       valueFrom:
         secretKeyRef:
           name: truefoundry-utils-oidc
           key: client-secret
-    - name: OIDC_USER_REFERENCE_CLAIM
-      value: email
-    - name: OIDC_USER_ROLE_CLAIM
-      value: groups
-    - name: OIDC_ADMIN_ROLE_VALUE
-      value: harness-admin
-    - name: OIDC_SCOPES
-      value: openid,profile,email,groups
+    userReferenceClaim: email
+    userRoleClaim: groups
+    adminRoleValue: harness-admin
+    scopes: "openid,profile,email,groups"
 extraObjects:
   - apiVersion: v1
     kind: Secret

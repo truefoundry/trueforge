@@ -115,7 +115,7 @@ configs:
     # userReferenceClaim: sub
     # userRoleClaim: groups
     # adminRoleValue: admin
-    # scopes: "openid,profile,email"
+    # scopes: "openid,profile,email,groups"
 ```
 
 ## Using Secrets

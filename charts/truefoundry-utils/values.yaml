@@ -75,7 +75,7 @@ configs:
     userReferenceClaim: sub
     userRoleClaim: groups
     adminRoleValue: admin
-    scopes: "openid,profile,email,groups"
+    scopes: "openid,profile,email"
 
 # Bitnami relocated its versioned container images to docker.io/bitnamilegacy and
 # left only rolling `latest` tags under docker.io/bitnami, so the subchart image
