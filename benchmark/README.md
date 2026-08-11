@@ -55,8 +55,8 @@ Any suite in that shape works — this harness is not DevRev-specific.
 | `deepagents` | deepagents (LangGraph)                | Local `create_deep_agent` loop                   | MCP tools via `MultiServerMCPClient`          |
 
 Every arm gets the **same system prompt** (`prompts/system.md`) and the **same task
-prompts**. The prompt is generic operating guidance — how to approach a cross-system
-task, be thorough with sources, ground claims, respect scope.
+prompts**. The prompt is short, model-neutral guidance — answer at the right
+granularity, and use all the related data — with no task-specific detail.
 
 ---
 
