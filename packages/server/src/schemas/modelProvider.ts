@@ -65,8 +65,8 @@ const CustomModelProviderAuthSchema = z
   .object({
     api_key: z
       .string()
-      .optional()
-      .describe('API key used to authenticate with the provider. Omit for unauthenticated endpoints.'),
+      .default('')
+      .describe('API key used to authenticate with the provider. Omit or leave empty for unauthenticated endpoints.'),
   })
   .strict()
   .openapi('CustomModelProviderAuth');

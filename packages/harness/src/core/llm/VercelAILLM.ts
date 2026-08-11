@@ -79,8 +79,7 @@ export interface VercelAIProviderConfig {
   modelId: string;
   /** Optional base URL override. Explicitly includes `undefined` for Zod-derived type compat. */
   baseUrl?: string | undefined;
-  /** Omit for unauthenticated OpenAI-compatible endpoints. */
-  apiKey?: string | undefined;
+  apiKey: string;
   headers: Record<string, string>;
 }
 

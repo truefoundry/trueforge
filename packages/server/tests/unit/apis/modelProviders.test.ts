@@ -149,10 +149,15 @@ describe('custom providers may omit api_key', () => {
   };
 
   it.each([
-    { label: 'auth {}', auth: {}, name: 'llama-no-key' },
-    { label: 'auth empty api_key', auth: { api_key: '' }, name: 'llama-empty-key' },
-    { label: 'auth set api_key', auth: { api_key: 'qwerty' }, name: 'llama-with-key' },
-  ])('PUT stores and lists custom provider with $label', async ({ auth, name }) => {
+    { label: 'auth {}', auth: {}, storedAuth: { api_key: '' }, name: 'llama-no-key' },
+    { label: 'auth empty api_key', auth: { api_key: '' }, storedAuth: { api_key: '' }, name: 'llama-empty-key' },
+    {
+      label: 'auth set api_key',
+      auth: { api_key: 'qwerty' },
+      storedAuth: { api_key: 'qwerty' },
+      name: 'llama-with-key',
+    },
+  ])('PUT stores and lists custom provider with $label', async ({ auth, storedAuth, name }) => {
     const { settingsRouter } = await createRouters();
     const body = {
       type: 'custom' as const,
@@ -161,14 +166,15 @@ describe('custom providers may omit api_key', () => {
       auth,
       models: [model],
     };
+    const stored = { ...body, auth: storedAuth };
 
     const put = await settingsRouter.request('/model-providers', putInit(body));
     expect(put.status).toBe(200);
-    expect(await put.json()).toEqual({ data: body });
+    expect(await put.json()).toEqual({ data: stored });
 
     const list = await settingsRouter.request('/model-providers');
     expect(list.status).toBe(200);
-    expect(await list.json()).toEqual({ data: [body] });
+    expect(await list.json()).toEqual({ data: [stored] });
   });
 });
 
