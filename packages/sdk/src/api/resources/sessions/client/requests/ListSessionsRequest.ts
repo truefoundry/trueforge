@@ -9,9 +9,9 @@ import type * as TrueForge from "../../../../index.js";
 export interface ListSessionsRequest {
     /** Page size. Defaults to 10, max 100. */
     limit?: number;
-    /** Sort sessions by creation time. Defaults to "desc". */
+    /** Sort sessions by `updated_at`. Defaults to "desc". */
     order?: TrueForge.ListSessionsOrder;
-    /** Opaque token from a previous response `next_page_token`. */
+    /** Opaque keyset cursor from a previous response `next_page_token`. */
     pageToken?: string;
     /** Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339). */
     startTimestamp?: Date;
