@@ -66,7 +66,7 @@ configs:
     issuerUrl: ""
     # string or valueFrom
     clientId: ""
-    # string → chart Secret key client-secret; or valueFrom.secretKeyRef.
+    # string or valueFrom.secretKeyRef (prefer valueFrom in production).
     clientSecret: ""
     # clientSecret:
     #   valueFrom:
@@ -137,7 +137,7 @@ externalPostgres:
   port: 5432
   database: truefoundry_utils
   user: truefoundry_utils
-  # string → chart renders a Secret; or { valueFrom: { secretKeyRef: { name, key } } }.
+  # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
   password: ""
   # password:
   #   valueFrom:

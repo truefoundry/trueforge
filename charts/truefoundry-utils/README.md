@@ -52,8 +52,8 @@ Bundled by default (`postgresql.enabled=true`). Set `postgresql.auth.username`,
 
 To use an **external** Postgres, set `postgresql.enabled=false` and provide
 `externalPostgres.host` (+ `port`, `database`, `user`). Set
-`externalPostgres.password` as a string (chart renders a `Secret`) or as
-`valueFrom.secretKeyRef`:
+`externalPostgres.password` as a string (inlined as env `value`) or as
+`valueFrom.secretKeyRef` (preferred in production — you create the Secret):
 
 ```yaml
 postgresql:
@@ -144,13 +144,13 @@ configs:
 
 ## Using Secrets
 
-Prefer Kubernetes Secrets over literals in values files for production.
+Prefer Kubernetes Secrets over literals in values files for production. This
+chart does **not** create Secrets for chart-owned fields — supply
+`valueFrom.secretKeyRef` (or create Secrets yourself and point at them).
 
 Chart-owned fields (`externalPostgres.password`, `externalRedis.url`,
 `configs.oidc.issuerUrl` / `clientId` / `clientSecret`) use one shape: a string
-literal, or `{ valueFrom: { secretKeyRef: { name, key } } }`. Sensitive string
-literals (`password`, `clientSecret`) are stored in a chart-rendered Secret and
-referenced via `secretKeyRef` so they are not inlined on the Deployment.
+literal (becomes env `value`), or `{ valueFrom: { secretKeyRef: { name, key } } }`.
 
 **Bundled Postgres password** still uses Bitnami's API (`postgresql.auth.existingSecret`,
 key `password`):

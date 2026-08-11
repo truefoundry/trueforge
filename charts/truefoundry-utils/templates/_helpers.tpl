@@ -116,31 +116,22 @@ postgresql.enabled, otherwise from externalPostgres.
 {{- end }}
 
 {{/*
-Name of the Secret holding a literal Postgres password.
-- bundled: the subchart's Secret (existingSecret override or <release>-postgresql).
-- external literal password: a Secret this chart renders (see secret.yaml).
-Not used when externalPostgres.password is a valueFrom object.
+Name of the Secret holding the Postgres password when using the bundled
+postgresql subchart (existingSecret override or <release>-postgresql).
 */}}
 {{- define "truefoundry-utils.postgres.secretName" -}}
-{{- if .Values.postgresql.enabled -}}
 {{- default (printf "%s-postgresql" .Release.Name) .Values.postgresql.auth.existingSecret -}}
-{{- else -}}
-{{- printf "%s-postgres" (include "truefoundry-utils.fullname" .) -}}
-{{- end -}}
 {{- end }}
 
 {{- define "truefoundry-utils.redis.bundledUrl" -}}
 {{- printf "redis://%s-redis-master:6379" .Release.Name -}}
 {{- end }}
 
-{{- define "truefoundry-utils.oidc.secretName" -}}
-{{- printf "%s-oidc" (include "truefoundry-utils.fullname" .) -}}
-{{- end }}
-
 {{/*
 JSON env entry from a string | { valueFrom: ... } field.
-Expects: name (env var), field (values path for errors), value,
-and when sensitive: secretName + secretKey for literal → chart Secret.
+Expects: name (env var), field (values path for errors), value.
+Literals become env value; valueFrom maps are passed through. The chart does
+not create Secrets — callers who need secretKeyRef must supply valueFrom.
 */}}
 {{- define "truefoundry-utils.env.fromStringOrValueFrom" -}}
 {{- $name := index . "name" -}}
@@ -148,11 +139,7 @@ and when sensitive: secretName + secretKey for literal → chart Secret.
 {{- $value := index . "value" -}}
 {{- include "truefoundry-utils.requireStringOrValueFrom" (dict "name" $field "value" $value) -}}
 {{- if eq (include "truefoundry-utils.isLiteralString" (dict "value" $value)) "true" -}}
-{{- if index . "sensitive" -}}
-{{- dict "name" $name "valueFrom" (dict "secretKeyRef" (dict "name" (index . "secretName") "key" (index . "secretKey"))) | toJson -}}
-{{- else -}}
 {{- dict "name" $name "value" $value | toJson -}}
-{{- end -}}
 {{- else -}}
 {{- dict "name" $name "valueFrom" $value.valueFrom | toJson -}}
 {{- end -}}
@@ -183,13 +170,13 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- if .Values.postgresql.enabled -}}
 {{- $env = append $env (dict "name" "POSTGRES_PASSWORD" "valueFrom" (dict "secretKeyRef" (dict "name" (include "truefoundry-utils.postgres.secretName" .) "key" "password"))) -}}
 {{- else -}}
-{{- $env = append $env (include "truefoundry-utils.env.fromStringOrValueFrom" (dict "name" "POSTGRES_PASSWORD" "field" "externalPostgres.password" "value" .Values.externalPostgres.password "sensitive" true "secretName" (include "truefoundry-utils.postgres.secretName" .) "secretKey" "password") | fromJson) -}}
+{{- $env = append $env (include "truefoundry-utils.env.fromStringOrValueFrom" (dict "name" "POSTGRES_PASSWORD" "field" "externalPostgres.password" "value" .Values.externalPostgres.password) | fromJson) -}}
 {{- end -}}
 
 {{- if .Values.configs.oidc.enabled -}}
 {{- $env = append $env (include "truefoundry-utils.env.fromStringOrValueFrom" (dict "name" "OIDC_ISSUER_URL" "field" "configs.oidc.issuerUrl" "value" .Values.configs.oidc.issuerUrl) | fromJson) -}}
 {{- $env = append $env (include "truefoundry-utils.env.fromStringOrValueFrom" (dict "name" "OIDC_CLIENT_ID" "field" "configs.oidc.clientId" "value" .Values.configs.oidc.clientId) | fromJson) -}}
-{{- $env = append $env (include "truefoundry-utils.env.fromStringOrValueFrom" (dict "name" "OIDC_CLIENT_SECRET" "field" "configs.oidc.clientSecret" "value" .Values.configs.oidc.clientSecret "sensitive" true "secretName" (include "truefoundry-utils.oidc.secretName" .) "secretKey" "client-secret") | fromJson) -}}
+{{- $env = append $env (include "truefoundry-utils.env.fromStringOrValueFrom" (dict "name" "OIDC_CLIENT_SECRET" "field" "configs.oidc.clientSecret" "value" .Values.configs.oidc.clientSecret) | fromJson) -}}
 {{- $env = append $env (dict "name" "OIDC_USER_REFERENCE_CLAIM" "value" .Values.configs.oidc.userReferenceClaim) -}}
 {{- $env = append $env (dict "name" "OIDC_USER_ROLE_CLAIM" "value" .Values.configs.oidc.userRoleClaim) -}}
 {{- $env = append $env (dict "name" "OIDC_ADMIN_ROLE_VALUE" "value" .Values.configs.oidc.adminRoleValue) -}}
