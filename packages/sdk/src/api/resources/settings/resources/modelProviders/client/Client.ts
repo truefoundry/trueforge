@@ -24,7 +24,7 @@ export class ModelProvidersClient {
     }
 
     /**
-     * All configured providers with their models. Secret fields (e.g. auth.api_key) are redacted.
+     * All configured providers with their models.
      *
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *

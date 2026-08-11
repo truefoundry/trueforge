@@ -2116,7 +2116,7 @@ await client.settings.mcpServers.listTools("name");
 <dl>
 <dd>
 
-All configured providers with their models. Secret fields (e.g. auth.api_key) are redacted.
+All configured providers with their models.
 </dd>
 </dl>
 </dd>

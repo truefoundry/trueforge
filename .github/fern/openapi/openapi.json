@@ -6082,7 +6082,7 @@
                 }
               }
             },
-            "description": "All MCP servers (header secrets redacted)."
+            "description": "All MCP servers"
           },
           "401": {
             "content": {
@@ -6136,7 +6136,7 @@
                 }
               }
             },
-            "description": "The saved MCP server with auth_status (header secrets redacted)."
+            "description": "The saved MCP server with auth_status"
           },
           "400": {
             "content": {
@@ -6241,7 +6241,7 @@
                 }
               }
             },
-            "description": "The MCP server (header secrets redacted)."
+            "description": "The MCP server"
           },
           "404": {
             "content": {
@@ -6346,7 +6346,7 @@
     },
     "/api/v1/settings/model-providers": {
       "get": {
-        "description": "All configured providers with their models. Secret fields (e.g. auth.api_key) are redacted.",
+        "description": "All configured providers with their models.",
         "responses": {
           "200": {
             "content": {
@@ -6356,7 +6356,7 @@
                 }
               }
             },
-            "description": "All configured model providers (secrets redacted)."
+            "description": "All configured model providers"
           },
           "401": {
             "content": {
@@ -6410,7 +6410,7 @@
                 }
               }
             },
-            "description": "The saved provider (secrets redacted)."
+            "description": "The saved provider"
           },
           "400": {
             "content": {
