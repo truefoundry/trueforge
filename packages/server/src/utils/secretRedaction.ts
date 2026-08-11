@@ -4,8 +4,7 @@
  */
 
 export const SECRET_REDACTION = '***REDACTED***';
-/** Prefix/suffix mask needs more than 6 chars so first+last 3 do not reveal the whole secret. */
-const MIN_LENGTH_FOR_PREFIX_SUFFIX = 7;
+const MIN_LENGTH_FOR_PREFIX_SUFFIX = 10;
 
 /** Response mask: prefix/suffix for longer secrets; full mask when too short to hide. */
 export function toRedactedSecretValue(secret: string): string {

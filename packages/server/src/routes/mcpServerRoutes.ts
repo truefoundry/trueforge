@@ -123,10 +123,8 @@ export const putMcpServerRoute = createRoute({
   tags: [MCP_SERVERS_TAG],
   summary: 'Create or replace an MCP server',
   description:
-    'Full upsert keyed by `name`: creates the server or replaces its manifest. Does not start DCR or ' +
-    'modify stored oauth_server / oauth_client columns. For `auth.type: header`, each header value is ' +
-    'required: a real value creates/rotates; a redacted value from a prior GET keeps the existing secret ' +
-    'for that header name (400 if there is none). Responses redact header secrets.',
+    'Create or replace by `name`. Does not start DCR or change oauth client columns. ' +
+    'Header secrets: real value sets/rotates; redacted keeps existing (400 if none).',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'upsert',
   request: {
