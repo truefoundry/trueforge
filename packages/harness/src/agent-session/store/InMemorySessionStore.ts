@@ -70,6 +70,13 @@ function turnKey({ session_id, turn_id }: { session_id: string; turn_id: string 
   return `${session_id}:${turn_id}`;
 }
 
+/** Lexicographic session_id order — shared by listSessions sort and keyset filter. */
+function compareSessionId(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
 function newThreadSnapshot(thread: NewThreadInit): AgentThreadSnapshot {
   return {
     thread_id: thread.thread_id,
@@ -245,9 +252,10 @@ export class InMemorySessionStore<
       if (aTime !== bTime) {
         return input.order === 'asc' ? aTime - bTime : bTime - aTime;
       }
+      // Same lexicographic order as the keyset predicate below (and Postgres/SQLite).
       return input.order === 'asc'
-        ? a.session_id.localeCompare(b.session_id)
-        : b.session_id.localeCompare(a.session_id);
+        ? compareSessionId(a.session_id, b.session_id)
+        : compareSessionId(b.session_id, a.session_id);
     });
 
     let filtered = records;
@@ -256,10 +264,11 @@ export class InMemorySessionStore<
       const cursorTime = new Date(cursor.updated_at).getTime();
       filtered = records.filter(record => {
         const t = record.updated_at.getTime();
+        const idCmp = compareSessionId(record.session_id, cursor.session_id);
         if (input.order === 'asc') {
-          return t > cursorTime || (t === cursorTime && record.session_id > cursor.session_id);
+          return t > cursorTime || (t === cursorTime && idCmp > 0);
         }
-        return t < cursorTime || (t === cursorTime && record.session_id < cursor.session_id);
+        return t < cursorTime || (t === cursorTime && idCmp < 0);
       });
     }
 
