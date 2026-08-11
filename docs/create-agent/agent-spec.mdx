@@ -4,7 +4,7 @@ sidebarTitle: 'Agent Spec'
 description: 'Every field on the AgentSpec — model, instructions, MCP servers, skills, and runtime config.'
 ---
 
-An `AgentSpec` is the complete definition of an agent. Pass it inline when creating a session, or save it as a named agent and reference it by name. All fields are `snake_case`.
+An `AgentSpec` is the complete definition of an agent — everything you assemble in the [composer](/create-agent/overview) (model, connectors, skills, instructions) plus the runtime config that today is set via the [SDK](/api/overview). Saving an agent in the UI stores a spec; with the SDK you pass the same spec inline or reference a saved agent by name. All fields are `snake_case`.
 
 ```json A complete example
 {

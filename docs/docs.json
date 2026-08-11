@@ -48,7 +48,8 @@
                   "create-agent/overview",
                   "create-agent/tool-approval",
                   "create-agent/ask-user-questions",
-                  "create-agent/generative-ui"
+                  "create-agent/generative-ui",
+                  "create-agent/agent-spec"
                 ]
               },
               "agent-library",
@@ -63,15 +64,12 @@
                 ]
               },
               "benchmarking",
-              {
-                "group": "Setup Login",
-                "pages": ["authentication/overview", "authentication/okta"]
-              }
+              "authentication/overview"
             ]
           },
           {
             "group": "SDK",
-            "pages": ["api/overview", "api/use-agent", "api/agent-spec", "api/turn-events"]
+            "pages": ["api/overview", "api/use-agent", "api/turn-events"]
           },
           {
             "group": "Chat UI",
