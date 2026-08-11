@@ -18,11 +18,17 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
 }));
 
 const models: ModelSelection[] = [
-  { name: 'openai/gpt-4.1', provider: 'OpenAI', providerLogo: 'https://assets.example/openai.svg' },
   {
+    id: 'gpt-4.1',
+    name: 'openai/gpt-4.1',
+    provider: { name: 'OpenAI', logo: 'https://assets.example/openai.svg' },
+    properties: {},
+  },
+  {
+    id: 'claude-3.7-sonnet',
     name: 'anthropic/claude-3.7-sonnet',
-    provider: 'Anthropic',
-    reasoningEfforts: ['low', 'high'],
+    provider: { name: 'Anthropic' },
+    properties: { reasoningEfforts: ['low', 'high'] },
   },
 ];
 
@@ -70,20 +76,25 @@ describe('DraftModelSelector', () => {
 
     const listbox = screen.getByRole('listbox', { name: 'Select model' });
     expect(within(listbox).getAllByRole('option')).toHaveLength(2);
+    const providerGroups = within(listbox).getAllByRole('group');
+    expect(providerGroups).toHaveLength(2);
+    expect(providerGroups[0]).toHaveTextContent(/openai/i);
+    expect(providerGroups[1]).toHaveTextContent(/anthropic/i);
     expect(
       within(listbox)
-        .getByRole('option', { name: /gpt-4.1/i })
+        .getByRole('group', { name: /openai/i })
         .querySelector('img')
         ?.getAttribute('src'),
     ).toBe('https://assets.example/openai.svg');
     expect(
       within(listbox)
-        .getByRole('option', { name: /claude-3.7-sonnet/i })
+        .getByRole('option', { name: /gpt-4.1/i })
         .querySelector('img'),
     ).toBeNull();
 
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'anthropic' } });
     expect(within(listbox).getAllByRole('option')).toHaveLength(1);
+    expect(within(listbox).getAllByRole('group')).toHaveLength(1);
     expect(within(listbox).getByRole('option')).toHaveTextContent('claude-3.7-sonnet');
 
     fireEvent.click(within(listbox).getByRole('option'));

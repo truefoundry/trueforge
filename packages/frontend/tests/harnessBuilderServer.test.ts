@@ -12,21 +12,25 @@ describe('harnessBuilderServer', () => {
     assert.equal(providerOf('gpt-4o'), 'gpt-4o');
   });
 
-  it('toModelSelection forwards reasoningEfforts when present', () => {
+  it('toModelSelection maps nested provider + properties', () => {
     assert.deepEqual(
       toModelSelection({
+        modelId: 'o3',
         name: 'openai/o3',
         properties: { reasoningEfforts: ['low', 'medium', 'high'] },
       }),
       {
+        id: 'o3',
         name: 'openai/o3',
-        provider: 'openai',
-        reasoningEfforts: ['low', 'medium', 'high'],
+        provider: { name: 'openai' },
+        properties: { reasoningEfforts: ['low', 'medium', 'high'] },
       },
     );
-    assert.deepEqual(toModelSelection({ name: 'openai/gpt-4o', properties: {} }), {
+    assert.deepEqual(toModelSelection({ modelId: 'gpt-4o', name: 'openai/gpt-4o', properties: {} }), {
+      id: 'gpt-4o',
       name: 'openai/gpt-4o',
-      provider: 'openai',
+      provider: { name: 'openai' },
+      properties: {},
     });
   });
 

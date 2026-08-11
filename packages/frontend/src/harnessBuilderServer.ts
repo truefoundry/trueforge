@@ -19,13 +19,16 @@ export function providerOf(name: string): string {
   return name.split('/')[0] ?? name;
 }
 
-/** Map harness model rows onto the UI picker shape (incl. reasoning-effort options). */
+/** Map harness model rows onto the UI picker shape (nested provider + properties). */
 export function toModelSelection(model: TrueForgeApi.Model): ModelSelection {
   const efforts = model.properties.reasoningEfforts;
   return {
+    id: model.modelId,
     name: model.name,
-    provider: providerOf(model.name),
-    ...(efforts !== undefined && efforts.length > 0 ? { reasoningEfforts: [...efforts] } : {}),
+    provider: { name: providerOf(model.name) },
+    properties: {
+      ...(efforts !== undefined && efforts.length > 0 ? { reasoningEfforts: [...efforts] } : {}),
+    },
   };
 }
 
