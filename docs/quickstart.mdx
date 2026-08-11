@@ -50,7 +50,9 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
     | ---------------------- | ------- | ------------------------------------------------------------------------ |
     | `replicaCount`         | `1`     | Number of server replicas (peered over Redis).                           |
     | `postgresql.enabled`   | `true`  | Bundle Postgres; set `false` + `externalPostgres.*` to bring your own.   |
-    | `redis.enabled`        | `true`  | Bundle Redis; set `false` + `externalRedis.url` or `existingSecret`.     |
+    | `redis.enabled`        | `true`  | Bundle Redis; set `false` + `externalRedis.url` (string or `valueFrom`). |
+    | `server.publicBaseUrl` | `""`    | Public origin; required for OIDC and MCP OAuth callbacks.                |
+    | `configs.oidc.enabled` | `false` | Enable IdP login via `configs.oidc.*` (see chart README).                |
 
   </Tab>
 </Tabs>

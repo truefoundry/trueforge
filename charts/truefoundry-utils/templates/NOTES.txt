@@ -11,9 +11,15 @@ Port-forward it locally with:
 Then open http://localhost:8790 and check http://localhost:8790/healthz.
 
 Postgres: {{ if .Values.postgresql.enabled }}bundled ({{ include "truefoundry-utils.postgres.host" . }}){{ else }}external ({{ include "truefoundry-utils.postgres.host" . }}){{ end }}
-Redis:    {{ if .Values.redis.enabled }}bundled{{- else }}external (Secret or url){{- end }}
+Redis:    {{ if .Values.redis.enabled }}bundled{{- else }}external (literal or valueFrom){{- end }}
+OIDC:     {{ if .Values.configs.oidc.enabled }}enabled{{- else }}disabled (local admin identity){{- end }}
 
-{{- if not .Values.server.publicBaseUrl }}
+{{- if and .Values.configs.oidc.enabled (not .Values.server.publicBaseUrl) }}
+
+WARNING: configs.oidc.enabled is true but server.publicBaseUrl is empty.
+OIDC callbacks require PUBLIC_BASE_URL. Register
+https://<your-public-origin>/api/v1/auth/callback at your IdP.
+{{- else if not .Values.server.publicBaseUrl }}
 
 WARNING: server.publicBaseUrl is empty. MCP OAuth and OIDC callbacks will fail until you set it to the public origin (e.g. https://truefoundry-utils.example.com).
 {{- end }}

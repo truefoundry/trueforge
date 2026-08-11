@@ -58,46 +58,7 @@ spec:
               containerPort: {{ .Values.server.port }}
               protocol: TCP
           env:
-            - name: NODE_ENV
-              value: production
-            - name: PORT
-              value: {{ .Values.server.port | quote }}
-            - name: PUBLIC_BASE_URL
-              value: {{ .Values.server.publicBaseUrl | quote }}
-            # The server always runs peered against Postgres + Redis.
-            - name: STANDALONE
-              value: "false"
-            - name: GRACEFUL_TIMEOUT_SECONDS
-              value: {{ .Values.server.gracefulTimeoutSeconds | quote }}
-            - name: REDIS_URL
-              {{- if eq (include "truefoundry-utils.redis.useSecret" .) "true" }}
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.externalRedis.existingSecret | quote }}
-                  key: {{ .Values.externalRedis.urlKey | quote }}
-              {{- else }}
-              value: {{ include "truefoundry-utils.redis.url" . | quote }}
-              {{- end }}
-            - name: POSTGRES_HOST
-              value: {{ include "truefoundry-utils.postgres.host" . | quote }}
-            - name: POSTGRES_PORT
-              value: {{ include "truefoundry-utils.postgres.port" . | quote }}
-            - name: POSTGRES_DB
-              value: {{ include "truefoundry-utils.postgres.database" . | quote }}
-            - name: POSTGRES_USER
-              value: {{ include "truefoundry-utils.postgres.user" . | quote }}
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "truefoundry-utils.postgres.secretName" . }}
-                  key: {{ include "truefoundry-utils.postgres.secretKey" . }}
-            {{- with .Values.server.extraEnv }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
-          {{- with .Values.server.extraEnvFrom }}
-          envFrom:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- include "truefoundry-utils.server.env" . | nindent 12 }}
           {{- with .Values.startupProbe }}
           startupProbe:
             {{- toYaml . | nindent 12 }}
