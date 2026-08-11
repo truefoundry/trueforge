@@ -164,6 +164,71 @@ describe('settings model-providers and models routers', () => {
   });
 });
 
+describe('custom providers may omit auth', () => {
+  const model = {
+    model_id: 'llama',
+    name: 'llama',
+    properties: { reasoning_efforts: ['minimal', 'low'] },
+  };
+
+  it.each([
+    { label: 'auth omitted', auth: undefined, name: 'llama-no-key' },
+    {
+      label: 'auth set api_key',
+      auth: { api_key: 'qwerty' },
+      name: 'llama-with-key',
+    },
+  ])('PUT stores and lists custom provider with $label', async ({ auth, name }) => {
+    const { settingsRouter } = await createRouters();
+    const body = {
+      type: 'custom' as const,
+      name,
+      base_url: 'http://localhost:11434/v1',
+      models: [model],
+      ...(auth === undefined ? {} : { auth }),
+    };
+    const expectedWire = auth === undefined ? body : withRedactedApiKey(body);
+
+    const put = await settingsRouter.request('/model-providers', putInit(body));
+    expect(put.status).toBe(200);
+    expect(await put.json()).toEqual({ data: expectedWire });
+
+    const list = await settingsRouter.request('/model-providers');
+    expect(list.status).toBe(200);
+    expect(await list.json()).toEqual({ data: [expectedWire] });
+  });
+
+  it('rejects empty api_key', async () => {
+    const { settingsRouter } = await createRouters();
+    const put = await settingsRouter.request(
+      '/model-providers',
+      putInit({
+        type: 'custom',
+        name: 'llama-empty-key',
+        base_url: 'http://localhost:11434/v1',
+        auth: { api_key: '' },
+        models: [model],
+      }),
+    );
+    expect(put.status).toBe(400);
+  });
+
+  it('rejects auth without api_key', async () => {
+    const { settingsRouter } = await createRouters();
+    const put = await settingsRouter.request(
+      '/model-providers',
+      putInit({
+        type: 'custom',
+        name: 'llama-empty-auth',
+        base_url: 'http://localhost:11434/v1',
+        auth: {},
+        models: [model],
+      }),
+    );
+    expect(put.status).toBe(400);
+  });
+});
+
 describe('well-known types are limited to one provider', () => {
   it('PUT replaces the configured provider instead of adding a second of the type', async () => {
     const { settingsRouter, modelsRouter } = await createRouters();
