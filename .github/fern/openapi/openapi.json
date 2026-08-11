@@ -837,7 +837,7 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
+            "$ref": "#/components/schemas/CustomModelProviderAuth"
           },
           "base_url": {
             "description": "Base URL of the provider's API.",
@@ -869,6 +869,18 @@
           "name",
           "base_url"
         ],
+        "type": "object"
+      },
+      "CustomModelProviderAuth": {
+        "additionalProperties": false,
+        "description": "Provider authentication credentials.",
+        "properties": {
+          "api_key": {
+            "description": "API key used to authenticate with the provider. Omit for unauthenticated endpoints.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "DaytonaSandboxProvider": {

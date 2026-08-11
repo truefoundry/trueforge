@@ -3,15 +3,15 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { CustomModelProviderAuth } from "./CustomModelProviderAuth.js";
 import { ModelEntry } from "./ModelEntry.js";
-import { ModelProviderAuth } from "./ModelProviderAuth.js";
 import { ResourceName } from "./ResourceName.js";
 
 export const CustomModelProvider: core.serialization.ObjectSchema<
     serializers.CustomModelProvider.Raw,
     TrueForge.CustomModelProvider
 > = core.serialization.object({
-    auth: ModelProviderAuth,
+    auth: CustomModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string()),
     models: core.serialization.list(ModelEntry),
     name: ResourceName,
@@ -20,7 +20,7 @@ export const CustomModelProvider: core.serialization.ObjectSchema<
 
 export declare namespace CustomModelProvider {
     export interface Raw {
-        auth: ModelProviderAuth.Raw;
+        auth: CustomModelProviderAuth.Raw;
         base_url: string;
         models: ModelEntry.Raw[];
         name: ResourceName.Raw;
