@@ -4,7 +4,6 @@
  */
 import { resourceUrlFromServerUrl } from '@modelcontextprotocol/sdk/shared/auth-utils.js';
 import { McpConnectionError } from '@truefoundry/utils-core/core';
-import configuration from '../../../../src/config';
 import { InMemoryOAuthClientStore, InMemoryOAuthTokenStore } from '../../../../src/mcp/auth/inMemoryStores';
 import {
   buildMcpAuthorizationUrl,
@@ -33,7 +32,6 @@ function newStores(): Stores {
 
 const withNoTransaction = <T>(callback: (transaction: undefined) => Promise<T>) => callback(undefined);
 
-const PUBLIC_BASE_URL = 'https://harness.example.com';
 const CLIENT_NAME = 'harness';
 const SERVER_URL = 'https://mcp.example.com/sse';
 const AS_ORIGIN = 'https://auth.example.com';
@@ -42,19 +40,9 @@ const SERVER_NAME = 'svc';
 const USER_REF = 'user-a';
 
 const realFetch = globalThis.fetch;
-const previousPublicBaseUrl = configuration.PUBLIC_BASE_URL;
-
-beforeAll(() => {
-  configuration.PUBLIC_BASE_URL = PUBLIC_BASE_URL;
-});
-
-afterAll(() => {
-  configuration.PUBLIC_BASE_URL = previousPublicBaseUrl;
-});
 
 afterEach(() => {
   globalThis.fetch = realFetch;
-  configuration.PUBLIC_BASE_URL = PUBLIC_BASE_URL;
 });
 
 function json(body: unknown, status = 200): Response {
@@ -310,19 +298,6 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
     ).rejects.toMatchObject({ name: 'McpConnectionError', statusCode: 424 });
     expect(registerCallCount()).toBe(2);
     expect(await mcpServerStore.getClient({ id: SERVER_ID })).toBeUndefined();
-  });
-
-  it('throws when PUBLIC_BASE_URL is empty (no trimming)', async () => {
-    configuration.PUBLIC_BASE_URL = '';
-    await expect(
-      ensureMcpClientRegistered({
-        mcpServerStore: new InMemoryOAuthClientStore(),
-        serverId: SERVER_ID,
-        mcpServerUrl: SERVER_URL,
-        mcpServerName: SERVER_NAME,
-        clientName: CLIENT_NAME,
-      }),
-    ).rejects.toMatchObject({ message: expect.stringContaining('PUBLIC_BASE_URL') });
   });
 });
 

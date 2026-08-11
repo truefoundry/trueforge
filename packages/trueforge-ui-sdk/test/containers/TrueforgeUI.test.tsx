@@ -243,7 +243,7 @@ describe('StackChatPanel', () => {
 describe('SidebarLayout', () => {
   it('shows the app brand in the mobile sessions drawer', () => {
     render(
-      <SlotsProvider theme={{ brand: { name: 'Acme', icon: { src: '/acme.svg', alt: 'Acme logo' } } }}>
+      <SlotsProvider theme={{ brand: { name: 'Acme', logo: { src: '/acme.svg' } } }}>
         <RuntimeHarness messages={[]}>
           <div className="h-96">
             <SidebarLayout />
@@ -256,12 +256,12 @@ describe('SidebarLayout', () => {
 
     const drawer = screen.getByRole('dialog', { name: 'Sessions' });
     expect(within(drawer).getByText('Acme')).toBeInTheDocument();
-    expect(within(drawer).getByAltText('Acme logo')).toBeInTheDocument();
+    expect(within(drawer).getByAltText('Acme')).toHaveAttribute('src', '/acme.svg');
   });
 
   it('shows the brand and toggles the desktop sidebar rail', () => {
     const { unmount } = render(
-      <SlotsProvider theme={{ brand: { name: 'Acme' } }}>
+      <SlotsProvider theme={{ brand: { name: 'Acme', logo: '/acme.svg' } }}>
         <RuntimeHarness messages={[]}>
           <div className="h-96">
             <SidebarLayout />
@@ -280,7 +280,7 @@ describe('SidebarLayout', () => {
     // New Chat / Agents remount ChatProvider via runtimeKey; collapse must survive.
     unmount();
     render(
-      <SlotsProvider theme={{ brand: { name: 'Acme' } }}>
+      <SlotsProvider theme={{ brand: { name: 'Acme', logo: '/acme.svg' } }}>
         <RuntimeHarness messages={[]}>
           <div className="h-96">
             <SidebarLayout />
@@ -339,7 +339,8 @@ describe('SidebarLayout', () => {
       throw new Error('Expected settings button');
     }
     fireEvent.click(settingsButton);
-    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    // SettingsBuilder is lazy-loaded behind Suspense in the layout.
+    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
     rerender(
       <SlotsProvider theme={{ brand: { name: 'Acme' } }}>
@@ -509,7 +510,7 @@ describe('layout slot overrides', () => {
 
   it.each(hosts)(
     '%s keeps ShellActionsActionSlot mounted when Settings opens (no remount handoff)',
-    (_name, Layout) => {
+    async (_name, Layout) => {
       render(
         <SlotsProvider overrides={{ ShellActionsActionSlot: CustomActionSlot }}>
           <ServerProvider server={mockServer(settingsCatalog)}>
@@ -529,7 +530,8 @@ describe('layout slot overrides', () => {
       const beforeNode = before[0];
 
       fireEvent.click(screen.getAllByRole('button', { name: 'Settings' })[0]!);
-      expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+      // SettingsBuilder is lazy-loaded behind Suspense in the layout.
+      expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
       const after = screen.getAllByRole('button', { name: 'custom action' });
       expect(after.length).toBeGreaterThan(0);

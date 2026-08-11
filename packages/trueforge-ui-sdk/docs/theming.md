@@ -16,7 +16,7 @@ the SDK. Layers (each independently overridable):
 | ------------------ | -------------------------------------------- | --------------------------------------------- |
 | Preset             | Baseline look                                | `theme.preset`                                |
 | Tokens             | Colors, radius, fonts, bubble colors         | `theme.tokens` + CSS vars                     |
-| Brand              | Logo + brand mark / icon                     | `theme.brand`                                 |
+| Brand              | Logo image + display name                    | `theme.brand` (marks via slots)               |
 | Icons              | Action / UI icon set                         | `theme.icons` (Lucide + SVG transforms)       |
 | Content classNames | Markdown, syntax-highlighter, OpenUI, Monaco | `theme.classNames`                            |
 | Root class         | Arbitrary host utilities                     | `theme.className`                             |
@@ -41,7 +41,7 @@ track (orthogonal to [`docs/server.md`](./server.md)).
 | Coverage        | Everything currently pulled from tfy                                                     |
 | Slot API        | **Breaking** — drop `Button.Primary` / icon-string contracts; new shadcn-aligned props   |
 | Icons           | Lucide defaults; host can replace map + supply SVG transforms                            |
-| Brand           | Replacable via `theme.brand` (logo URL/node + brand icon URL/node/SVG)                   |
+| Brand           | Logo URL (per-mode) via `theme.brand`; component marks via the `BrandLogo` slot          |
 | Theme API       | Object (not string-only); every look aspect customizable                                 |
 | Presets         | Inspired-by packs: `truefoundry` (default), `claude`, `chatgpt`, `gemini`                |
 | Custom styles   | CSS tokens + `className`; host may also import CSS (documented). No “load CSS file” prop |
@@ -84,12 +84,12 @@ props):
 
 ### Theme / icons / brand infra
 
-| Remove                           | Replace with                                                                                |
-| -------------------------------- | ------------------------------------------------------------------------------------------- |
-| `tfy-web-components/theme.css`   | Own palette + semantic tokens in `styles.css`                                               |
-| tfy `ThemeProvider` / `useTheme` | SDK `ThemeProvider` owned here                                                              |
-| `IconProvider` + `registerIcons` | `IconRegistry` + `theme.icons` / `setIcons`                                                 |
-| Hard-coded TFY marks             | `theme.brand` (logo + brand icon) consumed by header, welcome, widget FAB, avatar fallbacks |
+| Remove                           | Replace with                                                                 |
+| -------------------------------- | ---------------------------------------------------------------------------- |
+| `tfy-web-components/theme.css`   | Own palette + semantic tokens in `styles.css`                                |
+| tfy `ThemeProvider` / `useTheme` | SDK `ThemeProvider` owned here                                               |
+| `IconProvider` + `registerIcons` | `IconRegistry` + `theme.icons` / `setIcons`                                  |
+| Hard-coded TFY marks             | `theme.brand.logo` consumed by header, welcome, widget FAB, avatar fallbacks |
 
 ### Code surfaces (Monaco + syntax highlighter)
 
@@ -156,30 +156,41 @@ type IconMap = Record<
   | React.FC<React.SVGProps<SVGSVGElement>>
 >;
 
-type BrandImage =
-  | { src: string; alt?: string }
-  | React.ReactNode
-  | ((props: { className?: string }) => React.ReactNode);
+/**
+ * Logo sources. `light` / `dark` pick per resolved theme mode and fall back to
+ * each other, then to `src`. `href` wraps the logo in a same-tab link labelled
+ * with the brand name.
+ */
+type BrandLogoConfig = {
+  src?: string;
+  light?: string;
+  dark?: string;
+  href?: string;
+};
 
 /**
  * Product branding — distinct from `icons` (UI chrome).
- * Used anywhere a product mark appears today (header, welcome, widget FAB,
+ * Consumed wherever a product mark appears (header, welcome, widget FAB,
  * empty states, assistant avatar fallback).
+ *
+ * Images only: to render a component, override the `BrandLogo` slot instead, so
+ * brand marks follow the same replacement path as every other atom.
+ *
+ * `theme.brand` is optional; setting it requires a `name` (it labels the logo).
+ * `logo` is optional — omit it to pair host text with the stock mark.
  */
 type BrandConfig = {
-  /** Wordmark / wide logo (sidebar header, welcome). */
-  logo?: BrandImage;
-  /** Square brand mark / app icon (FAB, avatar fallback, compact chrome). */
-  icon?: BrandImage;
-  /** Optional display name next to logo. */
-  name?: string;
+  /** Display name beside the mark, and the logo's accessible label. */
+  name: string;
+  /** Image URL, or per-mode sources. Omit to keep the default mark. */
+  logo?: string | BrandLogoConfig;
 };
 
 type ThemeConfig = {
   preset?: ThemePreset; // default: "truefoundry"
   mode?: ThemeMode; // omit = uncontrolled (useTheme().setTheme)
   tokens?: Partial<SemanticTokens>;
-  brand?: BrandConfig; // logo + brand icon replacement
+  brand?: BrandConfig; // logo image + display name
   className?: string; // applied on .aui-root (or theme root)
   icons?: IconMap; // full/partial UI icon replace + SVG transforms
   /** Per-surface className hooks for content renderers */
@@ -245,8 +256,7 @@ function MyLayout({ className }: { className?: string }) {
     tokens: { primary: '#…', fontFamily: '"My Font", system-ui' },
     brand: {
       name: 'Acme Agent',
-      logo: { src: '/acme-wordmark.svg', alt: 'Acme' },
-      icon: MyAcmeMark,
+      logo: { light: '/acme-wordmark.svg', dark: '/acme-wordmark-dark.svg' },
     },
     className: 'my-chat',
     icons: { send: MySendSvg, paperclip: MyAttachSvg },
@@ -299,15 +309,24 @@ as `children`.
 
 ## Brand system
 
-1. All product marks render through `useBrand()` / `<BrandLogo />` /
-   `<BrandIcon />` — never hard-coded TFY assets in layouts or atoms.
-2. `BrandLogo` resolves `theme.brand.logo` first. Its default wordmark combines
-   the configured name with the resolved `BrandIcon`.
-3. `BrandIcon` resolves `theme.brand.icon`, then `theme.icons.robot`, then the
-   registry's Lucide robot fallback.
-4. `theme.brand.name` → accessible labels / text next to logo when provided.
-5. Omitting `brand` keeps the default `TrueFoundry` name and robot mark; hosts
-   replace the logo and icon independently.
+1. All product marks render through `<BrandLogo />` — one component, never
+   hard-coded TFY assets in layouts or atoms. Layouts resolve it via `useSlot`, so
+   a host override reaches every call site.
+2. `BrandLogo` renders the mark only. Callers that also want the name as text pair
+   it with `useBrandName()`, so each layout owns its own arrangement (the sidebar
+   sets mark + name; the widget FAB and welcome screen show the mark alone). A
+   second "wordmark" component would only re-encode one caller's arrangement.
+3. `theme.brand` carries **image sources only** (URL or `{ src, light, dark, href }`).
+   Component-valued marks go through the `BrandLogo` slot, so brand replacement
+   uses the same mechanism as every other atom instead of a second node-shaped
+   escape hatch in the theme config.
+4. `theme.brand.name` → the accessible label for a configured logo (and its link,
+   when `href` is set), plus whatever text a caller renders alongside.
+5. Omitting `brand` keeps the default `TrueForge` name and robot mark.
+6. `{ light, dark }` sources resolve against the provider's mode, so a host mark
+   tracks light/dark without a custom component. A single configured mode covers
+   both, so `{ light }` alone never renders a missing image; a config with no
+   usable source falls back to the default mark rather than an empty `<img>`.
 
 ## Icon system
 
@@ -321,7 +340,7 @@ as `children`.
    identity stays separate from action icons.
 
 For named UI icons the order is `theme.icons[name]` → registry default. The
-robot is also the final brand fallback, so `theme.brand.icon` still takes
+robot is also the final brand fallback, so `theme.brand.logo` still takes
 precedence over `theme.icons.robot`. Preset-specific icons such as
 `welcome-sparkle` and OAuth state icons (`oauth-loading`, `oauth-success`,
 `oauth-error`) use the same lookup order.
@@ -341,7 +360,7 @@ compose path), for example:
 - `Thread` / `ThreadContainer`
 - `ThreadListContainer`
 - `Composer` pieces / slot-backed atoms as needed
-- Brand helpers (`BrandLogo`, `BrandIcon`) and `useTheme`
+- Brand helpers (`BrandLogo`, `useBrandName`) and `useTheme`
 
 The shell still wraps the custom layout with theme + slots + chat provider;
 only the chrome tree is replaced. Equivalent to skipping built-in layouts
@@ -412,7 +431,7 @@ TrueforgeUI({ layout, theme, overrides, … })
         ├─ merge theme.tokens / brand / icons / classNames / className
         ├─ layout = built-in | <HostLayout />
         └─ defaultSlots → local shadcn primitives + feature atoms
-              ├─ BrandLogo / BrandIcon wherever product mark appears
+              ├─ BrandLogo wherever the product mark appears
               └─ Markdown / OpenUI / syntax-highlighter / Monaco
                     (classNames from theme)
 ```
@@ -434,11 +453,11 @@ TrueforgeUI({ layout, theme, overrides, … })
 3. Own `ThemeProvider` / `useTheme` (mode light/dark/system); wire
    `SlotsProvider` to it.
 4. Apply `theme.className` + CSS vars from `theme.tokens` / `preset` on root.
-5. Introduce `BrandConfig` plumbing (`useBrand`, `<BrandLogo />`,
-   `<BrandIcon />`) even if defaults still point at TFY assets.
+5. Introduce `BrandConfig` plumbing (`useBrand`, `useBrandName`,
+   `<BrandLogo />`) even if defaults still point at TFY assets.
 
 **Done when:** app runs with owned tokens (tfy components may still be present);
-host can override `--primary` and swap `theme.brand.icon` / `logo`.
+host can override `--primary` and swap `theme.brand.logo`.
 
 ### Phase 2 — shadcn primitives + icon + brand registry
 
@@ -500,8 +519,8 @@ no longer depends on tfy.
 - Prefer
   `theme={{ preset, tokens, brand, icons, className, classNames }}`
   over hacking a third-party theme.
-- Replace product marks with `theme.brand.logo` / `theme.brand.icon` (URL,
-  React node, or SVG component).
+- Replace product marks with `theme.brand.logo` (URL or per-mode sources), or
+  override the `BrandLogo` slot for component marks.
 - Pass `layout={MyLayout}` to own chrome; compose `Thread` /
   `ThreadListContainer` / etc.
 - Style content engines via `theme.classNames` or `.aui-markdown` /
@@ -532,8 +551,8 @@ no longer depends on tfy.
 - Host can pass `layout={MyLayout}` built from `Thread` + thread list exports
 - Host can override classes on Markdown, syntax-highlighter, OpenUI, and Monaco
   via `theme.classNames` and/or stable `aui-*` CSS hooks
-- Host can fully rebrand (colors, fonts, logo, brand icon, action icons)
-  without slot overrides
+- Host can fully rebrand (colors, fonts, logo image, action icons) without slot
+  overrides; component-valued marks use the `BrandLogo` slot
 - Host can still replace any component via `overrides` when needed
 - Light/dark controlled + uncontrolled both work
 - Slot override of `Button` works with new API

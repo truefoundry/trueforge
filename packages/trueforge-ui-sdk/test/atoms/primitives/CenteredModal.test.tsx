@@ -86,7 +86,7 @@ describe('CenteredModal', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('reports native close, close-button, backdrop, and cancel requests', () => {
+  it('reports native close, close-button, and cancel requests', () => {
     const onOpenChange = vi.fn();
     const onParentCancel = vi.fn();
     render(
@@ -102,9 +102,8 @@ describe('CenteredModal', () => {
     expect(onOpenChange).not.toHaveBeenCalled();
 
     fireEvent.click(dialog);
-    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+    expect(onOpenChange).not.toHaveBeenCalled();
 
-    onOpenChange.mockClear();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
 

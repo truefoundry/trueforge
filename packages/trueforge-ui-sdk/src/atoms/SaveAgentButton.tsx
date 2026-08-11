@@ -115,7 +115,7 @@ export function SaveAgentButton() {
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="Release notes writer"
+              placeholder="release-notes-writer"
               autoFocus={!isUpdate}
               autoComplete="off"
               disabled={saving || isUpdate}

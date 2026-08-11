@@ -82,7 +82,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
               onChange={event => {
                 setName(event.target.value);
               }}
-              placeholder="Release notes"
+              placeholder="release-notes"
               autoFocus
               required
               className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
@@ -125,7 +125,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
 
           <div>
             <label htmlFor="skill-path" className="mb-2 block text-sm font-semibold text-foreground">
-              Path
+              Folder containing the SKILL.md
             </label>
             <input
               id="skill-path"
@@ -141,7 +141,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
 
           <div>
             <label htmlFor="skill-ref" className="mb-2 block text-sm font-semibold text-foreground">
-              Ref
+              Branch
             </label>
             <input
               id="skill-ref"

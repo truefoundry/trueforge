@@ -4,6 +4,7 @@ import { ThreadPrimitive, useAuiState, type AssistantState } from '@assistant-ui
 import { useEffect, type ReactNode } from 'react';
 import { preloadMarkdownOpenUI } from '../atoms/Markdown.js';
 import { ComposerBusyProvider } from '../hooks/useComposerBusyState.js';
+import { useSyncSessionTitle } from '../hooks/useSyncSessionTitle.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { AssistantMessageContainer } from './AssistantMessageContainer.js';
@@ -51,6 +52,7 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
   useEffect(() => {
     void preloadMarkdownOpenUI();
   }, []);
+  useSyncSessionTitle();
 
   const shell = useOptionalShellMode();
   const WelcomeScreen = useSlot('WelcomeScreen');

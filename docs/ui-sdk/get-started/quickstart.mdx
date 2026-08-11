@@ -31,34 +31,13 @@ Typed for hosts adopting the harness adapter.
 <TrueforgeUI
   server={{
     type: "trueforge",
-    apiKey: {{API_KEY}},
+    baseUrl: 'http://localhost:8790'
   }}
-  layout="sidebar"
 />
 ```
 
 ## Rendered UI
 
 <Frame caption="What `TrueforgeUI` renders — a full agent chat with streaming, history, and tool calls.">
-  ![The TrueforgeUI component rendering an agent chat with an agent-steps panel and a streamed response](/images/landing-screen.png)
+  ![The TrueforgeUI component rendering an agent chat with an agent-steps panel and a streamed response](/images/agent-composer-with-library.png)
 </Frame>
-
-## Where to go next
-
-<CardGroup cols={2}>
-  <Card title="Pick a layout" icon="table-columns" href="/ui-sdk/guides/layouts">
-    Sidebar, drawer, dock, widget, or a layout you write yourself.
-  </Card>
-
-  <Card title="Match your brand" icon="palette" href="/ui-sdk/guides/theming">
-    Presets, semantic tokens, logo, and dark mode.
-  </Card>
-
-  <Card title="Swap components" icon="puzzle-piece" href="/ui-sdk/guides/slot-overrides">
-    Replace any built-in component via `overrides`.
-  </Card>
-
-  <Card title="Server contract" icon="server" href="/ui-sdk/concepts/server-contract">
-    Every interface a backend must satisfy.
-  </Card>
-</CardGroup>

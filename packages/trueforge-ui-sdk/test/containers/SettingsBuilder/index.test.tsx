@@ -74,14 +74,20 @@ function TestShell({ server, children }: { server?: AgentUIServer; children?: Re
   return server === undefined ? content : <ServerProvider server={server}>{content}</ServerProvider>;
 }
 
+async function openSettings() {
+  fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+  });
+}
+
 describe('TruefoundrySettingsBuilder', () => {
-  it('stays hidden while closed and when no settings catalog is available', () => {
+  it('stays hidden while closed and when no settings catalog is available', async () => {
     const { rerender } = render(<TestShell server={createServer()} />);
 
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
-    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    await openSettings();
 
     rerender(<TestShell server={createServer({ catalog: false })} />);
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
@@ -90,52 +96,64 @@ describe('TruefoundrySettingsBuilder', () => {
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
   });
 
-  it('only exposes optional sections backed by catalogs', () => {
+  it('only exposes optional sections backed by catalogs', async () => {
     const { rerender } = render(<TestShell server={createServer()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
+    await openSettings();
 
     expect(screen.getByRole('button', { name: 'Models' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('button', { name: 'Connectors' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Skills' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sandbox' })).not.toBeInTheDocument();
-    expect(screen.getByText('Model settings content')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Model settings content')).toBeInTheDocument();
+    });
 
     rerender(<TestShell server={createServer({ skills: true, sandbox: true })} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Skills' }));
-    expect(screen.getByText('Skill settings content')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Skill settings content')).toBeInTheDocument();
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Sandbox providers' }));
-    expect(screen.getByText('Sandbox settings content')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Sandbox settings content')).toBeInTheDocument();
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Connectors' }));
-    expect(screen.getByText('Connector settings content')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Connector settings content')).toBeInTheDocument();
+    });
   });
 
   it('resets a stale optional section when its catalog disappears', async () => {
     const { rerender } = render(<TestShell server={createServer({ skills: true })} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
+    await openSettings();
     fireEvent.click(screen.getByRole('button', { name: 'Skills' }));
 
-    expect(screen.getByText('Skill settings content')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Skill settings content')).toBeInTheDocument();
+    });
 
     rerender(<TestShell server={createServer()} />);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Models' })).toHaveAttribute('aria-current', 'page');
     });
-    expect(screen.getByText('Model settings content')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Model settings content')).toBeInTheDocument();
+    });
     expect(screen.queryByRole('button', { name: 'Skills' })).not.toBeInTheDocument();
   });
 
-  it('closes on Escape without leaking the event to a parent handler', () => {
+  it('closes on Escape without leaking the event to a parent handler', async () => {
     const parentKeyDown = vi.fn();
     render(
       <div onKeyDown={parentKeyDown}>
         <TestShell server={createServer()} />
       </div>,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
+    await openSettings();
 
     fireEvent.keyDown(screen.getByRole('heading', { name: 'Settings' }), { key: 'Escape' });
 

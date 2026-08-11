@@ -5,19 +5,11 @@ import type {
   AgentLibraryEntry,
   AgentSkill,
   AgentSpec,
-  AgentUIServer,
   CatalogServer,
   ConnectorState,
-  CreateSessionRequest,
-  ListSessionsParams,
   ModelSelection,
   SaveAgentRequest,
   SearchAgentsParams,
-  Session,
-  SessionEventItem,
-  Turn,
-  TurnStreamingEvent,
-  UpdateSessionRequest,
 } from './types.js';
 
 export type CreateTrueFoundryServerOptions<
@@ -52,23 +44,10 @@ export type TrueFoundryServer<
   TSave = unknown,
   TCatalog extends CatalogServer = CatalogServer,
   TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
-> = AgentUIServer<
-  TSpec,
-  Session<TSpec>,
-  CreateSessionRequest<TSpec>,
-  ListSessionsParams,
-  UpdateSessionRequest<TSpec>,
-  Turn,
-  SessionEventItem,
-  TurnStreamingEvent,
-  TModel,
-  TSkill,
-  TMcp,
-  TAgent,
-  TSave,
-  TCatalog,
-  TCapabilities
->;
+> = AgentChatServer<TSpec> &
+  AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> & {
+    catalog?: TCatalog;
+  };
 
 /**
  * Composes an `AgentChatServer` with host-provided builder catalog callbacks
