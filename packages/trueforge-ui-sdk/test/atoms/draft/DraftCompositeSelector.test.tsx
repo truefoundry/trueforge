@@ -246,8 +246,13 @@ describe('DraftSelectionChips', () => {
   it('opens the composite selector on the matching tab when a chip is clicked', async () => {
     renderSelector();
 
-    fireEvent.click(screen.getByRole('button', { name: 'View 1 selected skill' }));
+    const skillsChip = screen.getByRole('button', { name: 'View 1 selected skill' });
+    fireEvent.mouseEnter(skillsChip);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
 
+    fireEvent.click(skillsChip);
+
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     expect(await screen.findByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Skills/ })).toHaveClass('text-foreground');
     expect(await screen.findByRole('menuitemcheckbox', { name: /Research/ })).toBeInTheDocument();

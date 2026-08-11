@@ -68,6 +68,10 @@ export function Tooltip({ content, children, className, side = 'top' }: TooltipP
       setVisible(false);
       (p.onBlur as ((e: React.FocusEvent<Element>) => void) | undefined)?.(e);
     },
+    onClick(e: React.MouseEvent<Element>) {
+      setVisible(false);
+      (p.onClick as ((e: React.MouseEvent<Element>) => void) | undefined)?.(e);
+    },
   });
 
   const tooltip =
