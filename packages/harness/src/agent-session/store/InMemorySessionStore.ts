@@ -263,7 +263,7 @@ export class InMemorySessionStore<
       });
     }
 
-    const page = paginateSessionListRows(filtered, input.limit);
+    const page = paginateSessionListRows(filtered, input.limit, row => row.updated_at.toISOString());
     return { data: deepCopy(page.data), pagination: page.pagination };
   }
 

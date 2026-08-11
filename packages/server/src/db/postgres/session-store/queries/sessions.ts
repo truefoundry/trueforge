@@ -189,7 +189,13 @@ export async function listSessions(
   const order = input.order ?? 'desc';
   const cursor = decodeSessionListPageToken(input.page_token);
 
-  let query = db.selectFrom('session').selectAll().where('tenant_id', '=', input.tenant_id);
+  let query = db
+    .selectFrom('session')
+    .selectAll()
+    .select(
+      sql<string>`to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`.as('updated_at_cursor'),
+    )
+    .where('tenant_id', '=', input.tenant_id);
 
   if (input.agent_id !== undefined) {
     query = query.where('agent_id', '=', input.agent_id);
@@ -206,7 +212,9 @@ export async function listSessions(
 
   if (cursor) {
     const sessionId = cursor.session_id;
-    const cursorUpdatedAt = new Date(cursor.updated_at);
+    // Bind the cursor string and cast in SQL so microsecond precision is preserved
+    // (JS Date would truncate to milliseconds).
+    const cursorUpdatedAt = sql<Date>`${cursor.updated_at}::timestamptz`;
     if (order === 'asc') {
       query = query.where(eb =>
         eb.or([
@@ -231,7 +239,7 @@ export async function listSessions(
   }
 
   const rows = await query.limit(limit + 1).execute();
-  const { data, pagination } = paginateSessionListRows(rows.map(mapRowToSessionRecord), limit);
+  const { data: pageRows, pagination } = paginateSessionListRows(rows, limit, row => row.updated_at_cursor);
 
-  return { data, pagination };
+  return { data: pageRows.map(mapRowToSessionRecord), pagination };
 }

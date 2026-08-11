@@ -235,7 +235,8 @@ export async function listSessions(
   }
 
   const rows = await query.limit(limit + 1).execute();
-  const { data, pagination } = paginateSessionListRows(rows.map(mapRowToSessionRecord), limit);
+  // SQLite stores updated_at as ISO text already — use it directly for the keyset cursor.
+  const { data: pageRows, pagination } = paginateSessionListRows(rows, limit, row => row.updated_at);
 
-  return { data, pagination };
+  return { data: pageRows.map(mapRowToSessionRecord), pagination };
 }

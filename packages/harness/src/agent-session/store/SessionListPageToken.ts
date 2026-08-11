@@ -5,6 +5,10 @@ import { decodePageToken, encodePageToken } from './PageToken';
 /**
  * Keyset cursor for `listSessions` (`updated_at`, `session_id`).
  * Opaque on the wire; replaces offset tokens for this list only.
+ *
+ * `updated_at` must retain the store's full precision (Postgres: microseconds via
+ * `to_char`; JS Date / SQLite ISO text: milliseconds). Do not round through
+ * `Date` before encode/compare — equality on the cursor must match the DB value.
  */
 export const SessionListPageCursorSchema = z
   .object({
@@ -24,9 +28,10 @@ export function decodeSessionListPageToken(token: string | undefined): SessionLi
   return decodePageToken(SessionListPageCursorSchema, token);
 }
 
-export function paginateSessionListRows<T extends { updated_at: Date; session_id: string }>(
+export function paginateSessionListRows<T extends { session_id: string }>(
   rows: T[],
   limit: number,
+  getUpdatedAtCursor: (row: T) => string,
 ): { data: T[]; pagination: TokenPagination } {
   const hasMore = rows.length > limit;
   const data = hasMore ? rows.slice(0, limit) : rows;
@@ -38,7 +43,7 @@ export function paginateSessionListRows<T extends { updated_at: Date; session_id
       ...(hasMore && last !== undefined
         ? {
             next_page_token: encodeSessionListPageToken({
-              updated_at: last.updated_at.toISOString(),
+              updated_at: getUpdatedAtCursor(last),
               session_id: last.session_id,
             }),
           }
