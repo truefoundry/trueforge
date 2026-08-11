@@ -8,10 +8,10 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import type { AgentSpec } from '../server/types.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
+import { auiInputClass } from './lib/inputClasses.js';
 import { CenteredModal } from './primitives/CenteredModal.js';
 
-const inputClassName =
-  'border-input bg-background placeholder:text-muted-foreground w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50';
+const inputClassName = auiInputClass('disabled:opacity-50');
 
 export function SaveAgentButton() {
   const shell = useOptionalShellMode();

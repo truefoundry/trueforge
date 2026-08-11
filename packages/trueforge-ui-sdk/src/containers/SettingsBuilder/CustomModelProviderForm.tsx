@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { auiInputClass } from '../../atoms/lib/inputClasses.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
 import { Icon } from '../../icons/Icon.js';
@@ -41,8 +42,7 @@ const createEmptyModelRow = (): ModelRow => ({
   supportedParametersExpanded: true,
 });
 
-const inputClassName =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40';
+const inputClassName = auiInputClass('h-10');
 
 const RequiredMark = () => (
   <span className="ml-0.5 text-destructive" aria-hidden>
@@ -284,7 +284,7 @@ const CustomModelProviderForm = ({
                               }}
                             >
                               <span
-                                className={`absolute top-0.5 left-0 size-5 rounded-full bg-white shadow-sm transition-transform ${
+                                className={`absolute top-0.5 left-0 size-5 rounded-full bg-primary-foreground shadow-sm transition-transform ${
                                   model.reasoningEfforts !== undefined ? 'translate-x-5' : 'translate-x-0.5'
                                 }`}
                               />

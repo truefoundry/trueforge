@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { cn } from '../../atoms/lib/cn.js';
+import { auiInputClass } from '../../atoms/lib/inputClasses.js';
 import { Accordion, AccordionDetails, AccordionSummary } from '../../atoms/primitives/Accordion.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
@@ -35,8 +36,7 @@ const EMPTY_CONFIG: SandboxProviderConfig = {
   autoDeleteIntervalInMinutes: 43200,
 };
 
-const inputClassName =
-  'h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40';
+const inputClassName = auiInputClass('h-11 shadow-sm');
 
 function parseNonNegInt(raw: string): number | null {
   if (raw.trim() === '') return null;

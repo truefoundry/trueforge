@@ -4,7 +4,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WelcomeScreen } from '@/atoms/WelcomeScreen.js';
 import { BrandLogo } from '@/theme/brand.js';
-import { ThemeProvider, useBrand, useTheme } from '@/theme/ThemeProvider.js';
+import { ThemeProvider, useBrand, useTheme, useThemeTokens } from '@/theme/ThemeProvider.js';
+
+function TokensProbe() {
+  const { setTokenOverrides, resetTokenOverrides } = useThemeTokens();
+  return (
+    <div>
+      <button type="button" onClick={() => setTokenOverrides({ light: { primary: '#123456' } })}>
+        set
+      </button>
+      <button type="button" onClick={() => resetTokenOverrides()}>
+        reset
+      </button>
+    </div>
+  );
+}
 
 function ModeProbe() {
   const { mode, preference, setTheme } = useTheme();
@@ -260,6 +274,77 @@ describe('ThemeProvider', () => {
     expect(root.style.getPropertyValue('--primary-foreground')).toBe('#062e6f');
     expect(root.style.getPropertyValue('--ring')).toBe('#a8c7fa');
     expect(root.style.getPropertyValue('--user-bubble')).toBe('#222327');
+  });
+
+  it('layers runtime token overrides over preset tokens and persists them', () => {
+    const { container } = render(
+      <ThemeProvider theme={{ preset: 'truefoundry', mode: 'light' }}>
+        <TokensProbe />
+      </ThemeProvider>,
+    );
+    const root = getThemeRoot(container);
+    expect(root.style.getPropertyValue('--primary')).toBe('#09090b');
+
+    act(() => {
+      screen.getByRole('button', { name: 'set' }).click();
+    });
+
+    expect(root.style.getPropertyValue('--primary')).toBe('#123456');
+    expect(localStorage.getItem('aui-theme-token-overrides')).toContain('#123456');
+  });
+
+  it('overrides win over host theme.tokens', () => {
+    const { container } = render(
+      <ThemeProvider theme={{ preset: 'truefoundry', mode: 'light', tokens: { primary: '#00ff00' } }}>
+        <TokensProbe />
+      </ThemeProvider>,
+    );
+    const root = getThemeRoot(container);
+    expect(root.style.getPropertyValue('--primary')).toBe('#00ff00');
+
+    act(() => {
+      screen.getByRole('button', { name: 'set' }).click();
+    });
+
+    expect(root.style.getPropertyValue('--primary')).toBe('#123456');
+  });
+
+  it('rehydrates token overrides from localStorage', () => {
+    localStorage.setItem('aui-theme-token-overrides', JSON.stringify({ light: { primary: '#abcdef' } }));
+    const { container } = render(
+      <ThemeProvider theme={{ preset: 'truefoundry', mode: 'light' }}>
+        <span>child</span>
+      </ThemeProvider>,
+    );
+    expect(getThemeRoot(container).style.getPropertyValue('--primary')).toBe('#abcdef');
+  });
+
+  it('ignores malformed token override storage', () => {
+    localStorage.setItem('aui-theme-token-overrides', '{ not json');
+    const { container } = render(
+      <ThemeProvider theme={{ preset: 'truefoundry', mode: 'light' }}>
+        <span>child</span>
+      </ThemeProvider>,
+    );
+    expect(getThemeRoot(container).style.getPropertyValue('--primary')).toBe('#09090b');
+  });
+
+  it('resetTokenOverrides reverts to preset tokens and clears storage', () => {
+    localStorage.setItem('aui-theme-token-overrides', JSON.stringify({ light: { primary: '#abcdef' } }));
+    const { container } = render(
+      <ThemeProvider theme={{ preset: 'truefoundry', mode: 'light' }}>
+        <TokensProbe />
+      </ThemeProvider>,
+    );
+    const root = getThemeRoot(container);
+    expect(root.style.getPropertyValue('--primary')).toBe('#abcdef');
+
+    act(() => {
+      screen.getByRole('button', { name: 'reset' }).click();
+    });
+
+    expect(root.style.getPropertyValue('--primary')).toBe('#09090b');
+    expect(localStorage.getItem('aui-theme-token-overrides')).toBeNull();
   });
 
   it('preserves the semibold TrueFoundry welcome heading', () => {

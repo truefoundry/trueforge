@@ -201,7 +201,7 @@ export function SidebarLayout({ className }: { className?: string }) {
           <button
             type="button"
             aria-label="Close sessions"
-            className="absolute inset-0 z-[9] cursor-pointer bg-black/20 md:hidden"
+            className="absolute inset-0 z-[9] cursor-pointer bg-[var(--overlay)] md:hidden"
             onClick={() => setMobileNavOpen(false)}
           />
           <div

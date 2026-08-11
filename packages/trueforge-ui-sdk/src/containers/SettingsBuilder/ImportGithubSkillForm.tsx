@@ -2,6 +2,7 @@
 
 import { useState, type SyntheticEvent } from 'react';
 
+import { auiInputClass } from '@/atoms/lib/inputClasses.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
 import { Icon } from '@/icons/Icon.js';
@@ -85,7 +86,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
               placeholder="release-notes"
               autoFocus
               required
-              className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
+              className={auiInputClass('h-11')}
             />
           </div>
 
@@ -102,7 +103,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
               placeholder="Generate release notes from merged pull requests"
               required
               rows={3}
-              className="w-full resize-y rounded-md border border-input bg-background px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
+              className={auiInputClass('resize-y py-2.5')}
             />
           </div>
 
@@ -119,7 +120,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
               }}
               placeholder="https://github.com/org/repo"
               required
-              className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
+              className={auiInputClass('h-11')}
             />
           </div>
 
@@ -135,7 +136,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
               }}
               placeholder="skills/release-notes"
               required
-              className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
+              className={auiInputClass('h-11')}
             />
           </div>
 
@@ -151,7 +152,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
               }}
               placeholder="main"
               required
-              className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
+              className={auiInputClass('h-11')}
             />
           </div>
 

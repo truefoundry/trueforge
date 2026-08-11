@@ -7,6 +7,7 @@ import { useSlot } from '../theme/SlotsProvider.js';
 import { useTheme } from '../theme/ThemeProvider.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { TokenEditorButton } from './TokenEditor.js';
 
 export function ShellActions({ className }: { className?: string }) {
   const shell = useOptionalShellMode();
@@ -38,6 +39,7 @@ export function ShellActions({ className }: { className?: string }) {
           <Icon name="settings" />
         </button>
       ) : null}
+      <TokenEditorButton />
       <ActionSlot />
     </div>
   );

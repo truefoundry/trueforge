@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 
+import { auiInputClass } from '../../atoms/lib/inputClasses.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
 import { Icon } from '../../icons/Icon.js';
@@ -28,8 +29,7 @@ const AUTH_OPTIONS: Array<{ value: McpAuthType; label: string }> = [
   { value: 'header', label: 'API Key' },
 ];
 
-const inputClassName =
-  'h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40';
+const inputClassName = auiInputClass('h-11 shadow-sm');
 
 const RequiredMark = () => (
   <span className="ml-0.5 text-destructive" aria-hidden>
@@ -145,7 +145,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false }: AddMcpSer
               Auth type
               <RequiredMark />
             </legend>
-            <div className="flex w-full flex-row rounded-md border border-border bg-muted/30 p-1">
+            <div className="flex w-full flex-row rounded-md border border-border bg-muted/40 p-1">
               {AUTH_OPTIONS.map(option => (
                 <label
                   key={option.value}

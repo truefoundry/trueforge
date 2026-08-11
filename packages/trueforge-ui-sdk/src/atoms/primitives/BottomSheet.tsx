@@ -60,7 +60,7 @@ export function BottomSheet({
       style={compactStyle ?? { height: 'min(70dvh, 30rem)', maxHeight: '85dvh' }}
       className={cn(
         'aui-bottom-sheet bg-popover text-popover-foreground m-0 mt-auto w-full max-w-none overflow-hidden rounded-t-xl border border-b-0 border-border p-0 pb-[env(safe-area-inset-bottom)] shadow-xl',
-        'backdrop:bg-black/40 backdrop:backdrop-blur-[2px]',
+        'backdrop:bg-[var(--overlay)] backdrop:backdrop-blur-[2px]',
         'open:flex open:flex-col',
         className,
       )}

@@ -133,7 +133,7 @@ export function DrawerLayout({ className }: { className?: string }) {
           <button
             type="button"
             aria-label="Close sessions"
-            className="absolute inset-0 z-[9] cursor-pointer bg-black/20"
+            className="absolute inset-0 z-[9] cursor-pointer bg-[var(--overlay)]"
             onClick={() => setThreadsOpen(false)}
           />
           <div

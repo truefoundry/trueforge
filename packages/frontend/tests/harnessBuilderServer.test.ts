@@ -16,17 +16,21 @@ describe('harnessBuilderServer', () => {
     assert.deepEqual(
       toModelSelection({
         name: 'openai/o3',
+        modelId: 'o3',
         properties: { reasoningEfforts: ['low', 'medium', 'high'] },
       }),
       {
         name: 'openai/o3',
-        provider: 'openai',
-        reasoningEfforts: ['low', 'medium', 'high'],
+        id: 'o3',
+        provider: { name: 'openai' },
+        properties: { reasoningEfforts: ['low', 'medium', 'high'] },
       },
     );
-    assert.deepEqual(toModelSelection({ name: 'openai/gpt-4o', properties: {} }), {
+    assert.deepEqual(toModelSelection({ name: 'openai/gpt-4o', modelId: 'gpt-4o', properties: {} }), {
       name: 'openai/gpt-4o',
-      provider: 'openai',
+      id: 'gpt-4o',
+      provider: { name: 'openai' },
+      properties: {},
     });
   });
 

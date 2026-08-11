@@ -77,6 +77,9 @@
     --user-bubble-foreground: var(--color-white);
     --assistant-bubble: transparent;
     --assistant-bubble-foreground: var(--foreground);
+    --overlay: rgb(9 9 11 / 0.5);
+    --shadow-color: var(--color-black);
+    --composer-bg: var(--card);
   }
 
   .aui-theme-root *,
@@ -130,6 +133,9 @@
     --user-bubble-foreground: var(--color-white);
     --assistant-bubble: transparent;
     --assistant-bubble-foreground: var(--foreground);
+    --overlay: rgb(0 0 0 / 0.7);
+    --shadow-color: #000000;
+    --composer-bg: var(--card);
   }
 }
 

@@ -38,6 +38,12 @@ export type SemanticTokens = {
   assistantBubbleForeground?: string;
   /** Scrollbar thumb (“plug”) color. Defaults to `--muted-foreground`. */
   scrollbarThumb?: string;
+  /** Scrim behind modals and drawers. Internal — not exposed in the token editor. */
+  overlay?: string;
+  /** Base color for `color-mix` elevation shadows. Internal — not exposed in the token editor. */
+  shadowColor?: string;
+  /** Composer surface. Defaults to `--card`. Internal — not exposed in the token editor. */
+  composerBg?: string;
 };
 
 export type IconProps = {
@@ -100,6 +106,12 @@ export type ContentClassNames = {
   };
 };
 
+/** Runtime token edits applied on top of the preset + host `theme.tokens`, per resolved mode. */
+export type TokenOverrides = {
+  light?: Partial<SemanticTokens>;
+  dark?: Partial<SemanticTokens>;
+};
+
 export type ThemeConfig = {
   preset?: ThemePreset;
   mode?: ThemeMode;
@@ -108,6 +120,8 @@ export type ThemeConfig = {
   className?: string;
   icons?: IconMap;
   classNames?: ContentClassNames;
+  /** Show the "Tokens (For Dev)" editor in the shell footer. Off by default. */
+  devTokens?: boolean;
 };
 
 export type BuiltInLayout = 'sidebar' | 'drawer' | 'dock' | 'widget';
@@ -147,4 +161,51 @@ export const TOKEN_CSS_VARS: Record<keyof SemanticTokens, string> = {
   assistantBubble: '--assistant-bubble',
   assistantBubbleForeground: '--assistant-bubble-foreground',
   scrollbarThumb: '--scrollbar-thumb',
+  overlay: '--overlay',
+  shadowColor: '--shadow-color',
+  composerBg: '--composer-bg',
 };
+
+/**
+ * The finalized, designer-facing color tokens, grouped for the token editor.
+ * Excludes non-color keys (`radius`, `fontFamily`, `composerRadius`) and the
+ * internal extras (`overlay`, `shadowColor`, `composerBg`).
+ */
+export const EDITABLE_TOKEN_GROUPS: ReadonlyArray<{
+  label: string;
+  keys: ReadonlyArray<keyof SemanticTokens>;
+}> = [
+  {
+    label: 'Surfaces',
+    keys: ['background', 'foreground', 'card', 'cardForeground', 'popover', 'popoverForeground'],
+  },
+  {
+    label: 'Actions',
+    keys: ['primary', 'primaryForeground', 'secondary', 'secondaryForeground', 'accent', 'accentForeground', 'ring'],
+  },
+  {
+    label: 'Text',
+    keys: ['muted', 'mutedForeground'],
+  },
+  {
+    label: 'Status',
+    keys: ['destructive', 'destructiveForeground', 'success', 'successForeground', 'warning', 'warningForeground'],
+  },
+  {
+    label: 'Chrome',
+    keys: [
+      'border',
+      'input',
+      'userBubble',
+      'userBubbleForeground',
+      'assistantBubble',
+      'assistantBubbleForeground',
+      'scrollbarThumb',
+    ],
+  },
+];
+
+/** Flat list of the 28 editable token keys, in group order. */
+export const EDITABLE_TOKEN_KEYS: ReadonlyArray<keyof SemanticTokens> = EDITABLE_TOKEN_GROUPS.flatMap(
+  group => group.keys,
+);

@@ -1,12 +1,12 @@
-import type { Model, ModelParams, ModelSelection } from '../../server/types.js';
+import type { Model, ModelParams, ModelProperties } from '../../server/types.js';
 
-export function hasReasoningEfforts(efforts: ModelSelection['reasoningEfforts']): efforts is string[] {
+export function hasReasoningEfforts(efforts: ModelProperties['reasoningEfforts']): efforts is string[] {
   return Array.isArray(efforts) && efforts.length > 0;
 }
 
 /** Keep current if still listed; otherwise the lowest non-"none" effort; none if model has no efforts. */
 export function resolveReasoningEffort(
-  efforts: ModelSelection['reasoningEfforts'],
+  efforts: ModelProperties['reasoningEfforts'],
   current: string | undefined,
 ): string | undefined {
   if (!hasReasoningEfforts(efforts)) return undefined;
@@ -26,7 +26,7 @@ export function resolveReasoningEffort(
 export function modelPatchWithReasoningEffort(
   name: string,
   existingParams: ModelParams | undefined,
-  efforts: ModelSelection['reasoningEfforts'],
+  efforts: ModelProperties['reasoningEfforts'],
 ): Model {
   const nextEffort = resolveReasoningEffort(efforts, existingParams?.reasoningEffort);
   if (nextEffort === undefined) {

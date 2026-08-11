@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { auiInputClass } from '../../atoms/lib/inputClasses.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import SearchInput from '../../atoms/primitives/SearchInput.js';
 import { Icon } from '../../icons/Icon.js';
@@ -192,7 +193,7 @@ const ModelSettings = () => {
 
   const renderKeyEditor = (opts: { id: string; submitLabel: string; onSave: () => void }) => (
     <form
-      className="mt-4 rounded-lg border border-border bg-muted/20 p-4"
+      className="mt-4 rounded-lg border border-border bg-muted/40 p-4"
       onSubmit={event => {
         event.preventDefault();
         opts.onSave();
@@ -213,7 +214,7 @@ const ModelSettings = () => {
         }}
         placeholder="Enter API Key"
         autoFocus
-        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+        className={auiInputClass('h-10')}
       />
       <div className="mt-3 flex justify-end gap-2">
         <Button variant="ghost" size="sm" type="button" onClick={closeKeyEditor} disabled={busy}>

@@ -18,11 +18,17 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
 }));
 
 const models: ModelSelection[] = [
-  { name: 'openai/gpt-4.1', provider: 'OpenAI', providerLogo: 'https://assets.example/openai.svg' },
+  {
+    name: 'openai/gpt-4.1',
+    id: 'gpt-4.1',
+    provider: { name: 'OpenAI', logo: 'https://assets.example/openai.svg' },
+    properties: {},
+  },
   {
     name: 'anthropic/claude-3.7-sonnet',
-    provider: 'Anthropic',
-    reasoningEfforts: ['low', 'high'],
+    id: 'claude-3.7-sonnet',
+    provider: { name: 'Anthropic' },
+    properties: { reasoningEfforts: ['low', 'high'] },
   },
 ];
 

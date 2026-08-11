@@ -38,7 +38,7 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
 
   const selectedName = agentSpec?.model?.name ?? (models[0] ? modelValue(models[0]) : '');
   const selected = models.find(m => modelValue(m) === selectedName || m.name === selectedName);
-  const efforts = selected?.reasoningEfforts;
+  const efforts = selected?.properties.reasoningEfforts;
   const currentEffort = agentSpec?.model?.params?.reasoningEffort;
   // Display fallback only — coerce into the spec on model change / explicit pick.
   const resolved = resolveReasoningEffort(efforts, currentEffort);

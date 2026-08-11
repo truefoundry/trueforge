@@ -29,8 +29,9 @@ function DraftSections({
     getModels: async () => [
       {
         name: 'openai/gpt-4.1',
-        provider: 'OpenAI',
-        reasoningEfforts: ['low', 'high'],
+        id: 'gpt-4.1',
+        provider: { name: 'OpenAI' },
+        properties: { reasoningEfforts: ['low', 'high'] },
       },
     ],
   });

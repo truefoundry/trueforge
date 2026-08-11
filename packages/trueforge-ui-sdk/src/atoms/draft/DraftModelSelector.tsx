@@ -88,9 +88,10 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     return models.filter(
       m =>
         m.name.toLowerCase().includes(needle) ||
+        m.id.toLowerCase().includes(needle) ||
         (m.apiModel?.toLowerCase().includes(needle) ?? false) ||
         (m.modelId?.toLowerCase().includes(needle) ?? false) ||
-        m.provider.toLowerCase().includes(needle),
+        m.provider.name.toLowerCase().includes(needle),
     );
   }, [models, query]);
 
@@ -105,7 +106,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const account = selected?.provider ?? selectedName;
+  const account = selected?.provider.name ?? selectedName;
 
   const content = (
     <>
@@ -157,7 +158,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
             const active = value === selectedName || model.name === selectedName;
             return (
               <button
-                key={value || model.modelId || model.name}
+                key={value || model.id || model.name}
                 type="button"
                 role="option"
                 aria-selected={active}
@@ -167,15 +168,19 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
                 )}
                 onClick={() => {
                   updateAgentSpec?.({
-                    model: modelPatchWithReasoningEffort(value, agentSpec?.model?.params, model.reasoningEfforts),
+                    model: modelPatchWithReasoningEffort(
+                      value,
+                      agentSpec?.model?.params,
+                      model.properties.reasoningEfforts,
+                    ),
                   });
                   setOpen(false);
                   setQuery('');
                 }}
               >
                 <ProviderMark
-                  logo={model.providerLogo}
-                  label={model.provider || model.name}
+                  logo={model.provider.logo}
+                  label={model.provider.name || model.name}
                   className="size-5 text-xs"
                 />
                 <span className="truncate font-medium">{displayModelLabel(value)}</span>
@@ -203,7 +208,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
         })}
         onClick={() => setOpen(v => !v)}
       >
-        <ProviderMark logo={selected?.providerLogo} label={account} className="size-5 text-[10px]" />
+        <ProviderMark logo={selected?.provider.logo} label={account} className="size-5 text-[10px]" />
         <span className="truncate">{label}</span>
         <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
       </button>

@@ -35,6 +35,12 @@ const truefoundry: PresetTokens = {
     composerRadius: '1.5rem',
     userBubble: '#09090b',
     userBubbleForeground: '#ffffff',
+    assistantBubble: 'transparent',
+    assistantBubbleForeground: '#09090b',
+    scrollbarThumb: '#62626a',
+    overlay: 'rgb(9 9 11 / 0.5)',
+    shadowColor: '#09090b',
+    composerBg: '#ffffff',
   },
   dark: {
     background: '#1f1f22',
@@ -65,6 +71,12 @@ const truefoundry: PresetTokens = {
     composerRadius: '1.5rem',
     userBubble: '#6366f1',
     userBubbleForeground: '#ffffff',
+    assistantBubble: 'transparent',
+    assistantBubbleForeground: '#fdfdfd',
+    scrollbarThumb: '#a1a1aa',
+    overlay: 'rgb(0 0 0 / 0.7)',
+    shadowColor: '#000000',
+    composerBg: '#18181b',
   },
 };
 

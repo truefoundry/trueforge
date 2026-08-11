@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
+import { auiInputClass } from '@/atoms/lib/inputClasses.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
 import SearchInput from '@/atoms/primitives/SearchInput.js';
@@ -272,7 +273,7 @@ const ConnectorSettings = () => {
       return (
         <article
           key={connector.id}
-          className={`${rowClassName} cursor-pointer transition-colors hover:bg-accent/40`}
+          className={`${rowClassName} cursor-pointer transition-colors hover:bg-accent/60`}
           onClick={() => {
             setSelectedConnector(connector);
           }}
@@ -491,7 +492,7 @@ const ConnectorSettings = () => {
                     placeholder={`Paste the token from ${connectorAwaitingKey?.name ?? 'the provider'}`}
                     autoFocus
                     required
-                    className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
+                    className={auiInputClass('h-11')}
                   />
                 </div>
               </div>

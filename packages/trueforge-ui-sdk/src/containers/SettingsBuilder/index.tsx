@@ -103,7 +103,7 @@ const TruefoundrySettingsBuilder = () => {
         <nav
           aria-label="Settings sections"
           className={cn(
-            'flex w-full gap-1 border-b border-border bg-muted/30 p-2',
+            'flex w-full gap-1 border-b border-border bg-muted/40 p-2',
             compact ? 'min-w-0' : 'justify-center md:w-48 md:flex-col md:justify-start md:border-b-0 md:border-r',
           )}
         >
@@ -120,7 +120,7 @@ const TruefoundrySettingsBuilder = () => {
                 compact ? 'min-w-0 flex-1 justify-center gap-1.5 px-1.5' : 'shrink-0',
                 section === item.id
                   ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
               )}
               onClick={() => {
                 setSection(item.id);

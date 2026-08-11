@@ -14,7 +14,8 @@ describe('ThreadRootShell', () => {
     expect(root).toBe(ref.current);
     expect(root).toHaveClass('aui-thread-root', 'host-thread');
     expect(root.style.getPropertyValue('--thread-max-width')).toBe('60rem');
-    expect(root.style.getPropertyValue('--composer-bg')).toBe('var(--card)');
+    // --composer-bg now lives on the theme root (defaults to --card), not the thread shell.
+    expect(root.style.getPropertyValue('--composer-bg')).toBe('');
     expect(root.style.color).toBe('red');
   });
 });

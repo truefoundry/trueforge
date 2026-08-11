@@ -26,7 +26,7 @@ export function AgentStepsCard({
   onToggle,
   children,
   borderColor,
-  background = 'transparent',
+  background,
   dataTestPrefix,
   className,
 }: AgentStepsCardProps) {
@@ -37,10 +37,13 @@ export function AgentStepsCard({
     <Accordion
       expanded={expanded}
       onChange={() => onToggle()}
-      className={cn('aui-agent-steps-card mb-3 rounded-lg border border-border', className)}
+      className={cn(
+        'aui-agent-steps-card mb-3 rounded-lg border border-border bg-card text-card-foreground',
+        className,
+      )}
       style={{
-        background,
-        borderColor: borderColor ?? undefined,
+        ...(background !== undefined ? { background } : {}),
+        ...(borderColor !== undefined ? { borderColor } : {}),
       }}
       data-testid={dataTestPrefix ? `${dataTestPrefix}-agent-steps-card` : undefined}
     >

@@ -4,7 +4,6 @@ import { cn } from './lib/cn.js';
 
 const THREAD_CSS_VARS: CSSProperties = {
   ['--thread-max-width' as string]: '44rem',
-  ['--composer-bg' as string]: 'var(--card)',
   ['--composer-padding' as string]: '8px',
 };
 

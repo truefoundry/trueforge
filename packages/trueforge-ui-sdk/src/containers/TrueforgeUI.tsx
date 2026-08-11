@@ -53,7 +53,7 @@ function LayoutFallback({ className }: { className?: string }) {
         height: '100%',
         minHeight: '12rem',
         background:
-          'linear-gradient(90deg, color-mix(in oklab, var(--muted, #e5e5e5) 55%, transparent) 25%, color-mix(in oklab, var(--muted, #e5e5e5) 25%, transparent) 50%, color-mix(in oklab, var(--muted, #e5e5e5) 55%, transparent) 75%)',
+          'linear-gradient(90deg, color-mix(in oklab, var(--muted) 55%, transparent) 25%, color-mix(in oklab, var(--muted) 25%, transparent) 50%, color-mix(in oklab, var(--muted) 55%, transparent) 75%)',
         backgroundSize: '200% 100%',
         animation: 'tfy-aui-pulse 1.2s ease-in-out infinite',
       }}

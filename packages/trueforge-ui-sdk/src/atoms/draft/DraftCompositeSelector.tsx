@@ -111,7 +111,7 @@ function SearchField({
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="border-input bg-muted/50 placeholder:text-muted-foreground h-8 w-full rounded-md border-0 py-1 pr-2 pl-7 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="border-input bg-muted/40 placeholder:text-muted-foreground h-8 w-full rounded-md border-0 py-1 pr-2 pl-7 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       />
     </label>
   );
@@ -324,7 +324,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
           }}
           className={cn(
             'm-3 flex min-h-48 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-8',
-            'text-center outline-none transition-colors hover:bg-accent/40',
+            'text-center outline-none transition-colors hover:bg-accent/60',
             'disabled:cursor-not-allowed disabled:opacity-50',
           )}
         >

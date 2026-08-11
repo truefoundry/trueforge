@@ -35,7 +35,7 @@
 .harness-logout-submit {
   border: 0;
   background: var(--destructive);
-  color: var(--destructive-foreground, #fff);
+  color: var(--destructive-foreground);
 }
 
 .harness-logout-submit:hover:not(:disabled) {
