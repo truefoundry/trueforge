@@ -392,7 +392,7 @@ await client.auth.logout();
 <dl>
 <dd>
 
-Returns the authenticated caller identity. When OIDC is configured this requires a valid session cookie (401 otherwise). Without OIDC, returns the default anonymous identity.
+Returns the authenticated caller identity. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` ID token (401 otherwise). When auth is disabled, returns the default identity.
 </dd>
 </dl>
 </dd>
@@ -2244,7 +2244,7 @@ await client.settings.modelProviders.upsert({
 <dl>
 <dd>
 
-Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Custom providers are not listed here.
+Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Includes a `custom` sentinel with `supported_reasoning_efforts` for the custom-provider form (not configurable from catalog).
 </dd>
 </dl>
 </dd>

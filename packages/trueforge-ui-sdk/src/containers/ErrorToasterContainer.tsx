@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
 import { useSlot } from '../theme/SlotsProvider.js';
+import { getErrorMessage } from '../utils/getErrorMessage.js';
 
 const MAX_TOAST_DESCRIPTION_CHARS = 480;
 const MAX_VISIBLE_TOASTS = 5;
@@ -26,16 +27,6 @@ function truncateDescription(text: string): string {
   return `${text.slice(0, MAX_TOAST_DESCRIPTION_CHARS - 1)}…`;
 }
 
-function formatErrorBody(body: unknown): string | undefined {
-  if (body == null) return undefined;
-  if (typeof body === 'string') return body;
-  try {
-    return JSON.stringify(body, null, 2);
-  } catch {
-    return String(body);
-  }
-}
-
 function isHttpLikeError(error: unknown): error is Error & { statusCode?: number; body?: unknown } {
   return error instanceof Error && ('statusCode' in error || 'body' in error);
 }
@@ -45,21 +36,14 @@ function normalizeError(error: unknown): ErrorToastContent {
     const statusCode = error.statusCode;
     if (statusCode != null || error.body != null) {
       const title = statusCode != null ? `Request failed (${statusCode})` : 'Request failed';
-      const raw = formatErrorBody(error.body) ?? (error.message || 'The server returned an error.');
+      const raw = getErrorMessage(error, 'The server returned an error.');
       return { title, description: truncateDescription(raw) };
     }
   }
 
-  if (error instanceof Error) {
-    return {
-      title: 'Something went wrong',
-      description: truncateDescription(error.message || 'An unexpected error occurred.'),
-    };
-  }
-
   return {
     title: 'Something went wrong',
-    description: truncateDescription(String(error)),
+    description: truncateDescription(getErrorMessage(error, 'An unexpected error occurred.')),
   };
 }
 

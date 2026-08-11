@@ -52,7 +52,7 @@ describe('SaveAgentButton', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.queryByRole('button', { name: 'Save as agent' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save agent' })).not.toBeInTheDocument();
   });
 
   it('opens a modal with name + system instructions and saves them on agentSpec', async () => {
@@ -68,8 +68,8 @@ describe('SaveAgentButton', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save as agent' }));
-    const dialog = screen.getByRole('dialog', { name: 'Save as agent' });
+    fireEvent.click(screen.getByRole('button', { name: 'Save agent' }));
+    const dialog = screen.getByRole('dialog', { name: 'Save agent' });
     expect(dialog).toBeInTheDocument();
     expect(dialog.className).toContain('h-auto');
     expect(dialog.className).toContain('md:max-w-md');
@@ -94,7 +94,7 @@ describe('SaveAgentButton', () => {
       });
     });
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Save as agent' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: 'Save agent' })).not.toBeInTheDocument();
     });
     // Bound as mutable Edit with saved identity + spec; chrome flips to Update Agent.
     expect(screen.getByRole('button', { name: 'Update Agent' })).toBeInTheDocument();
@@ -124,8 +124,8 @@ describe('SaveAgentButton', () => {
     const epochBefore = shellSnap.agentsListEpoch;
     const runtimeKeyBefore = shellSnap.runtimeKey;
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save as agent' }));
-    const dialog = screen.getByRole('dialog', { name: 'Save as agent' });
+    fireEvent.click(screen.getByRole('button', { name: 'Save agent' }));
+    const dialog = screen.getByRole('dialog', { name: 'Save agent' });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'saved-agent' } });
     fireEvent.change(screen.getByLabelText('System instructions'), {
       target: { value: 'Be helpful.' },
@@ -169,15 +169,15 @@ describe('SaveAgentButton', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save as agent' }));
-    const dialog = screen.getByRole('dialog', { name: 'Save as agent' });
+    fireEvent.click(screen.getByRole('button', { name: 'Save agent' }));
+    const dialog = screen.getByRole('dialog', { name: 'Save agent' });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'dup' } });
     fireEvent.click(getSubmitButton(dialog));
 
     await waitFor(() => {
       expect(screen.getByText('Name taken')).toBeInTheDocument();
     });
-    expect(screen.getByRole('dialog', { name: 'Save as agent' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Save agent' })).toBeInTheDocument();
   });
 
   it('shows Update Agent and prefills name when editing a library agent', async () => {

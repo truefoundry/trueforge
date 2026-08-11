@@ -5,6 +5,7 @@
 import winston from 'winston';
 import { createMcpOAuthRouter } from '../../../src/apis/mcpOAuth';
 import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../../src/apis/mcpServers';
+import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -77,30 +78,35 @@ describe('MCP OAuth authorize + callback', () => {
   let oauthRouter: ReturnType<typeof createMcpOAuthRouter>;
   let mcpServerStore: SqliteMcpServerStore;
   let tokenStore: SqliteOAuthTokenStore;
+  let withTransaction: <T>(callback: (transaction: unknown) => Promise<T>) => Promise<T>;
+  let logger: ReturnType<typeof winston.createLogger>;
 
   beforeAll(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     mcpServerStore = new SqliteMcpServerStore(db);
     tokenStore = new SqliteOAuthTokenStore(db);
-    const logger = winston.createLogger({ silent: true });
+    withTransaction = callback => db.transaction().execute(callback);
+    logger = winston.createLogger({ silent: true });
     settingsRouter = createSettingsMcpServersRouter({
       mcpCatalog: McpCatalog.load(),
       mcpServerStore,
       tokenStore,
-      withTransaction: callback => db.transaction().execute(callback),
+      withTransaction,
       logger,
+      resolveUserContext: () => LOCAL_USER_CONTEXT,
     });
     mcpServersRouter = createMcpServersRouter({
       mcpServerStore,
       tokenStore,
-      withTransaction: callback => db.transaction().execute(callback),
+      withTransaction,
       logger,
+      resolveUserContext: () => LOCAL_USER_CONTEXT,
     });
     oauthRouter = createMcpOAuthRouter({
       tokenStore,
       mcpServerStore,
-      withTransaction: callback => db.transaction().execute(callback),
+      withTransaction,
       logger,
     });
   });
@@ -165,7 +171,7 @@ describe('MCP OAuth authorize + callback', () => {
 
     const record = await mcpServerStore.getServer({ tenant_id: 'default', name: 'oauth-mcp' });
     expect(record).toBeDefined();
-    const token = await tokenStore.getToken({ id: record?.id ?? '' });
+    const token = await tokenStore.getToken({ id: record?.id ?? '', userRef: LOCAL_USER_CONTEXT.userRef });
     expect(token?.accessToken).toBe('access-1');
     expect(token?.refreshToken).toBe('refresh-1');
 
@@ -204,5 +210,47 @@ describe('MCP OAuth authorize + callback', () => {
     const callback = await oauthRouter.request(`/callback?state=${encodeURIComponent(state)}&code=auth-code-1`);
     expect(callback.status).toBe(200);
     expect(await callback.json()).toEqual({ success: true });
+  });
+
+  it('authorize for one user does not authenticate another user on the same server', async () => {
+    const otherRouter = createMcpServersRouter({
+      mcpServerStore,
+      tokenStore,
+      withTransaction,
+      logger,
+      resolveUserContext: () => ({ userRef: 'other-user', role: 'user' }),
+    });
+
+    const put = await settingsRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'remote',
+        name: 'oauth-mcp-scoped',
+        url: MCP_URL,
+        auth: { type: 'dcr' },
+      }),
+    });
+    expect(put.status).toBe(200);
+
+    const authorizeA = await mcpServersRouter.request(
+      `/oauth-mcp-scoped/authorize?redirect_url=${encodeURIComponent(FE_REDIRECT)}`,
+    );
+    expect(authorizeA.status).toBe(200);
+    const authorizeABody = (await authorizeA.json()) as { authorization_url?: string };
+    const state = new URL(authorizeABody.authorization_url ?? '').searchParams.get('state');
+    expect(state).toBeTruthy();
+
+    const callback = await oauthRouter.request(`/callback?state=${encodeURIComponent(state ?? '')}&code=auth-code-1`);
+    expect(callback.status).toBe(302);
+
+    const reauthorizeA = await mcpServersRouter.request('/oauth-mcp-scoped/authorize');
+    expect(await reauthorizeA.json()).toEqual({ status: 'authenticated' });
+
+    const authorizeB = await otherRouter.request('/oauth-mcp-scoped/authorize');
+    expect(authorizeB.status).toBe(200);
+    const authorizeBBody = (await authorizeB.json()) as { status: string; authorization_url?: string };
+    expect(authorizeBBody.status).toBe('auth_required');
+    expect(authorizeBBody.authorization_url).toBeDefined();
   });
 });

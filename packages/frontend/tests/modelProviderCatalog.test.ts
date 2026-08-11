@@ -4,7 +4,7 @@ import { TrueForgeApi } from 'trueforge-sdk';
 import {
   toHarnessModelEntry,
   toHarnessModelProvider,
-  toUiCatalogEntry,
+  toUiCatalogModelProviderEntry,
   toUiModelEntry,
   toUiModelProvider,
 } from '../src/modelProviderCatalog';
@@ -29,14 +29,11 @@ describe('modelProviderCatalog mappers', () => {
     assert.deepEqual(toHarnessModelEntry(toUiModelEntry(harness)), harness);
   });
 
-  it('fills default properties when the UI custom form omits them', () => {
+  it('uses empty properties when the UI custom form omits them', () => {
     assert.deepEqual(toHarnessModelEntry({ id: 'llama3', name: 'llama3' }), {
       modelId: 'llama3',
       name: 'llama3',
-      properties: {
-        contextLength: 128_000,
-        maxOutputTokens: 16_384,
-      },
+      properties: {},
     });
   });
 
@@ -87,11 +84,10 @@ describe('modelProviderCatalog mappers', () => {
     );
   });
 
-  it('maps catalog presets without inventing custom providers', () => {
+  it('maps catalog presets and names them after their type', () => {
     assert.deepEqual(
-      toUiCatalogEntry({
+      toUiCatalogModelProviderEntry({
         type: 'anthropic',
-        name: 'anthropic',
         models: [
           {
             modelId: 'claude-sonnet-4-6',
@@ -159,7 +155,7 @@ describe('modelProviderCatalog mappers', () => {
           {
             modelId: 'llama3',
             name: 'llama3',
-            properties: { contextLength: 128_000, maxOutputTokens: 16_384 },
+            properties: {},
           },
         ],
       },
@@ -182,7 +178,7 @@ describe('modelProviderCatalog mappers', () => {
   // Catalog presets are copied straight into this form, so a type the API accepts but this mapper
   // does not is a preset the user cannot save.
   it('builds a body for every provider type the API accepts', () => {
-    const types = [...Object.values(TrueForgeApi.CatalogProviderType), 'custom'];
+    const types = [...Object.values(TrueForgeApi.CatalogWellKnownModelProviderType), 'custom'];
     for (const type of types) {
       const body = toHarnessModelProvider({
         type,

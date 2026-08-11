@@ -73,7 +73,7 @@ describe('PostMcpOauthScreen', () => {
     });
   });
 
-  it('does not broadcast an invalid result but still closes the popup after two seconds', () => {
+  it('does not broadcast an invalid result but still closes the popup after five seconds', () => {
     window.history.replaceState({}, '', '/oauth/callback?isSuccess=true');
 
     render(<PostMcpOauthScreen />);
@@ -83,7 +83,7 @@ describe('PostMcpOauthScreen', () => {
     expect(channels).toHaveLength(0);
 
     act(() => {
-      vi.advanceTimersByTime(1999);
+      vi.advanceTimersByTime(4999);
     });
     expect(window.close).not.toHaveBeenCalled();
 
@@ -101,7 +101,7 @@ describe('PostMcpOauthScreen', () => {
     unmount();
 
     act(() => {
-      vi.advanceTimersByTime(3000);
+      vi.advanceTimersByTime(6000);
     });
 
     expect(channels).toHaveLength(1);

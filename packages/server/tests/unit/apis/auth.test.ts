@@ -17,14 +17,17 @@ jest.mock('../../../src/config', () => {
     OIDC_ADMIN_ROLE_VALUE: 'admin',
     OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
   };
+  const config = {
+    STANDALONE: false as const,
+    PUBLIC_BASE_URL: 'https://harness.example.com',
+    OIDC,
+    PORT: 8790,
+  };
   return {
     __esModule: true,
-    default: {
-      STANDALONE: false,
-      PUBLIC_BASE_URL: 'https://harness.example.com',
-      OIDC,
-      PORT: 8790,
-    },
+    default: config,
+    getPublicBaseUrl: (value = config) =>
+      value.STANDALONE ? `http://localhost:${String(value.PORT)}` : value.PUBLIC_BASE_URL,
   };
 });
 
@@ -72,7 +75,7 @@ describe('auth router (no identity provider configured)', () => {
     expect(res.status).toBe(204);
   });
 
-  it('GET /auth/me returns the default identity when OIDC is off', async () => {
+  it('GET /auth/me returns the default identity when auth is disabled', async () => {
     const router = createAuthRouter({ oidcClient: undefined, logger });
 
     const res = await router.request('/me');
@@ -108,7 +111,7 @@ function cookieValue(cookies: string[], name: string): string | undefined {
   return undefined;
 }
 
-describe('auth router (OIDC configured)', () => {
+describe('auth router (auth enabled)', () => {
   const realFetch = globalThis.fetch;
   let privateKey: Awaited<ReturnType<typeof generateKeyPair>>['privateKey'];
   let publicJwk: JWK;

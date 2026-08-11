@@ -23,11 +23,6 @@ export type UiModelEntry = ModelEntry & {
 export type UiModelProvider = ModelProviderBase<UiModelEntry>;
 export type UiModelProviderCatalogEntry = ModelProviderCatalogEntry<UiModelEntry>;
 
-const DEFAULT_MODEL_PROPERTIES: TrueForgeApi.ModelProperties = {
-  contextLength: 128_000,
-  maxOutputTokens: 16_384,
-};
-
 export function toUiModelEntry(model: TrueForgeApi.ModelEntry): UiModelEntry {
   return {
     id: model.modelId,
@@ -40,7 +35,7 @@ export function toHarnessModelEntry(model: UiModelEntry): TrueForgeApi.ModelEntr
   return {
     modelId: model.id,
     name: model.name,
-    properties: model.properties ?? DEFAULT_MODEL_PROPERTIES,
+    properties: model.properties ?? {},
   };
 }
 
@@ -56,17 +51,26 @@ export function toUiModelProvider(provider: TrueForgeApi.ModelProvider): UiModel
   };
 }
 
-export function toUiCatalogEntry(provider: TrueForgeApi.CatalogProvider): UiModelProviderCatalogEntry {
+export function toUiCatalogModelProviderEntry(
+  provider: TrueForgeApi.CatalogModelProvider,
+): UiModelProviderCatalogEntry {
+  if (provider.type === 'custom') {
+    return {
+      type: provider.type,
+      name: provider.type,
+      supportedReasoningEfforts: provider.supportedReasoningEfforts,
+      models: [],
+    };
+  }
   return {
     type: provider.type,
-    name: provider.name,
+    name: provider.type,
     ...(provider.logo === undefined ? {} : { logo: provider.logo }),
     models: provider.models.map(toUiModelEntry),
   };
 }
 
-/** The catalog lists every type but `custom`, which only exists as tenant configuration. */
-const PROVIDER_TYPES: readonly string[] = [...Object.values(TrueForgeApi.CatalogProviderType), 'custom'];
+const PROVIDER_TYPES: readonly string[] = [...Object.values(TrueForgeApi.CatalogWellKnownModelProviderType), 'custom'];
 
 function isProviderType(type: string): type is TrueForgeApi.ModelProvider['type'] {
   return PROVIDER_TYPES.includes(type);
@@ -144,7 +148,7 @@ export function createModelProviderCatalog(): ModelCatalogServer<
   return {
     getModelProviderCatalog: async () => {
       const body = await client.settings.modelProviders.catalog();
-      return body.data.map(toUiCatalogEntry);
+      return body.data.map(toUiCatalogModelProviderEntry);
     },
     listModelProviders: async () => {
       const body = await client.settings.modelProviders.list();

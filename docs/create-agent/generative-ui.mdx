@@ -1,0 +1,36 @@
+---
+title: 'Configure Generative UI'
+sidebarTitle: 'Generative UI'
+description: 'Let the agent respond with interactive charts, tables, cards, and forms instead of plain text.'
+---
+
+Plain text works for short answers. For dashboards, comparisons, and structured data, **Generative UI** lets the agent stream interactive components — charts, tables, cards, forms — that the chat UI renders as React.
+
+It is **enabled by default**, and the bundled chat UI renders it out of the box.
+
+## Configuring
+
+<Note>
+  Enabling or disabling Generative UI (`config.generative_ui`) is configured via the **API / SDK** today. Runtime
+  rendering in the chat UI works without extra setup when the feature is enabled. See the
+  [agent spec](/api/agent-spec#config).
+</Note>
+
+## How it works
+
+The agent embeds a small OpenUI snippet in its normal response. The client detects it and renders real components as tokens stream in — no arbitrary code execution; only registered components can appear.
+
+<Frame caption="A Generative UI dashboard with summary cards, a chart, and a table.">
+  <img src="/images/generative-ui.png" alt="Rendered Generative UI dashboard with cards, chart, and table" />
+</Frame>
+
+## When to use it
+
+| Use case | What the agent renders |
+| --- | --- |
+| Dashboards | KPI cards, charts, comparison tables |
+| Tables | Sortable logs, resources, result sets |
+| Charts | Bar, line, pie patterns faster than prose |
+| Forms | Guided inputs for the next action |
+
+Skip it for short explanations, bullet lists, or code blocks where markdown is enough.

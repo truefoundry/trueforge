@@ -173,7 +173,7 @@ export function ToolApprovalBar({
               ))}
             </div>
           )}
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <input
               placeholder="Enter reason for denial"
               aria-label="Reason for denial"
@@ -183,7 +183,7 @@ export function ToolApprovalBar({
               disabled={interactionsLocked}
               onChange={e => onDenialReasonChange?.(e.target.value)}
               className={cn(
-                'h-6 flex-1 rounded border border-input bg-background px-2 text-xs text-foreground',
+                'h-8 flex-1 rounded border border-input bg-background px-2 text-xs text-foreground',
                 'focus:outline-none focus:ring-1 focus:ring-ring',
               )}
             />

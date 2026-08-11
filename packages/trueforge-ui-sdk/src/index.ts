@@ -273,11 +273,9 @@ export type {
   DefinedSkill,
   GithubSkill,
   ImportGithubSkillRequest,
-  ListSessionEventsResponse,
+  ListResult,
   ListSessionsOrder,
   ListSessionsParams,
-  ListSessionsResponse,
-  ListTurnsResponse,
   McpServerMount,
   Model,
   ModelCatalogServer,
@@ -288,7 +286,6 @@ export type {
   ModelProviderConfigBase,
   ModelSelection,
   PageParams,
-  PageResult,
   PreviousTurnIdInput,
   ProviderType,
   RegistrySkill,
@@ -300,14 +297,12 @@ export type {
   SearchAgentsParams,
   SelectRegistrySkillRequest,
   Session,
-  SessionEvent,
   SessionEventItem,
   SkillBase,
   SkillCatalogEntry,
   SkillCatalogServer,
   SkillConfigBase,
   SkillMount,
-  TokenPagination,
   ToolBase,
   Turn,
   TurnInputItem,
@@ -327,6 +322,7 @@ export type {
 // Utils
 export { computeAgentStepsSplit } from './utils/computeAgentStepsSplit.js';
 export type { AgentStepPart, AgentStepsSplitResult } from './utils/computeAgentStepsSplit.js';
+export { getErrorMessage } from './utils/getErrorMessage.js';
 
 export { AgentsLibrary } from './atoms/AgentsLibrary.js';
 export type { AgentsLibraryProps } from './atoms/AgentsLibrary.js';

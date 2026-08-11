@@ -3,5 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface GetModelProviderCatalogResponse {
-    data: TrueForge.CatalogProvider[];
+    data: TrueForge.CatalogModelProvider[];
 }

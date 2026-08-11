@@ -9,7 +9,7 @@ import {
   randomPKCECodeVerifier,
   randomState,
 } from 'openid-client';
-import configuration, { type OIDCConfig } from '../config';
+import { getPublicBaseUrl, type OIDCConfig } from '../config';
 import { buildAuthorizationRequestParams } from './claims';
 import { ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, setAuthCookie } from './cookies';
 
@@ -17,7 +17,7 @@ const CALLBACK_PATH = '/api/v1/auth/callback';
 const OAUTH_STATE_MAX_AGE_SECONDS = 10 * 60;
 const ID_TOKEN_COOKIE_MAX_AGE_SECONDS = 24 * 60 * 60;
 
-/** JWKS + claim config used by cookie JWT verification when browser OIDC is on. */
+/** JWKS + claim config used by cookie JWT verification when auth is enabled. */
 export interface OidcVerify {
   jwks: JWTVerifyGetKey;
   issuer: string;
@@ -48,12 +48,12 @@ export function disableOidcAuth(): void {
   oidcVerify = null;
 }
 
-/** Active verification config, or `null` when OIDC browser auth is off. */
+/** Active verification config, or `null` when auth is disabled. */
 export function getOidcVerify(): OidcVerify | null {
   return oidcVerify;
 }
 
-/** Discover the IdP once at process startup when OIDC is configured; wires cookie auth verification. */
+/** Discover the IdP once at process startup when auth is enabled; wires cookie auth verification. */
 export async function initOidc(oidc: OIDCConfig | undefined): Promise<Configuration | undefined> {
   if (!oidc) {
     disableOidcAuth();
@@ -66,10 +66,7 @@ export async function initOidc(oidc: OIDCConfig | undefined): Promise<Configurat
 }
 
 function authCallbackUrl(): string {
-  const publicBaseUrl = configuration.PUBLIC_BASE_URL;
-  if (publicBaseUrl === '') {
-    throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
-  }
+  const publicBaseUrl = getPublicBaseUrl();
   return `${publicBaseUrl}${CALLBACK_PATH}`;
 }
 

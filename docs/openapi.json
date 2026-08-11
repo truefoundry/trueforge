@@ -388,6 +388,30 @@
         "properties": {},
         "type": "object"
       },
+      "CatalogCustomModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "supported_reasoning_efforts": {
+            "description": "Supported reasoning-effort values for this provider.",
+            "items": {
+              "$ref": "#/components/schemas/ReasoningEffort"
+            },
+            "type": "array"
+          },
+          "type": {
+            "description": "Custom provider type (catalog includes `custom`).",
+            "enum": [
+              "custom"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "supported_reasoning_efforts"
+        ],
+        "type": "object"
+      },
       "CatalogDaytonaSandboxProvider": {
         "additionalProperties": false,
         "properties": {
@@ -471,46 +495,15 @@
         ],
         "type": "object"
       },
-      "CatalogProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "logo": {
-            "description": "URL of the provider logo asset.",
-            "format": "uri",
-            "type": "string"
+      "CatalogModelProvider": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/CatalogWellKnownModelProvider"
           },
-          "models": {
-            "description": "Preset models for this catalog provider.",
-            "items": {
-              "$ref": "#/components/schemas/ModelEntry"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "description": "Well-known provider type (catalog excludes `custom`).",
-            "enum": [
-              "openai",
-              "anthropic",
-              "google-gemini",
-              "fireworks",
-              "zai",
-              "moonshot",
-              "alibaba",
-              "together"
-            ],
-            "type": "string"
+          {
+            "$ref": "#/components/schemas/CatalogCustomModelProvider"
           }
-        },
-        "required": [
-          "type",
-          "name",
-          "models"
-        ],
-        "type": "object"
+        ]
       },
       "CatalogSkill": {
         "additionalProperties": false,
@@ -551,6 +544,42 @@
           "url",
           "ref",
           "description"
+        ],
+        "type": "object"
+      },
+      "CatalogWellKnownModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "logo": {
+            "description": "URL of the provider logo asset.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "description": "Preset models; empty on the `custom` sentinel.",
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "type": "array"
+          },
+          "type": {
+            "description": "Well-known provider type (catalog excludes `custom`).",
+            "enum": [
+              "openai",
+              "anthropic",
+              "google-gemini",
+              "fireworks",
+              "zai",
+              "moonshot",
+              "alibaba",
+              "together"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "models"
         ],
         "type": "object"
       },
@@ -1119,7 +1148,7 @@
         "properties": {
           "data": {
             "items": {
-              "$ref": "#/components/schemas/CatalogProvider"
+              "$ref": "#/components/schemas/CatalogModelProvider"
             },
             "type": "array"
           }
@@ -4041,10 +4070,18 @@
         ],
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "bearerFormat": "JWT",
+        "description": "ID token (`Authorization: Bearer <id_token>`). Required on protected routes. Browser sessions may use the HttpOnly `id_token` cookie instead.",
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
-    "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware stamps a local default user. When OIDC is configured, browser login sets an httpOnly `id_token` cookie; protected routes read that cookie (not `Authorization: Bearer`). There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
+    "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware stamps a local default user. When OIDC is configured, protected routes require a valid `id_token` cookie or `Authorization: Bearer` ID token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
     "title": "TrueForge API",
     "version": "0.1.0"
   },
@@ -4426,7 +4463,7 @@
     },
     "/api/v1/auth/me": {
       "get": {
-        "description": "Returns the authenticated caller identity. When OIDC is configured this requires a valid session cookie (401 otherwise). Without OIDC, returns the default anonymous identity.",
+        "description": "Returns the authenticated caller identity. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` ID token (401 otherwise). When auth is disabled, returns the default identity.",
         "responses": {
           "200": {
             "content": {
@@ -4446,7 +4483,7 @@
                 }
               }
             },
-            "description": "OIDC is configured and the request has no valid session cookie."
+            "description": "Auth is enabled and the request has no valid cookie or Bearer ID token."
           }
         },
         "summary": "Current session",
@@ -6355,7 +6392,7 @@
     },
     "/api/v1/settings/model-providers/catalog": {
       "get": {
-        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Custom providers are not listed here.",
+        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Includes a `custom` sentinel with `supported_reasoning_efforts` for the custom-provider form (not configurable from catalog).",
         "responses": {
           "200": {
             "content": {
@@ -6697,5 +6734,10 @@
       }
     }
   },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
   "webhooks": {}
 }

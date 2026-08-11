@@ -1,0 +1,50 @@
+---
+title: 'Chat UI'
+sidebarTitle: 'Chat UI'
+description: 'Use the bundled TrueForge chat experience — or embed the same UI in your app with the React UI SDK.'
+---
+
+TrueForge ships a full chat UI with the server: browse agents, stream responses, approve tools, connect MCP OAuth, and manage Settings. The same experience is published as `@truefoundry/trueforge-ui` so you can embed it in your own React app.
+
+## Bundled UI
+
+When you run TrueForge ([Quickstart](/quickstart)), open the app URL (for example `http://localhost:8790`). You get:
+
+- Agent composer and [Agent Library](/agent-library)
+- Streaming chat with tool calls, approvals, and ask-user-questions
+- Settings for [models](/models), [connectors](/mcp-servers), [skills](/skills), and [sandbox](/sandbox)
+- [Generative UI](/create-agent/generative-ui) rendering out of the box
+
+<Frame caption="The bundled chat UI — streaming responses and agent steps.">
+  <img src="/images/getting-started-chat.png" alt="TrueForge chat UI with agent response and tool calls" />
+</Frame>
+
+## Embed with the UI SDK
+
+Install and render a single component against your TrueForge server (or a compatible custom server):
+
+```bash
+npm install @truefoundry/trueforge-ui
+```
+
+```tsx
+import { TrueforgeUI } from '@truefoundry/trueforge-ui';
+
+export function App() {
+  return <TrueforgeUI server={{ type: 'trueforge', baseUrl: 'http://localhost:8790' }} />;
+}
+```
+
+Interactive playground and generated snippets: [ui.trueforge.dev](https://ui.trueforge.dev/).
+
+## What you can customize
+
+| Area | Options |
+| --- | --- |
+| **Agent modes** | Chat with one agent, browse the library, or let users compose agents |
+| **Layouts** | `sidebar` (default), `drawer`, `dock`, `widget` |
+| **Themes** | Built-in Claude, ChatGPT, Gemini, TrueFoundry — or your own theme |
+| **Slots** | Override individual UI regions without forking the whole app |
+| **Server** | TrueForge server, TrueFoundry-backed, or a custom server that implements the contract |
+
+Deep dives, API reference, and advanced guides live in the **UI SDK** tab of these docs.

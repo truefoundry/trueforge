@@ -46,8 +46,7 @@ service:
 server:
   # Container port the server listens on (PORT).
   port: 8790
-  # Public origin for MCP OAuth / OIDC callbacks (PUBLIC_BASE_URL). Optional;
-  # empty string is injected as-is (distributed mode keeps it empty until set).
+  # Public origin for MCP OAuth / OIDC callbacks (PUBLIC_BASE_URL).
   publicBaseUrl: ""
   # Seconds the server is given to drain turns on SIGTERM (GRACEFUL_TIMEOUT_SECONDS).
   gracefulTimeoutSeconds: 30

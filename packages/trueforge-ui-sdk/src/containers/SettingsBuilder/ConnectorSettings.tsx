@@ -9,6 +9,7 @@ import { useMCPAuth } from '@/hooks/useMcpAuth.js';
 import { Icon } from '@/icons/Icon.js';
 import { useCatalogServer } from '@/server/ServerContext.js';
 import type { ConnectorAuth, ConnectorBase, ConnectorCatalogEntry } from '@/server/types.js';
+import { getErrorMessage } from '@/utils/getErrorMessage.js';
 import AddMcpServerForm, { type AddMcpServerDraft } from './AddMcpServerForm.js';
 import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
 import ConnectorDetails from './ConnectorDetails.js';
@@ -75,7 +76,7 @@ const ConnectorSettings = () => {
       });
       setSelectedConnector(current => (current ? (listed.find(item => item.id === current.id) ?? null) : null));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load connectors');
+      setError(getErrorMessage(err, 'Failed to load connectors'));
     } finally {
       setLoading(false);
     }
@@ -127,7 +128,7 @@ const ConnectorSettings = () => {
       await fn();
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Request failed');
+      setError(getErrorMessage(err, 'Request failed'));
       throw err;
     } finally {
       setBusy(false);
@@ -152,7 +153,7 @@ const ConnectorSettings = () => {
             });
           })
           .catch(err => {
-            setError(err instanceof Error ? err.message : 'Failed to load connector');
+            setError(getErrorMessage(err, 'Failed to load connector'));
           });
       }
     });
@@ -262,16 +263,6 @@ const ConnectorSettings = () => {
           <h5 className="truncate text-sm font-medium text-foreground">{connector.name}</h5>
           <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground sm:truncate">{connector.description}</p>
         </div>
-
-        {isConnected ? (
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
-              {connector.authenticated ? 'Connected' : 'Added'}
-            </span>
-            <Icon name="chevron-right" className="size-4" />
-          </div>
-        ) : null}
       </>
     );
 
@@ -279,17 +270,41 @@ const ConnectorSettings = () => {
 
     if (isConnected) {
       return (
-        <button
+        <article
           key={connector.id}
-          type="button"
-          aria-label={`View ${connector.name} connector`}
-          className={`${rowClassName} cursor-pointer transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring`}
+          className={`${rowClassName} cursor-pointer transition-colors hover:bg-accent/40`}
           onClick={() => {
             setSelectedConnector(connector);
           }}
         >
-          {content}
-        </button>
+          <div className="flex min-w-0 flex-1 items-center gap-3">{content}</div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
+                {connector.authenticated ? 'Connected' : 'Added'}
+              </span>
+              <Icon name="chevron-right" className="size-4" />
+            </div>
+            {connector.auth.type === 'header' ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                disabled={busy || isOAuthLoading}
+                onClick={event => {
+                  event.stopPropagation();
+                  setApiKey('');
+                  setConnectorAwaitingKey(connector);
+                }}
+              >
+                <Icon name="wrench" className="size-3" />
+                Replace Key
+              </Button>
+            ) : null}
+          </div>
+        </article>
       );
     }
 
@@ -341,6 +356,14 @@ const ConnectorSettings = () => {
       </div>
     </article>
   );
+  const isReplacingKey = useMemo(() => {
+    return (
+      connectorAwaitingKey !== null &&
+      connectors.ordered.some(
+        (item: ConnectorListItem) => item.isConfigured && item.connector.id === connectorAwaitingKey.id,
+      )
+    );
+  }, [connectorAwaitingKey, connectors.ordered]);
 
   if (selectedConnector) {
     return (
@@ -431,7 +454,7 @@ const ConnectorSettings = () => {
             onOpenChange={open => {
               if (!open) closeApiKeyModal();
             }}
-            title={`Connect ${connectorAwaitingKey?.name ?? 'connector'}`}
+            title={`${isReplacingKey ? 'Replace key for' : 'Connect'} ${connectorAwaitingKey?.name ?? 'connector'}`}
             description={connectorAwaitingKey?.url}
             contentSized
             className="md:max-w-xl"
@@ -478,7 +501,7 @@ const ConnectorSettings = () => {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={!apiKey.trim() || busy || isOAuthLoading}>
-                  Connect
+                  {isReplacingKey ? 'Replace Key' : 'Connect'}
                 </Button>
               </footer>
             </form>

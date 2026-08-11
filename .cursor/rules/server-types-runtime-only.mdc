@@ -1,0 +1,36 @@
+---
+description: AgentUIServer / server-port types are defined only in assistant-ui-runtime; UI re-exports
+globs: packages/trueforge-ui-sdk/src/server/**/*,packages/trueforge-ui-sdk/src/**/*Server*,packages/trueforge-ui-sdk/src/**/*server*,packages/frontend/src/harnessServer.ts,packages/frontend/src/harnessBuilderServer.ts
+alwaysApply: false
+---
+
+# Server types — runtime is the sole owner
+
+Canonical `AgentUIServer` / chat / builder / catalog port types live only in
+`@truefoundry/assistant-ui-runtime` (`src/server/types.ts` + `events.ts`).
+
+## Rules
+
+- [`packages/trueforge-ui-sdk/src/server/types.ts`](packages/trueforge-ui-sdk/src/server/types.ts)
+  is the host-facing barrel: re-export only from `@truefoundry/assistant-ui-runtime`
+  (prefer `/server` when avoiding root name collisions). Do **not** put hand-written
+  server port/DTO interfaces there or elsewhere in this monorepo.
+- Hosts import types from `@truefoundry/trueforge-ui` only — they must not need the
+  runtime package for types.
+- Need a new field/method on the contract? Change runtime `server/types.ts` first,
+  publish/bump, then re-export — never fork the shape in the UI SDK.
+- React wiring may stay here (`ServerContext`, `ShellModeContext`,
+  `TrueforgeServerConfig`). Those modules **import** runtime types; they do not
+  redefine ports.
+- Host adapters (e.g. frontend `harnessServer`) widen via generics / intersections
+  over runtime bases (`SkillMount` / `McpServerMount` stay opaque `object`).
+
+## Examples
+
+```typescript
+// ✅
+import type { AgentUIServer, ListResult } from './types.js';
+
+// ❌ local duplicate
+export interface AgentChatServer { /* ... */ }
+```
