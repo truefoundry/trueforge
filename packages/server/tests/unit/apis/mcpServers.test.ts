@@ -8,7 +8,6 @@ import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
-import { toRedactedSecretValue } from '../../../src/utils/secretRedaction';
 
 const putBody = {
   type: 'remote' as const,
@@ -24,6 +23,8 @@ const putBodyWithDcr = {
 };
 
 const HEADER_TOKEN = 'Bearer test-token';
+/** Wire form of HEADER_TOKEN for length ≥ 10: first 3 + SECRET_REDACTION + last 3. */
+const HEADER_TOKEN_REDACTED = 'Bea-***REDACTED***-ken';
 
 const putBodyWithHeaderAuth = {
   type: 'remote' as const,
@@ -39,7 +40,7 @@ const putBodyWithHeaderAuthWire = {
   ...putBodyWithHeaderAuth,
   auth: {
     type: 'header' as const,
-    headers: { Authorization: toRedactedSecretValue(HEADER_TOKEN) },
+    headers: { Authorization: HEADER_TOKEN_REDACTED },
   },
 };
 
@@ -361,7 +362,7 @@ describe('mcp-servers routers', () => {
       name: 'redacted-only-mcp',
       auth: {
         type: 'header' as const,
-        headers: { Authorization: toRedactedSecretValue(HEADER_TOKEN) },
+        headers: { Authorization: HEADER_TOKEN_REDACTED },
       },
     };
     const response = await settingsRouter.request('/', putInit(redactedOnly));
@@ -377,7 +378,7 @@ describe('mcp-servers routers', () => {
       url: 'https://mcp.example.com/v2/mcp',
       auth: {
         type: 'header' as const,
-        headers: { Authorization: toRedactedSecretValue(HEADER_TOKEN) },
+        headers: { Authorization: HEADER_TOKEN_REDACTED },
       },
     };
     const response = await settingsRouter.request('/', putInit(keep));
@@ -387,7 +388,40 @@ describe('mcp-servers routers', () => {
         ...keep,
         auth: {
           type: 'header',
-          headers: { Authorization: toRedactedSecretValue(HEADER_TOKEN) },
+          headers: { Authorization: HEADER_TOKEN_REDACTED },
+        },
+        auth_status: { status: 'authenticated' },
+      },
+    });
+
+    const stored = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithHeaderAuth.name });
+    expect(stored?.manifest).toEqual({
+      ...putBodyWithHeaderAuth,
+      url: keep.url,
+      auth: putBodyWithHeaderAuth.auth,
+    });
+  });
+
+  it('PUT with a different redacted header value still keeps the stored secret', async () => {
+    await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
+
+    // Any value containing ***REDACTED*** is treated as keep, not only the exact GET mask.
+    const keep = {
+      ...putBodyWithHeaderAuth,
+      url: 'https://mcp.example.com/v3/mcp',
+      auth: {
+        type: 'header' as const,
+        headers: { Authorization: 'oth-***REDACTED***-xxx' },
+      },
+    };
+    const response = await settingsRouter.request('/', putInit(keep));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      data: {
+        ...keep,
+        auth: {
+          type: 'header',
+          headers: { Authorization: HEADER_TOKEN_REDACTED },
         },
         auth_status: { status: 'authenticated' },
       },
@@ -405,6 +439,7 @@ describe('mcp-servers routers', () => {
     await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
 
     const rotatedToken = 'Bearer rotated-token';
+    const rotatedTokenRedacted = 'Bea-***REDACTED***-ken';
     const rotated = {
       ...putBodyWithHeaderAuth,
       auth: {
@@ -419,7 +454,7 @@ describe('mcp-servers routers', () => {
         ...rotated,
         auth: {
           type: 'header',
-          headers: { Authorization: toRedactedSecretValue(rotatedToken) },
+          headers: { Authorization: rotatedTokenRedacted },
         },
         auth_status: { status: 'authenticated' },
       },
