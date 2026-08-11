@@ -120,7 +120,7 @@ async function resolveApiKey(req: { id?: string; type?: string; apiKey: string }
   if (existing === undefined) {
     throw new Error(`Model provider "${req.id}" not found`);
   }
-  return existing.auth.apiKey;
+  return existing.auth.apiKey ?? '';
 }
 
 async function upsertFromUi(req: {
