@@ -3,7 +3,7 @@ import type { ComponentType, CSSProperties, FC, ReactNode, SVGProps } from 'reac
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
-export type ThemePreset = 'truefoundry' | 'claude' | 'chatgpt' | 'gemini';
+export type ThemePreset = 'trueforge' | 'claude' | 'chatgpt' | 'gemini';
 
 export type SemanticTokens = {
   background: string;
