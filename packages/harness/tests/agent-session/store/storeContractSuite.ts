@@ -661,7 +661,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(asc.data.map(s => s.session_id)).toEqual(['sa', 'sb', 'sc']);
     });
 
-    it('paginates with next/previous tokens and filters by created_at bounds', async () => {
+    it('paginates with next_page_token and filters by created_at bounds', async () => {
       const store = createStore();
       await seedThreeSessions(store);
 
