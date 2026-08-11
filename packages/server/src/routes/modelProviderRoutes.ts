@@ -45,13 +45,13 @@ export const listModelProvidersRoute = createRoute({
   path: '/',
   tags: [MODEL_PROVIDERS_TAG],
   summary: 'List configured model providers',
-  description: 'All configured providers with their models. Secret fields (e.g. auth.api_key) are redacted.',
+  description: 'All configured providers with their models.',
   'x-fern-sdk-group-name': ['settings', 'modelProviders'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
       content: { 'application/json': { schema: ListModelProvidersResponseSchema } },
-      description: 'All configured model providers (secrets redacted).',
+      description: 'All configured model providers',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -83,7 +83,7 @@ export const putModelProviderRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: PutModelProviderResponseSchema } },
-      description: 'The saved provider (secrets redacted).',
+      description: 'The saved provider',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

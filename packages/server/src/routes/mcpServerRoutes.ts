@@ -76,7 +76,7 @@ export const listMcpServersRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: ListMcpServersResponseSchema } },
-      description: 'All MCP servers (header secrets redacted).',
+      description: 'All MCP servers',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -108,7 +108,7 @@ export const getMcpServerRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: GetMcpServerResponseSchema } },
-      description: 'The MCP server (header secrets redacted).',
+      description: 'The MCP server',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -136,7 +136,7 @@ export const putMcpServerRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: PutMcpServerResponseSchema } },
-      description: 'The saved MCP server with auth_status (header secrets redacted).',
+      description: 'The saved MCP server with auth_status',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
