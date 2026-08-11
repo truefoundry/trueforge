@@ -28,8 +28,8 @@ function renderForm(onAdd: (draft: CustomProviderDraft) => void | Promise<void> 
   return onAdd as ReturnType<typeof vi.fn>;
 }
 
-/** Fill the required fields with valid values (typing the Model ID auto-derives the Model name). */
-function fillValid() {
+/** The always-visible required fields (typing the Model ID auto-derives the Model name). */
+function fillVisible() {
   fireEvent.change(screen.getByPlaceholderText('local-llama'), { target: { value: 'local-llama' } });
   fireEvent.change(screen.getByPlaceholderText('http://localhost:11434/v1'), {
     target: { value: 'http://localhost:11434/v1' },
@@ -37,8 +37,28 @@ function fillValid() {
   fireEvent.change(screen.getByPlaceholderText('llama3.1:70b'), { target: { value: 'llama3.1:70b' } });
 }
 
+/** Expand the (single) model's Advanced section if it is collapsed. */
+function expandAdvanced() {
+  if (!screen.queryByPlaceholderText('128000')) {
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
+  }
+}
+
+/** Fill the required per-model limits (Context length + Max output tokens). */
+function fillLimits(contextLength = '128000', maxOutputTokens = '4096') {
+  expandAdvanced();
+  fireEvent.change(screen.getByPlaceholderText('128000'), { target: { value: contextLength } });
+  fireEvent.change(screen.getByPlaceholderText('4096'), { target: { value: maxOutputTokens } });
+}
+
+/** Everything needed for a valid submit: visible fields + required limits. */
+function fillValid() {
+  fillVisible();
+  fillLimits();
+}
+
 describe('CustomModelProviderForm', () => {
-  it('disables submit until name, base URL, and model ID are valid', () => {
+  it('enables submit once name, base URL, and model ID are valid (limits are gated on click)', () => {
     renderForm();
     const submit = screen.getByRole('button', { name: 'Add provider' });
     expect(submit).toBeDisabled();
@@ -50,6 +70,7 @@ describe('CustomModelProviderForm', () => {
     expect(submit).toBeDisabled(); // model ID still empty
 
     fireEvent.change(screen.getByPlaceholderText('llama3.1:70b'), { target: { value: 'llama3.1:70b' } });
+    // Enabled even though the collapsed limits are still empty — the click reveals them.
     expect(submit).toBeEnabled();
   });
 
@@ -70,6 +91,36 @@ describe('CustomModelProviderForm', () => {
     expect(screen.getByText('Enter a valid URL.')).toBeInTheDocument();
   });
 
+  it('does not prefill Context length or Max output tokens', () => {
+    renderForm();
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
+    expect((screen.getByPlaceholderText('128000') as HTMLInputElement).value).toBe('');
+    expect((screen.getByPlaceholderText('4096') as HTMLInputElement).value).toBe('');
+  });
+
+  it('requires both limits: submitting empty auto-expands Advanced, shows the error, and does not submit', () => {
+    const onAdd = renderForm();
+    fillVisible();
+    expect(screen.queryByPlaceholderText('128000')).not.toBeInTheDocument(); // Advanced starts collapsed
+    fireEvent.click(screen.getByRole('button', { name: 'Add provider' }));
+    // The offending model's Advanced expands and its required error appears; nothing is submitted.
+    expect(screen.getByPlaceholderText('128000')).toBeInTheDocument();
+    expect(screen.getByText(/Set the model.s context window/)).toBeInTheDocument();
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  it('keeps a newly added model clean after a failed submit attempt', () => {
+    renderForm();
+    fillVisible(); // model 1 visible-valid, limits still empty
+    fireEvent.click(screen.getByRole('button', { name: 'Add provider' })); // reveals model 1's limit errors
+    expect(screen.getByText(/Set the model.s context window/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add model' }));
+    // The freshly added (untouched) model must not inherit "required" errors from the submit attempt.
+    expect(screen.queryByText('Model ID is required.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Model name is required.')).not.toBeInTheDocument();
+  });
+
   it('treats the API key as optional and submits it empty', async () => {
     const onAdd = renderForm();
     fillValid();
@@ -81,38 +132,27 @@ describe('CustomModelProviderForm', () => {
     );
   });
 
-  it('sends context_length and max_output_tokens from the prefilled defaults', async () => {
+  it('sends the Context length and Max output tokens the user entered', async () => {
     const onAdd = renderForm();
-    fillValid();
+    fillVisible();
+    fillLimits('64000', '2048');
     fireEvent.click(screen.getByRole('button', { name: 'Add provider' }));
 
     await waitFor(() => expect(onAdd).toHaveBeenCalled());
     expect(onAdd).toHaveBeenCalledWith(
       expect.objectContaining({
-        models: [expect.objectContaining({ properties: { contextLength: 128000, maxOutputTokens: 4096 } })],
+        models: [
+          expect.objectContaining({
+            properties: expect.objectContaining({ contextLength: 64000, maxOutputTokens: 2048 }),
+          }),
+        ],
       }),
-    );
-  });
-
-  it('omits optional properties when their fields are cleared', async () => {
-    const onAdd = renderForm();
-    fillValid();
-    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
-    fireEvent.change(screen.getByPlaceholderText('128000'), { target: { value: '' } });
-    fireEvent.change(screen.getByPlaceholderText('4096'), { target: { value: '' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add provider' }));
-
-    await waitFor(() => expect(onAdd).toHaveBeenCalled());
-    // No properties key at all when everything optional is empty.
-    expect(onAdd).toHaveBeenCalledWith(
-      expect.objectContaining({ models: [{ id: 'llama3.1:70b', name: 'llama-3-1-70b' }] }),
     );
   });
 
   it('includes selected reasoning efforts in properties', async () => {
     const onAdd = renderForm();
-    fillValid();
-    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
+    fillValid(); // expands Advanced and fills the required limits
     fireEvent.click(screen.getByRole('switch', { name: /Enable reasoning effort/ }));
     fireEvent.click(screen.getByRole('button', { name: 'low' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add provider' }));
@@ -133,7 +173,7 @@ describe('CustomModelProviderForm', () => {
 
   it('requires the Model name to be a valid slug and blocks submit otherwise', () => {
     renderForm();
-    fillValid();
+    fillVisible();
     const modelName = screen.getByPlaceholderText('llama-3-1-70b');
     fireEvent.change(modelName, { target: { value: 'Bad Name' } }); // spaces + capitals
     fireEvent.blur(modelName);

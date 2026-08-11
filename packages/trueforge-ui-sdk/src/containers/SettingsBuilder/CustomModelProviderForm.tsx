@@ -37,21 +37,25 @@ type ModelRow = {
   contextLength: string;
   maxOutputTokens: string;
   idTouched?: boolean;
+  contextTouched?: boolean;
+  maxTouched?: boolean;
   // Set once the user edits the model name by hand, so auto-derive from the id stops.
   nameDirty?: boolean;
   // `id` is the upstream model_id; kept last so object-shorthand stays readable.
   id: string;
 };
 
-const DEFAULT_CONTEXT_LENGTH = '128000';
-const DEFAULT_MAX_OUTPUT_TOKENS = '4096';
+// Shown only as greyed placeholders — never prefilled, since real limits vary per model
+// and a wrong-looking default reads as "already correct".
+const PLACEHOLDER_CONTEXT_LENGTH = '128000';
+const PLACEHOLDER_MAX_OUTPUT_TOKENS = '4096';
 
 const createEmptyModelRow = (): ModelRow => ({
   id: '',
   name: '',
   advancedExpanded: false,
-  contextLength: DEFAULT_CONTEXT_LENGTH,
-  maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
+  contextLength: '',
+  maxOutputTokens: '',
 });
 
 // Flat, de-boxed input with enough contrast to read as editable: a slightly
@@ -109,7 +113,6 @@ const CustomModelProviderForm = ({
   const [models, setModels] = useState<ModelRow[]>([createEmptyModelRow()]);
   const [nameTouched, setNameTouched] = useState(false);
   const [baseUrlTouched, setBaseUrlTouched] = useState(false);
-  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const resetForm = () => {
     setName('');
@@ -118,7 +121,6 @@ const CustomModelProviderForm = ({
     setModels([createEmptyModelRow()]);
     setNameTouched(false);
     setBaseUrlTouched(false);
-    setSubmitAttempted(false);
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -128,6 +130,16 @@ const CustomModelProviderForm = ({
 
   const updateModel = (index: number, patch: Partial<ModelRow>) => {
     setModels(current => current.map((model, i) => (i === index ? { ...model, ...patch } : model)));
+  };
+
+  // On a submit attempt, reveal errors for every field that already exists. We flip
+  // per-field `touched` flags rather than keeping a single global "submitted" flag, so
+  // a model added *after* the attempt starts clean instead of showing errors for inputs
+  // the user has never touched.
+  const markAllTouched = () => {
+    setNameTouched(true);
+    setBaseUrlTouched(true);
+    setModels(current => current.map(model => ({ ...model, idTouched: true, contextTouched: true, maxTouched: true })));
   };
 
   // ── Validation (client-side; do not rely on backend errors) ──
@@ -144,7 +156,6 @@ const CustomModelProviderForm = ({
     baseUrlError = 'Base URL is required.';
   } else {
     try {
-      // eslint-disable-next-line no-new
       new URL(trimmedBaseUrl);
     } catch {
       baseUrlError = 'Enter a valid URL.';
@@ -161,14 +172,39 @@ const CustomModelProviderForm = ({
     return null;
   };
 
-  const isValid = !nameError && !baseUrlError && models.every(model => !modelIdError(model) && !modelNameError(model));
+  // Both limits are required: the harness budgets a run as input + reserved output ≤ context window.
+  const modelContextError = (model: ModelRow): string | null =>
+    parsePositiveInt(model.contextLength) == null ? 'Set the model’s context window.' : null;
+  const modelMaxOutputError = (model: ModelRow): string | null =>
+    parsePositiveInt(model.maxOutputTokens) == null ? 'Set the max output tokens.' : null;
 
-  const showNameError = (nameTouched || submitAttempted) && nameError;
-  const showBaseUrlError = (baseUrlTouched || submitAttempted) && baseUrlError;
+  // The Add-provider button gates on the always-visible fields. The collapsed per-model
+  // limits are enforced on submit — auto-expanding and focusing the first offender.
+  const visibleValid =
+    !nameError && !baseUrlError && models.every(model => !modelIdError(model) && !modelNameError(model));
+
+  const showNameError = nameTouched && nameError;
+  const showBaseUrlError = baseUrlTouched && baseUrlError;
 
   const handleSubmit = async () => {
-    setSubmitAttempted(true);
-    if (!isValid || busy) return;
+    markAllTouched();
+    if (!visibleValid || busy) return;
+
+    // A required per-model limit is missing: reveal it rather than silently blocking.
+    // Expand that model's Advanced section, then scroll to and focus the first empty field.
+    const incompleteIndex = models.findIndex(model => modelContextError(model) || modelMaxOutputError(model));
+    if (incompleteIndex !== -1) {
+      updateModel(incompleteIndex, { advancedExpanded: true });
+      const target = models[incompleteIndex];
+      const field = target && modelContextError(target) ? 'context-length' : 'max-output-tokens';
+      setTimeout(() => {
+        const el = document.getElementById(`custom-provider-model-${incompleteIndex}-${field}`);
+        el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        (el as HTMLInputElement | null)?.focus();
+      }, 0);
+      return;
+    }
+
     try {
       await onAdd({
         name: trimmedName,
@@ -277,11 +313,15 @@ const CustomModelProviderForm = ({
             <div className="clear-both">
               {models.map((model, index) => {
                 const idError = modelIdError(model);
-                const showIdError = (model.idTouched || submitAttempted) && idError;
+                const showIdError = model.idTouched && idError;
                 const nameFieldError = modelNameError(model);
                 // Surface auto-derived name problems too: editing the Model ID (idTouched)
                 // can produce an empty/invalid slug the user never typed directly.
-                const showNameFieldError = (model.idTouched || model.nameDirty || submitAttempted) && nameFieldError;
+                const showNameFieldError = (model.idTouched || model.nameDirty) && nameFieldError;
+                const contextError = modelContextError(model);
+                const maxError = modelMaxOutputError(model);
+                const showContextError = model.contextTouched && contextError;
+                const showMaxError = model.maxTouched && maxError;
                 return (
                   <div
                     key={index}
@@ -435,6 +475,7 @@ const CustomModelProviderForm = ({
                               className="mb-1.5 block text-xs font-medium text-muted-foreground"
                             >
                               Context length
+                              <RequiredMark />
                             </label>
                             <input
                               id={`custom-provider-model-${index}-context-length`}
@@ -443,10 +484,16 @@ const CustomModelProviderForm = ({
                               inputMode="numeric"
                               value={model.contextLength}
                               onChange={event => updateModel(index, { contextLength: event.target.value })}
-                              placeholder={DEFAULT_CONTEXT_LENGTH}
-                              className={inputClassName}
+                              onBlur={() => updateModel(index, { contextTouched: true })}
+                              placeholder={PLACEHOLDER_CONTEXT_LENGTH}
+                              aria-invalid={showContextError ? true : undefined}
+                              className={cn(inputClassName, showContextError && inputErrorClassName)}
                             />
-                            <FieldHelp>Prevents the context window from overflowing during a run.</FieldHelp>
+                            {showContextError ? (
+                              <FieldError>{contextError}</FieldError>
+                            ) : (
+                              <FieldHelp>Prevents the context window from overflowing during a run.</FieldHelp>
+                            )}
                           </div>
 
                           <div>
@@ -455,6 +502,7 @@ const CustomModelProviderForm = ({
                               className="mb-1.5 block text-xs font-medium text-muted-foreground"
                             >
                               Max output tokens
+                              <RequiredMark />
                             </label>
                             <input
                               id={`custom-provider-model-${index}-max-output-tokens`}
@@ -463,10 +511,16 @@ const CustomModelProviderForm = ({
                               inputMode="numeric"
                               value={model.maxOutputTokens}
                               onChange={event => updateModel(index, { maxOutputTokens: event.target.value })}
-                              placeholder={DEFAULT_MAX_OUTPUT_TOKENS}
-                              className={inputClassName}
+                              onBlur={() => updateModel(index, { maxTouched: true })}
+                              placeholder={PLACEHOLDER_MAX_OUTPUT_TOKENS}
+                              aria-invalid={showMaxError ? true : undefined}
+                              className={cn(inputClassName, showMaxError && inputErrorClassName)}
                             />
-                            <FieldHelp>Caps tokens per model call.</FieldHelp>
+                            {showMaxError ? (
+                              <FieldError>{maxError}</FieldError>
+                            ) : (
+                              <FieldHelp>Caps tokens per model call.</FieldHelp>
+                            )}
                           </div>
                         </div>
                       ) : null}
@@ -491,7 +545,7 @@ const CustomModelProviderForm = ({
 
         {/* Sticky footer */}
         <div className="shrink-0 border-t border-border px-5 py-4">
-          <Button type="submit" size="lg" disabled={!isValid || busy} className="w-full">
+          <Button type="submit" size="lg" disabled={!visibleValid || busy} className="w-full">
             Add provider
           </Button>
         </div>
