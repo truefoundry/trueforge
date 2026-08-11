@@ -93,9 +93,14 @@ export function toHarnessModelProvider(req: {
     if (baseUrl === undefined) {
       throw new Error(`Model providers of type "${req.type}" require a base URL`);
     }
-    // Blank form field is ""; custom must omit the key on the wire (empty string is rejected).
-    const auth = req.apiKey === '' ? {} : { apiKey: req.apiKey };
-    return { type: req.type, name: req.name, auth, models, baseUrl };
+    // Blank form field is ""; custom must omit auth on the wire (empty string is rejected).
+    return {
+      type: req.type,
+      name: req.name,
+      models,
+      baseUrl,
+      ...(req.apiKey === '' ? {} : { auth: { apiKey: req.apiKey } }),
+    };
   }
   const auth = { apiKey: req.apiKey };
   if (baseUrl !== undefined) {
@@ -110,7 +115,7 @@ async function resolveApiKey(req: { id?: string; type?: string; apiKey: string }
     return trimmed;
   }
   if (req.id === undefined) {
-    // Create with a blank key: allow only for custom; "" is mapped to auth:{} below.
+    // Create with a blank key: allow only for custom; "" is mapped to omitted auth below.
     if (req.type === 'custom') {
       return '';
     }
@@ -122,7 +127,7 @@ async function resolveApiKey(req: { id?: string; type?: string; apiKey: string }
   if (existing === undefined) {
     throw new Error(`Model provider "${req.id}" not found`);
   }
-  return existing.auth.apiKey ?? '';
+  return existing.auth?.apiKey ?? '';
 }
 
 async function upsertFromUi(req: {

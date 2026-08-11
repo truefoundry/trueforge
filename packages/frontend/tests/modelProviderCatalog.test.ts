@@ -172,7 +172,6 @@ describe('modelProviderCatalog mappers', () => {
       {
         type: 'custom',
         name: 'local-llama',
-        auth: {},
         baseUrl: 'http://127.0.0.1:11434/v1',
         models: [
           {

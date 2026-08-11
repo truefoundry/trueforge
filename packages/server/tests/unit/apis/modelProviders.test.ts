@@ -141,7 +141,7 @@ describe('settings model-providers and models routers', () => {
   });
 });
 
-describe('custom providers may omit api_key', () => {
+describe('custom providers may omit auth', () => {
   const model = {
     model_id: 'llama',
     name: 'llama',
@@ -149,31 +149,29 @@ describe('custom providers may omit api_key', () => {
   };
 
   it.each([
-    { label: 'auth {}', auth: {}, storedAuth: {}, name: 'llama-no-key' },
+    { label: 'auth omitted', auth: undefined, name: 'llama-no-key' },
     {
       label: 'auth set api_key',
       auth: { api_key: 'qwerty' },
-      storedAuth: { api_key: 'qwerty' },
       name: 'llama-with-key',
     },
-  ])('PUT stores and lists custom provider with $label', async ({ auth, storedAuth, name }) => {
+  ])('PUT stores and lists custom provider with $label', async ({ auth, name }) => {
     const { settingsRouter } = await createRouters();
     const body = {
       type: 'custom' as const,
       name,
       base_url: 'http://localhost:11434/v1',
-      auth,
       models: [model],
+      ...(auth === undefined ? {} : { auth }),
     };
-    const stored = { ...body, auth: storedAuth };
 
     const put = await settingsRouter.request('/model-providers', putInit(body));
     expect(put.status).toBe(200);
-    expect(await put.json()).toEqual({ data: stored });
+    expect(await put.json()).toEqual({ data: body });
 
     const list = await settingsRouter.request('/model-providers');
     expect(list.status).toBe(200);
-    expect(await list.json()).toEqual({ data: [stored] });
+    expect(await list.json()).toEqual({ data: [body] });
   });
 
   it('rejects empty api_key', async () => {
@@ -185,6 +183,21 @@ describe('custom providers may omit api_key', () => {
         name: 'llama-empty-key',
         base_url: 'http://localhost:11434/v1',
         auth: { api_key: '' },
+        models: [model],
+      }),
+    );
+    expect(put.status).toBe(400);
+  });
+
+  it('rejects auth without api_key', async () => {
+    const { settingsRouter } = await createRouters();
+    const put = await settingsRouter.request(
+      '/model-providers',
+      putInit({
+        type: 'custom',
+        name: 'llama-empty-auth',
+        base_url: 'http://localhost:11434/v1',
+        auth: {},
         models: [model],
       }),
     );
