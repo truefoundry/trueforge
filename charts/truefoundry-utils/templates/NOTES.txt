@@ -15,7 +15,7 @@ Redis:    {{ if .Values.redis.enabled }}bundled{{- else }}external (Secret or ur
 
 {{- if not .Values.server.publicBaseUrl }}
 
-NOTE: server.publicBaseUrl is empty. MCP OAuth and OIDC callbacks will fail until you set it to the public origin (e.g. https://truefoundry-utils.example.com).
+WARNING: server.publicBaseUrl is empty. MCP OAuth and OIDC callbacks will fail until you set it to the public origin (e.g. https://truefoundry-utils.example.com).
 {{- end }}
 
 {{- if and (not .Values.postgresql.enabled) (not .Values.externalPostgres.host) }}

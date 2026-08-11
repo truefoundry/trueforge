@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Hosts no longer need `@import '@truefoundry/trueforge-ui/styles.css'` (export
   kept for SSR). Semantic tokens and dark mode are scoped to `.aui-theme-root`
   (no `html.dark` / `:root` retheme of the host page).
+- **Dependency** — `@truefoundry/assistant-ui-runtime` pinned to `0.1.12`.
 
 ### Fixed
 
@@ -27,6 +28,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking
 
+- **Server-port types owned by `@truefoundry/assistant-ui-runtime`** — this package no
+  longer defines `AgentChatServer` / `AgentBuilderServer` / catalog DTOs locally.
+  Host-facing types are re-exported from `@truefoundry/assistant-ui-runtime/server`
+  via `src/server/types.ts`. Prefer importing types from `@truefoundry/trueforge-ui`
+  (hosts should not need the runtime package for types). Requires runtime `0.1.12`.
+- **Removed public pagination helpers** — `PageResult`, `TokenPagination`,
+  `ListSessionsResponse`, `ListTurnsResponse`, `ListSessionEventsResponse`, and
+  opaque `SessionEvent` are gone from this package. Chat list APIs use runtime
+  `ListResult<T>` (`{ data, nextPageToken? }`).
+- **`AgentUIServer` / mounts follow the runtime contract** — composed port matches
+  runtime `AgentUIServerPort`; `SkillMount` / `McpServerMount` stay opaque `object`
+  (hosts widen via generics). Implement `getCapabilities()` on every builder host.
 - **`ShellMode` shape** — replaced `type: 'idle' | 'named' | 'draft'` with
   `status: 'idle' | 'active'` plus `isMutable` on active bindings. Composer /
   Save Agent / welcome chrome key off `isMutable`, not draft|named.

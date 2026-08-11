@@ -1,17 +1,29 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 
 import { auiButtonClass } from '@/atoms/lib/buttonClasses.js';
 import { cn } from '@/atoms/lib/cn.js';
 import { useCompactLayout } from '@/atoms/lib/CompactLayoutContext.js';
+import { Spinner } from '@/atoms/primitives/Spinner.js';
 import { Icon } from '@/icons/Icon.js';
 import { useOptionalCatalogServer } from '@/server/ServerContext.js';
 import { useShellMode } from '@/server/ShellModeContext.js';
-import ConnectorSettings from './ConnectorSettings.js';
-import ModelSettings from './ModelSettings.js';
-import SandboxSettings from './SandboxSettings.js';
-import SkillSettings from './SkillSettings.js';
+
+// Section modules (and their list/catalog APIs) load only when that tab mounts.
+const ModelSettings = lazy(() => import('./ModelSettings.js'));
+const ConnectorSettings = lazy(() => import('./ConnectorSettings.js'));
+const SkillSettings = lazy(() => import('./SkillSettings.js'));
+const SandboxSettings = lazy(() => import('./SandboxSettings.js'));
+
+function SettingsSectionFallback() {
+  return (
+    <div className="flex flex-1 items-center justify-center py-8" role="status" aria-live="polite" aria-busy="true">
+      <Spinner size={20} className="text-muted-foreground" />
+      <span className="sr-only">Loading</span>
+    </div>
+  );
+}
 
 type SettingsSection = 'models' | 'connectors' | 'skills' | 'sandbox';
 
@@ -121,10 +133,12 @@ const TruefoundrySettingsBuilder = () => {
         </nav>
 
         <section className="flex h-full flex-1 flex-col overflow-y-hidden px-6 py-4">
-          {section === 'models' && <ModelSettings />}
-          {section === 'connectors' && <ConnectorSettings />}
-          {section === 'skills' && hasSkills ? <SkillSettings /> : null}
-          {section === 'sandbox' && hasSandbox ? <SandboxSettings /> : null}
+          <Suspense fallback={<SettingsSectionFallback />}>
+            {section === 'models' ? <ModelSettings /> : null}
+            {section === 'connectors' ? <ConnectorSettings /> : null}
+            {section === 'skills' && hasSkills ? <SkillSettings /> : null}
+            {section === 'sandbox' && hasSandbox ? <SandboxSettings /> : null}
+          </Suspense>
         </section>
       </div>
     </div>

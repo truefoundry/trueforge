@@ -33,3 +33,17 @@ export function uniqueNames(entries: { name: string }[], ctx: z.RefinementCtx): 
     seen.add(entry.name);
   }
 }
+
+/** Adds a validation issue if two entries share a type. */
+export function uniqueTypes(entries: { type: string }[], ctx: z.RefinementCtx): void {
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (seen.has(entry.type)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `Duplicate type "${entry.type}" — types must be unique`,
+      });
+    }
+    seen.add(entry.type);
+  }
+}

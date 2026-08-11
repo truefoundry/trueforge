@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
@@ -59,17 +59,12 @@ export function CenteredModal({
     return () => el.removeEventListener('close', handler);
   }, [onOpenChange]);
 
-  const handleBackdropClick = (e: MouseEvent<HTMLDialogElement>) => {
-    if (e.target === ref.current) onOpenChange(false);
-  };
-
   return (
     <dialog
       ref={ref}
       aria-label={ariaLabel ?? title}
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
-      onClick={handleBackdropClick}
       onCancel={event => {
         event.preventDefault();
         event.stopPropagation();
@@ -78,7 +73,6 @@ export function CenteredModal({
       style={compactStyle ?? (contentSized ? { height: 'fit-content', maxHeight: '85dvh' } : undefined)}
       className={cn(
         'bg-background text-foreground border-border open:flex open:flex-col overflow-hidden p-0 shadow-xl',
-        'backdrop:bg-black/40 backdrop:backdrop-blur-[2px]',
         compact
           ? 'm-0 mt-auto max-w-none rounded-t-xl rounded-b-none border-t pb-[env(safe-area-inset-bottom)]'
           : contentSized
