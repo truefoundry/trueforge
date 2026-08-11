@@ -61,6 +61,16 @@ const ModelProviderAuthSchema = z
   .strict()
   .openapi('ModelProviderAuth');
 
+const CustomModelProviderAuthSchema = z
+  .object({
+    api_key: z
+      .string()
+      .optional()
+      .describe('API key used to authenticate with the provider. Omit for unauthenticated endpoints.'),
+  })
+  .strict()
+  .openapi('CustomModelProviderAuth');
+
 const ModelProviderManifestBaseSchema = z
   .object({
     auth: ModelProviderAuthSchema.describe('Provider authentication credentials.'),
@@ -131,6 +141,7 @@ const CustomModelProviderSchema = ModelProviderManifestBaseSchema.extend({
   type: z.literal('custom'),
   name: NameSchema,
   base_url: z.url().describe("Base URL of the provider's API."),
+  auth: CustomModelProviderAuthSchema.describe('Provider authentication credentials.'),
 })
   .strict()
   .openapi('CustomModelProvider');

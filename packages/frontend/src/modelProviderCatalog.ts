@@ -102,14 +102,19 @@ export function toHarnessModelProvider(req: {
   return { type: req.type, auth, models };
 }
 
-async function resolveApiKey(req: { id?: string; apiKey: string }): Promise<string> {
+async function resolveApiKey(req: { id?: string; type?: string; apiKey: string }): Promise<string> {
   const trimmed = req.apiKey.trim();
   if (trimmed !== '') {
     return trimmed;
   }
+  // Only custom create may omit the key (local endpoints that need no auth).
   if (req.id === undefined) {
+    if (req.type === 'custom') {
+      return '';
+    }
     throw new Error('API key is required');
   }
+  // Update with empty means keep the stored key.
   const listed = await client.settings.modelProviders.list();
   const existing = listed.data.find(provider => toUiModelProvider(provider).id === req.id);
   if (existing === undefined) {
@@ -155,7 +160,7 @@ export function createModelProviderCatalog(): ModelCatalogServer<
       return body.data.map(toUiModelProvider);
     },
     createModelProvider: async req => {
-      const apiKey = await resolveApiKey({ apiKey: req.apiKey });
+      const apiKey = await resolveApiKey({ type: req.type, apiKey: req.apiKey });
       return upsertFromUi({
         type: req.type,
         name: req.name,
@@ -166,7 +171,7 @@ export function createModelProviderCatalog(): ModelCatalogServer<
     },
     updateModelProvider: async req => {
       // UI sends apiKey: "" when only models change; reuse the stored key.
-      const apiKey = await resolveApiKey({ id: req.id, apiKey: req.apiKey });
+      const apiKey = await resolveApiKey({ id: req.id, type: req.type, apiKey: req.apiKey });
       return upsertFromUi({
         type: req.type,
         name: req.id,

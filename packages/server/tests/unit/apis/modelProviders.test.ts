@@ -141,6 +141,37 @@ describe('settings model-providers and models routers', () => {
   });
 });
 
+describe('custom providers may omit api_key', () => {
+  const model = {
+    model_id: 'llama',
+    name: 'llama',
+    properties: { reasoning_efforts: ['minimal', 'low'] },
+  };
+
+  it.each([
+    { label: 'auth {}', auth: {}, name: 'llama-no-key' },
+    { label: 'auth empty api_key', auth: { api_key: '' }, name: 'llama-empty-key' },
+    { label: 'auth set api_key', auth: { api_key: 'qwerty' }, name: 'llama-with-key' },
+  ])('PUT stores and lists custom provider with $label', async ({ auth, name }) => {
+    const { settingsRouter } = await createRouters();
+    const body = {
+      type: 'custom' as const,
+      name,
+      base_url: 'http://localhost:11434/v1',
+      auth,
+      models: [model],
+    };
+
+    const put = await settingsRouter.request('/model-providers', putInit(body));
+    expect(put.status).toBe(200);
+    expect(await put.json()).toEqual({ data: body });
+
+    const list = await settingsRouter.request('/model-providers');
+    expect(list.status).toBe(200);
+    expect(await list.json()).toEqual({ data: [body] });
+  });
+});
+
 describe('well-known types are limited to one provider', () => {
   it('PUT replaces the configured provider instead of adding a second of the type', async () => {
     const { settingsRouter, modelsRouter } = await createRouters();
