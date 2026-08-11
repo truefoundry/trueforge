@@ -209,3 +209,38 @@ export const EDITABLE_TOKEN_GROUPS: ReadonlyArray<{
 export const EDITABLE_TOKEN_KEYS: ReadonlyArray<keyof SemanticTokens> = EDITABLE_TOKEN_GROUPS.flatMap(
   group => group.keys,
 );
+
+/**
+ * Short designer copy for the token editor: what to look at when changing a color.
+ * Keys match `EDITABLE_TOKEN_KEYS`.
+ */
+export const TOKEN_DESCRIPTIONS: Record<(typeof EDITABLE_TOKEN_KEYS)[number], string> = {
+  background: 'App canvas — thread shell, settings pages, and layout panels.',
+  foreground: 'Default body text and icons across the UI.',
+  card: 'Raised panels — Agent steps card, settings sections, and the composer surface.',
+  cardForeground: 'Text and icons drawn on card surfaces.',
+  popover: 'Floating menus — dropdowns, model/reasoning selectors, and bottom sheets.',
+  popoverForeground: 'Text inside popovers and menus.',
+  primary: 'Primary buttons and brand accents (welcome glow, sandbox headers, ask-user prompts).',
+  primaryForeground: 'Text and icons on primary buttons and primary fills.',
+  secondary: 'Secondary buttons and soft fills in settings subsections.',
+  secondaryForeground: 'Text on secondary buttons and fills.',
+  accent: 'Hover and selected highlights — thread list rows, menu items, ghost buttons.',
+  accentForeground: 'Text on accent / hover highlights.',
+  ring: 'Focus rings on the composer, inputs, and other interactive controls.',
+  muted: 'Soft chip/badge backgrounds — model pills, selected rows, inline code.',
+  mutedForeground: 'Secondary labels, captions, placeholders, and tool-step metadata.',
+  destructive: 'Errors and deny/fail states — MessageErrorBanner, destructive buttons, OAuth errors.',
+  destructiveForeground: 'Text on destructive buttons and fills.',
+  success: 'Success icons and badges — sandbox exit codes, OAuth success, tool approval.',
+  successForeground: 'Text on success fills.',
+  warning: 'In-progress accents — running status dots on agent steps.',
+  warningForeground: 'Text on warning fills.',
+  border: 'Dividers and outlines on cards, panels, and section separators.',
+  input: 'Borders on text fields, selects, and outline buttons.',
+  userBubble: 'User message bubble background.',
+  userBubbleForeground: 'Text inside the user message bubble.',
+  assistantBubble: 'Assistant message bubble background (often transparent).',
+  assistantBubbleForeground: 'Text inside the assistant message bubble.',
+  scrollbarThumb: 'Scrollbar thumb in scrollable panels (thread list, message list, menus).',
+};

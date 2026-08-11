@@ -8,6 +8,7 @@ import {
   EDITABLE_TOKEN_GROUPS,
   EDITABLE_TOKEN_KEYS,
   TOKEN_CSS_VARS,
+  TOKEN_DESCRIPTIONS,
   type SemanticTokens,
   type TokenOverrides,
 } from '../theme/types.js';
@@ -44,28 +45,36 @@ function TokenRow({
   value,
   onChange,
 }: {
-  tokenKey: keyof SemanticTokens;
+  tokenKey: (typeof EDITABLE_TOKEN_KEYS)[number];
   value: string;
   onChange: (next: string) => void;
 }) {
   const cssVar = TOKEN_CSS_VARS[tokenKey];
+  const description = TOKEN_DESCRIPTIONS[tokenKey];
   return (
-    <div className="flex items-center gap-2 py-1">
-      <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">{cssVar}</span>
-      <span aria-hidden className="size-6 shrink-0 rounded border border-border" style={{ backgroundColor: value }} />
+    <div className="flex items-start gap-2 border-b border-border/50 py-2.5 last:border-b-0">
+      <div className="min-w-0 flex-1">
+        <div className="font-mono text-xs text-foreground">{cssVar}</div>
+        <p className="mt-0.5 text-[0.6875rem] leading-snug text-muted-foreground">{description}</p>
+      </div>
+      <span
+        aria-hidden
+        className="mt-0.5 size-6 shrink-0 rounded border border-border"
+        style={{ backgroundColor: value }}
+      />
       <input
         type="color"
         aria-label={`${cssVar} color picker`}
         value={toColorInputValue(value)}
         onChange={event => onChange(event.target.value)}
-        className="size-8 shrink-0 cursor-pointer rounded border border-input bg-background p-0.5"
+        className="mt-0.5 size-8 shrink-0 cursor-pointer rounded border border-input bg-background p-0.5"
       />
       <input
         type="text"
         aria-label={cssVar}
         value={value}
         onChange={event => onChange(event.target.value)}
-        className={auiInputClass('h-8 w-28 font-mono text-xs')}
+        className={auiInputClass('mt-0.5 h-8 w-28 font-mono text-xs')}
       />
     </div>
   );
@@ -107,7 +116,7 @@ export function TokenEditorModal({ open, onOpenChange }: { open: boolean; onOpen
       open={open}
       onOpenChange={onOpenChange}
       title="Tokens (For Dev)"
-      description="Edit the semantic color palette and apply it live. Persists to this browser only."
+      description="Edit semantic colors and apply them live. Each swatch notes which UI to check. Persists in this browser only."
       headerIcon={<Icon name="palette" className="text-muted-foreground" />}
       contentSized
     >

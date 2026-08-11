@@ -75,6 +75,8 @@ describe('TokenEditorModal', () => {
 
     const backgroundInput = screen.getByLabelText('--background');
     expect(backgroundInput).toHaveValue('#ffffff');
+    expect(screen.getByText(/App canvas/)).toBeInTheDocument();
+    expect(screen.getByText(/Agent steps card/)).toBeInTheDocument();
 
     const primaryInput = screen.getByLabelText('--primary');
     expect(primaryInput).toHaveValue('#09090b');
