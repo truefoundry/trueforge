@@ -93,6 +93,9 @@ export default defineConfig(
     files: ['packages/frontend/*.{ts,mts,cts}', 'packages/frontend/*.config.ts'],
     extends: [js.configs.recommended, tseslint.configs.recommended],
     languageOptions: {
+      parserOptions: {
+        tsconfigRootDir: import.meta.dirname,
+      },
       globals: {
         console: 'readonly',
         process: 'readonly',
@@ -104,6 +107,9 @@ export default defineConfig(
     files: ['**/*.{js,mjs,cjs}'],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: {
+      parserOptions: {
+        tsconfigRootDir: import.meta.dirname,
+      },
       // Flat config does not support /* eslint-env node */; Node scripts and CJS configs need Node globals.
       globals: {
         module: 'readonly',

@@ -6,7 +6,7 @@ import { MCP_AUTH_POPUP_CHANNEL, type McpAuthPopupMessage } from '../../hooks/us
 import { Icon } from '../../icons/Icon.js';
 
 const BROADCAST_RETRY_DELAY_MS = 1000;
-const WINDOW_CLOSE_DELAY_MS = 2000;
+const WINDOW_CLOSE_DELAY_MS = 5000;
 
 const PostMcpOauthScreen = () => {
   const [result, setResult] = useState<McpAuthPopupMessage | null>();

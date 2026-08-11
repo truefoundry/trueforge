@@ -166,7 +166,7 @@ extraObjects:
 | `replicaCount`        | `1`                                 | Number of server replicas.            |
 | `image.repository`    | `tfy.jfrog.io/tfy-images/truefoundry-utils` | Image repository.                     |
 | `image.tag`           | chart `appVersion`                  | Image tag; stamped on release.        |
-| `server.publicBaseUrl`| `""`                                | Public origin for OAuth/OIDC callbacks. |
+| `server.publicBaseUrl`| `""`                                | Public origin for OAuth/OIDC callbacks (optional; required for MCP OAuth / OIDC). |
 | `postgresql.enabled`  | `true`                              | Bundle the Bitnami Postgres subchart. |
 | `redis.enabled`       | `true`                              | Bundle the Bitnami Redis subchart.    |
 | `service.type`        | `ClusterIP`                         | Service type.                         |

@@ -4,7 +4,7 @@ import type {
   OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { McpConnectionError } from '@truefoundry/utils-core/core';
-import configuration from '../../config';
+import { getPublicBaseUrl } from '../../config';
 import type { OAuthClientCredentials, OAuthServerMetadata, OAuthToken } from './types';
 
 /** Fixed OAuth callback path for every MCP server. */
@@ -15,11 +15,12 @@ export const DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS = 3600;
 
 /** Builds the server-owned MCP OAuth callback URL. */
 export function mcpOAuthCallbackUrl(): string {
-  const publicBaseUrl = configuration.PUBLIC_BASE_URL;
-  if (publicBaseUrl === '') {
+  try {
+    const publicBaseUrl = getPublicBaseUrl();
+    return `${publicBaseUrl}${MCP_OAUTH_CALLBACK_PATH}`;
+  } catch {
     throw new McpConnectionError('PUBLIC_BASE_URL is required for MCP OAuth registration but was empty', 500);
   }
-  return `${publicBaseUrl}${MCP_OAUTH_CALLBACK_PATH}`;
 }
 
 /** Uses form-body client authentication when a secret is present. */

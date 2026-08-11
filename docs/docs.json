@@ -94,7 +94,7 @@
             "group": "Guides",
             "pages": [
               "ui-sdk/guides/layouts",
-              "ui-sdk/guides/theming",
+              "ui-sdk/guides/layouts-and-theme",
               "ui-sdk/guides/agent-modes",
               {
                 "group": "Setup Custom UI",

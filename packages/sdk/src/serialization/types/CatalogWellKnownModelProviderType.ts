@@ -4,9 +4,9 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const CatalogProviderType: core.serialization.Schema<
-    serializers.CatalogProviderType.Raw,
-    TrueForge.CatalogProviderType
+export const CatalogWellKnownModelProviderType: core.serialization.Schema<
+    serializers.CatalogWellKnownModelProviderType.Raw,
+    TrueForge.CatalogWellKnownModelProviderType
 > = core.serialization.enum_([
     "openai",
     "anthropic",
@@ -18,7 +18,7 @@ export const CatalogProviderType: core.serialization.Schema<
     "together",
 ]);
 
-export declare namespace CatalogProviderType {
+export declare namespace CatalogWellKnownModelProviderType {
     export type Raw =
         | "openai"
         | "anthropic"

@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import configuration from '../config';
+import { getPublicBaseUrl } from '../config';
 
 export const OAUTH_STATE_COOKIE = 'oauth_state';
 export const ID_TOKEN_COOKIE = 'id_token';
@@ -15,16 +15,23 @@ const OAuthStateSchema = z.object({
 
 export type OAuthState = z.infer<typeof OAuthStateSchema>;
 
-const AUTH_COOKIE_ATTRIBUTES = {
-  httpOnly: true,
-  sameSite: 'Lax' as const,
-  secure: configuration.PUBLIC_BASE_URL.startsWith('https://'),
-  path: '/',
-};
+function getAuthCookieAttributes(): {
+  httpOnly: boolean;
+  sameSite: 'Lax' | 'Strict' | 'None';
+  secure: boolean;
+  path: string;
+} {
+  return {
+    httpOnly: true,
+    sameSite: 'Lax' as const,
+    secure: getPublicBaseUrl().startsWith('https://'),
+    path: '/',
+  };
+}
 
 export function setAuthCookie(params: { context: Context; name: string; value: string; maxAgeSeconds: number }): void {
   setCookie(params.context, params.name, params.value, {
-    ...AUTH_COOKIE_ATTRIBUTES,
+    ...getAuthCookieAttributes(),
     maxAge: params.maxAgeSeconds,
   });
 }
@@ -51,7 +58,7 @@ export function readOAuthStateCookie(params: { context: Context; logger: Logger 
 }
 
 export function clearAuthCookie(params: { context: Context; name: string }): void {
-  deleteCookie(params.context, params.name, AUTH_COOKIE_ATTRIBUTES);
+  deleteCookie(params.context, params.name, getAuthCookieAttributes());
 }
 
 export function readIdTokenCookie(params: { context: Context }): string | undefined {

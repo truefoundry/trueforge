@@ -1,14 +1,11 @@
 /**
  * Harness `AgentUIServer` adapter for @truefoundry/trueforge-ui.
  *
- * The SDK still declares the pre-0.1.6 server contract — mounts carry `id`,
- * list results are `PageResult`, and absent values are `undefined` — while the
- * runtime it delegates to reads `nextPageToken` and tolerates `null`. Harness
- * matches neither exactly: it keys mounts by name and returns `null`. The maps
- * below produce values valid under both contracts at once.
+ * Runtime contract: opaque mounts (`object`), flat `ListResult` (`data` +
+ * `nextPageToken`), and `null` normalized to absent. Harness keys MCP mounts by
+ * name and returns `null` for optional fields — the maps below bridge both.
  *
- * Skills are name refs on the wire (`SkillNameRef`); the UI SkillMount only
- * needs `{ id, name }`, so id is derived as the skill name.
+ * Skills are name refs on the wire (`SkillNameRef`).
  *
  * Session create takes `{ name }` or `{ spec }`; reads carry the
  * `reference`/`inline` discriminator, with reference rows already naming their
@@ -17,21 +14,18 @@
 import type {
   AgentChatServer,
   AgentSpec,
-  McpServerMount,
-  PageResult,
+  ListResult,
   Session,
-  SessionEvent,
   SessionEventItem,
-  SkillMount,
-  TokenPagination,
   Turn,
   TurnInputItem,
   UserMessageContent,
 } from '@truefoundry/trueforge-ui';
 import type { TrueForgeApi } from 'trueforge-sdk';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
-export type HarnessSkillMount = SkillMount;
-export type HarnessMcpServerMount = McpServerMount & TrueForgeApi.McpServer;
+
+export type HarnessSkillMount = TrueForgeApi.SkillNameRef;
+export type HarnessMcpServerMount = TrueForgeApi.McpServer;
 
 export interface HarnessAgentSpec extends AgentSpec<
   TrueForgeApi.AgentSpecModel,
@@ -46,17 +40,15 @@ export interface HarnessAgentSpec extends AgentSpec<
 
 export type CreateHarnessServerOptions = CreateHarnessClientOptions;
 
-/** Mount ids are derived, not stored: Harness returns MCP servers keyed by name. */
 function toUiMcpServer(server: TrueForgeApi.McpServer): HarnessMcpServerMount {
-  return { ...server, id: server.name };
+  return server;
 }
 
-/** Skill ids are derived from the name ref Harness persists. */
 function toUiSkill(skill: TrueForgeApi.SkillNameRef): HarnessSkillMount {
-  return { id: skill.name, name: skill.name };
+  return { name: skill.name };
 }
 
-/** Strip UI-only `id` before admission; Harness skills are name refs only. */
+/** Drop UI draft `id` before admission; Harness MCP mounts are name-keyed. */
 export function toHarnessAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSpec {
   const { skills, mcpServers, ...rest } = spec;
   return {
@@ -65,9 +57,13 @@ export function toHarnessAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSp
       ? {}
       : {
           mcpServers: mcpServers.map(server => {
-            const { id, ...mount } = server;
-            void id;
-            return mount;
+            // Draft picker may round-trip mounts as `{ id, name, ... }`; strip UI-only `id`.
+            if ('id' in server) {
+              const { id, ...mount } = server;
+              void id;
+              return mount;
+            }
+            return server;
           }),
         }),
     ...(skills === undefined ? {} : { skills: skills.map(({ name }) => ({ name })) }),
@@ -123,35 +119,24 @@ function toUiTurn(turn: TrueForgeApi.Turn): Turn {
   };
 }
 
-function toUiEvent(event: TrueForgeApi.SessionEvent | TrueForgeApi.TurnStreamingEvent): SessionEvent {
-  return { ...event };
-}
-
 function toUiEventItem(item: TrueForgeApi.SessionEventItem): SessionEventItem {
-  return { turnId: item.turnId, event: toUiEvent(item.event) };
+  return { turnId: item.turnId, event: { ...item.event } };
 }
 
 interface HarnessPageSource<T> {
   data: T[];
   response: { pagination: TrueForgeApi.TokenPagination };
-  getNextPage(): Promise<HarnessPageSource<T>>;
 }
 
-/** Carries `nextPageToken` for the runtime alongside the `PageResult` shape the SDK types demand. */
-type HarnessPage<T> = PageResult<T, { data: T[]; pagination: TokenPagination }> & { nextPageToken?: string };
-
-function toPage<TSource, TResult>(
+function toListResult<TSource, TResult>(
   page: HarnessPageSource<TSource>,
   map: (item: TSource) => TResult,
-): HarnessPage<TResult> {
+): ListResult<TResult> {
   const data = page.data.map(map);
-  const { pagination } = page.response;
+  const token = page.response.pagination.nextPageToken;
   return {
     data,
-    response: { data, pagination },
-    hasNextPage: () => pagination.nextPageToken !== undefined,
-    getNextPage: async () => toPage(await page.getNextPage(), map),
-    ...(pagination.nextPageToken === undefined ? {} : { nextPageToken: pagination.nextPageToken }),
+    ...(token === undefined ? {} : { nextPageToken: token }),
   };
 }
 
@@ -213,7 +198,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
         ...(request.pageToken === undefined ? {} : { pageToken: request.pageToken }),
         ...(request.agentId === undefined || request.agentId.length === 0 ? {} : { agentId: request.agentId }),
       });
-      return toPage(page, toUiSession);
+      return toListResult(page, toUiSession);
     },
 
     async getSession({ sessionId }) {
@@ -246,7 +231,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
       for await (const item of stream.withMetadata()) {
         yield {
           sequenceNumber: sequenceNumber(item.id, fallbackSequence),
-          event: toUiEvent(item.data),
+          event: { ...item.data },
         };
         fallbackSequence += 1;
       }
@@ -269,7 +254,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
       for await (const item of stream.withMetadata()) {
         yield {
           sequenceNumber: sequenceNumber(item.id, fallbackSequence),
-          event: toUiEvent(item.data),
+          event: { ...item.data },
         };
         fallbackSequence += 1;
       }
@@ -284,7 +269,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
         ...(limit === undefined ? {} : { limit }),
         ...(pageToken === undefined ? {} : { pageToken }),
       });
-      return toPage(page, toUiTurn);
+      return toListResult(page, toUiTurn);
     },
 
     async getTurn({ sessionId, turnId }) {
@@ -298,7 +283,7 @@ export function createHarnessChatServer(options: CreateHarnessServerOptions = {}
         ...(lastTurnId === undefined ? {} : { lastTurnId }),
         ...(limit === undefined ? {} : { limit }),
       });
-      return toPage(page, toUiEventItem);
+      return toListResult(page, toUiEventItem);
     },
   };
 }

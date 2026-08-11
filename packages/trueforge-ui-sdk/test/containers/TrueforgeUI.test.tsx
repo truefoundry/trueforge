@@ -339,7 +339,8 @@ describe('SidebarLayout', () => {
       throw new Error('Expected settings button');
     }
     fireEvent.click(settingsButton);
-    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    // SettingsBuilder is lazy-loaded behind Suspense in the layout.
+    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
     rerender(
       <SlotsProvider theme={{ brand: { name: 'Acme' } }}>
@@ -509,7 +510,7 @@ describe('layout slot overrides', () => {
 
   it.each(hosts)(
     '%s keeps ShellActionsActionSlot mounted when Settings opens (no remount handoff)',
-    (_name, Layout) => {
+    async (_name, Layout) => {
       render(
         <SlotsProvider overrides={{ ShellActionsActionSlot: CustomActionSlot }}>
           <ServerProvider server={mockServer(settingsCatalog)}>
@@ -529,7 +530,8 @@ describe('layout slot overrides', () => {
       const beforeNode = before[0];
 
       fireEvent.click(screen.getAllByRole('button', { name: 'Settings' })[0]!);
-      expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+      // SettingsBuilder is lazy-loaded behind Suspense in the layout.
+      expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
       const after = screen.getAllByRole('button', { name: 'custom action' });
       expect(after.length).toBeGreaterThan(0);

@@ -3,25 +3,22 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { CatalogProviderType } from "./CatalogProviderType.js";
+import { CatalogWellKnownModelProviderType } from "./CatalogWellKnownModelProviderType.js";
 import { ModelEntry } from "./ModelEntry.js";
-import { ResourceName } from "./ResourceName.js";
 
-export const CatalogProvider: core.serialization.ObjectSchema<
-    serializers.CatalogProvider.Raw,
-    TrueForge.CatalogProvider
+export const CatalogWellKnownModelProvider: core.serialization.ObjectSchema<
+    serializers.CatalogWellKnownModelProvider.Raw,
+    TrueForge.CatalogWellKnownModelProvider
 > = core.serialization.object({
     logo: core.serialization.string().optional(),
     models: core.serialization.list(ModelEntry),
-    name: ResourceName,
-    type: CatalogProviderType,
+    type: CatalogWellKnownModelProviderType,
 });
 
-export declare namespace CatalogProvider {
+export declare namespace CatalogWellKnownModelProvider {
     export interface Raw {
         logo?: string | null;
         models: ModelEntry.Raw[];
-        name: ResourceName.Raw;
-        type: CatalogProviderType.Raw;
+        type: CatalogWellKnownModelProviderType.Raw;
     }
 }
