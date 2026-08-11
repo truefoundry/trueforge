@@ -55,7 +55,7 @@ function isTimeoutError(error: unknown): boolean {
 function mcpOAuthConnectionError(message: string, error: unknown, statusCode: number): McpConnectionError {
   let body = message;
   if (isTimeoutError(error)) {
-    body = `${message}: timed out after ${MCP_OAUTH_HTTP_TIMEOUT_MS / 1000}s waiting for the authorization server`;
+    body = `${message}: timed out after ${String(MCP_OAUTH_HTTP_TIMEOUT_MS / 1000)}s waiting for the authorization server`;
   }
   return new McpConnectionError(body, statusCode, { cause: error });
 }
