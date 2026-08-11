@@ -121,8 +121,12 @@ describe('DraftCompositeSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' }));
 
     const connect = await screen.findByRole('button', { name: 'Connect Linear' });
-    expect(screen.queryByRole('menuitemcheckbox', { name: /Linear/ })).not.toBeInTheDocument();
+    const linear = screen.getByRole('menuitemcheckbox', { name: /Linear/ });
+    expect(linear).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(linear);
+    expect(linear).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(connect);
+    expect(linear).toHaveAttribute('aria-checked', 'true');
 
     await waitFor(() =>
       expect(authenticateConnector).toHaveBeenCalledWith({

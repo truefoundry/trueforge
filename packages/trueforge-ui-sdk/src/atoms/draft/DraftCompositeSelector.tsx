@@ -63,7 +63,6 @@ function CatalogRow({
   description,
   checked,
   disabled = false,
-  requiresConnection = false,
   onToggle,
   action,
 }: {
@@ -71,7 +70,6 @@ function CatalogRow({
   description?: string;
   checked: boolean;
   disabled?: boolean;
-  requiresConnection?: boolean;
   onToggle: () => void;
   action?: ReactNode;
 }) {
@@ -87,29 +85,39 @@ function CatalogRow({
     </>
   );
 
+  if (action) {
+    return (
+      <div
+        role="menuitemcheckbox"
+        aria-checked={checked}
+        tabIndex={0}
+        className="hover:bg-accent flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left"
+        onClick={onToggle}
+        onKeyDown={event => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          onToggle();
+        }}
+      >
+        {content}
+        <span className="shrink-0">{action}</span>
+        <Checkbox checked={checked} />
+      </div>
+    );
+  }
+
   return (
-    <div className={cn('flex w-full items-center rounded-md', !requiresConnection && 'hover:bg-accent')}>
-      {requiresConnection ? (
-        <div className="flex min-w-0 flex-1 items-start gap-2 px-2 py-2 text-left">{content}</div>
-      ) : (
-        <button
-          type="button"
-          role="menuitemcheckbox"
-          aria-checked={checked}
-          disabled={disabled}
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={onToggle}
-        >
-          {content}
-          {disabled ? (
-            <Icon name="lock" className="text-muted-foreground mt-1 size-3" />
-          ) : (
-            <Checkbox checked={checked} />
-          )}
-        </button>
-      )}
-      {action ? <span className="shrink-0 pr-2">{action}</span> : null}
-    </div>
+    <button
+      type="button"
+      role="menuitemcheckbox"
+      aria-checked={checked}
+      disabled={disabled}
+      className="hover:bg-accent flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+      onClick={onToggle}
+    >
+      {content}
+      {disabled ? <Icon name="lock" className="text-muted-foreground size-3" /> : <Checkbox checked={checked} />}
+    </button>
   );
 }
 
@@ -138,7 +146,11 @@ function ConnectorConnectButton({
       aria-label={`Connect ${connector.name}`}
       disabled={isOAuthLoading}
       className={auiButtonClass({ variant: 'secondary', size: 'sm' })}
-      onClick={() => {
+      onKeyDown={event => {
+        event.stopPropagation();
+      }}
+      onClick={event => {
+        event.stopPropagation();
         void handleAuthorize(connector.id, isSuccess => {
           if (isSuccess) void onConnected();
         });
@@ -415,7 +427,6 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                         title={c.name}
                         description={c.description}
                         checked={selectedMcpIds.has(c.id)}
-                        requiresConnection={isUnauthenticatedDcrConnector(c)}
                         action={
                           isUnauthenticatedDcrConnector(c) ? (
                             <ConnectorConnectButton connector={c} onConnected={refreshConnectors} />
@@ -435,8 +446,6 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                         title={c.name}
                         description={c.description}
                         checked={selectedMcpIds.has(c.id)}
-                        disabled={isUnauthenticatedDcrConnector(c)}
-                        requiresConnection={isUnauthenticatedDcrConnector(c)}
                         action={
                           isUnauthenticatedDcrConnector(c) ? (
                             <ConnectorConnectButton connector={c} onConnected={refreshConnectors} />
