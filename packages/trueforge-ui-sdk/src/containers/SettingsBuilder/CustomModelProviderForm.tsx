@@ -316,11 +316,10 @@ const CustomModelProviderForm = ({
                 const idError = modelIdError(model);
                 const showIdError = model.idTouched && idError;
                 const nameFieldError = modelNameError(model);
-                // Surface auto-derived name problems as soon as there is a Model ID: the name is
-                // derived from it, so a bad slug must show without waiting for a blur or submit
-                // (the submit button can be disabled, so those triggers may never fire). When the
-                // id is empty the id's own "required" error covers it, so we don't double up here.
-                const showNameFieldError = (model.id.trim() !== '' || model.nameDirty) && nameFieldError;
+                // The Model name is auto-derived from the Model ID and is editable. Never flag an
+                // auto-derived value: if the id yields no usable name, stay silent and let the user
+                // type one. Only surface an error once they have hand-edited the name themselves.
+                const showNameFieldError = !!nameFieldError && model.nameDirty;
                 const contextError = modelContextError(model);
                 const maxError = modelMaxOutputError(model);
                 const showContextError = model.contextTouched && contextError;

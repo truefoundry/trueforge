@@ -181,17 +181,25 @@ describe('CustomModelProviderForm', () => {
     expect(screen.getByRole('button', { name: 'Add provider' })).toBeDisabled();
   });
 
-  it('surfaces the auto-derived Model name error immediately, without a blur or submit', () => {
+  it('never errors the auto-derived Model name; the user just enters one', () => {
     renderForm();
-    fireEvent.change(screen.getByPlaceholderText('local-llama'), { target: { value: 'local-llama' } });
-    fireEvent.change(screen.getByPlaceholderText('http://localhost:11434/v1'), {
-      target: { value: 'http://localhost:11434/v1' },
-    });
-    // An all-digits id slugifies to an empty name. The error must show from typing alone —
-    // the id field is never blurred and the disabled button prevents a submit.
-    fireEvent.change(screen.getByPlaceholderText('llama3.1:70b'), { target: { value: '123' } });
-    expect(screen.getByText('Model name is required.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add provider' })).toBeDisabled();
+    const id = screen.getByPlaceholderText('llama3.1:70b');
+    // An all-digits id slugifies to an empty name. No error while typing…
+    fireEvent.change(id, { target: { value: '111' } });
+    expect(screen.queryByText('Model name is required.')).not.toBeInTheDocument();
+    // …and none after the id is blurred either — an auto-derived value is never flagged.
+    fireEvent.blur(id);
+    expect(screen.queryByText('Model name is required.')).not.toBeInTheDocument();
+  });
+
+  it('shows only the Model ID error when the id is empty (no stacked name error)', () => {
+    renderForm();
+    const id = screen.getByPlaceholderText('llama3.1:70b');
+    fireEvent.change(id, { target: { value: 'x' } }); // touch, then clear
+    fireEvent.change(id, { target: { value: '' } });
+    fireEvent.blur(id);
+    expect(screen.getByText('Model ID is required.')).toBeInTheDocument();
+    expect(screen.queryByText('Model name is required.')).not.toBeInTheDocument();
   });
 
   it('accepts backend-valid names with adjacent separators (matches NameSchema)', () => {
