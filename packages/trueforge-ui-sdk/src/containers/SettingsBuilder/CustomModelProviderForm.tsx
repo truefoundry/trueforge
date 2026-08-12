@@ -562,7 +562,7 @@ const CustomModelProviderForm = ({
 
         {/* Sticky footer */}
         <div className="shrink-0 space-y-3 border-t border-border px-5 py-4">
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
           <Button type="submit" size="lg" disabled={!visibleValid || busy} className="w-full">
             Add provider
           </Button>

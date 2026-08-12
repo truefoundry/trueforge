@@ -44,7 +44,7 @@ export function Toast({ title, description, open, onOpenChange, variant = 'error
       <Icon
         name={variant === 'success' ? 'circle-check' : 'circle-exclamation'}
         size="1.25em"
-        className={cn('shrink-0', variant === 'success' ? 'text-success' : 'text-destructive')}
+        className={cn('shrink-0', variant === 'success' ? 'text-success-bg' : 'text-failure-bg')}
       />
 
       <div className="min-w-0 flex-1">
@@ -52,7 +52,7 @@ export function Toast({ title, description, open, onOpenChange, variant = 'error
           <div
             className={cn(
               'text-sm leading-none font-semibold',
-              variant === 'success' ? 'text-success' : 'text-failure-bg',
+              variant === 'success' ? 'text-success-bg' : 'text-failure-bg',
             )}
           >
             {title}

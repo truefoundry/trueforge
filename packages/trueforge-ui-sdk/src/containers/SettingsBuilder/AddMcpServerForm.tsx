@@ -218,7 +218,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
         </div>
 
         <div className="mt-6 space-y-3">
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
           <Button type="submit" size="lg" disabled={!isValid || busy} className="w-full shrink-0">
             Add
           </Button>

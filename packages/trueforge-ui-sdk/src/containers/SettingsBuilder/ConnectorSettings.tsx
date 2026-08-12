@@ -525,7 +525,7 @@ const ConnectorSettings = () => {
                     className={auiInputClass('h-11')}
                   />
                 </div>
-                {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
+                {formError ? <p className="text-failure-bg text-sm">{formError}</p> : null}
               </div>
 
               <footer className="flex justify-end gap-2 border-t border-border px-5 py-4">
