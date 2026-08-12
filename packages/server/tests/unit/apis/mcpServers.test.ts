@@ -1,8 +1,12 @@
 import winston from 'winston';
+import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../../src/apis/mcpServers';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
+import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
+import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
+import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -54,6 +58,7 @@ function putInit(body: unknown): RequestInit {
 
 describe('mcp-servers routers', () => {
   let settingsRouter: ReturnType<typeof createSettingsMcpServersRouter>;
+  let catalogRouter: ReturnType<typeof createCatalogRouter>;
   let mcpServersRouter: ReturnType<typeof createMcpServersRouter>;
   let mcpServerStore: SqliteMcpServerStore;
   let tokenStore: SqliteOAuthTokenStore;
@@ -74,12 +79,17 @@ describe('mcp-servers routers', () => {
     withTransaction = callback => db.transaction().execute(callback);
     logger = winston.createLogger({ silent: true });
     settingsRouter = createSettingsMcpServersRouter({
-      mcpCatalog: McpCatalog.load(),
       mcpServerStore,
       tokenStore,
       withTransaction,
       logger,
       resolveUserContext: () => LOCAL_USER_CONTEXT,
+    });
+    catalogRouter = createCatalogRouter({
+      modelCatalog: ModelCatalog.load(),
+      mcpCatalog: McpCatalog.load(),
+      skillCatalog: SkillCatalog.load(),
+      sandboxCatalog: SandboxCatalog.load(),
     });
     mcpServersRouter = createMcpServersRouter({
       mcpServerStore,
@@ -118,8 +128,8 @@ describe('mcp-servers routers', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('GET /catalog returns the shipped catalog verbatim', async () => {
-    const response = await settingsRouter.request('/catalog');
+  it('GET /catalog/mcp-servers returns the shipped catalog verbatim', async () => {
+    const response = await catalogRouter.request('/mcp-servers');
     expect(response.status).toBe(200);
     const body = (await response.json()) as { data: { name: string }[] };
     expect(body.data.map(server => server.name)).toEqual(

@@ -4,7 +4,6 @@ import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefou
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
-import type { ModelSelection } from '../../server/types.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
@@ -13,20 +12,13 @@ import { BottomSheet } from '../primitives/BottomSheet.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { hasReasoningEfforts, modelPatchWithReasoningEffort, resolveReasoningEffort } from './reasoningEffort.js';
 
-type RichModel = ModelSelection & { apiModel?: string; modelId?: string };
-
-function modelValue(model: RichModel): string {
-  return model.apiModel ?? model.name;
-}
-
 export type DraftReasoningEffortSelectorProps = {
   disabled?: boolean;
   isRunning?: boolean;
 };
 
 export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReasoningEffortSelectorProps) {
-  const { models: rawModels, ensureLoaded } = useDraftCatalog();
-  const models = rawModels as RichModel[];
+  const { models, ensureLoaded } = useDraftCatalog();
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
   const [open, setOpen] = useState(false);
@@ -36,9 +28,9 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
   const isMobile = useIsMobile();
   const compactLayout = useCompactLayout();
 
-  const selectedName = agentSpec?.model?.name ?? (models[0] ? modelValue(models[0]) : '');
-  const selected = models.find(m => modelValue(m) === selectedName || m.name === selectedName);
-  const efforts = selected?.reasoningEfforts;
+  const selectedName = agentSpec?.model?.name ?? models[0]?.name ?? '';
+  const selected = models.find(m => m.name === selectedName);
+  const efforts = selected?.properties.reasoningEfforts;
   const currentEffort = agentSpec?.model?.params?.reasoningEffort;
   // Display fallback only — coerce into the spec on model change / explicit pick.
   const resolved = resolveReasoningEffort(efforts, currentEffort);
@@ -67,11 +59,10 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
       return;
     }
     if (currentEffort === undefined) return;
-    const modelKey = modelValue(selected);
-    if (clearedStickyEffortForModelRef.current === modelKey) return;
-    clearedStickyEffortForModelRef.current = modelKey;
+    if (clearedStickyEffortForModelRef.current === selected.name) return;
+    clearedStickyEffortForModelRef.current = selected.name;
     updateAgentSpec({
-      model: modelPatchWithReasoningEffort(modelKey, agentSpec?.model?.params, undefined),
+      model: modelPatchWithReasoningEffort(selected.name, agentSpec?.model?.params, undefined),
     });
   }, [updateAgentSpec, selected, efforts, currentEffort, agentSpec?.model?.params]);
 
@@ -104,7 +95,7 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
                 if (!selected || !updateAgentSpec) return;
                 updateAgentSpec({
                   model: modelPatchWithReasoningEffort(
-                    modelValue(selected),
+                    selected.name,
                     { ...agentSpec?.model?.params, reasoningEffort: effort },
                     efforts,
                   ),

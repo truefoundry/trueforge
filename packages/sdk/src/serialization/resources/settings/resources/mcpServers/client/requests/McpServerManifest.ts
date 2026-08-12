@@ -3,22 +3,21 @@
 import type * as TrueForge from "../../../../../../../api/index.js";
 import * as core from "../../../../../../../core/index.js";
 import type * as serializers from "../../../../../../index.js";
-import { ConfiguredMcpServerAuth } from "../../../../../../types/ConfiguredMcpServerAuth.js";
-import { ResourceName } from "../../../../../../types/ResourceName.js";
+import { McpServerManifestAuth } from "../../types/McpServerManifestAuth.js";
 
 export const McpServerManifest: core.serialization.Schema<
     serializers.settings.McpServerManifest.Raw,
     TrueForge.settings.McpServerManifest
 > = core.serialization.object({
-    auth: ConfiguredMcpServerAuth.optional(),
-    name: ResourceName,
+    auth: McpServerManifestAuth.optional(),
+    name: core.serialization.string(),
     url: core.serialization.string(),
 });
 
 export declare namespace McpServerManifest {
     export interface Raw {
-        auth?: ConfiguredMcpServerAuth.Raw | null;
-        name: ResourceName.Raw;
+        auth?: McpServerManifestAuth.Raw | null;
+        name: string;
         url: string;
     }
 }

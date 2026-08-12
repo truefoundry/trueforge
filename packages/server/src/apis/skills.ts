@@ -1,18 +1,11 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { SkillCatalog } from '../catalog/SkillCatalog';
 import type { ISkillStore, SkillRecord } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
-import {
-  getSkillCatalogRoute,
-  listAvailableSkillsRoute,
-  listConfiguredSkillsRoute,
-  putSkillRoute,
-} from '../routes/skillRoutes';
+import { listAvailableSkillsRoute, listConfiguredSkillsRoute, putSkillRoute } from '../routes/skillRoutes';
 import type { ConfiguredSkill, SkillManifest } from '../schemas/skill';
 import { TENANT_ID } from './sessions';
 
 export interface SkillsRouterDeps<TTransaction> {
-  skillCatalog: SkillCatalog;
   skillStore: ISkillStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
 }
@@ -27,10 +20,6 @@ function toConfiguredSkill(record: SkillRecord): ConfiguredSkill {
 
 /** Admin/settings skills CRUD (mounted at /api/v1/settings/skills). */
 export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransaction>) {
-  const catalogHandler: RouteHandler<typeof getSkillCatalogRoute> = c => {
-    return c.json({ data: [...deps.skillCatalog.list()] }, 200);
-  };
-
   const listConfiguredHandler: RouteHandler<typeof listConfiguredSkillsRoute> = async c => {
     const records = await deps.skillStore.listSkills({ tenant_id: TENANT_ID, names: undefined });
     return c.json({ data: records.map(toConfiguredSkill) }, 200);
@@ -47,8 +36,6 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
   };
 
   const router = new OpenAPIHono();
-  // Static `/catalog` before `/` so path order matches model-providers / mcp-servers.
-  router.openapi(getSkillCatalogRoute, catalogHandler);
   router.openapi(listConfiguredSkillsRoute, listConfiguredHandler);
   router.openapi(putSkillRoute, putHandler);
   return router;

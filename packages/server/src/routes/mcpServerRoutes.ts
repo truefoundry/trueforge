@@ -5,7 +5,6 @@
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
-import { GetMcpServerCatalogResponseSchema } from '../schemas/mcpCatalog';
 import {
   GetMcpServerResponseSchema,
   ListAvailableMcpServersResponseSchema,
@@ -16,32 +15,6 @@ import {
 } from '../schemas/mcpServer';
 
 const MCP_SERVERS_TAG = 'MCP Servers';
-
-export const getMcpServerCatalogRoute = createRoute({
-  method: 'get',
-  path: '/catalog',
-  tags: [MCP_SERVERS_TAG],
-  summary: 'Get the MCP catalog',
-  description:
-    'MCP server presets shipped with the server (mcp-catalog.yaml). Discovery-only: copy an entry ' +
-    'into PUT /settings/mcp-servers to configure it.',
-  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
-  'x-fern-sdk-method-name': 'catalog',
-  responses: {
-    200: {
-      content: { 'application/json': { schema: GetMcpServerCatalogResponseSchema } },
-      description: 'The shipped catalog, verbatim.',
-    },
-    401: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the request has no valid session cookie.',
-    },
-    403: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the caller is authenticated but not an admin.',
-    },
-  },
-});
 
 /** Chat/composer read view — mounted at /api/v1/mcp-servers (not under settings). */
 export const listAvailableMcpServersRoute = createRoute({
