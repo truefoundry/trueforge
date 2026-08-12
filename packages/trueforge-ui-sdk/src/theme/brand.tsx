@@ -39,8 +39,13 @@ export function BrandLogo({ className }: { className?: string }) {
   const logo = theme?.brand.logo;
   const name = theme?.brand.name ?? DEFAULT_BRAND_NAME;
 
-  const src = logo == null ? undefined : resolveLogoSrc({ logo, mode: theme?.mode ?? 'light' });
-  if (src == null) return <Icon name="robot" className={className} />;
+  const mode = theme?.mode ?? 'light';
+  const src = logo == null ? undefined : resolveLogoSrc({ logo, mode });
+  if (src == null) {
+    return (
+      <Icon name={mode === 'dark' ? 'trueforge-logomark-dark' : 'trueforge-logomark-light'} className={className} />
+    );
+  }
 
   // `name` is the accessible label: the image itself carries no text alternative.
   const image = <img src={src} alt={name} className={className} />;
