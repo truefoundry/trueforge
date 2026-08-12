@@ -7,8 +7,8 @@ import { SaveAgentButton } from '@/atoms/SaveAgentButton.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
-import { createMockAgentUIServer } from '../server/mockServer.js';
 import { RuntimeHarness } from '../containers/RuntimeHarness.js';
+import { createMockAgentUIServer } from '../server/mockServer.js';
 
 type MockAgentSpec = {
   model?: { name?: string };
