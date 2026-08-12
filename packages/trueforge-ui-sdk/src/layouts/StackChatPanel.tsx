@@ -53,7 +53,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
                 aria-live="polite"
                 aria-busy="true"
               >
-                <Spinner size={28} className="text-foreground" />
+                <Spinner size={28} className="text-text-primary" />
                 <span className="sr-only">Loading</span>
               </div>
             }

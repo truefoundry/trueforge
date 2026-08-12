@@ -2,6 +2,7 @@
 
 import { useActionBarCopy, useMessageError, useThreadIsRunning, type PartState } from '@assistant-ui/core/react';
 import { MessagePrimitive, useAuiState, type EnrichedPartState, type GroupByContext } from '@assistant-ui/react';
+import { useTrueFoundryResumeUnavailable } from '@truefoundry/assistant-ui-runtime';
 
 import { useSlot } from '../theme/SlotsProvider.js';
 import { computeAgentStepsSplit } from '../utils/computeAgentStepsSplit.js';
@@ -36,6 +37,7 @@ export function AssistantMessageContainer() {
   const MessageErrorBanner = useSlot('MessageErrorBanner');
   const MessageIndicator = useSlot('MessageIndicator');
   const isThreadRunning = useThreadIsRunning();
+  const resumeUnavailable = useTrueFoundryResumeUnavailable();
   const error = useMessageError();
   const createdAt = useAuiState(s => s.message.createdAt);
   const isMessageRunning = useAuiState(s => s.message.status?.type === 'running');
@@ -89,7 +91,7 @@ export function AssistantMessageContainer() {
                 // Intermediate text inside Agent steps: muted + indented vs final answer
                 if (index >= 0 && index < cutIndex) {
                   return (
-                    <div className="mb-2 ml-[1.75rem] text-xs text-muted-foreground [&_.markdown-body]:text-inherit">
+                    <div className="mb-2 ml-[1.75rem] text-xs text-text-secondary [&_.markdown-body]:text-inherit">
                       <AssistantTextContainer />
                     </div>
                   );
@@ -102,7 +104,7 @@ export function AssistantMessageContainer() {
               case 'data':
                 return <AssistantLeafPartContainer part={part} />;
               case 'indicator':
-                return <MessageIndicator />;
+                return resumeUnavailable ? null : <MessageIndicator />;
               default:
                 return null;
             }

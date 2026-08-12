@@ -18,7 +18,7 @@ export function WelcomeScreen({ heading = 'How can I help you today?', icon, cla
     icon !== undefined ? (
       icon
     ) : preset === 'chatgpt' ? null : preset === 'claude' ? (
-      <Icon name="welcome-sparkle" className="size-5 fill-current text-primary" />
+      <Icon name="welcome-sparkle" className="size-5 fill-current text-primary-button-bg" />
     ) : (
       <BrandLogo className={'size-10'} />
     );
@@ -27,7 +27,7 @@ export function WelcomeScreen({ heading = 'How can I help you today?', icon, cla
     <div
       data-preset={preset}
       className={cn(
-        'aui-thread-welcome-root relative isolate mb-6 flex flex-col items-center px-4 text-center text-foreground',
+        'aui-thread-welcome-root relative isolate mb-6 flex flex-col items-center px-4 text-center text-text-primary',
         preset === 'gemini' && 'py-8',
         className,
       )}
@@ -35,7 +35,7 @@ export function WelcomeScreen({ heading = 'How can I help you today?', icon, cla
       {preset === 'gemini' && (
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-1/2 -z-10 size-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/20 blur-3xl motion-safe:animate-pulse motion-reduce:animate-none [animation-duration:4s]"
+          className="pointer-events-none absolute left-1/2 top-1/2 -z-10 size-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-button-bg/20 blur-3xl motion-safe:animate-pulse motion-reduce:animate-none [animation-duration:4s]"
         />
       )}
       {resolvedIcon !== null && (

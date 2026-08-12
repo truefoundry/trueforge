@@ -33,7 +33,7 @@ describe('createTrueFoundryServer', () => {
     const getSkills = vi.fn(async () => []);
     const getMcp = vi.fn(async () => []);
     const searchAgents = vi.fn(async () => [{ name: 'ask-ai-agent', agentId: 'ask-ai-agent' }]);
-    const saveAgent = vi.fn(async () => ({ ok: true }));
+    const saveAgent = vi.fn(async () => ({ agentId: 'agt_1' }));
 
     const server = createTrueFoundryServer({
       chatServer,
@@ -59,6 +59,7 @@ describe('createTrueFoundryServer', () => {
     await server.saveAgent({
       agentName: 'my-agent',
       agentSpec: { model: { name: 'p/m' } },
+      intent: 'create',
     });
     expect(saveAgent).toHaveBeenCalled();
   });
@@ -164,7 +165,7 @@ describe('createTrueFoundryServer', () => {
       getSkills: async () => [],
       getMcp: async () => [],
       searchAgents: async () => [],
-      saveAgent: async () => ({ ok: true }),
+      saveAgent: async () => ({ agentId: 'agt_1' }),
       catalog,
     });
 

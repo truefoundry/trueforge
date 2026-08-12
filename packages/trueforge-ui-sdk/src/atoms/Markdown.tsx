@@ -63,7 +63,9 @@ function makeComponents(opts: {
       // Inline code: no language class
       if (!className) {
         return (
-          <code className={cn('aui-inline-code rounded bg-muted px-1 py-0.5 font-mono text-sm', inlineCodeClassName)}>
+          <code
+            className={cn('aui-inline-code rounded bg-secondary-bg px-1 py-0.5 font-mono text-sm', inlineCodeClassName)}
+          >
             {children}
           </code>
         );

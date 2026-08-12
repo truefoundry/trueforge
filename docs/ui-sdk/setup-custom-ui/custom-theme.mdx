@@ -5,7 +5,7 @@ description: "Build your own custom theme"
 
 ## The Theme Object
 
-Theme object supports params to pass `tokens` to override styles of UI components. You can also override app level classes
+The theme object lets you customize the appearance of the UI by passing design tokens that override component styles. You can also use it to override app-level CSS classes for broader layout and styling customizations.
 
 ```jsx App.jsx
 type ThemeConfig = {
@@ -18,77 +18,119 @@ type ThemeConfig = {
 
 ## The Token Object
 
+The theme object provides a flexible way to customize the colors and visual appearance of the Agent SDK. You can override individual design tokens to control the appearance of different UI elements, including the sidebar, page background, popups, buttons, input fields, and more.
+
+Theme tokens can be configured independently for both light and dark modes, allowing you to create a consistent experience across different color schemes without having to override individual components manually.
+
+The easiest way to explore and customize the theme is through our UI Config App. You can experiment with different color tokens and see your changes reflected in real time in the preview window. Once you’re happy with the theme, you can use the generated configuration in your application. [Visit Config App](https://ui.trueforge.dev/)
+
+
 ```json Token Object
 {
-  "sidebarBg": "#ffffff",
-  "topbarBg": "#ffffff",
-  "primaryBg": "#ffffff",
-  "secondaryBg": "#f4f4f5",
-  "border": "#e4e4e7",
-  "inputBoxBg": "#ffffff",
-  "inputBorder": "#e4e4e7",
-  "textPrimary": "#09090b",
-  "textSecondary": "#62626a",
-  "cardBg": "#ffffff",
-  "dropdownSelectedItemBg": "#f1f1f2",
-  "dropdownSelectedItemText": "#09090b",
-  "userMessageBg": "#09090b",
-  "userMessageText": "#ffffff",
-  "assistantMessageBg": "transparent",
-  "assistantMessageText": "#09090b",
-  "primaryButtonBg": "#09090b",
-  "primaryButtonHover": "#27272a",
-  "primaryButtonText": "#ffffff",
-  "secondaryButtonBg": "#f4f4f5",
-  "secondaryButtonHover": "#e4e4e7",
-  "secondaryButtonText": "#09090b",
-  "ghostButtonBg": "transparent",
-  "ghostButtonHover": "#f1f1f2",
-  "ghostButtonText": "#09090b",
-  "successBg": "#16a34a",
-  "successText": "#ffffff",
-  "failureBg": "#ef4444",
-  "failureText": "#ffffff",
-  "warningBg": "#d97706",
-  "warningText": "#ffffff",
-  "scrollbarThumb": "#62626a"
+  "light": {
+    "sidebarBg": "#FAFAFA",
+    "topbarBg": "#FFFFFF",
+    "primaryBg": "#FFFFFF",
+    "secondaryBg": "#F4F4F5",
+    "border": "#E4E4E7",
+    "inputBoxBg": "#FAFAFA",
+    "inputBorder": "#E4E4E7",
+    "textPrimary": "#18181B",
+    "textSecondary": "#62626A",
+    "cardBg": "#FFFFFF",
+    "dropdownSelectedItemBg": "#F1F1F2",
+    "dropdownSelectedItemText": "#18181B",
+    "userMessageBg": "#18181B",
+    "userMessageText": "#FFFFFF",
+    "assistantMessageBg": "transparent",
+    "assistantMessageText": "#18181B",
+    "primaryButtonBg": "#18181B",
+    "primaryButtonHover": "#27272A",
+    "primaryButtonText": "#FFFFFF",
+    "secondaryButtonBg": "#FAFAFA",
+    "secondaryButtonHover": "#E4E4E7",
+    "secondaryButtonText": "#18181B",
+    "ghostButtonBg": "transparent",
+    "ghostButtonHover": "#F4F4F5",
+    "ghostButtonText": "#18181B",
+    "successBg": "#16A34A",
+    "successText": "#FFFFFF",
+    "failureBg": "#EF4444",
+    "failureText": "#FFFFFF",
+    "warningBg": "#D97706",
+    "warningText": "#FFFFFF",
+    "scrollbarThumb": "#62626A"
+  },
+  "dark": {
+    ... //Same tokens as light mode
+  }
 }
 ```
 
-## Reading theme state
-
-```tsx
-import { useTheme, useThemeMode, useBrand, useBrandName } from "@truefoundry/trueforge-ui";
-
-const { preset, mode, preference, isDark, setTheme } = useTheme();
-const resolved = useThemeMode(); // "light" | "dark", defaults to "light" outside a provider
-const brand = useBrand();
-const brandName = useBrandName(); // brand.name, or "TrueForge"
-```
-
-`BrandLogo` renders `theme.brand.logo`, resolved against the active mode and labelled with `theme.brand.name`. Omit `logo` — or `brand` entirely — and it falls back to the default mark; `brand` is optional, but setting it requires a `name`. Pair it with `useBrandName()` when you also want the name as text. It is an overridable slot — use `overrides` to render a component instead of an image.
-
 ## Token naming
 
-`SemanticTokens` keys map to the kebab-cased CSS variable of the same name — `cardForeground` becomes `--card-foreground`, `composerRadius` becomes `--composer-radius`, `scrollbarThumb` becomes `--scrollbar-thumb`.
+SemanticTokens keys map directly to kebab-cased CSS variables. For example, `primaryButtonBg` maps to `--primary-button-bg`, and `userMessageText` maps to `--user-message-text`. The only exception is `fontFamily`, which maps to the `--font-agent-ui` CSS variable.
 
-One token breaks that rule:
-
-| Token | CSS variable |
-| --- | --- |
-| `fontFamily` | `--font-agent-ui` |
+Suppose your application uses a specific brand color for primary actions and a custom font. You can override the corresponding semantic tokens to apply your branding across the Agent SDK:
+```ts
+const theme = {
+  tokens: {
+    primaryButtonBg: "#635BFF",
+    primaryButtonHover: "#5147E5",
+    primaryButtonText: "#FFFFFF",
+    fontFamily: "Inter, sans-serif",
+    composerRadius: "12px",
+  },
+};
+```
+These tokens are automatically mapped to CSS variables:
+```ts
+--primary-button-bg
+--primary-button-hover
+--primary-button-text
+--font-agent-ui
+--composer-radius
+```
+This approach is useful when you want to customize the look and feel of the SDK while keeping the existing components, behavior, and layout intact. Instead of writing component-specific CSS overrides, you can change a small set of semantic tokens and have the changes applied consistently throughout the UI.
 
 ## Styling rendered content
 
-`theme.classNames` targets the content renderers:
+`theme.classNames` (`ContentClassNames`) adds host CSS classes onto content renderers. Pass it through `theme` on `TrueforgeUI` (or `SlotsProvider`):
+
+```tsx
+<TrueforgeUI
+  theme={{
+    classNames: {
+      markdown: "prose prose-sm",
+      openui: { root: "my-openui" },
+    },
+  }}
+  /* … */
+/>
+```
 
 ```ts
 type ContentClassNames = {
+  /** Root of the markdown renderer (joins `.aui-markdown`). */
   markdown?: string;
+  /** Inline `` `code` `` spans inside markdown. */
   inlineCode?: string;
-  syntaxHighlighter?: { root?: string; pre?: string; code?: string; lineNumber?: string };
-  openui?: { root?: string; scope?: string };
-  monaco?: { root?: string };
+  syntaxHighlighter?: {
+    root?: string; // joins `.aui-syntax-highlighter`
+    pre?: string;
+    code?: string;
+    lineNumber?: string;
+  };
+  openui?: {
+    root?: string; // joins `.aui-openui`
+    scope?: string; // OpenUI theme scope (`.markdown-openui-scope`)
+  };
+  monaco?: {
+    root?: string; // joins `.aui-monaco`
+    editor?: string; // Monaco mount container
+    /** Monaco theme name; when unset, follows light/dark mode. */
+    monacoTheme?: string;
+  };
 };
 ```
 

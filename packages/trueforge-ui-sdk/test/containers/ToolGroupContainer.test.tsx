@@ -60,7 +60,7 @@ describe('AgentSteps grouping', () => {
     fireEvent.click(screen.getByText('Agent steps'));
     const intermediate = screen.getByText("I'll delegate this to a sub-agent.");
     const stepTextWrap = intermediate.closest("[class*='ml-[1.75rem]']");
-    expect(stepTextWrap).toHaveClass('mb-2', 'text-muted-foreground');
+    expect(stepTextWrap).toHaveClass('mb-2', 'text-text-secondary');
     const finalAnswer = screen.getByText('Here is the final answer.');
     expect(finalAnswer.closest("[class*='ml-[1.75rem]']")).toBeNull();
   });

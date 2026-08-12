@@ -101,19 +101,19 @@ export function ToolCallContentBlock({
   return (
     <div
       className={cn(
-        'aui-tool-call-content-block flex flex-col font-sans text-xs font-medium leading-4 text-foreground',
+        'aui-tool-call-content-block flex flex-col font-sans text-xs font-medium leading-4 text-text-primary',
         className,
       )}
       data-testid={dataTestPrefix ? `${dataTestPrefix}-content-block` : 'tfy-tool-call-content-block'}
       data-content={content}
     >
-      <div className="flex items-center justify-between rounded-t-lg border border-primary/30 bg-primary/10 px-3 py-1">
-        <div className="font-sans text-xs font-medium text-primary">{title}</div>
+      <div className="flex items-center justify-between rounded-t-lg border border-primary-button-bg/30 bg-primary-button-bg/10 px-3 py-1">
+        <div className="font-sans text-xs font-medium text-primary-button-bg">{title}</div>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex size-6 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex size-6 cursor-pointer items-center justify-center rounded text-text-secondary transition-colors hover:text-text-primary"
             aria-label="Copy"
             data-testid={dataTestPrefix ? `${dataTestPrefix}-copy` : undefined}
           >
@@ -122,7 +122,7 @@ export function ToolCallContentBlock({
           <button
             type="button"
             onClick={() => onFullscreenChange?.(true)}
-            className="inline-flex size-6 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex size-6 cursor-pointer items-center justify-center rounded text-text-secondary transition-colors hover:text-text-primary"
             aria-label="Expand"
           >
             <Icon name="expand-alt" size={14} />
@@ -132,7 +132,7 @@ export function ToolCallContentBlock({
       <div
         ref={resizable ? contentRef : undefined}
         className={cn(
-          'relative min-h-7.5 rounded-b-lg border border-t-0 border-border bg-background',
+          'relative min-h-7.5 rounded-b-lg border border-t-0 border-border bg-primary-bg',
           resizable && 'overflow-hidden',
         )}
         style={bodyStyle}
@@ -150,7 +150,7 @@ export function ToolCallContentBlock({
             className={cn('overflow-y-auto', hasMeasuredResizableHeight && 'h-full')}
             style={!hasMeasuredResizableHeight && maxHeight ? { maxHeight } : undefined}
           >
-            <Markdown content={content} className="text-xs text-muted-foreground" />
+            <Markdown content={content} className="text-xs text-text-secondary" />
           </div>
         )}
       </div>

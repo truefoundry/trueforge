@@ -2,15 +2,27 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Button } from '../../atoms/primitives/Button.js';
-import { CatalogLogo } from '../../atoms/primitives/CatalogLogo.js';
-import SearchInput from '../../atoms/primitives/SearchInput.js';
-import { Icon } from '../../icons/Icon.js';
-import { useCatalogServer } from '../../server/ServerContext.js';
-import type { ModelEntry, ModelProviderBase, ModelProviderCatalogEntry } from '../../server/types.js';
-import { getErrorMessage } from '../../utils/getErrorMessage.js';
-import { useErrorToasterOptional } from '../ErrorToasterContainer.js';
-import CustomModelProviderForm, { type CustomProviderDraft } from './CustomModelProviderForm.js';
+import { cn } from '@/atoms/lib/cn.js';
+import { auiInputClass } from '@/atoms/lib/inputClasses.js';
+import { Accordion, AccordionDetails, AccordionSummary } from '@/atoms/primitives/Accordion.js';
+import { Button } from '@/atoms/primitives/Button.js';
+import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
+import SearchInput from '@/atoms/primitives/SearchInput.js';
+import { useErrorToasterOptional } from '@/containers/ErrorToasterContainer.js';
+import CustomModelProviderForm, {
+  type CustomProviderDraft,
+} from '@/containers/SettingsBuilder/CustomModelProviderForm.js';
+import { Icon } from '@/icons/Icon.js';
+import { useCatalogServer } from '@/server/ServerContext.js';
+import type { ModelEntry, ModelProviderBase, ModelProviderCatalogEntry } from '@/server/types.js';
+import { getErrorMessage } from '@/utils/getErrorMessage.js';
+
+function catalogBaseUrl(provider: ModelProviderCatalogEntry): string {
+  if ('baseUrl' in provider && typeof provider.baseUrl === 'string') {
+    return provider.baseUrl;
+  }
+  return '';
+}
 
 const ModelSettings = () => {
   const { modelCatalog } = useCatalogServer();
@@ -26,6 +38,8 @@ const ModelSettings = () => {
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
   const [editingCatalogType, setEditingCatalogType] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [customProviderOpen, setCustomProviderOpen] = useState(false);
 
   const modelProviderIconMap = useMemo(() => {
@@ -107,6 +121,8 @@ const ModelSettings = () => {
     setEditingProviderId(null);
     setEditingCatalogType(null);
     setApiKey('');
+    setBaseUrl('');
+    setAdvancedOpen(false);
   };
 
   const runMutation = async (fn: () => Promise<void>) => {
@@ -136,6 +152,7 @@ const ModelSettings = () => {
       await modelCatalog.createModelProvider({
         type: entry.type,
         name: entry.name,
+        ...(baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
         apiKey: apiKey.trim(),
         models: entry.models,
       });
@@ -150,7 +167,7 @@ const ModelSettings = () => {
         id: provider.id,
         type: provider.type,
         name: provider.name,
-        ...(provider.baseUrl ? { baseUrl: provider.baseUrl } : {}),
+        ...(baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
         apiKey: apiKey.trim(),
         models: provider.models,
       });
@@ -191,9 +208,9 @@ const ModelSettings = () => {
     });
   };
 
-  const renderKeyEditor = (opts: { id: string; submitLabel: string; onSave: () => void }) => (
+  const renderKeyEditor = (opts: { id: string; submitLabel: string; onSave: () => void; isReplacingKey?: boolean }) => (
     <form
-      className="mt-4 rounded-lg border border-border bg-muted/20 p-4"
+      className="mt-4 rounded-lg border border-border bg-secondary-bg/40 p-4"
       onSubmit={event => {
         event.preventDefault();
         opts.onSave();
@@ -201,9 +218,9 @@ const ModelSettings = () => {
     >
       <label
         htmlFor={`api-key-${opts.id}`}
-        className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+        className="mb-2 block text-xs font-semibold uppercase tracking-wide text-text-secondary"
       >
-        API key
+        {opts.isReplacingKey ? 'New API key' : 'API key'}
       </label>
       <input
         id={`api-key-${opts.id}`}
@@ -212,28 +229,66 @@ const ModelSettings = () => {
         onChange={event => {
           setApiKey(event.target.value);
         }}
-        placeholder="Enter API Key"
+        placeholder={opts.isReplacingKey ? 'Enter a new key to replace the saved one' : 'Enter API Key'}
         autoFocus
-        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+        className={auiInputClass('h-10')}
       />
-      <div className="mt-3 flex justify-end gap-2">
-        <Button variant="ghost" size="sm" type="button" onClick={closeKeyEditor} disabled={busy}>
-          Cancel
-        </Button>
-        <Button size="sm" type="submit" disabled={!apiKey.trim() || busy}>
-          {opts.submitLabel}
-        </Button>
+      <Accordion expanded={advancedOpen} onChange={(_event, next) => setAdvancedOpen(next)}>
+        <AccordionSummary className="pt-2 pb-1.5">
+          <span className="flex items-center gap-1.5 text-xs text-text-secondary">
+            <Icon
+              name="chevron-down"
+              className={`size-4 transition-transform duration-200 ${advancedOpen ? '' : '-rotate-90'}`}
+            />
+            Advanced · custom endpoint
+          </span>
+        </AccordionSummary>
+        <AccordionDetails className="flex flex-col gap-1">
+          <label
+            htmlFor={`base-url-${opts.id}`}
+            className="block text-xs font-semibold uppercase tracking-wide text-text-secondary"
+          >
+            Base URL
+          </label>
+          <input
+            id={`base-url-${opts.id}`}
+            type="url"
+            value={baseUrl}
+            onChange={event => {
+              setBaseUrl(event.target.value);
+            }}
+            placeholder="https://api.openai.com/v1"
+            className={auiInputClass('h-10')}
+          />
+          <p className="text-sm text-text-secondary">
+            Leave as the default unless you use a regional or proxy endpoint.
+          </p>
+        </AccordionDetails>
+      </Accordion>
+
+      <div className={cn('mt-2 flex items-center gap-2', opts.isReplacingKey ? 'justify-between' : 'justify-end')}>
+        {opts.isReplacingKey ? (
+          <p className="text-sm text-text-secondary">The saved key is hidden. Saving replaces it.</p>
+        ) : null}
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" type="button" onClick={closeKeyEditor} disabled={busy}>
+            Cancel
+          </Button>
+          <Button size="sm" type="submit" disabled={!apiKey.trim() || busy}>
+            {opts.submitLabel}
+          </Button>
+        </div>
       </div>
     </form>
   );
 
   return (
     <>
-      <h3 className="text-xl font-semibold tracking-tight text-foreground">Models</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Connect providers and choose which models are available.</p>
+      <h3 className="text-xl font-semibold tracking-tight text-text-primary">Models</h3>
+      <p className="mt-1 text-sm text-text-secondary">Connect providers and choose which models are available.</p>
 
       {error ? (
-        <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="mt-3 rounded-md border border-failure-bg/30 bg-failure-bg/10 px-3 py-2 text-sm text-failure-bg">
           {error}
         </p>
       ) : null}
@@ -257,18 +312,18 @@ const ModelSettings = () => {
           </div>
 
           <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
-            {loading ? <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p> : null}
+            {loading ? <p className="py-8 text-center text-sm text-text-secondary">Loading…</p> : null}
 
             {!loading && matchingConfigured.length > 0 ? (
               <section aria-labelledby="configured-providers-heading">
                 <div
                   id="configured-providers-heading"
-                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-muted-foreground"
+                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
                 >
                   Configured
                 </div>
 
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                   {matchingConfigured.map(provider => {
                     const catalogModels = catalogModelsByType.get(provider.type) ?? [];
                     const configuredIds = new Set(provider.models.map(model => model.id));
@@ -280,7 +335,7 @@ const ModelSettings = () => {
                         <header className="flex flex-col gap-3 sm:flex-row sm:items-center">
                           <div className="flex min-w-0 flex-1 items-center gap-3">
                             <div
-                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
                               aria-hidden
                             >
                               {logoSrc ? (
@@ -289,12 +344,12 @@ const ModelSettings = () => {
                                 <Icon name="cpu" className="size-4.5" />
                               )}
                             </div>
-                            <h5 className="truncate text-base font-medium text-foreground">{provider.name}</h5>
+                            <h5 className="truncate text-base font-medium text-text-primary">{provider.name}</h5>
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
-                            <span className="flex items-center gap-1.5 text-[13px] font-medium text-success">
-                              <span className="h-1.5 w-1.5 rounded-full bg-success"></span>
+                            <span className="flex items-center gap-1.5 rounded-full border border-border bg-secondary-bg/40 px-2 py-0.5 text-xs font-medium text-success-bg">
+                              <span className="h-1.5 w-1.5 rounded-full bg-success-bg"></span>
                               Connected
                             </span>
                             <Button
@@ -307,6 +362,8 @@ const ModelSettings = () => {
                                 setEditingCatalogType(null);
                                 setEditingProviderId(provider.id);
                                 setApiKey('');
+                                setBaseUrl(provider.baseUrl ?? '');
+                                setAdvancedOpen(false);
                               }}
                             >
                               <Icon name="wrench" className="size-3.5" />
@@ -316,7 +373,7 @@ const ModelSettings = () => {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                className="transition-colors hover:bg-failure-bg/10 hover:text-failure-bg"
                                 type="button"
                                 disabled={busy}
                                 onClick={() => {
@@ -332,25 +389,26 @@ const ModelSettings = () => {
                         {editingProviderId === provider.id
                           ? renderKeyEditor({
                               id: provider.id,
-                              submitLabel: 'Update',
+                              submitLabel: 'Replace key',
+                              isReplacingKey: true,
                               onSave: () => {
                                 handleReplaceKey(provider);
                               },
                             })
                           : null}
 
-                        <div className="mt-3 overflow-hidden rounded-lg border border-border bg-secondary/30">
+                        <div className="mt-3 overflow-hidden rounded-lg border border-border bg-secondary-bg/30">
                           {provider.models.map(model => (
                             <div
                               key={model.id}
-                              className="flex min-h-10 items-center gap-3 border-b border-border px-3 py-2 text-sm text-foreground last:border-b-0"
+                              className="flex min-h-10 items-center gap-3 border-b border-border px-3 py-2 text-sm text-text-primary last:border-b-0"
                             >
                               <span className="min-w-0 flex-1 truncate">{model.name}</span>
                               <button
                                 type="button"
                                 aria-label={`Remove ${model.name}`}
                                 disabled={busy}
-                                className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+                                className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-ghost-button-hover hover:text-ghost-button-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring disabled:opacity-50"
                                 onClick={() => {
                                   handleUpdateModels(
                                     provider,
@@ -365,13 +423,13 @@ const ModelSettings = () => {
 
                           {availableModels.length > 0 ? (
                             <section>
-                              <div className="border-b border-border bg-muted/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              <div className="border-b border-border bg-secondary-bg/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                                 Available to add · {availableModels.length}
                               </div>
                               {availableModels.map(model => (
                                 <div
                                   key={model.id}
-                                  className="flex min-h-12 items-center gap-3 border-b border-border px-3 py-2 text-sm text-foreground last:border-b-0"
+                                  className="flex min-h-12 items-center gap-3 border-b border-border px-3 py-2 text-sm text-text-primary last:border-b-0"
                                 >
                                   <span className="min-w-0 flex-1 truncate">{model.name}</span>
                                   <Button
@@ -401,12 +459,12 @@ const ModelSettings = () => {
               <section aria-labelledby="available-providers-heading" className="mt-2">
                 <div
                   id="available-providers-heading"
-                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-muted-foreground"
+                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
                 >
                   Available
                 </div>
 
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                   {matchingAvailable.map(provider => {
                     const logoSrc = modelProviderIconMap[provider.name];
                     return (
@@ -414,7 +472,7 @@ const ModelSettings = () => {
                         <header className="flex flex-col gap-3 sm:flex-row sm:items-center">
                           <div className="flex min-w-0 flex-1 items-center gap-3">
                             <span
-                              className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
+                              className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
                               aria-hidden
                             >
                               {logoSrc ? (
@@ -424,8 +482,8 @@ const ModelSettings = () => {
                               )}
                             </span>
                             <div className="min-w-0">
-                              <h5 className="truncate text-base font-medium text-foreground">{provider.name}</h5>
-                              <p className="truncate text-sm text-muted-foreground">
+                              <h5 className="truncate text-base font-medium text-text-primary">{provider.name}</h5>
+                              <p className="truncate text-sm text-text-secondary">
                                 {provider.models.map(model => model.name).join(' · ')}
                               </p>
                             </div>
@@ -438,6 +496,8 @@ const ModelSettings = () => {
                               setEditingProviderId(null);
                               setEditingCatalogType(provider.type);
                               setApiKey('');
+                              setBaseUrl(catalogBaseUrl(provider));
+                              setAdvancedOpen(false);
                             }}
                           >
                             <Icon name="wrench" className="size-4" />
@@ -461,7 +521,7 @@ const ModelSettings = () => {
             ) : null}
 
             {!loading && matchingConfigured.length === 0 && matchingAvailable.length === 0 ? (
-              <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-text-secondary">
                 {normalizedQuery ? `No providers match “${query.trim()}”.` : 'No model providers yet.'}
               </div>
             ) : null}

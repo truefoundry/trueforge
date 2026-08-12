@@ -15,10 +15,16 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && pnpm config set store-dir /pnpm/store
 WORKDIR /app
 
+# Native dependencies (for example better-sqlite3) compile in build stages.
+FROM base AS build-base
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends g++ make python3 \
+  && rm -rf /var/lib/apt/lists/*
+
 # ---------------------------------------------------------------------------
 # store: the pnpm store, from the lockfile only (stable when manifests churn).
 # ---------------------------------------------------------------------------
-FROM base AS store
+FROM build-base AS store
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 

@@ -7,7 +7,6 @@ import { libraryAgentId, useOptionalShellMode } from '../server/ShellModeContext
 import type { AgentLibraryEntry, AgentSpec } from '../server/types.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
-import { useCompactLayout } from './lib/CompactLayoutContext.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { CenteredModal } from './primitives/CenteredModal.js';
 import SearchInput from './primitives/SearchInput.js';
@@ -26,32 +25,51 @@ type AgentLibraryRowProps = {
   onEdit: () => void;
 };
 
-function rowActionClass(compact: boolean) {
-  return cn(
-    'shrink-0 opacity-100 transition-opacity',
-    !compact && 'md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100',
-    'focus-visible:opacity-100',
-  );
+/** Short label for model fqns like `provider/gpt-4.1` → `gpt-4.1`. */
+function displayModelLabel(modelName: string): string {
+  const slash = modelName.lastIndexOf('/');
+  return slash >= 0 ? modelName.slice(slash + 1) : modelName;
 }
 
 function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProps) {
-  const compact = useCompactLayout();
+  const spec = agent.agentSpec;
+  const modelName = spec?.model.name;
+  const skillsCount = spec?.skills?.length ?? 0;
+  const mcpCount = spec?.mcpServers?.length ?? 0;
 
   return (
     <div
       role="menuitem"
       className={cn(
-        'group flex w-full items-center gap-2.5 rounded-md border border-transparent px-2.5 py-2 transition-colors',
-        'hover:border-border hover:bg-accent',
-        'focus-within:border-border focus-within:bg-accent',
+        'flex w-full items-center gap-2.5 rounded-md border border-transparent px-2.5 py-2 transition-colors',
+        'hover:border-border hover:bg-ghost-button-hover',
+        'focus-within:border-border focus-within:bg-ghost-button-hover',
       )}
     >
-      <span className="bg-background text-muted-foreground inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
+      <span className="bg-primary-bg text-text-secondary inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
         <Icon name="robot" className="size-4" />
       </span>
-      <span className="text-foreground min-w-0 flex-1 truncate text-left text-sm font-medium leading-tight">
+      <span className="text-text-primary min-w-0 flex-1 truncate text-left text-sm font-medium leading-tight">
         {agent.name}
       </span>
+      {spec != null ? (
+        <span className="text-text-secondary flex shrink-0 items-center gap-2">
+          {modelName ? (
+            <span className="bg-primary-button-bg/10 text-primary-button-bg inline-flex max-w-[8rem] items-center gap-1 truncate rounded-full px-2 py-0.5 text-xs font-medium">
+              <Icon name="cpu" className="size-3.5 shrink-0" />
+              <span className="truncate">{displayModelLabel(modelName)}</span>
+            </span>
+          ) : null}
+          <span className="inline-flex items-center gap-1 text-xs" aria-label={`${skillsCount} skills`}>
+            <Icon name="wrench" className="size-3.5" />
+            {skillsCount}
+          </span>
+          <span className="inline-flex items-center gap-1 text-xs" aria-label={`${mcpCount} MCP servers`}>
+            <Icon name="plug" className="size-3.5" />
+            {mcpCount}
+          </span>
+        </span>
+      ) : null}
       <span className="flex shrink-0 items-center gap-1.5">
         {showEdit ? (
           <button
@@ -60,7 +78,6 @@ function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProp
             className={auiButtonClass({
               variant: 'ghost',
               size: 'sm',
-              className: rowActionClass(compact),
             })}
             onClick={onEdit}
           >
@@ -74,7 +91,6 @@ function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProp
           className={auiButtonClass({
             variant: 'outline',
             size: 'sm',
-            className: rowActionClass(compact),
           })}
           onClick={onTry}
         >
@@ -132,11 +148,11 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
 
   return (
     <CenteredModal open={open} onOpenChange={onOpenChange} title="Agents Library">
-      <div className="bg-muted/40 flex min-h-0 flex-1 flex-col">
+      <div className="bg-secondary-bg/40 flex min-h-0 flex-1 flex-col">
         <div className="shrink-0 border-b border-border px-4 py-3">
           <SearchInput query={query} setQuery={setQuery} placeholder="Search agents" />
           {isSearching ? (
-            <p className="text-muted-foreground mt-1.5 text-xs" role="status">
+            <p className="text-text-secondary mt-1.5 text-xs" role="status">
               Searching…
             </p>
           ) : null}
@@ -154,9 +170,9 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
               ))}
             </div>
           ) : error ? (
-            <p className="text-destructive px-3 py-8 text-center text-sm">{error}</p>
+            <p className="text-failure-bg px-3 py-8 text-center text-sm">{error}</p>
           ) : agents.length === 0 ? (
-            <p className="text-muted-foreground px-3 py-8 text-center text-sm">
+            <p className="text-text-secondary px-3 py-8 text-center text-sm">
               {query.trim()
                 ? `No agents match "${query.trim()}".`
                 : 'No agents yet. Build one in a chat, then save it as an agent.'}
@@ -181,7 +197,7 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
               {hasMore ? (
                 <div ref={sentinelRef} className="flex h-8 shrink-0 items-center justify-center" aria-hidden>
                   {loadingMore ? (
-                    <span className="text-muted-foreground text-xs" role="status">
+                    <span className="text-text-secondary text-xs" role="status">
                       Loading more…
                     </span>
                   ) : null}

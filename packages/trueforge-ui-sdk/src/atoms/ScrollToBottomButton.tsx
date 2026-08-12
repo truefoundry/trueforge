@@ -20,7 +20,7 @@ export const ScrollToBottomButton = forwardRef<HTMLSpanElement, ScrollToBottomBu
             variant: 'ghost',
             size: 'icon',
             className: cn(
-              'aui-thread-scroll-to-bottom rounded-full border border-border bg-background text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground p-3',
+              'aui-thread-scroll-to-bottom rounded-full border border-border bg-primary-bg text-text-primary shadow-sm hover:bg-ghost-button-hover hover:text-text-primary p-3',
               className,
             ),
           })}

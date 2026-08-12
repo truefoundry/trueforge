@@ -53,7 +53,7 @@ function LayoutFallback({ className }: { className?: string }) {
         height: '100%',
         minHeight: '12rem',
         background:
-          'linear-gradient(90deg, color-mix(in oklab, var(--muted, #e5e5e5) 55%, transparent) 25%, color-mix(in oklab, var(--muted, #e5e5e5) 25%, transparent) 50%, color-mix(in oklab, var(--muted, #e5e5e5) 55%, transparent) 75%)',
+          'linear-gradient(90deg, color-mix(in oklab, var(--secondary-bg) 55%, transparent) 25%, color-mix(in oklab, var(--secondary-bg) 25%, transparent) 50%, color-mix(in oklab, var(--secondary-bg) 55%, transparent) 75%)',
         backgroundSize: '200% 100%',
         animation: 'tfy-aui-pulse 1.2s ease-in-out infinite',
       }}
@@ -70,11 +70,11 @@ function ServerInitLoader({ className }: { className?: string }) {
       aria-live="polite"
       aria-busy="true"
       className={cn(
-        'flex h-full min-h-48 w-full flex-1 items-center justify-center bg-background text-muted-foreground',
+        'flex h-full min-h-48 w-full flex-1 items-center justify-center bg-primary-bg text-text-secondary',
         className,
       )}
     >
-      <Spinner size={28} className="text-foreground" />
+      <Spinner size={28} className="text-text-primary" />
       <span className="sr-only">Loading</span>
     </div>
   );
@@ -86,7 +86,7 @@ function ServerInitError({ error, className }: { error: unknown; className?: str
     <div
       role="alert"
       className={cn(
-        'flex h-full min-h-48 items-center justify-center bg-background px-6 text-center text-sm text-destructive',
+        'flex h-full min-h-48 items-center justify-center bg-primary-bg px-6 text-center text-sm text-failure-bg',
         className,
       )}
     >

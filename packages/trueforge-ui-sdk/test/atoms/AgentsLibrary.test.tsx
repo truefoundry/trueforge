@@ -26,7 +26,11 @@ function mockServer(
   agents: Array<{
     name: string;
     agentId: string;
-    agentSpec?: { model: { name: string }; skills?: Array<{ id: string; name: string }> };
+    agentSpec?: {
+      model: { name: string };
+      skills?: Array<{ id: string; name: string }>;
+      mcpServers?: Array<{ id: string; name: string }>;
+    };
   }> = [{ name: 'alpha-agent', agentId: 'alpha-agent' }],
 ): AgentUIServer {
   return createMockAgentUIServer({
@@ -119,6 +123,39 @@ describe('AgentsLibrary', () => {
     });
     expect(screen.queryByRole('button', { name: 'Edit agent try-only' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try agent try-only' })).toBeInTheDocument();
+  });
+
+  it('shows model name, skills count, and MCP count from agentSpec', async () => {
+    const server = mockServer([
+      {
+        name: 'algo-art',
+        agentId: 'algo-art',
+        agentSpec: {
+          model: { name: 'openai/gpt-5-5' },
+          skills: [{ id: 's1', name: 'paint' }],
+          mcpServers: [{ id: 'm1', name: 'github' }],
+        },
+      },
+      { name: 'bare', agentId: 'bare' },
+    ]);
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+            <AgentsLibrary open onOpenChange={() => undefined} />
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('gpt-5-5')).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText('1 skills')).toBeInTheDocument();
+    expect(screen.getByLabelText('1 MCP servers')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try agent bare' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('0 skills')).not.toBeInTheDocument();
   });
 
   it('hides Edit when composer is disabled (AgentLibrary only)', async () => {

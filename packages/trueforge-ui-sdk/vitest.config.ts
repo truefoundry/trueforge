@@ -1,9 +1,22 @@
 /** Vitest: jsdom for React containers; MUI alias for CJS/ESM dual-package quirk. */
 import { fileURLToPath } from 'node:url';
 
+import svgr from 'vite-plugin-svgr';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  plugins: [
+    svgr({
+      include: '**/*.svg',
+      svgrOptions: {
+        icon: true,
+        replaceAttrValues: {
+          '#000': 'currentColor',
+          '#000000': 'currentColor',
+        },
+      },
+    }),
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

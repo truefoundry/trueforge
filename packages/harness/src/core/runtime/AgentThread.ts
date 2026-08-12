@@ -227,10 +227,11 @@ function buildModelMessageEvent({
   usage: ModelMessageUsage | undefined;
   id: string;
 }): ModelMessageEvent {
-  // `thinking_blocks` is persisted to the Redis context for replay; strip it from the client event.
-  const { role, tool_calls, thinking_blocks, ...rest } = assistantMessage;
+  // `thinking_blocks` / `source` stay on the context message for replay; strip them from the client event.
+  const { role, tool_calls, thinking_blocks, source, ...rest } = assistantMessage;
   void role;
   void thinking_blocks;
+  void source;
   const event: ModelMessageEvent = {
     ...rest,
     tool_calls: tool_calls?.map(toEnrichedToolCall),

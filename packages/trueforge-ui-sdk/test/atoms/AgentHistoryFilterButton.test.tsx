@@ -105,7 +105,7 @@ describe('AgentHistoryFilterButton', () => {
     const menu = screen.getByRole('menu', { name: /Filter agents/i });
     expect(menu).toHaveClass('font-sans-flex');
     expect(menu.parentElement).toHaveClass('aui-theme-root');
-    expect(menu.className).toContain('bg-popover');
+    expect(menu.className).toContain('bg-card-bg');
 
     await act(async () => {
       fireEvent.click(screen.getByRole('menuitem', { name: /From SDK/i }));
@@ -114,6 +114,54 @@ describe('AgentHistoryFilterButton', () => {
     expect(screen.getByTestId('filter-value')).toHaveTextContent('from-sdk');
     expect(screen.getByTestId('history-filter-active-dot')).toBeInTheDocument();
     expect(searchAgents).toHaveBeenCalled();
+  });
+
+  it('hides All chats while a search query is active', async () => {
+    const searchAgents = vi.fn(async (req?: { query?: string }) => {
+      const q = req?.query?.trim().toLowerCase() ?? '';
+      const all = [
+        { name: 'From SDK', agentId: 'from-sdk' },
+        { name: 'Other', agentId: 'other' },
+      ];
+      return q === '' ? all : all.filter(a => a.name.toLowerCase().includes(q));
+    });
+    const server = mockServer({ searchAgents });
+    render(<AgentHistoryFilterButton />, {
+      wrapper: wrap({ agentConfig: { mode: 'AgentLibraryWithComposer' }, server }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Filter chat history/i }));
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: /All chats/i })).toBeInTheDocument());
+
+    fireEvent.change(screen.getByPlaceholderText('Search agents'), { target: { value: 'from' } });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('menuitem', { name: /All chats/i })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('menuitem', { name: /From SDK/i })).toBeInTheDocument();
+  });
+
+  it('shows an empty banner and keeps list min-height when search matches nothing', async () => {
+    const searchAgents = vi.fn(async (req?: { query?: string }) => {
+      const q = req?.query?.trim().toLowerCase() ?? '';
+      if (q === '') return [{ name: 'From SDK', agentId: 'from-sdk' }];
+      return [];
+    });
+    const server = mockServer({ searchAgents });
+    render(<AgentHistoryFilterButton />, {
+      wrapper: wrap({ agentConfig: { mode: 'AgentLibraryWithComposer' }, server }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Filter chat history/i }));
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: /From SDK/i })).toBeInTheDocument());
+
+    fireEvent.change(screen.getByPlaceholderText('Search agents'), { target: { value: 'jjjjj' } });
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('No agents match "jjjjj".');
+    });
+    expect(screen.queryByRole('menuitem', { name: /From SDK/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('menu', { name: /Filter agents/i }).querySelector('.min-h-48')).not.toBeNull();
   });
 
   it('opens a bottom sheet on mobile', async () => {
