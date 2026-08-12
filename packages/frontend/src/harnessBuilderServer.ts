@@ -9,23 +9,35 @@ import type {
   SearchAgentsParams,
 } from '@truefoundry/trueforge-ui';
 import type { TrueForgeApi } from 'trueforge-sdk';
-import { listConfiguredMcpServers, listModels, listSkills } from './composerLists';
+import { listConfiguredMcpServers, listSkills } from './composerLists';
 import { toUiConnectorFromReadEntry } from './connectorCatalog';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 import { agentManifest, toHarnessAgentSpec, toUiAgentSpec, type HarnessAgentSpec } from './harnessServer';
 
-/** Harness model names are `provider/model`. */
-export function providerOf(name: string): string {
-  return name.split('/')[0] ?? name;
+/** Well-known catalog entries key logos by `type` (same as configured provider resource name). */
+export function modelProviderLogosByName(
+  catalog: readonly TrueForgeApi.CatalogModelProvider[],
+): ReadonlyMap<string, string> {
+  const logos = new Map<string, string>();
+  for (const entry of catalog) {
+    if (entry.type === 'custom' || entry.logo === undefined) {
+      continue;
+    }
+    logos.set(entry.type, entry.logo);
+  }
+  return logos;
 }
 
-/** Map harness model rows onto the UI picker shape (nested provider + properties). */
-export function toModelSelection(model: TrueForgeApi.Model): ModelSelection {
+/** Map harness model rows onto the UI picker shape (nested provider + properties + optional logo). */
+export function toModelSelection({ model, logo }: { model: TrueForgeApi.Model; logo?: string }): ModelSelection {
   const efforts = model.properties.reasoningEfforts;
   return {
     id: model.modelId,
     name: model.name,
-    provider: { name: providerOf(model.name) },
+    provider: {
+      name: model.provider.name,
+      ...(logo === undefined ? {} : { logo }),
+    },
     properties: {
       ...(efforts !== undefined && efforts.length > 0 ? { reasoningEfforts: [...efforts] } : {}),
     },
@@ -48,7 +60,14 @@ export function createHarnessBuilderServer(
 
   return {
     getCapabilities: () => client.server.getCapabilities(),
-    getModels: async () => (await listModels()).map(toModelSelection),
+    getModels: async () => {
+      const [modelsBody, catalogBody] = await Promise.all([client.models.list(), client.catalog.modelProviders.list()]);
+      const logosByName = modelProviderLogosByName(catalogBody.data);
+      return modelsBody.data.map(model => {
+        const logo = logosByName.get(model.provider.name);
+        return toModelSelection(logo === undefined ? { model } : { model, logo });
+      });
+    },
     // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
     getSkills: async () => {
       const skills = await listSkills();

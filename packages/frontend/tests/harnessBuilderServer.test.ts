@@ -1,37 +1,113 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { createHarnessBuilderServer, providerOf, toModelSelection } from '../src/harnessBuilderServer';
+import { createHarnessBuilderServer, modelProviderLogosByName, toModelSelection } from '../src/harnessBuilderServer';
 
 describe('harnessBuilderServer', () => {
-  it('providerOf takes the segment before the first slash', () => {
-    assert.equal(providerOf('openai/gpt-4o'), 'openai');
-    assert.equal(providerOf('anthropic/claude-sonnet-4'), 'anthropic');
+  it('modelProviderLogosByName maps well-known catalog logos by type', () => {
+    const logos = modelProviderLogosByName([
+      {
+        type: 'openai',
+        logo: 'https://assets.example/openai.svg',
+        models: [{ modelId: 'gpt', name: 'gpt', properties: {} }],
+      },
+      {
+        type: 'anthropic',
+        models: [{ modelId: 'claude', name: 'claude', properties: {} }],
+      },
+      { type: 'custom', supportedReasoningEfforts: ['low'] },
+    ]);
+    assert.equal(logos.get('openai'), 'https://assets.example/openai.svg');
+    assert.equal(logos.has('anthropic'), false);
+    assert.equal(logos.has('custom'), false);
   });
 
-  it('providerOf falls back to the full name when there is no slash', () => {
-    assert.equal(providerOf('gpt-4o'), 'gpt-4o');
-  });
-
-  it('toModelSelection maps nested provider + properties', () => {
+  it('toModelSelection maps nested provider + properties and optional logo', () => {
     assert.deepEqual(
       toModelSelection({
-        modelId: 'o3',
-        name: 'openai/o3',
-        properties: { reasoningEfforts: ['low', 'medium', 'high'] },
+        model: {
+          modelId: 'o3',
+          name: 'openai/o3',
+          provider: { name: 'openai' },
+          properties: { reasoningEfforts: ['low', 'medium', 'high'] },
+        },
+        logo: 'https://assets.example/openai.svg',
       }),
       {
         id: 'o3',
         name: 'openai/o3',
-        provider: { name: 'openai' },
+        provider: { name: 'openai', logo: 'https://assets.example/openai.svg' },
         properties: { reasoningEfforts: ['low', 'medium', 'high'] },
       },
     );
-    assert.deepEqual(toModelSelection({ modelId: 'gpt-4o', name: 'openai/gpt-4o', properties: {} }), {
-      id: 'gpt-4o',
-      name: 'openai/gpt-4o',
-      provider: { name: 'openai' },
-      properties: {},
-    });
+    assert.deepEqual(
+      toModelSelection({
+        model: {
+          modelId: 'gpt-4o',
+          name: 'openai/gpt-4o',
+          provider: { name: 'openai' },
+          properties: {},
+        },
+      }),
+      {
+        id: 'gpt-4o',
+        name: 'openai/gpt-4o',
+        provider: { name: 'openai' },
+        properties: {},
+      },
+    );
+  });
+
+  it('getModels joins catalog logos onto provider', async () => {
+    const fetchMock: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/models')) {
+        return Response.json({
+          data: [
+            {
+              model_id: 'gpt-5-6-sol',
+              name: 'openai/gpt-5-6-sol',
+              provider: { name: 'openai' },
+              properties: {},
+            },
+            {
+              model_id: 'local-llama',
+              name: 'internal/local-llama',
+              provider: { name: 'internal' },
+              properties: {},
+            },
+          ],
+        });
+      }
+      if (url.endsWith('/api/v1/catalog/model-providers')) {
+        return Response.json({
+          data: [
+            {
+              type: 'openai',
+              logo: 'https://assets.example/openai.svg',
+              models: [{ model_id: 'gpt-5.6-sol', name: 'gpt-5-6-sol', properties: {} }],
+            },
+            { type: 'custom', supported_reasoning_efforts: ['low'] },
+          ],
+        });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    assert.deepEqual(await builder.getModels(), [
+      {
+        id: 'gpt-5-6-sol',
+        name: 'openai/gpt-5-6-sol',
+        provider: { name: 'openai', logo: 'https://assets.example/openai.svg' },
+        properties: {},
+      },
+      {
+        id: 'local-llama',
+        name: 'internal/local-llama',
+        provider: { name: 'internal' },
+        properties: {},
+      },
+    ]);
   });
 
   it('gets capabilities through the configured harness client', async () => {
