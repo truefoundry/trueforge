@@ -11,9 +11,8 @@ Theme object supports params to pass `tokens` to override styles of UI component
 type ThemeConfig = {
   ...
   tokens?: Partial<SemanticTokens>;
-  className?: string;
   icons?: IconMap;
-  classNames?: ContentClassNames;
+  ...
 };
 ```
 
@@ -21,31 +20,45 @@ type ThemeConfig = {
 
 ```json Token Object
 {
-    background: "#c18585",
-    foreground: "#1f1f1f",
-    card: "#ffffff",
-    cardForeground: "#1f1f1f",
-    popover: "#f0f4f9",
-    popoverForeground: "#1f1f1f",
-    primary: "#1f3b9b",
-    primaryForeground: "#ffffff",
-    secondary: "#e8eaed",
-    secondaryForeground: "#1f1f1f",
-    muted: "#f8fafd",
-    mutedForeground: "#444746",
-    accent: "#e9eef6",
-    accentForeground: "#1f1f1f",
-    destructive: "#b3261e",
-    destructiveForeground: "#ffffff",
-    border: "#dadce0",
-    input: "#dadce0",
-    ring: "#1f3b9b",
-    userBubble: "#f3f6fc",
-    userBubbleForeground: "#1f1f1f",
-    radius: "1rem",
-    composerRadius: "2rem",
-    fontSans: "\"GeistSans\", \"GeistSans Fallback\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
-  }
+  "sidebarBg": "#ffffff",
+  "topbarBg": "#ffffff",
+  "primaryBg": "#fdfcfc",
+  "secondaryBg": "#f8fafd",
+  "border": "#dadce0",
+  "fontFamily": "\"GeistSans\", \"GeistSans Fallback\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+  "inputBoxBg": "#ffffff",
+  "inputBorder": "#dadce0",
+  "textPrimary": "#1f1f1f",
+  "textSecondary": "#444746",
+  "cardBg": "#ffffff",
+  "dropdownSelectedItemBg": "#e9eef6",
+  "dropdownSelectedItemText": "#1f1f1f",
+  "userMessageBg": "#f3f6fc",
+  "userMessageText": "#1f1f1f",
+  "assistantMessageBg": "transparent",
+  "assistantMessageText": "#1f1f1f",
+  "primaryButtonBg": "#1f3b9b",
+  "primaryButtonHover": "#1a3285",
+  "primaryButtonText": "#ffffff",
+  "secondaryButtonBg": "#e8eaed",
+  "secondaryButtonHover": "#dadce0",
+  "secondaryButtonText": "#1f1f1f",
+  "ghostButtonBg": "transparent",
+  "ghostButtonHover": "#e9eef6",
+  "ghostButtonText": "#1f1f1f",
+  "successBg": "#188038",
+  "successText": "#ffffff",
+  "failureBg": "#b3261e",
+  "failureText": "#ffffff",
+  "warningBg": "#b06000",
+  "warningText": "#ffffff",
+  "focusRing": "#1f3b9b",
+  "radius": "1rem",
+  "composerRadius": "2rem",
+  "overlay": "rgb(9 9 11 / 0.5)",
+  "shadowColor": "#1f1f1f",
+  "scrollbarThumb": "#444746"
+}
 ```
 
 ## Precedence
@@ -53,10 +66,8 @@ type ThemeConfig = {
 The provider resolves the preset for the current mode, merges your `theme.tokens` over it, and writes the result as **inline styles** on the theme root. So within `theme.tokens`, your entries beat the preset — that part is straightforward.
 
 <Warning>
-  Because those tokens land as inline styles, a `:root { --primary: … }` rule in your own CSS will **not** override them. This applies to every token a preset defines, whether or not you passed `theme.tokens`. Use `theme.tokens` to change these, not CSS.
+  Because those tokens land as inline styles, a `:root { --primary-button-bg: … }` rule in your own CSS will **not** override them. This applies to every token a preset defines, whether or not you passed `theme.tokens`. Use `theme.tokens` to change these, not CSS.
 </Warning>
-
-A few tokens are absent from the presets — `scrollbarThumb`, `assistantBubble`, and `assistantBubbleForeground`. Those are not written inline unless you set them, so they fall through to the stylesheet's low-precedence layer and a host `:root` rule does take effect.
 
 `theme.className` is applied to the theme root, for utility-class adjustments alongside the tokens.
 
@@ -79,7 +90,7 @@ const brandName = useBrandName(); // brand.name, or "TrueForge"
 
 ## Token naming
 
-`SemanticTokens` keys map to the kebab-cased CSS variable of the same name — `cardForeground` becomes `--card-foreground`, `composerRadius` becomes `--composer-radius`, `scrollbarThumb` becomes `--scrollbar-thumb`.
+`SemanticTokens` keys map to the kebab-cased CSS variable of the same name — `primaryButtonBg` becomes `--primary-button-bg`, `userMessageText` becomes `--user-message-text`, `composerRadius` becomes `--composer-radius`, `scrollbarThumb` becomes `--scrollbar-thumb`.
 
 One token breaks that rule:
 
@@ -87,10 +98,10 @@ One token breaks that rule:
 | --- | --- |
 | `fontFamily` | `--font-agent-ui` |
 
-Alongside the usual surface and text tokens, the palette includes status pairs for `destructive`, `success`, and `warning`, each with a matching `*Foreground`.
+Status tokens use `failure` / `success` / `warning` with `*Bg` / `*Text` pairs (not `*Foreground`). Buttons follow the same pattern: `primaryButtonBg` / `primaryButtonHover` / `primaryButtonText`, and likewise for secondary and ghost.
 
 <Note>
-  `theme.tokens` is a `Partial`, so you only supply the tokens you want to change and the preset fills in the rest. The status pairs matter only if you construct a complete `SemanticTokens` object — for instance when building your own preset — in which case all four of `success`, `successForeground`, `warning`, and `warningForeground` are required.
+  `theme.tokens` is a `Partial`, so you only supply the tokens you want to change and the preset fills in the rest. Building a complete `SemanticTokens` object — for instance when authoring your own preset — requires every key, including the status `*Bg` / `*Text` pairs and the kept internals (`focusRing`, `radius`, `composerRadius`, `overlay`, `shadowColor`, `scrollbarThumb`).
 </Note>
 
 ## Styling rendered content

@@ -96,12 +96,7 @@
               "ui-sdk/guides/agent-modes",
               {
                 "group": "Setup Custom UI",
-                "pages": [
-                  "ui-sdk/setup-custom-ui/custom-theme",
-                  "ui-sdk/setup-custom-ui/custom-layout",
-                  "ui-sdk/setup-custom-ui/slot-overrides",
-                  "ui-sdk/setup-custom-ui/mcp-oauth"
-                ]
+                "pages": ["ui-sdk/setup-custom-ui/custom-theme", "ui-sdk/setup-custom-ui/custom-layout"]
               },
               {
                 "group": "Setup Custom Server",

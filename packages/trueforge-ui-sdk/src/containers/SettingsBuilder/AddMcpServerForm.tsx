@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 
+import { auiInputClass } from '../../atoms/lib/inputClasses.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
 import { Icon } from '../../icons/Icon.js';
@@ -28,11 +29,10 @@ const AUTH_OPTIONS: Array<{ value: McpAuthType; label: string }> = [
   { value: 'header', label: 'API Key' },
 ];
 
-const inputClassName =
-  'h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40';
+const inputClassName = auiInputClass('h-11 shadow-sm');
 
 const RequiredMark = () => (
-  <span className="ml-0.5 text-destructive" aria-hidden>
+  <span className="ml-0.5 text-failure-bg" aria-hidden>
     *
   </span>
 );
@@ -94,7 +94,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false }: AddMcpSer
       contentSized
       headerIcon={
         <span
-          className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
+          className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
           aria-hidden
         >
           <Icon name="mcp-server" className="size-6" />
@@ -104,7 +104,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false }: AddMcpSer
       <form className="flex flex-col overflow-y-auto p-5 md:p-6" onSubmit={e => void handleSubmit(e)}>
         <div className="space-y-4">
           <div>
-            <label htmlFor="mcp-server-name" className="mb-1.5 block text-sm font-medium text-foreground">
+            <label htmlFor="mcp-server-name" className="mb-1.5 block text-sm font-medium text-text-primary">
               Name
               <RequiredMark />
             </label>
@@ -123,7 +123,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false }: AddMcpSer
           </div>
 
           <div>
-            <label htmlFor="mcp-server-url" className="mb-1.5 block text-sm font-medium text-foreground">
+            <label htmlFor="mcp-server-url" className="mb-1.5 block text-sm font-medium text-text-primary">
               URL
               <RequiredMark />
             </label>
@@ -141,18 +141,18 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false }: AddMcpSer
           </div>
 
           <fieldset>
-            <legend className="mb-1.5 text-sm font-medium text-foreground">
+            <legend className="mb-1.5 text-sm font-medium text-text-primary">
               Auth type
               <RequiredMark />
             </legend>
-            <div className="flex w-full flex-row rounded-md border border-border bg-muted/30 p-1">
+            <div className="flex w-full flex-row rounded-md border border-border bg-secondary-bg/40 p-1">
               {AUTH_OPTIONS.map(option => (
                 <label
                   key={option.value}
                   className={`flex h-8 flex-1 cursor-pointer items-center justify-center rounded-sm text-sm font-medium transition-colors ${
                     authType === option.value
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-primary-bg text-text-primary shadow-sm'
+                      : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
                   <input
@@ -172,7 +172,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false }: AddMcpSer
           </fieldset>
 
           {authType === 'dcr' ? (
-            <p className="text-sm leading-6 text-muted-foreground">
+            <p className="text-sm leading-6 text-text-secondary">
               You&apos;ll be sent to the provider to authorise this server after adding it.
             </p>
           ) : null}
@@ -180,7 +180,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false }: AddMcpSer
           {authType === 'header' ? (
             <>
               <div>
-                <label htmlFor="mcp-server-api-key" className="mb-1.5 block text-sm font-medium text-foreground">
+                <label htmlFor="mcp-server-api-key" className="mb-1.5 block text-sm font-medium text-text-primary">
                   API key
                   <RequiredMark />
                 </label>
@@ -198,8 +198,8 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false }: AddMcpSer
               </div>
 
               <div>
-                <label htmlFor="mcp-server-header-name" className="mb-1.5 block text-sm font-medium text-foreground">
-                  Header name <span className="font-normal text-muted-foreground">(optional)</span>
+                <label htmlFor="mcp-server-header-name" className="mb-1.5 block text-sm font-medium text-text-primary">
+                  Header name <span className="font-normal text-text-secondary">(optional)</span>
                 </label>
                 <input
                   id="mcp-server-header-name"

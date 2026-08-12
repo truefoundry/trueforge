@@ -38,7 +38,9 @@ export function ThreadListRow({
       data-active={active || undefined}
       className={cn(
         'group flex min-w-0 items-center gap-0.5 rounded-md transition-colors',
-        active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+        active
+          ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
+          : 'text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary',
         className,
       )}
     >
@@ -51,14 +53,14 @@ export function ThreadListRow({
           className: cn(
             '!justify-start h-auto min-h-8 min-w-0 flex-1 overflow-hidden rounded-md px-2.5 py-1.5 text-left font-normal shadow-none',
             'bg-transparent hover:bg-transparent hover:text-inherit',
-            active ? 'text-foreground' : 'text-inherit',
+            active ? 'text-dropdown-selected-item-text' : 'text-inherit',
           ),
         })}
       >
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-foreground">{title}</span>
+          <span className="block truncate text-sm font-medium text-text-primary">{title}</span>
           {agentName != null ? (
-            <span className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+            <span className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-text-secondary">
               <Icon name="robot" className="size-3 shrink-0" />
               <span className="truncate">{agentName}</span>
             </span>
@@ -71,7 +73,7 @@ export function ThreadListRow({
             <span
               data-slot="aui_thread-list-item-age"
               className={cn(
-                'pointer-events-none text-xs text-muted-foreground transition-opacity',
+                'pointer-events-none text-xs text-text-secondary transition-opacity',
                 // md: variants survive host Tailwind tree-shaking (same set as AgentsLibrary).
                 // Bare group-hover:opacity-* is dropped from the example CSS bundle.
                 actions != null &&

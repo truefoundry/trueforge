@@ -24,7 +24,7 @@ export class SandboxProvidersClient {
     }
 
     /**
-     * The single configured sandbox provider for this tenant.
+     * The single configured sandbox provider for this tenant. `auth.api_key` is redacted.
      *
      * @param {SandboxProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -109,7 +109,7 @@ export class SandboxProvidersClient {
     }
 
     /**
-     * Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration.
+     * Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
      *
      * @param {TrueForge.DaytonaSandboxProvider} request
      * @param {SandboxProvidersClient.RequestOptions} requestOptions - Request-specific configuration.

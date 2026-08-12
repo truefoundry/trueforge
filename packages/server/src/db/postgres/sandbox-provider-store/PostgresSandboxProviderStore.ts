@@ -36,6 +36,19 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore<Trans
     return row === undefined ? undefined : toRecord(row);
   }
 
+  async getSandboxProviderForUpdate(
+    tenantId: string,
+    transaction: Transaction<Database>,
+  ): Promise<SandboxProviderRecord | undefined> {
+    const row = await transaction
+      .selectFrom('sandbox_provider')
+      .selectAll()
+      .where('tenant_id', '=', tenantId)
+      .forUpdate()
+      .executeTakeFirst();
+    return row ? toRecord(row) : undefined;
+  }
+
   async upsertSandboxProvider(
     input: UpsertSandboxProviderInput,
     transaction?: Transaction<Database>,

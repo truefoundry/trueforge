@@ -46,7 +46,7 @@ export function WidgetLayout({ className }: { className?: string }) {
         <div
           ref={dialogRef}
           data-aui-compact-layout
-          className="pointer-events-auto absolute right-[max(1.25rem,env(safe-area-inset-right,0px))] bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] z-[19] flex h-[min(560px,calc(100%-6.5rem-env(safe-area-inset-bottom,0px)))] max-h-[calc(100%-6.5rem)] w-[min(380px,calc(100%-2.5rem))] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-[0_16px_48px_color-mix(in_oklab,#000_14%,transparent)] outline-none"
+          className="pointer-events-auto absolute right-[max(1.25rem,env(safe-area-inset-right,0px))] bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] z-[19] flex h-[min(560px,calc(100%-6.5rem-env(safe-area-inset-bottom,0px)))] max-h-[calc(100%-6.5rem)] w-[min(380px,calc(100%-2.5rem))] flex-col overflow-hidden rounded-xl border border-border bg-primary-bg shadow-[0_16px_48px_color-mix(in_oklab,var(--shadow-color)_14%,transparent)] outline-none"
           role="dialog"
           aria-modal={true}
           aria-label="Chat"
@@ -73,10 +73,10 @@ export function WidgetLayout({ className }: { className?: string }) {
       <button
         ref={fabRef}
         type="button"
-        className="pointer-events-auto absolute right-[max(1.25rem,env(safe-area-inset-right,0px))] bottom-[max(1.25rem,env(safe-area-inset-bottom,0px))] z-20 flex size-14 cursor-pointer items-center justify-center rounded-full text-sm font-medium shadow-[0_8px_24px_color-mix(in_oklab,var(--primary)_45%,transparent)]"
+        className="pointer-events-auto absolute right-[max(1.25rem,env(safe-area-inset-right,0px))] bottom-[max(1.25rem,env(safe-area-inset-bottom,0px))] z-20 flex size-14 cursor-pointer items-center justify-center rounded-full text-sm font-medium shadow-[0_8px_24px_color-mix(in_oklab,var(--primary-button-bg)_45%,transparent)]"
         style={{
-          backgroundColor: 'var(--primary)',
-          color: 'var(--primary-foreground)',
+          backgroundColor: 'var(--primary-button-bg)',
+          color: 'var(--primary-button-text)',
         }}
         aria-expanded={open}
         aria-label={open ? 'Close chat' : 'Open chat'}

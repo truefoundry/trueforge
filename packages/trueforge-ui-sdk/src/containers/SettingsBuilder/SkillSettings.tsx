@@ -74,7 +74,7 @@ const SkillSettings = () => {
   };
 
   if (!skillCatalog) {
-    return <p className="text-sm text-muted-foreground">Skills catalog is not available.</p>;
+    return <p className="text-sm text-text-secondary">Skills catalog is not available.</p>;
   }
 
   const handleSelect = (entry: SkillCatalogEntry) => {
@@ -117,15 +117,15 @@ const SkillSettings = () => {
   }) => (
     <article key={key} className="flex min-h-16 items-center gap-3 border-b border-border p-3 last:border-b-0">
       <span
-        className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted"
+        className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg"
         aria-hidden
       >
-        <Icon name="lightbulb" className="size-4.5 text-foreground" />
+        <Icon name="lightbulb" className="size-4.5 text-text-primary" />
       </span>
 
       <div className="min-w-0 flex-1">
-        <h5 className="truncate text-sm font-medium text-foreground">{name}</h5>
-        {description ? <p className="mt-0.5 truncate text-sm text-muted-foreground">{description}</p> : null}
+        <h5 className="truncate text-sm font-medium text-text-primary">{name}</h5>
+        {description ? <p className="mt-0.5 truncate text-sm text-text-secondary">{description}</p> : null}
       </div>
 
       {action}
@@ -136,11 +136,11 @@ const SkillSettings = () => {
 
   return (
     <>
-      <h3 className="text-xl font-semibold tracking-tight text-foreground">Skills</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Use built-in skills or import custom skills from GitHub.</p>
+      <h3 className="text-xl font-semibold tracking-tight text-text-primary">Skills</h3>
+      <p className="mt-1 text-sm text-text-secondary">Use built-in skills or import custom skills from GitHub.</p>
 
       {error ? (
-        <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="mt-3 rounded-md border border-failure-bg/30 bg-failure-bg/10 px-3 py-2 text-sm text-failure-bg">
           {error}
         </p>
       ) : null}
@@ -165,17 +165,17 @@ const SkillSettings = () => {
         </div>
 
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto pb-1">
-          {loading ? <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p> : null}
+          {loading ? <p className="py-8 text-center text-sm text-text-secondary">Loading…</p> : null}
 
           {!loading && selectedSkills.length > 0 ? (
             <section aria-labelledby="enabled-skills-heading">
               <h4
                 id="enabled-skills-heading"
-                className="mb-2 text-[0.8125rem] font-semibold uppercase text-muted-foreground"
+                className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
               >
                 Enabled · {selectedSkills.length}
               </h4>
-              <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                 {selectedSkills.map(skill =>
                   renderRow({
                     key: skill.id,
@@ -205,11 +205,11 @@ const SkillSettings = () => {
             <section aria-labelledby="available-skills-heading">
               <h4
                 id="available-skills-heading"
-                className="mb-2 text-[0.8125rem] font-semibold uppercase text-muted-foreground"
+                className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
               >
                 Available · {availableSkills.length}
               </h4>
-              <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                 {availableSkills.map(entry =>
                   renderRow({
                     key: entry.id,
@@ -236,7 +236,7 @@ const SkillSettings = () => {
           ) : null}
 
           {!loading && !hasMatches ? (
-            <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-text-secondary">
               {normalizedQuery ? `No skills match “${query.trim()}”.` : 'No skills yet.'}
             </div>
           ) : null}

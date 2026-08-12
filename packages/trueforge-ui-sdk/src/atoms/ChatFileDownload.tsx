@@ -24,10 +24,10 @@ export function ChatFileDownload({ files, fileDownloadBaseUrl, onDownloadArtifac
   return (
     <details
       open
-      className="aui-sandbox-artifacts group my-2 overflow-hidden rounded-lg border border-primary/20 bg-card"
+      className="aui-sandbox-artifacts group my-2 overflow-hidden rounded-lg border border-primary-button-bg/20 bg-card-bg"
       data-testid="aui-sandbox-artifacts"
     >
-      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 bg-primary/5 px-3 py-2 text-xs font-medium leading-none text-primary [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 bg-primary-button-bg/5 px-3 py-2 text-xs font-medium leading-none text-primary-button-bg [&::-webkit-details-marker]:hidden">
         <Icon name="chevron-down" size={13} className="shrink-0 transition-transform group-open:rotate-180" />
         <Icon name="file" size={16} className="shrink-0" />
         <span className="leading-none">
@@ -41,7 +41,7 @@ export function ChatFileDownload({ files, fileDownloadBaseUrl, onDownloadArtifac
             return (
               <span
                 key={path}
-                className="mr-3 inline-flex min-h-7 items-center gap-1.5 border-r border-border pr-3 text-xs text-muted-foreground last:mr-0 last:border-r-0 last:pr-0"
+                className="mr-3 inline-flex min-h-7 items-center gap-1.5 border-r border-border pr-3 text-xs text-text-secondary last:mr-0 last:border-r-0 last:pr-0"
               >
                 <Icon name="file" size={14} className="shrink-0" />
                 <span className="leading-none">{name}</span>
@@ -72,19 +72,19 @@ export function ChatFileDownload({ files, fileDownloadBaseUrl, onDownloadArtifac
               onClick={onDownloadArtifact ? handleClick : undefined}
               aria-busy={isDownloading || undefined}
               className={cn(
-                'mr-3 inline-flex min-h-7 items-center gap-1.5 border-r border-border pr-3 text-xs text-foreground last:mr-0 last:border-r-0 last:pr-0',
-                canDownload && !isDownloading && 'cursor-pointer hover:text-primary',
+                'mr-3 inline-flex min-h-7 items-center gap-1.5 border-r border-border pr-3 text-xs text-text-primary last:mr-0 last:border-r-0 last:pr-0',
+                canDownload && !isDownloading && 'cursor-pointer hover:text-primary-button-bg',
                 (isDownloading || !canDownload) && 'pointer-events-none opacity-60',
               )}
               download={name}
               aria-label={isDownloading ? `Downloading ${name}` : `Download ${name}`}
             >
-              <Icon name="file" size={14} className="shrink-0 text-muted-foreground" />
+              <Icon name="file" size={14} className="shrink-0 text-text-secondary" />
               <span className="leading-none">{name}</span>
               {isDownloading ? (
-                <Spinner size={14} className="shrink-0 text-primary" />
+                <Spinner size={14} className="shrink-0 text-primary-button-bg" />
               ) : (
-                <Icon name="download" size={14} className="shrink-0 text-primary" />
+                <Icon name="download" size={14} className="shrink-0 text-primary-button-bg" />
               )}
             </a>
           );

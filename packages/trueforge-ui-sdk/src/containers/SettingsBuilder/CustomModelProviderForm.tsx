@@ -63,8 +63,8 @@ const createEmptyModelRow = (): ModelRow => ({
 // Flat, de-boxed input with enough contrast to read as editable: a slightly
 // deeper fill, a subtle hairline, and a clear focus ring.
 const inputClassName =
-  'h-11 w-full rounded-md border border-border/70 bg-muted px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50';
-const inputErrorClassName = 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive';
+  'h-11 w-full rounded-md border border-border/70 bg-secondary-bg px-3 text-sm text-text-primary outline-none transition-colors placeholder:text-text-secondary/70 focus-visible:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/50';
+const inputErrorClassName = 'border-failure-bg focus-visible:border-failure-bg focus-visible:ring-failure-bg';
 
 /** Client-side slug rule — identical to the backend NameSchema so the form never rejects a name the server accepts. */
 const NAME_RE = /^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$/;
@@ -89,17 +89,17 @@ function slugifyModelId(raw: string): string {
 }
 
 const RequiredMark = () => (
-  <span className="ml-0.5 text-destructive" aria-hidden>
+  <span className="ml-0.5 text-failure-bg" aria-hidden>
     *
   </span>
 );
 
 const FieldError = ({ children }: { children: ReactNode }) => (
-  <p className="mt-1 text-xs text-destructive">{children}</p>
+  <p className="mt-1 text-xs text-failure-bg">{children}</p>
 );
 
 const FieldHelp = ({ children }: { children: ReactNode }) => (
-  <p className="mt-1 text-xs text-muted-foreground">{children}</p>
+  <p className="mt-1 text-xs text-text-secondary">{children}</p>
 );
 
 const CustomModelProviderForm = ({
@@ -252,7 +252,7 @@ const CustomModelProviderForm = ({
         {/* Scrollable body — generous bottom padding keeps expanded Advanced clear of the pinned footer */}
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pt-4 pb-8">
           <div>
-            <label htmlFor="custom-provider-name" className="mb-1.5 block text-sm font-medium text-foreground">
+            <label htmlFor="custom-provider-name" className="mb-1.5 block text-sm font-medium text-text-primary">
               Name
               <RequiredMark />
             </label>
@@ -271,7 +271,7 @@ const CustomModelProviderForm = ({
           </div>
 
           <div>
-            <label htmlFor="custom-provider-base-url" className="mb-1.5 block text-sm font-medium text-foreground">
+            <label htmlFor="custom-provider-base-url" className="mb-1.5 block text-sm font-medium text-text-primary">
               Base URL
               <RequiredMark />
             </label>
@@ -293,9 +293,9 @@ const CustomModelProviderForm = ({
           </div>
 
           <div>
-            <label htmlFor="custom-provider-api-key" className="mb-1.5 block text-sm font-medium text-foreground">
+            <label htmlFor="custom-provider-api-key" className="mb-1.5 block text-sm font-medium text-text-primary">
               API key
-              <span className="font-normal text-muted-foreground"> (optional)</span>
+              <span className="font-normal text-text-secondary"> (optional)</span>
             </label>
             <input
               id="custom-provider-api-key"
@@ -309,7 +309,7 @@ const CustomModelProviderForm = ({
           </div>
 
           <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className="float-left mb-2 w-full p-0 text-sm font-medium text-foreground">
+            <legend className="float-left mb-2 w-full p-0 text-sm font-medium text-text-primary">
               Models
               <RequiredMark />
             </legend>
@@ -337,7 +337,7 @@ const CustomModelProviderForm = ({
                       <div className="min-w-0">
                         <label
                           htmlFor={`custom-provider-model-${index}-id`}
-                          className="mb-1 block text-xs font-normal text-muted-foreground"
+                          className="mb-1 block text-xs font-normal text-text-secondary"
                         >
                           Model ID
                         </label>
@@ -359,7 +359,7 @@ const CustomModelProviderForm = ({
                       <div className="min-w-0">
                         <label
                           htmlFor={`custom-provider-model-${index}-name`}
-                          className="mb-1 block text-xs font-normal text-muted-foreground"
+                          className="mb-1 block text-xs font-normal text-text-secondary"
                         >
                           Model name
                         </label>
@@ -377,7 +377,7 @@ const CustomModelProviderForm = ({
                         type="button"
                         aria-label={`Remove model ${index + 1}`}
                         disabled={models.length === 1 || busy}
-                        className="mb-0.5 flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                        className="mb-0.5 flex size-9 items-center justify-center rounded-md text-text-secondary transition-colors hover:text-text-primary disabled:opacity-40"
                         onClick={() => setModels(current => current.filter((_, i) => i !== index))}
                       >
                         <Icon name="trash" className="size-4" />
@@ -392,13 +392,13 @@ const CustomModelProviderForm = ({
                         type="button"
                         aria-expanded={model.advancedExpanded}
                         aria-controls={`custom-provider-model-${index}-advanced`}
-                        className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-foreground"
+                        className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-text-primary"
                         onClick={() => updateModel(index, { advancedExpanded: !model.advancedExpanded })}
                       >
                         <Icon
                           name="chevron-down"
                           className={cn(
-                            'size-4 text-muted-foreground transition-transform',
+                            'size-4 text-text-secondary transition-transform',
                             model.advancedExpanded ? '' : '-rotate-90',
                           )}
                         />
@@ -410,7 +410,7 @@ const CustomModelProviderForm = ({
                           <div>
                             <label
                               htmlFor={`custom-provider-model-${index}-context-length`}
-                              className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                              className="mb-1.5 block text-xs font-medium text-text-secondary"
                             >
                               Context length
                               <RequiredMark />
@@ -437,7 +437,7 @@ const CustomModelProviderForm = ({
                           <div>
                             <label
                               htmlFor={`custom-provider-model-${index}-max-output-tokens`}
-                              className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                              className="mb-1.5 block text-xs font-medium text-text-secondary"
                             >
                               Max output tokens
                               <RequiredMark />
@@ -464,7 +464,7 @@ const CustomModelProviderForm = ({
                           {reasoningEffortOptions && reasoningEffortOptions.length > 0 ? (
                             <div>
                               <div className="flex items-center justify-between gap-3">
-                                <span className="text-xs font-medium text-muted-foreground">Reasoning effort</span>
+                                <span className="text-xs font-medium text-text-secondary">Reasoning effort</span>
                                 <button
                                   type="button"
                                   role="switch"
@@ -472,10 +472,10 @@ const CustomModelProviderForm = ({
                                   aria-label={`Enable reasoning effort for model ${index + 1}`}
                                   disabled={busy}
                                   className={cn(
-                                    'relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50',
+                                    'relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40 disabled:opacity-50',
                                     model.reasoningEfforts !== undefined
-                                      ? 'bg-primary'
-                                      : 'bg-muted-foreground/30 dark:bg-muted-foreground/50',
+                                      ? 'bg-primary-button-bg'
+                                      : 'bg-text-secondary/30 dark:bg-text-secondary/50',
                                   )}
                                   onClick={() =>
                                     updateModel(index, {
@@ -506,10 +506,10 @@ const CustomModelProviderForm = ({
                                         aria-pressed={selected}
                                         disabled={busy}
                                         className={cn(
-                                          'rounded-full border px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50',
+                                          'rounded-full border px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40 disabled:opacity-50',
                                           selected
-                                            ? 'border-primary bg-primary text-primary-foreground'
-                                            : 'border-border text-muted-foreground hover:bg-accent',
+                                            ? 'border-primary-button-bg bg-primary-button-bg text-primary-button-text'
+                                            : 'border-border text-text-secondary hover:bg-ghost-button-hover',
                                         )}
                                         onClick={() =>
                                           updateModel(index, {

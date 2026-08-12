@@ -43,8 +43,8 @@ describe('ThreadListRow', () => {
       </SlotsProvider>,
     );
     const row = container.querySelector('[data-slot="aui_thread-list-item"]');
-    expect(row?.className).toMatch(/hover:bg-accent/);
-    expect(row?.className).not.toMatch(/bg-muted/);
+    expect(row?.className).toMatch(/hover:bg-ghost-button-hover/);
+    expect(row?.className).not.toMatch(/bg-dropdown-selected-item-bg/);
 
     rerender(
       <SlotsProvider>
@@ -52,7 +52,7 @@ describe('ThreadListRow', () => {
       </SlotsProvider>,
     );
     const activeRow = container.querySelector('[data-slot="aui_thread-list-item"]');
-    expect(activeRow?.className).toMatch(/bg-muted/);
+    expect(activeRow?.className).toMatch(/bg-dropdown-selected-item-bg/);
   });
 
   it('renders agent name and relative time when provided', () => {

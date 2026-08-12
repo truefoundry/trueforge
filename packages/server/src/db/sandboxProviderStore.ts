@@ -21,6 +21,12 @@ export interface UpsertSandboxProviderInput {
 
 export interface ISandboxProviderStore<TTransaction = never> {
   getSandboxProvider(tenantId: string, transaction?: TTransaction): Promise<SandboxProviderRecord | undefined>;
+  /**
+   * Load the provider while holding a row lock for the lifetime of `transaction`.
+   * Postgres: `SELECT … FOR UPDATE`. SQLite: plain read under a write txn (BEGIN IMMEDIATE).
+   * Required before read-modify-write of secrets so concurrent keep/rotate cannot interleave.
+   */
+  getSandboxProviderForUpdate(tenantId: string, transaction: TTransaction): Promise<SandboxProviderRecord | undefined>;
   /** Single-row write: creates the provider or replaces the whole manifest. */
   upsertSandboxProvider(input: UpsertSandboxProviderInput, transaction?: TTransaction): Promise<SandboxProviderRecord>;
 }

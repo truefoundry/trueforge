@@ -43,7 +43,7 @@ export function SubAgentCard({
       renderInstruction ? (
         renderInstruction(instruction)
       ) : (
-        <Markdown content={instruction} className="flex flex-col font-sans text-sm text-muted-foreground" />
+        <Markdown content={instruction} className="flex flex-col font-sans text-sm text-text-secondary" />
       )
     ) : null;
 
@@ -65,9 +65,9 @@ export function SubAgentCard({
       >
         {instructionContent != null && (
           <div className="mb-3 flex flex-col gap-2 rounded-md border border-border p-2">
-            <h4 className="text-sm font-semibold text-foreground">Instructions</h4>
+            <h4 className="text-sm font-semibold text-text-primary">Instructions</h4>
             <div
-              className="text-sm text-muted-foreground"
+              className="text-sm text-text-secondary"
               data-testid={dataTestPrefix ? `${dataTestPrefix}-instructions` : undefined}
             >
               {instructionContent}
