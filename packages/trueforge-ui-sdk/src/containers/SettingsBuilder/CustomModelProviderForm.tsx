@@ -64,8 +64,8 @@ const inputClassName =
   'h-11 w-full rounded-md border border-border/70 bg-muted px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50';
 const inputErrorClassName = 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive';
 
-/** Client-side slug rule for the provider name (aligned with the backend NameSchema). */
-const NAME_RE = /^[a-z][a-z0-9]*([._-][a-z0-9]+)*$/;
+/** Client-side slug rule — identical to the backend NameSchema so the form never rejects a name the server accepts. */
+const NAME_RE = /^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$/;
 
 /** Parse an optional positive integer; returns null when empty or invalid (so it's simply omitted). */
 function parsePositiveInt(raw: string): number | null {
@@ -82,8 +82,8 @@ function slugifyModelId(raw: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-') // separators → single hyphen
     .replace(/^[^a-z]+/, '') // must start with a letter
-    .replace(/-+$/g, '') // trim trailing separators
-    .slice(0, 64);
+    .slice(0, 64) // enforce max length first…
+    .replace(/-+$/g, ''); // …then trim any separator truncation left at the end
 }
 
 const RequiredMark = () => (
@@ -316,9 +316,11 @@ const CustomModelProviderForm = ({
                 const idError = modelIdError(model);
                 const showIdError = model.idTouched && idError;
                 const nameFieldError = modelNameError(model);
-                // Surface auto-derived name problems too: editing the Model ID (idTouched)
-                // can produce an empty/invalid slug the user never typed directly.
-                const showNameFieldError = (model.idTouched || model.nameDirty) && nameFieldError;
+                // Surface auto-derived name problems as soon as there is a Model ID: the name is
+                // derived from it, so a bad slug must show without waiting for a blur or submit
+                // (the submit button can be disabled, so those triggers may never fire). When the
+                // id is empty the id's own "required" error covers it, so we don't double up here.
+                const showNameFieldError = (model.id.trim() !== '' || model.nameDirty) && nameFieldError;
                 const contextError = modelContextError(model);
                 const maxError = modelMaxOutputError(model);
                 const showContextError = model.contextTouched && contextError;

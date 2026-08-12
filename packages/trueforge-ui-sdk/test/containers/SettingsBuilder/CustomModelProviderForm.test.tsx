@@ -181,18 +181,27 @@ describe('CustomModelProviderForm', () => {
     expect(screen.getByRole('button', { name: 'Add provider' })).toBeDisabled();
   });
 
-  it('surfaces a Model name error when the Model ID slugifies to nothing usable', () => {
+  it('surfaces the auto-derived Model name error immediately, without a blur or submit', () => {
     renderForm();
     fireEvent.change(screen.getByPlaceholderText('local-llama'), { target: { value: 'local-llama' } });
     fireEvent.change(screen.getByPlaceholderText('http://localhost:11434/v1'), {
       target: { value: 'http://localhost:11434/v1' },
     });
-    const id = screen.getByPlaceholderText('llama3.1:70b');
-    fireEvent.change(id, { target: { value: '123' } }); // derives an empty model name
-    fireEvent.blur(id);
-    // The auto-derived name error is visible even though the user never touched the name field.
+    // An all-digits id slugifies to an empty name. The error must show from typing alone —
+    // the id field is never blurred and the disabled button prevents a submit.
+    fireEvent.change(screen.getByPlaceholderText('llama3.1:70b'), { target: { value: '123' } });
     expect(screen.getByText('Model name is required.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add provider' })).toBeDisabled();
+  });
+
+  it('accepts backend-valid names with adjacent separators (matches NameSchema)', () => {
+    renderForm();
+    fillVisible();
+    const modelName = screen.getByPlaceholderText('llama-3-1-70b');
+    // Adjacent/mixed separators are valid under the backend NameSchema; the form must not reject them.
+    fireEvent.change(modelName, { target: { value: 'gpt--4.1_turbo' } });
+    fireEvent.blur(modelName);
+    expect(screen.queryByText(/2–64 lowercase characters/)).not.toBeInTheDocument();
   });
 
   it('submits the derived slug as the model name', async () => {
