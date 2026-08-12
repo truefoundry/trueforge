@@ -19,7 +19,10 @@ let isOidcConfigured: typeof import('./config').isOidcConfigured;
 try {
   ({ default: configuration, isOidcConfigured } = await import('./config'));
 } catch (error) {
-  console.error('Failed to start server: Failed to load configuration:', error);
+  console.error(
+    'Failed to start server: Failed to load configuration:',
+    error instanceof Error ? error.message : error,
+  );
   process.exit(1);
 }
 
@@ -290,7 +293,7 @@ try {
   });
 
   server.on('error', (error: unknown) => {
-    console.error('Failed to start server:', error);
+    console.error('Failed to start server:', error instanceof Error ? error.message : error);
     process.exit(1);
   });
 
@@ -340,6 +343,6 @@ try {
     });
   }
 } catch (error) {
-  console.error('Failed to start server:', error);
+  console.error('Failed to start server:', error instanceof Error ? error.message : error);
   process.exit(1);
 }

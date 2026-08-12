@@ -209,7 +209,10 @@ export class RequestReplyExecutor {
         zod: zodError,
       });
       this.onError?.(
-        new Error(`Invalid request message shape for executorId: ${this.executorId}`, { cause: parsedRequest.error }),
+        new Error(
+          `Invalid request message shape for executorId: ${this.executorId}, error: ${JSON.stringify(zodError)}`,
+          { cause: parsedRequest.error },
+        ),
         { executorId: this.executorId, channel: this.channel },
       );
       return;
