@@ -52,9 +52,10 @@ describe('ResumeUnavailableContainer', () => {
   it('shows an in-chat waiting notice when resume is unavailable', () => {
     render(<Harness resumeUnavailable={true} />);
 
-    expect(screen.getByRole('status')).toHaveTextContent(
-      "Still generating a response. It'll appear here when ready.",
-    );
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent("Still generating a response. It'll appear here when ready.");
+    expect(status).toHaveClass('flex', 'items-center');
+    expect(status.querySelector('[aria-hidden]')).toHaveTextContent('●');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
