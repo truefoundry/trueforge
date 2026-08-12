@@ -1282,6 +1282,18 @@ export async function* mapStreamToChunks({
   return { usage: finalUsage, output, finish_reason: finalFinishReason };
 }
 
+/** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
+function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
+  const slash = name.indexOf('/');
+  if (slash <= 0 || slash === name.length - 1) {
+    return undefined;
+  }
+  if (name.includes('/', slash + 1)) {
+    return undefined;
+  }
+  return { providerName: name.slice(0, slash), modelName: name.slice(slash + 1) };
+}
+
 // ---------------------------------------------------------------------------
 // VercelAILLM
 // ---------------------------------------------------------------------------
@@ -1383,7 +1395,16 @@ export class VercelAILLM implements ILLM {
     };
 
     try {
-      return yield* mapStreamToChunks({ stream: streamResult.stream, chunkMeta });
+      const result = yield* mapStreamToChunks({ stream: streamResult.stream, chunkMeta });
+      // Stamp provenance for reasoning-signature replay; omit when name is not a provider/model FQN.
+      const parsed = parseModelFqn(providerConfig.name);
+      if (parsed) {
+        result.output.source = {
+          provider_name: parsed.providerName,
+          model_name: parsed.modelName,
+        };
+      }
+      return result;
     } catch (error) {
       if (this.signal?.aborted) {
         this.logger.debug('LLM stream aborted', extractErrorLogFields(error));
