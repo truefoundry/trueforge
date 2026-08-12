@@ -292,6 +292,7 @@ const CustomModelProviderForm = ({
           <div>
             <label htmlFor="custom-provider-api-key" className="mb-1.5 block text-sm font-medium text-foreground">
               API key
+              <span className="font-normal text-muted-foreground"> (optional)</span>
             </label>
             <input
               id="custom-provider-api-key"

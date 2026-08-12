@@ -7,7 +7,10 @@ import type {
   ListSessionsInput,
   UpdateSessionInput,
 } from '@truefoundry/utils-core/agent-session/store/ISessionStore';
-import { decodeOffsetPageToken, paginateOffsetRows } from '@truefoundry/utils-core/agent-session/store/OffsetPageToken';
+import {
+  decodeSessionListPageToken,
+  paginateSessionListRows,
+} from '@truefoundry/utils-core/agent-session/store/SessionListPageToken';
 import {
   SessionAlreadyExistsError,
   SessionNotFoundError,
@@ -183,11 +186,16 @@ export async function listSessions(
   pagination: { next_page_token?: string | undefined; previous_page_token?: string | undefined };
 }> {
   const limit = input.limit;
-  const offset = decodeOffsetPageToken(input.page_token);
-
   const order = input.order ?? 'desc';
+  const cursor = decodeSessionListPageToken(input.page_token);
 
-  let query = db.selectFrom('session').selectAll().where('tenant_id', '=', input.tenant_id);
+  let query = db
+    .selectFrom('session')
+    .selectAll()
+    .select(
+      sql<string>`to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`.as('updated_at_cursor'),
+    )
+    .where('tenant_id', '=', input.tenant_id);
 
   if (input.agent_id !== undefined) {
     query = query.where('agent_id', '=', input.agent_id);
@@ -202,21 +210,36 @@ export async function listSessions(
     query = query.where('created_at', '<=', input.end_timestamp);
   }
 
-  if (order === 'asc') {
-    query = query.orderBy('created_at', 'asc').orderBy('session_id', 'asc');
-  } else {
-    query = query.orderBy('created_at', 'desc').orderBy('session_id', 'desc');
+  if (cursor) {
+    const sessionId = cursor.session_id;
+    // Bind the cursor string and cast in SQL so microsecond precision is preserved
+    // (JS Date would truncate to milliseconds).
+    const cursorUpdatedAt = sql<Date>`${cursor.updated_at}::timestamptz`;
+    if (order === 'asc') {
+      query = query.where(eb =>
+        eb.or([
+          eb('updated_at', '>', cursorUpdatedAt),
+          eb.and([eb('updated_at', '=', cursorUpdatedAt), eb('session_id', '>', sessionId)]),
+        ]),
+      );
+    } else {
+      query = query.where(eb =>
+        eb.or([
+          eb('updated_at', '<', cursorUpdatedAt),
+          eb.and([eb('updated_at', '=', cursorUpdatedAt), eb('session_id', '<', sessionId)]),
+        ]),
+      );
+    }
   }
 
-  const rows = await query
-    .limit(limit + 1)
-    .offset(offset)
-    .execute();
+  if (order === 'asc') {
+    query = query.orderBy('updated_at', 'asc').orderBy('session_id', 'asc');
+  } else {
+    query = query.orderBy('updated_at', 'desc').orderBy('session_id', 'desc');
+  }
 
-  const { data, pagination } = paginateOffsetRows(rows, limit, offset);
+  const rows = await query.limit(limit + 1).execute();
+  const { data: pageRows, pagination } = paginateSessionListRows(rows, limit, row => row.updated_at_cursor);
 
-  return {
-    data: data.map(mapRowToSessionRecord),
-    pagination,
-  };
+  return { data: pageRows.map(mapRowToSessionRecord), pagination };
 }

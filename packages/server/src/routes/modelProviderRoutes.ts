@@ -51,7 +51,7 @@ export const listModelProvidersRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: ListModelProvidersResponseSchema } },
-      description: 'All configured model providers.',
+      description: 'All configured model providers',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -70,9 +70,8 @@ export const putModelProviderRoute = createRoute({
   tags: [MODEL_PROVIDERS_TAG],
   summary: 'Create or replace a model provider',
   description:
-    'Full upsert: creates the provider or replaces its entire configuration (models included). The key is the ' +
-    'returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one ' +
-    'configured provider and a repeat call replaces it; only `custom` providers are named by the caller.',
+    'Create or replace a provider (models included). Well-known types use `type` as `name` (one each); ' +
+    '`custom` is named by the caller. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).',
   'x-fern-sdk-group-name': ['settings', 'modelProviders'],
   'x-fern-sdk-method-name': 'upsert',
   request: {
@@ -84,11 +83,11 @@ export const putModelProviderRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: PutModelProviderResponseSchema } },
-      description: 'The saved provider.',
+      description: 'The saved provider',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body.',
+      description: 'Invalid request body, or redacted API key with no stored secret to keep.',
     },
   },
 });

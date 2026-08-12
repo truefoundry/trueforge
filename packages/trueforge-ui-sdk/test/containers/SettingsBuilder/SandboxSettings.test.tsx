@@ -110,6 +110,7 @@ describe('SandboxSettings', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Snapshot name')).toHaveProperty('value', 'daytona-default');
     });
+    fireEvent.click(screen.getByRole('button', { name: /Advanced settings/ }));
     expect(screen.getByLabelText('Exec timeout (ms)')).toHaveProperty('value', '300000');
     expect(screen.getByLabelText('Auto-stop interval (minutes)')).toHaveProperty('value', '15');
     expect(screen.getByLabelText('Auto-archive interval (minutes)')).toHaveProperty('value', '10080');
@@ -167,6 +168,7 @@ describe('SandboxSettings', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Snapshot name')).toHaveProperty('value', 'custom-snap');
     });
+    fireEvent.click(screen.getByRole('button', { name: /Advanced settings/ }));
     expect(screen.getByLabelText('Exec timeout (ms)')).toHaveProperty('value', '60000');
     expect(screen.getByLabelText('Auto-stop interval (minutes)')).toHaveProperty('value', '30');
     expect(screen.getByLabelText(/API key/)).toHaveProperty('value', '');

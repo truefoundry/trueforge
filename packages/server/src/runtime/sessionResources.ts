@@ -81,7 +81,9 @@ export async function getModelProviderConfig({
     name,
     modelId: model.model_id,
     baseUrl: base_url,
-    apiKey: provider.manifest.auth.api_key,
+    // Custom providers may omit auth; adapters still require a string.
+    apiKey: provider.manifest.auth?.api_key ?? '',
+
     headers: {},
   };
 }
