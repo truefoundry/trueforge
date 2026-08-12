@@ -163,6 +163,7 @@ function SaveAgentButtonContent({
         intent,
         sessionId: draftSessionId,
       });
+      });
       adoptAgentSpec({ agentSpec: draftSpec, updatedAt: result.sessionUpdatedAt });
       shell?.bindMutableAgent({
         agentId: result.agentId ?? normalizedName,
