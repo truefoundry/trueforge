@@ -28,7 +28,7 @@ export const listModelProviderCatalogRoute = createRoute({
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the request has no valid session cookie.',
+      description: 'Not authenticated.',
     },
   },
 });
@@ -48,7 +48,7 @@ export const listMcpServerCatalogRoute = createRoute({
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the request has no valid session cookie.',
+      description: 'Not authenticated.',
     },
   },
 });
@@ -68,7 +68,7 @@ export const listSkillCatalogRoute = createRoute({
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the request has no valid session cookie.',
+      description: 'Not authenticated.',
     },
   },
 });
@@ -89,7 +89,7 @@ export const listSandboxProviderCatalogRoute = createRoute({
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the request has no valid session cookie.',
+      description: 'Not authenticated.',
     },
   },
 });

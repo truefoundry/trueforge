@@ -2,7 +2,6 @@
  * DB-backed MCP server route definitions.
  * Admin routes mount at /api/v1/settings/mcp-servers; the chat list and
  * authorize routes mount at /api/v1/mcp-servers.
- * Discovery catalog lives at GET /api/v1/catalog/mcp-servers.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
