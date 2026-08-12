@@ -85,6 +85,7 @@ describe('AssistantTextContainer', () => {
           pendingApprovals: [],
           pendingToolResponses: [],
           pendingMcpAuth: null,
+          resumeUnavailable: false,
           sandboxId: 'sbx-1',
           respondToToolApproval: () => {},
           respondToToolResponse: () => {},
