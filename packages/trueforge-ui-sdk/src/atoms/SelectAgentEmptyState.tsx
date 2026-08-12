@@ -15,7 +15,7 @@ export function SelectAgentEmptyState() {
       className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-4 px-6"
       data-slot="aui_select-agent-empty"
     >
-      <p className="text-muted-foreground max-w-sm text-center text-sm">Select an agent to start chatting</p>
+      <p className="text-text-secondary max-w-sm text-center text-sm">Select an agent to start chatting</p>
       <AgentsLibraryButton className="w-56 max-w-full" />
     </div>
   );

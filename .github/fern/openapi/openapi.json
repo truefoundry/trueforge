@@ -960,7 +960,7 @@
         "description": "Daytona authentication credentials.",
         "properties": {
           "api_key": {
-            "description": "Daytona API key.",
+            "description": "Daytona API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key.",
             "minLength": 1,
             "type": "string"
           }
@@ -6623,7 +6623,7 @@
     },
     "/api/v1/settings/sandbox-providers": {
       "get": {
-        "description": "The single configured sandbox provider for this tenant.",
+        "description": "The single configured sandbox provider for this tenant. `auth.api_key` is redacted.",
         "responses": {
           "200": {
             "content": {
@@ -6657,7 +6657,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "put": {
-        "description": "Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration.",
+        "description": "Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6687,7 +6687,7 @@
                 }
               }
             },
-            "description": "Invalid request body."
+            "description": "Invalid request body, or redacted API key with no stored secret to keep."
           }
         },
         "summary": "Create or replace the sandbox provider",

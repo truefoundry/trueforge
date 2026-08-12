@@ -10,7 +10,12 @@ import type { DaytonaSandboxProviderOptions } from '@truefoundry/utils-core/core
 
 const DaytonaSandboxProviderAuthSchema = z
   .object({
-    api_key: z.string().min(1).describe('Daytona API key.'),
+    api_key: z
+      .string()
+      .min(1)
+      .describe(
+        'Daytona API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key.',
+      ),
   })
   .strict()
   .openapi('DaytonaSandboxProviderAuth');

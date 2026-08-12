@@ -40,7 +40,7 @@ export type ThreadListContainerProps = {
 };
 
 const deleteItemClass =
-  'flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none text-destructive hover:bg-accent hover:text-destructive focus:bg-accent focus:text-destructive data-[highlighted]:bg-accent data-[highlighted]:text-destructive';
+  'flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none text-failure-bg hover:bg-ghost-button-hover hover:text-failure-bg focus:bg-ghost-button-hover focus:text-failure-bg data-[highlighted]:bg-ghost-button-hover data-[highlighted]:text-failure-bg';
 
 function ThreadListItemDeleteMenu() {
   const compact = useCompactLayout();
@@ -51,7 +51,7 @@ function ThreadListItemDeleteMenu() {
   const moreButtonClass = auiButtonClass({
     variant: 'ghost',
     size: 'icon',
-    className: 'size-7 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground',
+    className: 'size-7 shrink-0 text-text-secondary hover:bg-transparent hover:text-text-primary',
   });
 
   if (useSheet) {
@@ -94,7 +94,7 @@ function ThreadListItemDeleteMenu() {
       <ThreadListItemMorePrimitive.Content
         align="end"
         sideOffset={4}
-        className="z-50 min-w-[8rem] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+        className="z-50 min-w-[8rem] rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md"
       >
         <ThreadListItemPrimitive.Delete asChild>
           <ThreadListItemMorePrimitive.Item className={deleteItemClass}>
@@ -223,7 +223,7 @@ function ChatHistorySection({ children, viewportRef }: { children: ReactNode; vi
         <button
           type="button"
           aria-expanded={expanded}
-          className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-1.5 py-1 text-left text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-1.5 py-1 text-left text-sm font-medium text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary"
           onClick={() => setExpanded(v => !v)}
         >
           <span className="truncate">Chat History</span>

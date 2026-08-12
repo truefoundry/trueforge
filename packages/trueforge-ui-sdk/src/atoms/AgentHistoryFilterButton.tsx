@@ -93,21 +93,24 @@ export function AgentHistoryFilterButton() {
       <div className="p-1" onMouseDown={e => e.stopPropagation()}>
         <SearchInput query={query} setQuery={setQuery} placeholder="Search agents" />
         {isSearching ? (
-          <p className="text-muted-foreground px-1 pt-1 text-[11px]" role="status">
+          <p className="text-text-secondary px-1 pt-1 text-[11px]" role="status">
             Searching…
           </p>
         ) : null}
       </div>
       <div ref={listRef} className={cn('mt-1 overflow-y-auto', useSheet ? 'min-h-0 flex-1 px-1 pb-2' : 'max-h-64')}>
         <DropdownMenuItem
-          className={cn('justify-between', selected == null && 'bg-accent text-accent-foreground')}
+          className={cn(
+            'justify-between',
+            selected == null && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
+          )}
           onClick={() => pick(null)}
         >
           All chats
           {selected == null ? <Icon name="check" className="size-3.5 shrink-0" /> : null}
         </DropdownMenuItem>
         {isInitialLoading ? (
-          <p className="px-2 py-3 text-center text-xs text-muted-foreground">Loading…</p>
+          <p className="px-2 py-3 text-center text-xs text-text-secondary">Loading…</p>
         ) : (
           <>
             {agents.map(agent => {
@@ -116,7 +119,10 @@ export function AgentHistoryFilterButton() {
               return (
                 <DropdownMenuItem
                   key={id}
-                  className={cn('justify-between gap-2 text-left', active && 'bg-accent text-accent-foreground')}
+                  className={cn(
+                    'justify-between gap-2 text-left',
+                    active && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
+                  )}
                   onClick={() => pick(id)}
                 >
                   <span className="min-w-0 truncate">{agent.name}</span>
@@ -127,7 +133,7 @@ export function AgentHistoryFilterButton() {
             {hasMore ? (
               <div ref={sentinelRef} className="flex h-6 shrink-0 items-center justify-center" aria-hidden>
                 {loadingMore ? (
-                  <span className="text-muted-foreground text-[11px]" role="status">
+                  <span className="text-text-secondary text-[11px]" role="status">
                     Loading more…
                   </span>
                 ) : null}
@@ -153,8 +159,8 @@ export function AgentHistoryFilterButton() {
           variant: 'ghost',
           size: 'icon',
           className: cn(
-            'relative size-7 shrink-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-            selected != null && 'text-foreground',
+            'relative size-7 shrink-0 text-text-secondary hover:bg-ghost-button-hover hover:text-ghost-button-text',
+            selected != null && 'text-text-primary',
           ),
         })}
         onClick={() => setOpen(v => !v)}
@@ -162,7 +168,7 @@ export function AgentHistoryFilterButton() {
         <Icon name="funnel" className="size-3.5" />
         {selected != null ? (
           <span
-            className="bg-primary absolute top-1 right-1 size-1.5 rounded-full"
+            className="bg-primary-button-bg absolute top-1 right-1 size-1.5 rounded-full"
             aria-hidden
             data-testid="history-filter-active-dot"
           />
@@ -183,7 +189,7 @@ export function AgentHistoryFilterButton() {
               role="menu"
               aria-label="Filter agents"
               style={{ top: menuPos.top, left: menuPos.left }}
-              className="font-sans-flex fixed z-50 w-56 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+              className="font-sans-flex fixed z-50 w-56 rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md"
             >
               {filterBody}
             </div>,

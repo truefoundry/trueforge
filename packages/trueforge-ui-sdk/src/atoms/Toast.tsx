@@ -36,7 +36,7 @@ export function Toast({ title, description, open, onOpenChange, variant = 'error
     <div
       role="alert"
       className={cn(
-        'font-sans-flex bg-background text-foreground pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-border px-4 py-4 shadow-md dark:bg-card',
+        'font-sans-flex bg-primary-bg text-text-primary pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-border px-4 py-4 shadow-md dark:bg-card-bg',
         'animate-in fade-in-0 slide-in-from-bottom-4',
         className,
       )}
@@ -52,7 +52,7 @@ export function Toast({ title, description, open, onOpenChange, variant = 'error
           <div
             className={cn(
               'text-sm leading-none font-semibold',
-              variant === 'success' ? 'text-success' : 'text-destructive',
+              variant === 'success' ? 'text-success' : 'text-failure-bg',
             )}
           >
             {title}
@@ -78,7 +78,7 @@ export function Toast({ title, description, open, onOpenChange, variant = 'error
             </button>
           </div>
         </div>
-        <div className="text-muted-foreground mt-1 max-h-24 overflow-y-auto text-sm leading-snug break-words whitespace-pre-wrap">
+        <div className="text-text-secondary mt-1 max-h-24 overflow-y-auto text-sm leading-snug break-words whitespace-pre-wrap">
           {description}
         </div>
       </div>

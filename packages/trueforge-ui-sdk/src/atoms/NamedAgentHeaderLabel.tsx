@@ -14,7 +14,7 @@ export function NamedAgentHeaderLabel({ className }: { className?: string }) {
 
   return (
     <h1
-      className={cn('flex min-w-0 items-center gap-1.5 px-1 text-sm font-medium text-foreground', className)}
+      className={cn('flex min-w-0 items-center gap-1.5 px-1 text-sm font-medium text-text-primary', className)}
       title={name}
     >
       <Icon name="robot" className="size-3.5 shrink-0" />

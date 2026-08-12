@@ -50,7 +50,9 @@ function Checkbox({ checked }: { checked: boolean }) {
     <span
       className={cn(
         'flex size-4 shrink-0 items-center justify-center rounded border',
-        checked ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background',
+        checked
+          ? 'border-primary-button-bg bg-primary-button-bg text-primary-button-text'
+          : 'border-input-border bg-input-box-bg',
       )}
       aria-hidden
     >
@@ -76,12 +78,12 @@ function CatalogRow({
 }) {
   const content = (
     <>
-      <span className="bg-muted text-muted-foreground mt-0.5 flex size-7 shrink-0 items-center justify-center rounded text-xs font-semibold">
+      <span className="bg-secondary-bg text-text-secondary mt-0.5 flex size-7 shrink-0 items-center justify-center rounded text-xs font-semibold">
         {title.charAt(0).toUpperCase()}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="text-foreground block truncate text-sm font-medium">{title}</span>
-        {description ? <span className="text-muted-foreground line-clamp-1 text-xs">{description}</span> : null}
+        <span className="text-text-primary block truncate text-sm font-medium">{title}</span>
+        {description ? <span className="text-text-secondary line-clamp-1 text-xs">{description}</span> : null}
       </span>
     </>
   );
@@ -92,7 +94,7 @@ function CatalogRow({
         role="menuitemcheckbox"
         aria-checked={checked}
         tabIndex={0}
-        className="hover:bg-accent flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left"
+        className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left"
         onClick={onToggle}
         onKeyDown={event => {
           if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -113,11 +115,11 @@ function CatalogRow({
       role="menuitemcheckbox"
       aria-checked={checked}
       disabled={disabled}
-      className="hover:bg-accent flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+      className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
       onClick={onToggle}
     >
       {content}
-      {disabled ? <Icon name="lock" className="text-muted-foreground size-3" /> : <Checkbox checked={checked} />}
+      {disabled ? <Icon name="lock" className="text-text-secondary size-3" /> : <Checkbox checked={checked} />}
     </button>
   );
 }
@@ -175,14 +177,14 @@ function SearchField({
     <label className="relative mx-3 my-2 block">
       <Icon
         name="search"
-        className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2"
+        className="text-text-secondary pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2"
       />
       <input
         type="search"
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="border-input bg-muted/50 placeholder:text-muted-foreground h-8 w-full rounded-md border-0 py-1 pr-2 pl-7 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="border-input-border bg-secondary-bg/40 text-text-primary placeholder:text-text-secondary h-8 w-full rounded-md border-0 py-1 pr-2 pl-7 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40"
       />
     </label>
   );
@@ -196,7 +198,7 @@ export type DraftCompositeSelectorProps = {
 
 function SectionHeading({ label, count }: { label: string; count: number }) {
   return (
-    <div className="text-muted-foreground px-3 pt-2 pb-1 text-[11px] font-medium tracking-wide uppercase">
+    <div className="text-text-secondary px-3 pt-2 pb-1 text-[11px] font-medium tracking-wide uppercase">
       {label} ({count})
     </div>
   );
@@ -371,8 +373,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
               key={t.id}
               type="button"
               className={cn(
-                'text-muted-foreground flex flex-1 items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-medium',
-                active && 'text-foreground border-b-2 border-foreground',
+                'text-text-secondary flex flex-1 items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-medium',
+                active && 'text-text-primary border-b-2 border-text-primary',
               )}
               onClick={() => {
                 setTab(t.id);
@@ -381,7 +383,9 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             >
               <Icon name={t.icon} className="size-3.5" />
               {t.label}
-              {count != null && count > 0 ? <span className="bg-muted rounded px-1 text-[10px]">{count}</span> : null}
+              {count != null && count > 0 ? (
+                <span className="bg-secondary-bg rounded px-1 text-[10px]">{count}</span>
+              ) : null}
             </button>
           );
         })}
@@ -397,13 +401,13 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
           }}
           className={cn(
             'm-3 flex min-h-48 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-8',
-            'text-center outline-none transition-colors hover:bg-accent/40',
+            'text-center outline-none transition-colors hover:bg-ghost-button-hover',
             'disabled:cursor-not-allowed disabled:opacity-50',
           )}
         >
-          <Icon name="paperclip" className="text-primary size-6" />
+          <Icon name="paperclip" className="text-primary-button-bg size-6" />
           <span className="text-sm font-medium">Add files or photos</span>
-          <span className="text-muted-foreground text-xs">Upto 5 attachments | 10 MB each</span>
+          <span className="text-text-secondary text-xs">Upto 5 attachments | 10 MB each</span>
         </button>
       ) : (
         <>
@@ -415,9 +419,9 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
           {tab === 'skills' && skillsDisabled && skillsDisabledReason ? (
             <div
               role="status"
-              className="border-primary/30 bg-primary/5 text-foreground mx-3 mb-2 flex items-center gap-2 rounded-lg border p-3"
+              className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-center gap-2 rounded-lg border p-3"
             >
-              <Icon name="lock" className="text-primary size-3 shrink-0" />
+              <Icon name="lock" className="text-primary-button-bg size-3 shrink-0" />
               <span className="text-xs leading-none">{skillsDisabledReason}</span>
             </div>
           ) : null}
@@ -521,7 +525,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
           openPicker();
         }}
       >
-        <Icon name="plus" className="text-primary" />
+        <Icon name="plus" className="text-primary-button-bg" />
       </button>
 
       <DraftSelectionChips
@@ -541,7 +545,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             id={menuId}
             role="dialog"
             aria-label="Add to composer"
-            className="bg-popover text-popover-foreground absolute bottom-full left-0 z-50 mb-2 flex h-[22rem] w-[28rem] max-w-[min(28rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-border shadow-lg"
+            className="bg-card-bg text-text-primary absolute bottom-full left-0 z-50 mb-2 flex h-[22rem] w-[28rem] max-w-[min(28rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-border shadow-lg"
           >
             {content}
           </div>
@@ -576,9 +580,9 @@ export function DraftSelectionChips({ disabled, onOpenTab }: DraftSelectionChips
   if (mcpMounts.length === 0 && skillMounts.length === 0) return null;
 
   const chipClassName = cn(
-    'bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs outline-none',
-    'focus-visible:ring-1 focus-visible:ring-ring',
-    disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-accent cursor-pointer',
+    'bg-secondary-bg text-text-secondary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs outline-none',
+    'focus-visible:ring-1 focus-visible:ring-focus-ring',
+    disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-ghost-button-hover cursor-pointer',
   );
 
   return (

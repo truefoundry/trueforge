@@ -51,17 +51,17 @@ const PostMcpOauthScreen = () => {
           : 'The MCP server could not be authorized. You can close this window and try again.';
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-6">
-      <div className="flex w-full max-w-md flex-col items-center gap-3 rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
+    <main className="flex min-h-screen items-center justify-center bg-primary-bg p-6">
+      <div className="flex w-full max-w-md flex-col items-center gap-3 rounded-2xl border border-border bg-card-bg p-8 text-center shadow-sm">
         {result === undefined ? (
-          <Icon name="oauth-loading" className="size-16 animate-spin text-muted-foreground" />
+          <Icon name="oauth-loading" className="size-16 animate-spin text-text-secondary" />
         ) : isSuccess ? (
-          <Icon name="oauth-success" className="size-16 text-success" />
+          <Icon name="oauth-success" className="size-16 text-success-bg" />
         ) : (
-          <Icon name="oauth-error" className="size-16 text-destructive" />
+          <Icon name="oauth-error" className="size-16 text-failure-bg" />
         )}
-        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
-        <p className="text-sm leading-6 text-muted-foreground">{description}</p>
+        <h1 className="text-2xl font-semibold text-text-primary">{title}</h1>
+        <p className="text-sm leading-6 text-text-secondary">{description}</p>
       </div>
     </main>
   );

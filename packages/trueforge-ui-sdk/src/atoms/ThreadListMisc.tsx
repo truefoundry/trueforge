@@ -16,7 +16,7 @@ export function ThreadListNewButton({ className, children, style, ...rest }: Thr
       className={auiButtonClass({
         variant: 'ghost',
         className: cn(
-          '!justify-start h-8 px-2.5 text-sm font-medium text-foreground shadow-none hover:bg-accent hover:text-accent-foreground',
+          '!justify-start h-8 px-2.5 text-sm font-medium text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
           className,
         ),
       })}
@@ -57,10 +57,7 @@ export type ThreadListEmptyStateProps = {
 export function ThreadListEmptyState({ message = 'No threads yet', className }: ThreadListEmptyStateProps) {
   return (
     <div
-      className={cn(
-        'text-muted-foreground flex flex-1 items-center justify-center px-4 text-center text-sm',
-        className,
-      )}
+      className={cn('text-text-secondary flex flex-1 items-center justify-center px-4 text-center text-sm', className)}
     >
       {message}
     </div>
