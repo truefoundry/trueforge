@@ -3,7 +3,7 @@
 Hard-cut `tfy-web-components`. Own primitives (shadcn-style, in-repo),
 Markdown/OpenUI/syntax-highlighter/Monaco, Lucide icons (swappable map +
 SVG transform), and a **theme object** with presets
-(`truefoundry` | `claude` | `chatgpt` | `gemini`) plus full token / className /
+(`trueforge` | `claude` | `chatgpt` | `gemini`) plus full token / className /
 icon / **brand** / **content classNames** customization. Shell also accepts a
 **custom layout** React component built from `Thread`, thread list, etc.
 
@@ -43,7 +43,7 @@ track (orthogonal to [`docs/server.md`](./server.md)).
 | Icons           | Lucide defaults; host can replace map + supply SVG transforms                            |
 | Brand           | Logo URL (per-mode) via `theme.brand`; component marks via the `BrandLogo` slot          |
 | Theme API       | Object (not string-only); every look aspect customizable                                 |
-| Presets         | Inspired-by packs: `truefoundry` (default), `claude`, `chatgpt`, `gemini`                |
+| Presets         | Inspired-by packs: `trueforge` (default), `claude`, `chatgpt`, `gemini`                  |
 | Custom styles   | CSS tokens + `className`; host may also import CSS (documented). No “load CSS file” prop |
 | Light / dark    | Controlled `mode` on the theme object **or** omit → uncontrolled `useTheme().setTheme`   |
 | React overrides | Structural pieces via **`overrides` / slots**; full chrome via **`layout` component**    |
@@ -112,7 +112,7 @@ New direct dependencies this implies: `monaco-editor`, `react-syntax-highlighter
 ```ts
 type ThemeMode = "light" | "dark" | "system";
 
-type ThemePreset = "truefoundry" | "claude" | "chatgpt" | "gemini";
+type ThemePreset = "trueforge" | "claude" | "chatgpt" | "gemini";
 
 type SemanticTokens = {
   background: string;
@@ -187,7 +187,7 @@ type BrandConfig = {
 };
 
 type ThemeConfig = {
-  preset?: ThemePreset; // default: "truefoundry"
+  preset?: ThemePreset; // default: "trueforge"
   mode?: ThemeMode; // omit = uncontrolled (useTheme().setTheme)
   tokens?: Partial<SemanticTokens>;
   brand?: BrandConfig; // logo image + display name
@@ -390,12 +390,12 @@ function CenteredLayout() {
 
 Ship as CSS variable maps under e.g. `src/theme/presets/`:
 
-| Preset        | Intent (not a clone)                                    |
-| ------------- | ------------------------------------------------------- |
-| `truefoundry` | Current indigo semantic look                            |
-| `claude`      | Warm paper bg, soft borders, restrained accent          |
-| `chatgpt`     | Cool gray chrome, green/teal send accent, flat bubbles  |
-| `gemini`      | Light airy surface, blue accent, slightly larger radius |
+| Preset      | Intent (not a clone)                                    |
+| ----------- | ------------------------------------------------------- |
+| `trueforge` | Current indigo semantic look                            |
+| `claude`    | Warm paper bg, soft borders, restrained accent          |
+| `chatgpt`   | Cool gray chrome, green/teal send accent, flat bubbles  |
+| `gemini`    | Light airy surface, blue accent, slightly larger radius |
 
 Each preset defines **light + dark** token sets. Document that these are
 stylistic homages, not product replicas.
@@ -501,7 +501,7 @@ overrides apply in the example app.
 
 ### Phase 5 — Presets + polish
 
-1. Ship `claude` / `chatgpt` / `gemini` / `truefoundry` packs.
+1. Ship `claude` / `chatgpt` / `gemini` / `trueforge` packs.
 2. Example app: theme switcher + custom layout demo + content classNames demo.
 3. Drop `tfy-web-components` from `dependencies` / `peerDependencies`.
 4. CHANGELOG + migration guide (slot props, styles, brand, layout, classNames).

@@ -264,7 +264,7 @@ describe('ThemeProvider', () => {
 
   it('preserves the semibold TrueFoundry welcome heading', () => {
     render(
-      <ThemeProvider theme={{ preset: 'truefoundry', mode: 'light' }}>
+      <ThemeProvider theme={{ preset: 'trueforge', mode: 'light' }}>
         <WelcomeScreen />
       </ThemeProvider>,
     );

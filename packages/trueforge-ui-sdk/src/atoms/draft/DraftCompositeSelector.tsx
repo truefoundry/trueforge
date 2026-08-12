@@ -11,6 +11,7 @@ import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
+import { Tooltip } from '../primitives/Tooltip.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 
 /** Catalog-backed mount shape used by the draft picker (runtime mounts stay opaque). */
@@ -37,7 +38,7 @@ type AttachTab = 'connectors' | 'skills' | 'files';
 
 const TABS: { id: AttachTab; label: string; icon: string }[] = [
   { id: 'connectors', label: 'Connectors', icon: 'plug' },
-  { id: 'skills', label: 'Skills', icon: 'list-check' },
+  { id: 'skills', label: 'Skills', icon: 'lightbulb' },
   { id: 'files', label: 'Attachment', icon: 'paperclip' },
 ];
 
@@ -277,7 +278,12 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     scheduleFlush();
   };
 
-  const openPicker = () => {
+  const openPicker = (nextTab?: AttachTab) => {
+    if (nextTab != null) {
+      setTab(nextTab);
+      setQuery('');
+    }
+    if (open) return;
     setLocalMcp(specMcp);
     setLocalSkills(specSkills);
     dirtyRef.current = false;
@@ -421,7 +427,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   );
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative flex flex-wrap items-center gap-1.5">
       <button
         type="button"
         disabled={disabled || isRunning}
@@ -440,6 +446,13 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
       >
         <Icon name="plus" className="text-primary" />
       </button>
+
+      <DraftSelectionChips
+        disabled={disabled || isRunning}
+        onOpenTab={tabId => {
+          openPicker(tabId);
+        }}
+      />
 
       {open ? (
         isMobile || compactLayout ? (
@@ -461,26 +474,65 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   );
 }
 
-export function DraftSelectionChips() {
-  const { agentSpec } = useTrueFoundryAgentSpec();
-  const mcpCount = agentSpec?.mcpServers?.length ?? 0;
-  const skillCount = agentSpec?.skills?.length ?? 0;
+export type DraftSelectionChipsProps = {
+  disabled?: boolean;
+  onOpenTab?: (tab: 'connectors' | 'skills') => void;
+};
 
-  if (mcpCount === 0 && skillCount === 0) return null;
+function SelectionChipTooltipList({ mounts }: { mounts: DraftMount[] }) {
+  return (
+    <ul className="m-0 flex max-w-48 list-none flex-col gap-0.5 p-0 text-left">
+      {mounts.map(mount => (
+        <li key={mount.id} className="truncate" title={mount.name}>
+          {mount.name}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function DraftSelectionChips({ disabled, onOpenTab }: DraftSelectionChipsProps = {}) {
+  const { agentSpec } = useTrueFoundryAgentSpec();
+  const mcpMounts = useMemo(() => draftMountsFromSpec(agentSpec?.mcpServers), [agentSpec?.mcpServers]);
+  const skillMounts = useMemo(() => draftMountsFromSpec(agentSpec?.skills), [agentSpec?.skills]);
+
+  if (mcpMounts.length === 0 && skillMounts.length === 0) return null;
+
+  const chipClassName = cn(
+    'bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs outline-none',
+    'focus-visible:ring-1 focus-visible:ring-ring',
+    disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-accent cursor-pointer',
+  );
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {mcpCount > 0 ? (
-        <span className="bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs">
-          <Icon name="plug" className="size-3" />
-          {mcpCount} Connector{mcpCount === 1 ? '' : 's'}
-        </span>
+      {mcpMounts.length > 0 ? (
+        <Tooltip content={<SelectionChipTooltipList mounts={mcpMounts} />} className="max-w-48 whitespace-normal">
+          <button
+            type="button"
+            disabled={disabled}
+            aria-label={`View ${mcpMounts.length} selected connector${mcpMounts.length === 1 ? '' : 's'}`}
+            className={chipClassName}
+            onClick={() => onOpenTab?.('connectors')}
+          >
+            <Icon name="plug" className="size-3" />
+            {mcpMounts.length} Connector{mcpMounts.length === 1 ? '' : 's'}
+          </button>
+        </Tooltip>
       ) : null}
-      {skillCount > 0 ? (
-        <span className="bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs">
-          <Icon name="list-check" className="size-3" />
-          {skillCount} Skill{skillCount === 1 ? '' : 's'}
-        </span>
+      {skillMounts.length > 0 ? (
+        <Tooltip content={<SelectionChipTooltipList mounts={skillMounts} />} className="max-w-48 whitespace-normal">
+          <button
+            type="button"
+            disabled={disabled}
+            aria-label={`View ${skillMounts.length} selected skill${skillMounts.length === 1 ? '' : 's'}`}
+            className={chipClassName}
+            onClick={() => onOpenTab?.('skills')}
+          >
+            <Icon name="lightbulb" className="size-3" />
+            {skillMounts.length} Skill{skillMounts.length === 1 ? '' : 's'}
+          </button>
+        </Tooltip>
       ) : null}
     </div>
   );
