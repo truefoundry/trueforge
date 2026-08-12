@@ -70,7 +70,7 @@ describe('CustomModelProviderForm', () => {
     expect(submit).toBeDisabled(); // model ID still empty
 
     fireEvent.change(screen.getByPlaceholderText('llama3.1:70b'), { target: { value: 'llama3.1:70b' } });
-    // Enabled even though the collapsed limits are still empty — the click reveals them.
+    // Enabled even though the required limits are still empty — they're enforced on submit.
     expect(submit).toBeEnabled();
   });
 
@@ -93,18 +93,15 @@ describe('CustomModelProviderForm', () => {
 
   it('does not prefill Context length or Max output tokens', () => {
     renderForm();
-    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
+    // Advanced is expanded by default, so the limits are visible immediately.
     expect((screen.getByPlaceholderText('128000') as HTMLInputElement).value).toBe('');
     expect((screen.getByPlaceholderText('4096') as HTMLInputElement).value).toBe('');
   });
 
-  it('requires both limits: submitting empty auto-expands Advanced, shows the error, and does not submit', () => {
+  it('requires both limits: submitting with them empty shows the error and does not submit', () => {
     const onAdd = renderForm();
-    fillVisible();
-    expect(screen.queryByPlaceholderText('128000')).not.toBeInTheDocument(); // Advanced starts collapsed
+    fillVisible(); // Advanced is expanded by default; the limits are visible but empty.
     fireEvent.click(screen.getByRole('button', { name: 'Add provider' }));
-    // The offending model's Advanced expands and its required error appears; nothing is submitted.
-    expect(screen.getByPlaceholderText('128000')).toBeInTheDocument();
     expect(screen.getByText(/Set the model.s context window/)).toBeInTheDocument();
     expect(onAdd).not.toHaveBeenCalled();
   });
