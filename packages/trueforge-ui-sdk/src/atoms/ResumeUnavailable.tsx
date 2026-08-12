@@ -15,7 +15,7 @@ export function ResumeUnavailable({ className }: ResumeUnavailableProps) {
     <p
       role="status"
       aria-live="polite"
-      className={cn('text-muted-foreground flex items-center gap-2 py-2 text-sm leading-snug', className)}
+      className={cn('text-text-secondary flex items-center gap-2 py-2 text-sm leading-snug', className)}
     >
       <span className="animate-pulse font-sans" aria-hidden>
         {'●'}
