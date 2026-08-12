@@ -55,22 +55,6 @@ type ThemeConfig = {
 }
 ```
 
-## Precedence
-
-The provider resolves the preset for the current mode, merges your `theme.tokens` over it, and writes the result as **inline styles** on the theme root. So within `theme.tokens`, your entries beat the preset — that part is straightforward.
-
-<Warning>
-  Because those tokens land as inline styles, a `:root { --primary: … }` rule in your own CSS will **not** override them. This applies to every token a preset defines, whether or not you passed `theme.tokens`. Use `theme.tokens` to change these, not CSS.
-</Warning>
-
-A few tokens are absent from the presets — `scrollbarThumb`, `assistantBubble`, and `assistantBubbleForeground`. Those are not written inline unless you set them, so they fall through to the stylesheet's low-precedence layer and a host `:root` rule does take effect.
-
-`theme.className` is applied to the theme root, for utility-class adjustments alongside the tokens.
-
-<Note>
-  `brand`, `icons`, and `classNames` are not part of this cascade — they are separate context values, not tokens that layer over one another.
-</Note>
-
 ## Reading theme state
 
 ```tsx
@@ -93,12 +77,6 @@ One token breaks that rule:
 | Token | CSS variable |
 | --- | --- |
 | `fontFamily` | `--font-agent-ui` |
-
-Alongside the usual surface and text tokens, the palette includes status pairs for `destructive`, `success`, and `warning`, each with a matching `*Foreground`.
-
-<Note>
-  `theme.tokens` is a `Partial`, so you only supply the tokens you want to change and the preset fills in the rest. The status pairs matter only if you construct a complete `SemanticTokens` object — for instance when building your own preset — in which case all four of `success`, `successForeground`, `warning`, and `warningForeground` are required.
-</Note>
 
 ## Styling rendered content
 
