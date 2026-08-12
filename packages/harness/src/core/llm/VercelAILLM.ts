@@ -622,19 +622,24 @@ export function toAssistantModelMessage({
   msg,
   provider,
   providerName,
+  logger,
 }: {
   msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }>;
   provider: VercelAIProviderName;
   /** Configured provider resource name (FQN prefix). */
   providerName: string;
+  logger?: Logger | undefined;
 }): ModelMessage {
   const parts: AssistantContent = [];
 
   // `thinking_blocks` / `source` are attached at runtime by AgentThread and absent from the OpenAI SDK type.
   const rawThinking: unknown = Reflect.get(msg, 'thinking_blocks');
-  const rawSource: unknown = Reflect.get(msg, 'source');
-  const source = typeof rawSource === 'string' ? rawSource : undefined;
-  const attachSignature = shouldAttachReasoningSignature({ source, provider, providerName });
+  const attachSignature = shouldAttachReasoningSignature({
+    source: Reflect.get(msg, 'source'),
+    provider,
+    providerName,
+    logger,
+  });
   // Alibaba appends replayed thinking to the visible answer, and Qwen signs nothing to preserve.
   if (Array.isArray(rawThinking) && provider !== 'alibaba') {
     // Widen any[] → unknown[] so the in-guards below narrow safely.
@@ -736,16 +741,23 @@ export function shouldAttachReasoningSignature({
   source,
   provider,
   providerName,
+  logger,
 }: {
-  source: string | undefined;
+  source: unknown;
   provider: VercelAIProviderName;
   providerName: string;
+  logger?: Logger | undefined;
 }): boolean {
   if (source === undefined) {
     return false;
   }
+  if (typeof source !== 'string') {
+    logger?.warn('Ignoring non-string assistant message source; skipping reasoning signature replay', { source });
+    return false;
+  }
   const parsed = parseAssistantMessageSource(source);
   if (parsed === undefined) {
+    logger?.warn('Ignoring malformed assistant message source; skipping reasoning signature replay', { source });
     return false;
   }
   return parsed.providerType === provider && parsed.providerName === providerName;
@@ -765,10 +777,12 @@ export function convertMessages({
   messages,
   provider,
   providerName,
+  logger,
 }: {
   messages: ChatCompletionMessageParam[];
   provider: VercelAIProviderName;
   providerName: string;
+  logger?: Logger | undefined;
 }): ConvertedMessages {
   const toolNameById = new Map<string, string>();
   for (const msg of messages) {
@@ -795,7 +809,7 @@ export function convertMessages({
       continue;
     }
     if (msg.role === 'assistant') {
-      result.push(toAssistantModelMessage({ msg, provider, providerName }));
+      result.push(toAssistantModelMessage({ msg, provider, providerName, logger }));
       continue;
     }
     if (msg.role === 'tool') {
@@ -1364,6 +1378,7 @@ export class VercelAILLM implements ILLM {
       messages: body.messages,
       provider: providerConfig.provider,
       providerName,
+      logger: this.logger,
     });
     const tools = convertTools(body.tools ?? undefined);
     const structuredOutputSpec = toStructuredOutputSpec(body.response_format);
