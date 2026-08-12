@@ -2749,6 +2749,15 @@
         },
         "type": "object"
       },
+      "SandboxBuildStatus": {
+        "description": "Current build status.",
+        "enum": [
+          "pending",
+          "ready",
+          "failed"
+        ],
+        "type": "string"
+      },
       "SandboxConfig": {
         "default": {
           "enabled": false,
@@ -2918,13 +2927,7 @@
                 ]
               },
               "status": {
-                "description": "Current build status.",
-                "enum": [
-                  "pending",
-                  "ready",
-                  "failed"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/SandboxBuildStatus"
               }
             },
             "required": [

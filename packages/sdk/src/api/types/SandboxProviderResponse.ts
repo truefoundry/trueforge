@@ -7,6 +7,5 @@ export interface SandboxProviderResponse extends TrueForge.DaytonaSandboxProvide
     metadata: TrueForge.SandboxProviderResponseMetadata;
     /** Human-readable detail for the current status; null when ready. */
     reason: string | null;
-    /** Current build status. */
-    status: TrueForge.SandboxProviderResponseStatus;
+    status: TrueForge.SandboxBuildStatus;
 }
