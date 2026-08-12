@@ -2,11 +2,14 @@ import type { Kysely, Selectable, Transaction } from 'kysely';
 import type { Model } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
+  ModelProviderNameConflictError,
+  type CreateProviderInput,
   type GetProviderInput,
   type IModelProviderStore,
   type ModelProviderRecord,
   type UpsertProviderInput,
 } from '../../modelProviderStore';
+import { isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';
 import type { Database, ModelProviderTable } from '../types';
 
@@ -64,6 +67,29 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
       .forUpdate()
       .executeTakeFirst();
     return row ? toRecord(row) : undefined;
+  }
+
+  async createProvider(input: CreateProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {
+    const db = transaction ?? this.#db;
+    try {
+      const row = await db
+        .insertInto('model_provider')
+        .values({
+          tenant_id: input.tenant_id,
+          name: input.name,
+          manifest: json(input.manifest),
+          created_at: now(),
+          updated_at: now(),
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+      return toRecord(row);
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ModelProviderNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
+      }
+      throw error;
+    }
   }
 
   async upsertProvider(input: UpsertProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {

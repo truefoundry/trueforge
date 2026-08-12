@@ -21,11 +21,27 @@ export interface GetProviderInput {
   name: string;
 }
 
-export interface UpsertProviderInput {
+export interface CreateProviderInput {
   tenant_id: string;
   /** Derived from the document by `modelProviderName`, never chosen by the caller. */
   name: ResourceName;
   manifest: ModelProvider;
+}
+
+/** Same shape as create for now; kept as a distinct name for the upsert path. */
+export type UpsertProviderInput = CreateProviderInput;
+
+/** Unique `(tenant_id, name)` violation on create. */
+export class ModelProviderNameConflictError extends Error {
+  readonly tenant_id: string;
+  readonly provider_name: string;
+
+  constructor({ tenant_id, name }: { tenant_id: string; name: string }, options?: ErrorOptions) {
+    super(`Model provider name already exists: ${name}`, options);
+    this.name = 'ModelProviderNameConflictError';
+    this.tenant_id = tenant_id;
+    this.provider_name = name;
+  }
 }
 
 export interface IModelProviderStore<TTransaction = never> {
@@ -37,6 +53,8 @@ export interface IModelProviderStore<TTransaction = never> {
    * Required before read-modify-write of secrets so concurrent keep/rotate cannot interleave.
    */
   getProviderForUpdate(input: GetProviderInput, transaction: TTransaction): Promise<ModelProviderRecord | undefined>;
+  /** Inserts a new provider. Throws ModelProviderNameConflictError on name clash. */
+  createProvider(input: CreateProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Single-row write: creates the provider or replaces the whole manifest (models included). */
   upsertProvider(input: UpsertProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Flattens manifests into the FQN read view for GET /models. */

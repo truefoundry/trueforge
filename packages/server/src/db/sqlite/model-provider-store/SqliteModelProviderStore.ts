@@ -2,11 +2,14 @@ import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { Model, ModelProvider } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
+  ModelProviderNameConflictError,
+  type CreateProviderInput,
   type GetProviderInput,
   type IModelProviderStore,
   type ModelProviderRecord,
   type UpsertProviderInput,
 } from '../../modelProviderStore';
+import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
@@ -65,6 +68,29 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
       .where('tenant_id', '=', input.tenant_id)
       .where('name', '=', input.name)
       .executeTakeFirst();
+  }
+
+  async createProvider(input: CreateProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {
+    const db = transaction ?? this.#db;
+    const timestamp = nowIso();
+    try {
+      return await db
+        .insertInto('model_provider')
+        .values({
+          tenant_id: input.tenant_id,
+          name: input.name,
+          manifest: jsonbBind(input.manifest),
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .returning(recordColumns)
+        .executeTakeFirstOrThrow();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ModelProviderNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
+      }
+      throw error;
+    }
   }
 
   async upsertProvider(input: UpsertProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {

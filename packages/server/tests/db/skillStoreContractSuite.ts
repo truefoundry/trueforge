@@ -2,7 +2,7 @@
  * Backend-agnostic behavioural contract for ISkillStore.
  * Runs under jest against a fresh store per test (see backend test files).
  */
-import type { ISkillStore } from '../../src/db/skillStore';
+import { SkillNameConflictError, type ISkillStore } from '../../src/db/skillStore';
 import type { SkillManifest } from '../../src/schemas/skill';
 
 const TENANT = 'default';
@@ -38,6 +38,20 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
 
     const fetched = await store.getSkill({ tenant_id: TENANT, name: 'algorithmic-art' });
     expect(fetched).toEqual(created);
+  });
+
+  it('createSkill inserts and throws SkillNameConflictError on name clash', async () => {
+    const store = getStore();
+    const created = await store.createSkill({
+      tenant_id: TENANT,
+      name: 'algorithmic-art',
+      manifest: manifest(),
+    });
+    expect(created.name).toBe('algorithmic-art');
+
+    await expect(
+      store.createSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() }),
+    ).rejects.toBeInstanceOf(SkillNameConflictError);
   });
 
   it('getSkill returns undefined for unknown skills', async () => {

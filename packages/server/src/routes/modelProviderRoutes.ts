@@ -6,6 +6,8 @@
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
+  CreateModelProviderRequestSchema,
+  CreateModelProviderResponseSchema,
   ListModelProvidersResponseSchema,
   PutModelProviderRequestSchema,
   PutModelProviderResponseSchema,
@@ -33,6 +35,38 @@ export const listModelProvidersRoute = createRoute({
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'OIDC is configured and the caller is authenticated but not an admin.',
+    },
+  },
+});
+
+export const createModelProviderRoute = createRoute({
+  method: 'post',
+  path: '/',
+  tags: [MODEL_PROVIDERS_TAG],
+  summary: 'Create a model provider',
+  description:
+    'Creates a provider (models included). Fails if `name` is already taken. Well-known types use `type` as `name` (one each); ' +
+    '`custom` is named by the caller. `auth.api_key`: real value required; redacted with no stored secret returns 400.',
+  'x-fern-sdk-group-name': ['settings', 'modelProviders'],
+  'x-fern-sdk-method-name': 'create',
+  request: {
+    body: {
+      content: { 'application/json': { schema: CreateModelProviderRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: CreateModelProviderResponseSchema } },
+      description: 'The created provider',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body, or redacted API key with no stored secret to keep.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'A model provider with this name already exists.',
     },
   },
 });

@@ -74,6 +74,10 @@ export const ConfiguredMcpServerSchema = McpServerManifestObjectSchema.extend({
 
 export const PutMcpServerRequestSchema = McpServerManifestSchema;
 export const PutMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('PutMcpServerResponse');
+export const CreateMcpServerRequestSchema = McpServerManifestObjectSchema.openapi('CreateMcpServerRequest');
+export const CreateMcpServerResponseSchema = z
+  .object({ data: ConfiguredMcpServerSchema })
+  .openapi('CreateMcpServerResponse');
 export const GetMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('GetMcpServerResponse');
 export const ListMcpServersResponseSchema = z
   .object({ data: z.array(ConfiguredMcpServerSchema) })

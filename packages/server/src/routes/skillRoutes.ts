@@ -7,6 +7,8 @@
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
+  CreateSkillRequestSchema,
+  CreateSkillResponseSchema,
   ListAvailableSkillsResponseSchema,
   ListConfiguredSkillsResponseSchema,
   PutSkillRequestSchema,
@@ -56,6 +58,36 @@ export const listConfiguredSkillsRoute = createRoute({
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'OIDC is configured and the caller is authenticated but not an admin.',
+    },
+  },
+});
+
+export const createSkillRoute = createRoute({
+  method: 'post',
+  path: '/',
+  tags: [SKILLS_TAG],
+  summary: 'Create a skill',
+  description: 'Creates a skill keyed by `name`. Fails if `name` is already taken.',
+  'x-fern-sdk-group-name': ['settings', 'skills'],
+  'x-fern-sdk-method-name': 'create',
+  request: {
+    body: {
+      content: { 'application/json': { schema: CreateSkillRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: CreateSkillResponseSchema } },
+      description: 'The created skill.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'A skill with this name already exists.',
     },
   },
 });
