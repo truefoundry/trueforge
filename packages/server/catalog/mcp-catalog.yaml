@@ -16,7 +16,7 @@ mcp_servers:
       type: dcr
   - type: remote
     name: sentry
-    logo: https://assets.production.truefoundry.com/sentry-dark.svg
+    logo: https://assets.production.truefoundry.com/sentry.svg
     url: https://mcp.sentry.dev/mcp
     auth:
       type: dcr
@@ -34,7 +34,7 @@ mcp_servers:
     url: https://search.parallel.ai/mcp
   - type: remote
     name: github
-    logo: https://assets.production.truefoundry.com/github-dark.svg
+    logo: https://assets.production.truefoundry.com/github.svg
     url: https://api.githubcopilot.com/mcp/
     auth:
       type: header

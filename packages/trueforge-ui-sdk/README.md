@@ -203,7 +203,7 @@ const server = {
   server={server}
   layout="sidebar"
   theme={{
-    preset: 'claude', // 'truefoundry' | 'claude' | 'chatgpt' | 'gemini'
+    preset: 'claude', // 'trueforge' | 'claude' | 'chatgpt' | 'gemini'
     mode: 'dark', // omit for uncontrolled (useTheme().setTheme works)
     tokens: {
       primary: 'oklch(0.55 0.2 275)',

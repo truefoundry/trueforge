@@ -9,7 +9,7 @@ describe('WelcomeScreen', () => {
     const { container } = render(<WelcomeScreen className="host-welcome" />);
 
     const heading = screen.getByRole('heading', { level: 1, name: 'How can I help you today?' });
-    const root = container.querySelector('[data-preset="truefoundry"]');
+    const root = container.querySelector('[data-preset="trueforge"]');
     expect(root).toHaveClass('aui-thread-welcome-root', 'host-welcome');
     expect(root?.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
     expect(heading).toHaveClass('font-semibold', 'delay-75');

@@ -1,4 +1,5 @@
 import type { ToolApprovalOption as AuiToolApprovalOption, ToolCallMessagePartProps } from '@assistant-ui/react';
+import { parse as parsePartialJson } from 'partial-json';
 
 import type { ToolCallStatus } from '../atoms/ToolCallCard.js';
 
@@ -27,6 +28,27 @@ const APPROVAL_OPTION_DEFAULT_LABELS: Record<string, string> = {
 };
 
 const isAllowKind = (kind: string) => kind === 'allow-once' || kind === 'allow-always';
+
+type JsonParseResult = { success: true; value: unknown; isPartial: boolean } | { success: false };
+
+function parseJsonIncrementally(content: string): JsonParseResult {
+  try {
+    return { success: true, value: JSON.parse(content), isPartial: false };
+  } catch {
+    const trimmed = content.trim();
+    if (trimmed[0] !== '{' && trimmed[0] !== '[') return { success: false };
+
+    try {
+      return { success: true, value: parsePartialJson(content), isPartial: true };
+    } catch {
+      return { success: false };
+    }
+  }
+}
+
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === 'object' && !Array.isArray(value);
+}
 
 export function parseAskUserQuestionArgs(argsText: string | undefined): {
   question?: string;
@@ -117,19 +139,14 @@ export function parseSandboxArgs(argsText: string | undefined): {
   argsJson?: string;
 } {
   if (!argsText) return {};
-  try {
-    const parsed = JSON.parse(argsText) as {
-      command?: string;
-      intent?: string;
-    };
-    return {
-      command: parsed.command,
-      intent: parsed.intent,
-      argsJson: JSON.stringify(parsed, null, 2),
-    };
-  } catch {
-    return { argsJson: argsText };
-  }
+  const parsed = parseJsonIncrementally(argsText);
+  if (!parsed.success || !isUnknownRecord(parsed.value)) return { argsJson: argsText };
+
+  return {
+    command: typeof parsed.value.command === 'string' ? parsed.value.command : undefined,
+    intent: typeof parsed.value.intent === 'string' ? parsed.value.intent : undefined,
+    argsJson: parsed.isPartial ? argsText : JSON.stringify(parsed.value, null, 2),
+  };
 }
 
 export function parseSandboxResult(result: string | undefined): {
@@ -138,20 +155,17 @@ export function parseSandboxResult(result: string | undefined): {
   resultJson?: string;
 } {
   if (result === undefined) return {};
-  try {
-    const parsed = JSON.parse(result) as {
-      response?: { exitCode?: number; result?: string };
-    };
-    const exitCode = parsed.response?.exitCode ?? null;
-    const resultText = parsed.response?.result;
-    return {
-      exitCode,
-      resultText,
-      resultJson: JSON.stringify(parsed, null, 2),
-    };
-  } catch {
-    return { resultText: result };
-  }
+  const parsed = parseJsonIncrementally(result);
+  if (!parsed.success || !isUnknownRecord(parsed.value)) return { resultText: result };
+
+  const response = isUnknownRecord(parsed.value.response) ? parsed.value.response : undefined;
+  const exitCode = typeof response?.exitCode === 'number' ? response.exitCode : null;
+  const resultText = typeof response?.result === 'string' ? response.result : undefined;
+  return {
+    exitCode,
+    resultText,
+    resultJson: parsed.isPartial ? result : JSON.stringify(parsed.value, null, 2),
+  };
 }
 
 export function parseMcpToolArgs(argsText: string | undefined): {
@@ -186,7 +200,7 @@ export function getJsonDisplayValue(content: string | undefined): {
     return { value: content, isJson: false };
   }
   try {
-    const parsed = JSON.parse(content);
+    const parsed: unknown = JSON.parse(content);
     return { value: JSON.stringify(parsed, null, 2), isJson: true };
   } catch {
     return { value: content, isJson: false };

@@ -3,7 +3,11 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
-import { DraftCompositeSelector, type DraftCompositeSelectorProps } from '@/atoms/draft/DraftCompositeSelector.js';
+import {
+  DraftCompositeSelector,
+  DraftSelectionChips,
+  type DraftCompositeSelectorProps,
+} from '@/atoms/draft/DraftCompositeSelector.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentBuilderCapabilitiesResponse, AgentSpec, AgentUIServer } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
@@ -210,5 +214,57 @@ describe('DraftCompositeSelector', () => {
 
     rerender(<DraftCompositeSelector isRunning />);
     expect(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' })).toBeDisabled();
+  });
+});
+
+describe('DraftSelectionChips', () => {
+  beforeEach(() => {
+    agentSpec = {
+      model: { name: 'openai/gpt-4.1' },
+      mcpServers: [
+        { id: 'slack', name: 'Slack' },
+        { id: 'github', name: 'GitHub' },
+      ],
+      skills: [{ id: 'research', name: 'Research' }],
+    };
+  });
+
+  it('shows selected entity names in tooltips on hover', () => {
+    render(<DraftSelectionChips />);
+
+    const connectorsChip = screen.getByRole('button', { name: 'View 2 selected connectors' });
+    fireEvent.mouseEnter(connectorsChip);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Slack');
+    expect(screen.getByRole('tooltip')).toHaveTextContent('GitHub');
+    fireEvent.mouseLeave(connectorsChip);
+
+    const skillsChip = screen.getByRole('button', { name: 'View 1 selected skill' });
+    fireEvent.mouseEnter(skillsChip);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Research');
+  });
+
+  it('opens the composite selector on the matching tab when a chip is clicked', async () => {
+    renderSelector();
+
+    const skillsChip = screen.getByRole('button', { name: 'View 1 selected skill' });
+    fireEvent.mouseEnter(skillsChip);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    fireEvent.click(skillsChip);
+
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Skills/ })).toHaveClass('text-foreground');
+    expect(await screen.findByRole('menuitemcheckbox', { name: /Research/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'View 2 selected connectors' }));
+    expect(screen.getByRole('button', { name: /Connectors/ })).toHaveClass('text-foreground');
+    expect(await screen.findByRole('menuitemcheckbox', { name: /Slack/ })).toBeInTheDocument();
+  });
+
+  it('renders nothing when nothing is selected', () => {
+    agentSpec = { model: { name: 'openai/gpt-4.1' }, mcpServers: [], skills: [] };
+    const { container } = render(<DraftSelectionChips />);
+    expect(container).toBeEmptyDOMElement();
   });
 });
