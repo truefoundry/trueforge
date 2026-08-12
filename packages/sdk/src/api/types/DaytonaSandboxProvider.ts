@@ -12,8 +12,6 @@ export interface DaytonaSandboxProvider {
     autoStopIntervalInMinutes: number;
     /** Default sandbox command exec timeout in milliseconds. */
     execTimeoutMs: number;
-    /** Daytona snapshot used when creating sandboxes. */
-    snapshotName: string;
     /** Daytona sandbox provider. */
     type: "daytona";
 }

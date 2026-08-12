@@ -412,11 +412,6 @@
             "exclusiveMinimum": 0,
             "type": "integer"
           },
-          "snapshot_name": {
-            "description": "Daytona snapshot used when creating sandboxes.",
-            "minLength": 1,
-            "type": "string"
-          },
           "type": {
             "description": "Daytona sandbox provider.",
             "enum": [
@@ -427,7 +422,6 @@
         },
         "required": [
           "type",
-          "snapshot_name",
           "exec_timeout_ms",
           "auto_stop_interval_in_minutes",
           "auto_archive_interval_in_minutes",
@@ -953,11 +947,6 @@
             "exclusiveMinimum": 0,
             "type": "integer"
           },
-          "snapshot_name": {
-            "description": "Daytona snapshot used when creating sandboxes.",
-            "minLength": 1,
-            "type": "string"
-          },
           "type": {
             "description": "Daytona sandbox provider.",
             "enum": [
@@ -968,7 +957,6 @@
         },
         "required": [
           "type",
-          "snapshot_name",
           "auth",
           "exec_timeout_ms",
           "auto_stop_interval_in_minutes",
@@ -1236,7 +1224,7 @@
       "GetSandboxProviderResponse": {
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/DaytonaSandboxProvider"
+            "$ref": "#/components/schemas/SandboxProviderResponse"
           }
         },
         "required": [
@@ -2515,7 +2503,7 @@
       "PutSandboxProviderResponse": {
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/DaytonaSandboxProvider"
+            "$ref": "#/components/schemas/SandboxProviderResponse"
           }
         },
         "required": [
@@ -2823,6 +2811,35 @@
         ],
         "type": "object"
       },
+      "SandboxImage": {
+        "additionalProperties": false,
+        "description": "Live status of the release-owned sandbox image (not persisted).",
+        "properties": {
+          "build_ref": {
+            "description": "Provider-internal build handle (the Daytona snapshot name).",
+            "type": "string"
+          },
+          "build_status": {
+            "description": "Where the image build stands right now.",
+            "enum": [
+              "pending",
+              "ready",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "tag": {
+            "description": "Tag of the release-owned sandbox image.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "build_status",
+          "build_ref"
+        ],
+        "type": "object"
+      },
       "SandboxNetworkPolicy": {
         "properties": {
           "auth_inject": {
@@ -2894,6 +2911,25 @@
           }
         },
         "type": "object"
+      },
+      "SandboxProviderResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DaytonaSandboxProvider"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "image": {
+                "$ref": "#/components/schemas/SandboxImage"
+              }
+            },
+            "required": [
+              "image"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "Session": {
         "properties": {
@@ -6791,6 +6827,16 @@
               }
             },
             "description": "Invalid request body, or redacted API key with no stored secret to keep."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Daytona rejected the provided API key."
           }
         },
         "summary": "Create or replace the sandbox provider",
