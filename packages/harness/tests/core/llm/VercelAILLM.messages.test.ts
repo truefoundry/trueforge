@@ -314,6 +314,17 @@ describe('toAssistantModelMessage', () => {
     ).toBe(false);
   });
 
+  // Defensive: well-known gate is type-only; a shared name must not override a type mismatch.
+  it('does not attach when provider type differs even if provider_name matches', () => {
+    expect(
+      shouldAttachReasoningSignature({
+        source: 'openai/shared/model',
+        provider: 'anthropic',
+        providerName: 'shared',
+      }),
+    ).toBe(false);
+  });
+
   it('omits signature providerOptions when source is missing', () => {
     const msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
       role: 'assistant',
