@@ -236,11 +236,12 @@ export interface ISessionStore<
   updateSession(input: UpdateSessionInput<TSessionCustom>): Promise<void>;
 
   /**
-   * Paginated list of the tenant's sessions ordered by `created_at`
-   * (`order` defaults to `desc`). `start_timestamp` / `end_timestamp` are
-   * inclusive instant bounds on `created_at`. Optional `agent_id` filters
-   * ref-bound sessions; optional `created_by` filters by creator identity.
-   * Does **not** bump `last_activity_timestamp_ms` (read path).
+   * Paginated list of the tenant's sessions ordered by `updated_at`
+   * (`order` defaults to `desc`, `session_id` tie-break). `page_token` is a
+   * keyset cursor on `(updated_at, session_id)`. `start_timestamp` /
+   * `end_timestamp` are inclusive instant bounds on `created_at`. Optional
+   * `agent_id` filters ref-bound sessions; optional `created_by` filters by
+   * creator identity. Does **not** bump `last_activity_timestamp_ms` (read path).
    */
   listSessions(
     input: ListSessionsInput,

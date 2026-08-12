@@ -66,9 +66,13 @@ export const ListSessionsRequestQuerySchema = z
       .enum(['asc', 'desc'])
       .optional()
       .default('desc')
-      .describe('Sort sessions by creation time. Defaults to "desc".')
+      .describe('Sort sessions by `updated_at`. Defaults to "desc".')
       .openapi('ListSessionsOrder'),
-    page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
+    page_token: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Opaque keyset cursor from a previous response `next_page_token`.'),
     start_timestamp: IsoTimestampQueryParam.optional().describe(
       'Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339).',
     ),

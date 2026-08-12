@@ -661,7 +661,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(asc.data.map(s => s.session_id)).toEqual(['sa', 'sb', 'sc']);
     });
 
-    it('paginates with next/previous tokens and filters by created_at bounds', async () => {
+    it('paginates with next_page_token and filters by created_at bounds', async () => {
       const store = createStore();
       await seedThreeSessions(store);
 
@@ -714,6 +714,66 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         end_timestamp: middleCreatedAt,
       });
       expect(bounded.data.map(s => s.session_id)).toEqual(['sb']);
+    });
+
+    it('orders by updated_at so later activity ranks ahead of create order', async () => {
+      const store = createStore();
+      await seedThreeSessions(store);
+      await new Promise(r => setTimeout(r, 5));
+      await store.updateSession({
+        tenant_id: tenant,
+        session_id: 'sa',
+        agent: undefined,
+        title: 'bumped',
+      });
+
+      const listArgs = {
+        agent_id: undefined,
+        created_by: undefined,
+        tenant_id: tenant,
+        order: undefined,
+        start_timestamp: undefined,
+        end_timestamp: undefined,
+      };
+      const desc = await store.listSessions({ ...listArgs, limit: 10, page_token: undefined });
+      expect(desc.data.map(s => s.session_id)).toEqual(['sa', 'sc', 'sb']);
+
+      // Keyset must continue from the bumped row's updated_at cursor, not create order.
+      const page1 = await store.listSessions({ ...listArgs, limit: 2, page_token: undefined });
+      expect(page1.data.map(s => s.session_id)).toEqual(['sa', 'sc']);
+      const page2 = await store.listSessions({
+        ...listArgs,
+        limit: 2,
+        page_token: page1.pagination.next_page_token,
+      });
+      expect(page2.data.map(s => s.session_id)).toEqual(['sb']);
+    });
+
+    it('keyset pages partition the ordered list without overlap or gaps', async () => {
+      const store = createStore();
+      await seedThreeSessions(store);
+
+      const listArgs = {
+        agent_id: undefined,
+        created_by: undefined,
+        tenant_id: tenant,
+        order: 'desc' as const,
+        start_timestamp: undefined,
+        end_timestamp: undefined,
+      };
+      const full = await store.listSessions({ ...listArgs, limit: 10, page_token: undefined });
+      const page1 = await store.listSessions({ ...listArgs, limit: 2, page_token: undefined });
+      expect(page1.pagination.next_page_token).toBeDefined();
+      const page2 = await store.listSessions({
+        ...listArgs,
+        limit: 2,
+        page_token: page1.pagination.next_page_token,
+      });
+
+      const pageIds = [...page1.data, ...page2.data].map(s => s.session_id);
+      expect(pageIds).toEqual(full.data.map(s => s.session_id));
+      expect(new Set(pageIds).size).toBe(pageIds.length);
+      expect(page2.pagination.next_page_token).toBeUndefined();
     });
 
     it('filters by created_by', async () => {

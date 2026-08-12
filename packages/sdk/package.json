@@ -106,6 +106,61 @@
             },
             "default": "./dist/cjs/api/resources/skills/exports.js"
         },
+        "./catalog": {
+            "import": {
+                "types": "./dist/esm/api/resources/catalog/exports.d.mts",
+                "default": "./dist/esm/api/resources/catalog/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/catalog/exports.d.ts",
+                "default": "./dist/cjs/api/resources/catalog/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/catalog/exports.js"
+        },
+        "./catalog/mcpServers": {
+            "import": {
+                "types": "./dist/esm/api/resources/catalog/resources/mcpServers/exports.d.mts",
+                "default": "./dist/esm/api/resources/catalog/resources/mcpServers/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/catalog/resources/mcpServers/exports.d.ts",
+                "default": "./dist/cjs/api/resources/catalog/resources/mcpServers/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/catalog/resources/mcpServers/exports.js"
+        },
+        "./catalog/modelProviders": {
+            "import": {
+                "types": "./dist/esm/api/resources/catalog/resources/modelProviders/exports.d.mts",
+                "default": "./dist/esm/api/resources/catalog/resources/modelProviders/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/catalog/resources/modelProviders/exports.d.ts",
+                "default": "./dist/cjs/api/resources/catalog/resources/modelProviders/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/catalog/resources/modelProviders/exports.js"
+        },
+        "./catalog/sandboxProviders": {
+            "import": {
+                "types": "./dist/esm/api/resources/catalog/resources/sandboxProviders/exports.d.mts",
+                "default": "./dist/esm/api/resources/catalog/resources/sandboxProviders/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/catalog/resources/sandboxProviders/exports.d.ts",
+                "default": "./dist/cjs/api/resources/catalog/resources/sandboxProviders/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/catalog/resources/sandboxProviders/exports.js"
+        },
+        "./catalog/skills": {
+            "import": {
+                "types": "./dist/esm/api/resources/catalog/resources/skills/exports.d.mts",
+                "default": "./dist/esm/api/resources/catalog/resources/skills/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/catalog/resources/skills/exports.d.ts",
+                "default": "./dist/cjs/api/resources/catalog/resources/skills/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/catalog/resources/skills/exports.js"
+        },
         "./settings": {
             "import": {
                 "types": "./dist/esm/api/resources/settings/exports.d.mts",

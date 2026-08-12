@@ -21,7 +21,9 @@ const McpServerHeaderAuthSchema = z
       .refine(headers => Object.keys(headers).length > 0, {
         message: 'must include at least one header',
       })
-      .describe('HTTP headers sent on each request to this MCP server.'),
+      .describe(
+        'Request headers for this MCP server. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored secret for that header name.',
+      ),
   })
   .strict()
   .openapi('McpServerHeaderAuth');

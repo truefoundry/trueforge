@@ -1,10 +1,10 @@
 /**
- * Model-provider route definitions (mounted at /api/v1/settings/model-providers).
+ * Model-provider admin route definitions (mounted at /api/v1/settings/model-providers).
+ * Discovery catalog lives at GET /api/v1/catalog/model-providers.
  * Handlers are registered in apis/modelProviders.ts.
  */
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
-import { GetModelProviderCatalogResponseSchema } from '../schemas/modelCatalog';
 import {
   ListModelProvidersResponseSchema,
   PutModelProviderRequestSchema,
@@ -12,33 +12,6 @@ import {
 } from '../schemas/modelProvider';
 
 const MODEL_PROVIDERS_TAG = 'Model Providers';
-
-export const getModelProviderCatalogRoute = createRoute({
-  method: 'get',
-  path: '/catalog',
-  tags: [MODEL_PROVIDERS_TAG],
-  summary: 'Get the model catalog',
-  description:
-    'Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a ' +
-    'PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. ' +
-    'Includes a `custom` sentinel with `supported_reasoning_efforts` for the custom-provider form (not configurable from catalog).',
-  'x-fern-sdk-group-name': ['settings', 'modelProviders'],
-  'x-fern-sdk-method-name': 'catalog',
-  responses: {
-    200: {
-      content: { 'application/json': { schema: GetModelProviderCatalogResponseSchema } },
-      description: 'The shipped catalog, verbatim.',
-    },
-    401: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the request has no valid session cookie.',
-    },
-    403: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the caller is authenticated but not an admin.',
-    },
-  },
-});
 
 export const listModelProvidersRoute = createRoute({
   method: 'get',
@@ -51,7 +24,7 @@ export const listModelProvidersRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: ListModelProvidersResponseSchema } },
-      description: 'All configured model providers.',
+      description: 'All configured model providers',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -70,9 +43,8 @@ export const putModelProviderRoute = createRoute({
   tags: [MODEL_PROVIDERS_TAG],
   summary: 'Create or replace a model provider',
   description:
-    'Full upsert: creates the provider or replaces its entire configuration (models included). The key is the ' +
-    'returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one ' +
-    'configured provider and a repeat call replaces it; only `custom` providers are named by the caller.',
+    'Create or replace a provider (models included). Well-known types use `type` as `name` (one each); ' +
+    '`custom` is named by the caller. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).',
   'x-fern-sdk-group-name': ['settings', 'modelProviders'],
   'x-fern-sdk-method-name': 'upsert',
   request: {
@@ -84,11 +56,11 @@ export const putModelProviderRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: PutModelProviderResponseSchema } },
-      description: 'The saved provider.',
+      description: 'The saved provider',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body.',
+      description: 'Invalid request body, or redacted API key with no stored secret to keep.',
     },
   },
 });

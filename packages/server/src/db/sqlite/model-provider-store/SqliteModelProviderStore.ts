@@ -51,6 +51,22 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
       .executeTakeFirst();
   }
 
+  /**
+   * SQLite has no row-level FOR UPDATE; the required write transaction (BEGIN IMMEDIATE)
+   * serializes concurrent writers so RMW of secrets stays consistent.
+   */
+  async getProviderForUpdate(
+    input: GetProviderInput,
+    transaction: Transaction<Database>,
+  ): Promise<ModelProviderRecord | undefined> {
+    return await transaction
+      .selectFrom('model_provider')
+      .select(recordColumns)
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
+      .executeTakeFirst();
+  }
+
   async upsertProvider(input: UpsertProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();

@@ -1,7 +1,8 @@
 /**
  * Shipped sandbox catalog (sandbox-catalog.yaml): the discovery list of provider
- * presets the settings UI copies into PUT /settings/sandbox-providers bodies.
- * Never consulted on writes and never read by the runtime.
+ * presets offered by GET /catalog/sandbox-providers for the UI to copy into
+ * PUT /settings/sandbox-providers bodies. Never consulted on writes and never
+ * read by the runtime.
  *
  * Default: YAML inlined into `sandboxCatalog.gen.ts` at build time. Optional
  * override: `SANDBOX_CATALOG_PATH` (file on disk).

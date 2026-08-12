@@ -3,11 +3,12 @@
 import type * as TrueForge from "../index.js";
 
 export interface CustomModelProvider {
-    auth: TrueForge.ModelProviderAuth;
+    auth?: TrueForge.ModelProviderAuth;
     /** Base URL of the provider's API. */
     baseUrl: string;
     /** Models exposed by this provider (at least one). */
     models: TrueForge.ModelEntry[];
-    name: TrueForge.ResourceName;
+    /** Fully qualified name. Unique within a tenant. */
+    name: string;
     type: "custom";
 }

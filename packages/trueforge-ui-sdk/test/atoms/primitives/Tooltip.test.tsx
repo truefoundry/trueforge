@@ -75,6 +75,40 @@ describe('Tooltip', () => {
 
     expect(onClick).not.toHaveBeenCalled();
   });
+
+  it('opens below the trigger when side is bottom', () => {
+    render(
+      <Tooltip content="Below tip" side="bottom">
+        <button>Anchor</button>
+      </Tooltip>,
+    );
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Anchor' }));
+
+    const tooltip = screen.getByRole('tooltip');
+    expect(tooltip).toHaveTextContent('Below tip');
+    expect(tooltip).toHaveStyle({ transform: 'translate(-50%, 0)' });
+    expect(tooltip.className).toMatch(/fixed/);
+  });
+
+  it('dismisses on click while still invoking the child handler', () => {
+    const onClick = vi.fn();
+
+    render(
+      <Tooltip content="Open picker">
+        <button onClick={onClick}>Chip</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Chip' });
+    fireEvent.mouseEnter(trigger);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    fireEvent.click(trigger);
+
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
 });
 
 describe('LightTooltip', () => {

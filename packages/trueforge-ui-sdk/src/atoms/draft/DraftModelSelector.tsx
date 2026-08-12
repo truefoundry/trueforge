@@ -12,10 +12,9 @@ import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
+import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
-
-type RichModel = ModelSelection & { apiModel?: string; modelId?: string };
 
 function monogram(value: string): string {
   const trimmed = value.trim();
@@ -24,7 +23,7 @@ function monogram(value: string): string {
 
 function ProviderMark({ logo, label, className }: { logo?: string; label: string; className?: string }) {
   if (logo) {
-    return <img src={logo} alt="" className={cn('shrink-0 rounded object-contain', className)} aria-hidden />;
+    return <CatalogLogo src={logo} alt="" className={cn('shrink-0 rounded object-contain', className)} aria-hidden />;
   }
   return (
     <span
@@ -44,8 +43,28 @@ function displayModelLabel(modelName: string): string {
   return slash >= 0 ? modelName.slice(slash + 1) : modelName;
 }
 
-function modelValue(model: RichModel): string {
-  return model.apiModel ?? model.name;
+type ProviderSection = {
+  name: string;
+  logo?: string;
+  models: ModelSelection[];
+};
+
+function groupModelsByProvider(models: ModelSelection[]): ProviderSection[] {
+  const sections: ProviderSection[] = [];
+  const byProvider = new Map<string, ProviderSection>();
+  for (const model of models) {
+    const name = model.provider.name.trim() || 'Other';
+    const existing = byProvider.get(name);
+    if (existing) {
+      existing.models.push(model);
+      if (!existing.logo && model.provider.logo) existing.logo = model.provider.logo;
+      continue;
+    }
+    const section: ProviderSection = { name, logo: model.provider.logo, models: [model] };
+    byProvider.set(name, section);
+    sections.push(section);
+  }
+  return sections;
 }
 
 export type DraftModelSelectorProps = {
@@ -54,8 +73,7 @@ export type DraftModelSelectorProps = {
 };
 
 export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorProps) {
-  const { models: rawModels, loading, ensureLoaded } = useDraftCatalog();
-  const models = rawModels as RichModel[];
+  const { models, loading, ensureLoaded } = useDraftCatalog();
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
   const catalog = useOptionalCatalogServer();
@@ -72,10 +90,10 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     ensureLoaded();
   }, [ensureLoaded]);
 
-  const selectedName = agentSpec?.model?.name ?? (models[0] ? modelValue(models[0]) : '');
-  const selected = models.find(m => modelValue(m) === selectedName || m.name === selectedName);
+  const selectedName = agentSpec?.model?.name ?? models[0]?.name ?? '';
+  const selected = models.find(m => m.name === selectedName);
   const label = selected
-    ? displayModelLabel(modelValue(selected))
+    ? displayModelLabel(selected.name)
     : selectedName
       ? displayModelLabel(selectedName)
       : loading
@@ -88,11 +106,12 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     return models.filter(
       m =>
         m.name.toLowerCase().includes(needle) ||
-        (m.apiModel?.toLowerCase().includes(needle) ?? false) ||
-        (m.modelId?.toLowerCase().includes(needle) ?? false) ||
-        m.provider.toLowerCase().includes(needle),
+        m.id.toLowerCase().includes(needle) ||
+        m.provider.name.toLowerCase().includes(needle),
     );
   }, [models, query]);
+
+  const sections = useMemo(() => groupModelsByProvider(filtered), [filtered]);
 
   useEffect(() => {
     if (!open) return;
@@ -105,7 +124,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const account = selected?.provider ?? selectedName;
+  const account = selected?.provider.name ?? selectedName;
 
   const content = (
     <>
@@ -152,34 +171,52 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
             <p className="text-muted-foreground px-2 py-4 text-center text-sm">No models</p>
           )
         ) : (
-          filtered.map(model => {
-            const value = modelValue(model);
-            const active = value === selectedName || model.name === selectedName;
+          sections.map((section, sectionIndex) => {
+            const headingId = `${menuId}-provider-${sectionIndex}`;
             return (
-              <button
-                key={value || model.modelId || model.name}
-                type="button"
-                role="option"
-                aria-selected={active}
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm',
-                  active ? 'bg-accent' : 'hover:bg-accent/60',
-                )}
-                onClick={() => {
-                  updateAgentSpec?.({
-                    model: modelPatchWithReasoningEffort(value, agentSpec?.model?.params, model.reasoningEfforts),
-                  });
-                  setOpen(false);
-                  setQuery('');
-                }}
+              <div
+                key={section.name}
+                role="group"
+                aria-labelledby={headingId}
+                className={cn(sectionIndex > 0 && 'mt-2')}
               >
-                <ProviderMark
-                  logo={model.providerLogo}
-                  label={model.provider || model.name}
-                  className="size-5 text-xs"
-                />
-                <span className="truncate font-medium">{displayModelLabel(value)}</span>
-              </button>
+                <div
+                  id={headingId}
+                  className="text-muted-foreground flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium tracking-wide uppercase"
+                >
+                  <ProviderMark logo={section.logo} label={section.name} className="size-3.5 text-[9px]" />
+                  <span className="truncate">{section.name}</span>
+                </div>
+                {section.models.map(model => {
+                  // If there is no selected model, consider the first in the filtered list as active
+                  const active = selectedName ? model.name === selectedName : filtered[0] === model;
+                  return (
+                    <button
+                      key={model.id || model.name}
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      className={cn(
+                        'flex w-full items-center rounded-md px-2 py-2 text-left text-sm',
+                        active ? 'bg-accent' : 'hover:bg-accent/60',
+                      )}
+                      onClick={() => {
+                        updateAgentSpec?.({
+                          model: modelPatchWithReasoningEffort(
+                            model.name,
+                            agentSpec?.model?.params,
+                            model.properties.reasoningEfforts,
+                          ),
+                        });
+                        setOpen(false);
+                        setQuery('');
+                      }}
+                    >
+                      <span className="truncate font-medium">{displayModelLabel(model.name)}</span>
+                    </button>
+                  );
+                })}
+              </div>
             );
           })
         )}
@@ -199,11 +236,11 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
         className={auiButtonClass({
           variant: 'ghost',
           size: 'sm',
-          className: cn('h-8 max-w-[12rem] gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-accent'),
+          className: cn('h-8 max-w-48 gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-accent'),
         })}
         onClick={() => setOpen(v => !v)}
       >
-        <ProviderMark logo={selected?.providerLogo} label={account} className="size-5 text-[10px]" />
+        <ProviderMark logo={selected?.provider.logo} label={account} className="size-5 text-[10px]" />
         <span className="truncate">{label}</span>
         <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
       </button>

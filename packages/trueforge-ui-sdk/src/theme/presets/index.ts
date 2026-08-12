@@ -5,7 +5,7 @@ export type PresetTokens = {
   dark: SemanticTokens;
 };
 
-const truefoundry: PresetTokens = {
+const trueforge: PresetTokens = {
   light: {
     background: '#ffffff',
     foreground: '#09090b',
@@ -261,12 +261,12 @@ const gemini: PresetTokens = {
 };
 
 export const PRESETS: Record<ThemePreset, PresetTokens> = {
-  truefoundry,
+  trueforge,
   claude,
   chatgpt,
   gemini,
 };
 
 export function resolvePresetTokens(preset: ThemePreset | undefined, mode: 'light' | 'dark'): SemanticTokens {
-  return PRESETS[preset ?? 'truefoundry'][mode];
+  return PRESETS[preset ?? 'trueforge'][mode];
 }

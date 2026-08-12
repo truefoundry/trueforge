@@ -11,6 +11,7 @@ import type { Logger } from 'winston';
 import { createAgentsRouter } from './apis/agents';
 import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
+import { createCatalogRouter } from './apis/catalog';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
@@ -151,6 +152,17 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       }),
     ),
   );
+  app.route(
+    '/api/v1/catalog',
+    withAuth(
+      createCatalogRouter({
+        modelCatalog: deps.modelCatalog,
+        mcpCatalog: deps.mcpCatalog,
+        skillCatalog: deps.skillCatalog,
+        sandboxCatalog: deps.sandboxCatalog,
+      }),
+    ),
+  );
   // Public MCP OAuth callback must be registered before the gated `/mcp-servers` mount so
   // `withAuth` cannot intercept IdP redirects to `/api/v1/mcp-servers/oauth/*`.
   app.route(
@@ -200,14 +212,10 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/settings',
     withAdminAuth(
       createSettingsRouter({
-        modelCatalog: deps.modelCatalog,
         modelProviderStore: deps.modelProviderStore,
-        mcpCatalog: deps.mcpCatalog,
         mcpServerStore: deps.mcpServerStore,
         tokenStore: deps.tokenStore,
-        skillCatalog: deps.skillCatalog,
         skillStore: deps.skillStore,
-        sandboxCatalog: deps.sandboxCatalog,
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
