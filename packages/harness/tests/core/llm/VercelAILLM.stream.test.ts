@@ -107,6 +107,19 @@ describe('normalizeUsage', () => {
     expect(result.cache_read_tokens).toBeUndefined();
     expect(result.cache_write_tokens).toBeUndefined();
     expect(result.reasoning_tokens).toBeUndefined();
+    expect(result.cost_in_usd).toBeUndefined();
+  });
+
+  it('maps gateway costInUSD from usage.raw onto cost_in_usd', () => {
+    const usage = makeUsage(10, 5);
+    usage.raw = { costInUSD: 0.0042 };
+    expect(normalizeUsage(usage).cost_in_usd).toBe(0.0042);
+  });
+
+  it('omits cost_in_usd when raw.costInUSD is not a nonnegative number', () => {
+    const usage = makeUsage();
+    usage.raw = { costInUSD: -0.01 };
+    expect(normalizeUsage(usage).cost_in_usd).toBeUndefined();
   });
 });
 
@@ -544,14 +557,21 @@ describe('mapStreamToChunks', () => {
 
   it('emits a finish chunk with usage and sets the final message finish_reason', async () => {
     const usage = makeUsage(20, 10);
+    usage.raw = { costInUSD: 0.12 };
     const { chunks, final } = await drainStream(
       mapStreamToChunks({ stream: makeStream([makeFinishStep('length', usage)]), chunkMeta: CHUNK_META }),
     );
 
     const finishChunk = chunks.find(c => c.choices[0]?.finish_reason !== null);
     expect(finishChunk?.choices[0]?.finish_reason).toBe('length');
-    expect(finishChunk?.usage).toMatchObject({ input_tokens: 20, output_tokens: 10, total_tokens: 30 });
+    expect(finishChunk?.usage).toMatchObject({
+      input_tokens: 20,
+      output_tokens: 10,
+      total_tokens: 30,
+      cost_in_usd: 0.12,
+    });
     expect(final.finish_reason).toBe('length');
+    expect(final.usage.cost_in_usd).toBe(0.12);
   });
 
   it('rejects with the provider message on an error part', async () => {
