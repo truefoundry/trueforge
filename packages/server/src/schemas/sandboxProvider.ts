@@ -22,9 +22,7 @@ const DaytonaSandboxProviderAuthSchema = z
 
 /**
  * Daytona-backed sandbox provider. Wire PUT body and persisted
- * `sandbox_provider.manifest` document share this shape. The sandbox image is
- * release-owned (not configured here), so its build status is not persisted —
- * it is surfaced live on responses via the separate `image` field.
+ * `sandbox_provider.manifest` document share this shape.
  */
 export const DaytonaSandboxProviderSchema = z
   .object({
@@ -50,19 +48,20 @@ export const DaytonaSandboxProviderSchema = z
   .strict()
   .openapi('DaytonaSandboxProvider');
 
-/**
- * Live status of the release-owned sandbox image. Computed on demand from the
- * provider (never persisted): `tag` and `build_ref` come from the release image
- * constant, `build_status` from the provider's backing store.
- */
-export const SandboxImageSchema = z
+export const SandboxBuildSchema = z
   .object({
-    tag: z.string().describe('Tag of the release-owned sandbox image.'),
-    build_status: z.enum(['pending', 'ready', 'failed']).describe('Where the image build stands right now.'),
-    build_ref: z.string().describe('Provider-internal build handle (the Daytona snapshot name).'),
+    status: z.enum(['pending', 'ready', 'failed']).describe('Current build status.'),
+    reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
+    metadata: z
+      .object({
+        build_ref: z.string().describe('Provider build handle (e.g. Daytona snapshot name).'),
+        image_tag: z.string().describe('Tag of the release sandbox image this build refers to.'),
+      })
+      .strict()
+      .describe('Provider-specific build details.'),
   })
   .strict()
-  .openapi('SandboxImage');
+  .openapi('SandboxBuild');
 
 /**
  * Wire + persisted sandbox provider. Single variant today — use this alias so
@@ -71,10 +70,10 @@ export const SandboxImageSchema = z
  */
 export const SandboxProviderSchema = DaytonaSandboxProviderSchema;
 
-/** GET/PUT response body: the stored provider plus the live (non-persisted) image status. */
-export const SandboxProviderResponseSchema = DaytonaSandboxProviderSchema.extend({
-  image: SandboxImageSchema.describe('Live status of the release-owned sandbox image (not persisted).'),
-}).openapi('SandboxProviderResponse');
+/** GET/PUT response body: the stored provider plus its live build status. */
+export const SandboxProviderResponseSchema = DaytonaSandboxProviderSchema.extend(SandboxBuildSchema.shape).openapi(
+  'SandboxProviderResponse',
+);
 
 /** Persisted jsonb — the provider config only (no image status). */
 export type SandboxProviderManifest = z.infer<typeof SandboxProviderSchema>;
@@ -95,7 +94,7 @@ export const GetSandboxProviderResponseSchema = z
 
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
 export type SandboxProvider = z.infer<typeof SandboxProviderSchema>;
-export type SandboxImage = z.infer<typeof SandboxImageSchema>;
+export type SandboxBuild = z.infer<typeof SandboxBuildSchema>;
 export type SandboxProviderResponse = z.infer<typeof SandboxProviderResponseSchema>;
 export type PutSandboxProviderRequest = z.infer<typeof PutSandboxProviderRequestSchema>;
 

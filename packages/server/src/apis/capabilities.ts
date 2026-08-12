@@ -15,8 +15,8 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
 }) {
   const router = new OpenAPIHono();
   router.openapi(getCapabilitiesRoute, async c => {
-    // Sandbox is usable only once the release image reports ready. Read live from the
-    // provider; fail closed (disabled) if Daytona is unreachable or the creds are bad.
+    // Sandbox is usable only when a provider is configured AND its image build reports ready.
+    // Read live from the provider; fail closed (disabled) if Daytona is unreachable/creds are bad.
     let sandboxEnabled = false;
     try {
       const build = await sandboxImageStatus({
@@ -24,7 +24,10 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
         tenant_id: TENANT_ID,
         logger: deps.logger,
       });
-      sandboxEnabled = build?.status === 'ready';
+      // build === undefined means no provider configured — leave disabled, never treat as ready.
+      if (build) {
+        sandboxEnabled = build.status === 'ready';
+      }
     } catch (error) {
       deps.logger.warn('Sandbox image status check failed; reporting sandbox disabled', extractErrorLogFields(error));
     }

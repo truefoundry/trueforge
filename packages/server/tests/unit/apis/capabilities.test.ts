@@ -2,7 +2,7 @@
 jest.mock('../../../src/sandbox/providerUtils', () => ({ sandboxImageStatus: jest.fn() }));
 
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { SandboxImageBuild } from '@truefoundry/utils-core/core';
+import type { SandboxBuild } from '@truefoundry/utils-core/core';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { Configuration } from 'openid-client';
 import { createLogger } from 'winston';
@@ -18,11 +18,10 @@ import { sandboxImageStatus } from '../../../src/sandbox/providerUtils';
 const mockStatus = sandboxImageStatus as jest.Mock;
 const silentLogger = createLogger({ silent: true });
 
-const buildWithStatus = (status: SandboxImageBuild['status']): SandboxImageBuild => ({
-  tag: '029ea5ff',
+const buildWithStatus = (status: SandboxBuild['status']): SandboxBuild => ({
   status,
-  ref: 'trueforge-snapshot-029ea5ff',
-  errorMessage: status === 'failed' ? 'boom' : null,
+  reason: status === 'failed' ? 'boom' : null,
+  metadata: { buildRef: 'trueforge-snapshot-029ea5ff', imageTag: '029ea5ff' },
 });
 
 const ISSUER = 'https://issuer.example.com';

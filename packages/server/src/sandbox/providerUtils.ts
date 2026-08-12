@@ -1,17 +1,23 @@
 /**
- * Runtime sandbox-provider construction + live sandbox-image status.
- *
- * The sandbox image is release-owned (baked into the harness package), so its
- * build status is never persisted. This module builds a provider client from the
- * stored manifest and reads the image status live — used by the settings GET,
- * capabilities, and the turn path. Nothing here writes to the database.
+ * Runtime sandbox-provider construction + live sandbox build status. Builds a
+ * provider client from the stored manifest and reads its build status live —
+ * used by the settings GET, capabilities, and the turn path.
  */
 import { Daytona, DaytonaError } from '@daytona/sdk';
-import { DaytonaSandboxProvider, type SandboxImageBuild } from '@truefoundry/utils-core/core';
+import {
+  DaytonaSandboxProvider,
+  extractErrorLogFields,
+  SANDBOX_IMAGE_NAME,
+  type SandboxBuild,
+} from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import configuration from '../config';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
-import { toDaytonaSandboxProviderInput, type SandboxImage, type SandboxProviderManifest } from '../schemas/sandboxProvider';
+import {
+  toDaytonaSandboxProviderInput,
+  type SandboxBuild as SandboxBuildWire,
+  type SandboxProviderManifest,
+} from '../schemas/sandboxProvider';
 
 /** Daytona rejected the credentials (401 unauthorized / 403 forbidden); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {
@@ -33,20 +39,45 @@ export function getSandboxProvider({
     client: new Daytona({ apiKey }),
     ...settings,
     tenantName: tenant_id,
+    sandboxImage: SANDBOX_IMAGE_NAME,
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,
   });
 }
 
-/** Maps the provider's build handle onto the wire `image` shape (drops the internal error text). */
-export function toSandboxImage(build: SandboxImageBuild): SandboxImage {
-  return { tag: build.tag, build_status: build.status, build_ref: build.ref };
+/** Maps the provider's runtime build onto the snake_case wire shape. */
+export function toSandboxBuild(build: SandboxBuild): SandboxBuildWire {
+  return {
+    status: build.status,
+    reason: build.reason,
+    metadata: { build_ref: build.metadata.buildRef, image_tag: build.metadata.imageTag },
+  };
 }
 
 /**
- * Live image build status for the configured provider, or undefined when no
- * provider is configured. Reads from the provider on every call — never the DB.
+ * Live wire build for a provider that never throws: a provider/Daytona failure is logged and
+ * reported as a `failed` build, so GET can still serve the stored config (e.g. to rotate a bad key).
  */
+export async function safeSandboxBuild({
+  provider,
+  logger,
+}: {
+  provider: DaytonaSandboxProvider;
+  logger: Logger;
+}): Promise<SandboxBuildWire> {
+  try {
+    return toSandboxBuild(await provider.getImageBuildStatus());
+  } catch (error) {
+    logger.warn('Live sandbox build status check failed; serving stored config', extractErrorLogFields(error));
+    return {
+      status: 'failed',
+      reason: 'Could not fetch build status from the sandbox provider — check connectivity and credentials.',
+      metadata: { build_ref: provider.buildMetadata.buildRef, image_tag: provider.buildMetadata.imageTag },
+    };
+  }
+}
+
+/** Live build status for the configured provider, or undefined when none is configured. */
 export async function sandboxImageStatus({
   store,
   tenant_id,
@@ -55,7 +86,7 @@ export async function sandboxImageStatus({
   store: ISandboxProviderStore;
   tenant_id: string;
   logger: Logger;
-}): Promise<SandboxImageBuild | undefined> {
+}): Promise<SandboxBuild | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
   if (record === undefined) {
     return undefined;

@@ -185,13 +185,13 @@ function createTurnResolver(deps: {
         });
       }
       // A turn cannot start until the release sandbox image is built; creating a sandbox
-      // from a pending/failed snapshot would fail deeper in Daytona with a worse error.
-      const image = await provider.getImageBuildStatus();
-      if (image.status !== 'ready') {
+      // from a pending/failed build would fail deeper in Daytona with a worse error.
+      const build = await provider.getImageBuildStatus();
+      if (build.status !== 'ready') {
         throw new HTTPException(422, {
           message:
-            image.status === 'failed'
-              ? `sandbox image build failed (${image.errorMessage ?? 'unknown error'})`
+            build.status === 'failed'
+              ? `sandbox image build failed (${build.reason ?? 'unknown error'})`
               : 'sandbox image is still being prepared — retry shortly',
         });
       }

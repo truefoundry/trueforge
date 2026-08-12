@@ -1,9 +1,9 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Logger } from 'winston';
-import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
+import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
-import { getSandboxProvider, isDaytonaAuthError, toSandboxImage } from '../sandbox/providerUtils';
+import { getSandboxProvider, isDaytonaAuthError, safeSandboxBuild, toSandboxBuild } from '../sandbox/providerUtils';
 import type { SandboxProvider } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
@@ -28,36 +28,41 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     if (record === undefined) {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
-    // Image status is not persisted; read it live from the provider on every GET.
+    // Build status is not persisted; read it live from the provider on every GET. A Daytona
+    // outage or bad key must not hide the stored config (admins need it to rotate creds), so
+    // safeSandboxBuild degrades to a failed build instead of throwing.
     const provider = getSandboxProvider({ manifest: record.manifest, tenant_id: TENANT_ID, logger: deps.logger });
-    const build = await provider.getImageBuildStatus();
-    return c.json({ data: { ...redactSandboxProvider(record.manifest), image: toSandboxImage(build) } }, 200);
+    const build = await safeSandboxBuild({ provider, logger: deps.logger });
+    return c.json({ data: { ...redactSandboxProvider(record.manifest), ...build } }, 200);
   };
 
   const putHandler: RouteHandler<typeof putSandboxProviderRoute> = async c => {
     const incoming: SandboxProvider = c.req.valid('json');
+    const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProvider => ({
+      ...incoming,
+      auth: {
+        api_key: resolveStoredSecretValue({
+          incoming: incoming.auth.api_key,
+          existing: existing?.manifest.auth.api_key,
+        }),
+      },
+    });
     try {
-      const { record, build } = await deps.withTransaction(async transaction => {
-        const existing = await deps.sandboxProviderStore.getSandboxProviderForUpdate(TENANT_ID, transaction);
-        const manifest: SandboxProvider = {
-          ...incoming,
-          auth: {
-            api_key: resolveStoredSecretValue({
-              incoming: incoming.auth.api_key,
-              existing: existing?.manifest.auth.api_key,
-            }),
-          },
-        };
-        // Kick off the image build (and validate credentials) before persisting bad config.
-        const provider = getSandboxProvider({ manifest, tenant_id: TENANT_ID, logger: deps.logger });
-        const build = await provider.buildImage();
-        const record = await deps.sandboxProviderStore.upsertSandboxProvider(
-          { tenant_id: TENANT_ID, manifest },
+      // Validate the key + kick off the build (Daytona network I/O) BEFORE persisting, outside any
+      // transaction so no row lock is held during remote I/O. A bad key throws here → 422, nothing saved.
+      const snapshot = await deps.sandboxProviderStore.getSandboxProvider(TENANT_ID);
+      const provider = getSandboxProvider({ manifest: resolveManifest(snapshot), tenant_id: TENANT_ID, logger: deps.logger });
+      const build = await provider.buildImage();
+      // Persist under a row lock (local DB work only), re-resolving the secret from the locked row so
+      // a concurrent keep/rotate cannot interleave — same contract as the model-provider PUT.
+      const record = await deps.withTransaction(async transaction => {
+        const locked = await deps.sandboxProviderStore.getSandboxProviderForUpdate(TENANT_ID, transaction);
+        return deps.sandboxProviderStore.upsertSandboxProvider(
+          { tenant_id: TENANT_ID, manifest: resolveManifest(locked) },
           transaction,
         );
-        return { record, build };
       });
-      return c.json({ data: { ...redactSandboxProvider(record.manifest), image: toSandboxImage(build) } }, 200);
+      return c.json({ data: { ...redactSandboxProvider(record.manifest), ...toSandboxBuild(build) } }, 200);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'API key is required' } }, 400);

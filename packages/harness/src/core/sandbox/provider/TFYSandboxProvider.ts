@@ -8,9 +8,9 @@ import { SandboxFileNotFoundError, SandboxFileTooLargeError, SandboxPathIsDirect
 import {
   ensureExecSuccess,
   type ExecResult,
+  type SandboxBuild,
   type SandboxExecParams,
   type SandboxFileInfo,
-  type SandboxImageBuild,
   type SandboxProvider,
 } from './Provider';
 
@@ -56,14 +56,18 @@ export class TFYSandboxProvider implements SandboxProvider {
   }
 
   // TFY sandboxes run a prebuilt server image with no per-image build step, so the image is always ready.
-  private static readonly readyImage: SandboxImageBuild = { tag: '', status: 'ready', ref: '', errorMessage: null };
+  private static readonly readyBuild: SandboxBuild = {
+    status: 'ready',
+    reason: null,
+    metadata: { buildRef: 'tfy-managed', imageTag: 'tfy-managed' },
+  };
 
-  buildImage(): Promise<SandboxImageBuild> {
-    return Promise.resolve(TFYSandboxProvider.readyImage);
+  buildImage(): Promise<SandboxBuild> {
+    return Promise.resolve(TFYSandboxProvider.readyBuild);
   }
 
-  getImageBuildStatus(): Promise<SandboxImageBuild> {
-    return Promise.resolve(TFYSandboxProvider.readyImage);
+  getImageBuildStatus(): Promise<SandboxBuild> {
+    return Promise.resolve(TFYSandboxProvider.readyBuild);
   }
 
   createSandbox(): Promise<{ sandboxId: string }> {

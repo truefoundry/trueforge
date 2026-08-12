@@ -137,13 +137,14 @@ export { extractErrorLogFields } from './util/errorLogFields';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
 
 // Sandbox (concrete implementation; provider details exported for composition)
-export { SANDBOX_IMAGE_NAME } from './sandbox/sandboxImage.gen';
+export { SANDBOX_IMAGE_NAME } from './sandbox/sandboxImage';
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
 export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
 export type {
+  SandboxBuild,
+  SandboxBuildMetadata,
+  SandboxBuildStatus,
   SandboxExecParams,
-  SandboxImageBuild,
-  SandboxImageBuildStatus,
   SandboxInit,
   SandboxProvider,
 } from './sandbox/provider/Provider';

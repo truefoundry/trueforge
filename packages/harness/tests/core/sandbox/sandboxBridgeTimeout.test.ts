@@ -21,8 +21,9 @@ function makeSandbox(options: { mcpRequestTimeoutMs: number; mcpConnectTimeoutMs
 } {
   const execCalls: SandboxExecParams[] = [];
   const provider: SandboxProvider = {
-    buildImage: () => Promise.resolve({ tag: '', status: 'ready', ref: '', errorMessage: null }),
-    getImageBuildStatus: () => Promise.resolve({ tag: '', status: 'ready', ref: '', errorMessage: null }),
+    buildImage: () => Promise.resolve({ status: 'ready', reason: null, metadata: { buildRef: 'test', imageTag: 'test' } }),
+    getImageBuildStatus: () =>
+      Promise.resolve({ status: 'ready', reason: null, metadata: { buildRef: 'test', imageTag: 'test' } }),
     createSandbox: () => Promise.resolve({ sandboxId: 'test-tenant.sandbox-1' }),
     exec: (params): Promise<ExecResult> => {
       execCalls.push(params);

@@ -1,12 +1,12 @@
 // Replace the runtime provider factory so the router never talks to Daytona; isDaytonaAuthError
-// and toSandboxImage stay real so the auth-error mapping and wire shape are exercised.
+// and toSandboxBuild stay real so the auth-error mapping and wire shape are exercised.
 jest.mock('../../../src/sandbox/providerUtils', () => {
   const actual = jest.requireActual('../../../src/sandbox/providerUtils');
   return { ...actual, getSandboxProvider: jest.fn() };
 });
 
 import { DaytonaError } from '@daytona/sdk';
-import type { SandboxImageBuild } from '@truefoundry/utils-core/core';
+import type { SandboxBuild } from '@truefoundry/utils-core/core';
 import { createLogger } from 'winston';
 import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createSandboxProvidersRouter } from '../../../src/apis/sandboxProviders';
@@ -34,25 +34,30 @@ const putBody = {
   auto_delete_interval_in_minutes: 7200,
 };
 
-const readyBuild: SandboxImageBuild = {
-  tag: '029ea5ff',
+const readyBuild: SandboxBuild = {
   status: 'ready',
-  ref: 'trueforge-snapshot-029ea5ff',
-  errorMessage: null,
+  reason: null,
+  metadata: { buildRef: 'trueforge-snapshot-029ea5ff', imageTag: '029ea5ff' },
 };
-const expectedImage = { tag: '029ea5ff', build_status: 'ready', build_ref: 'trueforge-snapshot-029ea5ff' };
+const expectedBuild = {
+  status: 'ready',
+  reason: null,
+  metadata: { build_ref: 'trueforge-snapshot-029ea5ff', image_tag: '029ea5ff' },
+};
 
-// Wire GET/PUT response: redacted api_key + the live (non-persisted) image status.
+// Wire GET/PUT response: redacted api_key + the live build status flattened onto the provider.
 const putBodyWire = {
   ...putBody,
   auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) },
-  image: expectedImage,
+  ...expectedBuild,
 };
 
 function stubProvider(overrides: { buildImage?: jest.Mock; getImageBuildStatus?: jest.Mock } = {}) {
   return {
     buildImage: overrides.buildImage ?? jest.fn().mockResolvedValue(readyBuild),
     getImageBuildStatus: overrides.getImageBuildStatus ?? jest.fn().mockResolvedValue(readyBuild),
+    // Network-free identity used by safeSandboxBuild when the live status read fails.
+    buildMetadata: readyBuild.metadata,
   };
 }
 
@@ -134,6 +139,26 @@ describe('sandboxProviders router', () => {
     expect(stored?.manifest).toEqual(putBody);
   });
 
+  it('GET degrades to a failed build (still returns stored config) when the live status check throws', async () => {
+    const { settingsRouter: router } = await createRouters();
+    expect((await router.request('/', putInit(putBody))).status).toBe(200);
+
+    mockProviderFactory.mockReturnValue(
+      stubProvider({ getImageBuildStatus: jest.fn().mockRejectedValue(new DaytonaError('unreachable', 500)) }),
+    );
+    const get = await router.request('/');
+    expect(get.status).toBe(200);
+    expect(await get.json()).toMatchObject({
+      data: {
+        ...putBody,
+        auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) },
+        status: 'failed',
+        reason: expect.stringContaining('Could not fetch build status'),
+        metadata: expectedBuild.metadata,
+      },
+    });
+  });
+
   it('PUT returns 422 when Daytona rejects the API key', async () => {
     mockProviderFactory.mockReturnValue(
       stubProvider({ buildImage: jest.fn().mockRejectedValue(new DaytonaError('unauthorized', 401)) }),
@@ -189,7 +214,7 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
     };
     const update = await settingsRouter.request('/', putInit(redactedKeep));
     expect(update.status).toBe(200);
-    expect(await update.json()).toEqual({ data: { ...redactedKeep, image: expectedImage } });
+    expect(await update.json()).toEqual({ data: { ...redactedKeep, ...expectedBuild } });
 
     const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
     expect(stored?.manifest).toEqual({ ...putBody, exec_timeout_ms: 120000 });
@@ -210,7 +235,7 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
       data: {
         ...keep,
         auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) },
-        image: expectedImage,
+        ...expectedBuild,
       },
     });
 
@@ -230,7 +255,7 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
       data: {
         ...rotated,
         auth: { api_key: toRedactedSecretValue(rotatedKey) },
-        image: expectedImage,
+        ...expectedBuild,
       },
     });
 

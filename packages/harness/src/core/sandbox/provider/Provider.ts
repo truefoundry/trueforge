@@ -49,20 +49,21 @@ export interface SandboxExecParams {
 // An init command a producer (e.g. a skill mounter) hands to the Sandbox, which supplies `sandboxId`.
 export type SandboxInit = Omit<SandboxExecParams, 'sandboxId'>;
 
-export type SandboxImageBuildStatus = 'pending' | 'ready' | 'failed';
+export type SandboxBuildStatus = 'pending' | 'ready' | 'failed';
 
-/**
- * Live status of the release-owned sandbox image inside the provider's backing
- * store (e.g. a Daytona snapshot). Nothing here is persisted by the host — it is
- * recomputed on demand. `ref` is the provider's internal handle (opaque to callers).
- */
-export interface SandboxImageBuild {
-  /** Image tag the status refers to (the tag portion of the release image). */
-  tag: string;
-  status: SandboxImageBuildStatus;
-  /** Provider-internal build handle (e.g. the Daytona snapshot name). */
-  ref: string;
-  errorMessage: string | null;
+/** Provider-internal build details, surfaced to callers as opaque metadata. */
+export interface SandboxBuildMetadata {
+  /** Provider build handle (e.g. the Daytona snapshot name). */
+  buildRef: string;
+  /** Tag of the release sandbox image this build refers to. */
+  imageTag: string;
+}
+
+export interface SandboxBuild {
+  status: SandboxBuildStatus;
+  /** Human-readable detail for the current status (shown to the user); null when ready. */
+  reason: string | null;
+  metadata: SandboxBuildMetadata;
 }
 
 export interface SandboxProvider {
@@ -71,9 +72,9 @@ export interface SandboxProvider {
    * returns its current status. Idempotent: an already-built image reports `ready`;
    * a fresh build starts in the background and reports `pending`.
    */
-  buildImage(): Promise<SandboxImageBuild>;
+  buildImage(): Promise<SandboxBuild>;
   /** Current build status of the release image. Read-only: never kicks off a build. */
-  getImageBuildStatus(): Promise<SandboxImageBuild>;
+  getImageBuildStatus(): Promise<SandboxBuild>;
   createSandbox(): Promise<{ sandboxId: string }>;
   exec(params: SandboxExecParams): Promise<ExecResult>;
   /** Provider-specific instructions appended to the agent system prompt. */

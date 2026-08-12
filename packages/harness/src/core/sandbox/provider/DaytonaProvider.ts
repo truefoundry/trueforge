@@ -12,41 +12,47 @@ import {
   SandboxPathIsDirectoryError,
 } from '../SandboxErrors';
 import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
-import { SANDBOX_IMAGE_NAME } from '../sandboxImage.gen';
 import type {
   ExecResult,
+  SandboxBuild,
+  SandboxBuildMetadata,
   SandboxExecParams,
   SandboxFileInfo,
-  SandboxImageBuild,
   SandboxProvider,
 } from './Provider';
 
 const SANDBOX_NOT_FOUND_STATUS = 404;
 const SANDBOX_STATE_STARTED = 'started';
 
-const SNAPSHOT_STATE_ACTIVE = 'active';
-const SNAPSHOT_STATE_INACTIVE = 'inactive';
-const SNAPSHOT_STATE_ERROR = 'error';
-const SNAPSHOT_STATE_BUILD_FAILED = 'build_failed';
+const BUILD_STATE_ACTIVE = 'active';
+const BUILD_STATE_INACTIVE = 'inactive';
+const BUILD_STATE_ERROR = 'error';
+const BUILD_STATE_BUILD_FAILED = 'build_failed';
 
-const SNAPSHOT_NAME_PREFIX = 'trueforge-snapshot-';
+const IMAGE_BUILD_NAME_PREFIX = 'trueforge-snapshot-';
 
 // The SDK does not export its branded `Snapshot` type; derive it from the client surface.
 type DaytonaSnapshot = Awaited<ReturnType<Daytona['snapshot']['get']>>;
 
-/** Tag portion of a container image reference (everything after the final `:`). */
+/**
+ * Tag portion of a container image reference. Isolates the final path segment first so a
+ * registry port (`host:5000/repo`) is never mistaken for the tag; falls back to `latest`
+ * when the reference carries no explicit tag.
+ */
 function imageTag(image: string): string {
-  return image.slice(image.lastIndexOf(':') + 1);
+  const lastSegment = image.slice(image.lastIndexOf('/') + 1);
+  const colon = lastSegment.lastIndexOf(':');
+  return colon === -1 ? 'latest' : lastSegment.slice(colon + 1);
 }
 
-/** Deterministic snapshot name per image tag so every server replica converges on one snapshot. */
-function deriveSnapshotName(tag: string): string {
-  return `${SNAPSHOT_NAME_PREFIX}${tag}`;
+/** Deterministic build name per image tag so every server replica converges on one build. */
+function deriveImageBuildName(tag: string): string {
+  return `${IMAGE_BUILD_NAME_PREFIX}${tag}`;
 }
 
-/** Terminal-failure snapshot states: a snapshot stuck here never becomes ready on its own. */
-function isFailedSnapshotState(state: DaytonaSnapshot['state']): boolean {
-  return state === SNAPSHOT_STATE_ERROR || state === SNAPSHOT_STATE_BUILD_FAILED;
+/** Terminal-failure build states: a build stuck here never becomes ready on its own. */
+function isFailedBuildState(state: DaytonaSnapshot['state']): boolean {
+  return state === BUILD_STATE_ERROR || state === BUILD_STATE_BUILD_FAILED;
 }
 
 /** Convert Daytona https preview URLs to wss for the NATS client. */
@@ -61,6 +67,8 @@ export interface DaytonaSandboxProviderOptions {
   /** Caller-owned Daytona SDK client (credentials / lifetime). */
   client: Daytona;
   tenantName: string;
+  /** Release-owned sandbox image reference; built into a Daytona snapshot and cloned per sandbox. */
+  sandboxImage: string;
   timeoutMs: number;
   autoStopIntervalInMinutes: number;
   autoArchiveIntervalInMinutes: number;
@@ -75,10 +83,12 @@ export interface DaytonaSandboxProviderOptions {
 
 export class DaytonaSandboxProvider implements SandboxProvider {
   private readonly tenantName: string;
-  /** Tag of the release-owned sandbox image (from SANDBOX_IMAGE_NAME). */
+  /** Release-owned sandbox image reference; built into a Daytona snapshot and cloned per sandbox. */
+  private readonly sandboxImage: string;
+  /** Tag portion of the release image. */
   private readonly imageTag: string;
   /** Daytona snapshot name derived from the image tag; sandboxes are cloned from it. */
-  private readonly snapshotRef: string;
+  private readonly buildRef: string;
   private readonly timeoutMs: number;
   private readonly autoStopIntervalInMinutes: number;
   private readonly autoArchiveIntervalInMinutes: number;
@@ -91,12 +101,15 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; defaultTimeoutMs: number }>();
   // De-dupes concurrent recovery attempts on the same sandbox to a single refreshData+start round-trip.
   private static readonly inFlightRecoveries = new Map<string, Promise<boolean>>();
+  // De-dupes concurrent buildImage() calls for the same build so only one delete/create round-trip runs.
+  private static readonly inFlightBuilds = new Map<string, Promise<SandboxBuild>>();
 
   constructor(options: DaytonaSandboxProviderOptions) {
     this.daytona = options.client;
     this.tenantName = options.tenantName;
-    this.imageTag = imageTag(SANDBOX_IMAGE_NAME);
-    this.snapshotRef = deriveSnapshotName(this.imageTag);
+    this.sandboxImage = options.sandboxImage;
+    this.imageTag = imageTag(options.sandboxImage);
+    this.buildRef = deriveImageBuildName(this.imageTag);
     this.timeoutMs = options.timeoutMs;
     this.autoStopIntervalInMinutes = options.autoStopIntervalInMinutes;
     this.autoArchiveIntervalInMinutes = options.autoArchiveIntervalInMinutes;
@@ -117,7 +130,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       ? await this.restoreExistingSandbox(sandboxId)
       : await this.daytona.create({
           name: `${this.tenantName}.${randomUUID()}`,
-          snapshot: this.snapshotRef,
+          snapshot: this.buildRef,
           autoStopInterval: this.autoStopIntervalInMinutes,
           autoArchiveInterval: this.autoArchiveIntervalInMinutes,
           autoDeleteInterval: this.autoDeleteIntervalInMinutes,
@@ -225,20 +238,20 @@ export class DaytonaSandboxProvider implements SandboxProvider {
    * so fire the call in the background and observe progress via `getImageBuildStatus`.
    * A concurrent-create conflict is harmless: the winner's snapshot is the one polled.
    */
-  private startSnapshotCreate(): void {
+  private startImageBuild(): void {
     void this.daytona.snapshot
-      .create({ name: this.snapshotRef, image: SANDBOX_IMAGE_NAME })
+      .create({ name: this.buildRef, image: this.sandboxImage })
       .catch((error: unknown) => {
-        this.logger.error(`Daytona snapshot create failed: name=${this.snapshotRef}`, extractErrorLogFields(error));
+        this.logger.error(`Daytona snapshot create failed: name=${this.buildRef}`, extractErrorLogFields(error));
       });
   }
 
   /**
-   * Drops a snapshot stuck in a terminal-failure state so a fresh create can reuse
-   * its deterministic name. A concurrent replica may have deleted it already (404) —
-   * that is fine and treated as success.
+   * Drops a build stuck in a terminal-failure state so a fresh create can reuse its
+   * deterministic name. A concurrent replica may have deleted it already (404) — that
+   * is fine and treated as success.
    */
-  private async deleteFailedSnapshot(snapshot: DaytonaSnapshot): Promise<void> {
+  private async deleteFailedBuild(snapshot: DaytonaSnapshot): Promise<void> {
     try {
       await this.daytona.snapshot.delete(snapshot);
     } catch (error) {
@@ -249,48 +262,65 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     }
   }
 
-  private toImageBuild(snapshot: DaytonaSnapshot): SandboxImageBuild {
-    const state = snapshot.state;
+  /** Network-free build identity (ref + tag), so callers can describe the build even when Daytona is unreachable. */
+  get buildMetadata(): SandboxBuildMetadata {
+    return { buildRef: this.buildRef, imageTag: this.imageTag };
+  }
+
+  private build(status: SandboxBuild['status'], reason: string | null): SandboxBuild {
+    return { status, reason, metadata: this.buildMetadata };
+  }
+
+  private toBuild(state: DaytonaSnapshot['state'], errorReason: string | null): SandboxBuild {
     switch (state) {
-      case SNAPSHOT_STATE_ACTIVE:
-        return { tag: this.imageTag, status: 'ready', ref: this.snapshotRef, errorMessage: null };
-      case SNAPSHOT_STATE_ERROR:
-      case SNAPSHOT_STATE_BUILD_FAILED:
-        return {
-          tag: this.imageTag,
-          status: 'failed',
-          ref: this.snapshotRef,
-          errorMessage: snapshot.errorReason ?? `Daytona snapshot state: ${state}`,
-        };
-      // TODO: reactivate 'inactive' snapshots (Daytona parks unused snapshots after ~2 idle weeks) — deferred.
-      case SNAPSHOT_STATE_INACTIVE:
+      case BUILD_STATE_ACTIVE:
+        return this.build('ready', null);
+      case BUILD_STATE_ERROR:
+      case BUILD_STATE_BUILD_FAILED:
+        return this.build('failed', errorReason ?? `Sandbox image build failed (${state}).`);
       default:
-        // inactive / pending / building / pulling / removing / future states: not ready yet.
-        return { tag: this.imageTag, status: 'pending', ref: this.snapshotRef, errorMessage: null };
+        // pending / building / pulling / removing / future states: not ready yet.
+        return this.build('pending', `Sandbox image build in progress (${state}).`);
     }
   }
 
-  async buildImage(): Promise<SandboxImageBuild> {
-    const existing = await this.getSnapshot(this.snapshotRef);
-    if (existing && !isFailedSnapshotState(existing.state)) {
-      return this.toImageBuild(existing);
-    }
-    // A failed snapshot keeps the deterministic name occupied and never self-heals, so
-    // re-saving settings (which calls buildImage) could never retry. Drop it, then recreate.
+  async buildImage(): Promise<SandboxBuild> {
+    const inFlight = DaytonaSandboxProvider.inFlightBuilds.get(this.buildRef);
+    if (inFlight) return inFlight;
+
+    const op = this.runBuild().finally(() => {
+      DaytonaSandboxProvider.inFlightBuilds.delete(this.buildRef);
+    });
+    DaytonaSandboxProvider.inFlightBuilds.set(this.buildRef, op);
+    return op;
+  }
+
+  private async runBuild(): Promise<SandboxBuild> {
+    const existing = await this.getSnapshot(this.buildRef);
     if (existing) {
-      await this.deleteFailedSnapshot(existing);
+      // Daytona parks unused snapshots as 'inactive' after ~2 idle weeks; reactivate rather than rebuild.
+      if (existing.state === BUILD_STATE_INACTIVE) {
+        const activated = await this.daytona.snapshot.activate(existing);
+        return this.toBuild(activated.state, activated.errorReason);
+      }
+      if (!isFailedBuildState(existing.state)) {
+        return this.toBuild(existing.state, existing.errorReason);
+      }
+      // A failed build keeps the deterministic name occupied and never self-heals, so
+      // re-saving settings (which calls buildImage) could never retry. Drop it, then recreate.
+      await this.deleteFailedBuild(existing);
     }
-    this.startSnapshotCreate();
-    return { tag: this.imageTag, status: 'pending', ref: this.snapshotRef, errorMessage: null };
+    this.startImageBuild();
+    return this.build('pending', 'Sandbox image build started.');
   }
 
-  async getImageBuildStatus(): Promise<SandboxImageBuild> {
-    const snapshot = await this.getSnapshot(this.snapshotRef);
-    // Read-only: a missing snapshot reports pending; PUT /settings/sandbox-providers starts the build.
+  async getImageBuildStatus(): Promise<SandboxBuild> {
+    const snapshot = await this.getSnapshot(this.buildRef);
+    // Read-only: a missing build reports pending; PUT /settings/sandbox-providers starts the build.
     if (!snapshot) {
-      return { tag: this.imageTag, status: 'pending', ref: this.snapshotRef, errorMessage: null };
+      return this.build('pending', 'Sandbox image build not started.');
     }
-    return this.toImageBuild(snapshot);
+    return this.toBuild(snapshot.state, snapshot.errorReason);
   }
 
   async exec(params: SandboxExecParams): Promise<ExecResult> {

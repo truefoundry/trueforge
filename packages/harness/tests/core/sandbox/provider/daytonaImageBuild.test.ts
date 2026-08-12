@@ -1,12 +1,12 @@
 /**
  * DaytonaSandboxProvider.buildImage / getImageBuildStatus behaviour against a
- * spied SDK client: snapshot state mapping, missing-snapshot semantics, and
- * fire-and-forget create. The image + snapshot ref are release-owned (derived
- * from SANDBOX_IMAGE_NAME), so the provider takes no image args. No network traffic.
+ * spied SDK client: build-state mapping, missing-build semantics, fire-and-forget
+ * create, failed-build recreation, inactive reactivation, and concurrency dedupe.
+ * The image reference is passed in at construction. No network traffic.
  */
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import { DaytonaSandboxProvider } from '../../../../src/core/sandbox/provider/DaytonaProvider';
-import { SANDBOX_IMAGE_NAME } from '../../../../src/core/sandbox/sandboxImage.gen';
+import { SANDBOX_IMAGE_NAME } from '../../../../src/core/sandbox/sandboxImage';
 import { makeSilentLogger } from '../../harnessMocks';
 
 type DaytonaSnapshot = Awaited<ReturnType<Daytona['snapshot']['get']>>;
@@ -40,9 +40,11 @@ function makeProvider() {
   const get = jest.spyOn(daytona.snapshot, 'get');
   const create = jest.spyOn(daytona.snapshot, 'create');
   const del = jest.spyOn(daytona.snapshot, 'delete');
+  const activate = jest.spyOn(daytona.snapshot, 'activate');
   const provider = new DaytonaSandboxProvider({
     client: daytona,
     tenantName: 'test-tenant',
+    sandboxImage: SANDBOX_IMAGE_NAME,
     timeoutMs: 60_000,
     autoStopIntervalInMinutes: 5,
     autoArchiveIntervalInMinutes: 60,
@@ -50,13 +52,13 @@ function makeProvider() {
     fileMaxBytesForDownload: 1024,
     logger: makeSilentLogger(),
   });
-  return { provider, get, create, del };
+  return { provider, get, create, del, activate };
 }
 
 const notFound = () => new DaytonaError('snapshot not found', 404);
 
 describe('DaytonaSandboxProvider.buildImage', () => {
-  it('fires a background create and reports pending when the snapshot is missing', async () => {
+  it('fires a background create and reports pending when the build is missing', async () => {
     const { provider, get, create } = makeProvider();
     get.mockRejectedValue(notFound());
     create.mockResolvedValue(makeSnapshot({ state: 'pending' }));
@@ -64,41 +66,53 @@ describe('DaytonaSandboxProvider.buildImage', () => {
     const build = await provider.buildImage();
 
     expect(build.status).toBe('pending');
-    expect(build.errorMessage).toBeNull();
-    expect(build.tag).toBe(EXPECTED_TAG);
-    expect(build.ref).toBe(EXPECTED_REF);
+    expect(build.metadata).toEqual({ buildRef: EXPECTED_REF, imageTag: EXPECTED_TAG });
     expect(create).toHaveBeenCalledWith({ name: EXPECTED_REF, image: SANDBOX_IMAGE_NAME });
   });
 
-  it('adopts an existing active snapshot as ready without creating', async () => {
+  it('adopts an existing active build as ready without creating', async () => {
     const { provider, get, create } = makeProvider();
     get.mockResolvedValue(makeSnapshot({ state: 'active' }));
 
     const build = await provider.buildImage();
 
     expect(build.status).toBe('ready');
-    expect(build.ref).toBe(EXPECTED_REF);
+    expect(build.reason).toBeNull();
+    expect(build.metadata.buildRef).toBe(EXPECTED_REF);
     expect(create).not.toHaveBeenCalled();
   });
 
+  it('reactivates a parked (inactive) build instead of rebuilding', async () => {
+    const { provider, get, create, activate } = makeProvider();
+    const parked = makeSnapshot({ state: 'inactive' });
+    get.mockResolvedValue(parked);
+    activate.mockResolvedValue(makeSnapshot({ state: 'active' }));
+
+    const build = await provider.buildImage();
+
+    expect(activate).toHaveBeenCalledWith(parked);
+    expect(create).not.toHaveBeenCalled();
+    expect(build.status).toBe('ready');
+  });
+
   it.each(['error', 'build_failed'] as const)(
-    'deletes a %s snapshot and recreates it, reporting pending',
+    'deletes a %s build and recreates it, reporting pending',
     async state => {
       const { provider, get, create, del } = makeProvider();
-      get.mockResolvedValue(makeSnapshot({ state, errorReason: 'image pull backoff' }));
+      const failed = makeSnapshot({ state, errorReason: 'image pull backoff' });
+      get.mockResolvedValue(failed);
       del.mockResolvedValue(undefined);
       create.mockResolvedValue(makeSnapshot({ state: 'pending' }));
 
       const build = await provider.buildImage();
 
-      expect(del).toHaveBeenCalledWith(makeSnapshot({ state, errorReason: 'image pull backoff' }));
+      expect(del).toHaveBeenCalledWith(failed);
       expect(create).toHaveBeenCalledWith({ name: EXPECTED_REF, image: SANDBOX_IMAGE_NAME });
       expect(build.status).toBe('pending');
-      expect(build.errorMessage).toBeNull();
     },
   );
 
-  it('tolerates a concurrent delete (404) when clearing a failed snapshot', async () => {
+  it('tolerates a concurrent delete (404) when clearing a failed build', async () => {
     const { provider, get, create, del } = makeProvider();
     get.mockResolvedValue(makeSnapshot({ state: 'build_failed' }));
     del.mockRejectedValue(notFound());
@@ -108,6 +122,19 @@ describe('DaytonaSandboxProvider.buildImage', () => {
 
     expect(create).toHaveBeenCalledWith({ name: EXPECTED_REF, image: SANDBOX_IMAGE_NAME });
     expect(build.status).toBe('pending');
+  });
+
+  it('dedupes concurrent build requests to a single create', async () => {
+    const { provider, get, create } = makeProvider();
+    get.mockRejectedValue(notFound());
+    create.mockResolvedValue(makeSnapshot({ state: 'pending' }));
+
+    const [a, b] = await Promise.all([provider.buildImage(), provider.buildImage()]);
+
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(a.status).toBe('pending');
+    expect(b.status).toBe('pending');
   });
 
   it('propagates a non-404 delete failure without recreating', async () => {
@@ -134,35 +161,34 @@ describe('DaytonaSandboxProvider.getImageBuildStatus', () => {
     ['building', 'pending'],
     ['pulling', 'pending'],
     ['removing', 'pending'],
-    // Reactivation of parked snapshots is deferred; inactive reports pending for now.
+    // Read-only status never reactivates; a parked build reports pending until buildImage runs.
     ['inactive', 'pending'],
-  ] as const)('maps snapshot state %s to %s', async (state, expected) => {
+  ] as const)('maps build state %s to %s', async (state, expected) => {
     const { provider, get } = makeProvider();
     get.mockResolvedValue(makeSnapshot({ state }));
 
     const build = await provider.getImageBuildStatus();
     expect(build.status).toBe(expected);
-    expect(build.tag).toBe(EXPECTED_TAG);
-    expect(build.ref).toBe(EXPECTED_REF);
+    expect(build.metadata).toEqual({ buildRef: EXPECTED_REF, imageTag: EXPECTED_TAG });
   });
 
-  it.each(['error', 'build_failed'] as const)('maps snapshot state %s to failed with the reason', async state => {
+  it.each(['error', 'build_failed'] as const)('maps build state %s to failed with the reason', async state => {
     const { provider, get } = makeProvider();
     get.mockResolvedValue(makeSnapshot({ state, errorReason: 'image pull backoff' }));
 
     const build = await provider.getImageBuildStatus();
     expect(build.status).toBe('failed');
-    expect(build.errorMessage).toBe('image pull backoff');
+    expect(build.reason).toBe('image pull backoff');
   });
 
-  it('is read-only: a missing snapshot reports pending without creating one', async () => {
+  it('is read-only: a missing build reports pending without creating one', async () => {
     const { provider, get, create } = makeProvider();
     get.mockRejectedValue(notFound());
 
     const build = await provider.getImageBuildStatus();
 
     expect(build.status).toBe('pending');
-    expect(build.ref).toBe(EXPECTED_REF);
+    expect(build.metadata.buildRef).toBe(EXPECTED_REF);
     expect(create).not.toHaveBeenCalled();
   });
 
