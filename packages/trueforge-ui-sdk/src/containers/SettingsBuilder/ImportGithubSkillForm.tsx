@@ -64,7 +64,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
       title="Import from GitHub"
       description="Import a skill from a SKILL.md file in a GitHub repository."
       headerIcon={
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary">
           <Icon name="github" className="size-5" />
         </span>
       }
@@ -74,7 +74,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
       <form onSubmit={e => void handleSubmit(e)}>
         <div className="space-y-5 px-5 py-5 md:px-6">
           <div>
-            <label htmlFor="skill-name" className="mb-2 block text-sm font-semibold text-foreground">
+            <label htmlFor="skill-name" className="mb-2 block text-sm font-semibold text-text-primary">
               Name
             </label>
             <input
@@ -91,7 +91,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
           </div>
 
           <div>
-            <label htmlFor="skill-description" className="mb-2 block text-sm font-semibold text-foreground">
+            <label htmlFor="skill-description" className="mb-2 block text-sm font-semibold text-text-primary">
               Description
             </label>
             <textarea
@@ -108,7 +108,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
           </div>
 
           <div>
-            <label htmlFor="skill-repo-url" className="mb-2 block text-sm font-semibold text-foreground">
+            <label htmlFor="skill-repo-url" className="mb-2 block text-sm font-semibold text-text-primary">
               Repository URL
             </label>
             <input
@@ -125,7 +125,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
           </div>
 
           <div>
-            <label htmlFor="skill-path" className="mb-2 block text-sm font-semibold text-foreground">
+            <label htmlFor="skill-path" className="mb-2 block text-sm font-semibold text-text-primary">
               Folder containing the SKILL.md
             </label>
             <input
@@ -141,7 +141,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
           </div>
 
           <div>
-            <label htmlFor="skill-ref" className="mb-2 block text-sm font-semibold text-foreground">
+            <label htmlFor="skill-ref" className="mb-2 block text-sm font-semibold text-text-primary">
               Branch
             </label>
             <input

@@ -107,7 +107,7 @@ export function SaveAgentButton() {
       >
         <form className="flex flex-col gap-4 p-5" onSubmit={e => void handleSubmit(e)}>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor={nameId} className="text-foreground text-sm font-medium">
+            <label htmlFor={nameId} className="text-text-primary text-sm font-medium">
               Name
             </label>
             <input
@@ -123,7 +123,7 @@ export function SaveAgentButton() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor={instructionsId} className="text-foreground text-sm font-medium">
+            <label htmlFor={instructionsId} className="text-text-primary text-sm font-medium">
               System instructions
             </label>
             <textarea
@@ -137,7 +137,7 @@ export function SaveAgentButton() {
               className={`${inputClassName} min-h-24 resize-y py-2`}
             />
           </div>
-          {error ? <p className="text-destructive text-sm">{error}</p> : null}
+          {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
           <button
             type="submit"
             disabled={saving || name.trim().length === 0}

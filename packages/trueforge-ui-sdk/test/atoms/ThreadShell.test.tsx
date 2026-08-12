@@ -14,7 +14,7 @@ describe('ThreadRootShell', () => {
     expect(root).toBe(ref.current);
     expect(root).toHaveClass('aui-thread-root', 'host-thread');
     expect(root.style.getPropertyValue('--thread-max-width')).toBe('60rem');
-    // --composer-bg now lives on the theme root (defaults to --card), not the thread shell.
+    // Composer surface uses --input-box-bg on the theme root; thread shell must not set --composer-bg.
     expect(root.style.getPropertyValue('--composer-bg')).toBe('');
     expect(root.style.color).toBe('red');
   });

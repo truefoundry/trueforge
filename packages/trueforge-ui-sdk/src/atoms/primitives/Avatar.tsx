@@ -52,7 +52,7 @@ export function AvatarFallback({ className, ...props }: AvatarFallbackProps) {
     <div
       data-slot="avatar-fallback"
       className={cn(
-        'flex h-full w-full items-center justify-center rounded-full bg-muted font-medium text-muted-foreground',
+        'flex h-full w-full items-center justify-center rounded-full bg-secondary-bg font-medium text-text-secondary',
         className,
       )}
       {...props}

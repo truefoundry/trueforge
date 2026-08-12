@@ -69,15 +69,15 @@ export function AskUserPrompt({
       <div className={cn('aui-ask-user-prompt mt-2 flex flex-col gap-3', className)}>
         {answeredQuestions.map(q => (
           <div key={q.id} data-testid={dataTestPrefix ? `${dataTestPrefix}-answered-${q.id}` : undefined}>
-            <div className="flex items-center justify-between rounded-t-lg border border-primary/30 bg-primary/10 px-4 py-2">
-              <div className="font-sans text-xs font-medium text-primary">{q.question}</div>
-              <div className="flex h-fit shrink-0 items-center gap-1 rounded border border-primary/40 bg-background px-2 py-0.5 text-[0.6875rem] font-medium text-muted-foreground">
+            <div className="flex items-center justify-between rounded-t-lg border border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2">
+              <div className="font-sans text-xs font-medium text-primary-button-bg">{q.question}</div>
+              <div className="flex h-fit shrink-0 items-center gap-1 rounded border border-primary-button-bg/40 bg-primary-bg px-2 py-0.5 text-[0.6875rem] font-medium text-text-secondary">
                 <span className="leading-tight">Answered</span>
               </div>
             </div>
             <div className="flex items-center gap-2 rounded-b-lg border border-t-0 border-border px-4 py-3">
-              <Icon name="circle-check" size="0.875em" className="shrink-0 text-primary" />
-              <span className="font-sans text-[0.8125rem] font-medium text-foreground">
+              <Icon name="circle-check" size="0.875em" className="shrink-0 text-primary-button-bg" />
+              <span className="font-sans text-[0.8125rem] font-medium text-text-primary">
                 {q.isCustom ? `Other: ${q.answer}` : q.answer}
               </span>
             </div>
@@ -101,12 +101,12 @@ export function AskUserPrompt({
       className={cn('aui-ask-user-prompt', className)}
       data-testid={dataTestPrefix ? `${dataTestPrefix}-question-card` : undefined}
     >
-      <div className="flex items-center justify-between rounded-t-lg border border-primary/30 bg-primary/10 px-4 py-2">
-        <div className="font-sans text-sm font-medium text-primary">
+      <div className="flex items-center justify-between rounded-t-lg border border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2">
+        <div className="font-sans text-sm font-medium text-primary-button-bg">
           {totalQuestions > 1 ? 'Questions' : currentQuestion.question}
         </div>
         {readOnly ? (
-          <div className="flex h-fit shrink-0 items-center gap-1 rounded border border-primary/40 bg-background px-2 py-0.5 text-[0.6875rem] font-medium text-muted-foreground">
+          <div className="flex h-fit shrink-0 items-center gap-1 rounded border border-primary-button-bg/40 bg-primary-bg px-2 py-0.5 text-[0.6875rem] font-medium text-text-secondary">
             <span className="leading-tight">Unanswered</span>
           </div>
         ) : null}
@@ -117,7 +117,7 @@ export function AskUserPrompt({
               variant="ghost"
               onClick={() => onCurrentQuestionIndexChange?.(Math.max(0, currentQuestionIndex - 1))}
               disabled={currentQuestionIndex === 0}
-              className="text-foreground"
+              className="text-text-primary"
             >
               <Icon name="chevron-left" size="0.75em" />
             </IconButton>
@@ -126,11 +126,11 @@ export function AskUserPrompt({
               variant="ghost"
               onClick={() => onCurrentQuestionIndexChange?.(Math.min(totalQuestions - 1, currentQuestionIndex + 1))}
               disabled={currentQuestionIndex === totalQuestions - 1}
-              className="text-foreground"
+              className="text-text-primary"
             >
               <Icon name="chevron-right" size="0.75em" />
             </IconButton>
-            <div className="ml-1 rounded bg-primary/20 px-2 py-1 font-sans text-xs font-medium text-foreground">
+            <div className="ml-1 rounded bg-primary-button-bg/20 px-2 py-1 font-sans text-xs font-medium text-text-primary">
               <span> {currentQuestionIndex + 1} </span> <span> of </span> <span> {totalQuestions} </span>
             </div>
           </div>
@@ -140,7 +140,7 @@ export function AskUserPrompt({
       <div className="flex flex-col gap-4 rounded-b-lg border border-t-0 border-border px-4 py-3">
         <div className="flex flex-col gap-3">
           {isMultiQuestion && (
-            <div className="font-sans text-xs font-medium text-foreground">
+            <div className="font-sans text-xs font-medium text-text-primary">
               {currentQuestion.question || 'What would you like to do?'}
             </div>
           )}
@@ -168,7 +168,7 @@ export function AskUserPrompt({
                     onChange={() => handleOptionSelect(opt)}
                     className="mt-0.5 accent-primary"
                   />
-                  <span className="min-w-0 font-sans text-[0.8125rem] font-medium leading-snug text-foreground">
+                  <span className="min-w-0 font-sans text-[0.8125rem] font-medium leading-snug text-text-primary">
                     {opt}
                   </span>
                 </label>
@@ -208,8 +208,8 @@ export function AskUserPrompt({
                   placeholder="Other"
                   aria-label="Other (custom answer)"
                   className={cn(
-                    'h-6 w-full rounded border border-input bg-background px-2 text-[0.8125rem] text-foreground',
-                    'placeholder:text-[0.8125rem] focus:outline-none focus:ring-1 focus:ring-ring',
+                    'h-6 w-full rounded border border-input-border bg-primary-bg px-2 text-[0.8125rem] text-text-primary',
+                    'placeholder:text-[0.8125rem] focus:outline-none focus:ring-1 focus:ring-focus-ring',
                   )}
                 />
               </div>
@@ -225,7 +225,7 @@ export function AskUserPrompt({
             })}
           >
             {isMultiQuestion && isLastQuestion && !allQuestionsAnswered ? (
-              <span className="text-xs font-medium text-destructive">Answer all questions to submit</span>
+              <span className="text-xs font-medium text-failure-text">Answer all questions to submit</span>
             ) : (
               <span />
             )}

@@ -71,12 +71,12 @@ function SandboxBody({
 >) {
   return (
     <div
-      className="rounded-lg border border-border bg-background"
+      className="rounded-lg border border-border bg-primary-bg"
       data-testid={dataTestPrefix ? `${dataTestPrefix}-sandbox` : undefined}
     >
-      <div className="rounded-t-md border-b border-primary/30 bg-primary/10">
+      <div className="rounded-t-md border-b border-primary-button-bg/30 bg-primary-button-bg/10">
         <div className="flex w-full min-w-0 items-center gap-2 px-3 py-1.5">
-          <p className="min-w-0 font-sans text-xs font-medium text-primary">sandbox</p>
+          <p className="min-w-0 font-sans text-xs font-medium text-primary-button-bg">sandbox</p>
           <div
             className="ml-auto flex shrink-0 items-center gap-1.5"
             onClick={e => e.stopPropagation()}
@@ -86,7 +86,7 @@ function SandboxBody({
               <span
                 className={cn(
                   'inline-flex h-6 items-center gap-1 rounded px-1.5 text-xs lowercase',
-                  exitCode === 0 ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive',
+                  exitCode === 0 ? 'bg-success-bg/10 text-success-text' : 'bg-failure-bg/10 text-failure-text',
                 )}
                 data-testid={dataTestPrefix ? `${dataTestPrefix}-exit-code` : undefined}
               >
@@ -95,7 +95,7 @@ function SandboxBody({
               </span>
             )}
             <div
-              className="inline-flex h-6 items-center rounded-md border border-border bg-background p-0.5"
+              className="inline-flex h-6 items-center rounded-md border border-border bg-primary-bg p-0.5"
               role="group"
               aria-label="Sandbox view"
             >
@@ -106,8 +106,8 @@ function SandboxBody({
                 aria-pressed={viewMode === 'terminal'}
                 onClick={() => onViewModeChange?.('terminal')}
                 className={cn(
-                  'inline-flex size-5 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors',
-                  viewMode === 'terminal' && 'bg-muted text-foreground shadow-sm',
+                  'inline-flex size-5 cursor-pointer items-center justify-center rounded-sm text-text-secondary transition-colors',
+                  viewMode === 'terminal' && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text shadow-sm',
                 )}
               >
                 <Icon name="terminal" size={12} />
@@ -119,8 +119,8 @@ function SandboxBody({
                 aria-pressed={viewMode === 'code'}
                 onClick={() => onViewModeChange?.('code')}
                 className={cn(
-                  'inline-flex size-5 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors',
-                  viewMode === 'code' && 'bg-muted text-foreground shadow-sm',
+                  'inline-flex size-5 cursor-pointer items-center justify-center rounded-sm text-text-secondary transition-colors',
+                  viewMode === 'code' && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text shadow-sm',
                 )}
               >
                 <Icon name="code" size={12} />
@@ -132,17 +132,17 @@ function SandboxBody({
 
       <div className="rounded-b-lg border border-t-0 border-border p-3">
         {hasContent && (
-          <div className="max-h-80 overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words font-mono text-xs text-foreground">
+          <div className="max-h-80 overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words font-mono text-xs text-text-primary">
             {viewMode === 'code' ? (
               <>
                 {argsJson && (
-                  <div className="my-1 border-l-4 border-primary px-3">
+                  <div className="my-1 border-l-4 border-primary-button-bg px-3">
                     <div className="mb-1 font-sans text-xs font-medium leading-4">Arguments</div>
                     <JsonPane value={argsJson} className="pl-2" />
                   </div>
                 )}
                 {resultJson && (
-                  <div className="my-1 border-l-4 border-primary/60 px-3">
+                  <div className="my-1 border-l-4 border-primary-button-bg/60 px-3">
                     <div className="mb-1 mt-2 font-sans text-xs font-medium leading-4">Result</div>
                     <JsonPane value={resultJson} className="pl-2" />
                   </div>
@@ -151,18 +151,18 @@ function SandboxBody({
             ) : (
               <>
                 {command && (
-                  <div className="my-1 break-all border-l-4 border-primary px-3">
-                    <div className="mb-1 text-[12px] font-medium leading-4 text-muted-foreground">COMMAND</div>
+                  <div className="my-1 break-all border-l-4 border-primary-button-bg px-3">
+                    <div className="mb-1 text-[12px] font-medium leading-4 text-text-secondary">COMMAND</div>
                     <div>
-                      <span className="text-primary">$</span> {command}
+                      <span className="text-primary-button-bg">$</span> {command}
                     </div>
                   </div>
                 )}
                 {resultText ? (
                   <>
                     <div className="mx-3 my-1 border-t border-border" />
-                    <div className="my-1 break-all border-l-4 border-primary/60 px-3">
-                      <div className="mb-1 text-[12px] font-medium leading-4 text-muted-foreground">OUTPUT</div>
+                    <div className="my-1 break-all border-l-4 border-primary-button-bg/60 px-3">
+                      <div className="mb-1 text-[12px] font-medium leading-4 text-text-secondary">OUTPUT</div>
                       <div>{resultText}</div>
                     </div>
                   </>
@@ -170,8 +170,8 @@ function SandboxBody({
                   resultJson && (
                     <>
                       <div className="mx-3 my-1 border-t border-border" />
-                      <div className="my-1 border-l-4 border-primary/60 px-3">
-                        <div className="mb-1 text-[12px] font-medium leading-4 text-muted-foreground">OUTPUT</div>
+                      <div className="my-1 border-l-4 border-primary-button-bg/60 px-3">
+                        <div className="mb-1 text-[12px] font-medium leading-4 text-text-secondary">OUTPUT</div>
                         <JsonPane value={resultJson} className="pl-2" />
                       </div>
                     </>
@@ -211,7 +211,7 @@ export function SandboxToolCallCard({
     <ToolCallCard
       toolName={intent || name}
       icon="cube"
-      iconClassName="text-primary shrink-0"
+      iconClassName="text-primary-button-bg shrink-0"
       expanded={expanded}
       onToggle={onToggle}
       awaiting={awaiting}

@@ -55,7 +55,7 @@ function ComposerBody({ placeholder }: { placeholder: string }) {
       <ComposerPrimitive.AttachmentDropzone
         disabled={isBusy}
         data-slot="aui_composer-attachment-dropzone"
-        className="w-full rounded-[var(--composer-radius,1.5rem)] transition-[box-shadow] data-[dragging=true]:ring-ring/20 data-[dragging=true]:ring-3"
+        className="w-full rounded-[var(--composer-radius,1.5rem)] transition-[box-shadow] data-[dragging=true]:ring-focus-ring/20 data-[dragging=true]:ring-3"
       >
         <ComposerPrimitive.Root
           data-slot="aui_composer-root"
@@ -75,7 +75,7 @@ function ComposerBody({ placeholder }: { placeholder: string }) {
                 disabled={isBusy}
                 submitMode="enter"
                 aria-label="Message input"
-                className="text-foreground placeholder:text-muted-foreground/80 max-h-[10lh] min-h-10 w-full resize-none overflow-y-auto rounded-lg border-none bg-transparent px-1 py-1 text-base leading-normal shadow-none outline-none"
+                className="text-text-primary placeholder:text-text-secondary/80 max-h-[10lh] min-h-10 w-full resize-none overflow-y-auto rounded-lg border-none bg-transparent px-1 py-1 text-base leading-normal shadow-none outline-none"
               />
             }
             disabled={isBusy}

@@ -51,7 +51,7 @@ describe('ToolCallCard', () => {
     expect(screen.getByTestId('run-header-success-icon')).toBeInTheDocument();
 
     rerender(<ToolCallCard toolName="Run" exitCode={2} dataTestPrefix="run" />);
-    expect(container.querySelector('svg.text-destructive')).toBeInTheDocument();
+    expect(container.querySelector('svg.text-failure-text')).toBeInTheDocument();
   });
 
   it('honors explicit status and suppresses expansion when no expandable content exists', () => {
@@ -59,7 +59,7 @@ describe('ToolCallCard', () => {
       <ToolCallCard toolName="Failed tool" status="error" onToggle={vi.fn()} dataTestPrefix="failed" />,
     );
 
-    expect(container.querySelector('svg.text-destructive')).toBeInTheDocument();
+    expect(container.querySelector('svg.text-failure-text')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Expand step' })).not.toBeInTheDocument();
   });
 

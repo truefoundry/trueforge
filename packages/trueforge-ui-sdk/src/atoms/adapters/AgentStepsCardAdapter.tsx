@@ -38,7 +38,7 @@ export function AgentStepsCard({
       expanded={expanded}
       onChange={() => onToggle()}
       className={cn(
-        'aui-agent-steps-card mb-3 rounded-lg border border-border bg-card text-card-foreground',
+        'aui-agent-steps-card mb-3 rounded-lg border border-border bg-card-bg text-text-primary',
         className,
       )}
       style={{
@@ -52,16 +52,16 @@ export function AgentStepsCard({
           <Icon
             name={expanded ? 'chevron-down' : 'chevron-right'}
             size="0.75em"
-            className="shrink-0 text-muted-foreground"
+            className="shrink-0 text-text-secondary"
           />
-          <span className="font-semibold text-foreground">Agent steps</span>
-          <span className="text-muted-foreground">
+          <span className="font-semibold text-text-primary">Agent steps</span>
+          <span className="text-text-secondary">
             · {toolLabel}
             {thinkingLabel}
           </span>
           {active && (
             <div className="ml-auto">
-              <Spinner size={12} className="text-primary" />
+              <Spinner size={12} className="text-primary-button-bg" />
             </div>
           )}
         </div>

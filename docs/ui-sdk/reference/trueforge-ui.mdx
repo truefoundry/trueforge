@@ -97,21 +97,26 @@ import { TrueforgeUI } from "@truefoundry/trueforge-ui";
       Per-token overrides, merged over the preset and applied as inline styles.
 
       <Expandable title="SemanticTokens">
-        <ParamField path="Surfaces" type="string">
-          `background`, `foreground`, `card`, `cardForeground`, `popover`, `popoverForeground`.
+        <ParamField path="Across product" type="string">
+          `sidebarBg`, `topbarBg`, `primaryBg`, `secondaryBg`, `border`, `fontFamily`
+          (maps to `--font-agent-ui`).
         </ParamField>
-        <ParamField path="Palette" type="string">
-          `primary`, `secondary`, `muted`, `accent`, each with a `*Foreground` pair.
+        <ParamField path="Building blocks" type="string">
+          `inputBoxBg`, `inputBorder`, `textPrimary`, `textSecondary`, `cardBg`,
+          `dropdownSelectedItemBg`, `dropdownSelectedItemText`.
+        </ParamField>
+        <ParamField path="Chat" type="string">
+          `userMessageBg`, `userMessageText`, `assistantMessageBg`, `assistantMessageText`.
+        </ParamField>
+        <ParamField path="Buttons" type="string">
+          `primaryButtonBg` / `primaryButtonHover` / `primaryButtonText`, and the same trio for
+          `secondaryButton*` and `ghostButton*`.
         </ParamField>
         <ParamField path="Status" type="string">
-          `destructive`, `success`, `warning`, each with a `*Foreground` pair.
+          `successBg` / `successText`, `failureBg` / `failureText`, `warningBg` / `warningText`.
         </ParamField>
-        <ParamField path="Chrome" type="string">
-          `border`, `input`, `ring`, `radius`, `fontFamily` (maps to `--font-agent-ui`).
-        </ParamField>
-        <ParamField path="Optional" type="string">
-          `composerRadius`, `userBubble`, `userBubbleForeground`, `assistantBubble`,
-          `assistantBubbleForeground`, `scrollbarThumb`.
+        <ParamField path="Kept internals" type="string">
+          `focusRing`, `radius`, `composerRadius`, `overlay`, `shadowColor`, `scrollbarThumb`.
         </ParamField>
       </Expandable>
     </ParamField>

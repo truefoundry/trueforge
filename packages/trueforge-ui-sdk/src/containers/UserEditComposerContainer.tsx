@@ -37,7 +37,7 @@ export function UserEditComposerContainer() {
           timestamp={<MessageTimestamp createdAt={createdAt} />}
           attachments={<ReadOnlyMessageAttachments />}
           input={
-            <div className="mt-1 rounded border border-border bg-muted p-2 text-foreground">
+            <div className="mt-1 rounded border border-border bg-secondary-bg p-2 text-text-primary">
               <ComposerPrimitive.Input
                 data-slot="aui_user-edit-input"
                 disabled={isRunning}

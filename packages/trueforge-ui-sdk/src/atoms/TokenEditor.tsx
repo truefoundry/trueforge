@@ -55,8 +55,8 @@ function TokenRow({
   return (
     <div className="flex items-start gap-2 border-b border-border/50 py-2.5 last:border-b-0">
       <div className="min-w-0 flex-1">
-        <div className="font-mono text-xs text-foreground">{cssVar}</div>
-        <p className="mt-0.5 text-[0.6875rem] leading-snug text-muted-foreground">{description}</p>
+        <div className="font-mono text-xs text-text-primary">{cssVar}</div>
+        <p className="mt-0.5 text-[0.6875rem] leading-snug text-text-secondary">{description}</p>
       </div>
       <span
         aria-hidden
@@ -68,7 +68,7 @@ function TokenRow({
         aria-label={`${cssVar} color picker`}
         value={toColorInputValue(value)}
         onChange={event => onChange(event.target.value)}
-        className="mt-0.5 size-8 shrink-0 cursor-pointer rounded border border-input bg-background p-0.5"
+        className="mt-0.5 size-8 shrink-0 cursor-pointer rounded border border-input-border bg-primary-bg p-0.5"
       />
       <input
         type="text"
@@ -118,7 +118,7 @@ export function TokenEditorModal({ open, onOpenChange }: { open: boolean; onOpen
       onOpenChange={onOpenChange}
       title="Tokens (For Dev)"
       description="Edit semantic colors and apply them live. Each swatch notes which UI to check. Persists in this browser only."
-      headerIcon={<Icon name="palette" className="text-muted-foreground" />}
+      headerIcon={<Icon name="palette" className="text-text-secondary" />}
       contentSized
     >
       <div className="flex min-h-0 flex-1 flex-col">
@@ -131,8 +131,8 @@ export function TokenEditorModal({ open, onOpenChange }: { open: boolean; onOpen
               className={cn(
                 'rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors',
                 activeMode === modeOption
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                  ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
+                  : 'text-text-secondary hover:bg-ghost-button-hover/60 hover:text-text-primary',
               )}
             >
               {modeOption}
@@ -143,9 +143,7 @@ export function TokenEditorModal({ open, onOpenChange }: { open: boolean; onOpen
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
           {EDITABLE_TOKEN_GROUPS.map(group => (
             <section key={group.label} className="mb-4 last:mb-0">
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {group.label}
-              </h3>
+              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">{group.label}</h3>
               {group.keys.map(key => (
                 <TokenRow
                   key={key}

@@ -35,16 +35,16 @@ export function Toast({ title, description, open, onOpenChange, className }: Toa
     <div
       role="alert"
       className={cn(
-        'font-sans-flex bg-background text-foreground pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-border px-4 py-4 shadow-md dark:bg-card',
+        'font-sans-flex bg-primary-bg text-text-primary pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-border px-4 py-4 shadow-md dark:bg-card-bg',
         'animate-in fade-in-0 slide-in-from-bottom-4',
         className,
       )}
     >
-      <Icon name="circle-exclamation" size="1.25em" className="text-destructive shrink-0" />
+      <Icon name="circle-exclamation" size="1.25em" className="text-failure-text shrink-0" />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <div className="text-destructive text-sm leading-none font-semibold">{title}</div>
+          <div className="text-failure-text text-sm leading-none font-semibold">{title}</div>
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
@@ -66,7 +66,7 @@ export function Toast({ title, description, open, onOpenChange, className }: Toa
             </button>
           </div>
         </div>
-        <div className="text-muted-foreground mt-1 max-h-24 overflow-y-auto text-sm leading-snug break-words whitespace-pre-wrap">
+        <div className="text-text-secondary mt-1 max-h-24 overflow-y-auto text-sm leading-snug break-words whitespace-pre-wrap">
           {description}
         </div>
       </div>

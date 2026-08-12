@@ -92,15 +92,15 @@ export function ToolApprovalBar({
         <div className="mt-2 flex flex-1 items-center justify-between">
           <div className="flex w-full items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="inline-flex flex-wrap items-center gap-1 font-sans text-xs font-medium leading-4 text-foreground">
+              <span className="inline-flex flex-wrap items-center gap-1 font-sans text-xs font-medium leading-4 text-text-primary">
                 {headingText}
-                <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{toolName}</span>
+                <span className="rounded bg-secondary-bg px-1.5 py-0.5 text-xs text-text-secondary">{toolName}</span>
               </span>
               {isDecided && (
                 <Icon
                   name={isDenied ? 'circle-xmark' : 'circle-check'}
                   size="0.875em"
-                  className={cn('shrink-0', isDenied ? 'text-destructive' : 'text-success')}
+                  className={cn('shrink-0', isDenied ? 'text-failure-text' : 'text-success-text')}
                 />
               )}
             </div>
@@ -156,18 +156,18 @@ export function ToolApprovalBar({
           {(selectedDenyOption.confirm?.title || selectedDenyOption.confirm?.description) && (
             <div className="flex flex-col gap-0.5">
               {selectedDenyOption.confirm.title && (
-                <span className="text-xs font-medium text-foreground">{selectedDenyOption.confirm.title}</span>
+                <span className="text-xs font-medium text-text-primary">{selectedDenyOption.confirm.title}</span>
               )}
               {selectedDenyOption.confirm.description && (
-                <span className="text-xs text-muted-foreground">{selectedDenyOption.confirm.description}</span>
+                <span className="text-xs text-text-secondary">{selectedDenyOption.confirm.description}</span>
               )}
             </div>
           )}
           {selectedDenyOption.grants && selectedDenyOption.grants.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
-              <span className="text-xs text-muted-foreground">Grants:</span>
+              <span className="text-xs text-text-secondary">Grants:</span>
               {selectedDenyOption.grants.map(grant => (
-                <span key={grant} className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                <span key={grant} className="rounded bg-secondary-bg px-1.5 py-0.5 text-xs text-text-secondary">
                   {grant}
                 </span>
               ))}
@@ -183,8 +183,8 @@ export function ToolApprovalBar({
               disabled={interactionsLocked}
               onChange={e => onDenialReasonChange?.(e.target.value)}
               className={cn(
-                'h-8 flex-1 rounded border border-input bg-background px-2 text-xs text-foreground',
-                'focus:outline-none focus:ring-1 focus:ring-ring',
+                'h-8 flex-1 rounded border border-input-border bg-primary-bg px-2 text-xs text-text-primary',
+                'focus:outline-none focus:ring-1 focus:ring-focus-ring',
               )}
             />
             <Button size="sm" disabled={interactionsLocked} onClick={onReasonSubmit}>
@@ -192,7 +192,7 @@ export function ToolApprovalBar({
             </Button>
           </div>
           {showReasonError && (
-            <span id="aui-denial-reason-error" className="text-xs text-destructive" role="alert">
+            <span id="aui-denial-reason-error" className="text-xs text-failure-text" role="alert">
               Reason is required
             </span>
           )}
@@ -201,7 +201,7 @@ export function ToolApprovalBar({
 
       {isDecided && status?.reason && (
         <div className="pl-8 pt-2">
-          <span className="text-xs text-muted-foreground">Reason: {status.reason}</span>
+          <span className="text-xs text-text-secondary">Reason: {status.reason}</span>
         </div>
       )}
     </div>

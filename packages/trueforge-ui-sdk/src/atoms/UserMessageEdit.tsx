@@ -23,8 +23,8 @@ export const UserMessageEdit = forwardRef<HTMLDivElement, UserMessageEditProps &
         {...rest}
       >
         {(timestamp || attachments) && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">User</span>
+          <div className="flex items-center gap-2 text-sm text-text-secondary">
+            <span className="font-medium text-text-primary">User</span>
             {timestamp}
           </div>
         )}

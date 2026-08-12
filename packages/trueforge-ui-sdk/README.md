@@ -191,7 +191,7 @@ Later sections use `server` as a `TrueforgeServerConfig` (usually `type: "truefo
 
 ## Theming
 
-Pass a preset and/or tokens and the whole UI adapts. Under the hood values map onto shadcn-style CSS variables (`--primary`, `--background`, `--foreground`, `--muted`, `--accent`, `--radius`), so no component needs palette-specific code.
+Pass a preset and/or tokens and the whole UI adapts. Values map onto product CSS variables (`--primary-bg`, `--text-primary`, `--card-bg`, `--primary-button-bg`, `--failure-bg`, `--radius`, …), so no component needs palette-specific code.
 
 ```tsx
 const server = {
@@ -207,23 +207,25 @@ const server = {
     preset: 'claude', // 'trueforge' | 'claude' | 'chatgpt' | 'gemini'
     mode: 'dark', // omit for uncontrolled (useTheme().setTheme works)
     tokens: {
-      primary: 'oklch(0.55 0.2 275)',
-      background: 'oklch(0.14 0.02 260)',
-      foreground: 'oklch(0.97 0 0)',
-      muted: 'oklch(0.22 0.02 260)',
-      accent: 'oklch(0.8 0.12 200)',
+      primaryBg: 'oklch(0.14 0.02 260)',
+      textPrimary: 'oklch(0.97 0 0)',
+      secondaryBg: 'oklch(0.22 0.02 260)',
+      primaryButtonBg: 'oklch(0.55 0.2 275)',
+      primaryButtonHover: 'oklch(0.5 0.2 275)',
+      primaryButtonText: 'oklch(0.98 0 0)',
+      ghostButtonHover: 'oklch(0.8 0.12 200)',
       radius: '0.5rem',
     },
   }}
 />;
 ```
 
-You can also override tokens from host CSS:
+You can also override tokens from host CSS on `.aui-theme-root` (inline `theme.tokens` still win over `:root`):
 
 ```css
-:root {
+.aui-theme-root {
   --font-agent-ui: 'Your Font', ui-sans-serif, system-ui, sans-serif;
-  --primary: oklch(0.55 0.2 275);
+  --primary-button-bg: oklch(0.55 0.2 275);
 }
 ```
 
@@ -430,9 +432,9 @@ import { TrueforgeUI, type AssistantMessageBubbleProps } from '@truefoundry/true
 
 function MyBubble({ children, error, actionBar, className }: AssistantMessageBubbleProps) {
   return (
-    <div className={`flex flex-col gap-2 border-l-2 border-primary pl-3.5 ${className ?? ''}`}>
+    <div className={`flex flex-col gap-2 border-l-2 border-primary-button-bg pl-3.5 ${className ?? ''}`}>
       {error ? (
-        <div className="rounded-lg bg-destructive/10 px-2.5 py-2 text-[13px] text-destructive">{error}</div>
+        <div className="rounded-lg bg-failure-bg/10 px-2.5 py-2 text-[13px] text-failure-text">{error}</div>
       ) : null}
       <div>{children}</div>
       {actionBar}

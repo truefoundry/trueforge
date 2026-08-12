@@ -27,11 +27,11 @@ body {
   display: grid;
   place-items: center;
   padding: 2rem;
-  color: var(--muted-foreground, #71717a);
+  color: var(--text-secondary, #71717a);
 }
 
 .boot-screen[data-error='true'] {
-  color: var(--destructive, #ef4444);
+  color: var(--failure-bg, #ef4444);
 }
 
 .harness-logout {

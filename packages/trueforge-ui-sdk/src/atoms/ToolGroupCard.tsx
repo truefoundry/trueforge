@@ -46,7 +46,7 @@ export function ToolGroupCard({
           '& .MuiAccordionSummary-content': { margin: 0, width: '100%' },
         }}
       >
-        <div className="text-muted-foreground hover:text-foreground flex origin-left items-center gap-2 py-1.5 text-sm transition-[color,scale] active:scale-[0.98]">
+        <div className="text-text-secondary hover:text-text-primary flex origin-left items-center gap-2 py-1.5 text-sm transition-[color,scale] active:scale-[0.98]">
           {active && <Icon name="loader" className="size-3 shrink-0 animate-spin [animation-duration:0.6s]" />}
           <span className="text-xs font-medium">{label}</span>
           <Icon
@@ -59,7 +59,7 @@ export function ToolGroupCard({
         </div>
       </AccordionSummary>
       <AccordionDetails sx={{ padding: 0 }}>
-        <div className="mt-1 flex flex-col gap-2 text-foreground">{children}</div>
+        <div className="mt-1 flex flex-col gap-2 text-text-primary">{children}</div>
       </AccordionDetails>
     </Accordion>
   );

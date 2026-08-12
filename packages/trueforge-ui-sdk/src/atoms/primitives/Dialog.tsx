@@ -50,7 +50,7 @@ export function Dialog({
       aria-labelledby={ariaLabelledBy}
       onClick={handleBackdropClick}
       className={cn(
-        'm-auto max-h-[90dvh] w-full max-w-lg rounded-lg bg-background p-0 text-foreground shadow-lg',
+        'm-auto max-h-[90dvh] w-full max-w-lg rounded-lg bg-card-bg p-0 text-text-primary shadow-lg',
         'backdrop:bg-[var(--overlay)]',
         'open:flex open:flex-col',
         className,

@@ -87,7 +87,7 @@ export function AgentStepRow({
                 name="chevron-right"
                 size="0.625rem"
                 className={cn(
-                  'shrink-0 text-muted-foreground transition-transform duration-300',
+                  'shrink-0 text-text-secondary transition-transform duration-300',
                   expanded && 'rotate-90',
                 )}
               />
@@ -106,12 +106,12 @@ export function AgentStepRow({
           })}
           onClick={showExpandChevron ? onToggle : undefined}
         >
-          {label && <span className="text-xs font-medium leading-none text-muted-foreground">{label}</span>}
+          {label && <span className="text-xs font-medium leading-none text-text-secondary">{label}</span>}
           {title && (
             <div className="flex min-w-0 items-center gap-2">
               <span
                 className={cn(
-                  'min-w-0 truncate font-sans text-[0.75rem] font-medium leading-5 text-foreground',
+                  'min-w-0 truncate font-sans text-[0.75rem] font-medium leading-5 text-text-primary',
                   titleClassName,
                 )}
                 data-testid={dataTestPrefix ? `${dataTestPrefix}-title` : undefined}
@@ -122,7 +122,7 @@ export function AgentStepRow({
                 <Icon
                   name="circle-check"
                   size="0.875rem"
-                  className="shrink-0 text-success"
+                  className="shrink-0 text-success-text"
                   data-testid={dataTestPrefix ? `${dataTestPrefix}-success-icon` : undefined}
                 />
               )}
@@ -130,7 +130,7 @@ export function AgentStepRow({
           )}
           {body && (
             <div
-              className="mt-1 font-sans text-sm text-muted-foreground"
+              className="mt-1 font-sans text-sm text-text-secondary"
               onClick={e => {
                 if (expanded && showExpandChevron) e.stopPropagation();
               }}
@@ -145,7 +145,7 @@ export function AgentStepRow({
           {statusText && (
             <span className="flex items-center gap-1">
               {isRunning && <StatusDot />}
-              <span className="font-sans text-xs font-medium leading-4 text-muted-foreground">{statusText}</span>
+              <span className="font-sans text-xs font-medium leading-4 text-text-secondary">{statusText}</span>
             </span>
           )}
           {!statusText && isRunning && (
@@ -163,7 +163,7 @@ export function AgentStepRow({
             <Icon
               name="circle-xmark"
               size="0.875rem"
-              className="text-destructive"
+              className="text-failure-text"
               data-testid={dataTestPrefix ? `${dataTestPrefix}-error-icon` : undefined}
             />
           )}
