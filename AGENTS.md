@@ -4,7 +4,6 @@
 - Changes to types or schemas MUST keep `packages/harness`, `packages/frontend`, `packages/server`, and `patches` synchronized; they MUST NOT update only one affected layer.
 - TypeScript code MUST NOT use assertion escapes such as `as T`, `as unknown as T`, non-null `!`, or `as never` to silence type errors; implementations MUST use sound contracts, guards, or corrected types.
 - When catching an error and throwing another, the new error MUST set `{ cause: caught }` so the original failure is preserved for logs and debugging.
-- Error logs MUST use `extractErrorLogFields`; code MUST NOT log raw error, request, or response objects or include secrets, headers, bodies, or credential-bearing URLs in error messages.
 - Every type, schema, helper, and contract MUST have one canonical owner; code MUST NOT introduce duplicate definitions or forwarding shims that hide ownership.
 - AgentUIServer / server-port types (`AgentChatServer`, `AgentBuilderServer`, catalog ports, session/turn DTOs, stream events) MUST be defined only in `@truefoundry/assistant-ui-runtime` (`src/server/types.ts` / `events.ts`). `@truefoundry/trueforge-ui` MUST re-export them from `src/server/types.ts` (pass-through aliases only) and MUST NOT add hand-written parallel definitions of those ports/DTOs.
 - Runtime types backed by Zod schemas MUST be derived with named `z.infer<typeof Schema>` aliases; code MUST NOT duplicate those schemas as hand-written interfaces or indirect utility-type chains.
