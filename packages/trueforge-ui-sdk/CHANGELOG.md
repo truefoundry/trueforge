@@ -30,7 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Hosts no longer need `@import '@truefoundry/trueforge-ui/styles.css'` (export
   kept for SSR). Semantic tokens and dark mode are scoped to `.aui-theme-root`
   (no `html.dark` / `:root` retheme of the host page).
-- **Dependency** — `@truefoundry/assistant-ui-runtime` pinned to `0.1.12`.
+- **Dependency** — `@truefoundry/assistant-ui-runtime` pinned to `0.1.13`.
+  `ModelSelectorEntry` now requires `id`, nested `provider: ProviderEntry`, and
+  `properties: ModelProperties` (replacing flat `provider` / `providerLogo` /
+  `reasoningEfforts`). Re-exports `ProviderEntry` and `ModelProperties`.
 
 ### Fixed
 
@@ -49,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer defines `AgentChatServer` / `AgentBuilderServer` / catalog DTOs locally.
   Host-facing types are re-exported from `@truefoundry/assistant-ui-runtime/server`
   via `src/server/types.ts`. Prefer importing types from `@truefoundry/trueforge-ui`
-  (hosts should not need the runtime package for types). Requires runtime `0.1.12`.
+  (hosts should not need the runtime package for types). Requires runtime `0.1.13`.
 - **Removed public pagination helpers** — `PageResult`, `TokenPagination`,
   `ListSessionsResponse`, `ListTurnsResponse`, `ListSessionEventsResponse`, and
   opaque `SessionEvent` are gone from this package. Chat list APIs use runtime

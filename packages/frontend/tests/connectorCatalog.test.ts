@@ -101,6 +101,7 @@ describe('connectorCatalog mappers', () => {
       toUiConnectorFromReadEntry({
         name: 'linear',
         url: 'https://mcp.linear.app/mcp',
+        auth: { type: 'dcr' },
         authStatus: { status: 'auth_required' },
       }),
       {
@@ -108,7 +109,7 @@ describe('connectorCatalog mappers', () => {
         name: 'linear',
         description: 'https://mcp.linear.app/mcp',
         url: 'https://mcp.linear.app/mcp',
-        auth: { type: 'none' },
+        auth: { type: 'dcr' },
         requiresAuth: true,
         authenticated: false,
       },

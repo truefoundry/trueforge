@@ -15,6 +15,9 @@ function CatalogProbe() {
       <button type="button" onClick={() => catalog.ensureLoaded()}>
         Load catalog
       </button>
+      <button type="button" onClick={() => void catalog.refreshConnectors()}>
+        Refresh connectors
+      </button>
       <output data-testid="models">{catalog.models.map(model => model.name).join(',')}</output>
       <output data-testid="skills">{catalog.skills.map(skill => skill.name).join(',')}</output>
       <output data-testid="connectors">{catalog.connectors.map(connector => connector.name).join(',')}</output>
@@ -88,7 +91,14 @@ describe('DraftCatalogProvider', () => {
     expect(getMcp).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      models.resolve([{ name: 'openai/gpt-4.1', provider: 'OpenAI' }]);
+      models.resolve([
+        {
+          id: 'gpt-4.1',
+          name: 'openai/gpt-4.1',
+          provider: { name: 'OpenAI' },
+          properties: {},
+        },
+      ]);
       skills.resolve([{ id: 'skill-1', name: 'Release notes' }]);
       connectors.resolve([{ id: 'mcp-1', name: 'GitHub' }]);
       await Promise.all([models.promise, skills.promise, connectors.promise]);
@@ -125,7 +135,14 @@ describe('DraftCatalogProvider', () => {
 
   it('keeps successful lists when a sibling catalog call fails', async () => {
     const server = createMockAgentUIServer({
-      getModels: async () => [{ name: 'openai/gpt-4.1', provider: 'OpenAI' }],
+      getModels: async () => [
+        {
+          id: 'gpt-4.1',
+          name: 'openai/gpt-4.1',
+          provider: { name: 'OpenAI' },
+          properties: {},
+        },
+      ],
       getSkills: async () => {
         throw new Error('Skills unavailable');
       },
@@ -147,5 +164,32 @@ describe('DraftCatalogProvider', () => {
     expect(screen.getByTestId('connectors')).toHaveTextContent('GitHub');
     expect(screen.getByTestId('skills')).toBeEmptyDOMElement();
     expect(screen.getByTestId('error')).toHaveTextContent('Skills unavailable');
+  });
+
+  it('refreshes connectors without reloading models or skills', async () => {
+    const getModels = vi.fn(async () => [{ name: 'openai/gpt-4.1', provider: 'OpenAI' }]);
+    const getSkills = vi.fn(async () => [{ id: 'skill-1', name: 'Release notes' }]);
+    const getMcp = vi
+      .fn<() => Promise<ConnectorState[]>>()
+      .mockResolvedValueOnce([{ id: 'linear', name: 'Linear', authenticated: false }])
+      .mockResolvedValueOnce([{ id: 'linear', name: 'Linear', authenticated: true }]);
+    const server = createMockAgentUIServer({ getModels, getSkills, getMcp });
+
+    render(
+      <ServerProvider server={server}>
+        <DraftCatalogProvider>
+          <CatalogProbe />
+        </DraftCatalogProvider>
+      </ServerProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load catalog' }));
+    await waitFor(() => expect(getMcp).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh connectors' }));
+
+    await waitFor(() => expect(getMcp).toHaveBeenCalledTimes(2));
+    expect(getModels).toHaveBeenCalledTimes(1);
+    expect(getSkills).toHaveBeenCalledTimes(1);
   });
 });
