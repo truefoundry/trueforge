@@ -12,19 +12,8 @@ type ErrorToastContent = { title: string; description: string };
 
 type ErrorToastItem = ErrorToastContent & { id: string };
 
-/**
- * `name` of the runtime error raised when a turn is still running but the
- * server cannot stream it. Owned by `@truefoundry/assistant-ui-runtime`
- * (`TURN_RESUME_UNSUPPORTED_ERROR_NAME`); matched by name so runtimes that
- * predate it keep falling back to a plain toast.
- */
-const RESUME_UNSUPPORTED_ERROR_NAME = 'TurnResumeUnsupportedError';
-
 type ErrorToasterContextValue = {
   showError: (error: unknown) => void;
-  /** A response is generating that this backend cannot stream. */
-  resumeUnavailable: boolean;
-  dismissResumeUnavailable: () => void;
 };
 
 const ErrorToasterContext = createContext<ErrorToasterContextValue | null>(null);
@@ -64,16 +53,9 @@ export function ErrorToasterProvider({ children }: { children: ReactNode }) {
   const Toast = useSlot('Toast');
   const ToastStack = useSlot('ToastStack');
   const [toasts, setToasts] = useState<ErrorToastItem[]>([]);
-  const [resumeUnavailable, setResumeUnavailable] = useState(false);
 
   const showError = useCallback((error: unknown) => {
     console.error('[trueforge-ui]', error);
-    // A transient toast would be missed here: the thread keeps showing a
-    // running indicator that never resolves, so this needs its own modal.
-    if (error instanceof Error && error.name === RESUME_UNSUPPORTED_ERROR_NAME) {
-      setResumeUnavailable(true);
-      return;
-    }
     const item: ErrorToastItem = { id: nextToastId(), ...normalizeError(error) };
     setToasts(prev => [...prev, item].slice(-MAX_VISIBLE_TOASTS));
   }, []);
@@ -82,12 +64,7 @@ export function ErrorToasterProvider({ children }: { children: ReactNode }) {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const dismissResumeUnavailable = useCallback(() => setResumeUnavailable(false), []);
-
-  const value = useMemo(
-    () => ({ showError, resumeUnavailable, dismissResumeUnavailable }),
-    [showError, resumeUnavailable, dismissResumeUnavailable],
-  );
+  const value = useMemo(() => ({ showError }), [showError]);
 
   return (
     <ErrorToasterContext.Provider value={value}>

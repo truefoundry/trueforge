@@ -119,47 +119,6 @@ describe('ErrorToasterProvider', () => {
     expect(screen.getByText('Name taken')).toBeInTheDocument();
   });
 
-  it('routes a resume-unsupported error to the modal state instead of a toast', async () => {
-    function ResumeProbe() {
-      const { resumeUnavailable, dismissResumeUnavailable } = useErrorToaster();
-      return (
-        <>
-          <span data-testid="resume-state">{String(resumeUnavailable)}</span>
-          <button type="button" onClick={dismissResumeUnavailable}>
-            dismiss
-          </button>
-        </>
-      );
-    }
-
-    const resumeError = Object.assign(new Error('cannot stream'), {
-      name: 'TurnResumeUnsupportedError',
-    });
-
-    render(
-      <SlotsProvider>
-        <ErrorToasterProvider>
-          <Trigger errors={[resumeError]} />
-          <ResumeProbe />
-        </ErrorToasterProvider>
-      </SlotsProvider>,
-    );
-
-    expect(screen.getByTestId('resume-state')).toHaveTextContent('false');
-
-    fireEvent.click(screen.getByRole('button', { name: 'boom' }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('resume-state')).toHaveTextContent('true');
-    });
-    expect(screen.queryByRole('alert')).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'dismiss' }));
-    await waitFor(() => {
-      expect(screen.getByTestId('resume-state')).toHaveTextContent('false');
-    });
-  });
-
   it('keeps only the five most recent errors visible', async () => {
     const errors = Array.from({ length: 6 }, (_, index) => new Error(`error-${index + 1}`));
 

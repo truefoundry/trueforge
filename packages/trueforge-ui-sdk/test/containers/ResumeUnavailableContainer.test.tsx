@@ -1,105 +1,60 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AssistantRuntimeProvider, useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
+import { render, screen } from '@testing-library/react';
+import { trueFoundryExtras } from '@truefoundry/assistant-ui-runtime';
+import { describe, expect, it } from 'vitest';
 
-import { ErrorToasterProvider, useErrorToaster } from '@/containers/ErrorToasterContainer.js';
 import { ResumeUnavailableContainer } from '@/containers/ResumeUnavailableContainer.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
-const originalShowModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'showModal');
-const originalClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'close');
-
-beforeEach(() => {
-  vi.spyOn(console, 'error').mockImplementation(() => {});
-  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
-    configurable: true,
-    value: function showModal(this: HTMLDialogElement) {
-      this.open = true;
-    },
+function Harness({ resumeUnavailable }: { resumeUnavailable: boolean }) {
+  const messages: ThreadMessageLike[] = [];
+  const runtime = useExternalStoreRuntime({
+    messages,
+    isRunning: resumeUnavailable,
+    convertMessage: (m: ThreadMessageLike) => m,
+    onNew: async () => {},
+    extras: trueFoundryExtras.provide({
+      pendingApprovals: [],
+      pendingToolResponses: [],
+      pendingMcpAuth: null,
+      resumeUnavailable,
+      sandboxId: undefined,
+      respondToToolApproval: () => {},
+      respondToToolResponse: () => {},
+      resumeMcpAuth: async () => {},
+      downloadSandboxFile: async () => new Blob(),
+      cancel: async () => {},
+      resetFromTurn: async () => {},
+      reload: () => {},
+      hasOlderHistory: false,
+      isLoadingOlderHistory: false,
+      loadOlderHistory: async () => {},
+      draft: null,
+    }),
   });
-  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
-    configurable: true,
-    value: function close(this: HTMLDialogElement) {
-      this.open = false;
-      this.dispatchEvent(new Event('close'));
-    },
-  });
-});
 
-afterEach(() => {
-  vi.restoreAllMocks();
-  if (originalShowModal === undefined) {
-    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
-  } else {
-    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', originalShowModal);
-  }
-  if (originalClose === undefined) {
-    Reflect.deleteProperty(HTMLDialogElement.prototype, 'close');
-  } else {
-    Object.defineProperty(HTMLDialogElement.prototype, 'close', originalClose);
-  }
-});
-
-/** Mirrors the runtime error the adapter reports when a turn cannot be streamed. */
-function resumeUnsupportedError() {
-  return Object.assign(new Error('cannot stream'), { name: 'TurnResumeUnsupportedError' });
-}
-
-function ReportButton() {
-  const { showError } = useErrorToaster();
   return (
-    <button type="button" onClick={() => showError(resumeUnsupportedError())}>
-      report
-    </button>
-  );
-}
-
-function renderContainer() {
-  render(
-    <SlotsProvider>
-      <ErrorToasterProvider>
-        <ReportButton />
+    <AssistantRuntimeProvider runtime={runtime}>
+      <SlotsProvider>
         <ResumeUnavailableContainer />
-      </ErrorToasterProvider>
-    </SlotsProvider>,
+      </SlotsProvider>
+    </AssistantRuntimeProvider>
   );
 }
 
 describe('ResumeUnavailableContainer', () => {
-  it('renders nothing until the runtime reports that resume is unavailable', () => {
-    renderContainer();
+  it('renders nothing while resume is available', () => {
+    render(<Harness resumeUnavailable={false} />);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('shows an in-chat waiting notice when resume is unavailable', () => {
+    render(<Harness resumeUnavailable={true} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "Still generating a response. It'll appear here when ready.",
+    );
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('explains that the running response cannot be streamed', async () => {
-    renderContainer();
-
-    fireEvent.click(screen.getByRole('button', { name: 'report' }));
-
-    const dialog = await screen.findByRole('dialog', { name: 'Resume unavailable' });
-    expect(dialog).toBeInTheDocument();
-    expect(screen.getByText(/not supported by this backend/i)).toBeInTheDocument();
-  });
-
-  it('offers no reload action', async () => {
-    renderContainer();
-
-    fireEvent.click(screen.getByRole('button', { name: 'report' }));
-    await screen.findByRole('dialog', { name: 'Resume unavailable' });
-
-    expect(screen.queryByRole('button', { name: /reload/i })).not.toBeInTheDocument();
-  });
-
-  it('closes on dismiss', async () => {
-    renderContainer();
-
-    fireEvent.click(screen.getByRole('button', { name: 'report' }));
-    await screen.findByRole('dialog', { name: 'Resume unavailable' });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
-
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
   });
 });

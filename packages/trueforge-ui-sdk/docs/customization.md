@@ -71,7 +71,7 @@ Public override surface (primitives stay theme/CSS — not slots):
 - **Tools / prompts:** `ToolCallCard`, `ToolCallContentBlock`,
   `ToolApprovalBar`, `ToolGroupCard`, `SubAgentCard`, `SandboxToolCallCard`,
   `AgentStepsCard`, `ReasoningCard`, `AskUserPrompt`, `McpAuthPrompt`,
-  `ResumeUnavailableModal`
+  `ResumeUnavailable`
 
 ## Custom layout
 

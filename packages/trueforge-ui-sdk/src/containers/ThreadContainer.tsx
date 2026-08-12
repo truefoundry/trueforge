@@ -70,7 +70,6 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
 
   return (
     <ComposerBusyProvider>
-      <ResumeUnavailableContainer />
       <ThreadPrimitive.Root asChild>
         <ThreadRootShell>
           <ThreadPrimitive.Viewport asChild autoScroll>
@@ -91,6 +90,7 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
                           </AnimatedMessageShell>
                         )}
                       </ThreadPrimitive.Messages>
+                      <ResumeUnavailableContainer />
                     </MessageGroup>
                   </>
                 )

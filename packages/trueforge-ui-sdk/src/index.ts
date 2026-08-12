@@ -114,8 +114,8 @@ export type {
 } from './atoms/ComposerSections.js';
 export { ComposerShell } from './atoms/ComposerShell.js';
 export type { ComposerShellProps } from './atoms/ComposerShell.js';
-export { ResumeUnavailableModal } from './atoms/ResumeUnavailableModal.js';
-export type { ResumeUnavailableModalProps } from './atoms/ResumeUnavailableModal.js';
+export { ResumeUnavailable } from './atoms/ResumeUnavailable.js';
+export type { ResumeUnavailableProps } from './atoms/ResumeUnavailable.js';
 export { SandboxToolCallCard } from './atoms/SandboxToolCallCard.js';
 export type { SandboxToolCallCardProps } from './atoms/SandboxToolCallCard.js';
 export { SubAgentCard } from './atoms/SubAgentCard.js';
