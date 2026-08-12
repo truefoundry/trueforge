@@ -88,7 +88,7 @@ export const RawAssistantMessageSchema = ChatCompletionAssistantMessageParamSche
     thinking_blocks: z.array(ThinkingBlockUnionSchema).optional(),
     /** Plain-text thinking content streamed incrementally for frontend display; redundant with thinking_blocks[].thinking. */
     reasoning_content: z.string().optional(),
-    /**Provenance for reasoning-signature replay: `provider_type/provider_name/model_name`.*/
+    /** Source of the message: which provider/model sent it (`provider_type/provider_name/model_name`). */
     source: z.string().optional(),
   })
   .openapi('RawAssistantMessage');

@@ -615,8 +615,8 @@ export function toUserContent(content: string | ChatCompletionContentPart[]): Us
  * - `'google-gemini'` → per-tool-call `google.thoughtSignature`, no standalone reasoning block
  * - `'custom'`        → OpenAI-compatible ignores providerOptions, so the token has nowhere to go
  *
- * Signatures attach when `source` (`type/name/model`) matches: same provider type, or for
- * `custom` the same provider name. Missing/foreign source → reasoning text only.
+ * Signatures attach when `source` (`type/name/model`) matches both provider type and
+ * provider name. Missing/foreign source → reasoning text only.
  */
 export function toAssistantModelMessage({
   msg,
@@ -625,7 +625,7 @@ export function toAssistantModelMessage({
 }: {
   msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }>;
   provider: VercelAIProviderName;
-  /** Configured provider resource name (FQN prefix); used when `provider` is `custom`. */
+  /** Configured provider resource name (FQN prefix). */
   providerName: string;
 }): ModelMessage {
   const parts: AssistantContent = [];
@@ -736,7 +736,7 @@ function parseAssistantMessageSource(
   return { providerType, providerName, modelName };
 }
 
-/** Same adapter type keeps signatures; `custom` also requires the same configured provider name. */
+/** Attach when both provider type and configured provider name match `source`. */
 export function shouldAttachReasoningSignature({
   source,
   provider,
@@ -750,10 +750,7 @@ export function shouldAttachReasoningSignature({
   if (parsed === undefined) {
     return false;
   }
-  if (provider === 'custom') {
-    return parsed.providerType === 'custom' && parsed.providerName === providerName;
-  }
-  return parsed.providerType === provider;
+  return parsed.providerType === provider && parsed.providerName === providerName;
 }
 
 export interface ConvertedMessages {

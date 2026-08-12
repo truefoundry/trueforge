@@ -266,7 +266,7 @@ describe('toAssistantModelMessage', () => {
     expect(toolCallPart).not.toHaveProperty('providerOptions');
   });
 
-  it('attaches signature when source provider type matches, ignoring model_name', () => {
+  it('attaches signature when source type and provider name match, ignoring model_name', () => {
     const msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
       role: 'assistant',
       content: null,
@@ -297,7 +297,7 @@ describe('toAssistantModelMessage', () => {
     expect(reasoningPart).not.toHaveProperty('providerOptions');
   });
 
-  it('for custom providers, requires matching provider name (not only type)', () => {
+  it('requires matching provider name for any provider type', () => {
     expect(
       shouldAttachReasoningSignature({
         source: 'custom/gateway-a/model',
@@ -312,9 +312,15 @@ describe('toAssistantModelMessage', () => {
         providerName: 'gateway-b',
       }),
     ).toBe(false);
+    expect(
+      shouldAttachReasoningSignature({
+        source: 'openai/other-name/model',
+        provider: 'openai',
+        providerName: 'openai',
+      }),
+    ).toBe(false);
   });
 
-  // Defensive: well-known gate is type-only; a shared name must not override a type mismatch.
   it('does not attach when provider type differs even if provider_name matches', () => {
     expect(
       shouldAttachReasoningSignature({
