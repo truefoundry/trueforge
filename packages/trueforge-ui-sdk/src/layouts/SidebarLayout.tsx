@@ -91,7 +91,7 @@ export function SidebarLayout({ className }: { className?: string }) {
           className={cn('flex shrink-0 items-center px-3 py-3', collapsed ? 'flex-col gap-3' : 'justify-between gap-2')}
         >
           <div className={cn('flex min-w-0 items-center text-text-primary', collapsed ? 'justify-center' : 'gap-2')}>
-            <BrandLogo className="size-6 shrink-0 object-contain" />
+            <BrandLogo className="size-5 shrink-0 object-contain" />
             {!collapsed ? <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span> : null}
           </div>
           <button
@@ -212,7 +212,7 @@ export function SidebarLayout({ className }: { className?: string }) {
             tabIndex={-1}
           >
             <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-3 text-text-primary">
-              <BrandLogo className="size-6 shrink-0 object-contain" />
+              <BrandLogo className="size-5 shrink-0 object-contain" />
               <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span>
             </div>
             <ThreadListContainer onThreadOpen={() => setMobileNavOpen(false)} />

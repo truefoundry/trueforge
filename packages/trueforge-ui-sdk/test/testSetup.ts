@@ -2,6 +2,10 @@ import '@testing-library/jest-dom/vitest';
 import { createElement, type ReactNode } from 'react';
 import { vi } from 'vitest';
 
+// Mirror `src/index.ts`: agent SVGs register into the Icon map. Tests that import
+// atoms/theme modules directly never hit the package entry, so load them here.
+import '../src/icons/registerAgentIcons.js';
+
 // react-syntax-highlighter ships both CJS and ESM; refractor (its dependency)
 // is ESM-only and breaks when required via CJS. Mock in tests since it is
 // external in production anyway.
