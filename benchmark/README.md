@@ -95,15 +95,15 @@ configure three things **inside TrueForge** — miss any one and the data-heavy 
 The agent config is sent **inline by the adapter** (`run_tfy` in `bench_matrix.py`) — you do
 not set it in TrueForge — and is the validated setup that produced the results below:
 
-| Setting | Value | Why |
-| --- | --- | --- |
-| `iteration_limit` | **500** | enough tool-use steps to fully work a cross-system task |
-| `dynamic_sub_agents` | **enabled** | decompose big sub-tasks to sub-agents with fresh context |
-| `sandbox` | **enabled** | needed for `large_tool_response` offload (see #3 above) |
-| `context_management.compaction` | **enabled, threshold 60 000** | summarize old history so long turns stay under budget |
-| `context_management.large_tool_response` | **enabled** | offload oversized tool results to the sandbox |
-| `generative_ui` | disabled | not needed for a headless benchmark |
-| `ask_user_questions` | disabled | fully autonomous; never pause a turn for input |
+| Setting                                  | Value                         | Why                                                      |
+| ---------------------------------------- | ----------------------------- | -------------------------------------------------------- |
+| `iteration_limit`                        | **500**                       | enough tool-use steps to fully work a cross-system task  |
+| `dynamic_sub_agents`                     | **enabled**                   | decompose big sub-tasks to sub-agents with fresh context |
+| `sandbox`                                | **enabled**                   | needed for `large_tool_response` offload (see #3 above)  |
+| `context_management.compaction`          | **enabled, threshold 60 000** | summarize old history so long turns stay under budget    |
+| `context_management.large_tool_response` | **enabled**                   | offload oversized tool results to the sandbox            |
+| `generative_ui`                          | disabled                      | not needed for a headless benchmark                      |
+| `ask_user_questions`                     | disabled                      | fully autonomous; never pause a turn for input           |
 
 **Long turns.** The heaviest tasks run for several minutes. TrueForge streams turn events
 over SSE, and on a long turn that stream can close before the turn finishes (the turn keeps
