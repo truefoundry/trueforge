@@ -4,19 +4,24 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { DaytonaSandboxProvider } from "./DaytonaSandboxProvider.js";
-import { SandboxImage } from "./SandboxImage.js";
+import { SandboxProviderResponseMetadata } from "./SandboxProviderResponseMetadata.js";
+import { SandboxProviderResponseStatus } from "./SandboxProviderResponseStatus.js";
 
 export const SandboxProviderResponse: core.serialization.ObjectSchema<
     serializers.SandboxProviderResponse.Raw,
     TrueForge.SandboxProviderResponse
 > = core.serialization
     .object({
-        image: SandboxImage,
+        metadata: SandboxProviderResponseMetadata,
+        reason: core.serialization.string().nullable(),
+        status: SandboxProviderResponseStatus,
     })
     .extend(DaytonaSandboxProvider);
 
 export declare namespace SandboxProviderResponse {
     export interface Raw extends DaytonaSandboxProvider.Raw {
-        image: SandboxImage.Raw;
+        metadata: SandboxProviderResponseMetadata.Raw;
+        reason?: string | null;
+        status: SandboxProviderResponseStatus.Raw;
     }
 }

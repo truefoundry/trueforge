@@ -4,11 +4,11 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const SandboxImageBuildStatus: core.serialization.Schema<
-    serializers.SandboxImageBuildStatus.Raw,
-    TrueForge.SandboxImageBuildStatus
+export const SandboxProviderResponseStatus: core.serialization.Schema<
+    serializers.SandboxProviderResponseStatus.Raw,
+    TrueForge.SandboxProviderResponseStatus
 > = core.serialization.enum_(["pending", "ready", "failed"]);
 
-export declare namespace SandboxImageBuildStatus {
+export declare namespace SandboxProviderResponseStatus {
     export type Raw = "pending" | "ready" | "failed";
 }

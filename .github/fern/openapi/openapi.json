@@ -2811,35 +2811,6 @@
         ],
         "type": "object"
       },
-      "SandboxImage": {
-        "additionalProperties": false,
-        "description": "Live status of the release-owned sandbox image (not persisted).",
-        "properties": {
-          "build_ref": {
-            "description": "Provider-internal build handle (the Daytona snapshot name).",
-            "type": "string"
-          },
-          "build_status": {
-            "description": "Where the image build stands right now.",
-            "enum": [
-              "pending",
-              "ready",
-              "failed"
-            ],
-            "type": "string"
-          },
-          "tag": {
-            "description": "Tag of the release-owned sandbox image.",
-            "type": "string"
-          }
-        },
-        "required": [
-          "tag",
-          "build_status",
-          "build_ref"
-        ],
-        "type": "object"
-      },
       "SandboxNetworkPolicy": {
         "properties": {
           "auth_inject": {
@@ -2920,12 +2891,46 @@
           {
             "additionalProperties": false,
             "properties": {
-              "image": {
-                "$ref": "#/components/schemas/SandboxImage"
+              "metadata": {
+                "additionalProperties": false,
+                "description": "Provider-specific build details.",
+                "properties": {
+                  "build_ref": {
+                    "description": "Provider build handle (e.g. Daytona snapshot name).",
+                    "type": "string"
+                  },
+                  "image_tag": {
+                    "description": "Tag of the release sandbox image this build refers to.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "build_ref",
+                  "image_tag"
+                ],
+                "type": "object"
+              },
+              "reason": {
+                "description": "Human-readable detail for the current status; null when ready.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "description": "Current build status.",
+                "enum": [
+                  "pending",
+                  "ready",
+                  "failed"
+                ],
+                "type": "string"
               }
             },
             "required": [
-              "image"
+              "status",
+              "reason",
+              "metadata"
             ],
             "type": "object"
           }

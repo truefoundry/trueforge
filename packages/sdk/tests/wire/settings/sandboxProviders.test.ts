@@ -17,7 +17,9 @@ describe("SandboxProvidersClient", () => {
                 auto_stop_interval_in_minutes: 1,
                 exec_timeout_ms: 1,
                 type: "daytona",
-                image: { build_ref: "build_ref", build_status: "pending", tag: "tag" },
+                metadata: { build_ref: "build_ref", image_tag: "image_tag" },
+                reason: "reason",
+                status: "pending",
             },
         };
 
@@ -40,11 +42,12 @@ describe("SandboxProvidersClient", () => {
                 autoStopIntervalInMinutes: 1,
                 execTimeoutMs: 1,
                 type: "daytona",
-                image: {
+                metadata: {
                     buildRef: "build_ref",
-                    buildStatus: "pending",
-                    tag: "tag",
+                    imageTag: "image_tag",
                 },
+                reason: "reason",
+                status: "pending",
             },
         });
     });
@@ -87,7 +90,9 @@ describe("SandboxProvidersClient", () => {
                 auto_stop_interval_in_minutes: 1,
                 exec_timeout_ms: 1,
                 type: "daytona",
-                image: { build_ref: "build_ref", build_status: "pending", tag: "tag" },
+                metadata: { build_ref: "build_ref", image_tag: "image_tag" },
+                reason: "reason",
+                status: "pending",
             },
         };
 
@@ -120,11 +125,12 @@ describe("SandboxProvidersClient", () => {
                 autoStopIntervalInMinutes: 1,
                 execTimeoutMs: 1,
                 type: "daytona",
-                image: {
+                metadata: {
                     buildRef: "build_ref",
-                    buildStatus: "pending",
-                    tag: "tag",
+                    imageTag: "image_tag",
                 },
+                reason: "reason",
+                status: "pending",
             },
         });
     });
