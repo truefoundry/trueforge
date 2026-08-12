@@ -1,6 +1,6 @@
 ---
 title: "Agent modes"
-description: "Choose between a fixed agent, a library, a composer, or both."
+description: "Choose from four agent modes: fixed agent, agent library, agent composer, or library + composer."
 ---
 
 This can be configured by using the `agentConfig` object.
@@ -22,43 +22,15 @@ type AgentConfig =
 
 ## Single Agent
 
-All chats are done with one named agent which can be configured in `name`  param. All selection controls are hidden and the user cannot switch agents or open the composer.
+All conversations use a single named agent configured through the name parameter. Agent selection controls are hidden, so users cannot switch agents or open the agent composer.
 
 <Frame>
   ![Single Agent 1](/images/single-agent-1.png "Single Agent 1")
 </Frame>
 
-<AccordionGroup>
-  <Accordion title="SingleAgent">
-    Pins the UI to one named agent. All selection controls are hidden and the user cannot switch agents or open the composer.
-  </Accordion>
-
-  <Accordion title="AgentLibrary">
-    Users pick from agents your `searchAgents` implementation returns, but cannot author a new one. Note that "new chat" is disabled in this mode only.
-
-    <Frame caption="The Agents Library: users pick from the agents your `searchAgents` returns.">
-      ![The Agents Library dialog listing saved agents to choose from](/images/agent-registry.png)
-    </Frame>
-  </Accordion>
-
-  <Accordion title="AgentComposer">
-    Users assemble an ad-hoc agent — model, skills, MCP servers — without browsing a library, and can save it back to the library.
-
-    <Frame caption="Composing an agent — pick a model, add connectors and skills, then save it to the library.">
-      <div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.46", padding: "40px 0" }}>
-  <iframe src="https://app.supademo.com/embed/cmsk13xio00k81p0j1wj6amj6?embed_v=2&utm_source=embed" loading="lazy" title="Compose an agent in TrueForge" allow="clipboard-write" allowFullScreen style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }} />
-</div>
-    </Frame>
-  </Accordion>
-
-  <Accordion title="AgentLibraryWithComposer">
-    Both surfaces, and the default. Users can pick an existing agent or author a new one.
-  </Accordion>
-</AccordionGroup>
-
 ## AgentComposer
 
-Users compose/create a new agent by selecting models, skills, MCP servers and can save it to the library.
+Users can create a new agent by selecting a model, skills, and MCP servers, then save the configured agent to the library for future use.
 
 <Frame>
   ![Agent Composer 1](/images/agent-composer-1.png "Agent Composer 1")
@@ -66,7 +38,7 @@ Users compose/create a new agent by selecting models, skills, MCP servers and ca
 
 ## AgentLibrary
 
-Users chat with agents already saved in your library but cannot compose a new one. Note that “new chat” is disabled in this mode only. Ideally for restricting agent creation by users.
+Users can chat with agents already saved in the library but cannot create new agents. The “New Chat” option is disabled in this mode, making it ideal for restricting agent creation while still allowing users to use existing agents.
 
 <Frame>
   ![Agent Library 1](/images/agent-library-1.png "Agent Library 1")
@@ -74,7 +46,7 @@ Users chat with agents already saved in your library but cannot compose a new on
 
 ## AgentLibraryWithComposer
 
-Users can pick an existing agent from the library or create a new one.
+Users can choose an existing agent from the library or create a new agent using the composer.
 
 <Frame>
   ![Agent Library With Composer 1](/images/agent-library-with-composer-1.png "Agent Library With Composer 1")

@@ -1,15 +1,15 @@
 ---
-title: "Layout & Themes"
-description: "Layout, Presets themes, branding, and dark mode."
+title: "Layout, Theming & Branding"
+description: "Layout, Presets themes, Branding, and Dark mode."
 ---
 
 ## Preset Layouts
 
-The sidebar view is the default option. You can pass a predefined value - sidebar, drawer, dock, or widget to change the layout. You can also build a complete custom layout using the predefined components as [shown here](/ui-sdk/setup-custom-ui/custom-layout).
+The sidebar view is the default layout. You can customize the layout by passing one of the predefined options: sidebar, drawer, dock, or widget.
 
 <Tabs>
   <Tab title="sidebar(default)">
-    Full-page chat with a persistent chat history in a left sidebar. The default choice for a dedicated chat surface.
+    A full-page chat experience with persistent conversation history in a left sidebar. The default choice for a dedicated chat surface.
 
     ```tsx
     <TrueforgeUI server={server} layout="sidebar" />
@@ -20,7 +20,7 @@ The sidebar view is the default option. You can pass a predefined value - sideba
     </Frame>
   </Tab>
   <Tab title="drawer">
-    Chat history list collapses into an overlay drawer. Click on the history icon to view the past conversations. Suited to smaller viewports like tablets or small monitors.
+    Chat history is tucked into an overlay drawer and can be opened using the history icon. Ideal for smaller viewports, such as tablets and compact monitors, where screen space is limited.
 
     ```tsx
     <TrueforgeUI server={server} layout="drawer" />
@@ -31,7 +31,7 @@ The sidebar view is the default option. You can pass a predefined value - sideba
     </Frame>
   </Tab>
   <Tab title="dock">
-    A panel pinned to the right edge, filling the available width up to a 400px cap.
+    A chat panel pinned to the right edge, using the available space up to a maximum width of 400px.
 
     ```tsx
     <TrueforgeUI server={server} layout="dock" />
@@ -42,7 +42,7 @@ The sidebar view is the default option. You can pass a predefined value - sideba
     </Frame>
   </Tab>
   <Tab title="widget">
-    Floating launcher that expands into a compact chat panel.
+    A floating chat launcher that expands into a compact chat panel when opened.
 
     ```tsx
     <TrueforgeUI server={server} layout="widget" />
@@ -54,11 +54,11 @@ The sidebar view is the default option. You can pass a predefined value - sideba
   </Tab>
 </Tabs>
 
-Built-in layouts are code-split, so using one does not pull the other three into your bundle. A placeholder renders for the moment it takes to load.
+Built-in layouts are code-split, so only the layout you use is loaded into your bundle. The other three layouts are excluded, keeping your bundle size smaller. A lightweight placeholder is displayed while the selected layout loads.
 
 ## Preset Themes
 
-You can choose from four preset themes - Claude, ChaptGPT, Gemini, TrueFoundry or you can create a [custom theme](setup-custom-ui/).
+Choose from four built-in themes - Claude, ChatGPT, Gemini, and TrueFoundry, or create a [custom theme](../setup-custom-ui/custom-theme) to match your brand.
 
 ## The theme object
 
@@ -78,7 +78,7 @@ type ThemeConfig = {
 <TrueforgeUI
   ...
   theme={{
-    preset: "claude",
+    preset: "trueforge",
     mode: "system",
     brand: {
         name: "TrueForge",
@@ -88,7 +88,7 @@ type ThemeConfig = {
 />
 ```
 
-The `chatgpt`, `claude`, and `gemini` presets (the default is `trueforge`):
+The `chatgpt`, `claude`, and `gemini` themes are shown below:
 
 <Columns cols={3}>
   <Frame caption="chatgpt">
@@ -106,17 +106,17 @@ The `chatgpt`, `claude`, and `gemini` presets (the default is `trueforge`):
 
 ## Light and dark mode
 
-When you skip this key then the SDK defaults to system theme. User will get an option to switch to dark or light theme via UI.
+If you omit this key, the SDK defaults to the system theme, and users can switch between light and dark mode through the UI.
 
-If you want to control the theme based on the app level theme then pass a value to set a theme to light, dark or system to match the main app theme. Please note, user does not get an option to update it via UI.
+If you want the SDK theme to follow your application’s theme, set this value to light, dark, or system. This allows the SDK to stay in sync with the main application theme. When the theme is explicitly set, the user cannot change it through the UI.
 
 <Frame caption="Dark mode applied to the chat UI.">
   ![The TrueForge UI SDK rendered in dark mode](/images/dark_theme.png)
 </Frame>
 
-### Set separate logo for light and dark theme
+### Separate logo for light and dark theme
 
-You can also provide different logos for dark and light mode as shown below: 
+You can also provide separate logos for light and dark modes, allowing your branding to remain visible and optimized for each theme, as shown below:
 
 ```tsx App.tsx
 <TrueforgeUI
@@ -135,13 +135,25 @@ You can also provide different logos for dark and light mode as shown below:
 />
 ```
 
-The source is picked from the resolved mode, so this follows the system theme when `mode` is
-omitted. Set only one of `light` / `dark` and it is used for both modes; use `src` for a
-mode-agnostic mark. `name` labels the image, and the link when `href` is set.
+The logo source is selected based on the resolved theme mode. When mode is omitted, the logo automatically follows the system theme.
 
-To render a component instead of an image — an inline SVG, an animated mark — override the
-`BrandLogo` slot rather than passing a node through `theme`:
+* Provide both light and dark to use a different logo for each mode.
+* Provide only one of light or dark to use the same logo in both modes.
+* Use src for a mode-independent logo.
+* `name` sets the brand name in the topbar right next to the logo.
+* Set `href` to make the logo clickable.
+
+For more advanced use cases, such as rendering an inline SVG or an animated logo, override the BrandLogo slot instead of passing a React node through the theme object.
 
 ```tsx App.tsx
-<TrueforgeUI ... overrides={{ BrandLogo: MyMark }} />
+import logoUrl from "./logo.svg";
+
+function MyCustomLogo() {
+  return <img src={logoUrl} alt="My custom logo" />;
+}
+
+<TrueforgeUI
+  ...
+  overrides={{ BrandLogo: MyCustomLogo }}
+/>
 ```

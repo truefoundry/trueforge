@@ -177,8 +177,8 @@ const SandboxSettings = () => {
 
                       <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
                         {provider.isConnected ? (
-                          <span className="flex items-center gap-1.5 text-[13px] font-medium text-text-primary">
-                            <span className="h-1.5 w-1.5 rounded-full bg-primary-button-bg"></span>
+                          <span className="flex items-center gap-1.5 rounded-full border border-border bg-secondary-bg/40 px-2 py-0.5 text-xs font-medium text-success-bg">
+                            <span className="h-1.5 w-1.5 rounded-full bg-success-bg"></span>
                             Connected
                           </span>
                         ) : null}

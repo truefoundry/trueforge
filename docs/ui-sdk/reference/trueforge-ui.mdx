@@ -157,12 +157,23 @@ import { TrueforgeUI } from "@truefoundry/trueforge-ui";
       functions, or SVGR components.
     </ParamField>
     <ParamField path="classNames" type="ContentClassNames">
+      Host CSS classes for content renderers. See [Custom Theme — Styling rendered content](/ui-sdk/setup-custom-ui/custom-theme#styling-rendered-content).
       <Expandable title="ContentClassNames">
-        <ParamField path="markdown" type="string" />
-        <ParamField path="inlineCode" type="string" />
-        <ParamField path="syntaxHighlighter" type="{ root?, pre?, code?, lineNumber? }" />
-        <ParamField path="openui" type="{ root?, scope? }" />
-        <ParamField path="monaco" type="{ root? }" />
+        <ParamField path="markdown" type="string">
+          Root of the markdown renderer (joins `.aui-markdown`).
+        </ParamField>
+        <ParamField path="inlineCode" type="string">
+          Inline code spans inside markdown.
+        </ParamField>
+        <ParamField path="syntaxHighlighter" type="{ root?, pre?, code?, lineNumber? }">
+          Fenced non-OpenUI code blocks (joins `.aui-syntax-highlighter` on `root`).
+        </ParamField>
+        <ParamField path="openui" type="{ root?, scope? }">
+          Generative UI fence blocks (`root` joins `.aui-openui`; `scope` is the OpenUI theme selector).
+        </ParamField>
+        <ParamField path="monaco" type="{ root?, editor?, monacoTheme? }">
+          Monaco editor wrapper (`root` joins `.aui-monaco`), mount container (`editor`), and optional Monaco theme name (`monacoTheme`).
+        </ParamField>
       </Expandable>
     </ParamField>
     <ParamField path="className" type="string">
