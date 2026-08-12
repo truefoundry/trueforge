@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { useEffect, type ReactNode } from 'react';
+import { cloneElement, isValidElement, useEffect, type ReactNode } from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SaveAgentButton } from '@/atoms/SaveAgentButton.js';
@@ -67,17 +67,20 @@ function renderButton({
     ...serverOverrides,
     saveAgent,
   });
+  const tree = () => (
+    <SlotsProvider>
+      <ServerProvider server={server}>
+        <ShellModeProvider agentConfig={agentConfig}>
+          {isValidElement(children) ? cloneElement(children) : children}
+        </ShellModeProvider>
+      </ServerProvider>
+    </SlotsProvider>
+  );
+  const rendered = render(tree());
   return {
     saveAgent,
-    ...render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ShellModeProvider agentConfig={agentConfig}>
-            {children}
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    ),
+    ...rendered,
+    rerenderButton: () => rendered.rerender(tree()),
   };
 }
 
@@ -123,7 +126,8 @@ describe('SaveAgentButton', () => {
       mcpServers: [{ id: 'github', name: 'GitHub' }],
       skills: [{ id: 'research', name: 'Research' }],
     };
-    flushAgentSpec.mockClear();
+    flushAgentSpec.mockReset();
+    flushAgentSpec.mockResolvedValue(undefined);
     adoptAgentSpec.mockClear();
   });
 
@@ -164,6 +168,36 @@ describe('SaveAgentButton', () => {
       'bg-input-box-bg',
       'text-text-primary',
       'focus-visible:ring-focus-ring/40',
+    );
+  });
+
+  it('opens with the latest runtime spec after flushing pending picker edits', async () => {
+    const pendingFlush = deferred<undefined>();
+    flushAgentSpec.mockReturnValueOnce(pendingFlush.promise);
+    const rendered = renderButton();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Agent' }));
+    await waitFor(() => expect(flushAgentSpec).toHaveBeenCalledOnce());
+
+    agentSpec = {
+      model: { name: 'openai/gpt-4.1' },
+      instructions: 'Latest flushed instructions.',
+      mcpServers: [{ id: 'slack', name: 'Slack' }],
+      skills: [{ id: 'writing', name: 'Writing' }],
+      config: { generativeUi: { enabled: false } },
+    };
+    rendered.rerenderButton();
+    pendingFlush.resolve(undefined);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Save agent' });
+    expect(within(dialog).getByLabelText('Instructions')).toHaveValue('Latest flushed instructions.');
+    expect(within(dialog).getByRole('switch', { name: 'Generative UI' })).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Edit MCP servers' }));
+    const mcpDialog = await findStackedDialog('Edit MCP servers');
+    expect(await within(mcpDialog).findByRole('menuitemcheckbox', { name: /Slack/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
     );
   });
 

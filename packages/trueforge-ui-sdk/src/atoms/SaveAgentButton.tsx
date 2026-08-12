@@ -1,43 +1,39 @@
-"use client";
+'use client';
 
 import {
   useTrueFoundryAdoptAgentSpec,
   useTrueFoundryAgentSpec,
   useTrueFoundryFlushAgentSpec,
-} from "@truefoundry/assistant-ui-runtime";
-import { useId, useMemo, useState } from "react";
-import { Icon } from "../icons/Icon.js";
-import { useOptionalServer, useServerCapabilities } from "../server/ServerContext.js";
-import { useOptionalShellMode } from "../server/ShellModeContext.js";
-import type { AgentSpec } from "../server/types.js";
-import { getErrorMessage } from "../utils/getErrorMessage.js";
-import { readAgentCapabilities, withAgentCapabilities } from "./draft/agentCapabilities.js";
-import { DraftCapabilitiesPanel } from "./draft/DraftCapabilitiesPanel.js";
-import { DraftCatalogProvider, useDraftCatalog } from "./draft/DraftCatalogProvider.js";
-import {
-  CatalogRow,
-  ConnectorConnectButton,
-  isUnauthenticatedDcrConnector,
-} from "./draft/DraftCompositeSelector.js";
-import { displayModelLabel, DraftModelCatalogPanel } from "./draft/DraftModelCatalogPanel.js";
-import { modelPatchWithReasoningEffort } from "./draft/reasoningEffort.js";
-import { auiButtonClass } from "./lib/buttonClasses.js";
-import { auiInputClass } from "./lib/inputClasses.js";
-import { CenteredModal } from "./primitives/CenteredModal.js";
+} from '@truefoundry/assistant-ui-runtime';
+import { useId, useMemo, useRef, useState } from 'react';
+import { Icon } from '../icons/Icon.js';
+import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
+import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import type { AgentSpec } from '../server/types.js';
+import { getErrorMessage } from '../utils/getErrorMessage.js';
+import { readAgentCapabilities, withAgentCapabilities } from './draft/agentCapabilities.js';
+import { DraftCapabilitiesPanel } from './draft/DraftCapabilitiesPanel.js';
+import { DraftCatalogProvider, useDraftCatalog } from './draft/DraftCatalogProvider.js';
+import { CatalogRow, ConnectorConnectButton, isUnauthenticatedDcrConnector } from './draft/DraftCompositeSelector.js';
+import { displayModelLabel, DraftModelCatalogPanel } from './draft/DraftModelCatalogPanel.js';
+import { modelPatchWithReasoningEffort } from './draft/reasoningEffort.js';
+import { auiButtonClass } from './lib/buttonClasses.js';
+import { auiInputClass } from './lib/inputClasses.js';
+import { CenteredModal } from './primitives/CenteredModal.js';
 
-type SaveIntent = "create" | "update";
-type Editor = "model" | "mcp" | "skills";
+type SaveIntent = 'create' | 'update';
+type Editor = 'model' | 'mcp' | 'skills';
 type EditableMount = { id: string; name: string; value: object };
 
 function editableMountsFromSpec(value: unknown): EditableMount[] {
   if (!Array.isArray(value)) return [];
   const mounts: EditableMount[] = [];
   for (const item of value) {
-    if (typeof item !== "object" || item === null) continue;
-    const name = Reflect.get(item, "name");
-    if (typeof name !== "string") continue;
-    const id = Reflect.get(item, "id");
-    mounts.push({ id: typeof id === "string" ? id : name, name, value: item });
+    if (typeof item !== 'object' || item === null) continue;
+    const name = Reflect.get(item, 'name');
+    if (typeof name !== 'string') continue;
+    const id = Reflect.get(item, 'id');
+    mounts.push({ id: typeof id === 'string' ? id : name, name, value: item });
   }
   return mounts;
 }
@@ -66,7 +62,7 @@ function SummarySection({
         type="button"
         aria-label={`Edit ${title}`}
         disabled={disabled}
-        className={auiButtonClass({ variant: "ghost", size: "icon", className: "size-8" })}
+        className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-8' })}
         onClick={onEdit}
       >
         <Icon name="pencil" className="size-3.5" />
@@ -81,11 +77,7 @@ export type SaveAgentButtonProps = {
   children?: string;
 };
 
-export function SaveAgentButton({
-  disabled = false,
-  className,
-  children = "Save Agent",
-}: SaveAgentButtonProps) {
+export function SaveAgentButton({ disabled = false, className, children = 'Save Agent' }: SaveAgentButtonProps) {
   return (
     <DraftCatalogProvider>
       <SaveAgentButtonContent disabled={disabled} className={className}>
@@ -105,6 +97,8 @@ function SaveAgentButtonContent({
   children: string;
 }) {
   const { agentSpec, draftSessionId } = useTrueFoundryAgentSpec();
+  const agentSpecRef = useRef(agentSpec);
+  agentSpecRef.current = agentSpec;
   const flushAgentSpec = useTrueFoundryFlushAgentSpec();
   const adoptAgentSpec = useTrueFoundryAdoptAgentSpec();
   const builder = useOptionalServer();
@@ -114,18 +108,15 @@ function SaveAgentButtonContent({
   const modelListId = useId();
   const [open, setOpen] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
-  const [intent, setIntent] = useState<SaveIntent>("create");
-  const [name, setName] = useState("");
+  const [intent, setIntent] = useState<SaveIntent>('create');
+  const [name, setName] = useState('');
   const [draftSpec, setDraftSpec] = useState<AgentSpec | null>(null);
-  const [modelQuery, setModelQuery] = useState("");
-  const [search, setSearch] = useState("");
+  const [modelQuery, setModelQuery] = useState('');
+  const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const mcpMounts = useMemo(
-    () => editableMountsFromSpec(draftSpec?.mcpServers),
-    [draftSpec?.mcpServers],
-  );
+  const mcpMounts = useMemo(() => editableMountsFromSpec(draftSpec?.mcpServers), [draftSpec?.mcpServers]);
   const skillMounts = useMemo(() => editableMountsFromSpec(draftSpec?.skills), [draftSpec?.skills]);
 
   const close = () => {
@@ -137,23 +128,24 @@ function SaveAgentButtonContent({
   };
 
   const show = async () => {
-    if (agentSpec === null || builder === null) return;
+    if (agentSpecRef.current === null || builder === null) return;
     setError(null);
     catalog.ensureLoaded();
     await flushAgentSpec();
-    const currentName =
-      shell?.mode.status === "active" ? (shell.mode.agentName ?? shell.mode.agentId ?? "") : "";
-    setIntent(currentName ? "update" : "create");
+    const latestAgentSpec = agentSpecRef.current;
+    if (latestAgentSpec === null) return;
+    const currentName = shell?.mode.status === 'active' ? (shell.mode.agentName ?? shell.mode.agentId ?? '') : '';
+    setIntent(currentName ? 'update' : 'create');
     setName(currentName);
     setDraftSpec({
-      ...agentSpec,
+      ...latestAgentSpec,
       model: {
-        ...agentSpec.model,
-        params: agentSpec.model.params ? { ...agentSpec.model.params } : undefined,
+        ...latestAgentSpec.model,
+        params: latestAgentSpec.model.params ? { ...latestAgentSpec.model.params } : undefined,
       },
-      mcpServers: agentSpec.mcpServers?.map((item) => ({ ...item })),
-      skills: agentSpec.skills?.map((item) => ({ ...item })),
-      config: agentSpec.config ? { ...agentSpec.config } : undefined,
+      mcpServers: latestAgentSpec.mcpServers?.map(item => ({ ...item })),
+      skills: latestAgentSpec.skills?.map(item => ({ ...item })),
+      config: latestAgentSpec.config ? { ...latestAgentSpec.config } : undefined,
     });
     setOpen(true);
   };
@@ -182,28 +174,25 @@ function SaveAgentButtonContent({
       setDraftSpec(null);
       setEditor(null);
     } catch (caught) {
-      setError(getErrorMessage(caught, "Could not save agent"));
+      setError(getErrorMessage(caught, 'Could not save agent'));
     } finally {
       setSaving(false);
     }
   };
 
-  const filteredConnectors = catalog.connectors.filter((item) =>
-    `${item.name} ${item.description ?? ""}`.toLowerCase().includes(search.trim().toLowerCase()),
+  const filteredConnectors = catalog.connectors.filter(item =>
+    `${item.name} ${item.description ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
-  const filteredSkills = catalog.skills.filter((item) =>
-    `${item.name} ${item.description ?? ""}`.toLowerCase().includes(search.trim().toLowerCase()),
+  const filteredSkills = catalog.skills.filter(item =>
+    `${item.name} ${item.description ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
   const isUpdateMode =
-    shell?.mode.status === "active" &&
+    shell?.mode.status === 'active' &&
     shell.mode.isMutable &&
     (shell.mode.agentName !== undefined || shell.mode.agentId !== undefined);
-  const triggerLabel = isUpdateMode && children === "Save Agent" ? "Update Agent" : children;
+  const triggerLabel = isUpdateMode && children === 'Save Agent' ? 'Update Agent' : children;
 
-  if (
-    shell !== null &&
-    (shell.mode.status !== "active" || !shell.mode.isMutable || shell.mode.locked)
-  ) {
+  if (shell !== null && (shell.mode.status !== 'active' || !shell.mode.isMutable || shell.mode.locked)) {
     return null;
   }
 
@@ -212,7 +201,7 @@ function SaveAgentButtonContent({
       <button
         type="button"
         disabled={disabled || builder === null || agentSpec === null}
-        className={auiButtonClass({ variant: "outline", size: "sm", className })}
+        className={auiButtonClass({ variant: 'outline', size: 'sm', className })}
         onClick={() => void show()}
       >
         {triggerLabel}
@@ -220,11 +209,11 @@ function SaveAgentButtonContent({
 
       <CenteredModal
         open={open}
-        onOpenChange={(next) => !next && close()}
-        title={intent === "create" ? "Save agent" : "Update agent"}
+        onOpenChange={next => !next && close()}
+        title={intent === 'create' ? 'Save agent' : 'Update agent'}
         description="Review the configuration before saving."
         className="md:max-w-lg"
-        aria-label={intent === "create" ? "Save agent" : "Update agent"}
+        aria-label={intent === 'create' ? 'Save agent' : 'Update agent'}
       >
         {draftSpec ? (
           <div className="flex min-h-0 w-[min(32rem,calc(100vw-2rem))] flex-1 flex-col">
@@ -233,23 +222,21 @@ function SaveAgentButtonContent({
                 <span className="mb-1.5 block text-sm font-medium">Agent name</span>
                 <input
                   value={name}
-                  disabled={saving || intent === "update"}
-                  onChange={(event) => setName(event.target.value)}
+                  disabled={saving || intent === 'update'}
+                  onChange={event => setName(event.target.value)}
                   placeholder="my-agent"
-                  className={auiInputClass("h-9 disabled:opacity-60")}
+                  className={auiInputClass('h-9 disabled:opacity-60')}
                 />
               </label>
 
               <label className="mb-4 block">
                 <span className="mb-1.5 block text-sm font-medium">Instructions</span>
                 <textarea
-                  value={draftSpec.instructions ?? ""}
+                  value={draftSpec.instructions ?? ''}
                   disabled={saving}
-                  onChange={(event) =>
-                    setDraftSpec({ ...draftSpec, instructions: event.target.value })
-                  }
+                  onChange={event => setDraftSpec({ ...draftSpec, instructions: event.target.value })}
                   rows={4}
-                  className={auiInputClass("resize-y py-2 disabled:opacity-60")}
+                  className={auiInputClass('resize-y py-2 disabled:opacity-60')}
                 />
               </label>
 
@@ -257,25 +244,23 @@ function SaveAgentButtonContent({
                 <SummarySection
                   icon="cpu"
                   title="Model"
-                  value={
-                    draftSpec.model.name ? displayModelLabel(draftSpec.model.name) : "Not selected"
-                  }
+                  value={draftSpec.model.name ? displayModelLabel(draftSpec.model.name) : 'Not selected'}
                   disabled={saving}
-                  onEdit={() => setEditor("model")}
+                  onEdit={() => setEditor('model')}
                 />
                 <SummarySection
                   icon="plug"
                   title="MCP servers"
                   value={`${mcpMounts.length} selected`}
                   disabled={saving}
-                  onEdit={() => setEditor("mcp")}
+                  onEdit={() => setEditor('mcp')}
                 />
                 <SummarySection
                   icon="lightbulb"
                   title="Skills"
                   value={`${skillMounts.length} selected`}
                   disabled={saving}
-                  onEdit={() => setEditor("skills")}
+                  onEdit={() => setEditor('skills')}
                 />
               </div>
 
@@ -285,7 +270,7 @@ function SaveAgentButtonContent({
                   divided
                   value={readAgentCapabilities(draftSpec.config)}
                   disabled={saving}
-                  onChange={(values) =>
+                  onChange={values =>
                     setDraftSpec({
                       ...draftSpec,
                       config: withAgentCapabilities({ config: draftSpec.config, values }),
@@ -305,7 +290,7 @@ function SaveAgentButtonContent({
               <button
                 type="button"
                 disabled={saving}
-                className={auiButtonClass({ variant: "secondary" })}
+                className={auiButtonClass({ variant: 'secondary' })}
                 onClick={close}
               >
                 Cancel
@@ -313,10 +298,10 @@ function SaveAgentButtonContent({
               <button
                 type="button"
                 disabled={saving || !name.trim() || !draftSpec.model.name.trim()}
-                className={auiButtonClass({ variant: "default" })}
+                className={auiButtonClass({ variant: 'default' })}
                 onClick={() => void save()}
               >
-                {saving ? "Saving…" : "Save changes"}
+                {saving ? 'Saving…' : 'Save changes'}
               </button>
             </div>
           </div>
@@ -325,23 +310,21 @@ function SaveAgentButtonContent({
 
       <CenteredModal
         open={editor !== null}
-        onOpenChange={(next) => {
+        onOpenChange={next => {
           if (!next) {
             setEditor(null);
-            setSearch("");
-            setModelQuery("");
+            setSearch('');
+            setModelQuery('');
           }
         }}
-        title={editor === "model" ? "Select model" : editor === "mcp" ? "MCP servers" : "Skills"}
+        title={editor === 'model' ? 'Select model' : editor === 'mcp' ? 'MCP servers' : 'Skills'}
         className="md:max-w-md"
         contentSized
-        aria-label={
-          editor === "model" ? "Edit model" : editor === "mcp" ? "Edit MCP servers" : "Edit skills"
-        }
+        aria-label={editor === 'model' ? 'Edit model' : editor === 'mcp' ? 'Edit MCP servers' : 'Edit skills'}
       >
         {draftSpec && editor ? (
           <div className="flex h-[min(28rem,calc(100dvh-10rem))] w-[min(28rem,calc(100vw-2rem))] flex-col">
-            {editor === "model" ? (
+            {editor === 'model' ? (
               <>
                 {catalog.error ? (
                   <p role="alert" className="text-failure-bg px-3 pt-3 text-sm">
@@ -355,7 +338,7 @@ function SaveAgentButtonContent({
                   query={modelQuery}
                   onQueryChange={setModelQuery}
                   listboxId={modelListId}
-                  onSelect={(nextModel) => {
+                  onSelect={nextModel => {
                     setDraftSpec({
                       ...draftSpec,
                       model: modelPatchWithReasoningEffort(
@@ -383,17 +366,17 @@ function SaveAgentButtonContent({
                     />
                     <input
                       value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder={editor === "mcp" ? "Search MCP servers" : "Search skills"}
-                      className={auiInputClass("h-8 pr-2 pl-7")}
+                      onChange={event => setSearch(event.target.value)}
+                      placeholder={editor === 'mcp' ? 'Search MCP servers' : 'Search skills'}
+                      className={auiInputClass('h-8 pr-2 pl-7')}
                       autoFocus
                     />
                   </label>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto p-2">
-                  {editor === "mcp"
-                    ? filteredConnectors.map((connector) => {
-                        const checked = mcpMounts.some((item) => item.id === connector.id);
+                  {editor === 'mcp'
+                    ? filteredConnectors.map(connector => {
+                        const checked = mcpMounts.some(item => item.id === connector.id);
                         const needsConnect = isUnauthenticatedDcrConnector(connector);
                         return (
                           <CatalogRow
@@ -404,16 +387,13 @@ function SaveAgentButtonContent({
                             disabled={!connector.authenticated && !checked}
                             action={
                               needsConnect ? (
-                                <ConnectorConnectButton
-                                  connector={connector}
-                                  onConnected={catalog.refreshConnectors}
-                                />
+                                <ConnectorConnectButton connector={connector} onConnected={catalog.refreshConnectors} />
                               ) : undefined
                             }
                             onToggle={() => {
                               if (!connector.authenticated && !checked) return;
                               const next = checked
-                                ? mcpMounts.filter((item) => item.id !== connector.id)
+                                ? mcpMounts.filter(item => item.id !== connector.id)
                                 : [
                                     ...mcpMounts,
                                     {
@@ -424,14 +404,14 @@ function SaveAgentButtonContent({
                                   ];
                               setDraftSpec({
                                 ...draftSpec,
-                                mcpServers: next.map((item) => item.value),
+                                mcpServers: next.map(item => item.value),
                               });
                             }}
                           />
                         );
                       })
-                    : filteredSkills.map((skill) => {
-                        const checked = skillMounts.some((item) => item.id === skill.id);
+                    : filteredSkills.map(skill => {
+                        const checked = skillMounts.some(item => item.id === skill.id);
                         const disabledSkill = serverCapabilities?.skill.enabled !== true;
                         return (
                           <CatalogRow
@@ -443,7 +423,7 @@ function SaveAgentButtonContent({
                             onToggle={() => {
                               if (disabledSkill && !checked) return;
                               const next = checked
-                                ? skillMounts.filter((item) => item.id !== skill.id)
+                                ? skillMounts.filter(item => item.id !== skill.id)
                                 : [
                                     ...skillMounts,
                                     {
@@ -454,7 +434,7 @@ function SaveAgentButtonContent({
                                   ];
                               setDraftSpec({
                                 ...draftSpec,
-                                skills: next.map((item) => item.value),
+                                skills: next.map(item => item.value),
                               });
                             }}
                           />
@@ -470,7 +450,7 @@ function SaveAgentButtonContent({
   );
 }
 
-declare module "../theme/SlotsProvider.js" {
+declare module '../theme/SlotsProvider.js' {
   interface AtomSlots {
     SaveAgentButton: typeof SaveAgentButton;
   }

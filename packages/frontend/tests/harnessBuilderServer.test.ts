@@ -219,6 +219,7 @@ describe('harnessBuilderServer', () => {
         requests.push({ method, url, body: JSON.parse(init.body) });
         return Response.json({
           data: { id: 'agt_new', name: 'saved-agent', model: { name: 'test/model' } },
+          session_updated_at: '2026-08-12T08:00:00.000Z',
         });
       }
       return new Response(`Unexpected request: ${method} ${url}`, { status: 500 });
@@ -232,14 +233,19 @@ describe('harnessBuilderServer', () => {
         skills: [{ name: 'review' }],
       },
       intent: 'create',
+      sessionId: 'draft-1',
     });
 
-    assert.deepEqual(result, { agentId: 'agt_new' });
+    assert.deepEqual(result, {
+      agentId: 'agt_new',
+      sessionUpdatedAt: '2026-08-12T08:00:00.000Z',
+    });
     assert.equal(requests.length, 1);
     assert.deepEqual(requests.at(-1)?.body, {
       name: 'saved-agent',
       model: { name: 'test/model' },
       skills: [{ name: 'review' }],
+      session_id: 'draft-1',
     });
   });
 
@@ -257,6 +263,7 @@ describe('harnessBuilderServer', () => {
             model: { name: 'test/model' },
             instructions: 'Write release notes.',
           },
+          session_updated_at: '2026-08-12T09:00:00.000Z',
         });
       }
       return new Response(`Unexpected request: ${method} ${url}`, { status: 500 });
@@ -270,13 +277,18 @@ describe('harnessBuilderServer', () => {
         instructions: 'Write release notes.',
       },
       intent: 'update',
+      sessionId: 'draft-2',
     });
 
-    assert.deepEqual(result, { agentId: 'agt_1' });
+    assert.deepEqual(result, {
+      agentId: 'agt_1',
+      sessionUpdatedAt: '2026-08-12T09:00:00.000Z',
+    });
     assert.equal(requests.length, 1);
     assert.deepEqual(requests[0]?.body, {
       model: { name: 'test/model' },
       instructions: 'Write release notes.',
+      session_id: 'draft-2',
     });
   });
 });

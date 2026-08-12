@@ -4,4 +4,6 @@ import type * as TrueForge from "../index.js";
 
 export interface PutAgentResponse {
     data: TrueForge.Agent;
+    /** Updated session timestamp when `sessionId` was supplied. */
+    sessionUpdatedAt?: string;
 }
