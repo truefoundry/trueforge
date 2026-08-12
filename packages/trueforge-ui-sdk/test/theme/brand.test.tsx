@@ -16,6 +16,19 @@ describe('BrandLogo', () => {
 
     const icon = container.querySelector('svg[aria-hidden="true"]');
     expect(icon).toHaveClass('host-logo');
+    expect(icon).toHaveAttribute('viewBox', '0 0 140 140');
+  });
+
+  it('uses the dark logomark in dark mode', () => {
+    const { container } = render(
+      <ThemeProvider theme={{ mode: 'dark' }}>
+        <BrandLogo className="host-logo" />
+      </ThemeProvider>,
+    );
+
+    const icon = container.querySelector('svg[aria-hidden="true"]');
+    expect(icon).toHaveClass('host-logo');
+    expect(icon).toHaveAttribute('viewBox', '0 0 120 120');
   });
 
   it('labels the configured logo with the brand name', () => {

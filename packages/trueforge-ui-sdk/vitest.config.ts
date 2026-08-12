@@ -2,8 +2,21 @@
 import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'vitest/config';
+import svgr from 'vite-plugin-svgr';
 
 export default defineConfig({
+  plugins: [
+    svgr({
+      include: '**/*.svg',
+      svgrOptions: {
+        icon: true,
+        replaceAttrValues: {
+          '#000': 'currentColor',
+          '#000000': 'currentColor',
+        },
+      },
+    }),
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
