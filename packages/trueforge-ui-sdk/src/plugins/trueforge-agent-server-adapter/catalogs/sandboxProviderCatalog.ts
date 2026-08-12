@@ -32,7 +32,9 @@ export function configFromHarness(
   provider: TrueForgeApi.CatalogDaytonaSandboxProvider | TrueForgeApi.DaytonaSandboxProvider,
 ): SandboxProviderConfig {
   return {
-    snapshotName: provider.snapshotName,
+    // Snapshot/image is now release-owned; the field is gone from the backend. The external
+    // SandboxProviderConfig still requires it, so send an empty placeholder until that type drops it.
+    snapshotName: '',
     execTimeoutMs: provider.execTimeoutMs,
     autoStopIntervalInMinutes: provider.autoStopIntervalInMinutes,
     autoArchiveIntervalInMinutes: provider.autoArchiveIntervalInMinutes,
@@ -63,14 +65,13 @@ export function toHarnessManifest(
   req: {
     type: string;
     apiKey: string;
-  } & SandboxProviderConfig,
+  } & Omit<SandboxProviderConfig, 'snapshotName'>,
 ): TrueForgeApi.DaytonaSandboxProvider {
   if (req.type !== DAYTONA_TYPE) {
     throw new Error(`Unsupported sandbox provider type: ${req.type}`);
   }
   return {
     type: DAYTONA_TYPE,
-    snapshotName: req.snapshotName,
     execTimeoutMs: req.execTimeoutMs,
     autoStopIntervalInMinutes: req.autoStopIntervalInMinutes,
     autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
@@ -112,10 +113,7 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
         return providers;
       }
       return providers.filter(
-        provider =>
-          provider.name.toLowerCase().includes(query) ||
-          provider.id.toLowerCase().includes(query) ||
-          provider.snapshotName.toLowerCase().includes(query),
+        provider => provider.name.toLowerCase().includes(query) || provider.id.toLowerCase().includes(query),
       );
     },
     createSandboxProvider: async req => {
@@ -123,7 +121,6 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
         toHarnessManifest({
           type: req.type,
           apiKey: req.apiKey,
-          snapshotName: req.snapshotName,
           execTimeoutMs: req.execTimeoutMs,
           autoStopIntervalInMinutes: req.autoStopIntervalInMinutes,
           autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
@@ -138,7 +135,6 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
         toHarnessManifest({
           type: DAYTONA_TYPE,
           apiKey,
-          snapshotName: req.snapshotName,
           execTimeoutMs: req.execTimeoutMs,
           autoStopIntervalInMinutes: req.autoStopIntervalInMinutes,
           autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,

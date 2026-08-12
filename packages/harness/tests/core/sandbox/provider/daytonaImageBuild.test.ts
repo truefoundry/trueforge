@@ -35,7 +35,7 @@ function makeSnapshot(params: { state: DaytonaSnapshot['state']; errorReason?: s
   };
 }
 
-function makeProvider() {
+function makeProvider(credentialFingerprint = 'fp-default') {
   const daytona = new Daytona({ apiKey: 'dtn-test' });
   const get = jest.spyOn(daytona.snapshot, 'get');
   const create = jest.spyOn(daytona.snapshot, 'create');
@@ -45,6 +45,7 @@ function makeProvider() {
     client: daytona,
     tenantName: 'test-tenant',
     sandboxImage: SANDBOX_IMAGE_NAME,
+    credentialFingerprint,
     timeoutMs: 60_000,
     autoStopIntervalInMinutes: 5,
     autoArchiveIntervalInMinutes: 60,
@@ -95,22 +96,19 @@ describe('DaytonaSandboxProvider.buildImage', () => {
     expect(build.status).toBe('ready');
   });
 
-  it.each(['error', 'build_failed'] as const)(
-    'deletes a %s build and recreates it, reporting pending',
-    async state => {
-      const { provider, get, create, del } = makeProvider();
-      const failed = makeSnapshot({ state, errorReason: 'image pull backoff' });
-      get.mockResolvedValue(failed);
-      del.mockResolvedValue(undefined);
-      create.mockResolvedValue(makeSnapshot({ state: 'pending' }));
+  it.each(['error', 'build_failed'] as const)('deletes a %s build and recreates it, reporting pending', async state => {
+    const { provider, get, create, del } = makeProvider();
+    const failed = makeSnapshot({ state, errorReason: 'image pull backoff' });
+    get.mockResolvedValue(failed);
+    del.mockResolvedValue(undefined);
+    create.mockResolvedValue(makeSnapshot({ state: 'pending' }));
 
-      const build = await provider.buildImage();
+    const build = await provider.buildImage();
 
-      expect(del).toHaveBeenCalledWith(failed);
-      expect(create).toHaveBeenCalledWith({ name: EXPECTED_REF, image: SANDBOX_IMAGE_NAME });
-      expect(build.status).toBe('pending');
-    },
-  );
+    expect(del).toHaveBeenCalledWith(failed);
+    expect(create).toHaveBeenCalledWith({ name: EXPECTED_REF, image: SANDBOX_IMAGE_NAME });
+    expect(build.status).toBe('pending');
+  });
 
   it('tolerates a concurrent delete (404) when clearing a failed build', async () => {
     const { provider, get, create, del } = makeProvider();
@@ -135,6 +133,23 @@ describe('DaytonaSandboxProvider.buildImage', () => {
     expect(create).toHaveBeenCalledTimes(1);
     expect(a.status).toBe('pending');
     expect(b.status).toBe('pending');
+  });
+
+  it('does not dedupe builds across different credentials', async () => {
+    const a = makeProvider('fp-key-a');
+    const b = makeProvider('fp-key-b');
+    a.get.mockRejectedValue(notFound());
+    b.get.mockRejectedValue(notFound());
+    a.create.mockResolvedValue(makeSnapshot({ state: 'pending' }));
+    b.create.mockResolvedValue(makeSnapshot({ state: 'pending' }));
+
+    await Promise.all([a.provider.buildImage(), b.provider.buildImage()]);
+
+    // Each credential must run its own lookup + create so both keys get validated independently.
+    expect(a.get).toHaveBeenCalledTimes(1);
+    expect(b.get).toHaveBeenCalledTimes(1);
+    expect(a.create).toHaveBeenCalledTimes(1);
+    expect(b.create).toHaveBeenCalledTimes(1);
   });
 
   it('propagates a non-404 delete failure without recreating', async () => {

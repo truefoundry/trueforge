@@ -10,6 +10,7 @@ import {
   SANDBOX_IMAGE_NAME,
   type SandboxBuild,
 } from '@truefoundry/utils-core/core';
+import { createHash } from 'crypto';
 import type { Logger } from 'winston';
 import configuration from '../config';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -37,6 +38,8 @@ export function getSandboxProvider({
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
   return new DaytonaSandboxProvider({
     client: new Daytona({ apiKey }),
+    // Scopes build de-duplication to these credentials without holding the raw key in a map.
+    credentialFingerprint: createHash('sha256').update(apiKey).digest('hex'),
     ...settings,
     tenantName: tenant_id,
     sandboxImage: SANDBOX_IMAGE_NAME,

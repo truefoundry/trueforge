@@ -51,7 +51,11 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       // Validate the key + kick off the build (Daytona network I/O) BEFORE persisting, outside any
       // transaction so no row lock is held during remote I/O. A bad key throws here → 422, nothing saved.
       const snapshot = await deps.sandboxProviderStore.getSandboxProvider(TENANT_ID);
-      const provider = getSandboxProvider({ manifest: resolveManifest(snapshot), tenant_id: TENANT_ID, logger: deps.logger });
+      const provider = getSandboxProvider({
+        manifest: resolveManifest(snapshot),
+        tenant_id: TENANT_ID,
+        logger: deps.logger,
+      });
       const build = await provider.buildImage();
       // Persist under a row lock (local DB work only), re-resolving the secret from the locked row so
       // a concurrent keep/rotate cannot interleave — same contract as the model-provider PUT.

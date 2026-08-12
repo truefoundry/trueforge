@@ -69,6 +69,12 @@ export interface DaytonaSandboxProviderOptions {
   tenantName: string;
   /** Release-owned sandbox image reference; built into a Daytona snapshot and cloned per sandbox. */
   sandboxImage: string;
+  /**
+   * Stable fingerprint of the provider credentials (a hash — never the raw key). Scopes
+   * build de-duplication so concurrent `buildImage()` calls made with different credentials
+   * never share one in-flight promise (which would skip validating the other's key).
+   */
+  credentialFingerprint: string;
   timeoutMs: number;
   autoStopIntervalInMinutes: number;
   autoArchiveIntervalInMinutes: number;
@@ -89,6 +95,8 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private readonly imageTag: string;
   /** Daytona snapshot name derived from the image tag; sandboxes are cloned from it. */
   private readonly buildRef: string;
+  /** In-flight build dedupe key: build ref scoped by credential fingerprint so different keys never share a build. */
+  private readonly buildDedupeKey: string;
   private readonly timeoutMs: number;
   private readonly autoStopIntervalInMinutes: number;
   private readonly autoArchiveIntervalInMinutes: number;
@@ -101,7 +109,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; defaultTimeoutMs: number }>();
   // De-dupes concurrent recovery attempts on the same sandbox to a single refreshData+start round-trip.
   private static readonly inFlightRecoveries = new Map<string, Promise<boolean>>();
-  // De-dupes concurrent buildImage() calls for the same build so only one delete/create round-trip runs.
+  // De-dupes concurrent buildImage() calls for the same build+credentials so only one delete/create round-trip runs.
   private static readonly inFlightBuilds = new Map<string, Promise<SandboxBuild>>();
 
   constructor(options: DaytonaSandboxProviderOptions) {
@@ -110,6 +118,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.sandboxImage = options.sandboxImage;
     this.imageTag = imageTag(options.sandboxImage);
     this.buildRef = deriveImageBuildName(this.imageTag);
+    this.buildDedupeKey = `${this.buildRef}::${options.credentialFingerprint}`;
     this.timeoutMs = options.timeoutMs;
     this.autoStopIntervalInMinutes = options.autoStopIntervalInMinutes;
     this.autoArchiveIntervalInMinutes = options.autoArchiveIntervalInMinutes;
@@ -239,11 +248,9 @@ export class DaytonaSandboxProvider implements SandboxProvider {
    * A concurrent-create conflict is harmless: the winner's snapshot is the one polled.
    */
   private startImageBuild(): void {
-    void this.daytona.snapshot
-      .create({ name: this.buildRef, image: this.sandboxImage })
-      .catch((error: unknown) => {
-        this.logger.error(`Daytona snapshot create failed: name=${this.buildRef}`, extractErrorLogFields(error));
-      });
+    void this.daytona.snapshot.create({ name: this.buildRef, image: this.sandboxImage }).catch((error: unknown) => {
+      this.logger.error(`Daytona snapshot create failed: name=${this.buildRef}`, extractErrorLogFields(error));
+    });
   }
 
   /**
@@ -285,13 +292,13 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   }
 
   async buildImage(): Promise<SandboxBuild> {
-    const inFlight = DaytonaSandboxProvider.inFlightBuilds.get(this.buildRef);
+    const inFlight = DaytonaSandboxProvider.inFlightBuilds.get(this.buildDedupeKey);
     if (inFlight) return inFlight;
 
     const op = this.runBuild().finally(() => {
-      DaytonaSandboxProvider.inFlightBuilds.delete(this.buildRef);
+      DaytonaSandboxProvider.inFlightBuilds.delete(this.buildDedupeKey);
     });
-    DaytonaSandboxProvider.inFlightBuilds.set(this.buildRef, op);
+    DaytonaSandboxProvider.inFlightBuilds.set(this.buildDedupeKey, op);
     return op;
   }
 
