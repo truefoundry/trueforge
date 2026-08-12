@@ -43,7 +43,7 @@ track (orthogonal to [`docs/server.md`](./server.md)).
 | Icons           | Lucide defaults; host can replace map + supply SVG transforms                            |
 | Brand           | Logo URL (per-mode) via `theme.brand`; component marks via the `BrandLogo` slot          |
 | Theme API       | Object (not string-only); every look aspect customizable                                 |
-| Presets         | Inspired-by packs: `trueforge` (default), `claude`, `chatgpt`, `gemini`                |
+| Presets         | Inspired-by packs: `trueforge` (default), `claude`, `chatgpt`, `gemini`                  |
 | Custom styles   | CSS tokens + `className`; host may also import CSS (documented). No “load CSS file” prop |
 | Light / dark    | Controlled `mode` on the theme object **or** omit → uncontrolled `useTheme().setTheme`   |
 | React overrides | Structural pieces via **`overrides` / slots**; full chrome via **`layout` component**    |
@@ -390,12 +390,12 @@ function CenteredLayout() {
 
 Ship as CSS variable maps under e.g. `src/theme/presets/`:
 
-| Preset        | Intent (not a clone)                                    |
-| ------------- | ------------------------------------------------------- |
+| Preset      | Intent (not a clone)                                    |
+| ----------- | ------------------------------------------------------- |
 | `trueforge` | Current indigo semantic look                            |
-| `claude`      | Warm paper bg, soft borders, restrained accent          |
-| `chatgpt`     | Cool gray chrome, green/teal send accent, flat bubbles  |
-| `gemini`      | Light airy surface, blue accent, slightly larger radius |
+| `claude`    | Warm paper bg, soft borders, restrained accent          |
+| `chatgpt`   | Cool gray chrome, green/teal send accent, flat bubbles  |
+| `gemini`    | Light airy surface, blue accent, slightly larger radius |
 
 Each preset defines **light + dark** token sets. Document that these are
 stylistic homages, not product replicas.

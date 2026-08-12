@@ -25,9 +25,7 @@ function monogram(value: string): string {
 
 function ProviderMark({ logo, label, className }: { logo?: string; label: string; className?: string }) {
   if (logo) {
-    return (
-      <CatalogLogo src={logo} alt="" className={cn('shrink-0 rounded object-contain', className)} aria-hidden />
-    );
+    return <CatalogLogo src={logo} alt="" className={cn('shrink-0 rounded object-contain', className)} aria-hidden />;
   }
   return (
     <span
@@ -158,9 +156,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
           filtered.map(model => {
             const value = modelValue(model);
             // If there is no selected model, consider the first in the filtered list as active
-            const active = selectedName
-              ? value === selectedName || model.name === selectedName
-              : filtered[0] === model;
+            const active = selectedName ? value === selectedName || model.name === selectedName : filtered[0] === model;
 
             return (
               <button

@@ -46,9 +46,7 @@ describe('ConnectorDetails tool descriptions', () => {
     vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(400);
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(200);
 
-    const Wrapper = wrapperFor([
-      { id: 'tool-1', name: 'create_issue', description: longDescription },
-    ]);
+    const Wrapper = wrapperFor([{ id: 'tool-1', name: 'create_issue', description: longDescription }]);
 
     render(
       <Wrapper>

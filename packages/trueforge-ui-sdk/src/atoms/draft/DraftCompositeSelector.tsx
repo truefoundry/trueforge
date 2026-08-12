@@ -507,10 +507,7 @@ export function DraftSelectionChips({ disabled, onOpenTab }: DraftSelectionChips
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {mcpMounts.length > 0 ? (
-        <Tooltip
-          content={<SelectionChipTooltipList mounts={mcpMounts} />}
-          className="max-w-48 whitespace-normal"
-        >
+        <Tooltip content={<SelectionChipTooltipList mounts={mcpMounts} />} className="max-w-48 whitespace-normal">
           <button
             type="button"
             disabled={disabled}
@@ -524,10 +521,7 @@ export function DraftSelectionChips({ disabled, onOpenTab }: DraftSelectionChips
         </Tooltip>
       ) : null}
       {skillMounts.length > 0 ? (
-        <Tooltip
-          content={<SelectionChipTooltipList mounts={skillMounts} />}
-          className="max-w-48 whitespace-normal"
-        >
+        <Tooltip content={<SelectionChipTooltipList mounts={skillMounts} />} className="max-w-48 whitespace-normal">
           <button
             type="button"
             disabled={disabled}

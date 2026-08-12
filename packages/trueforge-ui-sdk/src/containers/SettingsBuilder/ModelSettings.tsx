@@ -410,50 +410,50 @@ const ModelSettings = () => {
                   {matchingAvailable.map(provider => {
                     const logoSrc = modelProviderIconMap[provider.name];
                     return (
-                    <article key={provider.type} className="border-b border-border p-3 last:border-b-0">
-                      <header className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <span
-                            className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
-                            aria-hidden
-                          >
-                            {logoSrc ? (
-                              <CatalogLogo src={logoSrc} alt={provider.name} className="size-4.5" />
-                            ) : (
-                              <Icon name="cpu" className="size-4.5" />
-                            )}
-                          </span>
-                          <div className="min-w-0">
-                            <h5 className="truncate text-base font-medium text-foreground">{provider.name}</h5>
-                            <p className="truncate text-sm text-muted-foreground">
-                              {provider.models.map(model => model.name).join(' · ')}
-                            </p>
+                      <article key={provider.type} className="border-b border-border p-3 last:border-b-0">
+                        <header className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                          <div className="flex min-w-0 flex-1 items-center gap-3">
+                            <span
+                              className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
+                              aria-hidden
+                            >
+                              {logoSrc ? (
+                                <CatalogLogo src={logoSrc} alt={provider.name} className="size-4.5" />
+                              ) : (
+                                <Icon name="cpu" className="size-4.5" />
+                              )}
+                            </span>
+                            <div className="min-w-0">
+                              <h5 className="truncate text-base font-medium text-foreground">{provider.name}</h5>
+                              <p className="truncate text-sm text-muted-foreground">
+                                {provider.models.map(model => model.name).join(' · ')}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <Button
-                          variant="secondary"
-                          type="button"
-                          disabled={busy}
-                          onClick={() => {
-                            setEditingProviderId(null);
-                            setEditingCatalogType(provider.type);
-                            setApiKey('');
-                          }}
-                        >
-                          <Icon name="wrench" className="size-4" />
-                          Configure
-                        </Button>
-                      </header>
-                      {editingCatalogType === provider.type
-                        ? renderKeyEditor({
-                            id: provider.type,
-                            submitLabel: 'Create',
-                            onSave: () => {
-                              handleCreateFromCatalog(provider.type);
-                            },
-                          })
-                        : null}
-                    </article>
+                          <Button
+                            variant="secondary"
+                            type="button"
+                            disabled={busy}
+                            onClick={() => {
+                              setEditingProviderId(null);
+                              setEditingCatalogType(provider.type);
+                              setApiKey('');
+                            }}
+                          >
+                            <Icon name="wrench" className="size-4" />
+                            Configure
+                          </Button>
+                        </header>
+                        {editingCatalogType === provider.type
+                          ? renderKeyEditor({
+                              id: provider.type,
+                              submitLabel: 'Create',
+                              onSave: () => {
+                                handleCreateFromCatalog(provider.type);
+                              },
+                            })
+                          : null}
+                      </article>
                     );
                   })}
                 </div>

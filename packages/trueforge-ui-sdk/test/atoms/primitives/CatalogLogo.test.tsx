@@ -4,13 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
-function renderLogo({
-  mode,
-  src,
-}: {
-  mode: 'light' | 'dark';
-  src: string;
-}) {
+function renderLogo({ mode, src }: { mode: 'light' | 'dark'; src: string }) {
   return render(
     <SlotsProvider theme={{ mode }}>
       <CatalogLogo src={src} alt="Provider" />

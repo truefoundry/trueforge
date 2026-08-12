@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  resolveCatalogLogoSrc,
-  toDarkCatalogLogoUrl,
-  toLightCatalogLogoUrl,
-} from '@/utils/catalogLogo.js';
+import { resolveCatalogLogoSrc, toDarkCatalogLogoUrl, toLightCatalogLogoUrl } from '@/utils/catalogLogo.js';
 
 describe('toDarkCatalogLogoUrl', () => {
   it('inserts -dark before the file extension', () => {

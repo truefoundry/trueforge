@@ -1,6 +1,4 @@
-function splitCatalogLogoUrl(
-  src: string,
-): { dir: string; base: string; ext: string; suffix: string } | undefined {
+function splitCatalogLogoUrl(src: string): { dir: string; base: string; ext: string; suffix: string } | undefined {
   const match = /^(.*\/)?([^/?#]+?)(\.[^./?#]+)([?#].*)?$/.exec(src);
   if (match == null) return undefined;
   const dir = match[1] ?? '';
@@ -30,13 +28,7 @@ export function toLightCatalogLogoUrl(src: string): string | undefined {
  * - dark → prefer icon-dark.ext (derived from icon.ext, or keep if already dark)
  * - light → prefer icon.ext (derived from icon-dark.ext, or keep if already light)
  */
-export function resolveCatalogLogoSrc({
-  src,
-  mode,
-}: {
-  src: string;
-  mode: 'light' | 'dark';
-}): string {
+export function resolveCatalogLogoSrc({ src, mode }: { src: string; mode: 'light' | 'dark' }): string {
   if (mode === 'dark') return toDarkCatalogLogoUrl(src) ?? src;
   return toLightCatalogLogoUrl(src) ?? src;
 }
