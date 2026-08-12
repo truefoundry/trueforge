@@ -8,6 +8,7 @@ import { Icon } from '@/icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { RegistrySkill, SkillBase, SkillCatalogEntry, SkillConfigBase } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
+import { useToasterOptional } from '../ToasterContainer.js';
 import ImportGithubSkillForm from './ImportGithubSkillForm.js';
 
 const matchesQuery = (query: string, name: string, description: string) =>
@@ -17,12 +18,14 @@ const isRegistrySkill = (skill: SkillBase): skill is RegistrySkill => 'catalogId
 
 const SkillSettings = () => {
   const { skillCatalog } = useCatalogServer();
+  const toaster = useToasterOptional();
 
   const [query, setQuery] = useState('');
   const [skills, setSkills] = useState<SkillBase[]>([]);
   const [catalog, setCatalog] = useState<SkillCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
@@ -59,14 +62,14 @@ const SkillSettings = () => {
     );
   }, [catalog, skills, normalizedQuery]);
 
-  const runMutation = async (fn: () => Promise<void>) => {
+  const runMutation = async (fn: () => Promise<void>, setMutationError = setError) => {
     setBusy(true);
     setError(null);
     try {
       await fn();
       await refresh();
     } catch (err) {
-      setError(getErrorMessage(err, 'Request failed'));
+      setMutationError(getErrorMessage(err, 'Request failed'));
       throw err;
     } finally {
       setBusy(false);
@@ -99,9 +102,16 @@ const SkillSettings = () => {
   };
 
   const handleImport = async (draft: SkillConfigBase) => {
+    setFormError(null);
     await runMutation(async () => {
       await skillCatalog.createSkill(draft);
-    });
+    }, setFormError);
+    setTimeout(() => {
+      toaster?.showSuccess({
+        title: 'Skill imported',
+        description: `${draft.name} is ready to use.`,
+      });
+    }, 0);
   };
 
   const renderRow = ({
@@ -156,6 +166,7 @@ const SkillSettings = () => {
             className="shrink-0"
             disabled={busy}
             onClick={() => {
+              setFormError(null);
               setImportOpen(true);
             }}
           >
@@ -243,7 +254,16 @@ const SkillSettings = () => {
         </div>
       </div>
 
-      <ImportGithubSkillForm open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} busy={busy} />
+      <ImportGithubSkillForm
+        open={importOpen}
+        onOpenChange={open => {
+          setImportOpen(open);
+          if (!open) setFormError(null);
+        }}
+        onImport={handleImport}
+        busy={busy}
+        error={formError}
+      />
     </>
   );
 };

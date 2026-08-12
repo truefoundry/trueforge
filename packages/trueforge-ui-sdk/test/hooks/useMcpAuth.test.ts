@@ -8,19 +8,19 @@ type CatalogHookValue = {
   connectorCatalog: Pick<ConnectorCatalogServer, 'authenticateConnector'>;
 };
 
-type ErrorToasterValue = {
+type ToasterValue = {
   showError: (error: unknown) => void;
 };
 
 const useCatalogServer = vi.hoisted(() => vi.fn<() => CatalogHookValue>());
-const useErrorToasterOptional = vi.hoisted(() => vi.fn<() => ErrorToasterValue | null>());
+const useToasterOptional = vi.hoisted(() => vi.fn<() => ToasterValue | null>());
 
 vi.mock('@/server/ServerContext.js', () => ({
   useCatalogServer,
 }));
 
-vi.mock('@/containers/ErrorToasterContainer.js', () => ({
-  useErrorToasterOptional,
+vi.mock('@/containers/ToasterContainer.js', () => ({
+  useToasterOptional,
 }));
 
 import { MCP_AUTH_POPUP_CHANNEL, useMCPAuth } from '@/hooks/useMcpAuth.js';
@@ -63,11 +63,11 @@ describe('useMCPAuth', () => {
     authenticateConnector.mockReset();
     showError.mockReset();
     useCatalogServer.mockReset();
-    useErrorToasterOptional.mockReset();
+    useToasterOptional.mockReset();
     useCatalogServer.mockReturnValue({
       connectorCatalog: { authenticateConnector },
     });
-    useErrorToasterOptional.mockReturnValue({ showError });
+    useToasterOptional.mockReturnValue({ showError });
     vi.stubGlobal('BroadcastChannel', BroadcastChannelStub);
     window.history.replaceState({}, '', '/chat');
   });

@@ -156,7 +156,6 @@ export {
 } from './containers/AttachmentsContainer.js';
 export { ComposerContainer } from './containers/ComposerContainer.js';
 export type { ComposerContainerProps } from './containers/ComposerContainer.js';
-export { ErrorToasterProvider, useErrorToaster, useErrorToasterOptional } from './containers/ErrorToasterContainer.js';
 export { HistoryLoaderContainer } from './containers/HistoryLoaderContainer.js';
 export { McpAuthContainer } from './containers/McpAuthContainer.js';
 export { default as PostMcpOauthScreen } from './containers/McpOauthContainer/PostMcpOauthScreen.js';
@@ -167,6 +166,7 @@ export { ThreadContainer } from './containers/ThreadContainer.js';
 export type { ThreadContainerProps } from './containers/ThreadContainer.js';
 export { ThreadListContainer } from './containers/ThreadListContainer.js';
 export type { ThreadListContainerProps } from './containers/ThreadListContainer.js';
+export { ToasterProvider, useToaster, useToasterOptional } from './containers/ToasterContainer.js';
 export { ToolApprovalContainer } from './containers/ToolApprovalContainer.js';
 export type { ToolApprovalOption } from './containers/ToolApprovalContainer.js';
 export { ToolCallContainer } from './containers/ToolCallContainer.js';

@@ -49,7 +49,7 @@ Default atoms use CSS variables from the auto-injected stylesheet (scoped to
 `.aui-theme-root`). Override colours via `theme.tokens` or host CSS on
 `.aui-theme-root` / `.aui-theme-root.dark`.
 
-## Errors
+## Notifications
 
-`ErrorToasterProvider` shows a single toast (no queue). Descriptions from
-gateway errors are truncated for display.
+`ToasterProvider` shows success and error toasts. Descriptions from gateway
+errors are truncated for display.

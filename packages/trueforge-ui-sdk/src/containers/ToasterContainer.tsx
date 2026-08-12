@@ -8,20 +8,21 @@ import { getErrorMessage } from '../utils/getErrorMessage.js';
 const MAX_TOAST_DESCRIPTION_CHARS = 480;
 const MAX_VISIBLE_TOASTS = 5;
 
-type ErrorToastContent = { title: string; description: string };
+type ToastContent = { title: string; description: string };
 
-type ErrorToastItem = ErrorToastContent & { id: string };
+type ToastItem = ToastContent & { id: string; variant: 'error' | 'success' };
 
-type ErrorToasterContextValue = {
+type ToasterContextValue = {
   showError: (error: unknown) => void;
+  showSuccess: (content: ToastContent) => void;
 };
 
-const ErrorToasterContext = createContext<ErrorToasterContextValue | null>(null);
+const ToasterContext = createContext<ToasterContextValue | null>(null);
 
 let toastId = 0;
 function nextToastId(): string {
   toastId += 1;
-  return `error-toast-${toastId}`;
+  return `toast-${toastId}`;
 }
 
 function truncateDescription(text: string): string {
@@ -33,7 +34,7 @@ function isHttpLikeError(error: unknown): error is Error & { statusCode?: number
   return error instanceof Error && ('statusCode' in error || 'body' in error);
 }
 
-function normalizeError(error: unknown): ErrorToastContent {
+function normalizeError(error: unknown): ToastContent {
   if (isHttpLikeError(error)) {
     const statusCode = error.statusCode;
     if (statusCode != null || error.body != null) {
@@ -49,14 +50,19 @@ function normalizeError(error: unknown): ErrorToastContent {
   };
 }
 
-export function ErrorToasterProvider({ children }: { children: ReactNode }) {
+export function ToasterProvider({ children }: { children: ReactNode }) {
   const Toast = useSlot('Toast');
   const ToastStack = useSlot('ToastStack');
-  const [toasts, setToasts] = useState<ErrorToastItem[]>([]);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const showError = useCallback((error: unknown) => {
     console.error('[trueforge-ui]', error);
-    const item: ErrorToastItem = { id: nextToastId(), ...normalizeError(error) };
+    const item: ToastItem = { id: nextToastId(), variant: 'error', ...normalizeError(error) };
+    setToasts(prev => [...prev, item].slice(-MAX_VISIBLE_TOASTS));
+  }, []);
+
+  const showSuccess = useCallback((content: ToastContent) => {
+    const item: ToastItem = { id: nextToastId(), variant: 'success', ...content };
     setToasts(prev => [...prev, item].slice(-MAX_VISIBLE_TOASTS));
   }, []);
 
@@ -64,10 +70,10 @@ export function ErrorToasterProvider({ children }: { children: ReactNode }) {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const value = useMemo(() => ({ showError }), [showError]);
+  const value = useMemo(() => ({ showError, showSuccess }), [showError, showSuccess]);
 
   return (
-    <ErrorToasterContext.Provider value={value}>
+    <ToasterContext.Provider value={value}>
       {children}
       <ToastStack>
         {toasts.map(toast => (
@@ -75,6 +81,7 @@ export function ErrorToasterProvider({ children }: { children: ReactNode }) {
             key={toast.id}
             title={toast.title}
             description={toast.description}
+            variant={toast.variant}
             open
             onOpenChange={open => {
               if (!open) dismiss(toast.id);
@@ -82,19 +89,19 @@ export function ErrorToasterProvider({ children }: { children: ReactNode }) {
           />
         ))}
       </ToastStack>
-    </ErrorToasterContext.Provider>
+    </ToasterContext.Provider>
   );
 }
 
-export function useErrorToaster(): ErrorToasterContextValue {
-  const context = useContext(ErrorToasterContext);
+export function useToaster(): ToasterContextValue {
+  const context = useContext(ToasterContext);
   if (context == null) {
-    throw new Error('useErrorToaster must be used within ErrorToasterProvider');
+    throw new Error('useToaster must be used within ToasterProvider');
   }
   return context;
 }
 
-/** Same as `useErrorToaster`, but returns `null` instead of throwing outside `ErrorToasterProvider`. */
-export function useErrorToasterOptional(): ErrorToasterContextValue | null {
-  return useContext(ErrorToasterContext);
+/** Same as `useToaster`, but returns `null` instead of throwing outside `ToasterProvider`. */
+export function useToasterOptional(): ToasterContextValue | null {
+  return useContext(ToasterContext);
 }
