@@ -209,7 +209,7 @@ describe.each(REASONING_CASES)(
         content: null,
       };
       Reflect.set(assistantMsg, 'thinking_blocks', output.thinking_blocks);
-      Reflect.set(assistantMsg, 'source', { provider_name: provider, model_name: 'test' });
+      Reflect.set(assistantMsg, 'source', `${provider}/${provider}/test`);
 
       const replayMsg = toAssistantModelMessage({ msg: assistantMsg, provider, providerName: provider });
       const reasoningPart = (replayMsg.content as Array<{ type: string; providerOptions?: unknown }>).find(
@@ -245,7 +245,7 @@ describe('anthropic reasoning replay, on the shape Anthropic actually sends', ()
       ...(output.tool_calls !== undefined ? { tool_calls: output.tool_calls } : {}),
     };
     Reflect.set(assistantMsg, 'thinking_blocks', output.thinking_blocks);
-    Reflect.set(assistantMsg, 'source', { provider_name: 'anthropic', model_name: 'test' });
+    Reflect.set(assistantMsg, 'source', 'anthropic/anthropic/test');
     const parts = toAssistantModelMessage({ msg: assistantMsg, provider: 'anthropic', providerName: 'anthropic' })
       .content as Array<{
       type: string;
@@ -275,7 +275,7 @@ describe('anthropic reasoning replay, on the shape Anthropic actually sends', ()
       content: null,
     };
     Reflect.set(assistantMsg, 'thinking_blocks', output.thinking_blocks);
-    Reflect.set(assistantMsg, 'source', { provider_name: 'anthropic', model_name: 'opus' });
+    Reflect.set(assistantMsg, 'source', 'anthropic/anthropic/opus');
 
     const reasoningPart = (
       toAssistantModelMessage({ msg: assistantMsg, provider: 'openai', providerName: 'openai' }).content as Array<{

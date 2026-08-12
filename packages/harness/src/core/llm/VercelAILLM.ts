@@ -615,8 +615,8 @@ export function toUserContent(content: string | ChatCompletionContentPart[]): Us
  * - `'google-gemini'` → per-tool-call `google.thoughtSignature`, no standalone reasoning block
  * - `'custom'`        → OpenAI-compatible ignores providerOptions, so the token has nowhere to go
  *
- * Signatures are attached only when `source.provider_name` matches the current `providerName`.
- * Missing or foreign source → reasoning text without providerOptions.
+ * Signatures attach when `source` (`type/name/model`) matches: same provider type, or for
+ * `custom` the same provider name. Missing/foreign source → reasoning text only.
  */
 export function toAssistantModelMessage({
   msg,
@@ -625,14 +625,18 @@ export function toAssistantModelMessage({
 }: {
   msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }>;
   provider: VercelAIProviderName;
+  /** Configured provider resource name (FQN prefix); used when `provider` is `custom`. */
   providerName: string;
 }): ModelMessage {
   const parts: AssistantContent = [];
 
   // `thinking_blocks` / `source` are attached at runtime by AgentThread and absent from the OpenAI SDK type.
   const rawThinking: unknown = Reflect.get(msg, 'thinking_blocks');
-  const messageSource = readAssistantMessageSource(msg);
-  const attachSignature = messageSource?.provider_name === providerName;
+  const attachSignature = shouldAttachReasoningSignature({
+    source: Reflect.get(msg, 'source'),
+    provider,
+    providerName,
+  });
   // Alibaba appends replayed thinking to the visible answer, and Qwen signs nothing to preserve.
   if (Array.isArray(rawThinking) && provider !== 'alibaba') {
     // Widen any[] → unknown[] so the in-guards below narrow safely.
@@ -718,18 +722,38 @@ export function toAssistantModelMessage({
   };
 }
 
-/** Reads optional `source` stamped on an assistant message for signature replay gating. */
-function readAssistantMessageSource(msg: object): { provider_name: string; model_name: string } | undefined {
-  const rawSource: unknown = Reflect.get(msg, 'source');
-  if (!isPlainObject(rawSource)) {
+/** Parse `provider_type/provider_name/model_name`. */
+function parseAssistantMessageSource(
+  source: unknown,
+): { providerType: string; providerName: string; modelName: string } | undefined {
+  if (typeof source !== 'string') {
     return undefined;
   }
-  const provider_name = rawSource['provider_name'];
-  const model_name = rawSource['model_name'];
-  if (typeof provider_name !== 'string' || typeof model_name !== 'string') {
+  const [providerType, providerName, modelName, ...rest] = source.split('/');
+  if (rest.length > 0 || !providerType || !providerName || !modelName) {
     return undefined;
   }
-  return { provider_name, model_name };
+  return { providerType, providerName, modelName };
+}
+
+/** Same adapter type keeps signatures; `custom` also requires the same configured provider name. */
+export function shouldAttachReasoningSignature({
+  source,
+  provider,
+  providerName,
+}: {
+  source: unknown;
+  provider: VercelAIProviderName;
+  providerName: string;
+}): boolean {
+  const parsed = parseAssistantMessageSource(source);
+  if (parsed === undefined) {
+    return false;
+  }
+  if (provider === 'custom') {
+    return parsed.providerType === 'custom' && parsed.providerName === providerName;
+  }
+  return parsed.providerType === provider;
 }
 
 export interface ConvertedMessages {
@@ -1426,10 +1450,7 @@ export class VercelAILLM implements ILLM {
     try {
       const result = yield* mapStreamToChunks({ stream: streamResult.stream, chunkMeta });
       if (parsedFqn) {
-        result.output.source = {
-          provider_name: parsedFqn.providerName,
-          model_name: parsedFqn.modelName,
-        };
+        result.output.source = `${providerConfig.provider}/${parsedFqn.providerName}/${parsedFqn.modelName}`;
       }
       return result;
     } catch (error) {

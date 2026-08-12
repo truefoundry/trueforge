@@ -32,7 +32,7 @@ function makeAssistantWithReplayFields(): InternalEnrichedAssistantMessage {
       { type: 'redacted_thinking', data: 'redacted-blob' },
     ],
     reasoning_content: 'plain reasoning',
-    source: { provider_name: 'anthropic', model_name: 'opus' },
+    source: 'anthropic/anthropic/opus',
     tool_calls: [
       {
         id: 'call-1',
@@ -54,7 +54,7 @@ describe('toOpenAIChatMessage', () => {
     expect(mapped['content']).toBe('hello');
     expect(mapped['thinking_blocks']).toEqual(msg.thinking_blocks);
     expect(mapped['reasoning_content']).toBe('plain reasoning');
-    expect(mapped['source']).toEqual({ provider_name: 'anthropic', model_name: 'opus' });
+    expect(mapped['source']).toBe('anthropic/anthropic/opus');
 
     const toolCalls = mapped['tool_calls'] as Record<string, unknown>[];
     expect(toolCalls).toHaveLength(1);

@@ -78,12 +78,6 @@ export const EnrichedToolCallSchema = RawToolCallSchema.extend({
   tool_info: ToolInfoSchema,
 }).openapi('ToolCall');
 
-/** Which configured provider/model minted an assistant message (replay provenance; not on the wire). */
-export const AssistantMessageSourceSchema = z.object({
-  provider_name: z.string().describe('Configured model-provider name.'),
-  model_name: z.string().describe('Configured model name.'),
-});
-
 export const RawAssistantMessageSchema = ChatCompletionAssistantMessageParamSchema.omit({
   tool_calls: true,
   audio: true,
@@ -94,8 +88,8 @@ export const RawAssistantMessageSchema = ChatCompletionAssistantMessageParamSche
     thinking_blocks: z.array(ThinkingBlockUnionSchema).optional(),
     /** Plain-text thinking content streamed incrementally for frontend display; redundant with thinking_blocks[].thinking. */
     reasoning_content: z.string().optional(),
-    /** Provider/model that produced this message; used to gate reasoning-signature replay. */
-    source: AssistantMessageSourceSchema.optional(),
+    /**Provenance for reasoning-signature replay: `provider_type/provider_name/model_name`.*/
+    source: z.string().optional(),
   })
   .openapi('RawAssistantMessage');
 
@@ -165,7 +159,6 @@ export type MCPToolInfo = z.infer<typeof MCPToolInfoSchema>;
 export type ToolInfo = z.infer<typeof ToolInfoSchema>;
 export type InternalEnrichedToolCall = z.infer<typeof InternalEnrichedToolCallSchema>;
 export type EnrichedToolCall = z.infer<typeof EnrichedToolCallSchema>;
-export type AssistantMessageSource = z.infer<typeof AssistantMessageSourceSchema>;
 export type RawAssistantMessage = z.infer<typeof RawAssistantMessageSchema>;
 export type InternalEnrichedAssistantMessage = z.infer<typeof InternalEnrichedAssistantMessageSchema>;
 export type EnrichedAssistantMessage = z.infer<typeof EnrichedAssistantMessageSchema>;

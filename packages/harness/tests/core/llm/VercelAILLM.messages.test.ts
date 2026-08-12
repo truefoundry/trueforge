@@ -8,6 +8,7 @@ import {
   convertMessages,
   convertTools,
   parseMimeFromDataUri,
+  shouldAttachReasoningSignature,
   toAssistantModelMessage,
   toFilePart,
   toUserContent,
@@ -180,7 +181,7 @@ describe('toAssistantModelMessage', () => {
       content: null,
     };
     Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step one', signature: 'sig-openai' }]);
-    Reflect.set(msg, 'source', { provider_name: 'openai', model_name: 'test' });
+    Reflect.set(msg, 'source', 'openai/openai/test');
 
     const result = toAssistantModelMessage({ msg: msg, provider: 'openai', providerName: 'openai' });
     const reasoningPart = (result.content as Array<{ type: string; text?: string; providerOptions?: unknown }>).find(
@@ -197,7 +198,7 @@ describe('toAssistantModelMessage', () => {
       content: null,
     };
     Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step two', signature: 'sig-ant' }]);
-    Reflect.set(msg, 'source', { provider_name: 'anthropic', model_name: 'test' });
+    Reflect.set(msg, 'source', 'anthropic/anthropic/test');
 
     const result = toAssistantModelMessage({ msg: msg, provider: 'anthropic', providerName: 'anthropic' });
     const reasoningPart = (result.content as Array<{ type: string; providerOptions?: unknown }>).find(
@@ -265,13 +266,13 @@ describe('toAssistantModelMessage', () => {
     expect(toolCallPart).not.toHaveProperty('providerOptions');
   });
 
-  it('attaches signature when source.provider_name matches, ignoring model_name', () => {
+  it('attaches signature when source provider type matches, ignoring model_name', () => {
     const msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
       role: 'assistant',
       content: null,
     };
     Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step', signature: 'sig' }]);
-    Reflect.set(msg, 'source', { provider_name: 'openai', model_name: 'old-model' });
+    Reflect.set(msg, 'source', 'openai/openai/old-model');
 
     const result = toAssistantModelMessage({ msg: msg, provider: 'openai', providerName: 'openai' });
     const reasoningPart = (result.content as Array<{ type: string; providerOptions?: unknown }>).find(
@@ -280,13 +281,13 @@ describe('toAssistantModelMessage', () => {
     expect(reasoningPart?.providerOptions).toEqual({ openai: { reasoningEncryptedContent: 'sig' } });
   });
 
-  it('omits signature providerOptions when source.provider_name differs from current provider', () => {
+  it('omits signature providerOptions when source provider type differs', () => {
     const msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
       role: 'assistant',
       content: null,
     };
     Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step', signature: 'ant-sig' }]);
-    Reflect.set(msg, 'source', { provider_name: 'anthropic', model_name: 'opus' });
+    Reflect.set(msg, 'source', 'anthropic/anthropic/opus');
 
     const result = toAssistantModelMessage({ msg: msg, provider: 'openai', providerName: 'openai' });
     const reasoningPart = (result.content as Array<{ type: string; text?: string; providerOptions?: unknown }>).find(
@@ -294,6 +295,23 @@ describe('toAssistantModelMessage', () => {
     );
     expect(reasoningPart?.text).toBe('step');
     expect(reasoningPart).not.toHaveProperty('providerOptions');
+  });
+
+  it('for custom providers, requires matching provider name (not only type)', () => {
+    expect(
+      shouldAttachReasoningSignature({
+        source: 'custom/gateway-a/model',
+        provider: 'custom',
+        providerName: 'gateway-a',
+      }),
+    ).toBe(true);
+    expect(
+      shouldAttachReasoningSignature({
+        source: 'custom/gateway-a/model',
+        provider: 'custom',
+        providerName: 'gateway-b',
+      }),
+    ).toBe(false);
   });
 
   it('omits signature providerOptions when source is missing', () => {
@@ -405,7 +423,7 @@ describe('convertMessages', () => {
   it('threads the provider into assistant message reasoning parts', () => {
     const msg: ChatCompletionMessageParam = { role: 'assistant', content: null };
     Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'thought', signature: 'sig' }]);
-    Reflect.set(msg, 'source', { provider_name: 'anthropic', model_name: 'test' });
+    Reflect.set(msg, 'source', 'anthropic/anthropic/test');
 
     const { messages: result } = convertMessages({ messages: [msg], provider: 'anthropic', providerName: 'anthropic' });
     const assistantMsg = result.find(m => m.role === 'assistant');
