@@ -36,7 +36,7 @@ flowchart TD
 
 ### Agent
 
-An **agent** is a definition, not a running process. You define it once — model, instructions, tools, config — and any number of conversations can use it. For `support-bot`, a customer support assistant that looks up orders and processes refunds via an MCP server, the [AgentSpec](/api/agent-spec) looks like this:
+An **agent** is a definition, not a running process. You define it once — model, instructions, tools, config — and any number of conversations can use it. For `support-bot`, a customer support assistant that looks up orders and processes refunds via an MCP server, the [AgentSpec](/create-agent/agent-spec) looks like this:
 
 ```json support-bot — AgentSpec
 {
@@ -56,7 +56,7 @@ An **agent** is a definition, not a running process. You define it once — mode
 }
 ```
 
-You can save this spec as a named agent and reference it by name in every session, or pass it inline when creating a session. See the [agent spec reference](/api/agent-spec) for every field.
+You can save this spec as a named agent and reference it by name in every session, or pass it inline when creating a session. See the [agent spec reference](/create-agent/agent-spec) for every field.
 
 ### Session
 

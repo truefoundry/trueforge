@@ -47,23 +47,35 @@ server:
   # Container port the server listens on (PORT).
   port: 8790
   # Public origin for MCP OAuth / OIDC callbacks (PUBLIC_BASE_URL).
+  # Required for OIDC and MCP OAuth to work correctly.
   publicBaseUrl: ""
   # Seconds the server is given to drain turns on SIGTERM (GRACEFUL_TIMEOUT_SECONDS).
   gracefulTimeoutSeconds: 30
   # The server always runs peered (STANDALONE=false) against Postgres + Redis.
-  # extraEnv/extraEnvFrom are escape hatches for OIDC and other knobs.
-  # extraEnv accepts {name, value} or {name, valueFrom: {secretKeyRef: ...}}.
+  # Escape hatch for knobs not covered by configs.*. Each entry is a full env
+  # item: {name, value} or {name, valueFrom: {secretKeyRef|configMapKeyRef: ...}}.
   extraEnv: []
-  # extraEnv:
-  #   - name: OIDC_CLIENT_SECRET
-  #     valueFrom:
-  #       secretKeyRef:
-  #         name: truefoundry-utils-oidc
-  #         key: client-secret
-  extraEnvFrom: []
-  # extraEnvFrom:
-  #   - secretRef:
-  #       name: truefoundry-utils-oidc
+
+# Application feature config (maps to env vars in packages/server/src/config.ts).
+# clientSecret (and other secret-like fields) accept a string or
+# { valueFrom: { secretKeyRef: ... } }.
+configs:
+  oidc:
+    # When false, no OIDC_* env is set (fixed local admin identity).
+    enabled: false
+    issuerUrl: ""
+    clientId: ""
+    # string or valueFrom.secretKeyRef (prefer valueFrom in production).
+    clientSecret: ""
+    # clientSecret:
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: truefoundry-utils-oidc
+    #       key: client-secret
+    userReferenceClaim: sub
+    userRoleClaim: groups
+    adminRoleValue: admin
+    scopes: "openid,profile,email"
 
 # Bitnami relocated its versioned container images to docker.io/bitnamilegacy and
 # left only rolling `latest` tags under docker.io/bitnami, so the subchart image
@@ -124,21 +136,23 @@ externalPostgres:
   port: 5432
   database: truefoundry_utils
   user: truefoundry_utils
-  # Provide the password one of two ways:
-  #  - set `password` and the chart renders a Secret, or
-  #  - set `existingSecret` (+ `passwordKey`) to reference an existing Secret.
+  # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
   password: ""
-  existingSecret: ""
-  passwordKey: password
+  # password:
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: my-postgres-secret
+  #       key: password
 
 externalRedis:
   # Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
-  # Provide one of:
-  #  - `url` (literal; fine for local/dev), or
-  #  - `existingSecret` (+ `urlKey`) to reference an existing Secret.
+  # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
   url: ""
-  existingSecret: ""
-  urlKey: redis-url
+  # url:
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: my-redis-secret
+  #       key: redis-url
 
 # Extra raw manifests deployed alongside the server, e.g. an Istio
 # VirtualService, a Gateway, an Ingress, or a NetworkPolicy. Each entry is a

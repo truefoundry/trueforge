@@ -1,21 +1,14 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import {
-  extractErrorLogFields,
-  isAuthRequired,
-  McpConnectionError,
-  McpDcrConfigurationError,
-  RemoteMCP,
-  withTimeout,
-} from '@truefoundry/utils-core/core';
+import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
 import type { McpCatalog } from '../catalog/McpCatalog';
 import configuration from '../config';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
 import type { WithTransaction } from '../db/transaction';
-import { ensureMcpClientRegistered, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
-import { validateRedirectUris } from '../mcp/auth/mcpOAuthHelpers';
-import type { IOAuthTokenStore, OAuthToken } from '../mcp/auth/types';
+import { createMcpOAuthClient, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
+import { mcpOAuthCallbackUrl, validateRedirectUris } from '../mcp/auth/mcpOAuthHelpers';
+import type { IOAuthTokenStore, OAuthClientRecord, OAuthToken } from '../mcp/auth/types';
 import {
   authorizeMcpServerRoute,
   deleteMcpServerAuthRoute,
@@ -29,10 +22,8 @@ import {
 import { getMcpConnection } from '../runtime/sessionResources';
 import type { ConfiguredMcpServer, McpAuthStatus, McpServerManifest, McpServerReadEntry } from '../schemas/mcpServer';
 import { resolveMcpAuthStatus } from '../schemas/mcpServer';
+import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
-
-/** Registering a DCR OAuth client hits the MCP server's authorization server, so bound that call. */
-export const MCP_DCR_REGISTRATION_TIMEOUT_MS = 10_000;
 
 export interface SettingsMcpServersRouterDeps<TTransaction> {
   mcpCatalog: McpCatalog;
@@ -62,6 +53,50 @@ function omitUndefinedEntries(obj: Record<string, unknown>): Record<string, unkn
   return out;
 }
 
+/** Settings wire view: redact header secrets; leave DCR / no-auth manifests unchanged. */
+function redactMcpServerManifest(manifest: McpServerManifest): McpServerManifest {
+  if (manifest.auth?.type !== 'header') {
+    return manifest;
+  }
+  const headers: Record<string, string> = {};
+  for (const [name, value] of Object.entries(manifest.auth.headers)) {
+    headers[name] = toRedactedSecretValue(value);
+  }
+  return {
+    ...manifest,
+    auth: { type: 'header', headers },
+  };
+}
+
+/**
+ * Strict PUT merge for `auth.type === 'header'`: each header value is always required;
+ * redacted values keep the stored secret for the same header name.
+ * @throws {MissingStoredSecretError} when keep is requested without a stored header value
+ */
+function resolveMcpServerManifestForWrite({
+  incoming,
+  existing,
+}: {
+  incoming: McpServerManifest;
+  existing: McpServerManifest | undefined;
+}): McpServerManifest {
+  if (incoming.auth?.type !== 'header') {
+    return incoming;
+  }
+  const existingHeaders = existing?.auth?.type === 'header' ? existing.auth.headers : undefined;
+  const headers: Record<string, string> = {};
+  for (const [name, value] of Object.entries(incoming.auth.headers)) {
+    headers[name] = resolveStoredSecretValue({
+      incoming: value,
+      existing: existingHeaders?.[name],
+    });
+  }
+  return {
+    ...incoming,
+    auth: { type: 'header', headers },
+  };
+}
+
 /**
  * `token` is the calling user's DCR access token for this server (keyed by `record.id` +
  * `userRef`), or undefined for header/no-auth servers and DCR servers that have never
@@ -75,7 +110,7 @@ function toConfiguredMcpServer({
   token: OAuthToken | undefined;
 }): ConfiguredMcpServer {
   return {
-    ...record.manifest,
+    ...redactMcpServerManifest(record.manifest),
     auth_status: resolveMcpAuthStatus({
       manifest: record.manifest,
       ...(token !== undefined ? { token } : {}),
@@ -102,28 +137,8 @@ function toMcpServerReadEntry({
   };
 }
 
-/** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers).
- *  TODO: Remove the server via txn if DCR fails to register
- */
+/** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers). */
 export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpServersRouterDeps<TTransaction>) {
-  const registerDcrClient = async (params: {
-    serverId: string;
-    mcpServerUrl: string;
-    mcpServerName: string;
-  }): Promise<void> => {
-    await withTimeout(
-      ensureMcpClientRegistered({
-        mcpServerStore: deps.mcpServerStore,
-        serverId: params.serverId,
-        mcpServerUrl: params.mcpServerUrl,
-        mcpServerName: params.mcpServerName,
-        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-      }),
-      MCP_DCR_REGISTRATION_TIMEOUT_MS,
-      `DCR client registration for MCP server "${params.mcpServerName}"`,
-    );
-  };
-
   const catalogHandler: RouteHandler<typeof getMcpServerCatalogRoute> = c => {
     return c.json({ data: [...deps.mcpCatalog.list()] }, 200);
   };
@@ -156,41 +171,82 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
 
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
     const userRef = deps.resolveUserContext(c).userRef;
-    const manifest: McpServerManifest = c.req.valid('json');
-    const record = await deps.mcpServerStore.upsertServer({
-      tenant_id: TENANT_ID,
-      name: manifest.name,
-      manifest,
-    });
-    if (record.manifest.auth?.type === 'dcr') {
-      try {
-        await registerDcrClient({
-          serverId: record.id,
-          mcpServerUrl: record.manifest.url,
-          mcpServerName: record.manifest.name,
-        });
-      } catch (error) {
-        // Permanent config error (server advertises no DCR support): a retry can never succeed, so
-        // surface it now as a 422 for immediate feedback instead of a silently-broken server.
-        if (error instanceof McpDcrConfigurationError) {
+    const incomingManifest: McpServerManifest = c.req.valid('json');
+    // Unlocked snapshot only for pre-txn DCR HTTP (remote I/O cannot run inside withTransaction).
+    // Header secret keep/rotate is re-resolved under getServerForUpdate inside the txn below.
+    const prior = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name: incomingManifest.name });
+
+    // DCR HTTP must finish before the txn so a failed registration never leaves a half-written row
+    // (txn cannot roll back the AS, and AGENTS forbids remote I/O inside withTransaction).
+    // Per-request OAuth timeouts live on mcpOAuthFetch (MCP_OAUTH_HTTP_TIMEOUT_MS) — no outer
+    // withTimeout, so hung AS failures surface as TimeoutError with the intended message.
+    let dcrClientToSave: OAuthClientRecord | undefined;
+    if (incomingManifest.auth?.type === 'dcr') {
+      const existingClient = prior !== undefined ? await deps.mcpServerStore.getClient({ id: prior.id }) : undefined;
+      // Register when: brand-new server, client was cleared (e.g. invalid_client), or MCP URL changed
+      // (resource/AS may differ; reuse would keep stale oauth_server/client for the old AS).
+      // TODO: make manifest URL immutable after create so re-DCR / stale OAuth tokens are not possible via PUT.
+      const urlChanged = prior !== undefined && prior.manifest.url !== incomingManifest.url;
+      const needsDcr = existingClient === undefined || urlChanged;
+      if (needsDcr) {
+        try {
+          dcrClientToSave = await createMcpOAuthClient({
+            mcpServerUrl: incomingManifest.url,
+            mcpServerName: incomingManifest.name,
+            redirectUri: mcpOAuthCallbackUrl(),
+            clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+          });
+        } catch (error) {
           deps.logger.error(
-            `DCR misconfiguration for "${record.manifest.name}"; rejecting upsert`,
+            `DCR client registration failed for "${incomingManifest.name}"; rejecting upsert`,
             extractErrorLogFields(error),
           );
-          return c.json({ error: { message: error.message } }, 422);
+          const message =
+            error instanceof Error ? error.message : 'Failed to register OAuth client for this MCP server';
+          return c.json({ error: { message } }, 422);
         }
-        // Transient (network / timeout / flaky authorization server): keep the saved server and let
-        // the next authorize retry, rather than failing the upsert on a temporary fault.
-        deps.logger.warn(
-          `Eager DCR client registration failed for "${record.manifest.name}"; will retry on authorize`,
-          extractErrorLogFields(error),
-        );
       }
     }
-    // A re-upsert preserves `id`, so a DCR server may already carry a token from a prior authorize.
-    const token =
-      record.manifest.auth?.type === 'dcr' ? await deps.tokenStore.getToken({ id: record.id, userRef }) : undefined;
-    return c.json({ data: toConfiguredMcpServer({ record, token }) }, 200);
+
+    try {
+      // Lock → resolve secrets from that snapshot → upsert, all in one txn so concurrent keep
+      // cannot re-write a secret over a rotate that committed in between.
+      const record = await deps.withTransaction(async transaction => {
+        const existing = await deps.mcpServerStore.getServerForUpdate(
+          { tenant_id: TENANT_ID, name: incomingManifest.name },
+          transaction,
+        );
+        const manifest = resolveMcpServerManifestForWrite({
+          incoming: incomingManifest,
+          existing: existing?.manifest,
+        });
+        const saved = await deps.mcpServerStore.upsertServer(
+          {
+            tenant_id: TENANT_ID,
+            name: manifest.name,
+            manifest,
+          },
+          transaction,
+        );
+        if (dcrClientToSave !== undefined) {
+          // New DCR registration (create, missing client, or URL change): replace the shared client only.
+          // Existing per-user tokens are left in place; resolve/refresh fails them if they no longer
+          // match the new resource/AS, and users re-authorize from there.
+          await deps.mcpServerStore.saveClient({ id: saved.id, record: dcrClientToSave }, transaction);
+        }
+        return saved;
+      });
+
+      // A re-upsert preserves `id`, so a DCR server may already carry a token from a prior authorize.
+      const token =
+        record.manifest.auth?.type === 'dcr' ? await deps.tokenStore.getToken({ id: record.id, userRef }) : undefined;
+      return c.json({ data: toConfiguredMcpServer({ record, token }) }, 200);
+    } catch (error) {
+      if (error instanceof MissingStoredSecretError) {
+        return c.json({ error: { message: 'Header secret is required' } }, 400);
+      }
+      throw error;
+    }
   };
 
   const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {

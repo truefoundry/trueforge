@@ -42,7 +42,7 @@ over hacking third-party CSS:
 />
 ```
 
-Presets: `truefoundry` (default), `claude`, `chatgpt`, `gemini` — stylistic
+Presets: `trueforge` (default), `claude`, `chatgpt`, `gemini` — stylistic
 homages, not product replicas. Host CSS still works on `.aui-root` /
 `.aui-markdown` / `.aui-syntax-highlighter` / `.aui-openui` / `.aui-monaco`.
 

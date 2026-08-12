@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button } from '../../atoms/primitives/Button.js';
+import { CatalogLogo } from '../../atoms/primitives/CatalogLogo.js';
 import SearchInput from '../../atoms/primitives/SearchInput.js';
 import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
@@ -272,6 +273,7 @@ const ModelSettings = () => {
                     const catalogModels = catalogModelsByType.get(provider.type) ?? [];
                     const configuredIds = new Set(provider.models.map(model => model.id));
                     const availableModels = catalogModels.filter(model => !configuredIds.has(model.id));
+                    const logoSrc = modelProviderIconMap[provider.name];
 
                     return (
                       <article key={provider.id} className="border-b border-border p-3 last:border-b-0">
@@ -281,12 +283,8 @@ const ModelSettings = () => {
                               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
                               aria-hidden
                             >
-                              {modelProviderIconMap[provider.name] ? (
-                                <img
-                                  src={modelProviderIconMap[provider.name]}
-                                  alt={provider.name}
-                                  className="size-4.5"
-                                />
+                              {logoSrc ? (
+                                <CatalogLogo src={logoSrc} alt={provider.name} className="size-4.5" />
                               ) : (
                                 <Icon name="cpu" className="size-4.5" />
                               )}
@@ -295,8 +293,8 @@ const ModelSettings = () => {
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
-                            <span className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
-                              <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
+                            <span className="flex items-center gap-1.5 text-[13px] font-medium text-success">
+                              <span className="h-1.5 w-1.5 rounded-full bg-success"></span>
                               Connected
                             </span>
                             <Button
@@ -409,52 +407,55 @@ const ModelSettings = () => {
                 </div>
 
                 <div className="overflow-hidden rounded-xl border border-border bg-card">
-                  {matchingAvailable.map(provider => (
-                    <article key={provider.type} className="border-b border-border p-3 last:border-b-0">
-                      <header className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <span
-                            className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
-                            aria-hidden
-                          >
-                            {modelProviderIconMap[provider.name] ? (
-                              <img src={modelProviderIconMap[provider.name]} alt={provider.name} className="size-4.5" />
-                            ) : (
-                              <Icon name="cpu" className="size-4.5" />
-                            )}
-                          </span>
-                          <div className="min-w-0">
-                            <h5 className="truncate text-base font-medium text-foreground">{provider.name}</h5>
-                            <p className="truncate text-sm text-muted-foreground">
-                              {provider.models.map(model => model.name).join(' · ')}
-                            </p>
+                  {matchingAvailable.map(provider => {
+                    const logoSrc = modelProviderIconMap[provider.name];
+                    return (
+                      <article key={provider.type} className="border-b border-border p-3 last:border-b-0">
+                        <header className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                          <div className="flex min-w-0 flex-1 items-center gap-3">
+                            <span
+                              className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
+                              aria-hidden
+                            >
+                              {logoSrc ? (
+                                <CatalogLogo src={logoSrc} alt={provider.name} className="size-4.5" />
+                              ) : (
+                                <Icon name="cpu" className="size-4.5" />
+                              )}
+                            </span>
+                            <div className="min-w-0">
+                              <h5 className="truncate text-base font-medium text-foreground">{provider.name}</h5>
+                              <p className="truncate text-sm text-muted-foreground">
+                                {provider.models.map(model => model.name).join(' · ')}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <Button
-                          variant="secondary"
-                          type="button"
-                          disabled={busy}
-                          onClick={() => {
-                            setEditingProviderId(null);
-                            setEditingCatalogType(provider.type);
-                            setApiKey('');
-                          }}
-                        >
-                          <Icon name="wrench" className="size-4" />
-                          Configure
-                        </Button>
-                      </header>
-                      {editingCatalogType === provider.type
-                        ? renderKeyEditor({
-                            id: provider.type,
-                            submitLabel: 'Create',
-                            onSave: () => {
-                              handleCreateFromCatalog(provider.type);
-                            },
-                          })
-                        : null}
-                    </article>
-                  ))}
+                          <Button
+                            variant="secondary"
+                            type="button"
+                            disabled={busy}
+                            onClick={() => {
+                              setEditingProviderId(null);
+                              setEditingCatalogType(provider.type);
+                              setApiKey('');
+                            }}
+                          >
+                            <Icon name="wrench" className="size-4" />
+                            Configure
+                          </Button>
+                        </header>
+                        {editingCatalogType === provider.type
+                          ? renderKeyEditor({
+                              id: provider.type,
+                              submitLabel: 'Create',
+                              onSave: () => {
+                                handleCreateFromCatalog(provider.type);
+                              },
+                            })
+                          : null}
+                      </article>
+                    );
+                  })}
                 </div>
               </section>
             ) : null}

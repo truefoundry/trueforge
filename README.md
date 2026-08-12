@@ -81,7 +81,7 @@ helm install truefoundry-utils oci://<HELM_REPO>/truefoundry-utils \
   --version <x.y.z>
 ```
 
-See the [chart README](charts/truefoundry-utils/README.md) and [Quickstart](https://trueforge.dev/quickstart) for values and details.
+See the [chart README](charts/truefoundry-utils/README.md) (including [`configs.oidc`](charts/truefoundry-utils/README.md#oidc)) and [Quickstart](https://trueforge.dev/quickstart) for values and details.
 
 ## Build your first agent
 

@@ -84,7 +84,6 @@ export function toHarnessModelProvider(req: {
   models: UiModelEntry[];
 }): TrueForgeApi.ModelProvider {
   const models = req.models.map(toHarnessModelEntry);
-  const auth = { apiKey: req.apiKey };
   if (!isProviderType(req.type)) {
     throw new Error(`Unsupported model provider type: ${req.type}`);
   }
@@ -94,28 +93,41 @@ export function toHarnessModelProvider(req: {
     if (baseUrl === undefined) {
       throw new Error(`Model providers of type "${req.type}" require a base URL`);
     }
-    return { type: req.type, name: req.name, auth, models, baseUrl };
+    // Blank form field is ""; custom must omit auth on the wire (empty string is rejected).
+    return {
+      type: req.type,
+      name: req.name,
+      models,
+      baseUrl,
+      ...(req.apiKey === '' ? {} : { auth: { apiKey: req.apiKey } }),
+    };
   }
+  const auth = { apiKey: req.apiKey };
   if (baseUrl !== undefined) {
     return { type: req.type, auth, models, baseUrl };
   }
   return { type: req.type, auth, models };
 }
 
-async function resolveApiKey(req: { id?: string; apiKey: string }): Promise<string> {
+async function resolveApiKey(req: { id?: string; type?: string; apiKey: string }): Promise<string> {
   const trimmed = req.apiKey.trim();
   if (trimmed !== '') {
     return trimmed;
   }
   if (req.id === undefined) {
+    // Create with a blank key: allow only for custom; "" is mapped to omitted auth below.
+    if (req.type === 'custom') {
+      return '';
+    }
     throw new Error('API key is required');
   }
+  // Update with empty means keep the stored key.
   const listed = await client.settings.modelProviders.list();
   const existing = listed.data.find(provider => toUiModelProvider(provider).id === req.id);
   if (existing === undefined) {
     throw new Error(`Model provider "${req.id}" not found`);
   }
-  return existing.auth.apiKey;
+  return existing.auth?.apiKey ?? '';
 }
 
 async function upsertFromUi(req: {
@@ -155,7 +167,7 @@ export function createModelProviderCatalog(): ModelCatalogServer<
       return body.data.map(toUiModelProvider);
     },
     createModelProvider: async req => {
-      const apiKey = await resolveApiKey({ apiKey: req.apiKey });
+      const apiKey = await resolveApiKey({ type: req.type, apiKey: req.apiKey });
       return upsertFromUi({
         type: req.type,
         name: req.name,
@@ -166,7 +178,7 @@ export function createModelProviderCatalog(): ModelCatalogServer<
     },
     updateModelProvider: async req => {
       // UI sends apiKey: "" when only models change; reuse the stored key.
-      const apiKey = await resolveApiKey({ id: req.id, apiKey: req.apiKey });
+      const apiKey = await resolveApiKey({ id: req.id, type: req.type, apiKey: req.apiKey });
       return upsertFromUi({
         type: req.type,
         name: req.id,

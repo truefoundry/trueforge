@@ -57,6 +57,22 @@ export class SqliteMcpServerStore implements IMcpServerStore<Transaction<Databas
       .executeTakeFirst();
   }
 
+  /**
+   * SQLite has no row-level FOR UPDATE; the required write transaction (BEGIN IMMEDIATE)
+   * serializes concurrent writers so RMW of header secrets stays consistent.
+   */
+  async getServerForUpdate(
+    input: GetMcpServerInput,
+    transaction: Transaction<Database>,
+  ): Promise<McpServerRecord | undefined> {
+    return await transaction
+      .selectFrom('mcp_server')
+      .select(recordColumns)
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
+      .executeTakeFirst();
+  }
+
   async upsertServer(input: UpsertMcpServerInput, transaction?: Transaction<Database>): Promise<McpServerRecord> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();

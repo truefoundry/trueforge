@@ -42,17 +42,11 @@ Open **Settings → Sandbox providers**, pick the [Daytona](https://www.daytona.
   />
 </div>
 
-### Where the provider list comes from
-
-Presets come from a shipped catalog YAML:
-
-[`sandbox-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/server/src/catalog/sandbox-catalog.yaml)
-
-To change which presets appear, see [Initial Setup](/harness/initial-setup#changing-what-the-ui-offers).
+The provider presets come from the shipped sandbox catalog — see [Initial Setup](/harness/initial-setup#what-is-supported-out-of-the-box) for how catalogs work and how to change what the UI offers.
 
 ## Enabling the sandbox on an agent
 
-The sandbox is **off by default** per agent. Turn it on in the agent builder when you need code execution, skills, or Code Mode. You can also set `config.sandbox.enabled` when creating agents via the [SDK](/api/agent-spec).
+The sandbox is **off by default** per agent. Turn it on in the agent builder when you need code execution, skills, or Code Mode. You can also set `config.sandbox.enabled` in the [agent spec](/create-agent/agent-spec) when creating agents via the SDK.
 
 Optional controls:
 
