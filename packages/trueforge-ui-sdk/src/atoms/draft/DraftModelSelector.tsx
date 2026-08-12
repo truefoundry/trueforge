@@ -242,7 +242,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
         })}
         onClick={() => setOpen(v => !v)}
       >
-        <ProviderMark logo={selected?.provider.logo} label={account} className="size-5 text-[10px]" />
+        <ProviderMark logo={selected?.provider.logo} label={account} className="size-4 text-xs" />
         <span className="truncate">{label}</span>
         <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
       </button>
