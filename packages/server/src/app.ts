@@ -2,6 +2,7 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/utils-core/agent-session';
+import { extractErrorLogFields } from '@truefoundry/utils-core/core';
 import type { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -271,9 +272,15 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       return zodErrorResponse(c, error);
     }
     if (error instanceof HTTPException) {
+      if (error.status >= 500) {
+        deps.logger.error('Server API error', {
+          status: error.status,
+          ...extractErrorLogFields(error),
+        });
+      }
       return c.json({ error: { message: error.message } }, error.status);
     }
-    deps.logger.error('Unhandled error', { message: error.message, stack: error.stack });
+    deps.logger.error('Unhandled error', extractErrorLogFields(error));
     return c.json({ error: { message: 'Internal server error' } }, 500);
   });
 
