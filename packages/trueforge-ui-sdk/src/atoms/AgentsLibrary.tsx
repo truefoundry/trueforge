@@ -7,7 +7,6 @@ import { libraryAgentId, useOptionalShellMode } from '../server/ShellModeContext
 import type { AgentLibraryEntry, AgentSpec } from '../server/types.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
-import { useCompactLayout } from './lib/CompactLayoutContext.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { CenteredModal } from './primitives/CenteredModal.js';
 import SearchInput from './primitives/SearchInput.js';
@@ -26,22 +25,23 @@ type AgentLibraryRowProps = {
   onEdit: () => void;
 };
 
-function rowActionClass(compact: boolean) {
-  return cn(
-    'shrink-0 opacity-100 transition-opacity',
-    !compact && 'md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100',
-    'focus-visible:opacity-100',
-  );
+/** Short label for model fqns like `provider/gpt-4.1` → `gpt-4.1`. */
+function displayModelLabel(modelName: string): string {
+  const slash = modelName.lastIndexOf('/');
+  return slash >= 0 ? modelName.slice(slash + 1) : modelName;
 }
 
 function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProps) {
-  const compact = useCompactLayout();
+  const spec = agent.agentSpec;
+  const modelName = spec?.model.name;
+  const skillsCount = spec?.skills?.length ?? 0;
+  const mcpCount = spec?.mcpServers?.length ?? 0;
 
   return (
     <div
       role="menuitem"
       className={cn(
-        'group flex w-full items-center gap-2.5 rounded-md border border-transparent px-2.5 py-2 transition-colors',
+        'flex w-full items-center gap-2.5 rounded-md border border-transparent px-2.5 py-2 transition-colors',
         'hover:border-border hover:bg-ghost-button-hover',
         'focus-within:border-border focus-within:bg-ghost-button-hover',
       )}
@@ -52,6 +52,24 @@ function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProp
       <span className="text-text-primary min-w-0 flex-1 truncate text-left text-sm font-medium leading-tight">
         {agent.name}
       </span>
+      {spec != null ? (
+        <span className="text-text-secondary flex shrink-0 items-center gap-2">
+          {modelName ? (
+            <span className="bg-primary-button-bg/10 text-primary-button-bg inline-flex max-w-[8rem] items-center gap-1 truncate rounded-full px-2 py-0.5 text-xs font-medium">
+              <Icon name="cpu" className="size-3.5 shrink-0" />
+              <span className="truncate">{displayModelLabel(modelName)}</span>
+            </span>
+          ) : null}
+          <span className="inline-flex items-center gap-1 text-xs" aria-label={`${skillsCount} skills`}>
+            <Icon name="wrench" className="size-3.5" />
+            {skillsCount}
+          </span>
+          <span className="inline-flex items-center gap-1 text-xs" aria-label={`${mcpCount} MCP servers`}>
+            <Icon name="plug" className="size-3.5" />
+            {mcpCount}
+          </span>
+        </span>
+      ) : null}
       <span className="flex shrink-0 items-center gap-1.5">
         {showEdit ? (
           <button
@@ -60,7 +78,6 @@ function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProp
             className={auiButtonClass({
               variant: 'ghost',
               size: 'sm',
-              className: rowActionClass(compact),
             })}
             onClick={onEdit}
           >
@@ -74,7 +91,6 @@ function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProp
           className={auiButtonClass({
             variant: 'outline',
             size: 'sm',
-            className: rowActionClass(compact),
           })}
           onClick={onTry}
         >

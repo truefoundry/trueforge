@@ -106,19 +106,95 @@ Status tokens use `failure` / `success` / `warning` with `*Bg` / `*Text` pairs (
 
 ## Styling rendered content
 
-`theme.classNames` targets the content renderers:
+`theme.classNames` (`ContentClassNames`) adds host CSS classes onto content renderers. Pass it through `theme` on `TrueforgeUI` (or `SlotsProvider`):
+
+```tsx
+<TrueforgeUI
+  theme={{
+    classNames: {
+      markdown: "prose prose-sm",
+      openui: { root: "my-openui" },
+    },
+  }}
+  /* … */
+/>
+```
 
 ```ts
 type ContentClassNames = {
+  /** Root of the markdown renderer (joins `.aui-markdown`). */
   markdown?: string;
+  /** Inline `` `code` `` spans inside markdown. */
   inlineCode?: string;
-  syntaxHighlighter?: { root?: string; pre?: string; code?: string; lineNumber?: string };
-  openui?: { root?: string; scope?: string };
-  monaco?: { root?: string };
+  syntaxHighlighter?: {
+    root?: string; // joins `.aui-syntax-highlighter`
+    pre?: string;
+    code?: string;
+    lineNumber?: string;
+  };
+  openui?: {
+    root?: string; // joins `.aui-openui`
+    scope?: string; // OpenUI theme scope (`.markdown-openui-scope`)
+  };
+  monaco?: {
+    root?: string; // joins `.aui-monaco`
+    editor?: string; // Monaco mount container
+    /** Monaco theme name; when unset, follows light/dark mode. */
+    monacoTheme?: string;
+  };
 };
 ```
 
+| Key | Applied on |
+| --- | --- |
+| `markdown` | Markdown message body |
+| `inlineCode` | Inline code inside markdown |
+| `syntaxHighlighter.*` | Fenced non-OpenUI code blocks |
+| `openui.*` | Generative UI (OpenUI) fence blocks |
+| `monaco.*` | Monaco editor surfaces (e.g. skill / draft editors) |
+
 For CSS-only adjustments you can instead target the stable class names directly: `.aui-markdown`, `.aui-syntax-highlighter`, `.aui-openui`, `.aui-monaco`.
+
+## CSS targeting with `data-slot`
+
+Chat-shell components expose stable `data-slot` attributes — the same styling hook pattern [assistant-ui uses for its UI kit](https://www.assistant-ui.com/docs/tools/generative-ui#styling) (there: `data-aui` on generative vocabulary nodes; here: `data-slot` on thread, composer, and message parts). Prefer `theme.tokens` for colors and radii; use these selectors when you need layout or typography tweaks that tokens do not cover.
+
+```css
+/* Scope under the theme root so host-app styles do not leak in the other direction */
+.aui-theme-root [data-slot="aui_user-message-content"] {
+  font-size: 0.95rem;
+}
+
+.aui-theme-root [data-slot="aui_composer-shell"] {
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--shadow-color) 12%, transparent);
+}
+```
+
+Stable slots (most are prefixed `aui_`; a few are not — inspect the element if unsure):
+
+| `data-slot` | Surface |
+| --- | --- |
+| `aui_thread-viewport` | Scrollable message list |
+| `aui_thread-composer` | Composer region under the viewport |
+| `aui_composer-shell` | Composer chrome |
+| `aui_composer-root` | Composer inner root |
+| `aui_composer-input` | Composer text area |
+| `aui_composer-attachment-dropzone` | Attachment drop target |
+| `aui_message-group` | Grouped message block |
+| `aui_user-message-root` / `aui_user-message-content` | User bubble |
+| `aui_user-message-edit` | Edit affordance on a user message |
+| `aui_user-edit-composer-root` / `aui_user-edit-input` | In-place edit composer |
+| `aui_assistant-message-root` | Assistant bubble |
+| `aui_assistant-message-indicator` | Assistant status indicator |
+| `aui_thread-list-viewport` | History list scroll area |
+| `aui_thread-list-item` / `aui_thread-list-item-age` / `aui_thread-list-item-actions` | History row |
+| `aui_history-loader` / `aui_thread-history-skeleton` | History loading UI |
+| `aui_attachment-preview` / `aui_attachment-chip` | Attachments |
+| `aui_select-agent-empty` | Empty “pick an agent” state |
+| `avatar` / `avatar-image` / `avatar-fallback` | Avatar parts |
+| `tool-call-card` / `tool-group-card` | Tool call chrome |
+
+There is no `data-id` attribute for theming. Generative charts/cards/tables in chat are **OpenUI** (not `@assistant-ui/react-generative-ui`), so they do not emit assistant-ui’s `data-aui` / `data-aui-*` hooks. Style that surface with `.aui-openui`, `theme.classNames.openui`, or by [overriding the `OpenUiFenceBlock` slot](/ui-sdk/setup-custom-ui/slot-overrides).
 
 ## Presets
 
