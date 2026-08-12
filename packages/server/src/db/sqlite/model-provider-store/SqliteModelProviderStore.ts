@@ -3,11 +3,11 @@ import type { Model, ModelProvider } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
   ModelProviderNameConflictError,
-  type CreateProviderInput,
-  type GetProviderInput,
+  type CreateModelProviderInput,
+  type GetModelProviderInput,
   type IModelProviderStore,
   type ModelProviderRecord,
-  type UpsertProviderInput,
+  type UpsertModelProviderInput,
 } from '../../modelProviderStore';
 import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
@@ -42,7 +42,7 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
   }
 
   async getProvider(
-    input: GetProviderInput,
+    input: GetModelProviderInput,
     transaction?: Transaction<Database>,
   ): Promise<ModelProviderRecord | undefined> {
     const db = transaction ?? this.#db;
@@ -59,7 +59,7 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
    * serializes concurrent writers so RMW of secrets stays consistent.
    */
   async getProviderForUpdate(
-    input: GetProviderInput,
+    input: GetModelProviderInput,
     transaction: Transaction<Database>,
   ): Promise<ModelProviderRecord | undefined> {
     return await transaction
@@ -70,7 +70,10 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
       .executeTakeFirst();
   }
 
-  async createProvider(input: CreateProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {
+  async createProvider(
+    input: CreateModelProviderInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ModelProviderRecord> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();
     try {
@@ -93,7 +96,10 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
     }
   }
 
-  async upsertProvider(input: UpsertProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {
+  async upsertProvider(
+    input: UpsertModelProviderInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ModelProviderRecord> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();
     return await db

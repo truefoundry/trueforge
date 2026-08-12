@@ -16,12 +16,12 @@ export interface ModelProviderRecord {
   updated_at: string;
 }
 
-export interface GetProviderInput {
+export interface GetModelProviderInput {
   tenant_id: string;
   name: string;
 }
 
-export interface CreateProviderInput {
+export interface CreateModelProviderInput {
   tenant_id: string;
   /** Derived from the document by `modelProviderName`, never chosen by the caller. */
   name: ResourceName;
@@ -29,7 +29,7 @@ export interface CreateProviderInput {
 }
 
 /** Same shape as create for now; kept as a distinct name for the upsert path. */
-export type UpsertProviderInput = CreateProviderInput;
+export type UpsertModelProviderInput = CreateModelProviderInput;
 
 /** Unique `(tenant_id, name)` violation on create. */
 export class ModelProviderNameConflictError extends Error {
@@ -46,17 +46,20 @@ export class ModelProviderNameConflictError extends Error {
 
 export interface IModelProviderStore<TTransaction = never> {
   listProviders(tenantId: string, transaction?: TTransaction): Promise<ModelProviderRecord[]>;
-  getProvider(input: GetProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord | undefined>;
+  getProvider(input: GetModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord | undefined>;
   /**
    * Load one provider while holding a row lock for the lifetime of `transaction`.
    * Postgres: `SELECT … FOR UPDATE`. SQLite: plain read under a write txn (BEGIN IMMEDIATE).
    * Required before read-modify-write of secrets so concurrent keep/rotate cannot interleave.
    */
-  getProviderForUpdate(input: GetProviderInput, transaction: TTransaction): Promise<ModelProviderRecord | undefined>;
+  getProviderForUpdate(
+    input: GetModelProviderInput,
+    transaction: TTransaction,
+  ): Promise<ModelProviderRecord | undefined>;
   /** Inserts a new provider. Throws ModelProviderNameConflictError on name clash. */
-  createProvider(input: CreateProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
+  createProvider(input: CreateModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Single-row write: creates the provider or replaces the whole manifest (models included). */
-  upsertProvider(input: UpsertProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
+  upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Flattens manifests into the FQN read view for GET /models. */
   listModels(tenantId: string, transaction?: TTransaction): Promise<Model[]>;
 }

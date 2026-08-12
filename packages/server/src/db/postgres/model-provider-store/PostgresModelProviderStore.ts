@@ -3,11 +3,11 @@ import type { Model } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
   ModelProviderNameConflictError,
-  type CreateProviderInput,
-  type GetProviderInput,
+  type CreateModelProviderInput,
+  type GetModelProviderInput,
   type IModelProviderStore,
   type ModelProviderRecord,
-  type UpsertProviderInput,
+  type UpsertModelProviderInput,
 } from '../../modelProviderStore';
 import { isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';
@@ -42,7 +42,7 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
   }
 
   async getProvider(
-    input: GetProviderInput,
+    input: GetModelProviderInput,
     transaction?: Transaction<Database>,
   ): Promise<ModelProviderRecord | undefined> {
     const db = transaction ?? this.#db;
@@ -56,7 +56,7 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
   }
 
   async getProviderForUpdate(
-    input: GetProviderInput,
+    input: GetModelProviderInput,
     transaction: Transaction<Database>,
   ): Promise<ModelProviderRecord | undefined> {
     const row = await transaction
@@ -69,7 +69,10 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
     return row ? toRecord(row) : undefined;
   }
 
-  async createProvider(input: CreateProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {
+  async createProvider(
+    input: CreateModelProviderInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ModelProviderRecord> {
     const db = transaction ?? this.#db;
     try {
       const row = await db
@@ -92,7 +95,10 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
     }
   }
 
-  async upsertProvider(input: UpsertProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {
+  async upsertProvider(
+    input: UpsertModelProviderInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ModelProviderRecord> {
     const db = transaction ?? this.#db;
     const row = await db
       .insertInto('model_provider')
