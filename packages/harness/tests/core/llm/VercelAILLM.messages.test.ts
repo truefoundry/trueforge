@@ -8,6 +8,7 @@ import {
   convertMessages,
   convertTools,
   parseMimeFromDataUri,
+  shouldAttachReasoningSignature,
   toAssistantModelMessage,
   toFilePart,
   toUserContent,
@@ -121,7 +122,7 @@ describe('toAssistantModelMessage', () => {
       role: 'assistant',
       content: 'hello',
     };
-    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini' });
+    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini', providerName: 'google-gemini' });
     expect(result.role).toBe('assistant');
     expect(result.content).toEqual([{ type: 'text', text: 'hello' }]);
   });
@@ -134,7 +135,7 @@ describe('toAssistantModelMessage', () => {
         { type: 'text', text: 'b' },
       ],
     };
-    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini' });
+    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini', providerName: 'google-gemini' });
     expect(result.content).toEqual([{ type: 'text', text: 'ab' }]);
   });
 
@@ -143,7 +144,7 @@ describe('toAssistantModelMessage', () => {
       role: 'assistant',
       content: null,
     };
-    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini' });
+    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini', providerName: 'google-gemini' });
     expect(result.content).toEqual([{ type: 'text', text: '' }]);
   });
 
@@ -153,7 +154,7 @@ describe('toAssistantModelMessage', () => {
       content: null,
       tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'my_tool', arguments: '{"x":1}' } }],
     };
-    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini' });
+    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini', providerName: 'google-gemini' });
     const toolCallPart = (result.content as Array<{ type: string }>).find(p => p.type === 'tool-call');
     expect(toolCallPart).toMatchObject({
       type: 'tool-call',
@@ -169,7 +170,7 @@ describe('toAssistantModelMessage', () => {
       content: null,
       tool_calls: [{ id: 'call-2', type: 'function', function: { name: 'bad', arguments: 'not-json' } }],
     };
-    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini' });
+    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini', providerName: 'google-gemini' });
     const toolCallPart = (result.content as Array<{ type: string; input?: unknown }>).find(p => p.type === 'tool-call');
     expect(toolCallPart?.input).toEqual({});
   });
@@ -180,8 +181,9 @@ describe('toAssistantModelMessage', () => {
       content: null,
     };
     Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step one', signature: 'sig-openai' }]);
+    Reflect.set(msg, 'source', 'openai/openai/test');
 
-    const result = toAssistantModelMessage({ msg: msg, provider: 'openai' });
+    const result = toAssistantModelMessage({ msg: msg, provider: 'openai', providerName: 'openai' });
     const reasoningPart = (result.content as Array<{ type: string; text?: string; providerOptions?: unknown }>).find(
       p => p.type === 'reasoning',
     );
@@ -196,8 +198,9 @@ describe('toAssistantModelMessage', () => {
       content: null,
     };
     Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step two', signature: 'sig-ant' }]);
+    Reflect.set(msg, 'source', 'anthropic/anthropic/test');
 
-    const result = toAssistantModelMessage({ msg: msg, provider: 'anthropic' });
+    const result = toAssistantModelMessage({ msg: msg, provider: 'anthropic', providerName: 'anthropic' });
     const reasoningPart = (result.content as Array<{ type: string; providerOptions?: unknown }>).find(
       p => p.type === 'reasoning',
     );
@@ -211,7 +214,7 @@ describe('toAssistantModelMessage', () => {
     };
     Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step', signature: 'sig-gen' }]);
 
-    const result = toAssistantModelMessage({ msg: msg, provider: 'custom' });
+    const result = toAssistantModelMessage({ msg: msg, provider: 'custom', providerName: 'custom' });
     const reasoningPart = (result.content as Array<{ type: string; text?: string; providerOptions?: unknown }>).find(
       p => p.type === 'reasoning',
     );
@@ -227,7 +230,7 @@ describe('toAssistantModelMessage', () => {
     };
     Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step', signature: 'sig' }]);
 
-    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini' });
+    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini', providerName: 'google-gemini' });
     const reasoningPart = (result.content as Array<{ type: string; providerOptions?: unknown }>).find(
       p => p.type === 'reasoning',
     );
@@ -244,7 +247,7 @@ describe('toAssistantModelMessage', () => {
       tool_calls: [toolCall],
     };
 
-    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini' });
+    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini', providerName: 'google-gemini' });
     const toolCallPart = (result.content as Array<{ type: string; providerOptions?: unknown }>).find(
       p => p.type === 'tool-call',
     );
@@ -258,9 +261,87 @@ describe('toAssistantModelMessage', () => {
       tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'fn', arguments: '{}' } }],
     };
 
-    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini' });
+    const result = toAssistantModelMessage({ msg: msg, provider: 'google-gemini', providerName: 'google-gemini' });
     const toolCallPart = (result.content as Array<{ type: string }>).find(p => p.type === 'tool-call');
     expect(toolCallPart).not.toHaveProperty('providerOptions');
+  });
+
+  it('attaches signature when source type and provider name match, ignoring model_name', () => {
+    const msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
+      role: 'assistant',
+      content: null,
+    };
+    Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step', signature: 'sig' }]);
+    Reflect.set(msg, 'source', 'openai/openai/old-model');
+
+    const result = toAssistantModelMessage({ msg: msg, provider: 'openai', providerName: 'openai' });
+    const reasoningPart = (result.content as Array<{ type: string; providerOptions?: unknown }>).find(
+      p => p.type === 'reasoning',
+    );
+    expect(reasoningPart?.providerOptions).toEqual({ openai: { reasoningEncryptedContent: 'sig' } });
+  });
+
+  it('omits signature providerOptions when source provider type differs', () => {
+    const msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
+      role: 'assistant',
+      content: null,
+    };
+    Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step', signature: 'ant-sig' }]);
+    Reflect.set(msg, 'source', 'anthropic/anthropic/opus');
+
+    const result = toAssistantModelMessage({ msg: msg, provider: 'openai', providerName: 'openai' });
+    const reasoningPart = (result.content as Array<{ type: string; text?: string; providerOptions?: unknown }>).find(
+      p => p.type === 'reasoning',
+    );
+    expect(reasoningPart?.text).toBe('step');
+    expect(reasoningPart).not.toHaveProperty('providerOptions');
+  });
+
+  it('requires matching provider name for any provider type', () => {
+    expect(
+      shouldAttachReasoningSignature({
+        source: 'custom/gateway-a/model',
+        provider: 'custom',
+        providerName: 'gateway-a',
+      }),
+    ).toBe(true);
+    expect(
+      shouldAttachReasoningSignature({
+        source: 'custom/gateway-a/model',
+        provider: 'custom',
+        providerName: 'gateway-b',
+      }),
+    ).toBe(false);
+    expect(
+      shouldAttachReasoningSignature({
+        source: 'openai/other-name/model',
+        provider: 'openai',
+        providerName: 'openai',
+      }),
+    ).toBe(false);
+  });
+
+  it('does not attach when provider type differs even if provider_name matches', () => {
+    expect(
+      shouldAttachReasoningSignature({
+        source: 'openai/shared/model',
+        provider: 'anthropic',
+        providerName: 'shared',
+      }),
+    ).toBe(false);
+  });
+
+  it('omits signature providerOptions when source is missing', () => {
+    const msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
+      role: 'assistant',
+      content: null,
+    };
+    Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step', signature: 'sig' }]);
+
+    const result = toAssistantModelMessage({ msg: msg, provider: 'openai', providerName: 'openai' });
+    const reasoningPart = (result.content as Array<{ type: string; text?: string }>).find(p => p.type === 'reasoning');
+    expect(reasoningPart?.text).toBe('step');
+    expect(reasoningPart).not.toHaveProperty('providerOptions');
   });
 });
 
@@ -273,7 +354,11 @@ describe('convertMessages', () => {
       { role: 'system', content: 'Prompt B' },
       { role: 'user', content: 'hi' },
     ];
-    const { instructions, messages: result } = convertMessages({ messages: messages, provider: 'google-gemini' });
+    const { instructions, messages: result } = convertMessages({
+      messages: messages,
+      provider: 'google-gemini',
+      providerName: 'google-gemini',
+    });
     expect(instructions).toBe('Prompt A\n\nPrompt B');
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ role: 'user' });
@@ -283,6 +368,7 @@ describe('convertMessages', () => {
     const { instructions } = convertMessages({
       messages: [{ role: 'user', content: 'hi' }],
       provider: 'google-gemini',
+      providerName: 'google-gemini',
     });
     expect(instructions).toBeUndefined();
   });
@@ -297,7 +383,11 @@ describe('convertMessages', () => {
       },
       { role: 'tool', tool_call_id: 'c1', content: 'result' },
     ];
-    const { messages: result } = convertMessages({ messages: messages, provider: 'google-gemini' });
+    const { messages: result } = convertMessages({
+      messages: messages,
+      provider: 'google-gemini',
+      providerName: 'google-gemini',
+    });
     expect(result).toHaveLength(3);
     expect(result[0]?.role).toBe('user');
     expect(result[1]?.role).toBe('assistant');
@@ -313,14 +403,22 @@ describe('convertMessages', () => {
       },
       { role: 'tool', tool_call_id: 'c1', content: 'found it' },
     ];
-    const { messages: result } = convertMessages({ messages: messages, provider: 'google-gemini' });
+    const { messages: result } = convertMessages({
+      messages: messages,
+      provider: 'google-gemini',
+      providerName: 'google-gemini',
+    });
     const toolMsg = result.find(m => m.role === 'tool');
     expect(toolMsg?.content).toEqual([expect.objectContaining({ toolName: 'search' })]);
   });
 
   it('falls back to empty string toolName for unresolvable tool_call_id', () => {
     const messages: ChatCompletionMessageParam[] = [{ role: 'tool', tool_call_id: 'unknown-id', content: 'data' }];
-    const { messages: result } = convertMessages({ messages: messages, provider: 'google-gemini' });
+    const { messages: result } = convertMessages({
+      messages: messages,
+      provider: 'google-gemini',
+      providerName: 'google-gemini',
+    });
     expect(result[0]?.content).toEqual([expect.objectContaining({ toolName: '' })]);
   });
 
@@ -330,7 +428,11 @@ describe('convertMessages', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- simulating unrecognised roles at runtime
       { role: 'developer', content: 'internal' } as any,
     ];
-    const { messages: result } = convertMessages({ messages: messages, provider: 'google-gemini' });
+    const { messages: result } = convertMessages({
+      messages: messages,
+      provider: 'google-gemini',
+      providerName: 'google-gemini',
+    });
     expect(result).toHaveLength(1);
     expect(result[0]?.role).toBe('user');
   });
@@ -338,8 +440,9 @@ describe('convertMessages', () => {
   it('threads the provider into assistant message reasoning parts', () => {
     const msg: ChatCompletionMessageParam = { role: 'assistant', content: null };
     Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'thought', signature: 'sig' }]);
+    Reflect.set(msg, 'source', 'anthropic/anthropic/test');
 
-    const { messages: result } = convertMessages({ messages: [msg], provider: 'anthropic' });
+    const { messages: result } = convertMessages({ messages: [msg], provider: 'anthropic', providerName: 'anthropic' });
     const assistantMsg = result.find(m => m.role === 'assistant');
     const reasoningPart = (
       assistantMsg?.content as Array<{ type: string; providerOptions?: unknown }> | undefined

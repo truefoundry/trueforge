@@ -91,8 +91,8 @@ export function DropdownMenu({ trigger, children, align = 'end', className }: Dr
           id={menuId}
           role="menu"
           className={cn(
-            'absolute top-full z-50 mt-1 min-w-[8rem] rounded-md border border-border bg-popover p-1',
-            'text-popover-foreground shadow-md',
+            'absolute top-full z-50 mt-1 min-w-[8rem] rounded-md border border-border bg-card-bg p-1',
+            'text-text-primary shadow-md',
             align === 'end' ? 'right-0' : 'left-0',
             className,
           )}
@@ -114,8 +114,9 @@ export function DropdownMenuItem({ className, ...props }: DropdownMenuItemProps)
       type="button"
       className={cn(
         'flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none',
-        'transition-colors hover:bg-accent hover:text-accent-foreground',
-        'focus:bg-accent focus:text-accent-foreground',
+        'transition-colors hover:bg-ghost-button-hover',
+        'focus:bg-dropdown-selected-item-bg focus:text-dropdown-selected-item-text',
+        'aria-selected:bg-dropdown-selected-item-bg aria-selected:text-dropdown-selected-item-text',
         'disabled:pointer-events-none disabled:opacity-50',
         className,
       )}

@@ -1,5 +1,5 @@
 # Shipped skill catalog: skill presets offered by
-# GET /api/v1/settings/skills/catalog for the settings UI to copy into
+# GET /api/v1/catalog/skills for the UI to copy into
 # PUT /api/v1/settings/skills bodies. Discovery-only — never executed against.
 #
 # Entries reference upstream skill repos directly (url + path + ref); installing

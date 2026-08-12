@@ -10,8 +10,10 @@ import type * as TrueForge from "../../../../../../index.js";
  *     }
  */
 export interface McpServerManifest {
-    auth?: TrueForge.ConfiguredMcpServerAuth;
-    name: TrueForge.ResourceName;
+    /** Optional auth settings. Omit when the server needs no credentials. */
+    auth?: TrueForge.settings.McpServerManifestAuth;
+    /** Fully qualified name. Unique within a tenant. */
+    name: string;
     /** URL of the remote MCP server. */
     url: string;
 }

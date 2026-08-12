@@ -91,7 +91,14 @@ describe('DraftCatalogProvider', () => {
     expect(getMcp).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      models.resolve([{ name: 'openai/gpt-4.1', provider: 'OpenAI' }]);
+      models.resolve([
+        {
+          id: 'gpt-4.1',
+          name: 'openai/gpt-4.1',
+          provider: { name: 'OpenAI' },
+          properties: {},
+        },
+      ]);
       skills.resolve([{ id: 'skill-1', name: 'Release notes' }]);
       connectors.resolve([{ id: 'mcp-1', name: 'GitHub' }]);
       await Promise.all([models.promise, skills.promise, connectors.promise]);
@@ -128,7 +135,14 @@ describe('DraftCatalogProvider', () => {
 
   it('keeps successful lists when a sibling catalog call fails', async () => {
     const server = createMockAgentUIServer({
-      getModels: async () => [{ name: 'openai/gpt-4.1', provider: 'OpenAI' }],
+      getModels: async () => [
+        {
+          id: 'gpt-4.1',
+          name: 'openai/gpt-4.1',
+          provider: { name: 'OpenAI' },
+          properties: {},
+        },
+      ],
       getSkills: async () => {
         throw new Error('Skills unavailable');
       },

@@ -2,6 +2,7 @@
 
 import { useState, type SyntheticEvent } from 'react';
 
+import { auiInputClass } from '@/atoms/lib/inputClasses.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
 import { Icon } from '@/icons/Icon.js';
@@ -12,9 +13,10 @@ type ImportGithubSkillFormProps = {
   onOpenChange: (open: boolean) => void;
   onImport: (draft: SkillConfigBase) => void | Promise<void>;
   busy?: boolean;
+  error?: string | null;
 };
 
-const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: ImportGithubSkillFormProps) => {
+const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false, error }: ImportGithubSkillFormProps) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [repoURL, setRepoURL] = useState('');
@@ -63,7 +65,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
       title="Import from GitHub"
       description="Import a skill from a SKILL.md file in a GitHub repository."
       headerIcon={
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary">
           <Icon name="github" className="size-5" />
         </span>
       }
@@ -73,7 +75,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
       <form onSubmit={e => void handleSubmit(e)}>
         <div className="space-y-5 px-5 py-5 md:px-6">
           <div>
-            <label htmlFor="skill-name" className="mb-2 block text-sm font-semibold text-foreground">
+            <label htmlFor="skill-name" className="mb-2 block text-sm font-semibold text-text-primary">
               Name
             </label>
             <input
@@ -85,12 +87,12 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
               placeholder="release-notes"
               autoFocus
               required
-              className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
+              className={auiInputClass('h-11')}
             />
           </div>
 
           <div>
-            <label htmlFor="skill-description" className="mb-2 block text-sm font-semibold text-foreground">
+            <label htmlFor="skill-description" className="mb-2 block text-sm font-semibold text-text-primary">
               Description
             </label>
             <textarea
@@ -102,12 +104,12 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
               placeholder="Generate release notes from merged pull requests"
               required
               rows={3}
-              className="w-full resize-y rounded-md border border-input bg-background px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
+              className={auiInputClass('resize-y py-2.5')}
             />
           </div>
 
           <div>
-            <label htmlFor="skill-repo-url" className="mb-2 block text-sm font-semibold text-foreground">
+            <label htmlFor="skill-repo-url" className="mb-2 block text-sm font-semibold text-text-primary">
               Repository URL
             </label>
             <input
@@ -119,12 +121,12 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
               }}
               placeholder="https://github.com/org/repo"
               required
-              className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
+              className={auiInputClass('h-11')}
             />
           </div>
 
           <div>
-            <label htmlFor="skill-path" className="mb-2 block text-sm font-semibold text-foreground">
+            <label htmlFor="skill-path" className="mb-2 block text-sm font-semibold text-text-primary">
               Folder containing the SKILL.md
             </label>
             <input
@@ -135,12 +137,12 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
               }}
               placeholder="skills/release-notes"
               required
-              className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
+              className={auiInputClass('h-11')}
             />
           </div>
 
           <div>
-            <label htmlFor="skill-ref" className="mb-2 block text-sm font-semibold text-foreground">
+            <label htmlFor="skill-ref" className="mb-2 block text-sm font-semibold text-text-primary">
               Branch
             </label>
             <input
@@ -151,13 +153,16 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
               }}
               placeholder="main"
               required
-              className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
+              className={auiInputClass('h-11')}
             />
           </div>
 
-          <Button type="submit" disabled={!canImport} className="w-full">
-            Import
-          </Button>
+          <div className="space-y-3">
+            {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
+            <Button type="submit" disabled={!canImport} className="w-full">
+              Import
+            </Button>
+          </div>
         </div>
       </form>
     </CenteredModal>

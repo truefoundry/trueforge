@@ -8,6 +8,7 @@ import { Icon } from '@/icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { RegistrySkill, SkillBase, SkillCatalogEntry, SkillConfigBase } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
+import { useToasterOptional } from '../ToasterContainer.js';
 import ImportGithubSkillForm from './ImportGithubSkillForm.js';
 
 const matchesQuery = (query: string, name: string, description: string) =>
@@ -17,12 +18,14 @@ const isRegistrySkill = (skill: SkillBase): skill is RegistrySkill => 'catalogId
 
 const SkillSettings = () => {
   const { skillCatalog } = useCatalogServer();
+  const toaster = useToasterOptional();
 
   const [query, setQuery] = useState('');
   const [skills, setSkills] = useState<SkillBase[]>([]);
   const [catalog, setCatalog] = useState<SkillCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
@@ -59,14 +62,14 @@ const SkillSettings = () => {
     );
   }, [catalog, skills, normalizedQuery]);
 
-  const runMutation = async (fn: () => Promise<void>) => {
+  const runMutation = async (fn: () => Promise<void>, setMutationError = setError) => {
     setBusy(true);
     setError(null);
     try {
       await fn();
       await refresh();
     } catch (err) {
-      setError(getErrorMessage(err, 'Request failed'));
+      setMutationError(getErrorMessage(err, 'Request failed'));
       throw err;
     } finally {
       setBusy(false);
@@ -74,7 +77,7 @@ const SkillSettings = () => {
   };
 
   if (!skillCatalog) {
-    return <p className="text-sm text-muted-foreground">Skills catalog is not available.</p>;
+    return <p className="text-sm text-text-secondary">Skills catalog is not available.</p>;
   }
 
   const handleSelect = (entry: SkillCatalogEntry) => {
@@ -99,9 +102,16 @@ const SkillSettings = () => {
   };
 
   const handleImport = async (draft: SkillConfigBase) => {
+    setFormError(null);
     await runMutation(async () => {
       await skillCatalog.createSkill(draft);
-    });
+    }, setFormError);
+    setTimeout(() => {
+      toaster?.showSuccess({
+        title: 'Skill imported',
+        description: `${draft.name} is ready to use.`,
+      });
+    }, 0);
   };
 
   const renderRow = ({
@@ -117,15 +127,15 @@ const SkillSettings = () => {
   }) => (
     <article key={key} className="flex min-h-16 items-center gap-3 border-b border-border p-3 last:border-b-0">
       <span
-        className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted"
+        className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg"
         aria-hidden
       >
-        <Icon name="lightbulb" className="size-4.5 text-foreground" />
+        <Icon name="lightbulb" className="size-4.5 text-text-primary" />
       </span>
 
       <div className="min-w-0 flex-1">
-        <h5 className="truncate text-sm font-medium text-foreground">{name}</h5>
-        {description ? <p className="mt-0.5 truncate text-sm text-muted-foreground">{description}</p> : null}
+        <h5 className="truncate text-sm font-medium text-text-primary">{name}</h5>
+        {description ? <p className="mt-0.5 truncate text-sm text-text-secondary">{description}</p> : null}
       </div>
 
       {action}
@@ -136,11 +146,11 @@ const SkillSettings = () => {
 
   return (
     <>
-      <h3 className="text-xl font-semibold tracking-tight text-foreground">Skills</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Use built-in skills or import custom skills from GitHub.</p>
+      <h3 className="text-xl font-semibold tracking-tight text-text-primary">Skills</h3>
+      <p className="mt-1 text-sm text-text-secondary">Use built-in skills or import custom skills from GitHub.</p>
 
       {error ? (
-        <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="mt-3 rounded-md border border-failure-bg/30 bg-failure-bg/10 px-3 py-2 text-sm text-failure-bg">
           {error}
         </p>
       ) : null}
@@ -156,6 +166,7 @@ const SkillSettings = () => {
             className="shrink-0"
             disabled={busy}
             onClick={() => {
+              setFormError(null);
               setImportOpen(true);
             }}
           >
@@ -165,17 +176,17 @@ const SkillSettings = () => {
         </div>
 
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto pb-1">
-          {loading ? <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p> : null}
+          {loading ? <p className="py-8 text-center text-sm text-text-secondary">Loading…</p> : null}
 
           {!loading && selectedSkills.length > 0 ? (
             <section aria-labelledby="enabled-skills-heading">
               <h4
                 id="enabled-skills-heading"
-                className="mb-2 text-[0.8125rem] font-semibold uppercase text-muted-foreground"
+                className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
               >
                 Enabled · {selectedSkills.length}
               </h4>
-              <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                 {selectedSkills.map(skill =>
                   renderRow({
                     key: skill.id,
@@ -205,11 +216,11 @@ const SkillSettings = () => {
             <section aria-labelledby="available-skills-heading">
               <h4
                 id="available-skills-heading"
-                className="mb-2 text-[0.8125rem] font-semibold uppercase text-muted-foreground"
+                className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
               >
                 Available · {availableSkills.length}
               </h4>
-              <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                 {availableSkills.map(entry =>
                   renderRow({
                     key: entry.id,
@@ -236,14 +247,23 @@ const SkillSettings = () => {
           ) : null}
 
           {!loading && !hasMatches ? (
-            <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-text-secondary">
               {normalizedQuery ? `No skills match “${query.trim()}”.` : 'No skills yet.'}
             </div>
           ) : null}
         </div>
       </div>
 
-      <ImportGithubSkillForm open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} busy={busy} />
+      <ImportGithubSkillForm
+        open={importOpen}
+        onOpenChange={open => {
+          setImportOpen(open);
+          if (!open) setFormError(null);
+        }}
+        onImport={handleImport}
+        busy={busy}
+        error={formError}
+      />
     </>
   );
 };

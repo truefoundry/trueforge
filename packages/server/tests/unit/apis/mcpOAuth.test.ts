@@ -6,7 +6,6 @@ import winston from 'winston';
 import { createMcpOAuthRouter } from '../../../src/apis/mcpOAuth';
 import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../../src/apis/mcpServers';
 import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
-import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -89,7 +88,6 @@ describe('MCP OAuth authorize + callback', () => {
     withTransaction = callback => db.transaction().execute(callback);
     logger = winston.createLogger({ silent: true });
     settingsRouter = createSettingsMcpServersRouter({
-      mcpCatalog: McpCatalog.load(),
       mcpServerStore,
       tokenStore,
       withTransaction,

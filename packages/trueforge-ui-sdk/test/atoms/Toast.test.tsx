@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Toast, ToastStack } from '@/atoms/Toast.js';
 
 vi.mock('@/icons/Icon.js', () => ({
-  Icon: ({ name }: { name: string }) => <span data-testid={`icon-${name}`} />,
+  Icon: ({ name, className }: { name: string; className?: string }) => (
+    <span className={className} data-testid={`icon-${name}`} />
+  ),
 }));
 
 const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
@@ -46,6 +48,23 @@ describe('Toast', () => {
     render(<Toast title="Hidden" description="Not visible" open={false} onOpenChange={() => {}} />);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByText('Hidden')).not.toBeInTheDocument();
+  });
+
+  it('uses semantic status tokens for error and success variants', () => {
+    const { container, rerender } = render(
+      <Toast title="Request failed" description="Failure detail" open onOpenChange={() => {}} />,
+    );
+
+    expect(screen.getByTestId('icon-circle-exclamation')).toHaveClass('text-failure-bg');
+    expect(screen.getByText('Request failed')).toHaveClass('text-failure-bg');
+
+    rerender(
+      <Toast title="Request succeeded" description="Success detail" open onOpenChange={() => {}} variant="success" />,
+    );
+
+    expect(screen.getByTestId('icon-circle-check')).toHaveClass('text-success-bg');
+    expect(screen.getByText('Request succeeded')).toHaveClass('text-success-bg');
+    expect(container.querySelector('.text-destructive, .text-success')).not.toBeInTheDocument();
   });
 
   it('copies the full error and temporarily exposes copied state', async () => {

@@ -7,6 +7,7 @@ import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { SandboxProviderBase, SandboxProviderCatalogEntry, SandboxProviderConfig } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
+import { useToasterOptional } from '../ToasterContainer.js';
 import ConfigureSandboxForm, { type SandboxConfigDraft } from './ConfigureSandboxForm.js';
 
 const configFrom = ({
@@ -25,11 +26,13 @@ const configFrom = ({
 
 const SandboxSettings = () => {
   const { sandboxCatalog } = useCatalogServer();
+  const toaster = useToasterOptional();
 
   const [providers, setProviders] = useState<SandboxProviderBase[]>([]);
   const [catalog, setCatalog] = useState<SandboxProviderCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [createEntry, setCreateEntry] = useState<SandboxProviderCatalogEntry | null>(null);
@@ -74,17 +77,17 @@ const SandboxSettings = () => {
   );
 
   if (!sandboxCatalog) {
-    return <p className="text-sm text-muted-foreground">Sandbox provider catalog is not available.</p>;
+    return <p className="text-sm text-text-secondary">Sandbox provider catalog is not available.</p>;
   }
 
-  const runMutation = async (fn: () => Promise<void>) => {
+  const runMutation = async (fn: () => Promise<void>, setMutationError = setError) => {
     setBusy(true);
     setError(null);
     try {
       await fn();
       await refresh({ quiet: true });
     } catch (err) {
-      setError(getErrorMessage(err, 'Request failed'));
+      setMutationError(getErrorMessage(err, 'Request failed'));
       throw err;
     } finally {
       setBusy(false);
@@ -93,6 +96,7 @@ const SandboxSettings = () => {
 
   const handleCreate = async (draft: SandboxConfigDraft) => {
     if (!createEntry) return;
+    setFormError(null);
     await runMutation(async () => {
       await sandboxCatalog.createSandboxProvider({
         catalogId: createEntry.id,
@@ -101,20 +105,33 @@ const SandboxSettings = () => {
         ...configFrom(draft),
         apiKey: draft.apiKey,
       });
-    });
+    }, setFormError);
     setCreateEntry(null);
+    setTimeout(() => {
+      toaster?.showSuccess({
+        title: 'Sandbox provider configured',
+        description: `${createEntry.name} is ready to use.`,
+      });
+    }, 0);
   };
 
   const handleUpdate = async (draft: SandboxConfigDraft) => {
     if (!updateProvider) return;
+    setFormError(null);
     await runMutation(async () => {
       await sandboxCatalog.updateSandboxProvider({
         id: updateProvider.id,
         ...configFrom(draft),
         ...(draft.apiKey ? { apiKey: draft.apiKey } : {}),
       });
-    });
+    }, setFormError);
     setUpdateProvider(null);
+    setTimeout(() => {
+      toaster?.showSuccess({
+        title: 'Sandbox provider updated',
+        description: `${updateProvider.name} was updated successfully.`,
+      });
+    }, 0);
   };
 
   const handleRemove = (provider: SandboxProviderBase) => {
@@ -135,28 +152,28 @@ const SandboxSettings = () => {
 
   return (
     <>
-      <h3 className="text-xl font-semibold tracking-tight text-foreground">Sandbox providers</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <h3 className="text-xl font-semibold tracking-tight text-text-primary">Sandbox providers</h3>
+      <p className="mt-1 text-sm text-text-secondary">
         Choose a provider that runs sandboxes for code, files and shell commands. Only one can be active at a time.
       </p>
 
       {error ? (
-        <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="mt-3 rounded-md border border-failure-bg/30 bg-failure-bg/10 px-3 py-2 text-sm text-failure-bg">
           {error}
         </p>
       ) : null}
 
       <div className="mt-4 flex-1 overflow-y-auto">
         {loading ? (
-          <p className="text-sm text-muted-foreground">Loading sandbox providers…</p>
+          <p className="text-sm text-text-secondary">Loading sandbox providers…</p>
         ) : (
           <div className="space-y-6">
             {providers.length > 0 ? (
               <section>
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                   Configured · {providers.length}
                 </h4>
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                   {providers.map(provider => (
                     <article
                       key={provider.id}
@@ -164,21 +181,21 @@ const SandboxSettings = () => {
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3">
                         <span
-                          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
+                          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
                           aria-hidden
                         >
                           <Icon name="cube" className="size-4.5" />
                         </span>
                         <div className="min-w-0">
-                          <h5 className="truncate text-sm font-medium text-foreground">{provider.name}</h5>
-                          <p className="truncate text-[0.8125rem] text-muted-foreground">{provider.snapshotName}</p>
+                          <h5 className="truncate text-sm font-medium text-text-primary">{provider.name}</h5>
+                          <p className="truncate text-[0.8125rem] text-text-secondary">{provider.snapshotName}</p>
                         </div>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
                         {provider.isConnected ? (
-                          <span className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
-                            <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
+                          <span className="flex items-center gap-1.5 rounded-full border border-border bg-secondary-bg/40 px-2 py-0.5 text-xs font-medium text-success-bg">
+                            <span className="h-1.5 w-1.5 rounded-full bg-success-bg"></span>
                             Connected
                           </span>
                         ) : null}
@@ -188,6 +205,7 @@ const SandboxSettings = () => {
                           type="button"
                           disabled={busy}
                           onClick={() => {
+                            setFormError(null);
                             setCreateEntry(null);
                             setUpdateProvider(provider);
                           }}
@@ -198,7 +216,7 @@ const SandboxSettings = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-muted-foreground"
+                            className="text-text-secondary"
                             type="button"
                             disabled={busy}
                             onClick={() => {
@@ -216,11 +234,11 @@ const SandboxSettings = () => {
             ) : null}
 
             <section>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                 Available · {availableEntries.length}
               </h4>
               {availableEntries.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-text-secondary">
                   {hasConfiguredProvider
                     ? 'One provider is set up. Update it or remove it to switch.'
                     : catalog.length > 0
@@ -228,7 +246,7 @@ const SandboxSettings = () => {
                       : 'No sandbox providers in the catalog.'}
                 </p>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                   {availableEntries.map(entry => (
                     <article
                       key={entry.id}
@@ -236,14 +254,14 @@ const SandboxSettings = () => {
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3">
                         <span
-                          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
+                          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
                           aria-hidden
                         >
                           <Icon name="cube" className="size-4.5" />
                         </span>
                         <div className="min-w-0">
-                          <h5 className="truncate text-sm font-medium text-foreground">{entry.name}</h5>
-                          <p className="truncate text-[0.8125rem] text-muted-foreground">{entry.snapshotName}</p>
+                          <h5 className="truncate text-sm font-medium text-text-primary">{entry.name}</h5>
+                          <p className="truncate text-[0.8125rem] text-text-secondary">{entry.snapshotName}</p>
                         </div>
                       </div>
 
@@ -252,6 +270,7 @@ const SandboxSettings = () => {
                         type="button"
                         disabled={busy}
                         onClick={() => {
+                          setFormError(null);
                           setUpdateProvider(null);
                           setCreateEntry(entry);
                         }}
@@ -271,6 +290,7 @@ const SandboxSettings = () => {
         open={formOpen}
         onOpenChange={open => {
           if (!open) {
+            setFormError(null);
             setCreateEntry(null);
             setUpdateProvider(null);
           }
@@ -285,6 +305,7 @@ const SandboxSettings = () => {
         initialConfig={formInitialConfig}
         requireApiKey={!isUpdate}
         busy={busy}
+        error={formError}
       />
     </>
   );

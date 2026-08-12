@@ -1,10 +1,10 @@
 /**
- * Sandbox-provider route definitions (mounted at /api/v1/settings/sandbox-providers).
+ * Sandbox-provider admin route definitions (mounted at /api/v1/settings/sandbox-providers).
+ * Discovery catalog lives at GET /api/v1/catalog/sandbox-providers.
  * Handlers are registered in apis/sandboxProviders.ts.
  */
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
-import { GetSandboxProviderCatalogResponseSchema } from '../schemas/sandboxCatalog';
 import {
   GetSandboxProviderResponseSchema,
   PutSandboxProviderRequestSchema,
@@ -13,38 +13,12 @@ import {
 
 const SANDBOX_PROVIDERS_TAG = 'Sandbox Providers';
 
-export const getSandboxProviderCatalogRoute = createRoute({
-  method: 'get',
-  path: '/catalog',
-  tags: [SANDBOX_PROVIDERS_TAG],
-  summary: 'Get the sandbox provider catalog',
-  description:
-    'Sandbox provider presets shipped with the server (sandbox-catalog.yaml). Discovery-only: copy an entry ' +
-    'into PUT /settings/sandbox-providers to configure it.',
-  'x-fern-sdk-group-name': ['settings', 'sandboxProviders'],
-  'x-fern-sdk-method-name': 'catalog',
-  responses: {
-    200: {
-      content: { 'application/json': { schema: GetSandboxProviderCatalogResponseSchema } },
-      description: 'The shipped catalog, verbatim.',
-    },
-    401: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the request has no valid session cookie.',
-    },
-    403: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the caller is authenticated but not an admin.',
-    },
-  },
-});
-
 export const getSandboxProviderRoute = createRoute({
   method: 'get',
   path: '/',
   tags: [SANDBOX_PROVIDERS_TAG],
   summary: 'Get the configured sandbox provider',
-  description: 'The single configured sandbox provider for this tenant.',
+  description: 'The single configured sandbox provider for this tenant. `auth.api_key` is redacted.',
   'x-fern-sdk-group-name': ['settings', 'sandboxProviders'],
   'x-fern-sdk-method-name': 'get',
   responses: {
@@ -64,7 +38,9 @@ export const putSandboxProviderRoute = createRoute({
   path: '/',
   tags: [SANDBOX_PROVIDERS_TAG],
   summary: 'Create or replace the sandbox provider',
-  description: 'Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration.',
+  description:
+    'Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration. ' +
+    '`auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).',
   'x-fern-sdk-group-name': ['settings', 'sandboxProviders'],
   'x-fern-sdk-method-name': 'upsert',
   request: {
@@ -80,7 +56,7 @@ export const putSandboxProviderRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body.',
+      description: 'Invalid request body, or redacted API key with no stored secret to keep.',
     },
   },
 });

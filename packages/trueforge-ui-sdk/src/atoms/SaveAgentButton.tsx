@@ -9,10 +9,10 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import type { AgentSpec } from '../server/types.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
+import { auiInputClass } from './lib/inputClasses.js';
 import { CenteredModal } from './primitives/CenteredModal.js';
 
-const inputClassName =
-  'border-input bg-background placeholder:text-muted-foreground w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50';
+const inputClassName = auiInputClass('disabled:opacity-50');
 
 export function SaveAgentButton() {
   const shell = useOptionalShellMode();
@@ -68,6 +68,7 @@ export function SaveAgentButton() {
       await server.saveAgent({
         agentName,
         agentSpec: savedSpec,
+        intent: isUpdate ? 'update' : 'create',
       });
       // Same draft chat continues as editable agent — do not remount via selectLibraryAgent.
       shell.bindMutableAgent({
@@ -109,7 +110,7 @@ export function SaveAgentButton() {
       >
         <form className="flex flex-col gap-4 p-5" onSubmit={e => void handleSubmit(e)}>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor={nameId} className="text-foreground text-sm font-medium">
+            <label htmlFor={nameId} className="text-text-primary text-sm font-medium">
               Name
             </label>
             <input
@@ -125,7 +126,7 @@ export function SaveAgentButton() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor={instructionsId} className="text-foreground text-sm font-medium">
+            <label htmlFor={instructionsId} className="text-text-primary text-sm font-medium">
               System instructions
             </label>
             <textarea
@@ -139,7 +140,7 @@ export function SaveAgentButton() {
               className={`${inputClassName} min-h-24 resize-y py-2`}
             />
           </div>
-          {error ? <p className="text-destructive text-sm">{error}</p> : null}
+          {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
           <button
             type="submit"
             disabled={saving || name.trim().length === 0}

@@ -43,7 +43,7 @@ export function ComposerShell({
     <div
       data-slot="aui_composer-shell"
       className={cn(
-        'border-border/60 focus-within:border-ring focus-within:ring-ring/20 flex w-full flex-col gap-2 rounded-[var(--composer-radius,1.5rem)] border bg-[var(--composer-bg,var(--muted))] p-[var(--composer-padding,8px)] shadow-sm transition-colors focus-within:ring-3',
+        'border-border/60 focus-within:border-focus-ring focus-within:ring-focus-ring/20 flex w-full flex-col gap-2 rounded-[var(--composer-radius,1.5rem)] border bg-input-box-bg p-[var(--composer-padding,8px)] shadow-sm transition-colors focus-within:ring-3',
         className,
       )}
     >
@@ -53,12 +53,12 @@ export function ComposerShell({
         <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
           <ComposerLeftSection disabled={disabled} isRunning={isRunning} onAttach={onAttach} />
           {connectorStatusLabel && (
-            <span className="text-muted-foreground max-w-[12rem] truncate text-xs">{connectorStatusLabel}</span>
+            <span className="text-text-secondary max-w-[12rem] truncate text-xs">{connectorStatusLabel}</span>
           )}
         </div>
         <div className="ml-auto flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
           {modelLabel && (
-            <span className="bg-muted text-muted-foreground flex max-w-[10rem] items-center gap-1 truncate rounded-full px-2 py-0.5 text-xs">
+            <span className="bg-secondary-bg text-text-secondary flex max-w-[10rem] items-center gap-1 truncate rounded-full px-2 py-0.5 text-xs">
               {modelIcon}
               <span className="truncate">{modelLabel}</span>
             </span>

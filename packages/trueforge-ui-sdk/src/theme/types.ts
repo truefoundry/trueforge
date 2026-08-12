@@ -6,38 +6,50 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 export type ThemePreset = 'trueforge' | 'claude' | 'chatgpt' | 'gemini';
 
 export type SemanticTokens = {
-  background: string;
-  foreground: string;
-  card: string;
-  cardForeground: string;
-  popover: string;
-  popoverForeground: string;
-  primary: string;
-  primaryForeground: string;
-  secondary: string;
-  secondaryForeground: string;
-  muted: string;
-  mutedForeground: string;
-  accent: string;
-  accentForeground: string;
-  destructive: string;
-  destructiveForeground: string;
-  success: string;
-  successForeground: string;
-  warning: string;
-  warningForeground: string;
+  // Across product
+  sidebarBg: string;
+  topbarBg: string;
+  primaryBg: string;
+  secondaryBg: string;
   border: string;
-  input: string;
-  ring: string;
-  radius: string;
   fontFamily: string;
-  composerRadius?: string;
-  userBubble?: string;
-  userBubbleForeground?: string;
-  assistantBubble?: string;
-  assistantBubbleForeground?: string;
-  /** Scrollbar thumb (“plug”) color. Defaults to `--muted-foreground`. */
-  scrollbarThumb?: string;
+  // Building blocks
+  inputBoxBg: string;
+  inputBorder: string;
+  textPrimary: string;
+  textSecondary: string;
+  cardBg: string;
+  dropdownSelectedItemBg: string;
+  dropdownSelectedItemText: string;
+  // Chat
+  userMessageBg: string;
+  userMessageText: string;
+  assistantMessageBg: string;
+  assistantMessageText: string;
+  // Buttons
+  primaryButtonBg: string;
+  primaryButtonHover: string;
+  primaryButtonText: string;
+  secondaryButtonBg: string;
+  secondaryButtonHover: string;
+  secondaryButtonText: string;
+  ghostButtonBg: string;
+  ghostButtonHover: string;
+  ghostButtonText: string;
+  // Status
+  successBg: string;
+  successText: string;
+  failureBg: string;
+  failureText: string;
+  warningBg: string;
+  warningText: string;
+  // Kept internals
+  focusRing: string;
+  radius: string;
+  composerRadius: string;
+  overlay: string;
+  shadowColor: string;
+  scrollbarThumb: string;
 };
 
 export type IconProps = {
@@ -116,35 +128,42 @@ export type LayoutProp = BuiltInLayout | ComponentType<{ className?: string }>;
 
 /** camelCase SemanticTokens key → CSS custom property name */
 export const TOKEN_CSS_VARS: Record<keyof SemanticTokens, string> = {
-  background: '--background',
-  foreground: '--foreground',
-  card: '--card',
-  cardForeground: '--card-foreground',
-  popover: '--popover',
-  popoverForeground: '--popover-foreground',
-  primary: '--primary',
-  primaryForeground: '--primary-foreground',
-  secondary: '--secondary',
-  secondaryForeground: '--secondary-foreground',
-  muted: '--muted',
-  mutedForeground: '--muted-foreground',
-  accent: '--accent',
-  accentForeground: '--accent-foreground',
-  destructive: '--destructive',
-  destructiveForeground: '--destructive-foreground',
-  success: '--success',
-  successForeground: '--success-foreground',
-  warning: '--warning',
-  warningForeground: '--warning-foreground',
+  sidebarBg: '--sidebar-bg',
+  topbarBg: '--topbar-bg',
+  primaryBg: '--primary-bg',
+  secondaryBg: '--secondary-bg',
   border: '--border',
-  input: '--input',
-  ring: '--ring',
-  radius: '--radius',
   fontFamily: '--font-agent-ui',
+  inputBoxBg: '--input-box-bg',
+  inputBorder: '--input-border',
+  textPrimary: '--text-primary',
+  textSecondary: '--text-secondary',
+  cardBg: '--card-bg',
+  dropdownSelectedItemBg: '--dropdown-selected-item-bg',
+  dropdownSelectedItemText: '--dropdown-selected-item-text',
+  userMessageBg: '--user-message-bg',
+  userMessageText: '--user-message-text',
+  assistantMessageBg: '--assistant-message-bg',
+  assistantMessageText: '--assistant-message-text',
+  primaryButtonBg: '--primary-button-bg',
+  primaryButtonHover: '--primary-button-hover',
+  primaryButtonText: '--primary-button-text',
+  secondaryButtonBg: '--secondary-button-bg',
+  secondaryButtonHover: '--secondary-button-hover',
+  secondaryButtonText: '--secondary-button-text',
+  ghostButtonBg: '--ghost-button-bg',
+  ghostButtonHover: '--ghost-button-hover',
+  ghostButtonText: '--ghost-button-text',
+  successBg: '--success-bg',
+  successText: '--success-text',
+  failureBg: '--failure-bg',
+  failureText: '--failure-text',
+  warningBg: '--warning-bg',
+  warningText: '--warning-text',
+  focusRing: '--focus-ring',
+  radius: '--radius',
   composerRadius: '--composer-radius',
-  userBubble: '--user-bubble',
-  userBubbleForeground: '--user-bubble-foreground',
-  assistantBubble: '--assistant-bubble',
-  assistantBubbleForeground: '--assistant-bubble-foreground',
+  overlay: '--overlay',
+  shadowColor: '--shadow-color',
   scrollbarThumb: '--scrollbar-thumb',
 };

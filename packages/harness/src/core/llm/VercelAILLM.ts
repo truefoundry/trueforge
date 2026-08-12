@@ -73,7 +73,7 @@ export type VercelAIProviderName = (typeof VERCEL_AI_PROVIDER_NAMES)[number];
  */
 export interface VercelAIProviderConfig {
   provider: VercelAIProviderName;
-  /** Display name / alias, used for logs and errors. Often provider-qualified, so never sent. */
+  /** Display name / alias, used for logs and errors. Often a provider/model FQN when set by the host. */
   name: string;
   /** Provider-facing model identifier. */
   modelId: string;
@@ -371,19 +371,22 @@ function openaiProviderOptions({
  * Forwards but never pins `thinking` and `effort`: both replace the adapter's per-model resolution
  * and no single value fits every model. This is the caller's only route to disabling thinking, or to
  * the `display: 'summarized'` that makes Claude 5 return reasoning text instead of an empty block.
+ *
+ * Prompt caching defaults on: Anthropic bills a write once, then cheaper reads on stable prefixes
+ * (system / tools / early messages). Callers can override via `cache_control` in the request body.
  */
 function anthropicProviderOptions(rawBody: unknown): JSONObject | undefined {
-  const cacheControl = readBodyField({ rawBody, key: 'cache_control' });
+  const cacheControl = readBodyField({ rawBody, key: 'cache_control' }) ?? { type: 'ephemeral' };
   const disableParallelToolUse = readBodyField({ rawBody, key: 'disable_parallel_tool_use' });
   const thinking = readBodyField({ rawBody, key: 'thinking' });
   const effort = readBodyField({ rawBody, key: 'effort' });
   const opts: JSONObject = {
-    ...(cacheControl !== undefined ? { cacheControl } : {}),
+    cacheControl,
     ...(disableParallelToolUse !== undefined ? { disableParallelToolUse } : {}),
     ...(thinking !== undefined ? { thinking } : {}),
     ...(effort !== undefined ? { effort } : {}),
   };
-  return Object.keys(opts).length > 0 ? opts : undefined;
+  return opts;
 }
 
 /**
@@ -614,18 +617,32 @@ export function toUserContent(content: string | ChatCompletionContentPart[]): Us
  * - `'anthropic'`     → `anthropic.signature`
  * - `'google-gemini'` → per-tool-call `google.thoughtSignature`, no standalone reasoning block
  * - `'custom'`        → OpenAI-compatible ignores providerOptions, so the token has nowhere to go
+ *
+ * Signatures attach when `source` (`type/name/model`) matches both provider type and
+ * provider name. Missing/foreign source → reasoning text only.
  */
 export function toAssistantModelMessage({
   msg,
   provider,
+  providerName,
+  logger,
 }: {
   msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }>;
   provider: VercelAIProviderName;
+  /** Configured provider resource name (FQN prefix). */
+  providerName: string;
+  logger?: Logger | undefined;
 }): ModelMessage {
   const parts: AssistantContent = [];
 
-  // `thinking_blocks` is attached at runtime by AgentThread and absent from the OpenAI SDK type.
+  // `thinking_blocks` / `source` are attached at runtime by AgentThread and absent from the OpenAI SDK type.
   const rawThinking: unknown = Reflect.get(msg, 'thinking_blocks');
+  const attachSignature = shouldAttachReasoningSignature({
+    source: Reflect.get(msg, 'source'),
+    provider,
+    providerName,
+    logger,
+  });
   // Alibaba appends replayed thinking to the visible answer, and Qwen signs nothing to preserve.
   if (Array.isArray(rawThinking) && provider !== 'alibaba') {
     // Widen any[] → unknown[] so the in-guards below narrow safely.
@@ -641,7 +658,7 @@ export function toAssistantModelMessage({
       ) {
         const signature = 'signature' in tb && typeof tb.signature === 'string' ? tb.signature : undefined;
         let reasoningProviderOptions: ProviderOptions | undefined;
-        if (signature !== undefined) {
+        if (signature !== undefined && attachSignature) {
           if (provider === 'openai') {
             reasoningProviderOptions = { openai: { reasoningEncryptedContent: signature } };
           } else if (provider === 'anthropic') {
@@ -711,6 +728,44 @@ export function toAssistantModelMessage({
   };
 }
 
+/** Parse `provider_type/provider_name/model_name`. */
+function parseAssistantMessageSource(
+  source: string,
+): { providerType: string; providerName: string; modelName: string } | undefined {
+  const [providerType, providerName, modelName, ...rest] = source.split('/');
+  if (rest.length > 0 || !providerType || !providerName || !modelName) {
+    return undefined;
+  }
+  return { providerType, providerName, modelName };
+}
+
+/** Attach when both provider type and configured provider name match `source`. */
+export function shouldAttachReasoningSignature({
+  source,
+  provider,
+  providerName,
+  logger,
+}: {
+  source: unknown;
+  provider: VercelAIProviderName;
+  providerName: string;
+  logger?: Logger | undefined;
+}): boolean {
+  if (source === undefined) {
+    return false;
+  }
+  if (typeof source !== 'string') {
+    logger?.warn('Ignoring non-string assistant message source; skipping reasoning signature replay', { source });
+    return false;
+  }
+  const parsed = parseAssistantMessageSource(source);
+  if (parsed === undefined) {
+    logger?.warn('Ignoring malformed assistant message source; skipping reasoning signature replay', { source });
+    return false;
+  }
+  return parsed.providerType === provider && parsed.providerName === providerName;
+}
+
 export interface ConvertedMessages {
   instructions: string | undefined;
   messages: ModelMessage[];
@@ -724,9 +779,13 @@ export interface ConvertedMessages {
 export function convertMessages({
   messages,
   provider,
+  providerName,
+  logger,
 }: {
   messages: ChatCompletionMessageParam[];
   provider: VercelAIProviderName;
+  providerName: string;
+  logger?: Logger | undefined;
 }): ConvertedMessages {
   const toolNameById = new Map<string, string>();
   for (const msg of messages) {
@@ -753,7 +812,7 @@ export function convertMessages({
       continue;
     }
     if (msg.role === 'assistant') {
-      result.push(toAssistantModelMessage({ msg, provider }));
+      result.push(toAssistantModelMessage({ msg, provider, providerName, logger }));
       continue;
     }
     if (msg.role === 'tool') {
@@ -889,9 +948,12 @@ export function normalizeUsage(usage: {
     reasoningTokens: number | undefined;
     textTokens: number | undefined;
   };
+  // LanguageModelUsage.raw: AI SDK has no cost field; extras like gateway costInUSD live here.
+  raw?: JSONObject;
 }): CompletionUsage {
   const input = usage.inputTokens ?? 0;
   const output = usage.outputTokens ?? 0;
+  const costInUsd = usage.raw?.['costInUSD'];
   return {
     input_tokens: input,
     output_tokens: output,
@@ -899,6 +961,7 @@ export function normalizeUsage(usage: {
     cache_read_tokens: usage.inputTokenDetails.cacheReadTokens ?? undefined,
     cache_write_tokens: usage.inputTokenDetails.cacheWriteTokens ?? undefined,
     reasoning_tokens: usage.outputTokenDetails.reasoningTokens ?? undefined,
+    cost_in_usd: typeof costInUsd === 'number' && costInUsd >= 0 ? costInUsd : undefined,
   };
 }
 
@@ -1282,6 +1345,18 @@ export async function* mapStreamToChunks({
   return { usage: finalUsage, output, finish_reason: finalFinishReason };
 }
 
+/** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
+function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
+  const slash = name.indexOf('/');
+  if (slash <= 0 || slash === name.length - 1) {
+    return undefined;
+  }
+  if (name.includes('/', slash + 1)) {
+    return undefined;
+  }
+  return { providerName: name.slice(0, slash), modelName: name.slice(slash + 1) };
+}
+
 // ---------------------------------------------------------------------------
 // VercelAILLM
 // ---------------------------------------------------------------------------
@@ -1303,8 +1378,15 @@ export class VercelAILLM implements ILLM {
   ): AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown> {
     const { providerConfig } = this.config;
     const model = buildLanguageModel(providerConfig);
+    const parsedFqn = parseModelFqn(providerConfig.name);
+    const providerName = parsedFqn?.providerName ?? providerConfig.provider;
 
-    const { instructions, messages } = convertMessages({ messages: body.messages, provider: providerConfig.provider });
+    const { instructions, messages } = convertMessages({
+      messages: body.messages,
+      provider: providerConfig.provider,
+      providerName,
+      logger: this.logger,
+    });
     const tools = convertTools(body.tools ?? undefined);
     const structuredOutputSpec = toStructuredOutputSpec(body.response_format);
     const output = buildOutput(structuredOutputSpec);
@@ -1383,7 +1465,11 @@ export class VercelAILLM implements ILLM {
     };
 
     try {
-      return yield* mapStreamToChunks({ stream: streamResult.stream, chunkMeta });
+      const result = yield* mapStreamToChunks({ stream: streamResult.stream, chunkMeta });
+      if (parsedFqn) {
+        result.output.source = `${providerConfig.provider}/${parsedFqn.providerName}/${parsedFqn.modelName}`;
+      }
+      return result;
     } catch (error) {
       if (this.signal?.aborted) {
         this.logger.debug('LLM stream aborted', extractErrorLogFields(error));

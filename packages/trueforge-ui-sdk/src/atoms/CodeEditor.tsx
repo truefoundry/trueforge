@@ -30,8 +30,8 @@ function ToolbarButton({
       title={tooltip}
       className={cn(
         'flex cursor-pointer items-center justify-center rounded p-1.5 text-xs transition-colors',
-        'hover:bg-muted text-muted-foreground hover:text-foreground',
-        active && 'bg-muted text-foreground',
+        'hover:bg-ghost-button-hover text-text-secondary hover:text-text-primary',
+        active && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
       )}
       aria-label={tooltip}
     >
@@ -87,13 +87,13 @@ export function CodeEditor({
     <div
       className={cn(
         'aui-code-editor flex flex-col overflow-hidden rounded-md border border-border',
-        expanded && 'fixed inset-4 z-50 bg-background shadow-2xl',
+        expanded && 'fixed inset-4 z-50 bg-primary-bg shadow-2xl',
         className,
       )}
     >
       {showToolbar && (
         <div className="flex items-center justify-between gap-1 border-b border-border px-2 py-1">
-          {filename && <span className="truncate text-xs text-muted-foreground">{filename}</span>}
+          {filename && <span className="truncate text-xs text-text-secondary">{filename}</span>}
           <div className="ml-auto flex items-center gap-0.5">
             <ToolbarButton
               onClick={() => setShowLineNumbers(v => !v)}

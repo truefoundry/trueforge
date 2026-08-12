@@ -59,14 +59,14 @@ export function BottomSheet({
       }}
       style={compactStyle ?? { height: 'min(70dvh, 30rem)', maxHeight: '85dvh' }}
       className={cn(
-        'aui-bottom-sheet bg-popover text-popover-foreground m-0 mt-auto w-full max-w-none overflow-hidden rounded-t-xl border border-b-0 border-border p-0 pb-[env(safe-area-inset-bottom)] shadow-xl',
-        'backdrop:bg-black/40 backdrop:backdrop-blur-[2px]',
+        'aui-bottom-sheet bg-card-bg text-text-primary m-0 mt-auto w-full max-w-none overflow-hidden rounded-t-xl border border-b-0 border-border p-0 pb-[env(safe-area-inset-bottom)] shadow-xl',
+        'backdrop:bg-[var(--overlay)] backdrop:backdrop-blur-[2px]',
         'open:flex open:flex-col',
         className,
       )}
     >
       <div className="flex h-5 shrink-0 items-center justify-center" aria-hidden>
-        <span className="h-1 w-10 rounded-full bg-muted-foreground/30" />
+        <span className="h-1 w-10 rounded-full bg-text-secondary/30" />
       </div>
       {children}
     </dialog>

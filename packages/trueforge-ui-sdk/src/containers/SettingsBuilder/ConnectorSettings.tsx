@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { cn } from '@/atoms/lib/cn.js';
+import { auiInputClass } from '@/atoms/lib/inputClasses.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
 import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
@@ -12,6 +13,7 @@ import { Icon } from '@/icons/Icon.js';
 import { useCatalogServer } from '@/server/ServerContext.js';
 import type { ConnectorAuth, ConnectorBase, ConnectorCatalogEntry } from '@/server/types.js';
 import { getErrorMessage } from '@/utils/getErrorMessage.js';
+import { useToasterOptional } from '../ToasterContainer.js';
 import AddMcpServerForm, { type AddMcpServerDraft } from './AddMcpServerForm.js';
 import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
 import ConnectorDetails from './ConnectorDetails.js';
@@ -27,6 +29,7 @@ type ConnectorsState = {
 const ConnectorSettings = () => {
   const { connectorCatalog } = useCatalogServer();
   const { handleAuthorize, isOAuthLoading } = useMCPAuth();
+  const toaster = useToasterOptional();
 
   const [query, setQuery] = useState('');
   const [connectors, setConnectors] = useState<ConnectorsState>({
@@ -35,6 +38,7 @@ const ConnectorSettings = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [catalog, setCatalog] = useState<ConnectorCatalogEntry[]>([]);
@@ -106,31 +110,30 @@ const ConnectorSettings = () => {
     for (const item of matchingConnectors) {
       if (item.isConfigured) {
         const authenticated = connectors.authStatusById.get(item.connector.id) ?? item.connector.authenticated;
-        if (authenticated || !item.connector.requiresAuth) {
-          result.push(
-            authenticated === item.connector.authenticated ? item.connector : { ...item.connector, authenticated },
-          );
-        }
+        result.push(
+          authenticated === item.connector.authenticated ? item.connector : { ...item.connector, authenticated },
+        );
       }
     }
     return result;
   }, [connectors.authStatusById, matchingConnectors]);
 
   const availableConnectors = useMemo(() => {
-    const connectedIds = new Set(matchingConnected.map(connector => connector.id));
-    return matchingConnectors
-      .filter(({ connector }) => !connectedIds.has(connector.id))
-      .map(({ connector }) => connector);
-  }, [matchingConnected, matchingConnectors]);
+    const result: ConnectorCatalogEntry[] = [];
+    for (const item of matchingConnectors) {
+      if (!item.isConfigured) result.push(item.connector);
+    }
+    return result;
+  }, [matchingConnectors]);
 
-  const runMutation = async (fn: () => Promise<void>) => {
+  const runMutation = async (fn: () => Promise<void>, setMutationError = setError) => {
     setBusy(true);
     setError(null);
     try {
       await fn();
       await refresh();
     } catch (err) {
-      setError(getErrorMessage(err, 'Request failed'));
+      setMutationError(getErrorMessage(err, 'Request failed'));
       throw err;
     } finally {
       setBusy(false);
@@ -140,6 +143,7 @@ const ConnectorSettings = () => {
   const closeApiKeyModal = () => {
     setConnectorAwaitingKey(null);
     setApiKey('');
+    setFormError(null);
   };
 
   const authorizeOAuthConnector = async (integrationId: string) => {
@@ -185,18 +189,13 @@ const ConnectorSettings = () => {
   const handleConnect = (entry: ConnectorCatalogEntry) => {
     if (entry.auth.type === 'header') {
       setApiKey('');
+      setFormError(null);
       setConnectorAwaitingKey(entry);
       return;
     }
 
     void runMutation(async () => {
-      const existing = connectors.ordered.find(({ connector }) => connector.id === entry.id);
-      const existingConnector = existing?.isConfigured ? existing.connector : undefined;
-      if (existingConnector) {
-        await authorizeOAuthConnector(existingConnector.id);
-      } else {
-        await createFromCatalog(entry);
-      }
+      await createFromCatalog(entry);
     }).catch(() => {});
   };
 
@@ -205,6 +204,7 @@ const ConnectorSettings = () => {
     if (!connectorAwaitingKey || !apiKey.trim()) return;
 
     const entry = connectorAwaitingKey;
+    setFormError(null);
     void runMutation(async () => {
       const auth: ConnectorAuth = {
         type: 'header',
@@ -224,10 +224,17 @@ const ConnectorSettings = () => {
         await createFromCatalog(entry, auth);
       }
       closeApiKeyModal();
-    }).catch(() => {});
+      setTimeout(() => {
+        toaster?.showSuccess({
+          title: existingConnector ? 'Connector updated' : 'Connector connected',
+          description: `${entry.name} is ready to use.`,
+        });
+      }, 100);
+    }, setFormError).catch(() => {});
   };
 
   const handleAddMcpServer = async (draft: AddMcpServerDraft) => {
+    setFormError(null);
     await runMutation(async () => {
       const created = await connectorCatalog.createConnector({
         name: draft.name,
@@ -237,7 +244,13 @@ const ConnectorSettings = () => {
       if (draft.auth.type === 'dcr') {
         await authorizeOAuthConnector(created.id);
       }
-    });
+    }, setFormError);
+    setTimeout(() => {
+      toaster?.showSuccess({
+        title: 'Connector added',
+        description: `${draft.name} is ready to use.`,
+      });
+    }, 0);
   };
 
   const handleDisconnect = (connector: ConnectorBase) => {
@@ -252,19 +265,19 @@ const ConnectorSettings = () => {
     const content = (
       <>
         <span
-          className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted"
+          className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-secondary-bg"
           aria-hidden
         >
           {logoSrc ? (
             <CatalogLogo src={logoSrc} alt={connector.name} className="size-4.5" />
           ) : (
-            <Icon name="mcp-server" className="size-4.5 text-foreground" />
+            <Icon name="mcp-server" className="size-4.5 text-text-primary" />
           )}
         </span>
 
         <div className="min-w-0 flex-1">
-          <h5 className="truncate text-sm font-medium text-foreground">{connector.name}</h5>
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground sm:truncate">{connector.description}</p>
+          <h5 className="truncate text-sm font-medium text-text-primary">{connector.name}</h5>
+          <p className="mt-0.5 line-clamp-2 text-sm text-text-secondary sm:truncate">{connector.description}</p>
         </div>
       </>
     );
@@ -275,7 +288,7 @@ const ConnectorSettings = () => {
       return (
         <article
           key={connector.id}
-          className={`${rowClassName} cursor-pointer transition-colors hover:bg-accent/40`}
+          className={`${rowClassName} cursor-pointer transition-colors hover:bg-ghost-button-hover/60`}
           onClick={() => {
             setSelectedConnector(connector);
           }}
@@ -286,16 +299,18 @@ const ConnectorSettings = () => {
             <div className="flex items-center gap-2">
               <span
                 className={cn(
-                  'flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium',
-                  connector.authenticated ? 'text-success' : 'text-foreground',
+                  'flex items-center gap-1.5 rounded-full border border-border bg-secondary-bg/40 px-2 py-0.5 text-xs font-medium',
+                  connector.authenticated ? 'text-success-bg' : 'text-text-primary',
                 )}
               >
                 <span
-                  className={cn('h-1.5 w-1.5 rounded-full', connector.authenticated ? 'bg-success' : 'bg-primary')}
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full',
+                    connector.authenticated ? 'bg-success-bg' : 'bg-primary-button-bg',
+                  )}
                 ></span>
                 {connector.authenticated ? 'Connected' : 'Added'}
               </span>
-              <Icon name="chevron-right" className="size-4" />
             </div>
             {connector.auth.type === 'header' ? (
               <Button
@@ -313,6 +328,7 @@ const ConnectorSettings = () => {
                 Replace Key
               </Button>
             ) : null}
+            <Icon name="chevron-right" className="size-4" />
           </div>
         </article>
       );
@@ -333,25 +349,25 @@ const ConnectorSettings = () => {
         className="flex min-h-16 w-full items-center gap-3 border-b border-border p-3 text-left last:border-b-0"
       >
         <span
-          className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted"
+          className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-secondary-bg"
           aria-hidden
         >
           {logoSrc ? (
             <CatalogLogo src={logoSrc} alt={entry.name} className="size-4.5" />
           ) : (
-            <Icon name="mcp-server" className="size-4.5 text-foreground" />
+            <Icon name="mcp-server" className="size-4.5 text-text-primary" />
           )}
         </span>
 
         <div className="min-w-0 flex-1">
-          <h5 className="truncate text-sm font-medium text-foreground">{entry.name}</h5>
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground sm:truncate">
+          <h5 className="truncate text-sm font-medium text-text-primary">{entry.name}</h5>
+          <p className="mt-0.5 line-clamp-2 text-sm text-text-secondary sm:truncate">
             {entry.description ?? entry.url}
           </p>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <span className="hidden text-xs text-muted-foreground sm:inline">
+          <span className="hidden text-xs text-text-secondary sm:inline">
             {AUTH_TYPE_LABELS[entry.auth.type] ?? AUTH_TYPE_LABELS.none}
           </span>
           <Button
@@ -363,7 +379,7 @@ const ConnectorSettings = () => {
               handleConnect(entry);
             }}
           >
-            Connect
+            {entry.auth.type === 'dcr' ? 'Add' : 'Connect'}
           </Button>
         </div>
       </article>
@@ -398,11 +414,11 @@ const ConnectorSettings = () => {
 
   return (
     <>
-      <h3 className="text-xl font-semibold tracking-tight text-foreground">Connectors</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Connect tools your agents can use.</p>
+      <h3 className="text-xl font-semibold tracking-tight text-text-primary">Connectors</h3>
+      <p className="mt-1 text-sm text-text-secondary">Connect tools your agents can use.</p>
 
       {error ? (
-        <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="mt-3 rounded-md border border-failure-bg/30 bg-failure-bg/10 px-3 py-2 text-sm text-failure-bg">
           {error}
         </p>
       ) : null}
@@ -417,6 +433,7 @@ const ConnectorSettings = () => {
               variant="secondary"
               type="button"
               onClick={() => {
+                setFormError(null);
                 setAddMcpServerFormOpen(true);
               }}
             >
@@ -426,17 +443,17 @@ const ConnectorSettings = () => {
           </div>
 
           <div className="flex flex-1 flex-col gap-5 overflow-y-auto pb-1">
-            {loading ? <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p> : null}
+            {loading ? <p className="py-8 text-center text-sm text-text-secondary">Loading…</p> : null}
 
             {!loading && matchingConnected.length > 0 ? (
               <section aria-labelledby="connected-connectors-heading">
                 <h4
                   id="connected-connectors-heading"
-                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-muted-foreground"
+                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
                 >
-                  Connected · {matchingConnected.length}
+                  Configured · {matchingConnected.length}
                 </h4>
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                   {matchingConnected.map(connector => renderConnector(connector, true))}
                 </div>
               </section>
@@ -446,18 +463,18 @@ const ConnectorSettings = () => {
               <section aria-labelledby="available-connectors-heading">
                 <h4
                   id="available-connectors-heading"
-                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-muted-foreground"
+                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
                 >
                   Available · {availableConnectors.length}
                 </h4>
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                   {availableConnectors.map(entry => renderCatalogEntry(entry))}
                 </div>
               </section>
             ) : null}
 
             {!loading && !hasMatches ? (
-              <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-text-secondary">
                 {query.trim() ? `No connectors match “${query.trim()}”.` : 'No connectors yet.'}
               </div>
             ) : null}
@@ -477,21 +494,21 @@ const ConnectorSettings = () => {
               <div className="space-y-5 px-5 py-5">
                 <div className="flex items-center gap-3">
                   <span
-                    className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted"
+                    className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-secondary-bg"
                     aria-hidden
                   >
-                    <Icon name="mcp-server" className="size-6 text-foreground" />
+                    <Icon name="mcp-server" className="size-6 text-text-primary" />
                   </span>
                   <div className="min-w-0">
-                    <p className="font-medium text-foreground">{connectorAwaitingKey?.name}</p>
-                    <p className="truncate text-sm text-muted-foreground">{connectorAwaitingKey?.description}</p>
+                    <p className="font-medium text-text-primary">{connectorAwaitingKey?.name}</p>
+                    <p className="truncate text-sm text-text-secondary">{connectorAwaitingKey?.description}</p>
                   </div>
                 </div>
 
                 <div>
                   <label
                     htmlFor="connector-api-key"
-                    className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                    className="mb-2 block text-xs font-semibold uppercase tracking-wide text-text-secondary"
                   >
                     API key / token
                   </label>
@@ -505,9 +522,10 @@ const ConnectorSettings = () => {
                     placeholder={`Paste the token from ${connectorAwaitingKey?.name ?? 'the provider'}`}
                     autoFocus
                     required
-                    className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
+                    className={auiInputClass('h-11')}
                   />
                 </div>
+                {formError ? <p className="text-failure-bg text-sm">{formError}</p> : null}
               </div>
 
               <footer className="flex justify-end gap-2 border-t border-border px-5 py-4">
@@ -523,9 +541,13 @@ const ConnectorSettings = () => {
 
           <AddMcpServerForm
             open={addMcpServerFormOpen}
-            onOpenChange={setAddMcpServerFormOpen}
+            onOpenChange={open => {
+              setAddMcpServerFormOpen(open);
+              if (!open) setFormError(null);
+            }}
             onAdd={handleAddMcpServer}
             busy={busy || isOAuthLoading}
+            error={formError}
           />
         </div>
       </div>

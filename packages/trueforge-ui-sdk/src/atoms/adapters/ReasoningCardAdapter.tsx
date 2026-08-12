@@ -55,10 +55,10 @@ export function ReasoningCard({
         {showContent && (
           <div
             ref={contentRef}
-            className="py-2 pt-0 font-sans text-sm font-normal text-muted-foreground"
+            className="py-2 pt-0 font-sans text-sm font-normal text-text-secondary"
             data-testid={dataTestPrefix ? `${dataTestPrefix}-content` : undefined}
           >
-            <Markdown content={content} className="font-sans text-sm text-muted-foreground" />
+            <Markdown content={content} className="font-sans text-sm text-text-secondary" />
           </div>
         )}
       </AgentStepRow>

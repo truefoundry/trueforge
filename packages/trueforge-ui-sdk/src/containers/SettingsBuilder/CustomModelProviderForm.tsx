@@ -28,6 +28,7 @@ type CustomModelProviderFormProps = {
   onAdd: (draft: CustomProviderDraft) => void | Promise<void>;
   reasoningEffortOptions?: readonly string[];
   busy?: boolean;
+  error?: string | null;
 };
 
 type ModelRow = {
@@ -53,7 +54,9 @@ const PLACEHOLDER_MAX_OUTPUT_TOKENS = '4096';
 const createEmptyModelRow = (): ModelRow => ({
   id: '',
   name: '',
-  advancedExpanded: false,
+  // Expanded by default: Context length and Max output tokens are required, so they
+  // shouldn't be hidden behind a collapsed section.
+  advancedExpanded: true,
   contextLength: '',
   maxOutputTokens: '',
 });
@@ -61,8 +64,8 @@ const createEmptyModelRow = (): ModelRow => ({
 // Flat, de-boxed input with enough contrast to read as editable: a slightly
 // deeper fill, a subtle hairline, and a clear focus ring.
 const inputClassName =
-  'h-11 w-full rounded-md border border-border/70 bg-muted px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50';
-const inputErrorClassName = 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive';
+  'h-11 w-full rounded-md border border-border/70 bg-secondary-bg px-3 text-sm text-text-primary outline-none transition-colors placeholder:text-text-secondary/70 focus-visible:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/50';
+const inputErrorClassName = 'border-failure-bg focus-visible:border-failure-bg focus-visible:ring-failure-bg';
 
 /** Client-side slug rule — identical to the backend NameSchema so the form never rejects a name the server accepts. */
 const NAME_RE = /^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$/;
@@ -87,17 +90,17 @@ function slugifyModelId(raw: string): string {
 }
 
 const RequiredMark = () => (
-  <span className="ml-0.5 text-destructive" aria-hidden>
+  <span className="ml-0.5 text-failure-bg" aria-hidden>
     *
   </span>
 );
 
 const FieldError = ({ children }: { children: ReactNode }) => (
-  <p className="mt-1 text-xs text-destructive">{children}</p>
+  <p className="mt-1 text-xs text-failure-bg">{children}</p>
 );
 
 const FieldHelp = ({ children }: { children: ReactNode }) => (
-  <p className="mt-1 text-xs text-muted-foreground">{children}</p>
+  <p className="mt-1 text-xs text-text-secondary">{children}</p>
 );
 
 const CustomModelProviderForm = ({
@@ -106,6 +109,7 @@ const CustomModelProviderForm = ({
   onAdd,
   reasoningEffortOptions,
   busy = false,
+  error,
 }: CustomModelProviderFormProps) => {
   const [name, setName] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
@@ -139,7 +143,14 @@ const CustomModelProviderForm = ({
   const markAllTouched = () => {
     setNameTouched(true);
     setBaseUrlTouched(true);
-    setModels(current => current.map(model => ({ ...model, idTouched: true, contextTouched: true, maxTouched: true })));
+    setModels(current =>
+      current.map(model => ({
+        ...model,
+        idTouched: true,
+        contextTouched: true,
+        maxTouched: true,
+      })),
+    );
   };
 
   // ── Validation (client-side; do not rely on backend errors) ──
@@ -199,7 +210,8 @@ const CustomModelProviderForm = ({
       const field = target && modelContextError(target) ? 'context-length' : 'max-output-tokens';
       setTimeout(() => {
         const el = document.getElementById(`custom-provider-model-${incompleteIndex}-${field}`);
-        el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        // scrollIntoView is unimplemented in jsdom; guard the method so tests don't throw.
+        el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
         (el as HTMLInputElement | null)?.focus();
       }, 0);
       return;
@@ -249,7 +261,7 @@ const CustomModelProviderForm = ({
         {/* Scrollable body — generous bottom padding keeps expanded Advanced clear of the pinned footer */}
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pt-4 pb-8">
           <div>
-            <label htmlFor="custom-provider-name" className="mb-1.5 block text-sm font-medium text-foreground">
+            <label htmlFor="custom-provider-name" className="mb-1.5 block text-sm font-medium text-text-primary">
               Name
               <RequiredMark />
             </label>
@@ -268,7 +280,7 @@ const CustomModelProviderForm = ({
           </div>
 
           <div>
-            <label htmlFor="custom-provider-base-url" className="mb-1.5 block text-sm font-medium text-foreground">
+            <label htmlFor="custom-provider-base-url" className="mb-1.5 block text-sm font-medium text-text-primary">
               Base URL
               <RequiredMark />
             </label>
@@ -290,9 +302,9 @@ const CustomModelProviderForm = ({
           </div>
 
           <div>
-            <label htmlFor="custom-provider-api-key" className="mb-1.5 block text-sm font-medium text-foreground">
+            <label htmlFor="custom-provider-api-key" className="mb-1.5 block text-sm font-medium text-text-primary">
               API key
-              <span className="font-normal text-muted-foreground"> (optional)</span>
+              <span className="font-normal text-text-secondary"> (optional)</span>
             </label>
             <input
               id="custom-provider-api-key"
@@ -306,7 +318,7 @@ const CustomModelProviderForm = ({
           </div>
 
           <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className="float-left mb-2 w-full p-0 text-sm font-medium text-foreground">
+            <legend className="float-left mb-2 w-full p-0 text-sm font-medium text-text-primary">
               Models
               <RequiredMark />
             </legend>
@@ -316,11 +328,10 @@ const CustomModelProviderForm = ({
                 const idError = modelIdError(model);
                 const showIdError = model.idTouched && idError;
                 const nameFieldError = modelNameError(model);
-                // Surface auto-derived name problems as soon as there is a Model ID: the name is
-                // derived from it, so a bad slug must show without waiting for a blur or submit
-                // (the submit button can be disabled, so those triggers may never fire). When the
-                // id is empty the id's own "required" error covers it, so we don't double up here.
-                const showNameFieldError = (model.id.trim() !== '' || model.nameDirty) && nameFieldError;
+                // The Model name is auto-derived from the Model ID and is editable. Never flag an
+                // auto-derived value: if the id yields no usable name, stay silent and let the user
+                // type one. Only surface an error once they have hand-edited the name themselves.
+                const showNameFieldError = !!nameFieldError && model.nameDirty;
                 const contextError = modelContextError(model);
                 const maxError = modelMaxOutputError(model);
                 const showContextError = model.contextTouched && contextError;
@@ -335,7 +346,7 @@ const CustomModelProviderForm = ({
                       <div className="min-w-0">
                         <label
                           htmlFor={`custom-provider-model-${index}-id`}
-                          className="mb-1 block text-xs font-normal text-muted-foreground"
+                          className="mb-1 block text-xs font-normal text-text-secondary"
                         >
                           Model ID
                         </label>
@@ -346,7 +357,10 @@ const CustomModelProviderForm = ({
                           onChange={event => {
                             const id = event.target.value;
                             // Keep the model name in sync with the id until the user edits it by hand.
-                            updateModel(index, { id, ...(model.nameDirty ? {} : { name: slugifyModelId(id) }) });
+                            updateModel(index, {
+                              id,
+                              ...(model.nameDirty ? {} : { name: slugifyModelId(id) }),
+                            });
                           }}
                           onBlur={() => updateModel(index, { idTouched: true })}
                           placeholder="llama3.1:70b"
@@ -357,7 +371,7 @@ const CustomModelProviderForm = ({
                       <div className="min-w-0">
                         <label
                           htmlFor={`custom-provider-model-${index}-name`}
-                          className="mb-1 block text-xs font-normal text-muted-foreground"
+                          className="mb-1 block text-xs font-normal text-text-secondary"
                         >
                           Model name
                         </label>
@@ -375,7 +389,7 @@ const CustomModelProviderForm = ({
                         type="button"
                         aria-label={`Remove model ${index + 1}`}
                         disabled={models.length === 1 || busy}
-                        className="mb-0.5 flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                        className="mb-0.5 flex size-9 items-center justify-center rounded-md text-text-secondary transition-colors hover:text-text-primary disabled:opacity-40"
                         onClick={() => setModels(current => current.filter((_, i) => i !== index))}
                       >
                         <Icon name="trash" className="size-4" />
@@ -390,13 +404,13 @@ const CustomModelProviderForm = ({
                         type="button"
                         aria-expanded={model.advancedExpanded}
                         aria-controls={`custom-provider-model-${index}-advanced`}
-                        className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-foreground"
+                        className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-text-primary"
                         onClick={() => updateModel(index, { advancedExpanded: !model.advancedExpanded })}
                       >
                         <Icon
                           name="chevron-down"
                           className={cn(
-                            'size-4 text-muted-foreground transition-transform',
+                            'size-4 text-text-secondary transition-transform',
                             model.advancedExpanded ? '' : '-rotate-90',
                           )}
                         />
@@ -405,10 +419,64 @@ const CustomModelProviderForm = ({
 
                       {model.advancedExpanded ? (
                         <div id={`custom-provider-model-${index}-advanced`} className="mt-3 space-y-4 pl-6">
+                          <div>
+                            <label
+                              htmlFor={`custom-provider-model-${index}-context-length`}
+                              className="mb-1.5 block text-xs font-medium text-text-secondary"
+                            >
+                              Context length
+                              <RequiredMark />
+                            </label>
+                            <input
+                              id={`custom-provider-model-${index}-context-length`}
+                              type="number"
+                              min={1}
+                              inputMode="numeric"
+                              value={model.contextLength}
+                              onChange={event => updateModel(index, { contextLength: event.target.value })}
+                              onBlur={() => updateModel(index, { contextTouched: true })}
+                              placeholder={PLACEHOLDER_CONTEXT_LENGTH}
+                              aria-invalid={showContextError ? true : undefined}
+                              className={cn(inputClassName, showContextError && inputErrorClassName)}
+                            />
+                            {showContextError ? (
+                              <FieldError>{contextError}</FieldError>
+                            ) : model.contextLength.trim() === '' ? (
+                              <FieldHelp>Prevents the context window from overflowing during a run.</FieldHelp>
+                            ) : null}
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor={`custom-provider-model-${index}-max-output-tokens`}
+                              className="mb-1.5 block text-xs font-medium text-text-secondary"
+                            >
+                              Max output tokens
+                              <RequiredMark />
+                            </label>
+                            <input
+                              id={`custom-provider-model-${index}-max-output-tokens`}
+                              type="number"
+                              min={1}
+                              inputMode="numeric"
+                              value={model.maxOutputTokens}
+                              onChange={event => updateModel(index, { maxOutputTokens: event.target.value })}
+                              onBlur={() => updateModel(index, { maxTouched: true })}
+                              placeholder={PLACEHOLDER_MAX_OUTPUT_TOKENS}
+                              aria-invalid={showMaxError ? true : undefined}
+                              className={cn(inputClassName, showMaxError && inputErrorClassName)}
+                            />
+                            {showMaxError ? (
+                              <FieldError>{maxError}</FieldError>
+                            ) : model.maxOutputTokens.trim() === '' ? (
+                              <FieldHelp>Caps tokens per model call.</FieldHelp>
+                            ) : null}
+                          </div>
+
                           {reasoningEffortOptions && reasoningEffortOptions.length > 0 ? (
                             <div>
                               <div className="flex items-center justify-between gap-3">
-                                <span className="text-xs font-medium text-muted-foreground">Reasoning effort</span>
+                                <span className="text-xs font-medium text-text-secondary">Reasoning effort</span>
                                 <button
                                   type="button"
                                   role="switch"
@@ -416,10 +484,10 @@ const CustomModelProviderForm = ({
                                   aria-label={`Enable reasoning effort for model ${index + 1}`}
                                   disabled={busy}
                                   className={cn(
-                                    'relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50',
+                                    'relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40 disabled:opacity-50',
                                     model.reasoningEfforts !== undefined
-                                      ? 'bg-primary'
-                                      : 'bg-muted-foreground/30 dark:bg-muted-foreground/50',
+                                      ? 'bg-primary-button-bg'
+                                      : 'bg-text-secondary/30 dark:bg-text-secondary/50',
                                   )}
                                   onClick={() =>
                                     updateModel(index, {
@@ -450,10 +518,10 @@ const CustomModelProviderForm = ({
                                         aria-pressed={selected}
                                         disabled={busy}
                                         className={cn(
-                                          'rounded-full border px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50',
+                                          'rounded-full border px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40 disabled:opacity-50',
                                           selected
-                                            ? 'border-primary bg-primary text-primary-foreground'
-                                            : 'border-border text-muted-foreground hover:bg-accent',
+                                            ? 'border-primary-button-bg bg-primary-button-bg text-primary-button-text'
+                                            : 'border-border text-text-secondary hover:bg-ghost-button-hover',
                                         )}
                                         onClick={() =>
                                           updateModel(index, {
@@ -471,60 +539,6 @@ const CustomModelProviderForm = ({
                               ) : null}
                             </div>
                           ) : null}
-
-                          <div>
-                            <label
-                              htmlFor={`custom-provider-model-${index}-context-length`}
-                              className="mb-1.5 block text-xs font-medium text-muted-foreground"
-                            >
-                              Context length
-                              <RequiredMark />
-                            </label>
-                            <input
-                              id={`custom-provider-model-${index}-context-length`}
-                              type="number"
-                              min={1}
-                              inputMode="numeric"
-                              value={model.contextLength}
-                              onChange={event => updateModel(index, { contextLength: event.target.value })}
-                              onBlur={() => updateModel(index, { contextTouched: true })}
-                              placeholder={PLACEHOLDER_CONTEXT_LENGTH}
-                              aria-invalid={showContextError ? true : undefined}
-                              className={cn(inputClassName, showContextError && inputErrorClassName)}
-                            />
-                            {showContextError ? (
-                              <FieldError>{contextError}</FieldError>
-                            ) : (
-                              <FieldHelp>Prevents the context window from overflowing during a run.</FieldHelp>
-                            )}
-                          </div>
-
-                          <div>
-                            <label
-                              htmlFor={`custom-provider-model-${index}-max-output-tokens`}
-                              className="mb-1.5 block text-xs font-medium text-muted-foreground"
-                            >
-                              Max output tokens
-                              <RequiredMark />
-                            </label>
-                            <input
-                              id={`custom-provider-model-${index}-max-output-tokens`}
-                              type="number"
-                              min={1}
-                              inputMode="numeric"
-                              value={model.maxOutputTokens}
-                              onChange={event => updateModel(index, { maxOutputTokens: event.target.value })}
-                              onBlur={() => updateModel(index, { maxTouched: true })}
-                              placeholder={PLACEHOLDER_MAX_OUTPUT_TOKENS}
-                              aria-invalid={showMaxError ? true : undefined}
-                              className={cn(inputClassName, showMaxError && inputErrorClassName)}
-                            />
-                            {showMaxError ? (
-                              <FieldError>{maxError}</FieldError>
-                            ) : (
-                              <FieldHelp>Caps tokens per model call.</FieldHelp>
-                            )}
-                          </div>
                         </div>
                       ) : null}
                     </div>
@@ -547,7 +561,8 @@ const CustomModelProviderForm = ({
         </div>
 
         {/* Sticky footer */}
-        <div className="shrink-0 border-t border-border px-5 py-4">
+        <div className="shrink-0 space-y-3 border-t border-border px-5 py-4">
+          {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
           <Button type="submit" size="lg" disabled={!visibleValid || busy} className="w-full">
             Add provider
           </Button>

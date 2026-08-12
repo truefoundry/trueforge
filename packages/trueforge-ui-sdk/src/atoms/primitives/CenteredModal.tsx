@@ -72,7 +72,7 @@ export function CenteredModal({
       }}
       style={compactStyle ?? (contentSized ? { height: 'fit-content', maxHeight: '85dvh' } : undefined)}
       className={cn(
-        'bg-background text-foreground border-border open:flex open:flex-col overflow-hidden p-0 shadow-xl',
+        'bg-card-bg text-text-primary border-border open:flex open:flex-col overflow-hidden p-0 shadow-xl',
         compact
           ? 'm-0 mt-auto max-w-none rounded-t-xl rounded-b-none border-t pb-[env(safe-area-inset-bottom)]'
           : contentSized
@@ -86,14 +86,14 @@ export function CenteredModal({
         className,
       )}
     >
-      <header className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-4">
+      <header className="bg-topbar-bg flex shrink-0 items-center gap-3 border-b border-border px-5 py-4">
         {headerIcon}
         <div className="min-w-0 flex-1">
-          <h2 id={titleId} className="text-foreground text-lg font-semibold tracking-tight">
+          <h2 id={titleId} className="text-text-primary text-lg font-semibold tracking-tight">
             {title}
           </h2>
           {description ? (
-            <p id={descriptionId} className="text-muted-foreground mt-1 text-sm">
+            <p id={descriptionId} className="text-text-secondary mt-1 text-sm">
               {description}
             </p>
           ) : null}

@@ -161,7 +161,7 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
 > {
   return {
     getConnectorCatalog: async () => {
-      const body = await client.settings.mcpServers.catalog();
+      const body = await client.catalog.mcpServers.list();
       return body.data.map(toUiCatalogEntry);
     },
     getConnector: async req => {
