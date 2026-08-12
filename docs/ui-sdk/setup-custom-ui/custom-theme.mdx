@@ -11,9 +11,8 @@ Theme object supports params to pass `tokens` to override styles of UI component
 type ThemeConfig = {
   ...
   tokens?: Partial<SemanticTokens>;
-  className?: string;
   icons?: IconMap;
-  classNames?: ContentClassNames;
+  ...
 };
 ```
 
@@ -21,48 +20,40 @@ type ThemeConfig = {
 
 ```json Token Object
 {
-    background: "#c18585",
-    foreground: "#1f1f1f",
-    card: "#ffffff",
-    cardForeground: "#1f1f1f",
-    popover: "#f0f4f9",
-    popoverForeground: "#1f1f1f",
-    primary: "#1f3b9b",
-    primaryForeground: "#ffffff",
-    secondary: "#e8eaed",
-    secondaryForeground: "#1f1f1f",
-    muted: "#f8fafd",
-    mutedForeground: "#444746",
-    accent: "#e9eef6",
-    accentForeground: "#1f1f1f",
-    destructive: "#b3261e",
-    destructiveForeground: "#ffffff",
-    border: "#dadce0",
-    input: "#dadce0",
-    ring: "#1f3b9b",
-    userBubble: "#f3f6fc",
-    userBubbleForeground: "#1f1f1f",
-    radius: "1rem",
-    composerRadius: "2rem",
-    fontSans: "\"GeistSans\", \"GeistSans Fallback\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
-  }
+  "sidebarBg": "#ffffff",
+  "topbarBg": "#ffffff",
+  "primaryBg": "#ffffff",
+  "secondaryBg": "#f4f4f5",
+  "border": "#e4e4e7",
+  "inputBoxBg": "#ffffff",
+  "inputBorder": "#e4e4e7",
+  "textPrimary": "#09090b",
+  "textSecondary": "#62626a",
+  "cardBg": "#ffffff",
+  "dropdownSelectedItemBg": "#f1f1f2",
+  "dropdownSelectedItemText": "#09090b",
+  "userMessageBg": "#09090b",
+  "userMessageText": "#ffffff",
+  "assistantMessageBg": "transparent",
+  "assistantMessageText": "#09090b",
+  "primaryButtonBg": "#09090b",
+  "primaryButtonHover": "#27272a",
+  "primaryButtonText": "#ffffff",
+  "secondaryButtonBg": "#f4f4f5",
+  "secondaryButtonHover": "#e4e4e7",
+  "secondaryButtonText": "#09090b",
+  "ghostButtonBg": "transparent",
+  "ghostButtonHover": "#f1f1f2",
+  "ghostButtonText": "#09090b",
+  "successBg": "#16a34a",
+  "successText": "#ffffff",
+  "failureBg": "#ef4444",
+  "failureText": "#ffffff",
+  "warningBg": "#d97706",
+  "warningText": "#ffffff",
+  "scrollbarThumb": "#62626a"
+}
 ```
-
-## Precedence
-
-The provider resolves the preset for the current mode, merges your `theme.tokens` over it, and writes the result as **inline styles** on the theme root. So within `theme.tokens`, your entries beat the preset — that part is straightforward.
-
-<Warning>
-  Because those tokens land as inline styles, a `:root { --primary: … }` rule in your own CSS will **not** override them. This applies to every token a preset defines, whether or not you passed `theme.tokens`. Use `theme.tokens` to change these, not CSS.
-</Warning>
-
-A few tokens are absent from the presets — `scrollbarThumb`, `assistantBubble`, and `assistantBubbleForeground`. Those are not written inline unless you set them, so they fall through to the stylesheet's low-precedence layer and a host `:root` rule does take effect.
-
-`theme.className` is applied to the theme root, for utility-class adjustments alongside the tokens.
-
-<Note>
-  `brand`, `icons`, and `classNames` are not part of this cascade — they are separate context values, not tokens that layer over one another.
-</Note>
 
 ## Reading theme state
 
@@ -87,12 +78,6 @@ One token breaks that rule:
 | --- | --- |
 | `fontFamily` | `--font-agent-ui` |
 
-Alongside the usual surface and text tokens, the palette includes status pairs for `destructive`, `success`, and `warning`, each with a matching `*Foreground`.
-
-<Note>
-  `theme.tokens` is a `Partial`, so you only supply the tokens you want to change and the preset fills in the rest. The status pairs matter only if you construct a complete `SemanticTokens` object — for instance when building your own preset — in which case all four of `success`, `successForeground`, `warning`, and `warningForeground` are required.
-</Note>
-
 ## Styling rendered content
 
 `theme.classNames` targets the content renderers:
@@ -108,15 +93,3 @@ type ContentClassNames = {
 ```
 
 For CSS-only adjustments you can instead target the stable class names directly: `.aui-markdown`, `.aui-syntax-highlighter`, `.aui-openui`, `.aui-monaco`.
-
-## Presets
-
-```ts
-import { PRESETS, resolvePresetTokens } from "@truefoundry/trueforge-ui";
-
-const tokens = resolvePresetTokens("gemini", "dark");
-```
-
-`PRESETS` is a `Record<ThemePreset, { light, dark }>` — useful for building a preset picker.
-
-Refer to [Building custom theme](/ui-sdk/setup-custom-ui/custom-theme) to build a theme from scratch
