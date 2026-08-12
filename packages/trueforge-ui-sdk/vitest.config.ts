@@ -1,8 +1,8 @@
 /** Vitest: jsdom for React containers; MUI alias for CJS/ESM dual-package quirk. */
 import { fileURLToPath } from 'node:url';
 
-import { defineConfig } from 'vitest/config';
 import svgr from 'vite-plugin-svgr';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [
