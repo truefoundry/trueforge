@@ -48,9 +48,15 @@ export const DaytonaSandboxProviderSchema = z
   .strict()
   .openapi('DaytonaSandboxProvider');
 
+/** Named enum so the generated SDK exposes a reusable `SandboxBuildStatus` type. */
+export const SandboxBuildStatusSchema = z
+  .enum(['pending', 'ready', 'failed'])
+  .describe('Current build status.')
+  .openapi('SandboxBuildStatus');
+
 export const SandboxBuildSchema = z
   .object({
-    status: z.enum(['pending', 'ready', 'failed']).describe('Current build status.'),
+    status: SandboxBuildStatusSchema,
     reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
     metadata: z
       .object({
@@ -94,6 +100,7 @@ export const GetSandboxProviderResponseSchema = z
 
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
 export type SandboxProvider = z.infer<typeof SandboxProviderSchema>;
+export type SandboxBuildStatus = z.infer<typeof SandboxBuildStatusSchema>;
 export type SandboxBuild = z.infer<typeof SandboxBuildSchema>;
 export type SandboxProviderResponse = z.infer<typeof SandboxProviderResponseSchema>;
 export type PutSandboxProviderRequest = z.infer<typeof PutSandboxProviderRequestSchema>;
