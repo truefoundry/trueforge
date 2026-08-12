@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
+import { cn } from '@/atoms/lib/cn.js';
 import { Button } from '@/atoms/primitives/Button.js';
+import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
 import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
 import SearchInput from '@/atoms/primitives/SearchInput.js';
 import { useMCPAuth } from '@/hooks/useMcpAuth.js';
@@ -246,14 +248,15 @@ const ConnectorSettings = () => {
   };
 
   const renderConnector = (connector: ConnectorBase, isConnected: boolean) => {
+    const logoSrc = connectorIconMap[connector.name];
     const content = (
       <>
         <span
           className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted"
           aria-hidden
         >
-          {connectorIconMap[connector.name] ? (
-            <img src={connectorIconMap[connector.name]} alt={connector.name} className="size-4.5" />
+          {logoSrc ? (
+            <CatalogLogo src={logoSrc} alt={connector.name} className="size-4.5" />
           ) : (
             <Icon name="mcp-server" className="size-4.5 text-foreground" />
           )}
@@ -281,8 +284,15 @@ const ConnectorSettings = () => {
 
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
+              <span
+                className={cn(
+                  'flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium',
+                  connector.authenticated ? 'text-success' : 'text-foreground',
+                )}
+              >
+                <span
+                  className={cn('h-1.5 w-1.5 rounded-full', connector.authenticated ? 'bg-success' : 'bg-primary')}
+                ></span>
                 {connector.authenticated ? 'Connected' : 'Added'}
               </span>
               <Icon name="chevron-right" className="size-4" />
@@ -315,47 +325,51 @@ const ConnectorSettings = () => {
     );
   };
 
-  const renderCatalogEntry = (entry: ConnectorCatalogEntry) => (
-    <article
-      key={entry.id}
-      className="flex min-h-16 w-full items-center gap-3 border-b border-border p-3 text-left last:border-b-0"
-    >
-      <span
-        className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted"
-        aria-hidden
+  const renderCatalogEntry = (entry: ConnectorCatalogEntry) => {
+    const logoSrc = connectorIconMap[entry.name];
+    return (
+      <article
+        key={entry.id}
+        className="flex min-h-16 w-full items-center gap-3 border-b border-border p-3 text-left last:border-b-0"
       >
-        {connectorIconMap[entry.name] ? (
-          <img src={connectorIconMap[entry.name]} alt={entry.name} className="size-4.5" />
-        ) : (
-          <Icon name="mcp-server" className="size-4.5 text-foreground" />
-        )}
-      </span>
-
-      <div className="min-w-0 flex-1">
-        <h5 className="truncate text-sm font-medium text-foreground">{entry.name}</h5>
-        <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground sm:truncate">
-          {entry.description ?? entry.url}
-        </p>
-      </div>
-
-      <div className="flex shrink-0 items-center gap-2">
-        <span className="hidden text-xs text-muted-foreground sm:inline">
-          {AUTH_TYPE_LABELS[entry.auth.type] ?? AUTH_TYPE_LABELS.none}
-        </span>
-        <Button
-          variant="secondary"
-          size="sm"
-          type="button"
-          disabled={busy || isOAuthLoading}
-          onClick={() => {
-            handleConnect(entry);
-          }}
+        <span
+          className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted"
+          aria-hidden
         >
-          Connect
-        </Button>
-      </div>
-    </article>
-  );
+          {logoSrc ? (
+            <CatalogLogo src={logoSrc} alt={entry.name} className="size-4.5" />
+          ) : (
+            <Icon name="mcp-server" className="size-4.5 text-foreground" />
+          )}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <h5 className="truncate text-sm font-medium text-foreground">{entry.name}</h5>
+          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground sm:truncate">
+            {entry.description ?? entry.url}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="hidden text-xs text-muted-foreground sm:inline">
+            {AUTH_TYPE_LABELS[entry.auth.type] ?? AUTH_TYPE_LABELS.none}
+          </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            type="button"
+            disabled={busy || isOAuthLoading}
+            onClick={() => {
+              handleConnect(entry);
+            }}
+          >
+            Connect
+          </Button>
+        </div>
+      </article>
+    );
+  };
+
   const isReplacingKey = useMemo(() => {
     return (
       connectorAwaitingKey !== null &&

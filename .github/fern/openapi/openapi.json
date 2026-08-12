@@ -863,7 +863,6 @@
           }
         },
         "required": [
-          "auth",
           "models",
           "type",
           "name",
@@ -1401,7 +1400,7 @@
       },
       "ListSessionsOrder": {
         "default": "desc",
-        "description": "Sort sessions by creation time. Defaults to \"desc\".",
+        "description": "Sort sessions by `updated_at`. Defaults to \"desc\".",
         "enum": [
           "asc",
           "desc"
@@ -4909,7 +4908,7 @@
             }
           },
           {
-            "description": "Sort sessions by creation time. Defaults to \"desc\".",
+            "description": "Sort sessions by `updated_at`. Defaults to \"desc\".",
             "in": "query",
             "name": "order",
             "required": false,
@@ -4918,12 +4917,13 @@
             }
           },
           {
-            "description": "Opaque token from a previous response `next_page_token`.",
+            "description": "Opaque keyset cursor from a previous response `next_page_token`.",
             "in": "query",
             "name": "page_token",
             "required": false,
             "schema": {
-              "description": "Opaque token from a previous response `next_page_token`.",
+              "description": "Opaque keyset cursor from a previous response `next_page_token`.",
+              "minLength": 1,
               "type": "string"
             }
           },

@@ -1,16 +1,51 @@
-import React, { cloneElement, isValidElement, useRef, useState } from 'react';
+'use client';
+
+import React, { cloneElement, isValidElement, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { cn } from '../lib/cn.js';
+
+// Keep portaled chrome under ThemeProvider so preset/custom CSS vars still apply.
+function themePortalRoot(from: HTMLElement | null): HTMLElement {
+  return from?.closest('.aui-theme-root') ?? document.body;
+}
 
 export type TooltipProps = {
   content: React.ReactNode;
   children: React.ReactElement;
   className?: string;
+  side?: 'top' | 'bottom';
 };
 
-export function Tooltip({ content, children, className }: TooltipProps) {
+export function Tooltip({ content, children, className, side = 'top' }: TooltipProps) {
   const [visible, setVisible] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerWrapRef = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    if (!visible) {
+      setPos(null);
+      return;
+    }
+
+    const update = () => {
+      const el = triggerWrapRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setPos({
+        top: side === 'bottom' ? rect.bottom + 6 : rect.top - 6,
+        left: rect.left + rect.width / 2,
+      });
+    };
+
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [visible, side]);
 
   if (!isValidElement(children)) return children;
 
@@ -33,23 +68,38 @@ export function Tooltip({ content, children, className }: TooltipProps) {
       setVisible(false);
       (p.onBlur as ((e: React.FocusEvent<Element>) => void) | undefined)?.(e);
     },
+    onClick(e: React.MouseEvent<Element>) {
+      setVisible(false);
+      (p.onClick as ((e: React.MouseEvent<Element>) => void) | undefined)?.(e);
+    },
   });
 
+  const tooltip =
+    visible && content != null && pos != null
+      ? createPortal(
+          <span
+            role="tooltip"
+            style={{
+              top: pos.top,
+              left: pos.left,
+              transform: side === 'bottom' ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+            }}
+            className={cn(
+              'pointer-events-none fixed z-[200]',
+              'whitespace-nowrap rounded bg-foreground px-2 py-1 text-xs text-background shadow-md',
+              className,
+            )}
+          >
+            {content}
+          </span>,
+          themePortalRoot(triggerWrapRef.current),
+        )
+      : null;
+
   return (
-    <span ref={ref} className="relative inline-flex">
+    <span ref={triggerWrapRef} className="relative inline-flex">
       {child}
-      {visible && content != null && (
-        <span
-          role="tooltip"
-          className={cn(
-            'pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2',
-            'whitespace-nowrap rounded bg-foreground px-2 py-1 text-xs text-background shadow-md',
-            className,
-          )}
-        >
-          {content}
-        </span>
-      )}
+      {tooltip}
     </span>
   );
 }
@@ -59,11 +109,12 @@ export type LightTooltipProps = {
   children: React.ReactElement;
   className?: string;
   size?: string;
+  side?: 'top' | 'bottom';
 };
 
-export function LightTooltip({ title, children, className, size: _size }: LightTooltipProps) {
+export function LightTooltip({ title, children, className, size: _size, side }: LightTooltipProps) {
   return (
-    <Tooltip content={title} className={className}>
+    <Tooltip content={title} className={className} side={side}>
       {children}
     </Tooltip>
   );

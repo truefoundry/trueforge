@@ -51,7 +51,7 @@ export function WelcomeScreen({ heading = 'How can I help you today?', icon, cla
       <h1
         className={cn(
           'aui-thread-welcome-message-inner fill-mode-both text-2xl motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-reduce:animate-none',
-          preset === 'truefoundry' ? 'font-semibold' : 'font-normal',
+          preset === 'trueforge' ? 'font-semibold' : 'font-normal',
           resolvedIcon !== null && 'delay-75',
           preset === 'gemini' ? 'text-[1.75rem] leading-tight duration-300' : 'duration-200',
         )}

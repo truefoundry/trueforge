@@ -7,7 +7,10 @@ import type {
   ListSessionsInput,
   UpdateSessionInput,
 } from '@truefoundry/utils-core/agent-session/store/ISessionStore';
-import { decodeOffsetPageToken, paginateOffsetRows } from '@truefoundry/utils-core/agent-session/store/OffsetPageToken';
+import {
+  decodeSessionListPageToken,
+  paginateSessionListRows,
+} from '@truefoundry/utils-core/agent-session/store/SessionListPageToken';
 import {
   SessionAlreadyExistsError,
   SessionNotFoundError,
@@ -187,8 +190,8 @@ export async function listSessions(
   pagination: { next_page_token?: string | undefined; previous_page_token?: string | undefined };
 }> {
   const limit = input.limit;
-  const offset = decodeOffsetPageToken(input.page_token);
   const order = input.order ?? 'desc';
+  const cursor = decodeSessionListPageToken(input.page_token);
 
   let query = db.selectFrom('session').select(sessionSelectColumns).where('tenant_id', '=', input.tenant_id);
 
@@ -205,21 +208,35 @@ export async function listSessions(
     query = query.where('created_at', '<=', input.end_timestamp.toISOString());
   }
 
-  if (order === 'asc') {
-    query = query.orderBy('created_at', 'asc').orderBy('session_id', 'asc');
-  } else {
-    query = query.orderBy('created_at', 'desc').orderBy('session_id', 'desc');
+  if (cursor) {
+    const cursorUpdatedAt = cursor.updated_at;
+    const sessionId = cursor.session_id;
+    if (order === 'asc') {
+      query = query.where(eb =>
+        eb.or([
+          eb('updated_at', '>', cursorUpdatedAt),
+          eb.and([eb('updated_at', '=', cursorUpdatedAt), eb('session_id', '>', sessionId)]),
+        ]),
+      );
+    } else {
+      query = query.where(eb =>
+        eb.or([
+          eb('updated_at', '<', cursorUpdatedAt),
+          eb.and([eb('updated_at', '=', cursorUpdatedAt), eb('session_id', '<', sessionId)]),
+        ]),
+      );
+    }
   }
 
-  const rows = await query
-    .limit(limit + 1)
-    .offset(offset)
-    .execute();
+  if (order === 'asc') {
+    query = query.orderBy('updated_at', 'asc').orderBy('session_id', 'asc');
+  } else {
+    query = query.orderBy('updated_at', 'desc').orderBy('session_id', 'desc');
+  }
 
-  const { data, pagination } = paginateOffsetRows(rows, limit, offset);
+  const rows = await query.limit(limit + 1).execute();
+  // SQLite stores updated_at as ISO text already — use it directly for the keyset cursor.
+  const { data: pageRows, pagination } = paginateSessionListRows(rows, limit, row => row.updated_at);
 
-  return {
-    data: data.map(mapRowToSessionRecord),
-    pagination,
-  };
+  return { data: pageRows.map(mapRowToSessionRecord), pagination };
 }

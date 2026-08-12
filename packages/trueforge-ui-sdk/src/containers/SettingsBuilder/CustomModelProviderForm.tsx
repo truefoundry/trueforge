@@ -1,23 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
+import { cn } from '../../atoms/lib/cn.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
 import { Icon } from '../../icons/Icon.js';
-import type { ModelEntry } from '../../server/types.js';
 
 export type CustomProviderDraft = {
   name: string;
   baseUrl: string;
   apiKey: string;
-  models: Array<
-    ModelEntry & {
-      properties?: {
-        reasoningEfforts: string[];
-      };
-    }
-  >;
+  models: Array<{
+    id: string;
+    name: string;
+    properties?: {
+      reasoningEfforts?: string[];
+      contextLength?: number;
+      maxOutputTokens?: number;
+    };
+  }>;
 };
 
 type CustomModelProviderFormProps = {
@@ -29,25 +31,73 @@ type CustomModelProviderFormProps = {
 };
 
 type ModelRow = {
-  id: string;
   name: string;
-  supportedParametersExpanded: boolean;
+  advancedExpanded: boolean;
   reasoningEfforts?: string[];
+  contextLength: string;
+  maxOutputTokens: string;
+  idTouched?: boolean;
+  contextTouched?: boolean;
+  maxTouched?: boolean;
+  // Set once the user edits the model name by hand, so auto-derive from the id stops.
+  nameDirty?: boolean;
+  // `id` is the upstream model_id; kept last so object-shorthand stays readable.
+  id: string;
 };
+
+// Shown only as greyed placeholders — never prefilled, since real limits vary per model
+// and a wrong-looking default reads as "already correct".
+const PLACEHOLDER_CONTEXT_LENGTH = '128000';
+const PLACEHOLDER_MAX_OUTPUT_TOKENS = '4096';
 
 const createEmptyModelRow = (): ModelRow => ({
   id: '',
   name: '',
-  supportedParametersExpanded: true,
+  advancedExpanded: false,
+  contextLength: '',
+  maxOutputTokens: '',
 });
 
+// Flat, de-boxed input with enough contrast to read as editable: a slightly
+// deeper fill, a subtle hairline, and a clear focus ring.
 const inputClassName =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40';
+  'h-11 w-full rounded-md border border-border/70 bg-muted px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50';
+const inputErrorClassName = 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive';
+
+/** Client-side slug rule — identical to the backend NameSchema so the form never rejects a name the server accepts. */
+const NAME_RE = /^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$/;
+
+/** Parse an optional positive integer; returns null when empty or invalid (so it's simply omitted). */
+function parsePositiveInt(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === '') return null;
+  const n = Number(trimmed);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+/** Derive a NameSchema-valid slug from an upstream model id, e.g. "llama3.1:70b" -> "llama-3-1-70b". */
+function slugifyModelId(raw: string): string {
+  return raw
+    .replace(/([a-zA-Z])(\d)/g, '$1-$2') // split letter→digit boundaries
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-') // separators → single hyphen
+    .replace(/^[^a-z]+/, '') // must start with a letter
+    .slice(0, 64) // enforce max length first…
+    .replace(/-+$/g, ''); // …then trim any separator truncation left at the end
+}
 
 const RequiredMark = () => (
   <span className="ml-0.5 text-destructive" aria-hidden>
     *
   </span>
+);
+
+const FieldError = ({ children }: { children: ReactNode }) => (
+  <p className="mt-1 text-xs text-destructive">{children}</p>
+);
+
+const FieldHelp = ({ children }: { children: ReactNode }) => (
+  <p className="mt-1 text-xs text-muted-foreground">{children}</p>
 );
 
 const CustomModelProviderForm = ({
@@ -61,12 +111,16 @@ const CustomModelProviderForm = ({
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [models, setModels] = useState<ModelRow[]>([createEmptyModelRow()]);
+  const [nameTouched, setNameTouched] = useState(false);
+  const [baseUrlTouched, setBaseUrlTouched] = useState(false);
 
   const resetForm = () => {
     setName('');
     setBaseUrl('');
     setApiKey('');
     setModels([createEmptyModelRow()]);
+    setNameTouched(false);
+    setBaseUrlTouched(false);
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -74,25 +128,101 @@ const CustomModelProviderForm = ({
     onOpenChange(nextOpen);
   };
 
-  const isValid =
-    !!name.trim() && !!baseUrl.trim() && !!apiKey.trim() && models.every(model => model.id.trim() && model.name.trim());
-
   const updateModel = (index: number, patch: Partial<ModelRow>) => {
     setModels(current => current.map((model, i) => (i === index ? { ...model, ...patch } : model)));
   };
 
+  // On a submit attempt, reveal errors for every field that already exists. We flip
+  // per-field `touched` flags rather than keeping a single global "submitted" flag, so
+  // a model added *after* the attempt starts clean instead of showing errors for inputs
+  // the user has never touched.
+  const markAllTouched = () => {
+    setNameTouched(true);
+    setBaseUrlTouched(true);
+    setModels(current => current.map(model => ({ ...model, idTouched: true, contextTouched: true, maxTouched: true })));
+  };
+
+  // ── Validation (client-side; do not rely on backend errors) ──
+  const trimmedName = name.trim();
+  const nameError = !trimmedName
+    ? 'Name is required.'
+    : trimmedName.length < 2 || trimmedName.length > 64 || !NAME_RE.test(trimmedName)
+      ? 'Must be 2–64 lowercase characters, start with a letter, using . _ or - as separators.'
+      : null;
+
+  const trimmedBaseUrl = baseUrl.trim();
+  let baseUrlError: string | null = null;
+  if (!trimmedBaseUrl) {
+    baseUrlError = 'Base URL is required.';
+  } else {
+    try {
+      new URL(trimmedBaseUrl);
+    } catch {
+      baseUrlError = 'Enter a valid URL.';
+    }
+  }
+
+  const modelIdError = (model: ModelRow): string | null => (model.id.trim() ? null : 'Model ID is required.');
+  const modelNameError = (model: ModelRow): string | null => {
+    const value = model.name.trim();
+    if (!value) return 'Model name is required.';
+    if (value.length < 2 || value.length > 64 || !NAME_RE.test(value)) {
+      return 'Must be 2–64 lowercase characters, start with a letter, using . _ or - as separators.';
+    }
+    return null;
+  };
+
+  // Both limits are required: the harness budgets a run as input + reserved output ≤ context window.
+  const modelContextError = (model: ModelRow): string | null =>
+    parsePositiveInt(model.contextLength) == null ? 'Set the model’s context window.' : null;
+  const modelMaxOutputError = (model: ModelRow): string | null =>
+    parsePositiveInt(model.maxOutputTokens) == null ? 'Set the max output tokens.' : null;
+
+  // The Add-provider button gates on the always-visible fields. The collapsed per-model
+  // limits are enforced on submit — auto-expanding and focusing the first offender.
+  const visibleValid =
+    !nameError && !baseUrlError && models.every(model => !modelIdError(model) && !modelNameError(model));
+
+  const showNameError = nameTouched && nameError;
+  const showBaseUrlError = baseUrlTouched && baseUrlError;
+
   const handleSubmit = async () => {
-    if (!isValid || busy) return;
+    markAllTouched();
+    if (!visibleValid || busy) return;
+
+    // A required per-model limit is missing: reveal it rather than silently blocking.
+    // Expand that model's Advanced section, then scroll to and focus the first empty field.
+    const incompleteIndex = models.findIndex(model => modelContextError(model) || modelMaxOutputError(model));
+    if (incompleteIndex !== -1) {
+      updateModel(incompleteIndex, { advancedExpanded: true });
+      const target = models[incompleteIndex];
+      const field = target && modelContextError(target) ? 'context-length' : 'max-output-tokens';
+      setTimeout(() => {
+        const el = document.getElementById(`custom-provider-model-${incompleteIndex}-${field}`);
+        el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        (el as HTMLInputElement | null)?.focus();
+      }, 0);
+      return;
+    }
+
     try {
       await onAdd({
-        name: name.trim(),
-        baseUrl: baseUrl.trim(),
+        name: trimmedName,
+        baseUrl: trimmedBaseUrl,
         apiKey: apiKey.trim(),
-        models: models.map(model => ({
-          id: model.id.trim(),
-          name: model.name.trim(),
-          ...(model.reasoningEfforts?.length ? { properties: { reasoningEfforts: model.reasoningEfforts } } : {}),
-        })),
+        models: models.map(model => {
+          const properties: NonNullable<CustomProviderDraft['models'][number]['properties']> = {};
+          if (model.reasoningEfforts?.length) properties.reasoningEfforts = model.reasoningEfforts;
+          const contextLength = parsePositiveInt(model.contextLength);
+          if (contextLength != null) properties.contextLength = contextLength;
+          const maxOutputTokens = parsePositiveInt(model.maxOutputTokens);
+          if (maxOutputTokens != null) properties.maxOutputTokens = maxOutputTokens;
+          return {
+            id: model.id.trim(),
+            name: model.name.trim(),
+            ...(Object.keys(properties).length > 0 ? { properties } : {}),
+          };
+        }),
       });
       resetForm();
       onOpenChange(false);
@@ -106,247 +236,322 @@ const CustomModelProviderForm = ({
       open={open}
       onOpenChange={handleOpenChange}
       title="Add custom provider"
-      description="Any OpenAI-compatible endpoint. Each one stays its own provider."
+      description="Connect any OpenAI-compatible endpoint, whether it's a local model, a proxy, or your own hosted service."
       contentSized
     >
       <form
-        className="flex min-h-0 flex-1 flex-col gap-4 p-5"
+        className="flex min-h-0 flex-1 flex-col"
         onSubmit={event => {
           event.preventDefault();
           void handleSubmit();
         }}
       >
-        <div>
-          <label htmlFor="custom-provider-name" className="mb-1.5 block text-sm font-medium text-foreground">
-            Name
-            <RequiredMark />
-          </label>
-          <input
-            id="custom-provider-name"
-            type="text"
-            required
-            value={name}
-            onChange={event => {
-              setName(event.target.value);
-            }}
-            placeholder="Local Llama"
-            autoFocus
-            className={inputClassName}
-          />
-        </div>
+        {/* Scrollable body — generous bottom padding keeps expanded Advanced clear of the pinned footer */}
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pt-4 pb-8">
+          <div>
+            <label htmlFor="custom-provider-name" className="mb-1.5 block text-sm font-medium text-foreground">
+              Name
+              <RequiredMark />
+            </label>
+            <input
+              id="custom-provider-name"
+              type="text"
+              value={name}
+              onChange={event => setName(event.target.value)}
+              onBlur={() => setNameTouched(true)}
+              placeholder="local-llama"
+              autoFocus
+              aria-invalid={showNameError ? true : undefined}
+              className={cn(inputClassName, showNameError && inputErrorClassName)}
+            />
+            {showNameError ? <FieldError>{nameError}</FieldError> : null}
+          </div>
 
-        <div>
-          <label htmlFor="custom-provider-base-url" className="mb-1.5 block text-sm font-medium text-foreground">
-            Base URL
-            <RequiredMark />
-          </label>
-          <input
-            id="custom-provider-base-url"
-            type="text"
-            required
-            value={baseUrl}
-            onChange={event => {
-              setBaseUrl(event.target.value);
-            }}
-            placeholder="http://localhost:11434/v1"
-            className={inputClassName}
-          />
-        </div>
+          <div>
+            <label htmlFor="custom-provider-base-url" className="mb-1.5 block text-sm font-medium text-foreground">
+              Base URL
+              <RequiredMark />
+            </label>
+            <input
+              id="custom-provider-base-url"
+              type="text"
+              value={baseUrl}
+              onChange={event => setBaseUrl(event.target.value)}
+              onBlur={() => setBaseUrlTouched(true)}
+              placeholder="http://localhost:11434/v1"
+              aria-invalid={showBaseUrlError ? true : undefined}
+              className={cn(inputClassName, showBaseUrlError && inputErrorClassName)}
+            />
+            {showBaseUrlError ? (
+              <FieldError>{baseUrlError}</FieldError>
+            ) : !trimmedBaseUrl ? (
+              <FieldHelp>OpenAI-compatible endpoint, usually ending in /v1.</FieldHelp>
+            ) : null}
+          </div>
 
-        <div>
-          <label htmlFor="custom-provider-api-key" className="mb-1.5 block text-sm font-medium text-foreground">
-            API key
-            <RequiredMark />
-          </label>
-          <input
-            id="custom-provider-api-key"
-            type="password"
-            required
-            value={apiKey}
-            onChange={event => {
-              setApiKey(event.target.value);
-            }}
-            placeholder="Enter API Key"
-            className={inputClassName}
-          />
-        </div>
+          <div>
+            <label htmlFor="custom-provider-api-key" className="mb-1.5 block text-sm font-medium text-foreground">
+              API key
+              <span className="font-normal text-muted-foreground"> (optional)</span>
+            </label>
+            <input
+              id="custom-provider-api-key"
+              type="password"
+              value={apiKey}
+              onChange={event => setApiKey(event.target.value)}
+              placeholder="sk-…"
+              className={inputClassName}
+            />
+            <FieldHelp>Leave empty if your endpoint needs no key (e.g. a local model).</FieldHelp>
+          </div>
 
-        <fieldset className="m-0 min-w-0 border-0 p-0">
-          {/* float clears the extra legend gap some browsers leave inside fieldset */}
-          <legend className="float-left mb-2 w-full p-0 text-sm font-medium text-foreground">
-            Models
-            <RequiredMark />
-          </legend>
-          <div className="flex clear-both flex-col gap-3">
-            {models.map((model, index) => (
-              <div key={index} className="rounded-lg border border-border p-3">
-                <div className="flex items-end gap-2">
-                  <div className="min-w-0 flex-1">
-                    <label
-                      htmlFor={`custom-provider-model-${index}-id`}
-                      className="mb-1.5 block text-xs font-medium text-muted-foreground"
-                    >
-                      Model ID
-                    </label>
-                    <input
-                      id={`custom-provider-model-${index}-id`}
-                      type="text"
-                      required
-                      value={model.id}
-                      onChange={event => {
-                        updateModel(index, { id: event.target.value });
-                      }}
-                      placeholder="llama3.1:70b"
-                      className={`${inputClassName} min-w-0 font-mono`}
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <label
-                      htmlFor={`custom-provider-model-${index}-name`}
-                      className="mb-1.5 block text-xs font-medium text-muted-foreground"
-                    >
-                      Display name
-                    </label>
-                    <input
-                      id={`custom-provider-model-${index}-name`}
-                      type="text"
-                      required
-                      value={model.name}
-                      onChange={event => {
-                        updateModel(index, { name: event.target.value });
-                      }}
-                      placeholder="Llama 3.1 70B"
-                      className={`${inputClassName} min-w-0`}
-                    />
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    type="button"
-                    aria-label={`Remove model ${index + 1}`}
-                    disabled={models.length === 1 || busy}
-                    className="size-10 shrink-0"
-                    onClick={() => {
-                      setModels(current => current.filter((_, i) => i !== index));
-                    }}
+          <fieldset className="m-0 min-w-0 border-0 p-0">
+            <legend className="float-left mb-2 w-full p-0 text-sm font-medium text-foreground">
+              Models
+              <RequiredMark />
+            </legend>
+
+            <div className="clear-both">
+              {models.map((model, index) => {
+                const idError = modelIdError(model);
+                const showIdError = model.idTouched && idError;
+                const nameFieldError = modelNameError(model);
+                // Surface auto-derived name problems as soon as there is a Model ID: the name is
+                // derived from it, so a bad slug must show without waiting for a blur or submit
+                // (the submit button can be disabled, so those triggers may never fire). When the
+                // id is empty the id's own "required" error covers it, so we don't double up here.
+                const showNameFieldError = (model.id.trim() !== '' || model.nameDirty) && nameFieldError;
+                const contextError = modelContextError(model);
+                const maxError = modelMaxOutputError(model);
+                const showContextError = model.contextTouched && contextError;
+                const showMaxError = model.maxTouched && maxError;
+                return (
+                  <div
+                    key={index}
+                    className={cn('pb-6', index > 0 ? 'border-t border-border pt-6' : 'pt-1')}
+                    style={index > 0 ? { borderTopWidth: '0.5px' } : undefined}
                   >
-                    <Icon name="trash" className="size-3.5" />
-                  </Button>
-                </div>
+                    <div className="grid grid-cols-[1fr_1fr_2rem] items-end gap-2">
+                      <div className="min-w-0">
+                        <label
+                          htmlFor={`custom-provider-model-${index}-id`}
+                          className="mb-1 block text-xs font-normal text-muted-foreground"
+                        >
+                          Model ID
+                        </label>
+                        <input
+                          id={`custom-provider-model-${index}-id`}
+                          type="text"
+                          value={model.id}
+                          onChange={event => {
+                            const id = event.target.value;
+                            // Keep the model name in sync with the id until the user edits it by hand.
+                            updateModel(index, { id, ...(model.nameDirty ? {} : { name: slugifyModelId(id) }) });
+                          }}
+                          onBlur={() => updateModel(index, { idTouched: true })}
+                          placeholder="llama3.1:70b"
+                          aria-invalid={showIdError ? true : undefined}
+                          className={cn(inputClassName, 'font-mono', showIdError && inputErrorClassName)}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <label
+                          htmlFor={`custom-provider-model-${index}-name`}
+                          className="mb-1 block text-xs font-normal text-muted-foreground"
+                        >
+                          Model name
+                        </label>
+                        <input
+                          id={`custom-provider-model-${index}-name`}
+                          type="text"
+                          value={model.name}
+                          onChange={event => updateModel(index, { name: event.target.value, nameDirty: true })}
+                          placeholder="llama-3-1-70b"
+                          aria-invalid={showNameFieldError ? true : undefined}
+                          className={cn(inputClassName, showNameFieldError && inputErrorClassName)}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        aria-label={`Remove model ${index + 1}`}
+                        disabled={models.length === 1 || busy}
+                        className="mb-0.5 flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                        onClick={() => setModels(current => current.filter((_, i) => i !== index))}
+                      >
+                        <Icon name="trash" className="size-4" />
+                      </button>
+                    </div>
+                    {showIdError ? <FieldError>{idError}</FieldError> : null}
+                    {showNameFieldError ? <FieldError>{nameFieldError}</FieldError> : null}
 
-                {reasoningEffortOptions && reasoningEffortOptions.length > 0 ? (
-                  <div className="mt-3 rounded-lg border border-border">
-                    <button
-                      type="button"
-                      aria-expanded={model.supportedParametersExpanded}
-                      aria-controls={`custom-provider-model-${index}-parameters`}
-                      className="flex w-full cursor-pointer items-start gap-2 px-3 py-2.5 text-left"
-                      onClick={() => {
-                        updateModel(index, {
-                          supportedParametersExpanded: !model.supportedParametersExpanded,
-                        });
-                      }}
-                    >
-                      <Icon
-                        name="chevron-down"
-                        className={`mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform ${
-                          model.supportedParametersExpanded ? 'rotate-180' : ''
-                        }`}
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-sm font-medium text-foreground">Supported parameters</span>
-                        <span className="mt-0.5 block text-xs text-muted-foreground">
-                          Enable the parameters this model supports. Only these appear when it&apos;s used.
-                        </span>
-                      </span>
-                    </button>
+                    {/* Advanced (plain text toggle, no surrounding box) */}
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        aria-expanded={model.advancedExpanded}
+                        aria-controls={`custom-provider-model-${index}-advanced`}
+                        className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-foreground"
+                        onClick={() => updateModel(index, { advancedExpanded: !model.advancedExpanded })}
+                      >
+                        <Icon
+                          name="chevron-down"
+                          className={cn(
+                            'size-4 text-muted-foreground transition-transform',
+                            model.advancedExpanded ? '' : '-rotate-90',
+                          )}
+                        />
+                        Advanced
+                      </button>
 
-                    {model.supportedParametersExpanded ? (
-                      <div id={`custom-provider-model-${index}-parameters`} className="px-3 pb-3">
-                        <div className="rounded-lg border border-border px-3 py-2.5">
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-sm font-medium text-foreground">Reasoning effort</span>
-                            <button
-                              type="button"
-                              role="switch"
-                              aria-checked={model.reasoningEfforts !== undefined}
-                              aria-label={`Enable reasoning effort for model ${index + 1}`}
-                              disabled={busy}
-                              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50 ${
-                                model.reasoningEfforts !== undefined
-                                  ? 'bg-primary'
-                                  : 'bg-muted-foreground/30 dark:bg-muted-foreground/50'
-                              }`}
-                              onClick={() => {
-                                updateModel(index, {
-                                  reasoningEfforts: model.reasoningEfforts === undefined ? [] : undefined,
-                                });
-                              }}
-                            >
-                              <span
-                                className={`absolute top-0.5 left-0 size-5 rounded-full bg-white shadow-sm transition-transform ${
-                                  model.reasoningEfforts !== undefined ? 'translate-x-5' : 'translate-x-0.5'
-                                }`}
-                              />
-                            </button>
-                          </div>
-
-                          {model.reasoningEfforts !== undefined ? (
-                            <div
-                              role="group"
-                              aria-label={`Supported reasoning efforts for model ${index + 1}`}
-                              className="mt-2 flex flex-wrap gap-2"
-                            >
-                              {reasoningEffortOptions.map(effort => {
-                                const selected = model.reasoningEfforts?.includes(effort) ?? false;
-                                return (
-                                  <button
-                                    key={effort}
-                                    type="button"
-                                    aria-pressed={selected}
-                                    disabled={busy}
-                                    className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50 ${
-                                      selected
-                                        ? 'border-primary bg-primary text-primary-foreground'
-                                        : 'border-border text-muted-foreground hover:bg-accent'
-                                    }`}
-                                    onClick={() => {
-                                      updateModel(index, {
-                                        reasoningEfforts: selected
-                                          ? model.reasoningEfforts?.filter(item => item !== effort)
-                                          : [...(model.reasoningEfforts ?? []), effort],
-                                      });
-                                    }}
-                                  >
-                                    {effort}
-                                  </button>
-                                );
-                              })}
+                      {model.advancedExpanded ? (
+                        <div id={`custom-provider-model-${index}-advanced`} className="mt-3 space-y-4 pl-6">
+                          {reasoningEffortOptions && reasoningEffortOptions.length > 0 ? (
+                            <div>
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-xs font-medium text-muted-foreground">Reasoning effort</span>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={model.reasoningEfforts !== undefined}
+                                  aria-label={`Enable reasoning effort for model ${index + 1}`}
+                                  disabled={busy}
+                                  className={cn(
+                                    'relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50',
+                                    model.reasoningEfforts !== undefined
+                                      ? 'bg-primary'
+                                      : 'bg-muted-foreground/30 dark:bg-muted-foreground/50',
+                                  )}
+                                  onClick={() =>
+                                    updateModel(index, {
+                                      reasoningEfforts: model.reasoningEfforts === undefined ? [] : undefined,
+                                    })
+                                  }
+                                >
+                                  <span
+                                    className={cn(
+                                      'absolute top-0.5 left-0 size-5 rounded-full bg-white shadow-sm transition-transform',
+                                      model.reasoningEfforts !== undefined ? 'translate-x-5' : 'translate-x-0.5',
+                                    )}
+                                  />
+                                </button>
+                              </div>
+                              {model.reasoningEfforts !== undefined ? (
+                                <div
+                                  role="group"
+                                  aria-label={`Supported reasoning efforts for model ${index + 1}`}
+                                  className="mt-2 flex flex-wrap gap-2"
+                                >
+                                  {reasoningEffortOptions.map(effort => {
+                                    const selected = model.reasoningEfforts?.includes(effort) ?? false;
+                                    return (
+                                      <button
+                                        key={effort}
+                                        type="button"
+                                        aria-pressed={selected}
+                                        disabled={busy}
+                                        className={cn(
+                                          'rounded-full border px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50',
+                                          selected
+                                            ? 'border-primary bg-primary text-primary-foreground'
+                                            : 'border-border text-muted-foreground hover:bg-accent',
+                                        )}
+                                        onClick={() =>
+                                          updateModel(index, {
+                                            reasoningEfforts: selected
+                                              ? model.reasoningEfforts?.filter(item => item !== effort)
+                                              : [...(model.reasoningEfforts ?? []), effort],
+                                          })
+                                        }
+                                      >
+                                        {effort}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : null}
                             </div>
                           ) : null}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="mt-2 inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            onClick={() => {
-              setModels(current => [...current, createEmptyModelRow()]);
-            }}
-          >
-            <Icon name="plus" className="size-3.5" />
-            Add model
-          </button>
-        </fieldset>
 
-        <Button type="submit" size="lg" disabled={!isValid || busy} className="w-full shrink-0">
-          Add provider
-        </Button>
+                          <div>
+                            <label
+                              htmlFor={`custom-provider-model-${index}-context-length`}
+                              className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                            >
+                              Context length
+                              <RequiredMark />
+                            </label>
+                            <input
+                              id={`custom-provider-model-${index}-context-length`}
+                              type="number"
+                              min={1}
+                              inputMode="numeric"
+                              value={model.contextLength}
+                              onChange={event => updateModel(index, { contextLength: event.target.value })}
+                              onBlur={() => updateModel(index, { contextTouched: true })}
+                              placeholder={PLACEHOLDER_CONTEXT_LENGTH}
+                              aria-invalid={showContextError ? true : undefined}
+                              className={cn(inputClassName, showContextError && inputErrorClassName)}
+                            />
+                            {showContextError ? (
+                              <FieldError>{contextError}</FieldError>
+                            ) : (
+                              <FieldHelp>Prevents the context window from overflowing during a run.</FieldHelp>
+                            )}
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor={`custom-provider-model-${index}-max-output-tokens`}
+                              className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                            >
+                              Max output tokens
+                              <RequiredMark />
+                            </label>
+                            <input
+                              id={`custom-provider-model-${index}-max-output-tokens`}
+                              type="number"
+                              min={1}
+                              inputMode="numeric"
+                              value={model.maxOutputTokens}
+                              onChange={event => updateModel(index, { maxOutputTokens: event.target.value })}
+                              onBlur={() => updateModel(index, { maxTouched: true })}
+                              placeholder={PLACEHOLDER_MAX_OUTPUT_TOKENS}
+                              aria-invalid={showMaxError ? true : undefined}
+                              className={cn(inputClassName, showMaxError && inputErrorClassName)}
+                            />
+                            {showMaxError ? (
+                              <FieldError>{maxError}</FieldError>
+                            ) : (
+                              <FieldHelp>Caps tokens per model call.</FieldHelp>
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              className="mt-4 w-fit"
+              onClick={() => setModels(current => [...current, createEmptyModelRow()])}
+            >
+              <Icon name="plus" className="size-3.5" />
+              Add model
+            </Button>
+          </fieldset>
+        </div>
+
+        {/* Sticky footer */}
+        <div className="shrink-0 border-t border-border px-5 py-4">
+          <Button type="submit" size="lg" disabled={!visibleValid || busy} className="w-full">
+            Add provider
+          </Button>
+        </div>
       </form>
     </CenteredModal>
   );

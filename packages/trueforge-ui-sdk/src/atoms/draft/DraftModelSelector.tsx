@@ -12,6 +12,7 @@ import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
+import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
 
@@ -24,7 +25,7 @@ function monogram(value: string): string {
 
 function ProviderMark({ logo, label, className }: { logo?: string; label: string; className?: string }) {
   if (logo) {
-    return <img src={logo} alt="" className={cn('shrink-0 rounded object-contain', className)} aria-hidden />;
+    return <CatalogLogo src={logo} alt="" className={cn('shrink-0 rounded object-contain', className)} aria-hidden />;
   }
   return (
     <span
@@ -154,7 +155,9 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
         ) : (
           filtered.map(model => {
             const value = modelValue(model);
-            const active = value === selectedName || model.name === selectedName;
+            // If there is no selected model, consider the first in the filtered list as active
+            const active = selectedName ? value === selectedName || model.name === selectedName : filtered[0] === model;
+
             return (
               <button
                 key={value || model.modelId || model.name}
@@ -199,7 +202,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
         className={auiButtonClass({
           variant: 'ghost',
           size: 'sm',
-          className: cn('h-8 max-w-[12rem] gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-accent'),
+          className: cn('h-8 max-w-48 gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-accent'),
         })}
         onClick={() => setOpen(v => !v)}
       >

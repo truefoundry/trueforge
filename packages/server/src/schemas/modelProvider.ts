@@ -136,6 +136,7 @@ const CustomModelProviderSchema = ModelProviderManifestBaseSchema.extend({
   type: z.literal('custom'),
   name: NameSchema,
   base_url: z.url().describe("Base URL of the provider's API."),
+  auth: ModelProviderAuthSchema.optional(),
 })
   .strict()
   .openapi('CustomModelProvider');

@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Theme preset rename** — default preset id `truefoundry` → `trueforge`
+  (`ThemePreset`, `PRESETS`, `data-preset`, docs).
 - **Styles auto-inject** — `ThemeProvider` injects the SDK stylesheet at runtime.
   Hosts no longer need `@import '@truefoundry/trueforge-ui/styles.css'` (export
   kept for SSR). Semantic tokens and dark mode are scoped to `.aui-theme-root`
