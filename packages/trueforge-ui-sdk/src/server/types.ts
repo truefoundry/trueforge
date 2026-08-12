@@ -10,8 +10,10 @@
 export type {
   AgentBuilderCapabilitiesResponse,
   AgentBuilderServer,
+  AgentCapabilityConfig,
   AgentChatServer,
   AgentLibraryEntry,
+  AgentRuntimeConfig,
   AgentSkill,
   AgentSpec,
   AgentUIServer,
@@ -66,6 +68,7 @@ export type {
   SandboxProviderCatalogEntry,
   SandboxProviderConfig,
   SaveAgentRequest,
+  SaveAgentResult,
   SearchAgentsParams,
   SelectRegistrySkillRequest,
   Session,

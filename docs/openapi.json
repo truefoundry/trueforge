@@ -190,7 +190,19 @@
           {
             "properties": {
               "name": {
-                "$ref": "#/components/schemas/ResourceName"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ResourceName"
+                  },
+                  {
+                    "description": "Fully qualified name. Unique within a tenant."
+                  }
+                ]
+              },
+              "session_id": {
+                "description": "Mutable inline session updated atomically with this agent.",
+                "minLength": 1,
+                "type": "string"
               }
             },
             "required": [
@@ -392,14 +404,13 @@
         "additionalProperties": false,
         "properties": {
           "supported_reasoning_efforts": {
-            "description": "Supported reasoning-effort values for this provider.",
+            "description": "Supported reasoning-effort values for this provider",
             "items": {
               "$ref": "#/components/schemas/ReasoningEffort"
             },
             "type": "array"
           },
           "type": {
-            "description": "Custom provider type (catalog includes `custom`).",
             "enum": [
               "custom"
             ],
@@ -462,14 +473,7 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
-              },
-              {
-                "description": "Optional default auth settings for the preset."
-              }
-            ]
+            "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
           },
           "logo": {
             "description": "URL of the MCP server logo asset.",
@@ -477,7 +481,14 @@
             "type": "string"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "type": {
             "$ref": "#/components/schemas/McpServerType"
@@ -514,7 +525,14 @@
             "type": "string"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "path": {
             "description": "Path to the skill directory within the repository. Omit to use the repository root.",
@@ -551,30 +569,19 @@
         "additionalProperties": false,
         "properties": {
           "logo": {
-            "description": "URL of the provider logo asset.",
+            "description": "URL of the provider logo asset",
             "format": "uri",
             "type": "string"
           },
           "models": {
-            "description": "Preset models; empty on the `custom` sentinel.",
+            "description": "Preset models",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
             "type": "array"
           },
           "type": {
-            "description": "Well-known provider type (catalog excludes `custom`).",
-            "enum": [
-              "openai",
-              "anthropic",
-              "google-gemini",
-              "fireworks",
-              "zai",
-              "moonshot",
-              "alibaba",
-              "together"
-            ],
-            "type": "string"
+            "$ref": "#/components/schemas/CatalogWellKnownModelProviderType"
           }
         },
         "required": [
@@ -582,6 +589,19 @@
           "models"
         ],
         "type": "object"
+      },
+      "CatalogWellKnownModelProviderType": {
+        "enum": [
+          "openai",
+          "anthropic",
+          "google-gemini",
+          "fireworks",
+          "zai",
+          "moonshot",
+          "alibaba",
+          "together"
+        ],
+        "type": "string"
       },
       "ChatCompletionChunkDeltaToolCall": {
         "properties": {
@@ -702,13 +722,27 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
-            "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+              },
+              {
+                "description": "Optional auth settings. Omit when the server needs no credentials."
+              }
+            ]
           },
           "auth_status": {
             "$ref": "#/components/schemas/McpAuthStatus"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "type": {
             "$ref": "#/components/schemas/McpServerType"
@@ -728,7 +762,7 @@
         "type": "object"
       },
       "ConfiguredMcpServerAuth": {
-        "description": "Optional auth settings. Omit when the server needs no credentials.",
+        "description": "Optional default auth settings for the preset.",
         "discriminator": {
           "mapping": {
             "dcr": "#/components/schemas/McpServerDcrAuth",
@@ -783,6 +817,11 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/Agent"
+          },
+          "session_updated_at": {
+            "description": "Updated session timestamp when `session_id` was supplied.",
+            "format": "date-time",
+            "type": "string"
           }
         },
         "required": [
@@ -852,7 +891,14 @@
             "type": "array"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "type": {
             "enum": [
@@ -862,7 +908,6 @@
           }
         },
         "required": [
-          "auth",
           "models",
           "type",
           "name",
@@ -925,7 +970,7 @@
         "description": "Daytona authentication credentials.",
         "properties": {
           "api_key": {
-            "description": "Daytona API key.",
+            "description": "Daytona API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key.",
             "minLength": 1,
             "type": "string"
           }
@@ -1400,7 +1445,7 @@
       },
       "ListSessionsOrder": {
         "default": "desc",
-        "description": "Sort sessions by creation time. Defaults to \"desc\".",
+        "description": "Sort sessions by `updated_at`. Defaults to \"desc\".",
         "enum": [
           "asc",
           "desc"
@@ -1725,6 +1770,7 @@
       },
       "McpAuthStatus": {
         "additionalProperties": false,
+        "description": "Auth state for the calling user.",
         "properties": {
           "authorization_url": {
             "description": "When auth is required, this contains the URL to redirect the user to for authorization.",
@@ -1745,6 +1791,41 @@
           "status"
         ],
         "type": "object"
+      },
+      "McpServerAuthPublic": {
+        "description": "Auth mechanism when configured (no secrets). Omit when the server needs no credentials.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "dcr"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "header"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "McpServerDcrAuth": {
         "additionalProperties": false,
@@ -1770,7 +1851,7 @@
               "minLength": 1,
               "type": "string"
             },
-            "description": "HTTP headers sent on each request to this MCP server.",
+            "description": "Request headers for this MCP server. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored secret for that header name.",
             "type": "object"
           },
           "type": {
@@ -1791,10 +1872,24 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
-            "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+              },
+              {
+                "description": "Optional auth settings. Omit when the server needs no credentials."
+              }
+            ]
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "type": {
             "$ref": "#/components/schemas/McpServerType"
@@ -1815,8 +1910,21 @@
       "McpServerReadEntry": {
         "additionalProperties": false,
         "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/McpServerAuthPublic"
+          },
+          "auth_status": {
+            "$ref": "#/components/schemas/McpAuthStatus"
+          },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "url": {
             "description": "URL of the remote MCP server.",
@@ -1826,7 +1934,8 @@
         },
         "required": [
           "name",
-          "url"
+          "url",
+          "auth_status"
         ],
         "type": "object"
       },
@@ -1876,11 +1985,15 @@
           },
           "properties": {
             "$ref": "#/components/schemas/ModelProperties"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ModelListProvider"
           }
         },
         "required": [
           "name",
           "model_id",
+          "provider",
           "properties"
         ],
         "type": "object"
@@ -1894,14 +2007,7 @@
             "type": "string"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Internal identifier; forms the fully qualified name `name/model_name`."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           },
           "properties": {
             "$ref": "#/components/schemas/ModelProperties"
@@ -1911,6 +2017,21 @@
           "model_id",
           "name",
           "properties"
+        ],
+        "type": "object"
+      },
+      "ModelListProvider": {
+        "additionalProperties": false,
+        "description": "Owning configured provider.",
+        "properties": {
+          "name": {
+            "description": "Configured provider resource name; matches the FQN prefix of `name`.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
         ],
         "type": "object"
       },
@@ -2241,7 +2362,7 @@
         "description": "Provider authentication credentials.",
         "properties": {
           "api_key": {
-            "description": "API key used to authenticate with the provider.",
+            "description": "Provider API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key.",
             "minLength": 1,
             "type": "string"
           }
@@ -2345,6 +2466,11 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/Agent"
+          },
+          "session_updated_at": {
+            "description": "Updated session timestamp when `session_id` was supplied.",
+            "format": "date-time",
+            "type": "string"
           }
         },
         "required": [
@@ -2463,7 +2589,7 @@
         "type": "object"
       },
       "ResourceName": {
-        "description": "Fully qualified name. Unique within a tenant.",
+        "description": "Internal identifier; forms the fully qualified name `name/model_name`.",
         "maxLength": 64,
         "minLength": 2,
         "pattern": "^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$",
@@ -2837,7 +2963,14 @@
         "additionalProperties": false,
         "properties": {
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           }
         },
         "required": [
@@ -2965,7 +3098,14 @@
             "type": "string"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "path": {
             "description": "Path to the skill directory within the repository. Omit to use the repository root.",
@@ -3023,7 +3163,14 @@
             "type": "string"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           }
         },
         "required": [
@@ -3874,47 +4021,22 @@
         ]
       },
       "UpdateAgentRequest": {
-        "description": "Complete agent definition used inline on a session or saved as a named agent.",
-        "properties": {
-          "config": {
-            "$ref": "#/components/schemas/RuntimeConfig"
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AgentSpec"
           },
-          "instructions": {
-            "description": "Optional system prompt — the agent's role, behavior, and constraints.",
-            "type": "string"
-          },
-          "mcp_servers": {
-            "description": "Optional MCP servers attached by configured name.",
-            "items": {
-              "$ref": "#/components/schemas/MCPServer"
+          {
+            "properties": {
+              "session_id": {
+                "description": "Mutable inline session updated atomically with this agent.",
+                "minLength": 1,
+                "type": "string"
+              }
             },
-            "type": "array"
-          },
-          "messages": {
-            "description": "Optional seed user messages injected at the start of every session.",
-            "items": {
-              "$ref": "#/components/schemas/AgentSpecUserMessage"
-            },
-            "type": "array"
-          },
-          "model": {
-            "$ref": "#/components/schemas/AgentSpecModel"
-          },
-          "response_format": {
-            "$ref": "#/components/schemas/ResponseFormat"
-          },
-          "skills": {
-            "description": "Optional name-only skill references. Requires `config.sandbox.enabled: true`.",
-            "items": {
-              "$ref": "#/components/schemas/SkillNameRef"
-            },
-            "type": "array"
+            "type": "object"
           }
-        },
-        "required": [
-          "model"
         ],
-        "type": "object"
+        "description": "Complete agent definition used inline on a session or saved as a named agent."
       },
       "UpdateSessionRequest": {
         "additionalProperties": false,
@@ -4154,6 +4276,26 @@
             },
             "description": "Invalid request body or unknown model/MCP/skill refs."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The current user does not own the supplied session."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The supplied session was not found."
+          },
           "409": {
             "content": {
               "application/json": {
@@ -4172,7 +4314,7 @@
                 }
               }
             },
-            "description": "The agent spec is valid but requires a capability this server does not provide (e.g. sandbox or skills)."
+            "description": "The agent spec requires an unavailable capability (e.g. sandbox or skills), or `session_id` is not a mutable inline session."
           }
         },
         "summary": "Create an agent",
@@ -4326,6 +4468,16 @@
             },
             "description": "Invalid request body or unknown model/MCP/skill refs."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The current user does not own the supplied session."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -4334,7 +4486,7 @@
                 }
               }
             },
-            "description": "Agent not found."
+            "description": "Agent not found, or the supplied session was not found."
           },
           "422": {
             "content": {
@@ -4344,7 +4496,7 @@
                 }
               }
             },
-            "description": "The agent spec is valid but requires a capability this server does not provide (e.g. sandbox or skills)."
+            "description": "The agent spec requires an unavailable capability (e.g. sandbox or skills), or `session_id` is not a mutable inline session."
           }
         },
         "summary": "Update an agent",
@@ -4529,6 +4681,150 @@
           "server"
         ],
         "x-fern-sdk-method-name": "get_capabilities"
+      }
+    },
+    "/api/v1/catalog/mcp-servers": {
+      "get": {
+        "description": "Shipped MCP server presets (discovery-only). Copy into PUT /settings/mcp-servers to configure.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMcpServerCatalogResponse"
+                }
+              }
+            },
+            "description": "Shipped MCP server presets."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not authenticated."
+          }
+        },
+        "summary": "Get the MCP catalog",
+        "tags": [
+          "Catalog"
+        ],
+        "x-fern-sdk-group-name": [
+          "catalog",
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/catalog/model-providers": {
+      "get": {
+        "description": "Shipped model-provider presets (discovery-only). Copy into PUT /settings/model-providers to configure. Includes a `custom` sentinel with `supported_reasoning_efforts`.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetModelProviderCatalogResponse"
+                }
+              }
+            },
+            "description": "Shipped model-provider presets."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not authenticated."
+          }
+        },
+        "summary": "Get the model catalog",
+        "tags": [
+          "Catalog"
+        ],
+        "x-fern-sdk-group-name": [
+          "catalog",
+          "modelProviders"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/catalog/sandbox-providers": {
+      "get": {
+        "description": "Shipped sandbox-provider presets (discovery-only). Copy into PUT /settings/sandbox-providers to configure.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxProviderCatalogResponse"
+                }
+              }
+            },
+            "description": "Shipped sandbox-provider presets."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not authenticated."
+          }
+        },
+        "summary": "Get the sandbox provider catalog",
+        "tags": [
+          "Catalog"
+        ],
+        "x-fern-sdk-group-name": [
+          "catalog",
+          "sandboxProviders"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/catalog/skills": {
+      "get": {
+        "description": "Shipped skill presets (discovery-only). Copy into PUT /settings/skills to configure.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSkillCatalogResponse"
+                }
+              }
+            },
+            "description": "Shipped skill presets."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not authenticated."
+          }
+        },
+        "summary": "Get the skill catalog",
+        "tags": [
+          "Catalog"
+        ],
+        "x-fern-sdk-group-name": [
+          "catalog",
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "list"
       }
     },
     "/api/v1/mcp-servers": {
@@ -4865,7 +5161,7 @@
             }
           },
           {
-            "description": "Sort sessions by creation time. Defaults to \"desc\".",
+            "description": "Sort sessions by `updated_at`. Defaults to \"desc\".",
             "in": "query",
             "name": "order",
             "required": false,
@@ -4874,12 +5170,13 @@
             }
           },
           {
-            "description": "Opaque token from a previous response `next_page_token`.",
+            "description": "Opaque keyset cursor from a previous response `next_page_token`.",
             "in": "query",
             "name": "page_token",
             "required": false,
             "schema": {
-              "description": "Opaque token from a previous response `next_page_token`.",
+              "description": "Opaque keyset cursor from a previous response `next_page_token`.",
+              "minLength": 1,
               "type": "string"
             }
           },
@@ -6028,7 +6325,7 @@
     },
     "/api/v1/settings/mcp-servers": {
       "get": {
-        "description": "All MCP servers with nested auth_status (settings / admin projection).",
+        "description": "All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.",
         "responses": {
           "200": {
             "content": {
@@ -6038,7 +6335,7 @@
                 }
               }
             },
-            "description": "All MCP servers."
+            "description": "All MCP servers"
           },
           "401": {
             "content": {
@@ -6072,7 +6369,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "put": {
-        "description": "Full upsert keyed by `name`: creates the server or replaces its manifest. Does not start DCR or modify stored oauth_server / oauth_client columns.",
+        "description": "Create or replace by `name`. Does not start DCR or change oauth client columns. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6092,7 +6389,7 @@
                 }
               }
             },
-            "description": "The saved MCP server with stub auth_status."
+            "description": "The saved MCP server with auth_status"
           },
           "400": {
             "content": {
@@ -6102,7 +6399,7 @@
                 }
               }
             },
-            "description": "Invalid request body."
+            "description": "Invalid request body, or redacted header secret with no stored value to keep."
           },
           "422": {
             "content": {
@@ -6126,55 +6423,9 @@
         "x-fern-sdk-method-name": "upsert"
       }
     },
-    "/api/v1/settings/mcp-servers/catalog": {
-      "get": {
-        "description": "MCP server presets shipped with the server (mcp-catalog.yaml). Discovery-only: copy an entry into PUT /settings/mcp-servers to configure it.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetMcpServerCatalogResponse"
-                }
-              }
-            },
-            "description": "The shipped catalog, verbatim."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the request has no valid session cookie."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the caller is authenticated but not an admin."
-          }
-        },
-        "summary": "Get the MCP catalog",
-        "tags": [
-          "MCP Servers"
-        ],
-        "x-fern-sdk-group-name": [
-          "settings",
-          "mcpServers"
-        ],
-        "x-fern-sdk-method-name": "catalog"
-      }
-    },
     "/api/v1/settings/mcp-servers/{name}": {
       "get": {
-        "description": "A single MCP server by name, with nested auth_status (settings / admin projection).",
+        "description": "A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.",
         "parameters": [
           {
             "description": "MCP server name.",
@@ -6197,7 +6448,7 @@
                 }
               }
             },
-            "description": "The MCP server."
+            "description": "The MCP server"
           },
           "404": {
             "content": {
@@ -6312,7 +6563,7 @@
                 }
               }
             },
-            "description": "All configured model providers."
+            "description": "All configured model providers"
           },
           "401": {
             "content": {
@@ -6346,7 +6597,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "put": {
-        "description": "Full upsert: creates the provider or replaces its entire configuration (models included). The key is the returned `name`, which every type but `custom` takes from its own `type`, so each is limited to one configured provider and a repeat call replaces it; only `custom` providers are named by the caller.",
+        "description": "Create or replace a provider (models included). Well-known types use `type` as `name` (one each); `custom` is named by the caller. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6366,7 +6617,7 @@
                 }
               }
             },
-            "description": "The saved provider."
+            "description": "The saved provider"
           },
           "400": {
             "content": {
@@ -6376,7 +6627,7 @@
                 }
               }
             },
-            "description": "Invalid request body."
+            "description": "Invalid request body, or redacted API key with no stored secret to keep."
           }
         },
         "summary": "Create or replace a model provider",
@@ -6390,55 +6641,9 @@
         "x-fern-sdk-method-name": "upsert"
       }
     },
-    "/api/v1/settings/model-providers/catalog": {
-      "get": {
-        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Includes a `custom` sentinel with `supported_reasoning_efforts` for the custom-provider form (not configurable from catalog).",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetModelProviderCatalogResponse"
-                }
-              }
-            },
-            "description": "The shipped catalog, verbatim."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the request has no valid session cookie."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the caller is authenticated but not an admin."
-          }
-        },
-        "summary": "Get the model catalog",
-        "tags": [
-          "Model Providers"
-        ],
-        "x-fern-sdk-group-name": [
-          "settings",
-          "modelProviders"
-        ],
-        "x-fern-sdk-method-name": "catalog"
-      }
-    },
     "/api/v1/settings/sandbox-providers": {
       "get": {
-        "description": "The single configured sandbox provider for this tenant.",
+        "description": "The single configured sandbox provider for this tenant. `auth.api_key` is redacted.",
         "responses": {
           "200": {
             "content": {
@@ -6472,7 +6677,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "put": {
-        "description": "Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration.",
+        "description": "Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6502,7 +6707,7 @@
                 }
               }
             },
-            "description": "Invalid request body."
+            "description": "Invalid request body, or redacted API key with no stored secret to keep."
           }
         },
         "summary": "Create or replace the sandbox provider",
@@ -6514,52 +6719,6 @@
           "sandboxProviders"
         ],
         "x-fern-sdk-method-name": "upsert"
-      }
-    },
-    "/api/v1/settings/sandbox-providers/catalog": {
-      "get": {
-        "description": "Sandbox provider presets shipped with the server (sandbox-catalog.yaml). Discovery-only: copy an entry into PUT /settings/sandbox-providers to configure it.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSandboxProviderCatalogResponse"
-                }
-              }
-            },
-            "description": "The shipped catalog, verbatim."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the request has no valid session cookie."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the caller is authenticated but not an admin."
-          }
-        },
-        "summary": "Get the sandbox provider catalog",
-        "tags": [
-          "Sandbox Providers"
-        ],
-        "x-fern-sdk-group-name": [
-          "settings",
-          "sandboxProviders"
-        ],
-        "x-fern-sdk-method-name": "catalog"
       }
     },
     "/api/v1/settings/skills": {
@@ -6650,52 +6809,6 @@
           "skills"
         ],
         "x-fern-sdk-method-name": "upsert"
-      }
-    },
-    "/api/v1/settings/skills/catalog": {
-      "get": {
-        "description": "Skill presets shipped with the server (skill-catalog.yaml). Discovery-only: copy an entry into PUT /settings/skills to configure it.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSkillCatalogResponse"
-                }
-              }
-            },
-            "description": "The shipped catalog, verbatim."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the request has no valid session cookie."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the caller is authenticated but not an admin."
-          }
-        },
-        "summary": "Get the skill catalog",
-        "tags": [
-          "Skills"
-        ],
-        "x-fern-sdk-group-name": [
-          "settings",
-          "skills"
-        ],
-        "x-fern-sdk-method-name": "catalog"
       }
     },
     "/api/v1/skills": {

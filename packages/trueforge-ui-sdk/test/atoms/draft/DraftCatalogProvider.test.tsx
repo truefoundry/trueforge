@@ -167,7 +167,14 @@ describe('DraftCatalogProvider', () => {
   });
 
   it('refreshes connectors without reloading models or skills', async () => {
-    const getModels = vi.fn(async () => [{ name: 'openai/gpt-4.1', provider: 'OpenAI' }]);
+    const getModels = vi.fn(async () => [
+      {
+        id: 'openai/gpt-4.1',
+        name: 'openai/gpt-4.1',
+        provider: { name: 'OpenAI' },
+        properties: {},
+      },
+    ]);
     const getSkills = vi.fn(async () => [{ id: 'skill-1', name: 'Release notes' }]);
     const getMcp = vi
       .fn<() => Promise<ConnectorState[]>>()
@@ -191,5 +198,37 @@ describe('DraftCatalogProvider', () => {
     await waitFor(() => expect(getMcp).toHaveBeenCalledTimes(2));
     expect(getModels).toHaveBeenCalledTimes(1);
     expect(getSkills).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the nearest server when catalog providers are nested', async () => {
+    const outerGetModels = vi.fn(async () => []);
+    const innerGetModels = vi.fn(async () => [
+      {
+        id: 'inner-model',
+        name: 'inner/model',
+        provider: { name: 'Inner' },
+        properties: {},
+      },
+    ]);
+    const outerServer = createMockAgentUIServer({ getModels: outerGetModels });
+    const innerServer = createMockAgentUIServer({ getModels: innerGetModels });
+
+    render(
+      <ServerProvider server={outerServer}>
+        <DraftCatalogProvider>
+          <ServerProvider server={innerServer}>
+            <DraftCatalogProvider>
+              <CatalogProbe />
+            </DraftCatalogProvider>
+          </ServerProvider>
+        </DraftCatalogProvider>
+      </ServerProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load catalog' }));
+
+    await waitFor(() => expect(screen.getByTestId('models')).toHaveTextContent('inner/model'));
+    expect(innerGetModels).toHaveBeenCalledOnce();
+    expect(outerGetModels).not.toHaveBeenCalled();
   });
 });

@@ -58,8 +58,8 @@ importers:
         specifier: 0.2.21
         version: 0.2.21(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(react@19.2.8)
       '@truefoundry/assistant-ui-runtime':
-        specifier: 0.1.13
-        version: 0.1.13(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
+        specifier: 0.1.14
+        version: 0.1.14(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@truefoundry/trueforge-ui':
         specifier: workspace:*
         version: link:../trueforge-ui-sdk
@@ -307,8 +307,8 @@ importers:
         specifier: ^0.13.2
         version: 0.13.3(@openuidev/react-headless@0.9.4(react@19.2.8)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))))(@openuidev/react-lang@0.2.9(@modelcontextprotocol/sdk@1.29.0(supports-color@8.1.1)(zod@4.4.3))(react@19.2.8)(zod@4.4.3))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@8.1.1)(zod@4.4.3)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@truefoundry/assistant-ui-runtime':
-        specifier: 0.1.13
-        version: 0.1.13(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
+        specifier: 0.1.14
+        version: 0.1.14(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -3218,8 +3218,8 @@ packages:
       '@types/react-dom':
         optional: true
 
-  '@truefoundry/assistant-ui-runtime@0.1.13':
-    resolution: {integrity: sha512-pmY4Fvm5tZmX+uhsr3RegTeY3yYrdQdqaqYV5QzPZyrOPloboVPO07jbcZ2/D7S33622Ug0drhKGvWHpYTMTDw==}
+  '@truefoundry/assistant-ui-runtime@0.1.14':
+    resolution: {integrity: sha512-xdFob3v6KdhUVFrDuw1OAcX6o8lsnT+kQAo82gzCgXbg3YvdIs4cDWRswZdCI83FriRieYtMc8kZPjrRysJSkQ==}
     peerDependencies:
       '@types/react': '*'
       react: ^18 || ^19
@@ -9837,7 +9837,7 @@ snapshots:
       '@types/react': 19.2.17
       '@types/react-dom': 19.2.3(@types/react@19.2.17)
 
-  '@truefoundry/assistant-ui-runtime@0.1.13(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))':
+  '@truefoundry/assistant-ui-runtime@0.1.14(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))':
     dependencies:
       '@assistant-ui/core': 0.2.22(@assistant-ui/store@0.2.21(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(react@19.2.8))(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@assistant-ui/store': 0.2.21(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(react@19.2.8)

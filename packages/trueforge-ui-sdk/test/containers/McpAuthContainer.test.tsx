@@ -31,6 +31,7 @@ function McpAuthHarness({
       pendingApprovals: [],
       pendingToolResponses: [],
       pendingMcpAuth,
+      resumeUnavailable: false,
       sandboxId: undefined,
       respondToToolApproval: () => {},
       respondToToolResponse: () => {},
