@@ -2,7 +2,6 @@
  * Admin/settings API surface under /api/v1/settings.
  * Sub-routers (model-providers, mcp-servers, skills, sandbox-providers) mount here.
  * Auth is applied at the /api/v1/settings mount boundary in app.ts (admin when auth is enabled).
- * Discovery catalogs live at GET /api/v1/catalog/* (authenticated, not admin-only).
  */
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Logger } from 'winston';

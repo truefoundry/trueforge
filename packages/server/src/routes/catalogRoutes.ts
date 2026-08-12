@@ -17,9 +17,8 @@ export const listModelProviderCatalogRoute = createRoute({
   tags: [CATALOG_TAG],
   summary: 'Get the model catalog',
   description:
-    'Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a ' +
-    'PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. ' +
-    'Includes a `custom` sentinel with `supported_reasoning_efforts` for the custom-provider form (not configurable from catalog).',
+    'Shipped model-provider presets (discovery-only). Copy into PUT /settings/model-providers to configure. ' +
+    'Includes a `custom` sentinel with `supported_reasoning_efforts`.',
   'x-fern-sdk-group-name': ['catalog', 'modelProviders'],
   'x-fern-sdk-method-name': 'list',
   responses: {
@@ -39,9 +38,7 @@ export const listMcpServerCatalogRoute = createRoute({
   path: '/mcp-servers',
   tags: [CATALOG_TAG],
   summary: 'Get the MCP catalog',
-  description:
-    'MCP server presets shipped with the server (mcp-catalog.yaml). Discovery-only: copy an entry ' +
-    'into PUT /settings/mcp-servers to configure it.',
+  description: 'Shipped MCP server presets (discovery-only). Copy into PUT /settings/mcp-servers to configure.',
   'x-fern-sdk-group-name': ['catalog', 'mcpServers'],
   'x-fern-sdk-method-name': 'list',
   responses: {
@@ -61,9 +58,7 @@ export const listSkillCatalogRoute = createRoute({
   path: '/skills',
   tags: [CATALOG_TAG],
   summary: 'Get the skill catalog',
-  description:
-    'Skill presets shipped with the server (skill-catalog.yaml). Discovery-only: copy an entry ' +
-    'into PUT /settings/skills to configure it.',
+  description: 'Shipped skill presets (discovery-only). Copy into PUT /settings/skills to configure.',
   'x-fern-sdk-group-name': ['catalog', 'skills'],
   'x-fern-sdk-method-name': 'list',
   responses: {
@@ -84,8 +79,7 @@ export const listSandboxProviderCatalogRoute = createRoute({
   tags: [CATALOG_TAG],
   summary: 'Get the sandbox provider catalog',
   description:
-    'Sandbox provider presets shipped with the server (sandbox-catalog.yaml). Discovery-only: copy an entry ' +
-    'into PUT /settings/sandbox-providers to configure it.',
+    'Shipped sandbox-provider presets (discovery-only). Copy into PUT /settings/sandbox-providers to configure.',
   'x-fern-sdk-group-name': ['catalog', 'sandboxProviders'],
   'x-fern-sdk-method-name': 'list',
   responses: {

@@ -21,7 +21,6 @@ function redactModelProvider(manifest: ModelProvider): ModelProvider {
   };
 }
 
-/** Admin CRUD for configured model providers (mounted at /api/v1/settings/model-providers). */
 export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listModelProvidersRoute> = async c => {
     const records = await deps.modelProviderStore.listProviders(TENANT_ID);

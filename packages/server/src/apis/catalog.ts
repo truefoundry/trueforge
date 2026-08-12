@@ -1,7 +1,3 @@
-/**
- * Authenticated discovery catalogs under /api/v1/catalog.
- * Handlers preserve the previous settings-catalog response bodies; only path/auth change.
- */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/utils-core/core';
 import type { McpCatalog } from '../catalog/McpCatalog';
