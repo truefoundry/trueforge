@@ -5,7 +5,7 @@ import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 
-/** Resets the current named or draft chat. Hidden on empty new chats and drafts without a model. */
+// Resets the current named or draft chat. Hidden on untitled empty drafts.
 export function ClearChatButton() {
   const shell = useOptionalShellMode();
   const visible = useChatChromeActionsVisible();

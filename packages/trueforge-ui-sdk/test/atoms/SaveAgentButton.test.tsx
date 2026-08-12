@@ -85,13 +85,13 @@ describe('SaveAgentButton', () => {
     expect(screen.queryByRole('button', { name: 'Save agent' })).not.toBeInTheDocument();
   });
 
-  it('is hidden on an empty new chat', () => {
+  it('shows on an empty new chat when a model is selected', () => {
     renderSaveAgent({
       messages: [],
       children: <SaveAgentButton />,
     });
 
-    expect(screen.queryByRole('button', { name: 'Save agent' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save agent' })).toBeInTheDocument();
   });
 
   it('is hidden when the draft has no model', () => {

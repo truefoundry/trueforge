@@ -14,8 +14,16 @@ export function useNamedAgentHeaderVisible(): boolean {
   return name != null && name.length > 0;
 }
 
-// Show Clear/Save after chat starts; drafts require a model.
-// Keep actions for Library Edit even when thread is empty.
+// Mutable draft/edit with a selected model — drives Save Agent + header chrome.
+export function useSaveAgentVisible(): boolean {
+  const shell = useOptionalShellMode();
+  const { agentSpec } = useTrueFoundryAgentSpec();
+  if (shell == null || shell.mode.status !== 'active' || !shell.mode.isMutable) return false;
+  return Boolean(agentSpec?.model?.name?.trim());
+}
+
+// Clear chat: after a chat has started (drafts need a model).
+// Named / saved agents keep Clear visible even on an empty welcome thread.
 export function useChatChromeActionsVisible(): boolean {
   const shell = useOptionalShellMode();
   const { agentSpec } = useTrueFoundryAgentSpec();
@@ -25,15 +33,15 @@ export function useChatChromeActionsVisible(): boolean {
   if (shell.mode.isMutable && !agentSpec?.model?.name?.trim()) return false;
   if (isEmpty) {
     const boundName = shell.mode.agentName ?? shell.mode.agentId;
-    const isBoundMutableEdit = shell.mode.isMutable && boundName != null && boundName.length > 0;
-    if (!isBoundMutableEdit) return false;
+    const isNamedOrSaved = boundName != null && boundName.length > 0;
+    if (!isNamedOrSaved) return false;
   }
   return true;
 }
 
-// True when the thread header has a title and/or Clear/Save actions.
+// True when the thread header has a title and/or Save Agent (valid model).
 export function useChatHeaderContentVisible(): boolean {
   const namedVisible = useNamedAgentHeaderVisible();
-  const actionsVisible = useChatChromeActionsVisible();
-  return namedVisible || actionsVisible;
+  const saveVisible = useSaveAgentVisible();
+  return namedVisible || saveVisible;
 }

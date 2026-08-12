@@ -68,10 +68,33 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
   const isMobile = useIsMobile();
   const compactLayout = useCompactLayout();
   const showConfigureSettingsCta = !loading && models.length === 0 && catalog != null;
+  const seededDefaultModelRef = useRef<string | null>(null);
 
   useEffect(() => {
     ensureLoaded();
   }, [ensureLoaded]);
+
+  // Keep agentSpec in sync with the visual default: when no model is set (or the
+  // current name is not in the catalog), commit the first available catalog model.
+  useEffect(() => {
+    if (!updateAgentSpec || loading || models.length === 0) return;
+    const first = models[0];
+    if (first === undefined) return;
+    const firstValue = modelValue(first);
+    const currentName = agentSpec?.model?.name?.trim() ?? '';
+    if (currentName) {
+      const inCatalog = models.some(m => modelValue(m) === currentName || m.name === currentName);
+      if (inCatalog) {
+        seededDefaultModelRef.current = null;
+        return;
+      }
+    }
+    if (seededDefaultModelRef.current === firstValue) return;
+    seededDefaultModelRef.current = firstValue;
+    updateAgentSpec({
+      model: modelPatchWithReasoningEffort(firstValue, agentSpec?.model?.params, first.reasoningEfforts),
+    });
+  }, [updateAgentSpec, loading, models, agentSpec?.model?.name, agentSpec?.model?.params]);
 
   const selectedName = agentSpec?.model?.name ?? (models[0] ? modelValue(models[0]) : '');
   const selected = models.find(m => modelValue(m) === selectedName || m.name === selectedName);
