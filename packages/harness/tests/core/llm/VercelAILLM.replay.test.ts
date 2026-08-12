@@ -98,7 +98,11 @@ describe('Gemini tool thoughtSignature replay round-trip', () => {
       content: null,
       ...(output.tool_calls !== undefined ? { tool_calls: output.tool_calls } : {}),
     };
-    const replayMsg = toAssistantModelMessage({ msg: assistantMsg, provider: 'google-gemini' });
+    const replayMsg = toAssistantModelMessage({
+      msg: assistantMsg,
+      provider: 'google-gemini',
+      providerName: 'google-gemini',
+    });
     const toolCallPart = (replayMsg.content as Array<{ type: string; providerOptions?: unknown }>).find(
       p => p.type === 'tool-call',
     );
@@ -124,7 +128,11 @@ describe('Gemini tool thoughtSignature replay round-trip', () => {
       content: null,
       ...(output.tool_calls !== undefined ? { tool_calls: output.tool_calls } : {}),
     };
-    const replayMsg = toAssistantModelMessage({ msg: assistantMsg, provider: 'google-gemini' });
+    const replayMsg = toAssistantModelMessage({
+      msg: assistantMsg,
+      provider: 'google-gemini',
+      providerName: 'google-gemini',
+    });
     const toolCallPart = (replayMsg.content as Array<{ type: string }>).find(p => p.type === 'tool-call');
     expect(toolCallPart).not.toHaveProperty('providerOptions');
   });
@@ -201,8 +209,9 @@ describe.each(REASONING_CASES)(
         content: null,
       };
       Reflect.set(assistantMsg, 'thinking_blocks', output.thinking_blocks);
+      Reflect.set(assistantMsg, 'source', { provider_name: provider, model_name: 'test' });
 
-      const replayMsg = toAssistantModelMessage({ msg: assistantMsg, provider });
+      const replayMsg = toAssistantModelMessage({ msg: assistantMsg, provider, providerName: provider });
       const reasoningPart = (replayMsg.content as Array<{ type: string; providerOptions?: unknown }>).find(
         p => p.type === 'reasoning',
       );
@@ -236,7 +245,9 @@ describe('anthropic reasoning replay, on the shape Anthropic actually sends', ()
       ...(output.tool_calls !== undefined ? { tool_calls: output.tool_calls } : {}),
     };
     Reflect.set(assistantMsg, 'thinking_blocks', output.thinking_blocks);
-    const parts = toAssistantModelMessage({ msg: assistantMsg, provider: 'anthropic' }).content as Array<{
+    Reflect.set(assistantMsg, 'source', { provider_name: 'anthropic', model_name: 'test' });
+    const parts = toAssistantModelMessage({ msg: assistantMsg, provider: 'anthropic', providerName: 'anthropic' })
+      .content as Array<{
       type: string;
       providerOptions?: unknown;
     }>;
@@ -272,7 +283,11 @@ describe('google-gemini reasoning replay round-trip', () => {
     };
     Reflect.set(assistantMsg, 'thinking_blocks', output.thinking_blocks);
 
-    const replayMsg = toAssistantModelMessage({ msg: assistantMsg, provider: 'google-gemini' });
+    const replayMsg = toAssistantModelMessage({
+      msg: assistantMsg,
+      provider: 'google-gemini',
+      providerName: 'google-gemini',
+    });
     const reasoningPart = (replayMsg.content as Array<{ type: string }>).find(p => p.type === 'reasoning');
     expect(reasoningPart).toBeDefined();
     expect(reasoningPart).not.toHaveProperty('providerOptions');

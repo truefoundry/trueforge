@@ -73,7 +73,7 @@ export type VercelAIProviderName = (typeof VERCEL_AI_PROVIDER_NAMES)[number];
  */
 export interface VercelAIProviderConfig {
   provider: VercelAIProviderName;
-  /** Display name / alias, used for logs and errors. Often provider-qualified, so never sent. */
+  /** Display name / alias, used for logs and errors. Often a provider/model FQN when set by the host. */
   name: string;
   /** Provider-facing model identifier. */
   modelId: string;
@@ -614,18 +614,25 @@ export function toUserContent(content: string | ChatCompletionContentPart[]): Us
  * - `'anthropic'`     → `anthropic.signature`
  * - `'google-gemini'` → per-tool-call `google.thoughtSignature`, no standalone reasoning block
  * - `'custom'`        → OpenAI-compatible ignores providerOptions, so the token has nowhere to go
+ *
+ * Signatures are attached only when `source.provider_name` matches the current `providerName`.
+ * Missing or foreign source → reasoning text without providerOptions.
  */
 export function toAssistantModelMessage({
   msg,
   provider,
+  providerName,
 }: {
   msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }>;
   provider: VercelAIProviderName;
+  providerName: string;
 }): ModelMessage {
   const parts: AssistantContent = [];
 
-  // `thinking_blocks` is attached at runtime by AgentThread and absent from the OpenAI SDK type.
+  // `thinking_blocks` / `source` are attached at runtime by AgentThread and absent from the OpenAI SDK type.
   const rawThinking: unknown = Reflect.get(msg, 'thinking_blocks');
+  const messageSource = readAssistantMessageSource(msg);
+  const attachSignature = messageSource?.provider_name === providerName;
   // Alibaba appends replayed thinking to the visible answer, and Qwen signs nothing to preserve.
   if (Array.isArray(rawThinking) && provider !== 'alibaba') {
     // Widen any[] → unknown[] so the in-guards below narrow safely.
@@ -641,7 +648,7 @@ export function toAssistantModelMessage({
       ) {
         const signature = 'signature' in tb && typeof tb.signature === 'string' ? tb.signature : undefined;
         let reasoningProviderOptions: ProviderOptions | undefined;
-        if (signature !== undefined) {
+        if (signature !== undefined && attachSignature) {
           if (provider === 'openai') {
             reasoningProviderOptions = { openai: { reasoningEncryptedContent: signature } };
           } else if (provider === 'anthropic') {
@@ -711,6 +718,20 @@ export function toAssistantModelMessage({
   };
 }
 
+/** Reads optional `source` stamped on an assistant message for signature replay gating. */
+function readAssistantMessageSource(msg: object): { provider_name: string; model_name: string } | undefined {
+  const rawSource: unknown = Reflect.get(msg, 'source');
+  if (!isPlainObject(rawSource)) {
+    return undefined;
+  }
+  const provider_name = rawSource['provider_name'];
+  const model_name = rawSource['model_name'];
+  if (typeof provider_name !== 'string' || typeof model_name !== 'string') {
+    return undefined;
+  }
+  return { provider_name, model_name };
+}
+
 export interface ConvertedMessages {
   instructions: string | undefined;
   messages: ModelMessage[];
@@ -724,9 +745,11 @@ export interface ConvertedMessages {
 export function convertMessages({
   messages,
   provider,
+  providerName,
 }: {
   messages: ChatCompletionMessageParam[];
   provider: VercelAIProviderName;
+  providerName: string;
 }): ConvertedMessages {
   const toolNameById = new Map<string, string>();
   for (const msg of messages) {
@@ -753,7 +776,7 @@ export function convertMessages({
       continue;
     }
     if (msg.role === 'assistant') {
-      result.push(toAssistantModelMessage({ msg, provider }));
+      result.push(toAssistantModelMessage({ msg, provider, providerName }));
       continue;
     }
     if (msg.role === 'tool') {
@@ -1315,8 +1338,14 @@ export class VercelAILLM implements ILLM {
   ): AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown> {
     const { providerConfig } = this.config;
     const model = buildLanguageModel(providerConfig);
+    const parsedFqn = parseModelFqn(providerConfig.name);
+    const providerName = parsedFqn?.providerName ?? providerConfig.provider;
 
-    const { instructions, messages } = convertMessages({ messages: body.messages, provider: providerConfig.provider });
+    const { instructions, messages } = convertMessages({
+      messages: body.messages,
+      provider: providerConfig.provider,
+      providerName,
+    });
     const tools = convertTools(body.tools ?? undefined);
     const structuredOutputSpec = toStructuredOutputSpec(body.response_format);
     const output = buildOutput(structuredOutputSpec);
@@ -1396,12 +1425,10 @@ export class VercelAILLM implements ILLM {
 
     try {
       const result = yield* mapStreamToChunks({ stream: streamResult.stream, chunkMeta });
-      // Stamp provenance for reasoning-signature replay; omit when name is not a provider/model FQN.
-      const parsed = parseModelFqn(providerConfig.name);
-      if (parsed) {
+      if (parsedFqn) {
         result.output.source = {
-          provider_name: parsed.providerName,
-          model_name: parsed.modelName,
+          provider_name: parsedFqn.providerName,
+          model_name: parsedFqn.modelName,
         };
       }
       return result;
