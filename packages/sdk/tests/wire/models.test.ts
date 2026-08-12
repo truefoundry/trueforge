@@ -9,7 +9,9 @@ describe("ModelsClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = { data: [{ model_id: "model_id", name: "name", properties: {} }] };
+        const rawResponseBody = {
+            data: [{ model_id: "model_id", name: "name", properties: {}, provider: { name: "name" } }],
+        };
 
         server.mockEndpoint().get("/api/v1/models").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
 
@@ -20,6 +22,9 @@ describe("ModelsClient", () => {
                     modelId: "model_id",
                     name: "name",
                     properties: {},
+                    provider: {
+                        name: "name",
+                    },
                 },
             ],
         });

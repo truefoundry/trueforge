@@ -5,7 +5,8 @@ import type * as TrueForge from "../index.js";
 export interface CatalogSkill {
     /** Concise guidance for when the agent should use the skill. */
     description: string;
-    name: TrueForge.ResourceName;
+    /** Fully qualified name. Unique within a tenant. */
+    name: string;
     /** Path to the skill directory within the repository. Omit to use the repository root. */
     path?: string;
     /** Git ref — branch name, tag, or commit SHA. */

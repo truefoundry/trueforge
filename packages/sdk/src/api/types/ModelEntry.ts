@@ -5,7 +5,6 @@ import type * as TrueForge from "../index.js";
 export interface ModelEntry {
     /** Upstream, provider-specific identifier sent to the provider API. */
     modelId: string;
-    /** Internal identifier; forms the fully qualified name `name/model_name`. */
-    name: string;
+    name: TrueForge.ResourceName;
     properties: TrueForge.ModelProperties;
 }

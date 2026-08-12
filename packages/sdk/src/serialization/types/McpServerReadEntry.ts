@@ -5,7 +5,6 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { McpAuthStatus } from "./McpAuthStatus.js";
 import { McpServerAuthPublic } from "./McpServerAuthPublic.js";
-import { ResourceName } from "./ResourceName.js";
 
 export const McpServerReadEntry: core.serialization.ObjectSchema<
     serializers.McpServerReadEntry.Raw,
@@ -13,7 +12,7 @@ export const McpServerReadEntry: core.serialization.ObjectSchema<
 > = core.serialization.object({
     auth: McpServerAuthPublic.optional(),
     authStatus: core.serialization.property("auth_status", McpAuthStatus),
-    name: ResourceName,
+    name: core.serialization.string(),
     url: core.serialization.string(),
 });
 
@@ -21,7 +20,7 @@ export declare namespace McpServerReadEntry {
     export interface Raw {
         auth?: McpServerAuthPublic.Raw | null;
         auth_status: McpAuthStatus.Raw;
-        name: ResourceName.Raw;
+        name: string;
         url: string;
     }
 }
