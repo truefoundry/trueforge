@@ -47,6 +47,7 @@ function Harness({
       pendingApprovals: [],
       pendingToolResponses: [],
       pendingMcpAuth: null,
+      resumeUnavailable: false,
       sandboxId: undefined,
       respondToToolApproval: () => {},
       respondToToolResponse: () => {},

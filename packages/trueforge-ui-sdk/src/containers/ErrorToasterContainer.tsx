@@ -12,7 +12,9 @@ type ErrorToastContent = { title: string; description: string };
 
 type ErrorToastItem = ErrorToastContent & { id: string };
 
-type ErrorToasterContextValue = { showError: (error: unknown) => void };
+type ErrorToasterContextValue = {
+  showError: (error: unknown) => void;
+};
 
 const ErrorToasterContext = createContext<ErrorToasterContextValue | null>(null);
 

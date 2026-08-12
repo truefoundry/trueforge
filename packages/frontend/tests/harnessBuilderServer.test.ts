@@ -215,9 +215,6 @@ describe('harnessBuilderServer', () => {
     const fetchMock: typeof fetch = async (input, init) => {
       const url = input instanceof Request ? input.url : String(input);
       const method = init?.method ?? 'GET';
-      if (url.endsWith('/api/v1/agents') && method === 'GET') {
-        return Response.json({ data: [] });
-      }
       if (url.endsWith('/api/v1/agents') && method === 'POST' && typeof init?.body === 'string') {
         requests.push({ method, url, body: JSON.parse(init.body) });
         return Response.json({
@@ -234,9 +231,10 @@ describe('harnessBuilderServer', () => {
         model: { name: 'test/model' },
         skills: [{ name: 'review' }],
       },
+      intent: 'create',
     });
 
-    assert.deepEqual(result, { ok: true, updated: false, agentId: 'agt_new' });
+    assert.deepEqual(result, { agentId: 'agt_new' });
     assert.deepEqual(requests.at(-1)?.body, {
       name: 'saved-agent',
       model: { name: 'test/model' },
@@ -275,9 +273,10 @@ describe('harnessBuilderServer', () => {
         model: { name: 'test/model' },
         instructions: 'Write release notes.',
       },
+      intent: 'update',
     });
 
-    assert.deepEqual(result, { ok: true, updated: true, agentId: 'agt_1' });
+    assert.deepEqual(result, { agentId: 'agt_1' });
     assert.equal(requests.length, 1);
     assert.deepEqual(requests[0]?.body, {
       model: { name: 'test/model' },

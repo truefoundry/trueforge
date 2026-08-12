@@ -56,6 +56,8 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'PRESETS',
   'PostMcpOauthScreen',
   'ReasoningContainer',
+  'ResumeUnavailableContainer',
+  'ResumeUnavailable',
   'SandboxArtifactDownload',
   'SandboxToolCallCard',
   'SaveAgentButton',

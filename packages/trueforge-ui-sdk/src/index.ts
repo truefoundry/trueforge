@@ -114,6 +114,8 @@ export type {
 } from './atoms/ComposerSections.js';
 export { ComposerShell } from './atoms/ComposerShell.js';
 export type { ComposerShellProps } from './atoms/ComposerShell.js';
+export { ResumeUnavailable } from './atoms/ResumeUnavailable.js';
+export type { ResumeUnavailableProps } from './atoms/ResumeUnavailable.js';
 export { SandboxToolCallCard } from './atoms/SandboxToolCallCard.js';
 export type { SandboxToolCallCardProps } from './atoms/SandboxToolCallCard.js';
 export { SubAgentCard } from './atoms/SubAgentCard.js';
@@ -159,6 +161,7 @@ export { HistoryLoaderContainer } from './containers/HistoryLoaderContainer.js';
 export { McpAuthContainer } from './containers/McpAuthContainer.js';
 export { default as PostMcpOauthScreen } from './containers/McpOauthContainer/PostMcpOauthScreen.js';
 export { ReasoningContainer } from './containers/ReasoningContainer.js';
+export { ResumeUnavailableContainer } from './containers/ResumeUnavailableContainer.js';
 export { Thread } from './containers/Thread.js';
 export { ThreadContainer } from './containers/ThreadContainer.js';
 export type { ThreadContainerProps } from './containers/ThreadContainer.js';
@@ -297,6 +300,7 @@ export type {
   SandboxProviderCatalogEntry,
   SandboxProviderConfig,
   SaveAgentRequest,
+  SaveAgentResult,
   SearchAgentsParams,
   SelectRegistrySkillRequest,
   Session,
