@@ -945,9 +945,12 @@ export function normalizeUsage(usage: {
     reasoningTokens: number | undefined;
     textTokens: number | undefined;
   };
+  // LanguageModelUsage.raw: AI SDK has no cost field; extras like gateway costInUSD live here.
+  raw?: JSONObject;
 }): CompletionUsage {
   const input = usage.inputTokens ?? 0;
   const output = usage.outputTokens ?? 0;
+  const costInUsd = usage.raw?.['costInUSD'];
   return {
     input_tokens: input,
     output_tokens: output,
@@ -955,6 +958,7 @@ export function normalizeUsage(usage: {
     cache_read_tokens: usage.inputTokenDetails.cacheReadTokens ?? undefined,
     cache_write_tokens: usage.inputTokenDetails.cacheWriteTokens ?? undefined,
     reasoning_tokens: usage.outputTokenDetails.reasoningTokens ?? undefined,
+    cost_in_usd: typeof costInUsd === 'number' && costInUsd >= 0 ? costInUsd : undefined,
   };
 }
 
