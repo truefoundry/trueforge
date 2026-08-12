@@ -28,8 +28,8 @@ function wrapperFor(tools: ToolBase[]) {
         getToolsByConnectorId: async () => tools,
         createConnector: async () => connector,
         updateConnector: async () => connector,
-        authenticateConnector: async () => ({ redirectUrl: '' }),
-        disconnectConnector: async () => undefined,
+        authenticateConnector: async () => connector,
+        disconnectConnector: async () => connector,
       },
     }),
   });
