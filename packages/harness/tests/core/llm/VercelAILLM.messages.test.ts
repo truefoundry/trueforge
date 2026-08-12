@@ -264,6 +264,50 @@ describe('toAssistantModelMessage', () => {
     const toolCallPart = (result.content as Array<{ type: string }>).find(p => p.type === 'tool-call');
     expect(toolCallPart).not.toHaveProperty('providerOptions');
   });
+
+  it('attaches signature when source.provider_name matches, ignoring model_name', () => {
+    const msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
+      role: 'assistant',
+      content: null,
+    };
+    Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step', signature: 'sig' }]);
+    Reflect.set(msg, 'source', { provider_name: 'openai', model_name: 'old-model' });
+
+    const result = toAssistantModelMessage({ msg: msg, provider: 'openai', providerName: 'openai' });
+    const reasoningPart = (result.content as Array<{ type: string; providerOptions?: unknown }>).find(
+      p => p.type === 'reasoning',
+    );
+    expect(reasoningPart?.providerOptions).toEqual({ openai: { reasoningEncryptedContent: 'sig' } });
+  });
+
+  it('omits signature providerOptions when source.provider_name differs from current provider', () => {
+    const msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
+      role: 'assistant',
+      content: null,
+    };
+    Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step', signature: 'ant-sig' }]);
+    Reflect.set(msg, 'source', { provider_name: 'anthropic', model_name: 'opus' });
+
+    const result = toAssistantModelMessage({ msg: msg, provider: 'openai', providerName: 'openai' });
+    const reasoningPart = (result.content as Array<{ type: string; text?: string; providerOptions?: unknown }>).find(
+      p => p.type === 'reasoning',
+    );
+    expect(reasoningPart?.text).toBe('step');
+    expect(reasoningPart).not.toHaveProperty('providerOptions');
+  });
+
+  it('omits signature providerOptions when source is missing', () => {
+    const msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
+      role: 'assistant',
+      content: null,
+    };
+    Reflect.set(msg, 'thinking_blocks', [{ type: 'thinking', thinking: 'step', signature: 'sig' }]);
+
+    const result = toAssistantModelMessage({ msg: msg, provider: 'openai', providerName: 'openai' });
+    const reasoningPart = (result.content as Array<{ type: string; text?: string }>).find(p => p.type === 'reasoning');
+    expect(reasoningPart?.text).toBe('step');
+    expect(reasoningPart).not.toHaveProperty('providerOptions');
+  });
 });
 
 // ─────────── convertMessages ───────────

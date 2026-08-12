@@ -255,6 +255,39 @@ describe('anthropic reasoning replay, on the shape Anthropic actually sends', ()
     expect(parts.map(p => p.type)).toEqual(['reasoning', 'tool-call']);
     expect(parts[0]?.providerOptions).toEqual({ anthropic: { signature: 'ant-delta' } });
   });
+
+  it('does not attach an Anthropic signature when replaying to OpenAI', async () => {
+    const { output } = await drainStream(
+      mapStreamToChunks({
+        stream: makeStream([
+          { type: 'reasoning-start', id: 'r1' },
+          { type: 'reasoning-delta', id: 'r1', text: 'thought' },
+          { type: 'reasoning-delta', id: 'r1', text: '', providerMetadata: { anthropic: { signature: 'ant-sig' } } },
+          { type: 'reasoning-end', id: 'r1' },
+          makeFinishStep('stop'),
+        ]),
+        chunkMeta: CHUNK_META,
+      }),
+    );
+
+    const assistantMsg: Extract<ChatCompletionMessageParam, { role: 'assistant' }> = {
+      role: 'assistant',
+      content: null,
+    };
+    Reflect.set(assistantMsg, 'thinking_blocks', output.thinking_blocks);
+    Reflect.set(assistantMsg, 'source', { provider_name: 'anthropic', model_name: 'opus' });
+
+    const reasoningPart = (
+      toAssistantModelMessage({ msg: assistantMsg, provider: 'openai', providerName: 'openai' }).content as Array<{
+        type: string;
+        text?: string;
+        providerOptions?: unknown;
+      }>
+    ).find(p => p.type === 'reasoning');
+
+    expect(reasoningPart?.text).toBe('thought');
+    expect(reasoningPart).not.toHaveProperty('providerOptions');
+  });
 });
 
 describe('google-gemini reasoning replay round-trip', () => {
