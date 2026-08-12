@@ -95,15 +95,42 @@ This approach is useful when you want to customize the look and feel of the SDK 
 
 ## Styling rendered content
 
-`theme.classNames` targets the content renderers:
+`theme.classNames` (`ContentClassNames`) adds host CSS classes onto content renderers. Pass it through `theme` on `TrueforgeUI` (or `SlotsProvider`):
+
+```tsx
+<TrueforgeUI
+  theme={{
+    classNames: {
+      markdown: "prose prose-sm",
+      openui: { root: "my-openui" },
+    },
+  }}
+  /* … */
+/>
+```
 
 ```ts
 type ContentClassNames = {
+  /** Root of the markdown renderer (joins `.aui-markdown`). */
   markdown?: string;
+  /** Inline `` `code` `` spans inside markdown. */
   inlineCode?: string;
-  syntaxHighlighter?: { root?: string; pre?: string; code?: string; lineNumber?: string };
-  openui?: { root?: string; scope?: string };
-  monaco?: { root?: string };
+  syntaxHighlighter?: {
+    root?: string; // joins `.aui-syntax-highlighter`
+    pre?: string;
+    code?: string;
+    lineNumber?: string;
+  };
+  openui?: {
+    root?: string; // joins `.aui-openui`
+    scope?: string; // OpenUI theme scope (`.markdown-openui-scope`)
+  };
+  monaco?: {
+    root?: string; // joins `.aui-monaco`
+    editor?: string; // Monaco mount container
+    /** Monaco theme name; when unset, follows light/dark mode. */
+    monacoTheme?: string;
+  };
 };
 ```
 

@@ -18,7 +18,7 @@ export const getSandboxProviderRoute = createRoute({
   path: '/',
   tags: [SANDBOX_PROVIDERS_TAG],
   summary: 'Get the configured sandbox provider',
-  description: 'The single configured sandbox provider for this tenant.',
+  description: 'The single configured sandbox provider for this tenant. `auth.api_key` is redacted.',
   'x-fern-sdk-group-name': ['settings', 'sandboxProviders'],
   'x-fern-sdk-method-name': 'get',
   responses: {
@@ -38,7 +38,9 @@ export const putSandboxProviderRoute = createRoute({
   path: '/',
   tags: [SANDBOX_PROVIDERS_TAG],
   summary: 'Create or replace the sandbox provider',
-  description: 'Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration.',
+  description:
+    'Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration. ' +
+    '`auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).',
   'x-fern-sdk-group-name': ['settings', 'sandboxProviders'],
   'x-fern-sdk-method-name': 'upsert',
   request: {
@@ -54,7 +56,7 @@ export const putSandboxProviderRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body.',
+      description: 'Invalid request body, or redacted API key with no stored secret to keep.',
     },
   },
 });
