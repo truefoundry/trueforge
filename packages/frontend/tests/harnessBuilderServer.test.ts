@@ -280,7 +280,10 @@ describe('harnessBuilderServer', () => {
       sessionId: 'draft-2',
     });
 
-    assert.deepEqual(result, { agentId: 'agt_1' });
+    assert.deepEqual(result, {
+      agentId: 'agt_1',
+      sessionUpdatedAt: '2026-08-12T09:00:00.000Z',
+    });
     assert.equal(requests.length, 1);
     assert.deepEqual(requests[0]?.body, {
       model: { name: 'test/model' },
