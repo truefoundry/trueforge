@@ -184,6 +184,17 @@ function createTurnResolver(deps: {
           message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
         });
       }
+      // A turn cannot start until the release sandbox image is built; creating a sandbox
+      // from a pending/failed snapshot would fail deeper in Daytona with a worse error.
+      const image = await provider.getImageBuildStatus();
+      if (image.status !== 'ready') {
+        throw new HTTPException(422, {
+          message:
+            image.status === 'failed'
+              ? `sandbox image build failed (${image.errorMessage ?? 'unknown error'})`
+              : 'sandbox image is still being prepared — retry shortly',
+        });
+      }
       const gitSkills = await resolveGitSkills({
         tenant_id: TENANT_ID,
         skills: spec.skills ?? [],

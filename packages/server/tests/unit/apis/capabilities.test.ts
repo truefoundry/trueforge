@@ -1,6 +1,11 @@
+// Sandbox capability is driven by the live image status; stub it so tests never touch Daytona.
+jest.mock('../../../src/sandbox/providerUtils', () => ({ sandboxImageStatus: jest.fn() }));
+
 import { OpenAPIHono } from '@hono/zod-openapi';
+import type { SandboxImageBuild } from '@truefoundry/utils-core/core';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { Configuration } from 'openid-client';
+import { createLogger } from 'winston';
 import { createCapabilitiesRouter } from '../../../src/apis/capabilities';
 import { authMiddleware } from '../../../src/auth/middleware';
 import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
@@ -8,6 +13,17 @@ import type { OIDCConfig } from '../../../src/config';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
+import { sandboxImageStatus } from '../../../src/sandbox/providerUtils';
+
+const mockStatus = sandboxImageStatus as jest.Mock;
+const silentLogger = createLogger({ silent: true });
+
+const buildWithStatus = (status: SandboxImageBuild['status']): SandboxImageBuild => ({
+  tag: '029ea5ff',
+  status,
+  ref: 'trueforge-snapshot-029ea5ff',
+  errorMessage: status === 'failed' ? 'boom' : null,
+});
 
 const ISSUER = 'https://issuer.example.com';
 const AUDIENCE = 'harness-client';
@@ -37,21 +53,30 @@ function withAuth(router: OpenAPIHono): OpenAPIHono {
 }
 
 describe('capabilities routers', () => {
-  it('capabilities derive sandbox and skill from the store', async () => {
-    disableOidcAuth();
+  beforeEach(() => {
+    mockStatus.mockReset();
+    mockStatus.mockResolvedValue(undefined);
+  });
+
+  function makeRouter(): OpenAPIHono {
     const db = createSqliteDb(':memory:');
-    await migrateSqliteToLatest(db);
-    const store = new SqliteSandboxProviderStore(db);
-    const router = withAuth(
+    return withAuth(
       createCapabilitiesRouter({
-        sandboxProviderStore: store,
+        sandboxProviderStore: new SqliteSandboxProviderStore(db),
         withTransaction: callback => db.transaction().execute(callback),
+        logger: silentLogger,
       }),
     );
+  }
 
-    const empty = await router.request('/');
-    expect(empty.status).toBe(200);
-    expect(await empty.json()).toEqual({
+  it('reports sandbox + skill disabled when no image status is available', async () => {
+    disableOidcAuth();
+    mockStatus.mockResolvedValue(undefined);
+    const router = makeRouter();
+
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
       data: {
         sandbox: { enabled: false },
         skill: {
@@ -61,29 +86,42 @@ describe('capabilities routers', () => {
         settings: { enabled: true },
       },
     });
+  });
 
-    await store.upsertSandboxProvider({
-      tenant_id: 'default',
-      manifest: {
-        type: 'daytona',
-        snapshot_name: 'trueforge-sandbox-image',
-        auth: { api_key: 'dtn-test' },
-        exec_timeout_ms: 60000,
-        auto_stop_interval_in_minutes: 5,
-        auto_archive_interval_in_minutes: 60,
-        auto_delete_interval_in_minutes: 7200,
-      },
-    });
+  it('reports sandbox + skill enabled only when the image is ready', async () => {
+    disableOidcAuth();
+    mockStatus.mockResolvedValue(buildWithStatus('ready'));
+    const router = makeRouter();
 
-    const configured = await router.request('/');
-    expect(configured.status).toBe(200);
-    expect(await configured.json()).toEqual({
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
         settings: { enabled: true },
       },
     });
+  });
+
+  it('reports sandbox disabled while the image is still pending', async () => {
+    disableOidcAuth();
+    mockStatus.mockResolvedValue(buildWithStatus('pending'));
+    const router = makeRouter();
+
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ data: { sandbox: { enabled: false } } });
+  });
+
+  it('fails closed (sandbox disabled) when the status check throws', async () => {
+    disableOidcAuth();
+    mockStatus.mockRejectedValue(new Error('daytona unreachable'));
+    const router = makeRouter();
+
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ data: { sandbox: { enabled: false } } });
   });
 
   describe('when auth is enabled', () => {
@@ -152,6 +190,7 @@ describe('capabilities routers', () => {
         createCapabilitiesRouter({
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           withTransaction: callback => db.transaction().execute(callback),
+          logger: silentLogger,
         }),
       );
 

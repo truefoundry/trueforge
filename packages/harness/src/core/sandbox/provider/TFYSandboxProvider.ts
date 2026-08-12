@@ -10,6 +10,7 @@ import {
   type ExecResult,
   type SandboxExecParams,
   type SandboxFileInfo,
+  type SandboxImageBuild,
   type SandboxProvider,
 } from './Provider';
 
@@ -52,6 +53,17 @@ export class TFYSandboxProvider implements SandboxProvider {
     this.fileMaxBytesForDownload = options.fileMaxBytesForDownload;
     this.defaultExecTimeoutSeconds = Math.ceil((options.defaultExecTimeoutMs ?? DEFAULT_TIMEOUT_SECONDS * 1000) / 1000);
     this.logger = options.logger.child({ module: 'TFYSandboxProvider' });
+  }
+
+  // TFY sandboxes run a prebuilt server image with no per-image build step, so the image is always ready.
+  private static readonly readyImage: SandboxImageBuild = { tag: '', status: 'ready', ref: '', errorMessage: null };
+
+  buildImage(): Promise<SandboxImageBuild> {
+    return Promise.resolve(TFYSandboxProvider.readyImage);
+  }
+
+  getImageBuildStatus(): Promise<SandboxImageBuild> {
+    return Promise.resolve(TFYSandboxProvider.readyImage);
   }
 
   createSandbox(): Promise<{ sandboxId: string }> {

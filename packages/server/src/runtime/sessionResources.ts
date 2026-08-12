@@ -1,10 +1,8 @@
 /**
  * Store-backed model/MCP/skill/sandbox resolution for session admit and turns.
  */
-import { Daytona } from '@daytona/sdk';
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
-  DaytonaSandboxProvider,
   Sandbox,
   SkillMounter,
   type AgentTracing,
@@ -23,8 +21,8 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
+import { getSandboxProvider } from '../sandbox/providerUtils';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
-import { toDaytonaSandboxProviderInput } from '../schemas/sandboxProvider';
 
 export interface McpConnection {
   url: string;
@@ -223,14 +221,7 @@ export async function resolveSandboxProvider({
   if (record === undefined) {
     return undefined;
   }
-  const { apiKey, ...settings } = toDaytonaSandboxProviderInput(record.manifest);
-  return new DaytonaSandboxProvider({
-    client: new Daytona({ apiKey }),
-    ...settings,
-    tenantName: tenant_id,
-    fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
-    logger,
-  });
+  return getSandboxProvider({ manifest: record.manifest, tenant_id, logger });
 }
 
 /**

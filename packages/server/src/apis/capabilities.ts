@@ -1,18 +1,33 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
+import { extractErrorLogFields } from '@truefoundry/utils-core/core';
+import type { Logger } from 'winston';
 import { isAdmin, resolveUserContext } from '../auth/identity';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
+import { sandboxImageStatus } from '../sandbox/providerUtils';
 import { TENANT_ID } from './sessions';
 
 export function createCapabilitiesRouter<TTransaction>(deps: {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
+  logger: Logger;
 }) {
   const router = new OpenAPIHono();
   router.openapi(getCapabilitiesRoute, async c => {
-    const record = await deps.sandboxProviderStore.getSandboxProvider(TENANT_ID);
-    const sandboxEnabled = record !== undefined;
+    // Sandbox is usable only once the release image reports ready. Read live from the
+    // provider; fail closed (disabled) if Daytona is unreachable or the creds are bad.
+    let sandboxEnabled = false;
+    try {
+      const build = await sandboxImageStatus({
+        store: deps.sandboxProviderStore,
+        tenant_id: TENANT_ID,
+        logger: deps.logger,
+      });
+      sandboxEnabled = build?.status === 'ready';
+    } catch (error) {
+      deps.logger.warn('Sandbox image status check failed; reporting sandbox disabled', extractErrorLogFields(error));
+    }
     const settingsEnabled = isAdmin(resolveUserContext(c));
     return c.json(
       {

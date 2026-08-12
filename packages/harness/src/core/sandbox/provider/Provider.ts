@@ -49,7 +49,31 @@ export interface SandboxExecParams {
 // An init command a producer (e.g. a skill mounter) hands to the Sandbox, which supplies `sandboxId`.
 export type SandboxInit = Omit<SandboxExecParams, 'sandboxId'>;
 
+export type SandboxImageBuildStatus = 'pending' | 'ready' | 'failed';
+
+/**
+ * Live status of the release-owned sandbox image inside the provider's backing
+ * store (e.g. a Daytona snapshot). Nothing here is persisted by the host — it is
+ * recomputed on demand. `ref` is the provider's internal handle (opaque to callers).
+ */
+export interface SandboxImageBuild {
+  /** Image tag the status refers to (the tag portion of the release image). */
+  tag: string;
+  status: SandboxImageBuildStatus;
+  /** Provider-internal build handle (e.g. the Daytona snapshot name). */
+  ref: string;
+  errorMessage: string | null;
+}
+
 export interface SandboxProvider {
+  /**
+   * Ensures the release image is being built into the provider's backing store and
+   * returns its current status. Idempotent: an already-built image reports `ready`;
+   * a fresh build starts in the background and reports `pending`.
+   */
+  buildImage(): Promise<SandboxImageBuild>;
+  /** Current build status of the release image. Read-only: never kicks off a build. */
+  getImageBuildStatus(): Promise<SandboxImageBuild>;
   createSandbox(): Promise<{ sandboxId: string }>;
   exec(params: SandboxExecParams): Promise<ExecResult>;
   /** Provider-specific instructions appended to the agent system prompt. */

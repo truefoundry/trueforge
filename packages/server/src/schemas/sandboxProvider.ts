@@ -22,12 +22,13 @@ const DaytonaSandboxProviderAuthSchema = z
 
 /**
  * Daytona-backed sandbox provider. Wire PUT body and persisted
- * `sandbox_provider.manifest` document share this shape.
+ * `sandbox_provider.manifest` document share this shape. The sandbox image is
+ * release-owned (not configured here), so its build status is not persisted —
+ * it is surfaced live on responses via the separate `image` field.
  */
 export const DaytonaSandboxProviderSchema = z
   .object({
     type: z.literal('daytona').describe('Daytona sandbox provider.'),
-    snapshot_name: z.string().min(1).describe('Daytona snapshot used when creating sandboxes.'),
     auth: DaytonaSandboxProviderAuthSchema.describe('Daytona authentication credentials.'),
     exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
     auto_stop_interval_in_minutes: z
@@ -50,47 +51,63 @@ export const DaytonaSandboxProviderSchema = z
   .openapi('DaytonaSandboxProvider');
 
 /**
+ * Live status of the release-owned sandbox image. Computed on demand from the
+ * provider (never persisted): `tag` and `build_ref` come from the release image
+ * constant, `build_status` from the provider's backing store.
+ */
+export const SandboxImageSchema = z
+  .object({
+    tag: z.string().describe('Tag of the release-owned sandbox image.'),
+    build_status: z.enum(['pending', 'ready', 'failed']).describe('Where the image build stands right now.'),
+    build_ref: z.string().describe('Provider-internal build handle (the Daytona snapshot name).'),
+  })
+  .strict()
+  .openapi('SandboxImage');
+
+/**
  * Wire + persisted sandbox provider. Single variant today — use this alias so
  * OpenAPI does not emit a one-member `oneOf` (Fern then invents ComponentsSchemas* types).
  * Widen to `z.discriminatedUnion('type', [...])` when a second provider ships.
  */
 export const SandboxProviderSchema = DaytonaSandboxProviderSchema;
 
-/** Persisted jsonb — same fields as the wire SandboxProvider. */
+/** GET/PUT response body: the stored provider plus the live (non-persisted) image status. */
+export const SandboxProviderResponseSchema = DaytonaSandboxProviderSchema.extend({
+  image: SandboxImageSchema.describe('Live status of the release-owned sandbox image (not persisted).'),
+}).openapi('SandboxProviderResponse');
+
+/** Persisted jsonb — the provider config only (no image status). */
 export type SandboxProviderManifest = z.infer<typeof SandboxProviderSchema>;
 
 export const PutSandboxProviderRequestSchema = SandboxProviderSchema;
 
 export const PutSandboxProviderResponseSchema = z
   .object({
-    data: SandboxProviderSchema,
+    data: SandboxProviderResponseSchema,
   })
   .openapi('PutSandboxProviderResponse');
 
 export const GetSandboxProviderResponseSchema = z
   .object({
-    data: SandboxProviderSchema,
+    data: SandboxProviderResponseSchema,
   })
   .openapi('GetSandboxProviderResponse');
 
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
 export type SandboxProvider = z.infer<typeof SandboxProviderSchema>;
-export type PutSandboxProviderRequest = SandboxProvider;
+export type SandboxImage = z.infer<typeof SandboxImageSchema>;
+export type SandboxProviderResponse = z.infer<typeof SandboxProviderResponseSchema>;
+export type PutSandboxProviderRequest = z.infer<typeof PutSandboxProviderRequestSchema>;
 
 /** Wire/persisted snake_case → Daytona client credentials + provider settings. */
 export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest): {
   apiKey: string;
 } & Pick<
   DaytonaSandboxProviderOptions,
-  | 'snapshotName'
-  | 'timeoutMs'
-  | 'autoStopIntervalInMinutes'
-  | 'autoArchiveIntervalInMinutes'
-  | 'autoDeleteIntervalInMinutes'
+  'timeoutMs' | 'autoStopIntervalInMinutes' | 'autoArchiveIntervalInMinutes' | 'autoDeleteIntervalInMinutes'
 > {
   return {
     apiKey: manifest.auth.api_key,
-    snapshotName: manifest.snapshot_name,
     timeoutMs: manifest.exec_timeout_ms,
     autoStopIntervalInMinutes: manifest.auto_stop_interval_in_minutes,
     autoArchiveIntervalInMinutes: manifest.auto_archive_interval_in_minutes,

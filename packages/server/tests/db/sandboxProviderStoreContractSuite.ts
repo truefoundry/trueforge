@@ -10,7 +10,6 @@ const TENANT = 'default';
 function manifest(overrides: Partial<SandboxProviderManifest> = {}): SandboxProviderManifest {
   return {
     type: 'daytona',
-    snapshot_name: 'trueforge-sandbox-image',
     auth: { api_key: 'dtn-test' },
     exec_timeout_ms: 60000,
     auto_stop_interval_in_minutes: 5,
@@ -52,7 +51,6 @@ export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxPro
     });
 
     const replacement = manifest({
-      snapshot_name: 'other-snapshot',
       exec_timeout_ms: 120000,
     });
     const updated = await store.upsertSandboxProvider({
@@ -70,12 +68,12 @@ export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxPro
     await store.upsertSandboxProvider({ tenant_id: TENANT, manifest: manifest() });
     await store.upsertSandboxProvider({
       tenant_id: 'other-tenant',
-      manifest: manifest({ snapshot_name: 'other-tenant-snapshot' }),
+      manifest: manifest({ exec_timeout_ms: 120000 }),
     });
 
     const forDefault = await store.getSandboxProvider(TENANT);
     const forOther = await store.getSandboxProvider('other-tenant');
-    expect(forDefault?.manifest.snapshot_name).toBe('trueforge-sandbox-image');
-    expect(forOther?.manifest.snapshot_name).toBe('other-tenant-snapshot');
+    expect(forDefault?.manifest.exec_timeout_ms).toBe(60000);
+    expect(forOther?.manifest.exec_timeout_ms).toBe(120000);
   });
 }
