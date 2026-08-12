@@ -2414,7 +2414,7 @@ await client.settings.modelProviders.upsert({
 <dl>
 <dd>
 
-The single configured sandbox provider for this tenant.
+The single configured sandbox provider for this tenant. `auth.api_key` is redacted.
 </dd>
 </dl>
 </dd>
@@ -2469,7 +2469,7 @@ await client.settings.sandboxProviders.get();
 <dl>
 <dd>
 
-Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration.
+Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
 </dd>
 </dl>
 </dd>
