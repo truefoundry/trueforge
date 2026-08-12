@@ -18,7 +18,7 @@ describe('AssistantMessageBubble', () => {
     const root = container.querySelector('[data-slot="aui_assistant-message-root"]');
     expect(root).toHaveClass('host-bubble');
     expect(root).toContainElement(screen.getByText('Assistant response'));
-    expect(screen.getByText('Generation failed').parentElement).toHaveClass('text-failure-text');
+    expect(screen.getByText('Generation failed').parentElement).toHaveClass('text-failure-bg');
     expect(screen.getByRole('button', { name: 'Copy response' }).parentElement).toHaveClass('mt-1');
   });
 
@@ -26,7 +26,7 @@ describe('AssistantMessageBubble', () => {
     const { container } = render(<AssistantMessageBubble>Only the message</AssistantMessageBubble>);
 
     expect(screen.getByText('Only the message')).toBeInTheDocument();
-    expect(container.querySelector('.text-failure-text')).not.toBeInTheDocument();
+    expect(container.querySelector('.text-failure-bg')).not.toBeInTheDocument();
     expect(container.querySelector('.mt-1')).not.toBeInTheDocument();
   });
 });

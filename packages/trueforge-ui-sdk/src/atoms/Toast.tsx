@@ -40,11 +40,11 @@ export function Toast({ title, description, open, onOpenChange, className }: Toa
         className,
       )}
     >
-      <Icon name="circle-exclamation" size="1.25em" className="text-failure-text shrink-0" />
+      <Icon name="circle-exclamation" size="1.25em" className="text-failure-bg shrink-0" />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <div className="text-failure-text text-sm leading-none font-semibold">{title}</div>
+          <div className="text-failure-bg text-sm leading-none font-semibold">{title}</div>
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"

@@ -10,7 +10,7 @@ export function MessageErrorBanner({ message, className }: MessageErrorBannerPro
     <div
       role="alert"
       className={cn(
-        'aui-message-error-root border-failure-bg bg-failure-bg/10 text-failure-text mt-2 rounded-md border p-3 text-sm',
+        'aui-message-error-root border-failure-bg bg-failure-bg/10 text-failure-bg mt-2 rounded-md border p-3 text-sm',
         className,
       )}
     >

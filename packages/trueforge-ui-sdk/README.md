@@ -433,9 +433,7 @@ import { TrueforgeUI, type AssistantMessageBubbleProps } from '@truefoundry/true
 function MyBubble({ children, error, actionBar, className }: AssistantMessageBubbleProps) {
   return (
     <div className={`flex flex-col gap-2 border-l-2 border-primary-button-bg pl-3.5 ${className ?? ''}`}>
-      {error ? (
-        <div className="rounded-lg bg-failure-bg/10 px-2.5 py-2 text-[13px] text-failure-text">{error}</div>
-      ) : null}
+      {error ? <div className="rounded-lg bg-failure-bg/10 px-2.5 py-2 text-sm text-failure-bg">{error}</div> : null}
       <div>{children}</div>
       {actionBar}
     </div>

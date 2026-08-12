@@ -85,7 +85,7 @@ describe('SandboxToolCallCard', () => {
     for (const editor of screen.getAllByTestId('sandbox-json')) {
       expect(editor).toHaveAttribute('data-read-only', 'true');
     }
-    expect(container.querySelector('svg.text-failure-text')).toBeInTheDocument();
+    expect(container.querySelector('svg.text-failure-bg')).toBeInTheDocument();
     expect(screen.getByTestId('sandbox-exit-code')).toHaveTextContent('exit: 1');
   });
 

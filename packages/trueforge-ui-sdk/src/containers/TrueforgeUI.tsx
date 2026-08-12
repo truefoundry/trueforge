@@ -86,7 +86,7 @@ function ServerInitError({ error, className }: { error: unknown; className?: str
     <div
       role="alert"
       className={cn(
-        'flex h-full min-h-48 items-center justify-center bg-primary-bg px-6 text-center text-sm text-failure-text',
+        'flex h-full min-h-48 items-center justify-center bg-primary-bg px-6 text-center text-sm text-failure-bg',
         className,
       )}
     >

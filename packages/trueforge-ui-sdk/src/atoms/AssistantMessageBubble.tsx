@@ -20,7 +20,7 @@ export function AssistantMessageBubble({ children, error, actionBar, className }
     >
       <div className="min-w-0 max-w-full">
         {children}
-        {error && <div className="mt-2 text-sm text-failure-text">{error}</div>}
+        {error && <div className="mt-2 text-sm text-failure-bg">{error}</div>}
       </div>
       {actionBar && <div className="mt-1">{actionBar}</div>}
     </div>

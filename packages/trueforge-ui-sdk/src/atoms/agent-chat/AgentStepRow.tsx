@@ -122,7 +122,7 @@ export function AgentStepRow({
                 <Icon
                   name="circle-check"
                   size="0.875rem"
-                  className="shrink-0 text-success-text"
+                  className="shrink-0 text-success-bg"
                   data-testid={dataTestPrefix ? `${dataTestPrefix}-success-icon` : undefined}
                 />
               )}
@@ -163,7 +163,7 @@ export function AgentStepRow({
             <Icon
               name="circle-xmark"
               size="0.875rem"
-              className="text-failure-text"
+              className="text-failure-bg"
               data-testid={dataTestPrefix ? `${dataTestPrefix}-error-icon` : undefined}
             />
           )}

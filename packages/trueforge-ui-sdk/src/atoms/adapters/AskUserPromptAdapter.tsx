@@ -166,7 +166,7 @@ export function AskUserPrompt({
                     name={`ask-user-question-option-${currentQuestion.id}`}
                     checked={isSelected}
                     onChange={() => handleOptionSelect(opt)}
-                    className="mt-0.5 accent-primary"
+                    className="mt-0.5 accent-primary-button-bg"
                   />
                   <span className="min-w-0 font-sans text-[0.8125rem] font-medium leading-snug text-text-primary">
                     {opt}
@@ -188,7 +188,7 @@ export function AskUserPrompt({
                 name={`ask-user-question-option-${currentQuestion.id}`}
                 checked={isCustomSelected}
                 onChange={() => handleOptionSelect(ASK_USER_CUSTOM_OPTION)}
-                className="accent-primary"
+                className="accent-primary-button-bg"
               />
               <div className="min-w-0 flex-1">
                 <input
@@ -225,7 +225,7 @@ export function AskUserPrompt({
             })}
           >
             {isMultiQuestion && isLastQuestion && !allQuestionsAnswered ? (
-              <span className="text-xs font-medium text-failure-text">Answer all questions to submit</span>
+              <span className="text-xs font-medium text-failure-bg">Answer all questions to submit</span>
             ) : (
               <span />
             )}

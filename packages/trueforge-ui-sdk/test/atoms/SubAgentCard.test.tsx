@@ -76,7 +76,7 @@ describe('SubAgentCard', () => {
 
     expect(renderInstruction).toHaveBeenCalledWith('Review changes');
     expect(screen.getByText('Custom: Review changes')).toBeInTheDocument();
-    expect(container.querySelector('svg.text-failure-text')).toBeInTheDocument();
+    expect(container.querySelector('svg.text-failure-bg')).toBeInTheDocument();
   });
 
   it('omits the instruction section for whitespace-only instructions', () => {

@@ -100,7 +100,7 @@ export function ToolApprovalBar({
                 <Icon
                   name={isDenied ? 'circle-xmark' : 'circle-check'}
                   size="0.875em"
-                  className={cn('shrink-0', isDenied ? 'text-failure-text' : 'text-success-text')}
+                  className={cn('shrink-0', isDenied ? 'text-failure-bg' : 'text-success-bg')}
                 />
               )}
             </div>
@@ -192,7 +192,7 @@ export function ToolApprovalBar({
             </Button>
           </div>
           {showReasonError && (
-            <span id="aui-denial-reason-error" className="text-xs text-failure-text" role="alert">
+            <span id="aui-denial-reason-error" className="text-xs text-failure-bg" role="alert">
               Reason is required
             </span>
           )}

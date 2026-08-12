@@ -86,7 +86,7 @@ function SandboxBody({
               <span
                 className={cn(
                   'inline-flex h-6 items-center gap-1 rounded px-1.5 text-xs lowercase',
-                  exitCode === 0 ? 'bg-success-bg/10 text-success-text' : 'bg-failure-bg/10 text-failure-text',
+                  exitCode === 0 ? 'bg-success-bg/10 text-success-bg' : 'bg-failure-bg/10 text-failure-bg',
                 )}
                 data-testid={dataTestPrefix ? `${dataTestPrefix}-exit-code` : undefined}
               >
