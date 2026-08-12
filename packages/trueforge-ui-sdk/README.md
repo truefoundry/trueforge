@@ -29,6 +29,7 @@ Bring your own **brand, colors, layout, components, and server**—the Agent SDK
 - [Getting started](#getting-started)
 - [`<TrueforgeUI />` props](#trueforgeui--props)
 - [Theming](#theming)
+- [Content classNames](#content-classnames)
 - [Brand / logo](#brand--logo)
 - [Agent modes](#agent-modes)
 - [Layouts](#layouts)
@@ -178,7 +179,7 @@ export default function App() {
 | `server`           | `TrueforgeServerConfig`    | ✅       | Built-in config (`truefoundry` / `trueforge`) **or** a ready `AgentUIServer`.                                      |
 | `layout`           | `LayoutProp`               | ✅       | Built-in layout string **or** a custom React component.                                                            |
 | `agentConfig`      | `AgentConfig`              | —        | Shell mode: SingleAgent / AgentLibrary / AgentComposer / AgentLibraryWithComposer. Defaults to library + composer. |
-| `theme`            | `ThemeConfig`              | —        | Preset, mode, tokens, brand, icons (see [Theming](#theming)).                                                      |
+| `theme`            | `ThemeConfig`              | —        | Preset, mode, tokens, brand, icons, **content `classNames`** (see [Theming](#theming)).                            |
 | `overrides`        | `SlotOverrides`            | —        | Map of slot overrides (see [Overriding components](#overriding-components)).                                       |
 | `className`        | `string`                   | —        | Applied to the layout root.                                                                                        |
 | `initialSessionId` | `string`                   | —        | Resume a specific session.                                                                                         |
@@ -228,7 +229,49 @@ You can also override tokens from host CSS:
 
 > _Screenshot: the same layout rebranded with a custom palette._
 
-See [docs/theming.md](./docs/theming.md) for presets, controlled vs uncontrolled mode, and content classNames.
+See [docs/theming.md](./docs/theming.md) for presets, controlled vs uncontrolled mode, and deeper theming notes.
+
+---
+
+## Content classNames
+
+Style content renderers (markdown, code fences, OpenUI, Monaco) without swapping
+slots. Pass `theme.classNames` on `<TrueforgeUI />` — values merge onto the
+defaults via `cn()`:
+
+```tsx
+<TrueforgeUI
+  server={server}
+  layout="sidebar"
+  theme={{
+    classNames: {
+      markdown: 'prose prose-neutral dark:prose-invert max-w-none',
+      inlineCode: 'font-semibold',
+      syntaxHighlighter: {
+        root: 'my-code-block rounded-lg',
+        pre: 'bg-zinc-950 p-4',
+        code: 'text-sm font-mono',
+        lineNumber: 'opacity-60',
+      },
+      openui: { root: 'my-openui-host', scope: 'p-2' },
+      monaco: { root: 'my-monaco h-64', editor: 'rounded-lg', monacoTheme: 'vs-dark' },
+    },
+  }}
+/>
+```
+
+| `theme.classNames` key | Component / surface                         | Fields                                            |
+| ---------------------- | ------------------------------------------- | ------------------------------------------------- |
+| `markdown`             | `Markdown` (message prose root)             | `string`                                          |
+| `inlineCode`           | `Markdown` inline `` `code` ``              | `string`                                          |
+| `syntaxHighlighter`    | `SyntaxHighlighter` (non-OpenUI fences)     | `root`, `pre`, `code`, `lineNumber`               |
+| `openui`               | `OpenUiFenceBlock`                          | `root`, `scope`                                   |
+| `monaco`               | `MonacoEditorCore` (code artifacts / diffs) | `root`, `editor`, `monacoTheme` (Monaco theme id) |
+
+Custom layouts and host atoms under the provider can read the same map with
+`useOptionalContentClassNames()` / `useContentClassNames()` (exported from the
+package). Host CSS on `.aui-markdown` / `.aui-syntax-highlighter` / `.aui-openui`
+/ `.aui-monaco` still works as an alternative.
 
 ---
 

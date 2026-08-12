@@ -190,7 +190,14 @@
           {
             "properties": {
               "name": {
-                "$ref": "#/components/schemas/ResourceName"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ResourceName"
+                  },
+                  {
+                    "description": "Fully qualified name. Unique within a tenant."
+                  }
+                ]
               }
             },
             "required": [
@@ -461,14 +468,7 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
-              },
-              {
-                "description": "Optional default auth settings for the preset."
-              }
-            ]
+            "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
           },
           "logo": {
             "description": "URL of the MCP server logo asset.",
@@ -476,7 +476,14 @@
             "type": "string"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "type": {
             "$ref": "#/components/schemas/McpServerType"
@@ -513,7 +520,14 @@
             "type": "string"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "path": {
             "description": "Path to the skill directory within the repository. Omit to use the repository root.",
@@ -703,13 +717,27 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
-            "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+              },
+              {
+                "description": "Optional auth settings. Omit when the server needs no credentials."
+              }
+            ]
           },
           "auth_status": {
             "$ref": "#/components/schemas/McpAuthStatus"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "type": {
             "$ref": "#/components/schemas/McpServerType"
@@ -729,7 +757,7 @@
         "type": "object"
       },
       "ConfiguredMcpServerAuth": {
-        "description": "Optional auth settings. Omit when the server needs no credentials.",
+        "description": "Optional default auth settings for the preset.",
         "discriminator": {
           "mapping": {
             "dcr": "#/components/schemas/McpServerDcrAuth",
@@ -853,7 +881,14 @@
             "type": "array"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "type": {
             "enum": [
@@ -1827,10 +1862,24 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
-            "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+              },
+              {
+                "description": "Optional auth settings. Omit when the server needs no credentials."
+              }
+            ]
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "type": {
             "$ref": "#/components/schemas/McpServerType"
@@ -1858,7 +1907,14 @@
             "$ref": "#/components/schemas/McpAuthStatus"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "url": {
             "description": "URL of the remote MCP server.",
@@ -1919,11 +1975,15 @@
           },
           "properties": {
             "$ref": "#/components/schemas/ModelProperties"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ModelListProvider"
           }
         },
         "required": [
           "name",
           "model_id",
+          "provider",
           "properties"
         ],
         "type": "object"
@@ -1937,14 +1997,7 @@
             "type": "string"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Internal identifier; forms the fully qualified name `name/model_name`."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           },
           "properties": {
             "$ref": "#/components/schemas/ModelProperties"
@@ -1954,6 +2007,21 @@
           "model_id",
           "name",
           "properties"
+        ],
+        "type": "object"
+      },
+      "ModelListProvider": {
+        "additionalProperties": false,
+        "description": "Owning configured provider.",
+        "properties": {
+          "name": {
+            "description": "Configured provider resource name; matches the FQN prefix of `name`.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
         ],
         "type": "object"
       },
@@ -2506,7 +2574,7 @@
         "type": "object"
       },
       "ResourceName": {
-        "description": "Fully qualified name. Unique within a tenant.",
+        "description": "Internal identifier; forms the fully qualified name `name/model_name`.",
         "maxLength": 64,
         "minLength": 2,
         "pattern": "^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$",
@@ -2880,7 +2948,14 @@
         "additionalProperties": false,
         "properties": {
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           }
         },
         "required": [
@@ -3008,7 +3083,14 @@
             "type": "string"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           },
           "path": {
             "description": "Path to the skill directory within the repository. Omit to use the repository root.",
@@ -3066,7 +3148,14 @@
             "type": "string"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           }
         },
         "required": [
@@ -4572,6 +4661,150 @@
           "server"
         ],
         "x-fern-sdk-method-name": "get_capabilities"
+      }
+    },
+    "/api/v1/catalog/mcp-servers": {
+      "get": {
+        "description": "Shipped MCP server presets (discovery-only). Copy into PUT /settings/mcp-servers to configure.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMcpServerCatalogResponse"
+                }
+              }
+            },
+            "description": "Shipped MCP server presets."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not authenticated."
+          }
+        },
+        "summary": "Get the MCP catalog",
+        "tags": [
+          "Catalog"
+        ],
+        "x-fern-sdk-group-name": [
+          "catalog",
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/catalog/model-providers": {
+      "get": {
+        "description": "Shipped model-provider presets (discovery-only). Copy into PUT /settings/model-providers to configure. Includes a `custom` sentinel with `supported_reasoning_efforts`.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetModelProviderCatalogResponse"
+                }
+              }
+            },
+            "description": "Shipped model-provider presets."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not authenticated."
+          }
+        },
+        "summary": "Get the model catalog",
+        "tags": [
+          "Catalog"
+        ],
+        "x-fern-sdk-group-name": [
+          "catalog",
+          "modelProviders"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/catalog/sandbox-providers": {
+      "get": {
+        "description": "Shipped sandbox-provider presets (discovery-only). Copy into PUT /settings/sandbox-providers to configure.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxProviderCatalogResponse"
+                }
+              }
+            },
+            "description": "Shipped sandbox-provider presets."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not authenticated."
+          }
+        },
+        "summary": "Get the sandbox provider catalog",
+        "tags": [
+          "Catalog"
+        ],
+        "x-fern-sdk-group-name": [
+          "catalog",
+          "sandboxProviders"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/catalog/skills": {
+      "get": {
+        "description": "Shipped skill presets (discovery-only). Copy into PUT /settings/skills to configure.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSkillCatalogResponse"
+                }
+              }
+            },
+            "description": "Shipped skill presets."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not authenticated."
+          }
+        },
+        "summary": "Get the skill catalog",
+        "tags": [
+          "Catalog"
+        ],
+        "x-fern-sdk-group-name": [
+          "catalog",
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "list"
       }
     },
     "/api/v1/mcp-servers": {
@@ -6170,52 +6403,6 @@
         "x-fern-sdk-method-name": "upsert"
       }
     },
-    "/api/v1/settings/mcp-servers/catalog": {
-      "get": {
-        "description": "MCP server presets shipped with the server (mcp-catalog.yaml). Discovery-only: copy an entry into PUT /settings/mcp-servers to configure it.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetMcpServerCatalogResponse"
-                }
-              }
-            },
-            "description": "The shipped catalog, verbatim."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the request has no valid session cookie."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the caller is authenticated but not an admin."
-          }
-        },
-        "summary": "Get the MCP catalog",
-        "tags": [
-          "MCP Servers"
-        ],
-        "x-fern-sdk-group-name": [
-          "settings",
-          "mcpServers"
-        ],
-        "x-fern-sdk-method-name": "catalog"
-      }
-    },
     "/api/v1/settings/mcp-servers/{name}": {
       "get": {
         "description": "A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.",
@@ -6434,52 +6621,6 @@
         "x-fern-sdk-method-name": "upsert"
       }
     },
-    "/api/v1/settings/model-providers/catalog": {
-      "get": {
-        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Includes a `custom` sentinel with `supported_reasoning_efforts` for the custom-provider form (not configurable from catalog).",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetModelProviderCatalogResponse"
-                }
-              }
-            },
-            "description": "The shipped catalog, verbatim."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the request has no valid session cookie."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the caller is authenticated but not an admin."
-          }
-        },
-        "summary": "Get the model catalog",
-        "tags": [
-          "Model Providers"
-        ],
-        "x-fern-sdk-group-name": [
-          "settings",
-          "modelProviders"
-        ],
-        "x-fern-sdk-method-name": "catalog"
-      }
-    },
     "/api/v1/settings/sandbox-providers": {
       "get": {
         "description": "The single configured sandbox provider for this tenant.",
@@ -6558,52 +6699,6 @@
           "sandboxProviders"
         ],
         "x-fern-sdk-method-name": "upsert"
-      }
-    },
-    "/api/v1/settings/sandbox-providers/catalog": {
-      "get": {
-        "description": "Sandbox provider presets shipped with the server (sandbox-catalog.yaml). Discovery-only: copy an entry into PUT /settings/sandbox-providers to configure it.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSandboxProviderCatalogResponse"
-                }
-              }
-            },
-            "description": "The shipped catalog, verbatim."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the request has no valid session cookie."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the caller is authenticated but not an admin."
-          }
-        },
-        "summary": "Get the sandbox provider catalog",
-        "tags": [
-          "Sandbox Providers"
-        ],
-        "x-fern-sdk-group-name": [
-          "settings",
-          "sandboxProviders"
-        ],
-        "x-fern-sdk-method-name": "catalog"
       }
     },
     "/api/v1/settings/skills": {
@@ -6694,52 +6789,6 @@
           "skills"
         ],
         "x-fern-sdk-method-name": "upsert"
-      }
-    },
-    "/api/v1/settings/skills/catalog": {
-      "get": {
-        "description": "Skill presets shipped with the server (skill-catalog.yaml). Discovery-only: copy an entry into PUT /settings/skills to configure it.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSkillCatalogResponse"
-                }
-              }
-            },
-            "description": "The shipped catalog, verbatim."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the request has no valid session cookie."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "OIDC is configured and the caller is authenticated but not an admin."
-          }
-        },
-        "summary": "Get the skill catalog",
-        "tags": [
-          "Skills"
-        ],
-        "x-fern-sdk-group-name": [
-          "settings",
-          "skills"
-        ],
-        "x-fern-sdk-method-name": "catalog"
       }
     },
     "/api/v1/skills": {

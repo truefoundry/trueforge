@@ -4,18 +4,19 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ModelProperties } from "./ModelProperties.js";
+import { ResourceName } from "./ResourceName.js";
 
 export const ModelEntry: core.serialization.ObjectSchema<serializers.ModelEntry.Raw, TrueForge.ModelEntry> =
     core.serialization.object({
         modelId: core.serialization.property("model_id", core.serialization.string()),
-        name: core.serialization.string(),
+        name: ResourceName,
         properties: ModelProperties,
     });
 
 export declare namespace ModelEntry {
     export interface Raw {
         model_id: string;
-        name: string;
+        name: ResourceName.Raw;
         properties: ModelProperties.Raw;
     }
 }

@@ -3,13 +3,12 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ResourceName } from "./ResourceName.js";
 import { SkillType } from "./SkillType.js";
 
 export const CatalogSkill: core.serialization.ObjectSchema<serializers.CatalogSkill.Raw, TrueForge.CatalogSkill> =
     core.serialization.object({
         description: core.serialization.string(),
-        name: ResourceName,
+        name: core.serialization.string(),
         path: core.serialization.string().optional(),
         ref: core.serialization.string(),
         type: SkillType,
@@ -19,7 +18,7 @@ export const CatalogSkill: core.serialization.ObjectSchema<serializers.CatalogSk
 export declare namespace CatalogSkill {
     export interface Raw {
         description: string;
-        name: ResourceName.Raw;
+        name: string;
         path?: string | null;
         ref: string;
         type: SkillType.Raw;

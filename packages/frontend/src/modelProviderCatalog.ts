@@ -159,7 +159,7 @@ export function createModelProviderCatalog(): ModelCatalogServer<
 > {
   return {
     getModelProviderCatalog: async () => {
-      const body = await client.settings.modelProviders.catalog();
+      const body = await client.catalog.modelProviders.list();
       return body.data.map(toUiCatalogModelProviderEntry);
     },
     listModelProviders: async () => {

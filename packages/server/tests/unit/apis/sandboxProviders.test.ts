@@ -1,5 +1,9 @@
+import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createSandboxProvidersRouter } from '../../../src/apis/sandboxProviders';
+import { McpCatalog } from '../../../src/catalog/McpCatalog';
+import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
+import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
@@ -24,19 +28,25 @@ function putInit(body: unknown): RequestInit {
 
 describe('sandboxProviders router', () => {
   let settingsRouter: ReturnType<typeof createSandboxProvidersRouter>;
+  let catalogRouter: ReturnType<typeof createCatalogRouter>;
 
   beforeAll(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     settingsRouter = createSandboxProvidersRouter({
-      sandboxCatalog: SandboxCatalog.load(),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
     });
+    catalogRouter = createCatalogRouter({
+      modelCatalog: ModelCatalog.load(),
+      mcpCatalog: McpCatalog.load(),
+      skillCatalog: SkillCatalog.load(),
+      sandboxCatalog: SandboxCatalog.load(),
+    });
   });
 
-  it('GET /catalog returns the shipped catalog verbatim', async () => {
-    const response = await settingsRouter.request('/catalog');
+  it('GET /catalog/sandbox-providers returns the shipped catalog verbatim', async () => {
+    const response = await catalogRouter.request('/sandbox-providers');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ data: [...SandboxCatalog.load().list()] });
   });

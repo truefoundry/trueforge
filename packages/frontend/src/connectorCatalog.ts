@@ -85,12 +85,13 @@ export function toUiConnector(server: TrueForgeApi.ConfiguredMcpServer): UiConne
 }
 
 export function toUiConnectorFromReadEntry(server: TrueForgeApi.McpServerReadEntry): UiConnector {
+  const auth: UiConnectorAuthPublic = server.auth?.type ? { type: server.auth.type } : { type: 'none' };
   return {
     id: server.name,
     name: server.name,
     description: server.url,
     url: server.url,
-    auth: { type: 'none' },
+    auth,
     requiresAuth: server.authStatus.status === 'auth_required',
     authenticated: server.authStatus.status !== 'auth_required',
   };
@@ -160,7 +161,7 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
 > {
   return {
     getConnectorCatalog: async () => {
-      const body = await client.settings.mcpServers.catalog();
+      const body = await client.catalog.mcpServers.list();
       return body.data.map(toUiCatalogEntry);
     },
     getConnector: async req => {

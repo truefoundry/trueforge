@@ -189,13 +189,22 @@ export const PutModelProviderResponseSchema = z
   })
   .openapi('PutModelProviderResponse');
 
-/** Read view: the fully qualified name resolves the provider, so no provider object is nested. */
+/** Provider identity on the models list read view. */
+export const ModelListProviderSchema = z
+  .object({
+    name: z.string().min(1).describe('Configured provider resource name; matches the FQN prefix of `name`.'),
+  })
+  .strict()
+  .openapi('ModelListProvider');
+
+/** Read view over configured providers: FQN plus explicit provider identity for clients. */
 export const ModelSchema = z
   .object({
     name: z
       .string()
       .describe('Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant.'),
     model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
+    provider: ModelListProviderSchema.describe('Owning configured provider.'),
     properties: ModelPropertiesSchema.describe('Optional model capability metadata.'),
   })
   .strict()
@@ -208,4 +217,5 @@ export const ListModelsResponseSchema = z
   .openapi('ListModelsResponse');
 
 export type ModelProvider = z.infer<typeof ModelProviderSchema>;
+export type ModelListProvider = z.infer<typeof ModelListProviderSchema>;
 export type Model = z.infer<typeof ModelSchema>;

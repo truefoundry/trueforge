@@ -5,7 +5,6 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ModelEntry } from "./ModelEntry.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
-import { ResourceName } from "./ResourceName.js";
 
 export const CustomModelProvider: core.serialization.ObjectSchema<
     serializers.CustomModelProvider.Raw,
@@ -14,7 +13,7 @@ export const CustomModelProvider: core.serialization.ObjectSchema<
     auth: ModelProviderAuth.optional(),
     baseUrl: core.serialization.property("base_url", core.serialization.string()),
     models: core.serialization.list(ModelEntry),
-    name: ResourceName,
+    name: core.serialization.string(),
     type: core.serialization.stringLiteral("custom"),
 });
 
@@ -23,7 +22,7 @@ export declare namespace CustomModelProvider {
         auth?: ModelProviderAuth.Raw | null;
         base_url: string;
         models: ModelEntry.Raw[];
-        name: ResourceName.Raw;
+        name: string;
         type: "custom";
     }
 }

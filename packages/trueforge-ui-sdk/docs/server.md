@@ -176,7 +176,17 @@ type MyModel = ModelEntry & { latencyMs: number };
 
 const server: AgentUIServer<MyModel> = createTrueFoundryServer({
   // …
-  getModels: async () => [{ name: '…', provider: '…', apiModel: '…', modelId: '…', latencyMs: 12 }],
+  getModels: async () => [
+    {
+      id: '…',
+      name: '…',
+      provider: { name: '…' },
+      properties: {},
+      apiModel: '…',
+      modelId: '…',
+      latencyMs: 12,
+    },
+  ],
 });
 // server.getModels() → Promise<MyModel[]>
 ```
