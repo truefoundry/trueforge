@@ -1,5 +1,5 @@
 # Shipped sandbox catalog: provider presets offered by
-# GET /api/v1/settings/sandbox-providers/catalog for the settings UI to copy into
+# GET /api/v1/catalog/sandbox-providers for the UI to copy into
 # PUT /api/v1/settings/sandbox-providers bodies. Discovery-only — never executed against.
 providers:
   - type: daytona

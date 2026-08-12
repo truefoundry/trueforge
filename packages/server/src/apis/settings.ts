@@ -2,14 +2,11 @@
  * Admin/settings API surface under /api/v1/settings.
  * Sub-routers (model-providers, mcp-servers, skills, sandbox-providers) mount here.
  * Auth is applied at the /api/v1/settings mount boundary in app.ts (admin when auth is enabled).
- * Model-provider discovery catalog is at GET /api/v1/catalog/model-providers (not under settings).
+ * Discovery catalogs live at GET /api/v1/catalog/* (authenticated, not admin-only).
  */
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
-import type { McpCatalog } from '../catalog/McpCatalog';
-import type { SandboxCatalog } from '../catalog/SandboxCatalog';
-import type { SkillCatalog } from '../catalog/SkillCatalog';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -23,12 +20,9 @@ import { createSkillsRouter } from './skills';
 
 export interface SettingsRouterDeps<TTransaction> {
   modelProviderStore: IModelProviderStore<TTransaction>;
-  mcpCatalog: McpCatalog;
   mcpServerStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
-  skillCatalog: SkillCatalog;
   skillStore: ISkillStore<TTransaction>;
-  sandboxCatalog: SandboxCatalog;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
@@ -47,7 +41,6 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/mcp-servers',
     createSettingsMcpServersRouter({
-      mcpCatalog: deps.mcpCatalog,
       mcpServerStore: deps.mcpServerStore,
       tokenStore: deps.tokenStore,
       withTransaction: deps.withTransaction,
@@ -58,7 +51,6 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/skills',
     createSkillsRouter({
-      skillCatalog: deps.skillCatalog,
       skillStore: deps.skillStore,
       withTransaction: deps.withTransaction,
     }),
@@ -66,7 +58,6 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/sandbox-providers',
     createSandboxProvidersRouter({
-      sandboxCatalog: deps.sandboxCatalog,
       sandboxProviderStore: deps.sandboxProviderStore,
       withTransaction: deps.withTransaction,
     }),

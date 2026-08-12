@@ -1,7 +1,8 @@
 /**
  * Shipped skill catalog (skill-catalog.yaml): the discovery list of skill
- * presets the settings UI copies into PUT /settings/skills bodies.
- * Never consulted on writes and never read by the runtime.
+ * presets offered by GET /catalog/skills for the UI to copy into
+ * PUT /settings/skills bodies. Never consulted on writes and never
+ * read by the runtime.
  *
  * Default: YAML inlined into `skillCatalog.gen.ts` at build time. Optional
  * override: `SKILL_CATALOG_PATH` (file on disk).

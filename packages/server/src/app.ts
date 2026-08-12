@@ -157,6 +157,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createCatalogRouter({
         modelCatalog: deps.modelCatalog,
+        mcpCatalog: deps.mcpCatalog,
+        skillCatalog: deps.skillCatalog,
+        sandboxCatalog: deps.sandboxCatalog,
       }),
     ),
   );
@@ -210,12 +213,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAdminAuth(
       createSettingsRouter({
         modelProviderStore: deps.modelProviderStore,
-        mcpCatalog: deps.mcpCatalog,
         mcpServerStore: deps.mcpServerStore,
         tokenStore: deps.tokenStore,
-        skillCatalog: deps.skillCatalog,
         skillStore: deps.skillStore,
-        sandboxCatalog: deps.sandboxCatalog,
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,

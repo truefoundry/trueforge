@@ -79,12 +79,9 @@ async function createRouters(): Promise<{
   return {
     settingsRouter: createSettingsRouter({
       modelProviderStore,
-      mcpCatalog: McpCatalog.load(),
       mcpServerStore: new SqliteMcpServerStore(db),
       tokenStore: new SqliteOAuthTokenStore(db),
-      skillCatalog: SkillCatalog.load(),
       skillStore: new SqliteSkillStore(db),
-      sandboxCatalog: SandboxCatalog.load(),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),
@@ -92,6 +89,9 @@ async function createRouters(): Promise<{
     }),
     catalogRouter: createCatalogRouter({
       modelCatalog: ModelCatalog.load(),
+      mcpCatalog: McpCatalog.load(),
+      skillCatalog: SkillCatalog.load(),
+      sandboxCatalog: SandboxCatalog.load(),
     }),
     modelsRouter: createModelsRouter({
       modelProviderStore,
