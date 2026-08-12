@@ -44,6 +44,11 @@ function deriveSnapshotName(tag: string): string {
   return `${SNAPSHOT_NAME_PREFIX}${tag}`;
 }
 
+/** Terminal-failure snapshot states: a snapshot stuck here never becomes ready on its own. */
+function isFailedSnapshotState(state: DaytonaSnapshot['state']): boolean {
+  return state === SNAPSHOT_STATE_ERROR || state === SNAPSHOT_STATE_BUILD_FAILED;
+}
+
 /** Convert Daytona https preview URLs to wss for the NATS client. */
 function httpUrlToWsUrl(url: string): string {
   const parsed = new URL(url);
@@ -228,6 +233,22 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       });
   }
 
+  /**
+   * Drops a snapshot stuck in a terminal-failure state so a fresh create can reuse
+   * its deterministic name. A concurrent replica may have deleted it already (404) —
+   * that is fine and treated as success.
+   */
+  private async deleteFailedSnapshot(snapshot: DaytonaSnapshot): Promise<void> {
+    try {
+      await this.daytona.snapshot.delete(snapshot);
+    } catch (error) {
+      if (error instanceof DaytonaError && error.statusCode === SANDBOX_NOT_FOUND_STATUS) {
+        return;
+      }
+      throw error;
+    }
+  }
+
   private toImageBuild(snapshot: DaytonaSnapshot): SandboxImageBuild {
     const state = snapshot.state;
     switch (state) {
@@ -251,8 +272,13 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
   async buildImage(): Promise<SandboxImageBuild> {
     const existing = await this.getSnapshot(this.snapshotRef);
-    if (existing) {
+    if (existing && !isFailedSnapshotState(existing.state)) {
       return this.toImageBuild(existing);
+    }
+    // A failed snapshot keeps the deterministic name occupied and never self-heals, so
+    // re-saving settings (which calls buildImage) could never retry. Drop it, then recreate.
+    if (existing) {
+      await this.deleteFailedSnapshot(existing);
     }
     this.startSnapshotCreate();
     return { tag: this.imageTag, status: 'pending', ref: this.snapshotRef, errorMessage: null };

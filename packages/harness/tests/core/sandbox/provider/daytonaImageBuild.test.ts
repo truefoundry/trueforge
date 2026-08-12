@@ -39,6 +39,7 @@ function makeProvider() {
   const daytona = new Daytona({ apiKey: 'dtn-test' });
   const get = jest.spyOn(daytona.snapshot, 'get');
   const create = jest.spyOn(daytona.snapshot, 'create');
+  const del = jest.spyOn(daytona.snapshot, 'delete');
   const provider = new DaytonaSandboxProvider({
     client: daytona,
     tenantName: 'test-tenant',
@@ -49,7 +50,7 @@ function makeProvider() {
     fileMaxBytesForDownload: 1024,
     logger: makeSilentLogger(),
   });
-  return { provider, get, create };
+  return { provider, get, create, del };
 }
 
 const notFound = () => new DaytonaError('snapshot not found', 404);
@@ -77,6 +78,44 @@ describe('DaytonaSandboxProvider.buildImage', () => {
 
     expect(build.status).toBe('ready');
     expect(build.ref).toBe(EXPECTED_REF);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it.each(['error', 'build_failed'] as const)(
+    'deletes a %s snapshot and recreates it, reporting pending',
+    async state => {
+      const { provider, get, create, del } = makeProvider();
+      get.mockResolvedValue(makeSnapshot({ state, errorReason: 'image pull backoff' }));
+      del.mockResolvedValue(undefined);
+      create.mockResolvedValue(makeSnapshot({ state: 'pending' }));
+
+      const build = await provider.buildImage();
+
+      expect(del).toHaveBeenCalledWith(makeSnapshot({ state, errorReason: 'image pull backoff' }));
+      expect(create).toHaveBeenCalledWith({ name: EXPECTED_REF, image: SANDBOX_IMAGE_NAME });
+      expect(build.status).toBe('pending');
+      expect(build.errorMessage).toBeNull();
+    },
+  );
+
+  it('tolerates a concurrent delete (404) when clearing a failed snapshot', async () => {
+    const { provider, get, create, del } = makeProvider();
+    get.mockResolvedValue(makeSnapshot({ state: 'build_failed' }));
+    del.mockRejectedValue(notFound());
+    create.mockResolvedValue(makeSnapshot({ state: 'pending' }));
+
+    const build = await provider.buildImage();
+
+    expect(create).toHaveBeenCalledWith({ name: EXPECTED_REF, image: SANDBOX_IMAGE_NAME });
+    expect(build.status).toBe('pending');
+  });
+
+  it('propagates a non-404 delete failure without recreating', async () => {
+    const { provider, get, create, del } = makeProvider();
+    get.mockResolvedValue(makeSnapshot({ state: 'error' }));
+    del.mockRejectedValue(new DaytonaError('unauthorized', 401));
+
+    await expect(provider.buildImage()).rejects.toMatchObject({ statusCode: 401 });
     expect(create).not.toHaveBeenCalled();
   });
 
