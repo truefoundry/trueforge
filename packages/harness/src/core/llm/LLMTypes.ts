@@ -88,6 +88,8 @@ export const RawAssistantMessageSchema = ChatCompletionAssistantMessageParamSche
     thinking_blocks: z.array(ThinkingBlockUnionSchema).optional(),
     /** Plain-text thinking content streamed incrementally for frontend display; redundant with thinking_blocks[].thinking. */
     reasoning_content: z.string().optional(),
+    /** Source of the message: which provider/model sent it (`provider_type/provider_name/model_name`). */
+    source: z.string().optional(),
   })
   .openapi('RawAssistantMessage');
 
@@ -97,10 +99,11 @@ export const InternalEnrichedAssistantMessageSchema = RawAssistantMessageSchema.
   tool_calls: z.array(InternalEnrichedToolCallSchema).optional(),
 });
 
-// `thinking_blocks` omitted: kept on the internal message for Redis replay, hidden from the client event.
+// `thinking_blocks` / `source` omitted: kept on the internal message for context replay, hidden from the client event.
 export const EnrichedAssistantMessageSchema = RawAssistantMessageSchema.omit({
   tool_calls: true,
   thinking_blocks: true,
+  source: true,
 })
   .extend({
     tool_calls: z.array(EnrichedToolCallSchema).optional(),

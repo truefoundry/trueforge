@@ -107,22 +107,21 @@ const ConnectorSettings = () => {
     for (const item of matchingConnectors) {
       if (item.isConfigured) {
         const authenticated = connectors.authStatusById.get(item.connector.id) ?? item.connector.authenticated;
-        if (authenticated || !item.connector.requiresAuth) {
-          result.push(
-            authenticated === item.connector.authenticated ? item.connector : { ...item.connector, authenticated },
-          );
-        }
+        result.push(
+          authenticated === item.connector.authenticated ? item.connector : { ...item.connector, authenticated },
+        );
       }
     }
     return result;
   }, [connectors.authStatusById, matchingConnectors]);
 
   const availableConnectors = useMemo(() => {
-    const connectedIds = new Set(matchingConnected.map(connector => connector.id));
-    return matchingConnectors
-      .filter(({ connector }) => !connectedIds.has(connector.id))
-      .map(({ connector }) => connector);
-  }, [matchingConnected, matchingConnectors]);
+    const result: ConnectorCatalogEntry[] = [];
+    for (const item of matchingConnectors) {
+      if (!item.isConfigured) result.push(item.connector);
+    }
+    return result;
+  }, [matchingConnectors]);
 
   const runMutation = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -191,13 +190,7 @@ const ConnectorSettings = () => {
     }
 
     void runMutation(async () => {
-      const existing = connectors.ordered.find(({ connector }) => connector.id === entry.id);
-      const existingConnector = existing?.isConfigured ? existing.connector : undefined;
-      if (existingConnector) {
-        await authorizeOAuthConnector(existingConnector.id);
-      } else {
-        await createFromCatalog(entry);
-      }
+      await createFromCatalog(entry);
     }).catch(() => {});
   };
 
@@ -299,7 +292,6 @@ const ConnectorSettings = () => {
                 ></span>
                 {connector.authenticated ? 'Connected' : 'Added'}
               </span>
-              <Icon name="chevron-right" className="size-4" />
             </div>
             {connector.auth.type === 'header' ? (
               <Button
@@ -317,6 +309,7 @@ const ConnectorSettings = () => {
                 Replace Key
               </Button>
             ) : null}
+            <Icon name="chevron-right" className="size-4" />
           </div>
         </article>
       );
@@ -367,7 +360,7 @@ const ConnectorSettings = () => {
               handleConnect(entry);
             }}
           >
-            Connect
+            {entry.auth.type === 'dcr' ? 'Add' : 'Connect'}
           </Button>
         </div>
       </article>
@@ -438,7 +431,7 @@ const ConnectorSettings = () => {
                   id="connected-connectors-heading"
                   className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
                 >
-                  Connected · {matchingConnected.length}
+                  Configured · {matchingConnected.length}
                 </h4>
                 <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                   {matchingConnected.map(connector => renderConnector(connector, true))}
