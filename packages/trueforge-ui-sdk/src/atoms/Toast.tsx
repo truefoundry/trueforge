@@ -111,7 +111,7 @@ export function ToastStack({ children, duration: _duration = Number.POSITIVE_INF
     <div
       ref={openToastStack}
       popover="manual"
-      className="pointer-events-none fixed inset-auto right-4 bottom-4 z-50 m-0 flex w-full max-w-md flex-col-reverse gap-2 overflow-visible bg-transparent"
+      className="pointer-events-none fixed inset-auto right-4 bottom-4 z-50 m-0 flex w-[calc(100vw-2rem)] max-w-md flex-col-reverse gap-2 overflow-visible bg-transparent"
     >
       {children}
     </div>
