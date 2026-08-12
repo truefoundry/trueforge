@@ -52,6 +52,18 @@ scopes the published tarball to just the compiled output. Consequences:
 - `require()` and `import` both work (`.js` is CJS, `.mjs` is ESM).
 - The curated barrels (`.`, `./core`, `./agent-session`) remain the public
   API; deep imports are the escape hatch for internals.
+- `package.json` is published as-is (no staged rewrite), and it also carries a
+  `"trueforge-dev"` export condition pointing at `./src/*.ts`, used only
+  for dist-free host dev inside this monorepo (`packages/server`'s
+  `NODE_OPTIONS='--conditions=trueforge-dev'` scripts). `src/` is **not**
+  in the tarball (`files: ["dist"]`), so that condition name must never be a
+  string a consumer's tooling activates automatically — it deliberately isn't
+  `"development"`, which Vite/webpack default to auto-activating in dev mode
+  with no consumer opt-in (Vite's default `resolve.conditions` substitutes the
+  literal string `"development"` whenever `NODE_ENV !== 'production'`). A
+  genuinely custom condition name like this one is only ever reachable by an
+  explicit `--conditions=trueforge-dev` opt-in, which no external
+  consumer would ever set — so it ships as truly inert dead weight.
 
 ## Per-release flow
 
@@ -82,15 +94,16 @@ scopes the published tarball to just the compiled output. Consequences:
 
 3. **CI publishes automatically.** `.github/workflows/release.yml` installs,
    builds, tests, verifies the tag matches `packages/harness/package.json`, then
-   runs `npm publish` from `packages/harness`. (The `@truefoundry/utils`
+   runs `pnpm publish` from `packages/harness`. (The `@truefoundry/utils`
    publish is deferred — see the note above.)
 
-   Auth is trusted publishing (OIDC — no `NPM_TOKEN`). Watch the repo Actions tab.
+   Auth is trusted publishing (OIDC — no `NPM_TOKEN`). pnpm 11 implements the
+   OIDC token exchange natively (no npm CLI involved). Watch the repo Actions tab.
 
-   **Dist-tags:** npm 11 requires an explicit `--tag` for prereleases. CI derives
-   it from the semver prerelease id (`0.2.0-rc.1` → `--tag rc`). Stable releases
-   publish to `latest`. Install with `npx @truefoundry/utils@rc` or
-   `@0.2.0-rc.1`; bare `npx @truefoundry/utils` stays on `latest`.
+   **Dist-tags:** CI passes an explicit `--tag` for prereleases, derived from the
+   semver prerelease id (`0.2.0-rc.1` → `--tag rc`). Stable releases publish to
+   `latest`. Install with `npx @truefoundry/utils@rc` or `@0.2.0-rc.1`; bare
+   `npx @truefoundry/utils` stays on `latest`.
 
 4. **Bump the pinned version in the gateway.** Pin exact versions (no `^`)
    during the fast 0.x churn:
@@ -123,7 +136,7 @@ Publish a real version when CI or teammates need it.
 
 ## Troubleshooting
 
-- **Publish fails requiring a tag**: prerelease versions need `--tag` (npm 11).
+- **Publish fails requiring a tag**: prerelease versions need `--tag`.
   CI handles this; for local publishes use e.g. `pnpm publish --tag rc`.
 - **Publish fails with 403/E403**: version already published (npm versions
   are immutable — bump and re-tag), or the trusted publisher config doesn't
@@ -135,8 +148,9 @@ Publish a real version when CI or teammates need it.
   `frontend` before `@truefoundry/utils`; the release job fails closed if the
   copy is absent.
 - **OIDC/auth error in the publish step**: trusted publishing requires
-  npm >= 11.5.1; the workflow upgrades npm globally before publishing —
-  check that step ran.
+  pnpm >= 11.0.7 (native OIDC token exchange; `pnpm/action-setup@v4` reads the
+  pinned version from root `packageManager`) and the npmjs.com trusted
+  publisher config (repo + workflow filename + ref) matching exactly.
 
 ## Deferred to the real OSS release — grep for `TODO(oss)`
 
@@ -186,7 +200,7 @@ The dispatch commit SHA is the image tag. The workflow:
 2. Watch the run. The image and chart land in JFrog; the job summary prints the
    image URI.
 
-> npm publish of `@truefoundry/utils-core` is a separate pipeline
+> Publishing `@truefoundry/utils-core` (via `pnpm publish`) is a separate pipeline
 > (`release.yml`) triggered by a `vX.Y.Z` GitHub Release tag that must match
 > `packages/harness/package.json`. It is independent of this image/chart
 > workflow.

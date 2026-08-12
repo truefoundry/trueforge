@@ -11,7 +11,7 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "development": {
+      "trueforge-dev": {
         "types": "./src/index.ts",
         "default": "./src/index.ts"
       },
@@ -20,7 +20,7 @@
       "default": "./dist/index.mjs"
     },
     "./core": {
-      "development": {
+      "trueforge-dev": {
         "types": "./src/core/index.ts",
         "default": "./src/core/index.ts"
       },
@@ -29,7 +29,7 @@
       "default": "./dist/core/index.mjs"
     },
     "./agent-session": {
-      "development": {
+      "trueforge-dev": {
         "types": "./src/agent-session/index.ts",
         "default": "./src/agent-session/index.ts"
       },
@@ -38,7 +38,7 @@
       "default": "./dist/agent-session/index.mjs"
     },
     "./request-reply": {
-      "development": {
+      "trueforge-dev": {
         "types": "./src/request-reply/index.ts",
         "default": "./src/request-reply/index.ts"
       },
@@ -55,7 +55,7 @@
       "default": "./dist/*.js"
     },
     "./*": {
-      "development": {
+      "trueforge-dev": {
         "types": "./src/*.ts",
         "default": "./src/*.ts"
       },
