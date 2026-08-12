@@ -113,11 +113,13 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
       {
         name: 'anthropic/claude-sonnet-4-6',
         model_id: 'claude-sonnet-4-6',
+        provider: { name: 'anthropic' },
         properties: { context_length: 200000, max_output_tokens: 32768, reasoning_efforts: ['low', 'high'] },
       },
       {
         name: 'openai/gpt-5-6-sol',
         model_id: 'gpt-5.6-sol',
+        provider: { name: 'openai' },
         properties: { context_length: 400000, max_output_tokens: 32768 },
       },
     ]);

@@ -49,6 +49,7 @@ export function flattenProviderModels(records: ModelProviderRecord[]): Model[] {
     record.manifest.models.map(model => ({
       name: `${record.name}/${model.name}`,
       model_id: model.model_id,
+      provider: { name: record.name },
       properties: model.properties,
     })),
   );

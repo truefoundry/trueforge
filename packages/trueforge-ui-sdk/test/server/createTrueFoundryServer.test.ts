@@ -22,7 +22,14 @@ describe('createTrueFoundryServer', () => {
       data: { sandbox: { enabled: true }, skill: { enabled: true } },
     };
     const getCapabilities = vi.fn(async () => capabilities);
-    const getModels = vi.fn(async () => [{ name: 'm', provider: 'p', apiModel: 'p/m', modelId: 'm' }]);
+    const getModels = vi.fn(async () => [
+      {
+        id: 'm',
+        name: 'p/m',
+        provider: { name: 'p' },
+        properties: {},
+      },
+    ]);
     const getSkills = vi.fn(async () => []);
     const getMcp = vi.fn(async () => []);
     const searchAgents = vi.fn(async () => [{ name: 'ask-ai-agent', agentId: 'ask-ai-agent' }]);
