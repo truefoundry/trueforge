@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { useAuiState } from '@assistant-ui/react';
-import { useTrueFoundryAgentSpec } from '@truefoundry/assistant-ui-runtime';
+import { useAuiState } from "@assistant-ui/react";
+import { useTrueFoundryAgentSpec } from "@truefoundry/assistant-ui-runtime";
 
-import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { isNewChatView } from '../utils/isNewChatView.js';
+import { useOptionalShellMode } from "../server/ShellModeContext.js";
+import { isNewChatView } from "../utils/isNewChatView.js";
 
 // Immutable named-agent title in the thread header.
 export function useNamedAgentHeaderVisible(): boolean {
   const shell = useOptionalShellMode();
-  if (shell == null || shell.mode.status !== 'active' || shell.mode.isMutable) return false;
+  if (shell == null || shell.mode.status !== "active" || shell.mode.isMutable) return false;
   const name = shell.mode.agentName ?? shell.mode.agentId;
   return name != null && name.length > 0;
 }
@@ -18,7 +18,7 @@ export function useNamedAgentHeaderVisible(): boolean {
 export function useSaveAgentVisible(): boolean {
   const shell = useOptionalShellMode();
   const { agentSpec } = useTrueFoundryAgentSpec();
-  if (shell == null || shell.mode.status !== 'active' || !shell.mode.isMutable) return false;
+  if (shell == null || shell.mode.status !== "active" || !shell.mode.isMutable) return false;
   return Boolean(agentSpec?.model?.name?.trim());
 }
 
@@ -29,7 +29,7 @@ export function useChatChromeActionsVisible(): boolean {
   const { agentSpec } = useTrueFoundryAgentSpec();
   const isEmpty = useAuiState(isNewChatView);
 
-  if (shell == null || shell.mode.status !== 'active') return false;
+  if (shell == null || shell.mode.status !== "active") return false;
   if (shell.mode.isMutable && !agentSpec?.model?.name?.trim()) return false;
   if (isEmpty) {
     const boundName = shell.mode.agentName ?? shell.mode.agentId;
@@ -39,9 +39,11 @@ export function useChatChromeActionsVisible(): boolean {
   return true;
 }
 
-// True when the thread header has a title and/or Save Agent (valid model).
+// True when the thread header has anything to show (title, Save, and/or Clear).
+// Clear alone matters for orphaned immutable history (deleted agent, no name).
 export function useChatHeaderContentVisible(): boolean {
   const namedVisible = useNamedAgentHeaderVisible();
   const saveVisible = useSaveAgentVisible();
-  return namedVisible || saveVisible;
+  const clearVisible = useChatChromeActionsVisible();
+  return namedVisible || saveVisible || clearVisible;
 }

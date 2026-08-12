@@ -144,7 +144,7 @@ export function SidebarLayout({ className }: { className?: string }) {
           className={cn(
             'flex shrink-0 items-center gap-1 border-b border-border bg-background px-2 py-1.5',
             // Desktop: hide when settings/idle or the thread header has nothing to show
-            // (empty draft). Mobile still needs Sessions + ShellActions.
+            // (empty untitled draft). Mobile still needs Sessions + ShellActions.
             (settingsOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
           )}
         >
