@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
@@ -9,8 +9,14 @@ import {
   type DraftCompositeSelectorProps,
 } from '@/atoms/draft/DraftCompositeSelector.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentBuilderCapabilitiesResponse, AgentSpec, AgentUIServer } from '@/server/types.js';
-import { createMockAgentUIServer } from '../../server/mockServer.js';
+import type {
+  AgentBuilderCapabilitiesResponse,
+  AgentSpec,
+  AgentUIServer,
+  CatalogServer,
+  ConnectorState,
+} from '@/server/types.js';
+import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec;
 const updateAgentSpec = vi.fn();
@@ -25,11 +31,13 @@ type RenderSelectorOptions = {
   getCapabilities?: () => Promise<AgentBuilderCapabilitiesResponse>;
   getSkills?: AgentUIServer['getSkills'];
   getMcp?: AgentUIServer['getMcp'];
+  catalog?: CatalogServer;
 };
 
-function renderSelector({ props = {}, getCapabilities, getSkills, getMcp }: RenderSelectorOptions = {}) {
+function renderSelector({ props = {}, getCapabilities, getSkills, getMcp, catalog }: RenderSelectorOptions = {}) {
   const server = createMockAgentUIServer({
     ...(getCapabilities === undefined ? {} : { getCapabilities }),
+    ...(catalog === undefined ? {} : { catalog }),
     getSkills:
       getSkills ??
       (async () => [
@@ -88,6 +96,83 @@ describe('DraftCompositeSelector', () => {
       ],
       skills: [{ id: 'research', name: 'Research' }],
     });
+  });
+
+  it('shows an unauthenticated DCR connector, authorizes it, and refetches connectors', async () => {
+    const pendingConnector = {
+      id: 'linear',
+      name: 'Linear',
+      description: 'Issue tracking',
+      auth: { type: 'dcr' as const },
+      requiresAuth: true,
+      authenticated: false,
+    };
+    const connectedConnector = { ...pendingConnector, requiresAuth: false, authenticated: true };
+    const getMcp = vi
+      .fn<() => Promise<ConnectorState[]>>()
+      .mockResolvedValueOnce([pendingConnector])
+      .mockResolvedValueOnce([connectedConnector]);
+    const authenticateConnector = vi.fn(async () => ({ status: 'AUTHENTICATED' }));
+    const defaultCatalog = createMockCatalog();
+    const catalog = createMockCatalog({
+      connectorCatalog: {
+        ...defaultCatalog.connectorCatalog,
+        authenticateConnector,
+      },
+    });
+
+    renderSelector({ getMcp, catalog });
+    fireEvent.click(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' }));
+
+    const connect = await screen.findByRole('button', { name: 'Connect Linear' });
+    const linear = screen.getByRole('menuitemcheckbox', { name: /Linear/ });
+    expect(linear).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(linear);
+    expect(linear).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(connect);
+    expect(linear).toHaveAttribute('aria-checked', 'true');
+
+    await waitFor(() =>
+      expect(authenticateConnector).toHaveBeenCalledWith({
+        id: 'linear',
+        redirectURL: expect.stringContaining('screenType=mcp-auth'),
+      }),
+    );
+    await waitFor(() => expect(getMcp).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByRole('menuitemcheckbox', { name: /Linear/ })).toBeEnabled());
+    expect(screen.queryByRole('button', { name: 'Connect Linear' })).not.toBeInTheDocument();
+  });
+
+  it('lists selectable connectors before connectors that require connection', async () => {
+    agentSpec = {
+      model: { name: 'openai/gpt-4.1' },
+      mcpServers: [],
+      skills: [],
+    };
+    const pendingConnector = {
+      id: 'linear',
+      name: 'Linear',
+      auth: { type: 'dcr' as const },
+      requiresAuth: true,
+      authenticated: false,
+    };
+    const readyConnector = {
+      id: 'github',
+      name: 'GitHub',
+      requiresAuth: false,
+      authenticated: true,
+    };
+
+    renderSelector({
+      getMcp: async () => [pendingConnector, readyConnector],
+      catalog: createMockCatalog(),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Add to composer' });
+    const readyRow = within(dialog).getByRole('menuitemcheckbox', { name: /GitHub/ });
+    const connectButton = within(dialog).getByRole('button', { name: 'Connect Linear' });
+    expect(readyRow.compareDocumentPosition(connectButton)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it('hydrates name-only wire mounts so a toggle does not wipe them', async () => {
