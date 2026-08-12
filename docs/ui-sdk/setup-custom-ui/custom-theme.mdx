@@ -93,15 +93,3 @@ type ContentClassNames = {
 ```
 
 For CSS-only adjustments you can instead target the stable class names directly: `.aui-markdown`, `.aui-syntax-highlighter`, `.aui-openui`, `.aui-monaco`.
-
-## Presets
-
-```ts
-import { PRESETS, resolvePresetTokens } from "@truefoundry/trueforge-ui";
-
-const tokens = resolvePresetTokens("gemini", "dark");
-```
-
-`PRESETS` is a `Record<ThemePreset, { light, dark }>` — useful for building a preset picker.
-
-Refer to [Building custom theme](/ui-sdk/setup-custom-ui/custom-theme) to build a theme from scratch
