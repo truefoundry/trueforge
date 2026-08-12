@@ -8,6 +8,7 @@ body,
 }
 
 body {
+  /* Pre-hydration paint before the SDK theme root mounts; kept literal intentionally. */
   color: #09090b;
   background: #fff;
 }
@@ -26,11 +27,11 @@ body {
   display: grid;
   place-items: center;
   padding: 2rem;
-  color: #71717a;
+  color: var(--text-secondary, #71717a);
 }
 
 .boot-screen[data-error='true'] {
-  color: #ef4444;
+  color: var(--failure-bg, #ef4444);
 }
 
 .harness-logout {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { auiInputClass } from '../../atoms/lib/inputClasses.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CatalogLogo } from '../../atoms/primitives/CatalogLogo.js';
 import SearchInput from '../../atoms/primitives/SearchInput.js';
@@ -193,7 +194,7 @@ const ModelSettings = () => {
 
   const renderKeyEditor = (opts: { id: string; submitLabel: string; onSave: () => void }) => (
     <form
-      className="mt-4 rounded-lg border border-border bg-muted/20 p-4"
+      className="mt-4 rounded-lg border border-border bg-secondary-bg/40 p-4"
       onSubmit={event => {
         event.preventDefault();
         opts.onSave();
@@ -201,7 +202,7 @@ const ModelSettings = () => {
     >
       <label
         htmlFor={`api-key-${opts.id}`}
-        className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+        className="mb-2 block text-xs font-semibold uppercase tracking-wide text-text-secondary"
       >
         API key
       </label>
@@ -214,7 +215,7 @@ const ModelSettings = () => {
         }}
         placeholder="Enter API Key"
         autoFocus
-        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+        className={auiInputClass('h-10')}
       />
       <div className="mt-3 flex justify-end gap-2">
         <Button variant="ghost" size="sm" type="button" onClick={closeKeyEditor} disabled={busy}>
@@ -229,11 +230,11 @@ const ModelSettings = () => {
 
   return (
     <>
-      <h3 className="text-xl font-semibold tracking-tight text-foreground">Models</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Connect providers and choose which models are available.</p>
+      <h3 className="text-xl font-semibold tracking-tight text-text-primary">Models</h3>
+      <p className="mt-1 text-sm text-text-secondary">Connect providers and choose which models are available.</p>
 
       {error ? (
-        <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="mt-3 rounded-md border border-failure-bg/30 bg-failure-bg/10 px-3 py-2 text-sm text-failure-bg">
           {error}
         </p>
       ) : null}
@@ -257,18 +258,18 @@ const ModelSettings = () => {
           </div>
 
           <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
-            {loading ? <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p> : null}
+            {loading ? <p className="py-8 text-center text-sm text-text-secondary">Loading…</p> : null}
 
             {!loading && matchingConfigured.length > 0 ? (
               <section aria-labelledby="configured-providers-heading">
                 <div
                   id="configured-providers-heading"
-                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-muted-foreground"
+                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
                 >
                   Configured
                 </div>
 
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                   {matchingConfigured.map(provider => {
                     const catalogModels = catalogModelsByType.get(provider.type) ?? [];
                     const configuredIds = new Set(provider.models.map(model => model.id));
@@ -280,7 +281,7 @@ const ModelSettings = () => {
                         <header className="flex flex-col gap-3 sm:flex-row sm:items-center">
                           <div className="flex min-w-0 flex-1 items-center gap-3">
                             <div
-                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
                               aria-hidden
                             >
                               {logoSrc ? (
@@ -289,12 +290,12 @@ const ModelSettings = () => {
                                 <Icon name="cpu" className="size-4.5" />
                               )}
                             </div>
-                            <h5 className="truncate text-base font-medium text-foreground">{provider.name}</h5>
+                            <h5 className="truncate text-base font-medium text-text-primary">{provider.name}</h5>
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
-                            <span className="flex items-center gap-1.5 text-[13px] font-medium text-success">
-                              <span className="h-1.5 w-1.5 rounded-full bg-success"></span>
+                            <span className="flex items-center gap-1.5 text-[13px] font-medium text-success-bg">
+                              <span className="h-1.5 w-1.5 rounded-full bg-success-bg"></span>
                               Connected
                             </span>
                             <Button
@@ -316,7 +317,7 @@ const ModelSettings = () => {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                className="transition-colors hover:bg-failure-bg/10 hover:text-failure-bg"
                                 type="button"
                                 disabled={busy}
                                 onClick={() => {
@@ -339,18 +340,18 @@ const ModelSettings = () => {
                             })
                           : null}
 
-                        <div className="mt-3 overflow-hidden rounded-lg border border-border bg-secondary/30">
+                        <div className="mt-3 overflow-hidden rounded-lg border border-border bg-secondary-bg/30">
                           {provider.models.map(model => (
                             <div
                               key={model.id}
-                              className="flex min-h-10 items-center gap-3 border-b border-border px-3 py-2 text-sm text-foreground last:border-b-0"
+                              className="flex min-h-10 items-center gap-3 border-b border-border px-3 py-2 text-sm text-text-primary last:border-b-0"
                             >
                               <span className="min-w-0 flex-1 truncate">{model.name}</span>
                               <button
                                 type="button"
                                 aria-label={`Remove ${model.name}`}
                                 disabled={busy}
-                                className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+                                className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-ghost-button-hover hover:text-ghost-button-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring disabled:opacity-50"
                                 onClick={() => {
                                   handleUpdateModels(
                                     provider,
@@ -365,13 +366,13 @@ const ModelSettings = () => {
 
                           {availableModels.length > 0 ? (
                             <section>
-                              <div className="border-b border-border bg-muted/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              <div className="border-b border-border bg-secondary-bg/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">
                                 Available to add · {availableModels.length}
                               </div>
                               {availableModels.map(model => (
                                 <div
                                   key={model.id}
-                                  className="flex min-h-12 items-center gap-3 border-b border-border px-3 py-2 text-sm text-foreground last:border-b-0"
+                                  className="flex min-h-12 items-center gap-3 border-b border-border px-3 py-2 text-sm text-text-primary last:border-b-0"
                                 >
                                   <span className="min-w-0 flex-1 truncate">{model.name}</span>
                                   <Button
@@ -401,12 +402,12 @@ const ModelSettings = () => {
               <section aria-labelledby="available-providers-heading" className="mt-2">
                 <div
                   id="available-providers-heading"
-                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-muted-foreground"
+                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
                 >
                   Available
                 </div>
 
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                   {matchingAvailable.map(provider => {
                     const logoSrc = modelProviderIconMap[provider.name];
                     return (
@@ -414,7 +415,7 @@ const ModelSettings = () => {
                         <header className="flex flex-col gap-3 sm:flex-row sm:items-center">
                           <div className="flex min-w-0 flex-1 items-center gap-3">
                             <span
-                              className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
+                              className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
                               aria-hidden
                             >
                               {logoSrc ? (
@@ -424,8 +425,8 @@ const ModelSettings = () => {
                               )}
                             </span>
                             <div className="min-w-0">
-                              <h5 className="truncate text-base font-medium text-foreground">{provider.name}</h5>
-                              <p className="truncate text-sm text-muted-foreground">
+                              <h5 className="truncate text-base font-medium text-text-primary">{provider.name}</h5>
+                              <p className="truncate text-sm text-text-secondary">
                                 {provider.models.map(model => model.name).join(' · ')}
                               </p>
                             </div>
@@ -461,7 +462,7 @@ const ModelSettings = () => {
             ) : null}
 
             {!loading && matchingConfigured.length === 0 && matchingAvailable.length === 0 ? (
-              <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-text-secondary">
                 {normalizedQuery ? `No providers match “${query.trim()}”.` : 'No model providers yet.'}
               </div>
             ) : null}

@@ -4,7 +4,6 @@ import { cn } from './lib/cn.js';
 
 const THREAD_CSS_VARS: CSSProperties = {
   ['--thread-max-width' as string]: '44rem',
-  ['--composer-bg' as string]: 'var(--card)',
   ['--composer-padding' as string]: '8px',
 };
 
@@ -15,7 +14,7 @@ export const ThreadRootShell = forwardRef<HTMLDivElement, ThreadRootShellProps>(
     <div
       ref={ref}
       className={cn(
-        'font-sans-flex aui-root aui-thread-root bg-background @container flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden',
+        'font-sans-flex aui-root aui-thread-root bg-primary-bg @container flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden',
         className,
       )}
       style={{ ...THREAD_CSS_VARS, ...style }}
@@ -63,7 +62,7 @@ export const ThreadComposerAreaShell = forwardRef<HTMLDivElement, ThreadComposer
       ref={ref}
       data-slot="aui_thread-composer"
       className={cn(
-        'aui-thread-composer bg-background relative mx-auto flex w-full min-w-0 max-w-(--thread-max-width) shrink-0 flex-col gap-3 px-3 pb-[max(1rem,env(safe-area-inset-bottom,0px))] sm:gap-4 sm:px-4 md:pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]',
+        'aui-thread-composer bg-primary-bg relative mx-auto flex w-full min-w-0 max-w-(--thread-max-width) shrink-0 flex-col gap-3 px-3 pb-[max(1rem,env(safe-area-inset-bottom,0px))] sm:gap-4 sm:px-4 md:pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]',
         !isEmpty && 'rounded-t-(--composer-radius)',
         className,
       )}

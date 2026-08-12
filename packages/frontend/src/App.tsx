@@ -1,4 +1,10 @@
-import { createTrueFoundryServer, getErrorMessage, TrueforgeUI, type SlotOverrides } from '@truefoundry/trueforge-ui';
+import {
+  createTrueFoundryServer,
+  getErrorMessage,
+  ThemeProvider,
+  TrueforgeUI,
+  type SlotOverrides,
+} from '@truefoundry/trueforge-ui';
 import { useEffect, useMemo, useState } from 'react';
 import { AuthErrorScreen } from './AuthErrorScreen';
 import { probeSession, type SessionState } from './authSession';
@@ -112,7 +118,11 @@ export function App() {
   }
 
   if (session === 'checking') {
-    return <div className="boot-screen">Loading application…</div>;
+    return (
+      <ThemeProvider>
+        <div className="boot-screen">Loading application…</div>
+      </ThemeProvider>
+    );
   }
 
   if (session === 'unauthenticated') {
@@ -121,14 +131,20 @@ export function App() {
 
   if (boot.status === 'error') {
     return (
-      <div className="boot-screen" data-error="true">
-        Failed to load application configuration: {boot.message}
-      </div>
+      <ThemeProvider>
+        <div className="boot-screen" data-error="true">
+          Failed to load application configuration: {boot.message}
+        </div>
+      </ThemeProvider>
     );
   }
 
   if (boot.status === 'loading') {
-    return <div className="boot-screen">Loading application…</div>;
+    return (
+      <ThemeProvider>
+        <div className="boot-screen">Loading application…</div>
+      </ThemeProvider>
+    );
   }
 
   return (

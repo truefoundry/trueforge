@@ -22,38 +22,58 @@ type ThemeConfig = {
 {
   "sidebarBg": "#ffffff",
   "topbarBg": "#ffffff",
-  "primaryBg": "#ffffff",
-  "secondaryBg": "#f4f4f5",
-  "border": "#e4e4e7",
+  "primaryBg": "#fdfcfc",
+  "secondaryBg": "#f8fafd",
+  "border": "#dadce0",
+  "fontFamily": "\"GeistSans\", \"GeistSans Fallback\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
   "inputBoxBg": "#ffffff",
-  "inputBorder": "#e4e4e7",
-  "textPrimary": "#09090b",
-  "textSecondary": "#62626a",
+  "inputBorder": "#dadce0",
+  "textPrimary": "#1f1f1f",
+  "textSecondary": "#444746",
   "cardBg": "#ffffff",
-  "dropdownSelectedItemBg": "#f1f1f2",
-  "dropdownSelectedItemText": "#09090b",
-  "userMessageBg": "#09090b",
-  "userMessageText": "#ffffff",
+  "dropdownSelectedItemBg": "#e9eef6",
+  "dropdownSelectedItemText": "#1f1f1f",
+  "userMessageBg": "#f3f6fc",
+  "userMessageText": "#1f1f1f",
   "assistantMessageBg": "transparent",
-  "assistantMessageText": "#09090b",
-  "primaryButtonBg": "#09090b",
-  "primaryButtonHover": "#27272a",
+  "assistantMessageText": "#1f1f1f",
+  "primaryButtonBg": "#1f3b9b",
+  "primaryButtonHover": "#1a3285",
   "primaryButtonText": "#ffffff",
-  "secondaryButtonBg": "#f4f4f5",
-  "secondaryButtonHover": "#e4e4e7",
-  "secondaryButtonText": "#09090b",
+  "secondaryButtonBg": "#e8eaed",
+  "secondaryButtonHover": "#dadce0",
+  "secondaryButtonText": "#1f1f1f",
   "ghostButtonBg": "transparent",
-  "ghostButtonHover": "#f1f1f2",
-  "ghostButtonText": "#09090b",
-  "successBg": "#16a34a",
+  "ghostButtonHover": "#e9eef6",
+  "ghostButtonText": "#1f1f1f",
+  "successBg": "#188038",
   "successText": "#ffffff",
-  "failureBg": "#ef4444",
+  "failureBg": "#b3261e",
   "failureText": "#ffffff",
-  "warningBg": "#d97706",
+  "warningBg": "#b06000",
   "warningText": "#ffffff",
-  "scrollbarThumb": "#62626a"
+  "focusRing": "#1f3b9b",
+  "radius": "1rem",
+  "composerRadius": "2rem",
+  "overlay": "rgb(9 9 11 / 0.5)",
+  "shadowColor": "#1f1f1f",
+  "scrollbarThumb": "#444746"
 }
 ```
+
+## Precedence
+
+The provider resolves the preset for the current mode, merges your `theme.tokens` over it, and writes the result as **inline styles** on the theme root. So within `theme.tokens`, your entries beat the preset — that part is straightforward.
+
+<Warning>
+  Because those tokens land as inline styles, a `:root { --primary-button-bg: … }` rule in your own CSS will **not** override them. This applies to every token a preset defines, whether or not you passed `theme.tokens`. Use `theme.tokens` to change these, not CSS.
+</Warning>
+
+`theme.className` is applied to the theme root, for utility-class adjustments alongside the tokens.
+
+<Note>
+  `brand`, `icons`, and `classNames` are not part of this cascade — they are separate context values, not tokens that layer over one another.
+</Note>
 
 ## Reading theme state
 
@@ -70,13 +90,19 @@ const brandName = useBrandName(); // brand.name, or "TrueForge"
 
 ## Token naming
 
-`SemanticTokens` keys map to the kebab-cased CSS variable of the same name — `cardForeground` becomes `--card-foreground`, `composerRadius` becomes `--composer-radius`, `scrollbarThumb` becomes `--scrollbar-thumb`.
+`SemanticTokens` keys map to the kebab-cased CSS variable of the same name — `primaryButtonBg` becomes `--primary-button-bg`, `userMessageText` becomes `--user-message-text`, `composerRadius` becomes `--composer-radius`, `scrollbarThumb` becomes `--scrollbar-thumb`.
 
 One token breaks that rule:
 
 | Token | CSS variable |
 | --- | --- |
 | `fontFamily` | `--font-agent-ui` |
+
+Status tokens use `failure` / `success` / `warning` with `*Bg` / `*Text` pairs (not `*Foreground`). Buttons follow the same pattern: `primaryButtonBg` / `primaryButtonHover` / `primaryButtonText`, and likewise for secondary and ghost.
+
+<Note>
+  `theme.tokens` is a `Partial`, so you only supply the tokens you want to change and the preset fills in the rest. Building a complete `SemanticTokens` object — for instance when authoring your own preset — requires every key, including the status `*Bg` / `*Text` pairs and the kept internals (`focusRing`, `radius`, `composerRadius`, `overlay`, `shadowColor`, `scrollbarThumb`).
+</Note>
 
 ## Styling rendered content
 
@@ -93,3 +119,15 @@ type ContentClassNames = {
 ```
 
 For CSS-only adjustments you can instead target the stable class names directly: `.aui-markdown`, `.aui-syntax-highlighter`, `.aui-openui`, `.aui-monaco`.
+
+## Presets
+
+```ts
+import { PRESETS, resolvePresetTokens } from "@truefoundry/trueforge-ui";
+
+const tokens = resolvePresetTokens("gemini", "dark");
+```
+
+`PRESETS` is a `Record<ThemePreset, { light, dark }>` — useful for building a preset picker.
+
+Refer to [Building custom theme](/ui-sdk/setup-custom-ui/custom-theme) to build a theme from scratch

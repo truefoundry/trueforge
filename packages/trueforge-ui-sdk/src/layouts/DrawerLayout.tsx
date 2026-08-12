@@ -65,9 +65,9 @@ export function DrawerLayout({ className }: { className?: string }) {
   };
 
   return (
-    <div className={cn('relative flex h-full min-h-0 w-full flex-col', className)}>
+    <div className={cn('relative flex h-full min-h-0 w-full flex-col bg-primary-bg', className)}>
       {/* Keep ShellActions mounted across Settings open/close so host action-slot state persists. */}
-      <header className="flex shrink-0 items-center gap-1 border-b border-border bg-background px-2 py-1.5">
+      <header className="flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
         {!settingsOpen ? (
           <>
             <NamedAgentHeaderLabel />
@@ -97,7 +97,7 @@ export function DrawerLayout({ className }: { className?: string }) {
               type="button"
               aria-label="Sessions"
               aria-expanded={threadsOpen}
-              className="text-muted-foreground hover:text-foreground inline-flex size-8 cursor-pointer items-center justify-center rounded-md"
+              className="text-text-secondary hover:text-text-primary inline-flex size-8 cursor-pointer items-center justify-center rounded-md"
               onClick={() => setThreadsOpen(v => !v)}
             >
               <Icon name="clock-rotate-left" />
@@ -115,7 +115,7 @@ export function DrawerLayout({ className }: { className?: string }) {
                 aria-live="polite"
                 aria-busy="true"
               >
-                <Spinner size={28} className="text-foreground" />
+                <Spinner size={28} className="text-text-primary" />
                 <span className="sr-only">Loading</span>
               </div>
             }
@@ -133,12 +133,12 @@ export function DrawerLayout({ className }: { className?: string }) {
           <button
             type="button"
             aria-label="Close sessions"
-            className="absolute inset-0 z-[9] cursor-pointer bg-black/20"
+            className="absolute inset-0 z-[9] cursor-pointer bg-[var(--overlay)]"
             onClick={() => setThreadsOpen(false)}
           />
           <div
             ref={dialogRef}
-            className="absolute inset-y-0 right-0 z-10 flex w-full max-w-80 flex-col border-l border-border bg-background shadow-lg outline-none"
+            className="absolute inset-y-0 right-0 z-10 flex w-full max-w-80 flex-col border-l border-border bg-sidebar-bg shadow-lg outline-none"
             role="dialog"
             aria-label="Sessions"
             tabIndex={-1}

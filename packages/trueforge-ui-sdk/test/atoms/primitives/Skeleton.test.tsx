@@ -22,7 +22,7 @@ describe('Skeleton', () => {
     expect(skeleton).toHaveTextContent('Placeholder');
     expect(skeleton).toHaveAttribute('data-track', 'profile');
     expect(skeleton).toHaveStyle({ width: '120px' });
-    expect(skeleton).toHaveClass('animate-pulse', 'rounded-md', 'bg-muted', 'host-skeleton');
+    expect(skeleton).toHaveClass('animate-pulse', 'rounded-md', 'bg-secondary-bg', 'host-skeleton');
 
     fireEvent.animationEnd(skeleton);
     expect(onAnimationEnd).toHaveBeenCalledOnce();
