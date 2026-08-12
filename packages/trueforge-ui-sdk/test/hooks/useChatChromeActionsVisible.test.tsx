@@ -4,8 +4,8 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  useChatHeaderContentVisible,
   useChatChromeActionsVisible,
+  useChatHeaderContentVisible,
   useNamedAgentHeaderVisible,
   useSaveAgentVisible,
 } from '@/hooks/useChatChromeActionsVisible.js';
