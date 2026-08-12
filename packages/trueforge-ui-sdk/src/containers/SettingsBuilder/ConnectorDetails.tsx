@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
+import { cn } from '../../atoms/lib/cn.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
@@ -15,6 +16,81 @@ type ConnectorDetailsProps = {
   onDisconnect: () => void;
   busy?: boolean;
 };
+
+/** One-line clamp with animated expand; toggle only when content actually overflows. */
+function ExpandableDescription({ text }: { text: string }) {
+  const contentRef = useRef<HTMLParagraphElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [canExpand, setCanExpand] = useState(false);
+  const [maxHeight, setMaxHeight] = useState(16);
+
+  useLayoutEffect(() => {
+    setExpanded(false);
+    setMaxHeight(16);
+  }, [text]);
+
+  useLayoutEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    if (!expanded) {
+      setMaxHeight(16);
+      setCanExpand(el.scrollWidth > el.clientWidth + 1);
+      return;
+    }
+
+    // Keep collapsed height for one frame (wrap enabled), then grow so max-height can transition.
+    setMaxHeight(16);
+    const frame = requestAnimationFrame(() => {
+      setMaxHeight(el.scrollHeight);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [text, expanded]);
+
+  if (!text) return null;
+
+  return (
+    <div className="relative min-w-0">
+      <p
+        ref={contentRef}
+        style={{ maxHeight }}
+        className={cn(
+          'mt-0.5 overflow-hidden font-mono text-xs leading-4 text-muted-foreground transition-[max-height] duration-300 ease-in-out',
+          !expanded && 'whitespace-nowrap',
+          !expanded && canExpand && 'pr-[5.75rem]',
+        )}
+      >
+        {text}
+        {expanded && canExpand ? (
+          <>
+            {' '}
+            <button
+              type="button"
+              className="cursor-pointer font-mono text-xs font-medium text-foreground/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              aria-expanded
+              onClick={() => setExpanded(false)}
+            >
+              Show less
+            </button>
+          </>
+        ) : null}
+      </p>
+      {!expanded && canExpand ? (
+        <button
+          type="button"
+          className="absolute top-0.5 right-0 cursor-pointer bg-card pl-1.5 font-mono text-xs font-medium leading-4 text-foreground/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          aria-expanded={false}
+          onClick={() => setExpanded(true)}
+        >
+          <span aria-hidden className="text-muted-foreground">
+            …
+          </span>
+          <span className="ml-1">Read more</span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: ConnectorDetailsProps) => {
   const { connectorCatalog } = useCatalogServer();
@@ -70,13 +146,19 @@ const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: Con
           <div className="min-w-0 flex-1">
             <h4 className="text-lg font-semibold text-foreground">{connector.name}</h4>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
+              <span
+                className={cn(
+                  'flex items-center gap-1.5 text-xs font-medium',
+                  connector.authenticated ? 'text-success' : 'text-foreground',
+                )}
+              >
+                <span
+                  className={cn('h-1.5 w-1.5 rounded-full', connector.authenticated ? 'bg-success' : 'bg-primary')}
+                ></span>
                 {connector.authenticated ? 'Connected' : 'Not authenticated'}
               </span>
               <span className="text-muted-foreground">· {connector.description}</span>
             </div>
-            <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{connector.url}</p>
             <span className="mt-2 inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground">
               {AUTH_TYPE_LABELS[connector.auth.type] ?? AUTH_TYPE_LABELS.none}
             </span>
@@ -111,7 +193,7 @@ const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: Con
                   >
                     <div className="min-w-0 flex-1">
                       <h6 className="text-sm font-medium text-foreground">{tool.name}</h6>
-                      <p className="mt-0.5 font-mono text-xs text-muted-foreground">{tool.id}</p>
+                      <ExpandableDescription text={tool.description} />
                     </div>
                   </article>
                 ))}

@@ -1,7 +1,8 @@
 /**
  * Shipped model catalog (model-catalog.yaml): the discovery list of provider
- * and model presets the settings UI copies into PUT /settings/model-providers bodies.
- * Never consulted on writes and never read by the runtime.
+ * and model presets offered by GET /catalog/model-providers for the UI to copy
+ * into PUT /settings/model-providers bodies. Never consulted on writes and never
+ * read by the runtime.
  *
  * Default: YAML inlined into `modelCatalog.gen.ts` at build time. Optional
  * override: `MODEL_CATALOG_PATH` (file on disk).

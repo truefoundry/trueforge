@@ -2,7 +2,6 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
-import type { McpCatalog } from '../catalog/McpCatalog';
 import configuration from '../config';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
 import type { WithTransaction } from '../db/transaction';
@@ -12,7 +11,6 @@ import type { IOAuthTokenStore, OAuthClientRecord, OAuthToken } from '../mcp/aut
 import {
   authorizeMcpServerRoute,
   deleteMcpServerAuthRoute,
-  getMcpServerCatalogRoute,
   getMcpServerRoute,
   listAvailableMcpServersRoute,
   listMcpServersRoute,
@@ -26,7 +24,6 @@ import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretVal
 import { TENANT_ID } from './sessions';
 
 export interface SettingsMcpServersRouterDeps<TTransaction> {
-  mcpCatalog: McpCatalog;
   mcpServerStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
@@ -139,10 +136,6 @@ function toMcpServerReadEntry({
 
 /** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers). */
 export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpServersRouterDeps<TTransaction>) {
-  const catalogHandler: RouteHandler<typeof getMcpServerCatalogRoute> = c => {
-    return c.json({ data: [...deps.mcpCatalog.list()] }, 200);
-  };
-
   const listHandler: RouteHandler<typeof listMcpServersRoute> = async c => {
     const userRef = deps.resolveUserContext(c).userRef;
     const records = await deps.mcpServerStore.listServers({ tenant_id: TENANT_ID, names: undefined });
@@ -294,8 +287,6 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
   };
 
   const router = new OpenAPIHono();
-  // Static `/catalog` before `/{name}/…` so "catalog" is not captured as a name.
-  router.openapi(getMcpServerCatalogRoute, catalogHandler);
   router.openapi(listMcpServersRoute, listHandler);
   router.openapi(putMcpServerRoute, putHandler);
   // `/{name}/tools` before `/{name}` so the tools suffix is not swallowed.

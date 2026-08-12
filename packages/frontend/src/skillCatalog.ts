@@ -53,11 +53,11 @@ export function toUiSkill(skill: TrueForgeApi.SkillManifest, catalogNames: Reado
 export function createSkillCatalog(): SkillCatalogServer<UiSkill> {
   return {
     getSkillCatalog: async () => {
-      const body = await client.settings.skills.catalog();
+      const body = await client.catalog.skills.list();
       return body.data.map(toUiCatalogEntry);
     },
     listSkills: async req => {
-      const [listed, catalog] = await Promise.all([client.settings.skills.list(), client.settings.skills.catalog()]);
+      const [listed, catalog] = await Promise.all([client.settings.skills.list(), client.catalog.skills.list()]);
       const catalogNames = new Set(catalog.data.map(entry => entry.name));
       const skills = listed.data.map(skill => toUiSkill(skill, catalogNames));
       const query = req?.query?.trim().toLowerCase();

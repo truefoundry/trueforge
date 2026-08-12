@@ -28,8 +28,8 @@ function DraftSections({
   const server = createMockAgentUIServer({
     getModels: async () => [
       {
-        name: 'openai/gpt-4.1',
         id: 'gpt-4.1',
+        name: 'openai/gpt-4.1',
         provider: { name: 'OpenAI' },
         properties: { reasoningEfforts: ['low', 'high'] },
       },

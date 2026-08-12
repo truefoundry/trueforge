@@ -12,5 +12,6 @@ import type * as TrueForge from "../../../../index.js";
  *     }
  */
 export interface AgentWriteRequest extends TrueForge.AgentSpec {
-    name: TrueForge.ResourceName;
+    /** Fully qualified name. Unique within a tenant. */
+    name: string;
 }

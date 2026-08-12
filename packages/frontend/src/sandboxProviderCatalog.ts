@@ -92,7 +92,7 @@ async function resolveApiKey(apiKey: string | undefined): Promise<string> {
 export function createSandboxProviderCatalog(): SandboxCatalogServer {
   return {
     getSandboxProviderCatalog: async () => {
-      const body = await client.settings.sandboxProviders.catalog();
+      const body = await client.catalog.sandboxProviders.list();
       return body.data.map(toUiCatalogEntry);
     },
     listSandboxProviders: async req => {

@@ -4,11 +4,11 @@ import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 
-/** Resets the current named or draft chat. Hidden while the shell is idle. */
+/** Resets an immutable (named) chat. Hidden while idle or on mutable drafts. */
 export function ClearChatButton() {
   const shell = useOptionalShellMode();
 
-  if (shell == null || shell.mode.status === 'idle') return null;
+  if (shell == null || shell.mode.status !== 'active' || shell.mode.isMutable) return null;
 
   return (
     <button

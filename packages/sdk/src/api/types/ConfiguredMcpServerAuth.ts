@@ -3,6 +3,6 @@
 import type * as TrueForge from "../index.js";
 
 /**
- * Optional auth settings. Omit when the server needs no credentials.
+ * Optional default auth settings for the preset.
  */
 export type ConfiguredMcpServerAuth = TrueForge.McpServerDcrAuth | TrueForge.McpServerHeaderAuth;

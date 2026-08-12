@@ -3,6 +3,7 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { ModelListProvider } from "./ModelListProvider.js";
 import { ModelProperties } from "./ModelProperties.js";
 
 export const Model: core.serialization.ObjectSchema<serializers.Model.Raw, TrueForge.Model> = core.serialization.object(
@@ -10,6 +11,7 @@ export const Model: core.serialization.ObjectSchema<serializers.Model.Raw, TrueF
         modelId: core.serialization.property("model_id", core.serialization.string()),
         name: core.serialization.string(),
         properties: ModelProperties,
+        provider: ModelListProvider,
     },
 );
 
@@ -18,5 +20,6 @@ export declare namespace Model {
         model_id: string;
         name: string;
         properties: ModelProperties.Raw;
+        provider: ModelListProvider.Raw;
     }
 }

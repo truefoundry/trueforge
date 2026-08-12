@@ -3,11 +3,11 @@
 import type * as TrueForge from "../index.js";
 
 export interface CatalogMcpServer {
-    /** Optional default auth settings for the preset. */
-    auth?: TrueForge.CatalogMcpServerAuth;
+    auth?: TrueForge.ConfiguredMcpServerAuth;
     /** URL of the MCP server logo asset. */
     logo?: string;
-    name: TrueForge.ResourceName;
+    /** Fully qualified name. Unique within a tenant. */
+    name: string;
     type: TrueForge.McpServerType;
     /** URL of the remote MCP server. */
     url: string;

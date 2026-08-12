@@ -1,4 +1,5 @@
 import winston from 'winston';
+import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createModelsRouter } from '../../../src/apis/models';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { createSettingsRouter } from '../../../src/apis/settings';
@@ -68,6 +69,7 @@ function withRedactedApiKey<T extends { auth: { api_key: string } }>(provider: T
 
 async function createRouters(): Promise<{
   settingsRouter: ReturnType<typeof createSettingsRouter>;
+  catalogRouter: ReturnType<typeof createCatalogRouter>;
   modelsRouter: ReturnType<typeof createModelsRouter>;
   modelProviderStore: IModelProviderStore;
 }> {
@@ -76,18 +78,20 @@ async function createRouters(): Promise<{
   const modelProviderStore = new SqliteModelProviderStore(db);
   return {
     settingsRouter: createSettingsRouter({
-      modelCatalog: ModelCatalog.load(),
       modelProviderStore,
-      mcpCatalog: McpCatalog.load(),
       mcpServerStore: new SqliteMcpServerStore(db),
       tokenStore: new SqliteOAuthTokenStore(db),
-      skillCatalog: SkillCatalog.load(),
       skillStore: new SqliteSkillStore(db),
-      sandboxCatalog: SandboxCatalog.load(),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),
       resolveUserContext: () => LOCAL_USER_CONTEXT,
+    }),
+    catalogRouter: createCatalogRouter({
+      modelCatalog: ModelCatalog.load(),
+      mcpCatalog: McpCatalog.load(),
+      skillCatalog: SkillCatalog.load(),
+      sandboxCatalog: SandboxCatalog.load(),
     }),
     modelsRouter: createModelsRouter({
       modelProviderStore,
@@ -99,14 +103,15 @@ async function createRouters(): Promise<{
 
 describe('settings model-providers and models routers', () => {
   let settingsRouter: ReturnType<typeof createSettingsRouter>;
+  let catalogRouter: ReturnType<typeof createCatalogRouter>;
   let modelsRouter: ReturnType<typeof createModelsRouter>;
 
   beforeAll(async () => {
-    ({ settingsRouter, modelsRouter } = await createRouters());
+    ({ settingsRouter, catalogRouter, modelsRouter } = await createRouters());
   });
 
-  it('GET /model-providers/catalog returns shipped presets plus a custom sentinel', async () => {
-    const response = await settingsRouter.request('/model-providers/catalog');
+  it('GET /catalog/model-providers returns shipped presets plus a custom sentinel', async () => {
+    const response = await catalogRouter.request('/model-providers');
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
       data: { type: string; supported_reasoning_efforts?: string[] }[];
@@ -144,7 +149,7 @@ describe('settings model-providers and models routers', () => {
     expect(badName.status).toBe(400);
   });
 
-  it('GET /models returns the FQN read view', async () => {
+  it('GET /models returns the FQN read view with provider.name', async () => {
     const response = await modelsRouter.request('/');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
@@ -152,15 +157,82 @@ describe('settings model-providers and models routers', () => {
         {
           name: 'anthropic/claude-sonnet-4-6',
           model_id: 'claude-sonnet-4-6',
+          provider: { name: 'anthropic' },
           properties: model.properties,
         },
         {
           name: 'internal/claude-sonnet-4-6',
           model_id: 'claude-sonnet-4-6',
+          provider: { name: 'internal' },
           properties: model.properties,
         },
       ],
     });
+  });
+});
+
+describe('custom providers may omit auth', () => {
+  const model = {
+    model_id: 'llama',
+    name: 'llama',
+    properties: { reasoning_efforts: ['minimal', 'low'] },
+  };
+
+  it.each([
+    { label: 'auth omitted', auth: undefined, name: 'llama-no-key' },
+    {
+      label: 'auth set api_key',
+      auth: { api_key: 'qwerty' },
+      name: 'llama-with-key',
+    },
+  ])('PUT stores and lists custom provider with $label', async ({ auth, name }) => {
+    const { settingsRouter } = await createRouters();
+    const body = {
+      type: 'custom' as const,
+      name,
+      base_url: 'http://localhost:11434/v1',
+      models: [model],
+      ...(auth === undefined ? {} : { auth }),
+    };
+    const expectedWire = auth === undefined ? body : withRedactedApiKey(body);
+
+    const put = await settingsRouter.request('/model-providers', putInit(body));
+    expect(put.status).toBe(200);
+    expect(await put.json()).toEqual({ data: expectedWire });
+
+    const list = await settingsRouter.request('/model-providers');
+    expect(list.status).toBe(200);
+    expect(await list.json()).toEqual({ data: [expectedWire] });
+  });
+
+  it('rejects empty api_key', async () => {
+    const { settingsRouter } = await createRouters();
+    const put = await settingsRouter.request(
+      '/model-providers',
+      putInit({
+        type: 'custom',
+        name: 'llama-empty-key',
+        base_url: 'http://localhost:11434/v1',
+        auth: { api_key: '' },
+        models: [model],
+      }),
+    );
+    expect(put.status).toBe(400);
+  });
+
+  it('rejects auth without api_key', async () => {
+    const { settingsRouter } = await createRouters();
+    const put = await settingsRouter.request(
+      '/model-providers',
+      putInit({
+        type: 'custom',
+        name: 'llama-empty-auth',
+        base_url: 'http://localhost:11434/v1',
+        auth: {},
+        models: [model],
+      }),
+    );
+    expect(put.status).toBe(400);
   });
 });
 

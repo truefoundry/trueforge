@@ -160,6 +160,28 @@ describe('modelProviderCatalog mappers', () => {
         ],
       },
     );
+
+    assert.deepEqual(
+      toHarnessModelProvider({
+        type: 'custom',
+        name: 'local-llama',
+        apiKey: '',
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        models: [{ id: 'llama3', name: 'llama3' }],
+      }),
+      {
+        type: 'custom',
+        name: 'local-llama',
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        models: [
+          {
+            modelId: 'llama3',
+            name: 'llama3',
+            properties: {},
+          },
+        ],
+      },
+    );
   });
 
   it('rejects custom providers without a base URL', () => {

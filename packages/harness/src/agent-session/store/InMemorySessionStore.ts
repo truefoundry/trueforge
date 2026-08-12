@@ -38,6 +38,7 @@ import {
   paginateSessionEventRows,
   type SessionEventPageCursor,
 } from './SessionEventPageToken';
+import { decodeSessionListPageToken, paginateSessionListRows } from './SessionListPageToken';
 import {
   PreviousTurnRunningError,
   SessionAlreadyExistsError,
@@ -67,6 +68,13 @@ function sessionKey(sessionId: string): string {
 
 function turnKey({ session_id, turn_id }: { session_id: string; turn_id: string }): string {
   return `${session_id}:${turn_id}`;
+}
+
+/** Lexicographic session_id order — shared by listSessions sort and keyset filter. */
+function compareSessionId(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
 }
 
 function newThreadSnapshot(thread: NewThreadInit): AgentThreadSnapshot {
@@ -238,12 +246,33 @@ export class InMemorySessionStore<
       if (input.end_timestamp !== undefined && createdAt > input.end_timestamp.getTime()) continue;
       records.push(stored.record);
     }
-    records.sort((a, b) =>
-      input.order === 'asc'
-        ? a.created_at.getTime() - b.created_at.getTime()
-        : b.created_at.getTime() - a.created_at.getTime(),
-    );
-    const page = paginate(records, input.limit, input.page_token);
+    records.sort((a, b) => {
+      const aTime = a.updated_at.getTime();
+      const bTime = b.updated_at.getTime();
+      if (aTime !== bTime) {
+        return input.order === 'asc' ? aTime - bTime : bTime - aTime;
+      }
+      // Same lexicographic order as the keyset predicate below (and Postgres/SQLite).
+      return input.order === 'asc'
+        ? compareSessionId(a.session_id, b.session_id)
+        : compareSessionId(b.session_id, a.session_id);
+    });
+
+    let filtered = records;
+    const cursor = decodeSessionListPageToken(input.page_token);
+    if (cursor) {
+      const cursorTime = new Date(cursor.updated_at).getTime();
+      filtered = records.filter(record => {
+        const t = record.updated_at.getTime();
+        const idCmp = compareSessionId(record.session_id, cursor.session_id);
+        if (input.order === 'asc') {
+          return t > cursorTime || (t === cursorTime && idCmp > 0);
+        }
+        return t < cursorTime || (t === cursorTime && idCmp < 0);
+      });
+    }
+
+    const page = paginateSessionListRows(filtered, input.limit, row => row.updated_at.toISOString());
     return { data: deepCopy(page.data), pagination: page.pagination };
   }
 

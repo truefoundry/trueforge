@@ -1,4 +1,8 @@
+import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createAvailableSkillsRouter, createSkillsRouter } from '../../../src/apis/skills';
+import { McpCatalog } from '../../../src/catalog/McpCatalog';
+import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
+import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -23,6 +27,7 @@ function putInit(body: unknown): RequestInit {
 
 describe('skills routers', () => {
   let settingsRouter: ReturnType<typeof createSkillsRouter>;
+  let catalogRouter: ReturnType<typeof createCatalogRouter>;
   let availableRouter: ReturnType<typeof createAvailableSkillsRouter>;
 
   beforeAll(async () => {
@@ -30,9 +35,14 @@ describe('skills routers', () => {
     await migrateSqliteToLatest(db);
     const skillStore = new SqliteSkillStore(db);
     settingsRouter = createSkillsRouter({
-      skillCatalog: SkillCatalog.load(),
       skillStore,
       withTransaction: callback => db.transaction().execute(callback),
+    });
+    catalogRouter = createCatalogRouter({
+      modelCatalog: ModelCatalog.load(),
+      mcpCatalog: McpCatalog.load(),
+      skillCatalog: SkillCatalog.load(),
+      sandboxCatalog: SandboxCatalog.load(),
     });
     availableRouter = createAvailableSkillsRouter({
       skillStore,
@@ -40,8 +50,8 @@ describe('skills routers', () => {
     });
   });
 
-  it('GET /catalog returns the shipped catalog verbatim', async () => {
-    const response = await settingsRouter.request('/catalog');
+  it('GET /catalog/skills returns the shipped catalog verbatim', async () => {
+    const response = await catalogRouter.request('/skills');
     expect(response.status).toBe(200);
     const body = (await response.json()) as { data: { name: string }[] };
     expect(body.data.map(skill => skill.name)).toEqual(

@@ -24,8 +24,8 @@ describe('createTrueFoundryServer', () => {
     const getCapabilities = vi.fn(async () => capabilities);
     const getModels = vi.fn(async () => [
       {
-        name: 'm',
         id: 'm',
+        name: 'p/m',
         provider: { name: 'p' },
         properties: {},
       },
