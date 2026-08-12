@@ -4,7 +4,7 @@ Two public packages ship from this repo:
 
 | Package                   | Source             | How it publishes                                                |
 | ------------------------- | ------------------ | --------------------------------------------------------------- |
-| `@truefoundry/utils-core` | `packages/harness` | From staged `packages/harness/dist` (library)                   |
+| `@truefoundry/utils-core` | `packages/harness` | From package root (`dist/`)                                     |
 | `@truefoundry/utils`      | `packages/server`  | From package root (`dist/`, including `dist/_frontend/` for UI) |
 
 The git tag `v*` must match **`packages/harness` (`@truefoundry/utils-core`) version**.
@@ -33,18 +33,22 @@ open-source release happens later — every deferred item carries a
 > tsconfig.build.json), which embeds/references original TypeScript source in
 > the published tarball — this is a deliberate, accepted trade-off for now.
 
-## Publishing model (openai-node style)
+## Publishing model
 
-The package publishes **from `packages/harness/dist`**, not the package
-folder. The build compiles every `src/**/*.ts` to its own `.js` (CJS) +
-`.mjs` (ESM) + `.d.ts` triple and generates `dist/package.json` with
-dist-relative paths (`scripts/make-dist-package-json.mjs`), so the tarball
-root is the compiled file tree. Consequences:
+The package publishes from the package root (`packages/harness`), same as
+every other package in this repo. The build compiles every `src/**/*.ts` to
+its own `.js` (CJS) + `.mjs` (ESM) + `.d.ts` triple under `dist/`, and
+`package.json`'s `exports` map points at `./dist/...` paths; `files: ["dist"]`
+scopes the published tarball to just the compiled output. Consequences:
 
-- Deep imports mirror the source tree with no `dist/` segment:
-  `@truefoundry/utils-core/core/llm/LLMTypes`, `.../core/runtime/contextUtils`.
-- Legacy `moduleResolution: "node"` consumers (the gateway) resolve subpaths
-  as literal file lookups — no `exports`/`typesVersions` support needed.
+- Deep imports keep the same specifier as before, e.g.
+  `@truefoundry/utils-core/core/llm/LLMTypes` — the package's own `"./*"`
+  export pattern maps that to `./dist/core/llm/LLMTypes.{d.ts,js,mjs}`
+  internally, so no consumer using exports-aware resolution (`bundler`,
+  `node16`, `nodenext`) needs to change anything. Only a genuinely legacy
+  `moduleResolution: "node"`/`"node10"` consumer (which ignores `package.json`
+  `exports` entirely and does literal on-disk path lookups) would need to add
+  a `/dist/` segment or move to an exports-aware mode.
 - `require()` and `import` both work (`.js` is CJS, `.mjs` is ESM).
 - The curated barrels (`.`, `./core`, `./agent-session`) remain the public
   API; deep imports are the escape hatch for internals.
@@ -78,7 +82,7 @@ root is the compiled file tree. Consequences:
 
 3. **CI publishes automatically.** `.github/workflows/release.yml` installs,
    builds, tests, verifies the tag matches `packages/harness/package.json`, then
-   runs `npm publish` **from `packages/harness/dist`**. (The `@truefoundry/utils`
+   runs `npm publish` from `packages/harness`. (The `@truefoundry/utils`
    publish is deferred — see the note above.)
 
    Auth is trusted publishing (OIDC — no `NPM_TOKEN`). Watch the repo Actions tab.
@@ -110,7 +114,7 @@ For tight loops, skip the publish round-trip:
 ```bash
 pnpm clean && pnpm build && pnpm standalone:start
 # or pack only:
-cd packages/harness && pnpm build && cd dist && pnpm pack
+cd packages/harness && pnpm build && pnpm pack
 cd packages/server && pnpm pack
 ```
 
@@ -139,16 +143,15 @@ Publish a real version when CI or teammates need it.
 Done: root LICENSE + MIT license fields, CONTRIBUTING, SECURITY,
 CODE_OF_CONDUCT, issue/PR templates.
 
-| Item                                                                            | Where                                                   |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| Ship README (guard lives in make-dist-package-json.mjs)                         | packages/harness/scripts                                |
-| Add repository/homepage/bugs/keywords metadata                                  | packages/harness/package.json                           |
-| Add `--provenance` to publish                                                   | .github/workflows/release.yml                           |
-| Replace `internal.devtest.truefoundry.tech` URLs                                | packages/server/src/config                              |
-| Private-repo links in shipped sandbox scripts                                   | packages/harness/src/core/sandbox/scripts/mcp_client.py |
-| Sourcemaps/declarationMap decision                                              | packages/harness/tsup.config.ts, tsconfig.build.json    |
-| CODEOWNERS / CI for external (fork) PRs                                         | .github/                                                |
-| Secret-scan history, enable secret scanning + push protection, flip repo public | GitHub settings                                         |
+| Item                                                                               | Where                                                   |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Ship README (currently no `README.md` in `packages/harness`, npm page stays blank) | packages/harness                                        |
+| Add repository/homepage/bugs/keywords metadata                                     | packages/harness/package.json                           |
+| Add `--provenance` to publish                                                      | .github/workflows/release.yml                           |
+| Private-repo links in shipped sandbox scripts                                      | packages/harness/src/core/sandbox/scripts/mcp_client.py |
+| Sourcemaps/declarationMap decision                                                 | packages/harness/tsup.config.ts, tsconfig.build.json    |
+| CODEOWNERS / CI for external (fork) PRs                                            | .github/                                                |
+| Secret-scan history, enable secret scanning + push protection, flip repo public    | GitHub settings                                         |
 
 ---
 

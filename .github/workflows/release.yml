@@ -43,7 +43,7 @@ jobs:
       # Library first: utils pins workspace:* → this concrete version on publish.
       # Prereleases (e.g. 0.1.9-rc.1) must pass --tag (npm 11); first preid → dist-tag (rc).
       - name: Publish @truefoundry/utils-core
-        working-directory: packages/harness/dist
+        working-directory: packages/harness
         run: |
           VERSION="$(node -p "require('./package.json').version")"
           if [[ "$VERSION" == *-* ]]; then
