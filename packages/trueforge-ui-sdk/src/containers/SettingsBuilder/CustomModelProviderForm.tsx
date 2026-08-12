@@ -201,7 +201,8 @@ const CustomModelProviderForm = ({
       const field = target && modelContextError(target) ? 'context-length' : 'max-output-tokens';
       setTimeout(() => {
         const el = document.getElementById(`custom-provider-model-${incompleteIndex}-${field}`);
-        el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        // scrollIntoView is unimplemented in jsdom; guard the method so tests don't throw.
+        el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
         (el as HTMLInputElement | null)?.focus();
       }, 0);
       return;
