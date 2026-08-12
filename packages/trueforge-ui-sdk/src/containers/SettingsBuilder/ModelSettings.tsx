@@ -235,7 +235,7 @@ const ModelSettings = () => {
       />
       <Accordion expanded={advancedOpen} onChange={(_event, next) => setAdvancedOpen(next)}>
         <AccordionSummary className="pt-2 pb-1.5">
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5 text-xs text-text-secondary">
             <Icon
               name="chevron-down"
               className={`size-4 transition-transform duration-200 ${advancedOpen ? '' : '-rotate-90'}`}
@@ -246,7 +246,7 @@ const ModelSettings = () => {
         <AccordionDetails className="flex flex-col gap-1">
           <label
             htmlFor={`base-url-${opts.id}`}
-            className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            className="block text-xs font-semibold uppercase tracking-wide text-text-secondary"
           >
             Base URL
           </label>
@@ -258,9 +258,9 @@ const ModelSettings = () => {
               setBaseUrl(event.target.value);
             }}
             placeholder="https://api.openai.com/v1"
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+            className={auiInputClass('h-10')}
           />
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-text-secondary">
             Leave as the default unless you use a regional or proxy endpoint.
           </p>
         </AccordionDetails>
@@ -268,7 +268,7 @@ const ModelSettings = () => {
 
       <div className={cn('mt-2 flex items-center gap-2', opts.isReplacingKey ? 'justify-between' : 'justify-end')}>
         {opts.isReplacingKey ? (
-          <p className="text-sm text-muted-foreground">The saved key is hidden. Saving replaces it.</p>
+          <p className="text-sm text-text-secondary">The saved key is hidden. Saving replaces it.</p>
         ) : null}
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" type="button" onClick={closeKeyEditor} disabled={busy}>
