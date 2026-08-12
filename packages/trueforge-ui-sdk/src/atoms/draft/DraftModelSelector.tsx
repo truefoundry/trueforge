@@ -28,7 +28,7 @@ function ProviderMark({ logo, label, className }: { logo?: string; label: string
   return (
     <span
       className={cn(
-        'bg-muted text-muted-foreground flex shrink-0 items-center justify-center rounded font-semibold',
+        'bg-secondary-bg text-text-secondary flex shrink-0 items-center justify-center rounded font-semibold',
         className,
       )}
       aria-hidden
@@ -129,18 +129,18 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
   const content = (
     <>
       <div className="border-b border-border px-3 py-2">
-        <p className="text-foreground mb-2 text-sm font-semibold">Select model</p>
+        <p className="text-text-primary mb-2 text-sm font-semibold">Select model</p>
         <label className="relative block">
           <Icon
             name="search"
-            className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2"
+            className="text-text-secondary pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2"
           />
           <input
             type="search"
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search"
-            className="border-input bg-background placeholder:text-muted-foreground h-8 w-full rounded-md border py-1 pr-2 pl-7 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="border-input-border bg-input-box-bg text-text-primary placeholder:text-text-secondary h-8 w-full rounded-md border py-1 pr-2 pl-7 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40"
             autoFocus
           />
         </label>
@@ -155,7 +155,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
           showConfigureSettingsCta ? (
             <button
               type="button"
-              className="text-muted-foreground hover:text-foreground flex w-full items-center justify-center gap-1 px-2 py-4 text-center text-sm"
+              className="text-text-secondary hover:text-text-primary flex w-full items-center justify-center gap-1 px-2 py-4 text-center text-sm"
               onClick={() => {
                 setOpen(false);
                 setQuery('');
@@ -168,7 +168,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
               <Icon name="chevron-right" className="size-3.5 shrink-0" />
             </button>
           ) : (
-            <p className="text-muted-foreground px-2 py-4 text-center text-sm">No models</p>
+            <p className="text-text-secondary px-2 py-4 text-center text-sm">No models</p>
           )
         ) : (
           sections.map((section, sectionIndex) => {
@@ -182,7 +182,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
               >
                 <div
                   id={headingId}
-                  className="text-muted-foreground flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium tracking-wide uppercase"
+                  className="text-text-secondary flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium tracking-wide uppercase"
                 >
                   <ProviderMark logo={section.logo} label={section.name} className="size-3.5 text-[9px]" />
                   <span className="truncate">{section.name}</span>
@@ -198,7 +198,9 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
                       aria-selected={active}
                       className={cn(
                         'flex w-full items-center rounded-md px-2 py-2 text-left text-sm',
-                        active ? 'bg-accent' : 'hover:bg-accent/60',
+                        active
+                          ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
+                          : 'hover:bg-ghost-button-hover',
                       )}
                       onClick={() => {
                         updateAgentSpec?.({
@@ -236,7 +238,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
         className={auiButtonClass({
           variant: 'ghost',
           size: 'sm',
-          className: cn('h-8 max-w-48 gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-accent'),
+          className: cn('h-8 max-w-48 gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-ghost-button-hover'),
         })}
         onClick={() => setOpen(v => !v)}
       >
@@ -251,7 +253,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
             {content}
           </BottomSheet>
         ) : (
-          <div className="bg-popover text-popover-foreground absolute right-0 bottom-full z-50 mb-2 flex max-h-[22rem] w-[18rem] flex-col overflow-hidden rounded-lg border border-border shadow-lg">
+          <div className="bg-card-bg text-text-primary absolute right-0 bottom-full z-50 mb-2 flex max-h-[22rem] w-[18rem] flex-col overflow-hidden rounded-lg border border-border shadow-lg">
             {content}
           </div>
         )

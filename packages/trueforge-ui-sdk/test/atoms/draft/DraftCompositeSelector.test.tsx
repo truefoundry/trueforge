@@ -339,11 +339,11 @@ describe('DraftSelectionChips', () => {
 
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     expect(await screen.findByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Skills/ })).toHaveClass('text-foreground');
+    expect(screen.getByRole('button', { name: /Skills/ })).toHaveClass('text-text-primary');
     expect(await screen.findByRole('menuitemcheckbox', { name: /Research/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'View 2 selected connectors' }));
-    expect(screen.getByRole('button', { name: /Connectors/ })).toHaveClass('text-foreground');
+    expect(screen.getByRole('button', { name: /Connectors/ })).toHaveClass('text-text-primary');
     expect(await screen.findByRole('menuitemcheckbox', { name: /Slack/ })).toBeInTheDocument();
   });
 

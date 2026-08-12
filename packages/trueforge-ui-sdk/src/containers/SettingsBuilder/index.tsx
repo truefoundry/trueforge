@@ -19,7 +19,7 @@ const SandboxSettings = lazy(() => import('./SandboxSettings.js'));
 function SettingsSectionFallback() {
   return (
     <div className="flex flex-1 items-center justify-center py-8" role="status" aria-live="polite" aria-busy="true">
-      <Spinner size={20} className="text-muted-foreground" />
+      <Spinner size={20} className="text-text-secondary" />
       <span className="sr-only">Loading</span>
     </div>
   );
@@ -85,7 +85,7 @@ const TruefoundrySettingsBuilder = () => {
   if (!settingsOpen || !catalog) return null;
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-background">
+    <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
       <header className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
         <button
           type="button"
@@ -96,14 +96,14 @@ const TruefoundrySettingsBuilder = () => {
         >
           <Icon name="arrow-left" />
         </button>
-        <h1 className="text-lg font-semibold tracking-tight text-foreground">Settings</h1>
+        <h1 className="text-lg font-semibold tracking-tight text-text-primary">Settings</h1>
       </header>
 
       <div className={cn('flex min-h-0 flex-1 flex-col', !compact && 'md:flex-row')}>
         <nav
           aria-label="Settings sections"
           className={cn(
-            'flex w-full gap-1 border-b border-border bg-muted/30 p-2',
+            'flex w-full gap-1 border-b border-border bg-secondary-bg/40 p-2',
             compact ? 'min-w-0' : 'justify-center md:w-48 md:flex-col md:justify-start md:border-b-0 md:border-r',
           )}
         >
@@ -115,12 +115,12 @@ const TruefoundrySettingsBuilder = () => {
               {...(compact ? { title: item.label } : {})}
               className={cn(
                 'flex min-h-9 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
-                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring',
                 // Narrow panels cannot fit fixed-width tabs, so tabs split the row instead.
                 compact ? 'min-w-0 flex-1 justify-center gap-1.5 px-1.5' : 'shrink-0',
                 section === item.id
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                  ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
+                  : 'text-text-secondary hover:bg-ghost-button-hover/60 hover:text-text-primary',
               )}
               onClick={() => {
                 setSection(item.id);

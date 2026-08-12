@@ -115,36 +115,50 @@ type ThemeMode = "light" | "dark" | "system";
 type ThemePreset = "trueforge" | "claude" | "chatgpt" | "gemini";
 
 type SemanticTokens = {
-  background: string;
-  foreground: string;
-  card: string;
-  cardForeground: string;
-  popover: string;
-  popoverForeground: string;
-  primary: string;
-  primaryForeground: string;
-  secondary: string;
-  secondaryForeground: string;
-  muted: string;
-  mutedForeground: string;
-  accent: string;
-  accentForeground: string;
-  destructive: string;
-  destructiveForeground: string;
-  success: string;
-  successForeground: string;
-  warning: string;
-  warningForeground: string;
+  // Across product
+  sidebarBg: string;
+  topbarBg: string;
+  primaryBg: string;
+  secondaryBg: string;
   border: string;
-  input: string;
-  ring: string;
-  radius: string;
   fontFamily: string; // maps to --font-agent-ui
-  // optional chat-specific:
-  userBubble?: string;
-  userBubbleForeground?: string;
-  assistantBubble?: string;
-  assistantBubbleForeground?: string;
+  // Building blocks
+  inputBoxBg: string;
+  inputBorder: string;
+  textPrimary: string;
+  textSecondary: string;
+  cardBg: string;
+  dropdownSelectedItemBg: string;
+  dropdownSelectedItemText: string;
+  // Chat
+  userMessageBg: string;
+  userMessageText: string;
+  assistantMessageBg: string;
+  assistantMessageText: string;
+  // Buttons
+  primaryButtonBg: string;
+  primaryButtonHover: string;
+  primaryButtonText: string;
+  secondaryButtonBg: string;
+  secondaryButtonHover: string;
+  secondaryButtonText: string;
+  ghostButtonBg: string;
+  ghostButtonHover: string;
+  ghostButtonText: string;
+  // Status
+  successBg: string;
+  successText: string;
+  failureBg: string;
+  failureText: string;
+  warningBg: string;
+  warningText: string;
+  // Kept internals
+  focusRing: string;
+  radius: string;
+  composerRadius: string;
+  overlay: string;
+  shadowColor: string;
+  scrollbarThumb: string;
 };
 
 /** UI action icons (send, attach, copy, …) — Lucide, React nodes, or SVG wrappers */
@@ -253,7 +267,7 @@ function MyLayout({ className }: { className?: string }) {
   theme={{
     preset: 'claude',
     mode: 'dark',
-    tokens: { primary: '#…', fontFamily: '"My Font", system-ui' },
+    tokens: { primaryButtonBg: '#…', fontFamily: '"My Font", system-ui' },
     brand: {
       name: 'Acme Agent',
       logo: { light: '/acme-wordmark.svg', dark: '/acme-wordmark-dark.svg' },
@@ -287,8 +301,8 @@ as `children`.
 **Custom styles without the object:** host CSS still works:
 
 ```css
-.aui-root {
-  --primary: #e11d48;
+.aui-theme-root {
+  --primary-button-bg: #e11d48;
   --font-agent-ui: 'My Font', system-ui, sans-serif;
 }
 
@@ -457,7 +471,7 @@ TrueforgeUI({ layout, theme, overrides, … })
    `<BrandLogo />`) even if defaults still point at TFY assets.
 
 **Done when:** app runs with owned tokens (tfy components may still be present);
-host can override `--primary` and swap `theme.brand.logo`.
+host can override `--primary-button-bg` and swap `theme.brand.logo`.
 
 ### Phase 2 — shadcn primitives + icon + brand registry
 

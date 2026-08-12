@@ -21,7 +21,7 @@ export function StepIconBox({
       <Icon
         name={icon}
         size={iconSize}
-        className={cn(variant === 'primary' ? 'text-primary' : 'text-muted-foreground', iconClassName)}
+        className={cn(variant === 'primary' ? 'text-primary-button-bg' : 'text-text-secondary', iconClassName)}
       />
     </div>
   );

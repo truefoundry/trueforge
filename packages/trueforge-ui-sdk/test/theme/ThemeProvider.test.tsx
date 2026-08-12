@@ -149,13 +149,13 @@ describe('ThemeProvider', () => {
 
   it('writes token CSS vars on the theme root', () => {
     const { container } = render(
-      <ThemeProvider theme={{ tokens: { primary: '#e11d48' }, className: 'host-chat' }}>
+      <ThemeProvider theme={{ tokens: { primaryButtonBg: '#e11d48' }, className: 'host-chat' }}>
         <span>child</span>
       </ThemeProvider>,
     );
     const root = getThemeRoot(container);
     expect(root.classList.contains('host-chat')).toBe(true);
-    expect(root.style.getPropertyValue('--primary')).toBe('#e11d48');
+    expect(root.style.getPropertyValue('--primary-button-bg')).toBe('#e11d48');
   });
 
   it('applies preset tokens', () => {
@@ -166,16 +166,17 @@ describe('ThemeProvider', () => {
     );
     const root = getThemeRoot(container);
     expect(root.getAttribute('data-preset')).toBe('chatgpt');
-    expect(root.style.getPropertyValue('--primary')).toBe('#0d0d0d');
-    expect(root.style.getPropertyValue('--background')).toBe('#ffffff');
+    expect(root.style.getPropertyValue('--primary-button-bg')).toBe('#0d0d0d');
+    expect(root.style.getPropertyValue('--primary-bg')).toBe('#ffffff');
     expect(root.style.getPropertyValue('--font-agent-ui')).toBe(
       '"GeistSans", "GeistSans Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
     );
     expect(root.style.fontFamily).toBe('');
     expect(root.style.getPropertyValue('--radius')).toBe('1.5rem');
     expect(root.style.getPropertyValue('--composer-radius')).toBe('1.75rem');
-    expect(root.style.getPropertyValue('--user-bubble')).toBe('#e9e9e980');
-    expect(root.style.getPropertyValue('--user-bubble-foreground')).toBe('#0d0d0d');
+    expect(root.style.getPropertyValue('--user-message-bg')).toBe('#e9e9e980');
+    expect(root.style.getPropertyValue('--user-message-text')).toBe('#0d0d0d');
+    expect(root.style.getPropertyValue('--input-box-bg')).toBe('#ffffff');
   });
 
   it('applies chatgpt dark palette', () => {
@@ -185,12 +186,12 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     );
     const root = getThemeRoot(container);
-    expect(root.style.getPropertyValue('--background')).toBe('#000000');
-    expect(root.style.getPropertyValue('--card')).toBe('#212121');
-    expect(root.style.getPropertyValue('--primary')).toBe('#ffffff');
-    expect(root.style.getPropertyValue('--secondary')).toBe('#303030');
-    expect(root.style.getPropertyValue('--user-bubble')).toBe('#323232');
-    expect(root.style.getPropertyValue('--user-bubble-foreground')).toBe('#ffffff');
+    expect(root.style.getPropertyValue('--primary-bg')).toBe('#000000');
+    expect(root.style.getPropertyValue('--card-bg')).toBe('#212121');
+    expect(root.style.getPropertyValue('--primary-button-bg')).toBe('#ffffff');
+    expect(root.style.getPropertyValue('--secondary-bg')).toBe('#303030');
+    expect(root.style.getPropertyValue('--user-message-bg')).toBe('#323232');
+    expect(root.style.getPropertyValue('--user-message-text')).toBe('#ffffff');
   });
 
   it('applies claude palette', () => {
@@ -201,17 +202,17 @@ describe('ThemeProvider', () => {
     );
     const root = getThemeRoot(container);
     expect(root.getAttribute('data-preset')).toBe('claude');
-    expect(root.style.getPropertyValue('--background')).toBe('#f0ece0');
-    expect(root.style.getPropertyValue('--foreground')).toBe('#1a1a18');
-    expect(root.style.getPropertyValue('--card')).toBe('#ffffff');
-    expect(root.style.getPropertyValue('--primary')).toBe('#c96442');
+    expect(root.style.getPropertyValue('--primary-bg')).toBe('#f0ece0');
+    expect(root.style.getPropertyValue('--text-primary')).toBe('#1a1a18');
+    expect(root.style.getPropertyValue('--card-bg')).toBe('#ffffff');
+    expect(root.style.getPropertyValue('--primary-button-bg')).toBe('#c96442');
     expect(root.style.getPropertyValue('--font-agent-ui')).toBe(
       'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
     );
     expect(root.style.getPropertyValue('--radius')).toBe('1rem');
     expect(root.style.getPropertyValue('--composer-radius')).toBe('1rem');
-    expect(root.style.getPropertyValue('--user-bubble')).toBe('#e5e0d6');
-    expect(root.style.getPropertyValue('--user-bubble-foreground')).toBe('#1a1a18');
+    expect(root.style.getPropertyValue('--user-message-bg')).toBe('#e5e0d6');
+    expect(root.style.getPropertyValue('--user-message-text')).toBe('#1a1a18');
   });
 
   it('applies claude dark palette', () => {
@@ -221,12 +222,12 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     );
     const root = getThemeRoot(container);
-    expect(root.style.getPropertyValue('--background')).toBe('#2b2a27');
-    expect(root.style.getPropertyValue('--foreground')).toBe('#eeeeee');
-    expect(root.style.getPropertyValue('--card')).toBe('#1f1e1b');
-    expect(root.style.getPropertyValue('--primary')).toBe('#c96442');
-    expect(root.style.getPropertyValue('--user-bubble')).toBe('#3d3a35');
-    expect(root.style.getPropertyValue('--user-bubble-foreground')).toBe('#eeeeee');
+    expect(root.style.getPropertyValue('--primary-bg')).toBe('#2b2a27');
+    expect(root.style.getPropertyValue('--text-primary')).toBe('#eeeeee');
+    expect(root.style.getPropertyValue('--card-bg')).toBe('#1f1e1b');
+    expect(root.style.getPropertyValue('--primary-button-bg')).toBe('#c96442');
+    expect(root.style.getPropertyValue('--user-message-bg')).toBe('#3d3a35');
+    expect(root.style.getPropertyValue('--user-message-text')).toBe('#eeeeee');
   });
 
   it('applies gemini light palette', () => {
@@ -236,15 +237,15 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     );
     const root = getThemeRoot(container);
-    expect(root.style.getPropertyValue('--background')).toBe('#fdfcfc');
-    expect(root.style.getPropertyValue('--foreground')).toBe('#1f1f1f');
-    expect(root.style.getPropertyValue('--primary')).toBe('#1f3b9b');
+    expect(root.style.getPropertyValue('--primary-bg')).toBe('#fdfcfc');
+    expect(root.style.getPropertyValue('--text-primary')).toBe('#1f1f1f');
+    expect(root.style.getPropertyValue('--primary-button-bg')).toBe('#1f3b9b');
     expect(root.style.getPropertyValue('--font-agent-ui')).toBe(
       '"GeistSans", "GeistSans Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
     );
     expect(root.style.getPropertyValue('--radius')).toBe('1rem');
     expect(root.style.getPropertyValue('--composer-radius')).toBe('2rem');
-    expect(root.style.getPropertyValue('--user-bubble')).toBe('#f3f6fc');
+    expect(root.style.getPropertyValue('--user-message-bg')).toBe('#f3f6fc');
   });
 
   it('applies gemini dark palette', () => {
@@ -254,12 +255,12 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     );
     const root = getThemeRoot(container);
-    expect(root.style.getPropertyValue('--background')).toBe('#0c0c0c');
-    expect(root.style.getPropertyValue('--card')).toBe('#1e1f20');
-    expect(root.style.getPropertyValue('--primary')).toBe('#a8c7fa');
-    expect(root.style.getPropertyValue('--primary-foreground')).toBe('#062e6f');
-    expect(root.style.getPropertyValue('--ring')).toBe('#a8c7fa');
-    expect(root.style.getPropertyValue('--user-bubble')).toBe('#222327');
+    expect(root.style.getPropertyValue('--primary-bg')).toBe('#0c0c0c');
+    expect(root.style.getPropertyValue('--card-bg')).toBe('#1e1f20');
+    expect(root.style.getPropertyValue('--primary-button-bg')).toBe('#a8c7fa');
+    expect(root.style.getPropertyValue('--primary-button-text')).toBe('#062e6f');
+    expect(root.style.getPropertyValue('--focus-ring')).toBe('#a8c7fa');
+    expect(root.style.getPropertyValue('--user-message-bg')).toBe('#222327');
   });
 
   it('preserves the semibold TrueFoundry welcome heading', () => {

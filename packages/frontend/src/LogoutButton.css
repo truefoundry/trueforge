@@ -25,17 +25,17 @@
 .harness-logout-cancel {
   border: 1px solid var(--border);
   background: transparent;
-  color: var(--foreground);
+  color: var(--text-primary);
 }
 
 .harness-logout-cancel:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
 }
 
 .harness-logout-submit {
   border: 0;
-  background: var(--destructive);
-  color: var(--destructive-foreground, #fff);
+  background: var(--failure-bg);
+  color: var(--failure-text);
 }
 
 .harness-logout-submit:hover:not(:disabled) {
