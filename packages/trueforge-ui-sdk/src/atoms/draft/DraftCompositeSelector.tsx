@@ -1,24 +1,21 @@
-"use client";
+'use client';
 
-import {
-  useTrueFoundryAgentSpec,
-  useTrueFoundryUpdateAgentSpec,
-} from "@truefoundry/assistant-ui-runtime";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefoundry/assistant-ui-runtime';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import { useMCPAuth } from "../../hooks/useMcpAuth.js";
-import { Icon } from "../../icons/Icon.js";
-import { useServerCapabilities } from "../../server/ServerContext.js";
-import type { AgentSkill, ConnectorState } from "../../server/types.js";
-import { auiButtonClass } from "../lib/buttonClasses.js";
-import { cn } from "../lib/cn.js";
-import { useCompactLayout } from "../lib/CompactLayoutContext.js";
-import { useIsMobile } from "../lib/useIsMobile.js";
-import { BottomSheet } from "../primitives/BottomSheet.js";
-import { Tooltip } from "../primitives/Tooltip.js";
-import { readAgentCapabilities, withAgentCapabilities } from "./agentCapabilities.js";
-import { DraftCapabilitiesPanel } from "./DraftCapabilitiesPanel.js";
-import { useDraftCatalog } from "./DraftCatalogProvider.js";
+import { useMCPAuth } from '../../hooks/useMcpAuth.js';
+import { Icon } from '../../icons/Icon.js';
+import { useServerCapabilities } from '../../server/ServerContext.js';
+import type { AgentSkill, ConnectorState } from '../../server/types.js';
+import { auiButtonClass } from '../lib/buttonClasses.js';
+import { cn } from '../lib/cn.js';
+import { useCompactLayout } from '../lib/CompactLayoutContext.js';
+import { useIsMobile } from '../lib/useIsMobile.js';
+import { BottomSheet } from '../primitives/BottomSheet.js';
+import { Tooltip } from '../primitives/Tooltip.js';
+import { readAgentCapabilities, withAgentCapabilities } from './agentCapabilities.js';
+import { DraftCapabilitiesPanel } from './DraftCapabilitiesPanel.js';
+import { useDraftCatalog } from './DraftCatalogProvider.js';
 
 /** Catalog-backed mount shape used by the draft picker (runtime mounts stay opaque). */
 export type DraftMount = { id: string; name: string };
@@ -32,20 +29,20 @@ export function draftMountsFromSpec(value: unknown): DraftMount[] {
   if (!Array.isArray(value)) return [];
   const mounts: DraftMount[] = [];
   for (const item of value) {
-    if (typeof item !== "object" || item === null) continue;
-    const name = Reflect.get(item, "name");
-    if (typeof name !== "string") continue;
-    const id = Reflect.get(item, "id");
-    mounts.push({ id: typeof id === "string" ? id : name, name });
+    if (typeof item !== 'object' || item === null) continue;
+    const name = Reflect.get(item, 'name');
+    if (typeof name !== 'string') continue;
+    const id = Reflect.get(item, 'id');
+    mounts.push({ id: typeof id === 'string' ? id : name, name });
   }
   return mounts;
 }
-type AttachTab = "connectors" | "skills" | "capabilities";
+type AttachTab = 'connectors' | 'skills' | 'capabilities';
 
 const TABS: { id: AttachTab; label: string; icon: string }[] = [
-  { id: "connectors", label: "Connectors", icon: "plug" },
-  { id: "skills", label: "Skills", icon: "lightbulb" },
-  { id: "capabilities", label: "Capabilities", icon: "wrench" },
+  { id: 'connectors', label: 'Connectors', icon: 'plug' },
+  { id: 'skills', label: 'Skills', icon: 'lightbulb' },
+  { id: 'capabilities', label: 'Capabilities', icon: 'wrench' },
 ];
 
 const SPEC_FLUSH_MS = 300;
@@ -54,10 +51,10 @@ function Checkbox({ checked }: { checked: boolean }) {
   return (
     <span
       className={cn(
-        "flex size-4 shrink-0 items-center justify-center rounded border",
+        'flex size-4 shrink-0 items-center justify-center rounded border',
         checked
-          ? "border-primary-button-bg bg-primary-button-bg text-primary-button-text"
-          : "border-input-border bg-input-box-bg",
+          ? 'border-primary-button-bg bg-primary-button-bg text-primary-button-text'
+          : 'border-input-border bg-input-box-bg',
       )}
       aria-hidden
     >
@@ -88,9 +85,7 @@ export function CatalogRow({
       </span>
       <span className="min-w-0 flex-1">
         <span className="text-text-primary block truncate text-sm font-medium">{title}</span>
-        {description ? (
-          <span className="text-text-secondary line-clamp-1 text-xs">{description}</span>
-        ) : null}
+        {description ? <span className="text-text-secondary line-clamp-1 text-xs">{description}</span> : null}
       </span>
     </>
   );
@@ -103,8 +98,8 @@ export function CatalogRow({
         tabIndex={0}
         className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left"
         onClick={onToggle}
-        onKeyDown={(event) => {
-          if (event.key !== "Enter" && event.key !== " ") return;
+        onKeyDown={event => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
           event.preventDefault();
           onToggle();
         }}
@@ -126,22 +121,18 @@ export function CatalogRow({
       onClick={onToggle}
     >
       {content}
-      {disabled ? (
-        <Icon name="lock" className="text-text-secondary size-3" />
-      ) : (
-        <Checkbox checked={checked} />
-      )}
+      {disabled ? <Icon name="lock" className="text-text-secondary size-3" /> : <Checkbox checked={checked} />}
     </button>
   );
 }
 
 export function isUnauthenticatedDcrConnector(connector: ConnectorState): boolean {
-  const auth = Reflect.get(connector, "auth");
+  const auth = Reflect.get(connector, 'auth');
   return (
     connector.authenticated === false &&
-    typeof auth === "object" &&
+    typeof auth === 'object' &&
     auth !== null &&
-    Reflect.get(auth, "type") === "dcr"
+    Reflect.get(auth, 'type') === 'dcr'
   );
 }
 
@@ -159,18 +150,18 @@ export function ConnectorConnectButton({
       type="button"
       aria-label={`Connect ${connector.name}`}
       disabled={isOAuthLoading}
-      className={auiButtonClass({ variant: "secondary", size: "sm" })}
-      onKeyDown={(event) => {
+      className={auiButtonClass({ variant: 'secondary', size: 'sm' })}
+      onKeyDown={event => {
         event.stopPropagation();
       }}
-      onClick={(event) => {
+      onClick={event => {
         event.stopPropagation();
-        void handleAuthorize(connector.id, (isSuccess) => {
+        void handleAuthorize(connector.id, isSuccess => {
           if (isSuccess) void onConnected();
         });
       }}
     >
-      {isOAuthLoading ? "Connecting..." : "Connect"}
+      {isOAuthLoading ? 'Connecting...' : 'Connect'}
     </button>
   );
 }
@@ -193,7 +184,7 @@ function SearchField({
       <input
         type="search"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         className="border-input-border bg-secondary-bg/40 text-text-primary placeholder:text-text-secondary h-8 w-full rounded-md border-0 py-1 pr-2 pl-7 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40"
       />
@@ -215,18 +206,14 @@ function SectionHeading({ label, count }: { label: string; count: number }) {
   );
 }
 
-export function DraftCompositeSelector({
-  disabled,
-  isRunning,
-  onAttach,
-}: DraftCompositeSelectorProps) {
+export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
   const { skills, connectors, ensureLoaded, refreshConnectors } = useDraftCatalog();
   const capabilities = useServerCapabilities();
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<AttachTab>("connectors");
-  const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<AttachTab>('connectors');
+  const [query, setQuery] = useState('');
   // Section membership is snapped when the picker opens, so toggles don't jump rows mid-session.
   const [pinnedMcpIds, setPinnedMcpIds] = useState<Set<string>>(() => new Set());
   const [pinnedSkillIds, setPinnedSkillIds] = useState<Set<string>>(() => new Set());
@@ -247,19 +234,13 @@ export function DraftCompositeSelector({
   const skillsDisabled = capabilities?.skill.enabled !== true;
   const skillsDisabledReason = capabilities?.skill.reason;
 
-  const specMcp = useMemo(
-    () => draftMountsFromSpec(agentSpec?.mcpServers),
-    [agentSpec?.mcpServers],
-  );
+  const specMcp = useMemo(() => draftMountsFromSpec(agentSpec?.mcpServers), [agentSpec?.mcpServers]);
   const specSkills = useMemo(() => draftMountsFromSpec(agentSpec?.skills), [agentSpec?.skills]);
 
   const selectedMcp = open ? localMcp : specMcp;
   const selectedSkills = open ? localSkills : specSkills;
-  const selectedMcpIds = useMemo(() => new Set(selectedMcp.map((m) => m.id)), [selectedMcp]);
-  const selectedSkillIds = useMemo(
-    () => new Set(selectedSkills.map((s) => s.id)),
-    [selectedSkills],
-  );
+  const selectedMcpIds = useMemo(() => new Set(selectedMcp.map(m => m.id)), [selectedMcp]);
+  const selectedSkillIds = useMemo(() => new Set(selectedSkills.map(s => s.id)), [selectedSkills]);
   const hasValidModel = Boolean(agentSpec?.model?.name.trim());
   const toolsCount = selectedMcp.length + selectedSkills.length;
 
@@ -315,11 +296,11 @@ export function DraftCompositeSelector({
         setOpenAndFlush(false);
       }
     };
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("focusin", handler);
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('focusin', handler);
     return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("focusin", handler);
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('focusin', handler);
     };
   }, [open, setOpenAndFlush]);
 
@@ -329,14 +310,11 @@ export function DraftCompositeSelector({
     const needle = query.trim().toLowerCase();
     const matches = needle
       ? connectors.filter(
-          (c) =>
-            c.name.toLowerCase().includes(needle) ||
-            (c.description?.toLowerCase().includes(needle) ?? false),
+          c => c.name.toLowerCase().includes(needle) || (c.description?.toLowerCase().includes(needle) ?? false),
         )
       : connectors;
     return [...matches].sort(
-      (left, right) =>
-        Number(isUnauthenticatedDcrConnector(left)) - Number(isUnauthenticatedDcrConnector(right)),
+      (left, right) => Number(isUnauthenticatedDcrConnector(left)) - Number(isUnauthenticatedDcrConnector(right)),
     );
   }, [connectors, query]);
 
@@ -344,33 +322,31 @@ export function DraftCompositeSelector({
     const needle = query.trim().toLowerCase();
     if (!needle) return skills;
     return skills.filter(
-      (s) =>
-        s.name.toLowerCase().includes(needle) ||
-        (s.description?.toLowerCase().includes(needle) ?? false),
+      s => s.name.toLowerCase().includes(needle) || (s.description?.toLowerCase().includes(needle) ?? false),
     );
   }, [skills, query]);
 
   const pinnedSelectedConnectors = useMemo(
-    () => filteredConnectors.filter((c) => pinnedMcpIds.has(c.id)),
+    () => filteredConnectors.filter(c => pinnedMcpIds.has(c.id)),
     [filteredConnectors, pinnedMcpIds],
   );
   const pinnedAvailableConnectors = useMemo(
-    () => filteredConnectors.filter((c) => !pinnedMcpIds.has(c.id)),
+    () => filteredConnectors.filter(c => !pinnedMcpIds.has(c.id)),
     [filteredConnectors, pinnedMcpIds],
   );
   const pinnedSelectedSkills = useMemo(
-    () => filteredSkills.filter((s) => pinnedSkillIds.has(s.id)),
+    () => filteredSkills.filter(s => pinnedSkillIds.has(s.id)),
     [filteredSkills, pinnedSkillIds],
   );
   const pinnedAvailableSkills = useMemo(
-    () => filteredSkills.filter((s) => !pinnedSkillIds.has(s.id)),
+    () => filteredSkills.filter(s => !pinnedSkillIds.has(s.id)),
     [filteredSkills, pinnedSkillIds],
   );
 
   const toggleConnector = (connector: ConnectorState) => {
-    setLocalMcp((prev) =>
-      prev.some((m) => m.id === connector.id)
-        ? prev.filter((m) => m.id !== connector.id)
+    setLocalMcp(prev =>
+      prev.some(m => m.id === connector.id)
+        ? prev.filter(m => m.id !== connector.id)
         : [...prev, { id: connector.id, name: connector.name }],
     );
     dirtyRef.current = true;
@@ -378,9 +354,9 @@ export function DraftCompositeSelector({
   };
 
   const toggleSkill = (skill: AgentSkill) => {
-    setLocalSkills((prev) =>
-      prev.some((s) => s.id === skill.id)
-        ? prev.filter((s) => s.id !== skill.id)
+    setLocalSkills(prev =>
+      prev.some(s => s.id === skill.id)
+        ? prev.filter(s => s.id !== skill.id)
         : [...prev, { id: skill.id, name: skill.name }],
     );
     dirtyRef.current = true;
@@ -390,40 +366,35 @@ export function DraftCompositeSelector({
   const openPicker = (nextTab?: AttachTab) => {
     if (nextTab != null) {
       setTab(nextTab);
-      setQuery("");
+      setQuery('');
     }
     if (open) return;
     setLocalMcp(specMcp);
     setLocalSkills(specSkills);
     dirtyRef.current = false;
     clearFlushTimer();
-    setPinnedMcpIds(new Set(specMcp.map((m) => m.id)));
-    setPinnedSkillIds(new Set(specSkills.map((s) => s.id)));
+    setPinnedMcpIds(new Set(specMcp.map(m => m.id)));
+    setPinnedSkillIds(new Set(specSkills.map(s => s.id)));
     setOpen(true);
   };
 
   const content = (
     <>
       <div className="flex shrink-0 border-b border-border">
-        {TABS.map((t) => {
-          const count =
-            t.id === "connectors"
-              ? selectedMcp.length
-              : t.id === "skills"
-                ? selectedSkills.length
-                : null;
+        {TABS.map(t => {
+          const count = t.id === 'connectors' ? selectedMcp.length : t.id === 'skills' ? selectedSkills.length : null;
           const active = tab === t.id;
           return (
             <button
               key={t.id}
               type="button"
               className={cn(
-                "text-text-secondary flex flex-1 items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-medium",
-                active && "text-text-primary border-b-2 border-text-primary",
+                'text-text-secondary flex flex-1 items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-medium',
+                active && 'text-text-primary border-b-2 border-text-primary',
               )}
               onClick={() => {
                 setTab(t.id);
-                setQuery("");
+                setQuery('');
               }}
             >
               <Icon name={t.icon} className="size-3.5" />
@@ -436,12 +407,12 @@ export function DraftCompositeSelector({
         })}
       </div>
 
-      {tab === "capabilities" ? (
+      {tab === 'capabilities' ? (
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           <DraftCapabilitiesPanel
             value={readAgentCapabilities(agentSpec?.config)}
             disabled={disabled || isRunning}
-            onChange={(values) => {
+            onChange={values => {
               // Capability writes bypass the mount debounce. Fold in any dirty
               // local mounts in the same update so a pending connector/skill
               // toggle is not overwritten by a config-only sync.
@@ -451,9 +422,7 @@ export function DraftCompositeSelector({
                 dirtyRef.current = false;
               }
               updateAgentSpec?.({
-                ...(includeLocalMounts
-                  ? { mcpServers: localMcpRef.current, skills: localSkillsRef.current }
-                  : {}),
+                ...(includeLocalMounts ? { mcpServers: localMcpRef.current, skills: localSkillsRef.current } : {}),
                 config: withAgentCapabilities({ config: agentSpec?.config, values }),
               });
             }}
@@ -464,9 +433,9 @@ export function DraftCompositeSelector({
           <SearchField
             value={query}
             onChange={setQuery}
-            placeholder={tab === "connectors" ? "Search connectors..." : "Search skills..."}
+            placeholder={tab === 'connectors' ? 'Search connectors...' : 'Search skills...'}
           />
-          {tab === "skills" && skillsDisabled && skillsDisabledReason ? (
+          {tab === 'skills' && skillsDisabled && skillsDisabledReason ? (
             <div
               role="status"
               className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-center gap-2 rounded-lg border p-3"
@@ -476,12 +445,12 @@ export function DraftCompositeSelector({
             </div>
           ) : null}
           <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
-            {tab === "connectors" ? (
+            {tab === 'connectors' ? (
               <>
                 {pinnedSelectedConnectors.length > 0 ? (
                   <>
                     <SectionHeading label="Selected" count={pinnedSelectedConnectors.length} />
-                    {pinnedSelectedConnectors.map((c) => (
+                    {pinnedSelectedConnectors.map(c => (
                       <CatalogRow
                         key={c.id}
                         title={c.name}
@@ -500,7 +469,7 @@ export function DraftCompositeSelector({
                 {pinnedAvailableConnectors.length > 0 ? (
                   <>
                     <SectionHeading label="Available" count={pinnedAvailableConnectors.length} />
-                    {pinnedAvailableConnectors.map((c) => (
+                    {pinnedAvailableConnectors.map(c => (
                       <CatalogRow
                         key={c.id}
                         title={c.name}
@@ -522,7 +491,7 @@ export function DraftCompositeSelector({
                 {pinnedSelectedSkills.length > 0 ? (
                   <>
                     <SectionHeading label="Selected" count={pinnedSelectedSkills.length} />
-                    {pinnedSelectedSkills.map((s) => (
+                    {pinnedSelectedSkills.map(s => (
                       <CatalogRow
                         key={s.id}
                         title={s.name}
@@ -537,7 +506,7 @@ export function DraftCompositeSelector({
                 {pinnedAvailableSkills.length > 0 ? (
                   <>
                     <SectionHeading label="Available" count={pinnedAvailableSkills.length} />
-                    {pinnedAvailableSkills.map((s) => (
+                    {pinnedAvailableSkills.map(s => (
                       <CatalogRow
                         key={s.id}
                         title={s.name}
@@ -568,9 +537,9 @@ export function DraftCompositeSelector({
           aria-expanded={open}
           aria-controls={open ? menuId : undefined}
           className={auiButtonClass({
-            variant: "ghost",
-            size: "sm",
-            className: "h-8 gap-1.5 rounded-md px-2 text-xs",
+            variant: 'ghost',
+            size: 'sm',
+            className: 'h-8 gap-1.5 rounded-md px-2 text-xs',
           })}
           onClick={() => {
             if (open) {
@@ -594,7 +563,7 @@ export function DraftCompositeSelector({
             type="button"
             disabled={disabled || isRunning}
             aria-label="Attach a file"
-            className={auiButtonClass({ variant: "ghost", size: "icon" })}
+            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
             onClick={onAttach}
           >
             <Icon name="paperclip" />
@@ -622,7 +591,7 @@ export function DraftCompositeSelector({
   );
 }
 
-declare module "../../theme/SlotsProvider.js" {
+declare module '../../theme/SlotsProvider.js' {
   interface AtomSlots {
     DraftCompositeSelector: typeof DraftCompositeSelector;
   }
