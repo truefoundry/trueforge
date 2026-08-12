@@ -98,19 +98,28 @@ export function AgentHistoryFilterButton() {
           </p>
         ) : null}
       </div>
-      <div ref={listRef} className={cn('mt-1 overflow-y-auto', useSheet ? 'min-h-0 flex-1 px-1 pb-2' : 'max-h-64')}>
-        <DropdownMenuItem
-          className={cn(
-            'justify-between',
-            selected == null && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
-          )}
-          onClick={() => pick(null)}
-        >
-          All chats
-          {selected == null ? <Icon name="check" className="size-3.5 shrink-0" /> : null}
-        </DropdownMenuItem>
+      <div
+        ref={listRef}
+        className={cn('mt-1 overflow-y-auto', useSheet ? 'min-h-0 flex-1 px-1 pb-2' : 'min-h-48 max-h-64')}
+      >
+        {query.trim() === '' ? (
+          <DropdownMenuItem
+            className={cn(
+              'justify-between',
+              selected == null && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
+            )}
+            onClick={() => pick(null)}
+          >
+            All chats
+            {selected == null ? <Icon name="check" className="size-3.5 shrink-0" /> : null}
+          </DropdownMenuItem>
+        ) : null}
         {isInitialLoading ? (
           <p className="px-2 py-3 text-center text-xs text-text-secondary">Loading…</p>
+        ) : agents.length === 0 ? (
+          <p className="text-text-secondary px-2 py-6 text-center text-xs" role="status">
+            {query.trim() ? `No agents match "${query.trim()}".` : 'No agents yet.'}
+          </p>
         ) : (
           <>
             {agents.map(agent => {
