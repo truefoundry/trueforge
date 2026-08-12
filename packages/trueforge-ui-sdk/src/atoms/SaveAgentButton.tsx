@@ -66,6 +66,7 @@ export function SaveAgentButton() {
       await server.saveAgent({
         agentName,
         agentSpec: savedSpec,
+        intent: isUpdate ? 'update' : 'create',
       });
       // Same draft chat continues as editable agent — do not remount via selectLibraryAgent.
       shell.bindMutableAgent({

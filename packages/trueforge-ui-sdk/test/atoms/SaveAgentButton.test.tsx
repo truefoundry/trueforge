@@ -91,6 +91,7 @@ describe('SaveAgentButton', () => {
           skills: [{ id: 's1', name: 'Skill One' }],
           instructions: 'You write release notes.',
         },
+        intent: 'create',
       });
     });
     await waitFor(() => {

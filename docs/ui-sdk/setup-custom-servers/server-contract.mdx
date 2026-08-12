@@ -246,7 +246,7 @@ The remaining methods return the minimum each selector renders:
   Return a non-empty `reasoningEfforts` on a `ModelSelection` and the UI shows a reasoning-effort picker beside the model selector. On `AgentLibraryEntry`, `agentId` is the stable identifier used for selection, history filtering, and session binding — it is required even when it matches the display `name`. Supply `agentSpec` to enable Edit; omit it for try-only agents.
 </Note>
 
-`SearchAgentsParams` is `{ query?, limit?, offset? }` — offset paging, since it backs a search box rather than an infinite list. `SaveAgentRequest` is `{ agentName, agentSpec }`, and its return value is passed through untyped.
+`SearchAgentsParams` is `{ query?, limit?, offset? }` — offset paging, since it backs a search box rather than an infinite list. `SaveAgentRequest` is `{ agentName, agentSpec, intent, sessionId? }`, where `intent` is `"create"` for a new agent and `"update"` when the chat is already bound to one, and its return value is passed through untyped.
 
 ## AgentSpec
 
