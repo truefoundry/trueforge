@@ -144,7 +144,7 @@ describe('settings model-providers and models routers', () => {
     expect(badName.status).toBe(400);
   });
 
-  it('GET /models returns the FQN read view', async () => {
+  it('GET /models returns the FQN read view with provider.name', async () => {
     const response = await modelsRouter.request('/');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
@@ -152,11 +152,13 @@ describe('settings model-providers and models routers', () => {
         {
           name: 'anthropic/claude-sonnet-4-6',
           model_id: 'claude-sonnet-4-6',
+          provider: { name: 'anthropic' },
           properties: model.properties,
         },
         {
           name: 'internal/claude-sonnet-4-6',
           model_id: 'claude-sonnet-4-6',
+          provider: { name: 'internal' },
           properties: model.properties,
         },
       ],
