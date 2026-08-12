@@ -16,8 +16,6 @@ import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
 
-type RichModel = ModelSelection & { apiModel?: string; modelId?: string };
-
 function monogram(value: string): string {
   const trimmed = value.trim();
   return trimmed ? trimmed.charAt(0).toUpperCase() : '?';
@@ -30,7 +28,7 @@ function ProviderMark({ logo, label, className }: { logo?: string; label: string
   return (
     <span
       className={cn(
-        'bg-muted text-muted-foreground flex shrink-0 items-center justify-center rounded font-semibold',
+        'bg-secondary-bg text-text-secondary flex shrink-0 items-center justify-center rounded font-semibold',
         className,
       )}
       aria-hidden
@@ -45,8 +43,28 @@ function displayModelLabel(modelName: string): string {
   return slash >= 0 ? modelName.slice(slash + 1) : modelName;
 }
 
-function modelValue(model: RichModel): string {
-  return model.apiModel ?? model.name;
+type ProviderSection = {
+  name: string;
+  logo?: string;
+  models: ModelSelection[];
+};
+
+function groupModelsByProvider(models: ModelSelection[]): ProviderSection[] {
+  const sections: ProviderSection[] = [];
+  const byProvider = new Map<string, ProviderSection>();
+  for (const model of models) {
+    const name = model.provider.name.trim() || 'Other';
+    const existing = byProvider.get(name);
+    if (existing) {
+      existing.models.push(model);
+      if (!existing.logo && model.provider.logo) existing.logo = model.provider.logo;
+      continue;
+    }
+    const section: ProviderSection = { name, logo: model.provider.logo, models: [model] };
+    byProvider.set(name, section);
+    sections.push(section);
+  }
+  return sections;
 }
 
 export type DraftModelSelectorProps = {
@@ -55,8 +73,7 @@ export type DraftModelSelectorProps = {
 };
 
 export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorProps) {
-  const { models: rawModels, loading, ensureLoaded } = useDraftCatalog();
-  const models = rawModels as RichModel[];
+  const { models, loading, ensureLoaded } = useDraftCatalog();
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
   const catalog = useOptionalCatalogServer();
@@ -80,10 +97,10 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     if (!updateAgentSpec || loading || models.length === 0) return;
     const first = models[0];
     if (first === undefined) return;
-    const firstValue = modelValue(first);
+    const firstValue = first.name;
     const currentName = agentSpec?.model?.name?.trim() ?? '';
     if (currentName) {
-      const inCatalog = models.some(m => modelValue(m) === currentName || m.name === currentName);
+      const inCatalog = models.some(m => m.name === currentName);
       if (inCatalog) {
         seededDefaultModelRef.current = null;
         return;
@@ -92,14 +109,14 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     if (seededDefaultModelRef.current === firstValue) return;
     seededDefaultModelRef.current = firstValue;
     updateAgentSpec({
-      model: modelPatchWithReasoningEffort(firstValue, agentSpec?.model?.params, first.reasoningEfforts),
+      model: modelPatchWithReasoningEffort(firstValue, agentSpec?.model?.params, first.properties.reasoningEfforts),
     });
   }, [updateAgentSpec, loading, models, agentSpec?.model?.name, agentSpec?.model?.params]);
 
-  const selectedName = agentSpec?.model?.name ?? (models[0] ? modelValue(models[0]) : '');
-  const selected = models.find(m => modelValue(m) === selectedName || m.name === selectedName);
+  const selectedName = agentSpec?.model?.name ?? models[0]?.name ?? '';
+  const selected = models.find(m => m.name === selectedName);
   const label = selected
-    ? displayModelLabel(modelValue(selected))
+    ? displayModelLabel(selected.name)
     : selectedName
       ? displayModelLabel(selectedName)
       : loading
@@ -112,11 +129,12 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     return models.filter(
       m =>
         m.name.toLowerCase().includes(needle) ||
-        (m.apiModel?.toLowerCase().includes(needle) ?? false) ||
-        (m.modelId?.toLowerCase().includes(needle) ?? false) ||
-        m.provider.toLowerCase().includes(needle),
+        m.id.toLowerCase().includes(needle) ||
+        m.provider.name.toLowerCase().includes(needle),
     );
   }, [models, query]);
+
+  const sections = useMemo(() => groupModelsByProvider(filtered), [filtered]);
 
   useEffect(() => {
     if (!open) return;
@@ -129,23 +147,23 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const account = selected?.provider ?? selectedName;
+  const account = selected?.provider.name ?? selectedName;
 
   const content = (
     <>
       <div className="border-b border-border px-3 py-2">
-        <p className="text-foreground mb-2 text-sm font-semibold">Select model</p>
+        <p className="text-text-primary mb-2 text-sm font-semibold">Select model</p>
         <label className="relative block">
           <Icon
             name="search"
-            className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2"
+            className="text-text-secondary pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2"
           />
           <input
             type="search"
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search"
-            className="border-input bg-background placeholder:text-muted-foreground h-8 w-full rounded-md border py-1 pr-2 pl-7 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="border-input-border bg-input-box-bg text-text-primary placeholder:text-text-secondary h-8 w-full rounded-md border py-1 pr-2 pl-7 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40"
             autoFocus
           />
         </label>
@@ -160,7 +178,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
           showConfigureSettingsCta ? (
             <button
               type="button"
-              className="text-muted-foreground hover:text-foreground flex w-full items-center justify-center gap-1 px-2 py-4 text-center text-sm"
+              className="text-text-secondary hover:text-text-primary flex w-full items-center justify-center gap-1 px-2 py-4 text-center text-sm"
               onClick={() => {
                 setOpen(false);
                 setQuery('');
@@ -173,39 +191,57 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
               <Icon name="chevron-right" className="size-3.5 shrink-0" />
             </button>
           ) : (
-            <p className="text-muted-foreground px-2 py-4 text-center text-sm">No models</p>
+            <p className="text-text-secondary px-2 py-4 text-center text-sm">No models</p>
           )
         ) : (
-          filtered.map(model => {
-            const value = modelValue(model);
-            // If there is no selected model, consider the first in the filtered list as active
-            const active = selectedName ? value === selectedName || model.name === selectedName : filtered[0] === model;
-
+          sections.map((section, sectionIndex) => {
+            const headingId = `${menuId}-provider-${sectionIndex}`;
             return (
-              <button
-                key={value || model.modelId || model.name}
-                type="button"
-                role="option"
-                aria-selected={active}
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm',
-                  active ? 'bg-accent' : 'hover:bg-accent/60',
-                )}
-                onClick={() => {
-                  updateAgentSpec?.({
-                    model: modelPatchWithReasoningEffort(value, agentSpec?.model?.params, model.reasoningEfforts),
-                  });
-                  setOpen(false);
-                  setQuery('');
-                }}
+              <div
+                key={section.name}
+                role="group"
+                aria-labelledby={headingId}
+                className={cn(sectionIndex > 0 && 'mt-2')}
               >
-                <ProviderMark
-                  logo={model.providerLogo}
-                  label={model.provider || model.name}
-                  className="size-5 text-xs"
-                />
-                <span className="truncate font-medium">{displayModelLabel(value)}</span>
-              </button>
+                <div
+                  id={headingId}
+                  className="text-text-secondary flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium tracking-wide uppercase"
+                >
+                  <ProviderMark logo={section.logo} label={section.name} className="size-3.5 text-[9px]" />
+                  <span className="truncate">{section.name}</span>
+                </div>
+                {section.models.map(model => {
+                  // If there is no selected model, consider the first in the filtered list as active
+                  const active = selectedName ? model.name === selectedName : filtered[0] === model;
+                  return (
+                    <button
+                      key={model.id || model.name}
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      className={cn(
+                        'flex w-full items-center rounded-md px-2 py-2 text-left text-sm',
+                        active
+                          ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
+                          : 'hover:bg-ghost-button-hover',
+                      )}
+                      onClick={() => {
+                        updateAgentSpec?.({
+                          model: modelPatchWithReasoningEffort(
+                            model.name,
+                            agentSpec?.model?.params,
+                            model.properties.reasoningEfforts,
+                          ),
+                        });
+                        setOpen(false);
+                        setQuery('');
+                      }}
+                    >
+                      <span className="truncate font-medium">{displayModelLabel(model.name)}</span>
+                    </button>
+                  );
+                })}
+              </div>
             );
           })
         )}
@@ -225,11 +261,11 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
         className={auiButtonClass({
           variant: 'ghost',
           size: 'sm',
-          className: cn('h-8 max-w-48 gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-accent'),
+          className: cn('h-8 max-w-48 gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-ghost-button-hover'),
         })}
         onClick={() => setOpen(v => !v)}
       >
-        <ProviderMark logo={selected?.providerLogo} label={account} className="size-5 text-[10px]" />
+        <ProviderMark logo={selected?.provider.logo} label={account} className="size-4 text-xs" />
         <span className="truncate">{label}</span>
         <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
       </button>
@@ -240,7 +276,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
             {content}
           </BottomSheet>
         ) : (
-          <div className="bg-popover text-popover-foreground absolute right-0 bottom-full z-50 mb-2 flex max-h-[22rem] w-[18rem] flex-col overflow-hidden rounded-lg border border-border shadow-lg">
+          <div className="bg-card-bg text-text-primary absolute right-0 bottom-full z-50 mb-2 flex max-h-[22rem] w-[18rem] flex-col overflow-hidden rounded-lg border border-border shadow-lg">
             {content}
           </div>
         )

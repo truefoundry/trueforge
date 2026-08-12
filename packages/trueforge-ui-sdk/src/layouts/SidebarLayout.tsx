@@ -142,7 +142,7 @@ export function SidebarLayout({ className }: { className?: string }) {
             Desktop keeps shell chrome in the aside footer (always mounted). */}
         <header
           className={cn(
-            'flex shrink-0 items-center gap-1 border-b border-border bg-background px-2 py-1.5',
+            'flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
             // Desktop: hide when settings/idle or the thread header has nothing to show
             // (empty untitled draft). Mobile still needs Sessions + ShellActions.
             (settingsOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
