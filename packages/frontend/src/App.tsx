@@ -155,7 +155,6 @@ export function App() {
           brand: {
             name: 'TrueForge',
           },
-          devTokens: true,
         }}
         layout="sidebar"
         agentConfig={{

@@ -5,7 +5,8 @@ export type AuiButtonSize = 'default' | 'sm' | 'lg' | 'icon';
 
 const variantClasses: Record<AuiButtonVariant, string> = {
   default: 'bg-primary-button-bg text-primary-button-text shadow hover:bg-primary-button-hover',
-  secondary: 'bg-secondary-button-bg text-secondary-button-text shadow-sm hover:bg-secondary-button-hover',
+  secondary:
+    'border border-input-border bg-secondary-button-bg text-secondary-button-text shadow-sm hover:bg-secondary-button-hover',
   ghost: 'bg-ghost-button-bg text-ghost-button-text hover:bg-ghost-button-hover',
   destructive: 'bg-failure-bg text-failure-text shadow-sm hover:bg-failure-bg/90',
   outline:

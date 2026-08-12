@@ -112,12 +112,6 @@ export type ContentClassNames = {
   };
 };
 
-/** Runtime token edits applied on top of the preset + host `theme.tokens`, per resolved mode. */
-export type TokenOverrides = {
-  light?: Partial<SemanticTokens>;
-  dark?: Partial<SemanticTokens>;
-};
-
 export type ThemeConfig = {
   preset?: ThemePreset;
   mode?: ThemeMode;
@@ -126,8 +120,6 @@ export type ThemeConfig = {
   className?: string;
   icons?: IconMap;
   classNames?: ContentClassNames;
-  /** Show the "Tokens (For Dev)" editor in the shell footer. Off by default. */
-  devTokens?: boolean;
 };
 
 export type BuiltInLayout = 'sidebar' | 'drawer' | 'dock' | 'widget';
@@ -174,123 +166,4 @@ export const TOKEN_CSS_VARS: Record<keyof SemanticTokens, string> = {
   overlay: '--overlay',
   shadowColor: '--shadow-color',
   scrollbarThumb: '--scrollbar-thumb',
-};
-
-/**
- * Color tokens exposed in the designer token editor.
- * Excludes non-color keys and internal extras (`overlay`, `shadowColor`, `focusRing`, radii).
- */
-export type EditableTokenKey =
-  | 'sidebarBg'
-  | 'topbarBg'
-  | 'primaryBg'
-  | 'secondaryBg'
-  | 'border'
-  | 'inputBoxBg'
-  | 'inputBorder'
-  | 'textPrimary'
-  | 'textSecondary'
-  | 'cardBg'
-  | 'dropdownSelectedItemBg'
-  | 'dropdownSelectedItemText'
-  | 'userMessageBg'
-  | 'userMessageText'
-  | 'assistantMessageBg'
-  | 'assistantMessageText'
-  | 'primaryButtonBg'
-  | 'primaryButtonHover'
-  | 'primaryButtonText'
-  | 'secondaryButtonBg'
-  | 'secondaryButtonHover'
-  | 'secondaryButtonText'
-  | 'ghostButtonBg'
-  | 'ghostButtonHover'
-  | 'ghostButtonText'
-  | 'successBg'
-  | 'successText'
-  | 'failureBg'
-  | 'failureText'
-  | 'warningBg'
-  | 'warningText'
-  | 'scrollbarThumb';
-
-export const EDITABLE_TOKEN_GROUPS: ReadonlyArray<{
-  label: string;
-  keys: ReadonlyArray<EditableTokenKey>;
-}> = [
-  {
-    label: 'Across product',
-    keys: ['sidebarBg', 'topbarBg', 'primaryBg', 'secondaryBg', 'border'],
-  },
-  {
-    label: 'Building blocks',
-    keys: [
-      'inputBoxBg',
-      'inputBorder',
-      'textPrimary',
-      'textSecondary',
-      'cardBg',
-      'dropdownSelectedItemBg',
-      'dropdownSelectedItemText',
-    ],
-  },
-  {
-    label: 'Chat',
-    keys: ['userMessageBg', 'userMessageText', 'assistantMessageBg', 'assistantMessageText'],
-  },
-  {
-    label: 'Buttons',
-    keys: [
-      'primaryButtonBg',
-      'primaryButtonHover',
-      'primaryButtonText',
-      'secondaryButtonBg',
-      'secondaryButtonHover',
-      'secondaryButtonText',
-      'ghostButtonBg',
-      'ghostButtonHover',
-      'ghostButtonText',
-    ],
-  },
-  {
-    label: 'Status',
-    keys: ['successBg', 'successText', 'failureBg', 'failureText', 'warningBg', 'warningText', 'scrollbarThumb'],
-  },
-];
-
-export const EDITABLE_TOKEN_KEYS: ReadonlyArray<EditableTokenKey> = EDITABLE_TOKEN_GROUPS.flatMap(group => group.keys);
-
-export const TOKEN_DESCRIPTIONS: Record<EditableTokenKey, string> = {
-  sidebarBg: 'Thread-list / nav rail background.',
-  topbarBg: 'Shell header and settings modal headers.',
-  primaryBg: 'Page canvas — thread, settings body, dock/widget chrome.',
-  secondaryBg: 'Icon wells, soft chips, and secondary nav tracks.',
-  border: 'Dividers and outlines on cards, panels, and sections.',
-  inputBoxBg: 'Text inputs, search fields, and the composer surface.',
-  inputBorder: 'Borders on text fields, selects, and outline buttons.',
-  textPrimary: 'Body text, titles, and icons across the UI.',
-  textSecondary: 'Captions, placeholders, meta, and secondary labels.',
-  cardBg: 'Cards, modals, dropdowns, bottom sheets, and floating menus.',
-  dropdownSelectedItemBg: 'Selected / active menu and list rows.',
-  dropdownSelectedItemText: 'Text on selected / active rows.',
-  userMessageBg: 'User message bubble background.',
-  userMessageText: 'Text inside the user message bubble.',
-  assistantMessageBg: 'Assistant message bubble background (often transparent).',
-  assistantMessageText: 'Text inside the assistant message bubble.',
-  primaryButtonBg: 'Primary button fill.',
-  primaryButtonHover: 'Primary button hover fill.',
-  primaryButtonText: 'Text on primary buttons.',
-  secondaryButtonBg: 'Secondary and outline button fill.',
-  secondaryButtonHover: 'Secondary / outline button hover fill.',
-  secondaryButtonText: 'Text on secondary / outline buttons.',
-  ghostButtonBg: 'Ghost button resting fill (usually transparent).',
-  ghostButtonHover: 'Ghost button and unselected list-row hover.',
-  ghostButtonText: 'Text on ghost buttons.',
-  successBg: 'Success pills, icons, and solid success fills.',
-  successText: 'Text on success fills.',
-  failureBg: 'Errors, deny/fail states, and destructive buttons.',
-  failureText: 'Text on failure fills and error banners.',
-  warningBg: 'In-progress accents and warning fills.',
-  warningText: 'Text on warning fills.',
-  scrollbarThumb: 'Scrollbar thumb in scrollable panels.',
 };
