@@ -61,8 +61,15 @@ export function createHarnessBuilderServer(
   return {
     getCapabilities: () => client.server.getCapabilities(),
     getModels: async () => {
-      const [modelsBody, catalogBody] = await Promise.all([client.models.list(), client.catalog.modelProviders.list()]);
-      const logosByName = modelProviderLogosByName(catalogBody.data);
+      // Catalog logos are optional UI enrichment — a catalog failure must not blank the picker.
+      const [modelsBody, catalogEntries] = await Promise.all([
+        client.models.list(),
+        client.catalog.modelProviders.list().then(
+          body => body.data,
+          () => [],
+        ),
+      ]);
+      const logosByName = modelProviderLogosByName(catalogEntries);
       return modelsBody.data.map(model => {
         const logo = logosByName.get(model.provider.name);
         return toModelSelection(logo === undefined ? { model } : { model, logo });

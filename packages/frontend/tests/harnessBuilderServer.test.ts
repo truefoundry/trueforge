@@ -110,6 +110,38 @@ describe('harnessBuilderServer', () => {
     ]);
   });
 
+  it('getModels still returns models when the catalog request fails', async () => {
+    const fetchMock: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/models')) {
+        return Response.json({
+          data: [
+            {
+              model_id: 'gpt-5-6-sol',
+              name: 'openai/gpt-5-6-sol',
+              provider: { name: 'openai' },
+              properties: {},
+            },
+          ],
+        });
+      }
+      if (url.endsWith('/api/v1/catalog/model-providers')) {
+        return new Response('catalog unavailable', { status: 500 });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    assert.deepEqual(await builder.getModels(), [
+      {
+        id: 'gpt-5-6-sol',
+        name: 'openai/gpt-5-6-sol',
+        provider: { name: 'openai' },
+        properties: {},
+      },
+    ]);
+  });
+
   it('gets capabilities through the configured harness client', async () => {
     const fetchMock: typeof fetch = async input => {
       const url = input instanceof Request ? input.url : String(input);
