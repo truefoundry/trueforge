@@ -12,6 +12,7 @@ import { Icon } from '@/icons/Icon.js';
 import { useCatalogServer } from '@/server/ServerContext.js';
 import type { ConnectorAuth, ConnectorBase, ConnectorCatalogEntry } from '@/server/types.js';
 import { getErrorMessage } from '@/utils/getErrorMessage.js';
+import { useToasterOptional } from '../ToasterContainer.js';
 import AddMcpServerForm, { type AddMcpServerDraft } from './AddMcpServerForm.js';
 import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
 import ConnectorDetails from './ConnectorDetails.js';
@@ -27,6 +28,7 @@ type ConnectorsState = {
 const ConnectorSettings = () => {
   const { connectorCatalog } = useCatalogServer();
   const { handleAuthorize, isOAuthLoading } = useMCPAuth();
+  const toaster = useToasterOptional();
 
   const [query, setQuery] = useState('');
   const [connectors, setConnectors] = useState<ConnectorsState>({
@@ -35,6 +37,7 @@ const ConnectorSettings = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [catalog, setCatalog] = useState<ConnectorCatalogEntry[]>([]);
@@ -123,14 +126,14 @@ const ConnectorSettings = () => {
       .map(({ connector }) => connector);
   }, [matchingConnected, matchingConnectors]);
 
-  const runMutation = async (fn: () => Promise<void>) => {
+  const runMutation = async (fn: () => Promise<void>, setMutationError = setError) => {
     setBusy(true);
     setError(null);
     try {
       await fn();
       await refresh();
     } catch (err) {
-      setError(getErrorMessage(err, 'Request failed'));
+      setMutationError(getErrorMessage(err, 'Request failed'));
       throw err;
     } finally {
       setBusy(false);
@@ -140,6 +143,7 @@ const ConnectorSettings = () => {
   const closeApiKeyModal = () => {
     setConnectorAwaitingKey(null);
     setApiKey('');
+    setFormError(null);
   };
 
   const authorizeOAuthConnector = async (integrationId: string) => {
@@ -185,6 +189,7 @@ const ConnectorSettings = () => {
   const handleConnect = (entry: ConnectorCatalogEntry) => {
     if (entry.auth.type === 'header') {
       setApiKey('');
+      setFormError(null);
       setConnectorAwaitingKey(entry);
       return;
     }
@@ -205,6 +210,7 @@ const ConnectorSettings = () => {
     if (!connectorAwaitingKey || !apiKey.trim()) return;
 
     const entry = connectorAwaitingKey;
+    setFormError(null);
     void runMutation(async () => {
       const auth: ConnectorAuth = {
         type: 'header',
@@ -224,10 +230,17 @@ const ConnectorSettings = () => {
         await createFromCatalog(entry, auth);
       }
       closeApiKeyModal();
-    }).catch(() => {});
+      setTimeout(() => {
+        toaster?.showSuccess({
+          title: existingConnector ? 'Connector updated' : 'Connector connected',
+          description: `${entry.name} is ready to use.`,
+        });
+      }, 100);
+    }, setFormError).catch(() => {});
   };
 
   const handleAddMcpServer = async (draft: AddMcpServerDraft) => {
+    setFormError(null);
     await runMutation(async () => {
       const created = await connectorCatalog.createConnector({
         name: draft.name,
@@ -237,7 +250,13 @@ const ConnectorSettings = () => {
       if (draft.auth.type === 'dcr') {
         await authorizeOAuthConnector(created.id);
       }
-    });
+    }, setFormError);
+    setTimeout(() => {
+      toaster?.showSuccess({
+        title: 'Connector added',
+        description: `${draft.name} is ready to use.`,
+      });
+    }, 0);
   };
 
   const handleDisconnect = (connector: ConnectorBase) => {
@@ -417,6 +436,7 @@ const ConnectorSettings = () => {
               variant="secondary"
               type="button"
               onClick={() => {
+                setFormError(null);
                 setAddMcpServerFormOpen(true);
               }}
             >
@@ -508,6 +528,7 @@ const ConnectorSettings = () => {
                     className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
                   />
                 </div>
+                {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
               </div>
 
               <footer className="flex justify-end gap-2 border-t border-border px-5 py-4">
@@ -523,9 +544,13 @@ const ConnectorSettings = () => {
 
           <AddMcpServerForm
             open={addMcpServerFormOpen}
-            onOpenChange={setAddMcpServerFormOpen}
+            onOpenChange={open => {
+              setAddMcpServerFormOpen(open);
+              if (!open) setFormError(null);
+            }}
             onAdd={handleAddMcpServer}
             busy={busy || isOAuthLoading}
+            error={formError}
           />
         </div>
       </div>

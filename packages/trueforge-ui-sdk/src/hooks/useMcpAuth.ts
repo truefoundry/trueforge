@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useErrorToasterOptional } from '../containers/ErrorToasterContainer.js';
+import { useToasterOptional } from '../containers/ToasterContainer.js';
 import { useCatalogServer } from '../server/ServerContext.js';
 
 export const MCP_AUTH_POPUP_CHANNEL = 'truefoundry-mcp-auth-popup';
@@ -26,7 +26,7 @@ const isPopupMessage = (value: unknown): value is McpAuthPopupMessage => {
 
 export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
   const { connectorCatalog } = useCatalogServer();
-  const errorToaster = useErrorToasterOptional();
+  const toaster = useToasterOptional();
   const [isOAuthLoading, setIsOAuthLoading] = useState(false);
   const popupUid = useMemo(() => generatePopupUid(), []);
   const listenerCleanupRef = useRef<(() => void) | null>(null);
@@ -103,13 +103,13 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
 
         openAuthPopup(authorizationEndpoint, callback);
       } catch (error: unknown) {
-        errorToaster?.showError(error);
+        toaster?.showError(error);
         callback(false);
       } finally {
         setIsOAuthLoading(false);
       }
     },
-    [callbackPath, connectorCatalog, errorToaster, openAuthPopup, popupUid],
+    [callbackPath, connectorCatalog, openAuthPopup, popupUid, toaster],
   );
 
   return {

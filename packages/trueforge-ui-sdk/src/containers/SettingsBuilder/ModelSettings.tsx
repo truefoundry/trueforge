@@ -9,18 +9,19 @@ import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { ModelEntry, ModelProviderBase, ModelProviderCatalogEntry } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
-import { useErrorToasterOptional } from '../ErrorToasterContainer.js';
+import { useToasterOptional } from '../ToasterContainer.js';
 import CustomModelProviderForm, { type CustomProviderDraft } from './CustomModelProviderForm.js';
 
 const ModelSettings = () => {
   const { modelCatalog } = useCatalogServer();
-  const toaster = useErrorToasterOptional();
+  const toaster = useToasterOptional();
 
   const [query, setQuery] = useState('');
   const [configured, setConfigured] = useState<ModelProviderBase[]>([]);
   const [catalog, setCatalog] = useState<ModelProviderCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
@@ -109,7 +110,7 @@ const ModelSettings = () => {
     setApiKey('');
   };
 
-  const runMutation = async (fn: () => Promise<void>) => {
+  const runMutation = async (fn: () => Promise<void>, onError?: (error: unknown) => void) => {
     setBusy(true);
     setError(null);
     try {
@@ -117,10 +118,12 @@ const ModelSettings = () => {
       await refresh();
       closeKeyEditor();
     } catch (err) {
-      if (toaster != null) {
-        toaster.showError(err);
-      } else {
+      if (onError) {
+        onError(err);
+      } else if (toaster == null) {
         setError(getErrorMessage(err, 'Request failed'));
+      } else {
+        toaster.showError(err);
       }
       throw err;
     } finally {
@@ -154,7 +157,14 @@ const ModelSettings = () => {
         apiKey: apiKey.trim(),
         models: provider.models,
       });
-    }).catch(() => {});
+    })
+      .then(() => {
+        toaster?.showSuccess({
+          title: 'API key replaced',
+          description: `${provider.name} was updated successfully.`,
+        });
+      })
+      .catch(() => {});
   };
 
   const handleRemoveProvider = (provider: ModelProviderBase) => {
@@ -180,15 +190,25 @@ const ModelSettings = () => {
   };
 
   const handleAddCustomProvider = async (draft: CustomProviderDraft) => {
-    await runMutation(async () => {
-      await modelCatalog.createModelProvider({
-        type: 'custom',
-        name: draft.name,
-        baseUrl: draft.baseUrl,
-        apiKey: draft.apiKey,
-        models: draft.models,
+    setFormError(null);
+    await runMutation(
+      async () => {
+        await modelCatalog.createModelProvider({
+          type: 'custom',
+          name: draft.name,
+          baseUrl: draft.baseUrl,
+          apiKey: draft.apiKey,
+          models: draft.models,
+        });
+      },
+      err => setFormError(getErrorMessage(err, 'Request failed')),
+    );
+    setTimeout(() => {
+      toaster?.showSuccess({
+        title: 'Model provider added',
+        description: `${draft.name} is ready to use.`,
       });
-    });
+    }, 0);
   };
 
   const renderKeyEditor = (opts: { id: string; submitLabel: string; onSave: () => void }) => (
@@ -248,6 +268,7 @@ const ModelSettings = () => {
               variant="secondary"
               type="button"
               onClick={() => {
+                setFormError(null);
                 setCustomProviderOpen(true);
               }}
             >
@@ -469,10 +490,14 @@ const ModelSettings = () => {
 
           <CustomModelProviderForm
             open={customProviderOpen}
-            onOpenChange={setCustomProviderOpen}
+            onOpenChange={open => {
+              setCustomProviderOpen(open);
+              if (!open) setFormError(null);
+            }}
             onAdd={handleAddCustomProvider}
             reasoningEffortOptions={supportedReasoningEfforts}
             busy={busy}
+            error={formError}
           />
         </div>
       </div>
