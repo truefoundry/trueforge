@@ -1,4 +1,5 @@
 import winston from 'winston';
+import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createModelsRouter } from '../../../src/apis/models';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { createSettingsRouter } from '../../../src/apis/settings';
@@ -68,6 +69,7 @@ function withRedactedApiKey<T extends { auth: { api_key: string } }>(provider: T
 
 async function createRouters(): Promise<{
   settingsRouter: ReturnType<typeof createSettingsRouter>;
+  catalogRouter: ReturnType<typeof createCatalogRouter>;
   modelsRouter: ReturnType<typeof createModelsRouter>;
   modelProviderStore: IModelProviderStore;
 }> {
@@ -76,7 +78,6 @@ async function createRouters(): Promise<{
   const modelProviderStore = new SqliteModelProviderStore(db);
   return {
     settingsRouter: createSettingsRouter({
-      modelCatalog: ModelCatalog.load(),
       modelProviderStore,
       mcpCatalog: McpCatalog.load(),
       mcpServerStore: new SqliteMcpServerStore(db),
@@ -89,6 +90,9 @@ async function createRouters(): Promise<{
       logger: winston.createLogger({ silent: true }),
       resolveUserContext: () => LOCAL_USER_CONTEXT,
     }),
+    catalogRouter: createCatalogRouter({
+      modelCatalog: ModelCatalog.load(),
+    }),
     modelsRouter: createModelsRouter({
       modelProviderStore,
       withTransaction: callback => db.transaction().execute(callback),
@@ -99,14 +103,15 @@ async function createRouters(): Promise<{
 
 describe('settings model-providers and models routers', () => {
   let settingsRouter: ReturnType<typeof createSettingsRouter>;
+  let catalogRouter: ReturnType<typeof createCatalogRouter>;
   let modelsRouter: ReturnType<typeof createModelsRouter>;
 
   beforeAll(async () => {
-    ({ settingsRouter, modelsRouter } = await createRouters());
+    ({ settingsRouter, catalogRouter, modelsRouter } = await createRouters());
   });
 
-  it('GET /model-providers/catalog returns shipped presets plus a custom sentinel', async () => {
-    const response = await settingsRouter.request('/model-providers/catalog');
+  it('GET /catalog/model-providers returns shipped presets plus a custom sentinel', async () => {
+    const response = await catalogRouter.request('/model-providers');
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
       data: { type: string; supported_reasoning_efforts?: string[] }[];

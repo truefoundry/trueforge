@@ -2,12 +2,12 @@
  * Admin/settings API surface under /api/v1/settings.
  * Sub-routers (model-providers, mcp-servers, skills, sandbox-providers) mount here.
  * Auth is applied at the /api/v1/settings mount boundary in app.ts (admin when auth is enabled).
+ * Model-provider discovery catalog is at GET /api/v1/catalog/model-providers (not under settings).
  */
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
 import type { McpCatalog } from '../catalog/McpCatalog';
-import type { ModelCatalog } from '../catalog/ModelCatalog';
 import type { SandboxCatalog } from '../catalog/SandboxCatalog';
 import type { SkillCatalog } from '../catalog/SkillCatalog';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -22,7 +22,6 @@ import { createSandboxProvidersRouter } from './sandboxProviders';
 import { createSkillsRouter } from './skills';
 
 export interface SettingsRouterDeps<TTransaction> {
-  modelCatalog: ModelCatalog;
   modelProviderStore: IModelProviderStore<TTransaction>;
   mcpCatalog: McpCatalog;
   mcpServerStore: IMcpServerStore<TTransaction>;
@@ -41,7 +40,6 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/model-providers',
     createModelProvidersRouter({
-      modelCatalog: deps.modelCatalog,
       modelProviderStore: deps.modelProviderStore,
       withTransaction: deps.withTransaction,
     }),

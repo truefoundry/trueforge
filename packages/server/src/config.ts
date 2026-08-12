@@ -280,7 +280,7 @@ export interface SharedServerConfiguration {
   EXECUTOR_ID: string;
   /**
    * Optional override for the model catalog YAML (discovery presets for
-   * GET /settings/model-providers/catalog). When unset, the catalog inlined at build
+   * GET /catalog/model-providers). When unset, the catalog inlined at build
    * time is used. Env: `MODEL_CATALOG_PATH`.
    */
   MODEL_CATALOG_PATH: string | undefined;
