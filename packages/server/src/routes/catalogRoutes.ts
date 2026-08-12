@@ -24,7 +24,7 @@ export const listModelProviderCatalogRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: GetModelProviderCatalogResponseSchema } },
-      description: 'The shipped catalog, verbatim.',
+      description: 'Shipped model-provider presets.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -44,7 +44,7 @@ export const listMcpServerCatalogRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: GetMcpServerCatalogResponseSchema } },
-      description: 'The shipped catalog, verbatim.',
+      description: 'Shipped MCP server presets.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -64,7 +64,7 @@ export const listSkillCatalogRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: GetSkillCatalogResponseSchema } },
-      description: 'The shipped catalog, verbatim.',
+      description: 'Shipped skill presets.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -85,7 +85,7 @@ export const listSandboxProviderCatalogRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: GetSandboxProviderCatalogResponseSchema } },
-      description: 'The shipped catalog, verbatim.',
+      description: 'Shipped sandbox-provider presets.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
