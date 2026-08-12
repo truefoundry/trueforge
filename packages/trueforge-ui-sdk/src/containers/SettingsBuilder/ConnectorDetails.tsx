@@ -55,7 +55,7 @@ function ExpandableDescription({ text }: { text: string }) {
         ref={contentRef}
         style={{ maxHeight }}
         className={cn(
-          'mt-0.5 overflow-hidden font-mono text-xs leading-4 text-muted-foreground transition-[max-height] duration-300 ease-in-out',
+          'mt-0.5 overflow-hidden font-mono text-xs leading-4 text-text-secondary transition-[max-height] duration-300 ease-in-out',
           !expanded && 'whitespace-nowrap',
           !expanded && canExpand && 'pr-[5.75rem]',
         )}
@@ -66,7 +66,7 @@ function ExpandableDescription({ text }: { text: string }) {
             {' '}
             <button
               type="button"
-              className="cursor-pointer font-mono text-xs font-medium text-foreground/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="cursor-pointer font-mono text-xs font-medium text-text-primary/80 hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring"
               aria-expanded
               onClick={() => setExpanded(false)}
             >
@@ -78,11 +78,11 @@ function ExpandableDescription({ text }: { text: string }) {
       {!expanded && canExpand ? (
         <button
           type="button"
-          className="absolute top-0.5 right-0 cursor-pointer bg-card pl-1.5 font-mono text-xs font-medium leading-4 text-foreground/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="absolute top-0.5 right-0 cursor-pointer bg-card-bg pl-1.5 font-mono text-xs font-medium leading-4 text-text-primary/80 hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring"
           aria-expanded={false}
           onClick={() => setExpanded(true)}
         >
-          <span aria-hidden className="text-muted-foreground">
+          <span aria-hidden className="text-text-secondary">
             …
           </span>
           <span className="ml-1">Read more</span>
@@ -128,7 +128,7 @@ const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: Con
       <button
         type="button"
         onClick={onBack}
-        className="mb-3 inline-flex w-fit items-center gap-1 rounded-md py-1 pr-2 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="mb-3 inline-flex w-fit items-center gap-1 rounded-md py-1 pr-2 text-sm text-text-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring"
       >
         <Icon name="chevron-left" className="size-3.5" />
         Connectors
@@ -137,29 +137,32 @@ const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: Con
       <div className="flex flex-1 flex-col overflow-y-auto pb-1">
         <header className="flex items-start gap-3">
           <span
-            className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted"
+            className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-secondary-bg"
             aria-hidden
           >
-            <Icon name="mcp-server" className="size-5 text-foreground" />
+            <Icon name="mcp-server" className="size-5 text-text-primary" />
           </span>
 
           <div className="min-w-0 flex-1">
-            <h4 className="text-lg font-semibold text-foreground">{connector.name}</h4>
+            <h4 className="text-lg font-semibold text-text-primary">{connector.name}</h4>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
               <span
                 className={cn(
                   'flex items-center gap-1.5 text-xs font-medium',
-                  connector.authenticated ? 'text-success' : 'text-foreground',
+                  connector.authenticated ? 'text-success-bg' : 'text-text-primary',
                 )}
               >
                 <span
-                  className={cn('h-1.5 w-1.5 rounded-full', connector.authenticated ? 'bg-success' : 'bg-primary')}
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full',
+                    connector.authenticated ? 'bg-success-bg' : 'bg-primary-button-bg',
+                  )}
                 ></span>
                 {connector.authenticated ? 'Connected' : 'Not authenticated'}
               </span>
-              <span className="text-muted-foreground">· {connector.description}</span>
+              <span className="text-text-secondary">· {connector.description}</span>
             </div>
-            <span className="mt-2 inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            <span className="mt-2 inline-flex items-center rounded-full border border-border bg-secondary-bg/40 px-2 py-0.5 text-xs font-medium text-text-secondary">
               {AUTH_TYPE_LABELS[connector.auth.type] ?? AUTH_TYPE_LABELS.none}
             </span>
           </div>
@@ -173,26 +176,26 @@ const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: Con
 
         <section className="mt-6" aria-labelledby="connector-tools-heading">
           {toolsLoading ? (
-            <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-text-secondary">
               Loading tools…
             </div>
           ) : toolsError ? (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-6 text-center text-sm text-destructive">
+            <div className="rounded-xl border border-failure-bg/30 bg-failure-bg/10 p-6 text-center text-sm text-failure-bg">
               {toolsError}
             </div>
           ) : tools.length > 0 ? (
             <>
-              <h5 id="connector-tools-heading" className="mb-2 text-[0.8125rem] font-semibold text-foreground">
-                Tools <span className="font-normal text-muted-foreground">· {tools.length}</span>
+              <h5 id="connector-tools-heading" className="mb-2 text-[0.8125rem] font-semibold text-text-primary">
+                Tools <span className="font-normal text-text-secondary">· {tools.length}</span>
               </h5>
-              <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                 {tools.map(tool => (
                   <article
                     key={tool.id}
                     className="flex min-h-12 items-start gap-3 border-b border-border px-3 py-2 last:border-b-0"
                   >
                     <div className="min-w-0 flex-1">
-                      <h6 className="text-sm font-medium text-foreground">{tool.name}</h6>
+                      <h6 className="text-sm font-medium text-text-primary">{tool.name}</h6>
                       <ExpandableDescription text={tool.description} />
                     </div>
                   </article>
@@ -200,7 +203,7 @@ const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: Con
               </div>
             </>
           ) : (
-            <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-text-secondary">
               No tools reported for this connector.
             </div>
           )}

@@ -54,23 +54,23 @@ export function AttachmentCard({
       data-slot="aui_attachment-chip"
       style={previewRem != null ? { maxWidth: `${previewRem}rem` } : undefined}
       className={cn(
-        'aui-attachment-chip bg-muted flex max-w-full shrink-0 items-center gap-2 rounded-lg border px-2 py-1.5',
+        'aui-attachment-chip bg-secondary-bg flex max-w-full shrink-0 items-center gap-2 rounded-lg border px-2 py-1.5',
         className,
       )}
     >
-      <div className="bg-background flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border">
+      <div className="bg-primary-bg flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border">
         {isImage && previewSrc ? (
           <Avatar className="size-7 rounded-none">
             <AvatarImage src={previewSrc} alt={name} className="object-cover" />
             <AvatarFallback>
-              <Icon name="file" size="1rem" className="text-muted-foreground" />
+              <Icon name="file" size="1rem" className="text-text-secondary" />
             </AvatarFallback>
           </Avatar>
         ) : (
-          <Icon name="file" size="1rem" className="text-muted-foreground" />
+          <Icon name="file" size="1rem" className="text-text-secondary" />
         )}
       </div>
-      <span className="text-foreground min-w-0 truncate text-sm">{name}</span>
+      <span className="text-text-primary min-w-0 truncate text-sm">{name}</span>
       {onRemove && (
         <button
           type="button"

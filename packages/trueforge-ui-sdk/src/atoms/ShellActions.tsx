@@ -16,7 +16,7 @@ export function ShellActions({ className }: { className?: string }) {
   const ActionSlot = useSlot('ShellActionsActionSlot');
 
   return (
-    <div className={cn('flex shrink-0 items-center gap-1 text-foreground', className)}>
+    <div className={cn('flex shrink-0 items-center gap-1 text-text-primary', className)}>
       <button
         type="button"
         aria-label={mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}

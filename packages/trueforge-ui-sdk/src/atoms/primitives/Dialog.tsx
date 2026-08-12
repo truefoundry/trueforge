@@ -50,8 +50,8 @@ export function Dialog({
       aria-labelledby={ariaLabelledBy}
       onClick={handleBackdropClick}
       className={cn(
-        'm-auto max-h-[90dvh] w-full max-w-lg rounded-lg bg-background p-0 text-foreground shadow-lg',
-        'backdrop:bg-black/50',
+        'm-auto max-h-[90dvh] w-full max-w-lg rounded-lg bg-card-bg p-0 text-text-primary shadow-lg',
+        'backdrop:bg-[var(--overlay)]',
         'open:flex open:flex-col',
         className,
       )}
@@ -154,7 +154,7 @@ export function Modal({
   return (
     <div
       role="presentation"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
       onClick={onClose}
     >
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={ariaLabel} onClick={e => e.stopPropagation()}>

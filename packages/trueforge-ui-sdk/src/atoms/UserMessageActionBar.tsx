@@ -15,7 +15,7 @@ export type UserMessageActionBarProps = {
   className?: string;
 };
 
-const actionBtnClass = 'h-6 w-6 text-muted-foreground hover:text-foreground [&_svg]:size-3.5';
+const actionBtnClass = 'h-6 w-6 text-text-secondary hover:text-text-primary [&_svg]:size-3.5';
 
 export function UserMessageActionBar({
   isCopied,

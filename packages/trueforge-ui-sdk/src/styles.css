@@ -8,7 +8,7 @@
  *
  * Tokens live on `.aui-theme-root` (light) and `.aui-theme-root.dark` so the
  * host document is not rethemed. Override via host CSS on `.aui-theme-root` or
- * `theme={{ tokens: { primary: "#e11d48" } }}`.
+ * `theme={{ tokens: { primaryButtonBg: "#e11d48" } }}`.
  */
 @import './openui.css';
 
@@ -48,35 +48,43 @@
     --color-indigo-500: #6366f1;
     --color-red-500: #ef4444;
 
-    --background: var(--color-white);
-    --foreground: var(--color-gray-1000);
-    --card: var(--color-white);
-    --card-foreground: var(--color-gray-1000);
-    --popover: var(--color-white);
-    --popover-foreground: var(--color-gray-1000);
-    --primary: var(--color-black);
-    --primary-foreground: var(--color-white);
-    --secondary: var(--color-gray-100);
-    --secondary-foreground: var(--color-gray-1000);
-    --muted: var(--color-gray-100);
-    --muted-foreground: var(--color-gray-550);
-    --accent: var(--color-gray-125);
-    --accent-foreground: var(--color-gray-1000);
-    --destructive: var(--color-red-500);
-    --destructive-foreground: var(--color-white);
-    --success: #16a34a;
-    --success-foreground: var(--color-white);
-    --warning: #d97706;
-    --warning-foreground: var(--color-white);
+    --sidebar-bg: var(--color-white);
+    --topbar-bg: var(--color-white);
+    --primary-bg: var(--color-white);
+    --secondary-bg: var(--color-gray-100);
     --border: var(--color-gray-250);
-    --input: var(--color-gray-250);
-    --ring: var(--color-black);
+    --input-box-bg: var(--color-white);
+    --input-border: var(--color-gray-250);
+    --text-primary: var(--color-gray-1000);
+    --text-secondary: var(--color-gray-550);
+    --card-bg: var(--color-white);
+    --dropdown-selected-item-bg: var(--color-gray-125);
+    --dropdown-selected-item-text: var(--color-gray-1000);
+    --user-message-bg: var(--color-black);
+    --user-message-text: var(--color-white);
+    --assistant-message-bg: transparent;
+    --assistant-message-text: var(--text-primary);
+    --primary-button-bg: var(--color-black);
+    --primary-button-hover: #27272a;
+    --primary-button-text: var(--color-white);
+    --secondary-button-bg: var(--color-gray-100);
+    --secondary-button-hover: var(--color-gray-200);
+    --secondary-button-text: var(--color-gray-1000);
+    --ghost-button-bg: transparent;
+    --ghost-button-hover: var(--color-gray-125);
+    --ghost-button-text: var(--color-gray-1000);
+    --success-bg: #16a34a;
+    --success-text: var(--color-white);
+    --failure-bg: var(--color-red-500);
+    --failure-text: var(--color-white);
+    --warning-bg: #d97706;
+    --warning-text: var(--color-white);
+    --focus-ring: var(--color-black);
     --radius: 0.5rem;
     --composer-radius: 1.5rem;
-    --user-bubble: var(--color-black);
-    --user-bubble-foreground: var(--color-white);
-    --assistant-bubble: transparent;
-    --assistant-bubble-foreground: var(--foreground);
+    --overlay: rgb(9 9 11 / 0.5);
+    --shadow-color: var(--color-black);
+    --scrollbar-thumb: var(--color-gray-550);
   }
 
   .aui-theme-root *,
@@ -103,33 +111,41 @@
     --color-gray-800: #ececee;
     --color-gray-1000: #fdfdfd;
 
-    --background: var(--color-gray-200);
-    --foreground: var(--color-gray-1000);
-    --card: var(--color-gray-150);
-    --card-foreground: var(--color-gray-1000);
-    --popover: var(--color-gray-150);
-    --popover-foreground: var(--color-gray-1000);
-    --primary: var(--color-indigo-500);
-    --primary-foreground: var(--color-white);
-    --secondary: var(--color-gray-250);
-    --secondary-foreground: var(--color-gray-1000);
-    --muted: var(--color-gray-250);
-    --muted-foreground: var(--color-gray-600);
-    --accent: var(--color-gray-275);
-    --accent-foreground: var(--color-gray-1000);
-    --destructive: var(--color-red-500);
-    --destructive-foreground: var(--color-white);
-    --success: #4ade80;
-    --success-foreground: #052e16;
-    --warning: #fbbf24;
-    --warning-foreground: #422006;
+    --sidebar-bg: var(--color-gray-200);
+    --topbar-bg: var(--color-gray-200);
+    --primary-bg: var(--color-gray-200);
+    --secondary-bg: var(--color-gray-250);
     --border: var(--color-gray-275);
-    --input: var(--color-gray-275);
-    --ring: var(--color-indigo-500);
-    --user-bubble: var(--color-indigo-500);
-    --user-bubble-foreground: var(--color-white);
-    --assistant-bubble: transparent;
-    --assistant-bubble-foreground: var(--foreground);
+    --input-box-bg: var(--color-gray-150);
+    --input-border: var(--color-gray-275);
+    --text-primary: var(--color-gray-1000);
+    --text-secondary: var(--color-gray-600);
+    --card-bg: var(--color-gray-150);
+    --dropdown-selected-item-bg: var(--color-gray-275);
+    --dropdown-selected-item-text: var(--color-gray-1000);
+    --user-message-bg: var(--color-indigo-500);
+    --user-message-text: var(--color-white);
+    --assistant-message-bg: transparent;
+    --assistant-message-text: var(--text-primary);
+    --primary-button-bg: var(--color-indigo-500);
+    --primary-button-hover: #4f46e5;
+    --primary-button-text: var(--color-white);
+    --secondary-button-bg: var(--color-gray-250);
+    --secondary-button-hover: var(--color-gray-275);
+    --secondary-button-text: var(--color-gray-1000);
+    --ghost-button-bg: transparent;
+    --ghost-button-hover: var(--color-gray-275);
+    --ghost-button-text: var(--color-gray-1000);
+    --success-bg: #4ade80;
+    --success-text: #052e16;
+    --failure-bg: var(--color-red-500);
+    --failure-text: var(--color-white);
+    --warning-bg: #fbbf24;
+    --warning-text: #422006;
+    --focus-ring: var(--color-indigo-500);
+    --overlay: rgb(0 0 0 / 0.7);
+    --shadow-color: #000000;
+    --scrollbar-thumb: var(--color-gray-600);
   }
 }
 
@@ -191,8 +207,7 @@
  */
 .aui-theme-root {
   --thread-list-item-radius: 0.5rem;
-  --scrollbar-thumb: var(--muted-foreground);
-  color: var(--foreground);
+  color: var(--text-primary);
 }
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -201,13 +216,13 @@
  * sidebar/chrome; aui-root covers standalone thread shells.
  * ──────────────────────────────────────────────────────────────────── */
 .aui-root {
-  color: var(--foreground);
+  color: var(--text-primary);
 }
 
 .aui-theme-root,
 .aui-root {
   scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb, var(--muted-foreground)) transparent;
+  scrollbar-color: var(--scrollbar-thumb, var(--text-secondary)) transparent;
 }
 
 .aui-theme-root ::-webkit-scrollbar,
@@ -224,7 +239,7 @@
 
 .aui-theme-root ::-webkit-scrollbar-thumb,
 .aui-root ::-webkit-scrollbar-thumb {
-  background-color: var(--scrollbar-thumb, var(--muted-foreground));
+  background-color: var(--scrollbar-thumb, var(--text-secondary));
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: content-box;
@@ -239,29 +254,38 @@
  * Tailwind v4 `@theme inline` registrations.
  * ──────────────────────────────────────────────────────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-topbar-bg: var(--topbar-bg);
+  --color-primary-bg: var(--primary-bg);
+  --color-secondary-bg: var(--secondary-bg);
   --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  --color-input-box-bg: var(--input-box-bg);
+  --color-input-border: var(--input-border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-card-bg: var(--card-bg);
+  --color-dropdown-selected-item-bg: var(--dropdown-selected-item-bg);
+  --color-dropdown-selected-item-text: var(--dropdown-selected-item-text);
+  --color-user-message-bg: var(--user-message-bg);
+  --color-user-message-text: var(--user-message-text);
+  --color-assistant-message-bg: var(--assistant-message-bg);
+  --color-assistant-message-text: var(--assistant-message-text);
+  --color-primary-button-bg: var(--primary-button-bg);
+  --color-primary-button-hover: var(--primary-button-hover);
+  --color-primary-button-text: var(--primary-button-text);
+  --color-secondary-button-bg: var(--secondary-button-bg);
+  --color-secondary-button-hover: var(--secondary-button-hover);
+  --color-secondary-button-text: var(--secondary-button-text);
+  --color-ghost-button-bg: var(--ghost-button-bg);
+  --color-ghost-button-hover: var(--ghost-button-hover);
+  --color-ghost-button-text: var(--ghost-button-text);
+  --color-success-bg: var(--success-bg);
+  --color-success-text: var(--success-text);
+  --color-failure-bg: var(--failure-bg);
+  --color-failure-text: var(--failure-text);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-text: var(--warning-text);
+  --color-focus-ring: var(--focus-ring);
   --color-white: var(--color-white);
   --color-black: var(--color-black);
   --color-gray-100: var(--color-gray-100);

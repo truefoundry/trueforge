@@ -14,7 +14,8 @@ describe('ThreadRootShell', () => {
     expect(root).toBe(ref.current);
     expect(root).toHaveClass('aui-thread-root', 'host-thread');
     expect(root.style.getPropertyValue('--thread-max-width')).toBe('60rem');
-    expect(root.style.getPropertyValue('--composer-bg')).toBe('var(--card)');
+    // Composer surface uses --input-box-bg on the theme root; thread shell must not set --composer-bg.
+    expect(root.style.getPropertyValue('--composer-bg')).toBe('');
     expect(root.style.color).toBe('red');
   });
 });

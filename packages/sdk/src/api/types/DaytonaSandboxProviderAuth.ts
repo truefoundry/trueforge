@@ -4,6 +4,6 @@
  * Daytona authentication credentials.
  */
 export interface DaytonaSandboxProviderAuth {
-    /** Daytona API key. */
+    /** Daytona API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key. */
     apiKey: string;
 }

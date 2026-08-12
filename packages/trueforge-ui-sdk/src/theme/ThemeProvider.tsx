@@ -143,10 +143,14 @@ export function ThemeProvider({ theme, children }: { theme?: ThemeConfig; childr
     [mode, preference, setTheme, theme?.preset, theme?.brand, theme?.icons, theme?.classNames, theme?.tokens],
   );
 
-  const rootStyle = useMemo(() => {
-    const presetTokens = resolvePresetTokens(theme?.preset, mode);
-    return tokensToStyle({ ...presetTokens, ...theme?.tokens });
-  }, [theme?.preset, theme?.tokens, mode]);
+  const rootStyle = useMemo(
+    () =>
+      tokensToStyle({
+        ...resolvePresetTokens(theme?.preset, mode),
+        ...theme?.tokens,
+      }),
+    [theme?.preset, theme?.tokens, mode],
+  );
 
   return (
     <ThemeContext.Provider value={value}>

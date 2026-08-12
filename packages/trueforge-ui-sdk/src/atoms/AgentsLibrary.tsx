@@ -42,14 +42,14 @@ function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProp
       role="menuitem"
       className={cn(
         'group flex w-full items-center gap-2.5 rounded-md border border-transparent px-2.5 py-2 transition-colors',
-        'hover:border-border hover:bg-accent',
-        'focus-within:border-border focus-within:bg-accent',
+        'hover:border-border hover:bg-ghost-button-hover',
+        'focus-within:border-border focus-within:bg-ghost-button-hover',
       )}
     >
-      <span className="bg-background text-muted-foreground inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
+      <span className="bg-primary-bg text-text-secondary inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
         <Icon name="robot" className="size-4" />
       </span>
-      <span className="text-foreground min-w-0 flex-1 truncate text-left text-sm font-medium leading-tight">
+      <span className="text-text-primary min-w-0 flex-1 truncate text-left text-sm font-medium leading-tight">
         {agent.name}
       </span>
       <span className="flex shrink-0 items-center gap-1.5">
@@ -132,11 +132,11 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
 
   return (
     <CenteredModal open={open} onOpenChange={onOpenChange} title="Agents Library">
-      <div className="bg-muted/40 flex min-h-0 flex-1 flex-col">
+      <div className="bg-secondary-bg/40 flex min-h-0 flex-1 flex-col">
         <div className="shrink-0 border-b border-border px-4 py-3">
           <SearchInput query={query} setQuery={setQuery} placeholder="Search agents" />
           {isSearching ? (
-            <p className="text-muted-foreground mt-1.5 text-xs" role="status">
+            <p className="text-text-secondary mt-1.5 text-xs" role="status">
               Searching…
             </p>
           ) : null}
@@ -154,9 +154,9 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
               ))}
             </div>
           ) : error ? (
-            <p className="text-destructive px-3 py-8 text-center text-sm">{error}</p>
+            <p className="text-failure-bg px-3 py-8 text-center text-sm">{error}</p>
           ) : agents.length === 0 ? (
-            <p className="text-muted-foreground px-3 py-8 text-center text-sm">
+            <p className="text-text-secondary px-3 py-8 text-center text-sm">
               {query.trim()
                 ? `No agents match "${query.trim()}".`
                 : 'No agents yet. Build one in a chat, then save it as an agent.'}
@@ -181,7 +181,7 @@ export function AgentsLibrary({ open, onOpenChange, onSelectAgent }: AgentsLibra
               {hasMore ? (
                 <div ref={sentinelRef} className="flex h-8 shrink-0 items-center justify-center" aria-hidden>
                   {loadingMore ? (
-                    <span className="text-muted-foreground text-xs" role="status">
+                    <span className="text-text-secondary text-xs" role="status">
                       Loading more…
                     </span>
                   ) : null}

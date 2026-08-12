@@ -58,7 +58,7 @@ export function SyntaxHighlighter({ code, language, darkTheme, className, showLi
         aria-label={copied ? 'Copied!' : 'Copy'}
         className={cn(
           'absolute top-2 right-2 z-10 flex cursor-pointer items-center justify-center rounded p-1.5 text-xs transition-colors',
-          'bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground',
+          'bg-primary-bg/80 text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary',
         )}
       >
         <Icon name={copied ? 'check' : 'copy'} size="0.875em" />

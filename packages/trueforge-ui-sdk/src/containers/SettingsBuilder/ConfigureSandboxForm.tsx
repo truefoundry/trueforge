@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { cn } from '../../atoms/lib/cn.js';
+import { auiInputClass } from '../../atoms/lib/inputClasses.js';
 import { Accordion, AccordionDetails, AccordionSummary } from '../../atoms/primitives/Accordion.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
@@ -35,8 +36,7 @@ const EMPTY_CONFIG: SandboxProviderConfig = {
   autoDeleteIntervalInMinutes: 43200,
 };
 
-const inputClassName =
-  'h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40';
+const inputClassName = auiInputClass('h-11 shadow-sm');
 
 function parseNonNegInt(raw: string): number | null {
   if (raw.trim() === '') return null;
@@ -135,7 +135,7 @@ const ConfigureSandboxForm = ({
       contentSized
       headerIcon={
         <span
-          className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground"
+          className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
           aria-hidden
         >
           <Icon name="cube" className="size-6" />
@@ -145,7 +145,7 @@ const ConfigureSandboxForm = ({
       <form className="flex flex-col overflow-y-auto p-5 md:p-6" onSubmit={handleSubmit}>
         <div className="space-y-4">
           <div>
-            <label htmlFor="sandbox-snapshot-name" className="mb-1.5 block text-sm font-medium text-foreground">
+            <label htmlFor="sandbox-snapshot-name" className="mb-1.5 block text-sm font-medium text-text-primary">
               Snapshot name
             </label>
             <input
@@ -163,9 +163,9 @@ const ConfigureSandboxForm = ({
           </div>
 
           <div>
-            <label htmlFor="sandbox-api-key" className="mb-1.5 block text-sm font-medium text-foreground">
+            <label htmlFor="sandbox-api-key" className="mb-1.5 block text-sm font-medium text-text-primary">
               API key
-              {!requireApiKey ? <span className="font-normal text-muted-foreground"> (optional)</span> : null}
+              {!requireApiKey ? <span className="font-normal text-text-secondary"> (optional)</span> : null}
             </label>
             <input
               id="sandbox-api-key"
@@ -186,12 +186,12 @@ const ConfigureSandboxForm = ({
             className="rounded-md border border-border"
           >
             <AccordionSummary className="px-3 py-2.5">
-              <span className="flex w-full items-center justify-between text-sm font-medium text-foreground">
+              <span className="flex w-full items-center justify-between text-sm font-medium text-text-primary">
                 Advanced settings
                 <Icon
                   name="chevron-down"
                   className={cn(
-                    'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
+                    'size-4 shrink-0 text-text-secondary transition-transform duration-200',
                     advancedOpen ? 'rotate-0' : '-rotate-90',
                   )}
                 />
@@ -199,7 +199,7 @@ const ConfigureSandboxForm = ({
             </AccordionSummary>
             <AccordionDetails className="space-y-4 border-t border-border px-3 pb-3 pt-4">
               <div>
-                <label htmlFor="sandbox-exec-timeout" className="mb-1.5 block text-sm font-medium text-foreground">
+                <label htmlFor="sandbox-exec-timeout" className="mb-1.5 block text-sm font-medium text-text-primary">
                   Exec timeout (ms)
                 </label>
                 <input
@@ -217,7 +217,7 @@ const ConfigureSandboxForm = ({
               </div>
 
               <div>
-                <label htmlFor="sandbox-auto-stop" className="mb-1.5 block text-sm font-medium text-foreground">
+                <label htmlFor="sandbox-auto-stop" className="mb-1.5 block text-sm font-medium text-text-primary">
                   Auto-stop interval (minutes)
                 </label>
                 <input
@@ -235,7 +235,7 @@ const ConfigureSandboxForm = ({
               </div>
 
               <div>
-                <label htmlFor="sandbox-auto-archive" className="mb-1.5 block text-sm font-medium text-foreground">
+                <label htmlFor="sandbox-auto-archive" className="mb-1.5 block text-sm font-medium text-text-primary">
                   Auto-archive interval (minutes)
                 </label>
                 <input
@@ -253,7 +253,7 @@ const ConfigureSandboxForm = ({
               </div>
 
               <div>
-                <label htmlFor="sandbox-auto-delete" className="mb-1.5 block text-sm font-medium text-foreground">
+                <label htmlFor="sandbox-auto-delete" className="mb-1.5 block text-sm font-medium text-text-primary">
                   Auto-delete interval (minutes)
                 </label>
                 <input

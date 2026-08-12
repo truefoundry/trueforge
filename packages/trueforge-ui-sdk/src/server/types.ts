@@ -55,6 +55,7 @@ export type {
   ModelProviderCatalogEntry,
   ModelProviderConfigBase,
   ModelSelection,
+  ModelSelectorEntry,
   PageParams,
   PreviousTurnIdInput,
   ProviderEntry,

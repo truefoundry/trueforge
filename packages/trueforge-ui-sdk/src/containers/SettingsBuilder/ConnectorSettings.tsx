@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
+import { cn } from '@/atoms/lib/cn.js';
+import { auiInputClass } from '@/atoms/lib/inputClasses.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
 import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
@@ -244,19 +246,19 @@ const ConnectorSettings = () => {
     const content = (
       <>
         <span
-          className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted"
+          className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-secondary-bg"
           aria-hidden
         >
           {logoSrc ? (
             <CatalogLogo src={logoSrc} alt={connector.name} className="size-4.5" />
           ) : (
-            <Icon name="mcp-server" className="size-4.5 text-foreground" />
+            <Icon name="mcp-server" className="size-4.5 text-text-primary" />
           )}
         </span>
 
         <div className="min-w-0 flex-1">
-          <h5 className="truncate text-sm font-medium text-foreground">{connector.name}</h5>
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground sm:truncate">{connector.description}</p>
+          <h5 className="truncate text-sm font-medium text-text-primary">{connector.name}</h5>
+          <p className="mt-0.5 line-clamp-2 text-sm text-text-secondary sm:truncate">{connector.description}</p>
         </div>
       </>
     );
@@ -267,7 +269,7 @@ const ConnectorSettings = () => {
       return (
         <article
           key={connector.id}
-          className={`${rowClassName} cursor-pointer transition-colors hover:bg-accent/40`}
+          className={`${rowClassName} cursor-pointer transition-colors hover:bg-ghost-button-hover/60`}
           onClick={() => {
             setSelectedConnector(connector);
           }}
@@ -276,12 +278,20 @@ const ConnectorSettings = () => {
 
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2">
-              {connector.auth.type !== 'dcr' ? (
-                <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-success">
-                  <span className="h-1.5 w-1.5 rounded-full bg-success"></span>
-                  Connected
-                </span>
-              ) : null}
+              <span
+                className={cn(
+                  'flex items-center gap-1.5 rounded-full border border-border bg-secondary-bg/40 px-2 py-0.5 text-xs font-medium',
+                  connector.authenticated ? 'text-success-bg' : 'text-text-primary',
+                )}
+              >
+                <span
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full',
+                    connector.authenticated ? 'bg-success-bg' : 'bg-primary-button-bg',
+                  )}
+                ></span>
+                {connector.authenticated ? 'Connected' : 'Added'}
+              </span>
             </div>
             {connector.auth.type === 'header' ? (
               <Button
@@ -320,25 +330,25 @@ const ConnectorSettings = () => {
         className="flex min-h-16 w-full items-center gap-3 border-b border-border p-3 text-left last:border-b-0"
       >
         <span
-          className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted"
+          className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-secondary-bg"
           aria-hidden
         >
           {logoSrc ? (
             <CatalogLogo src={logoSrc} alt={entry.name} className="size-4.5" />
           ) : (
-            <Icon name="mcp-server" className="size-4.5 text-foreground" />
+            <Icon name="mcp-server" className="size-4.5 text-text-primary" />
           )}
         </span>
 
         <div className="min-w-0 flex-1">
-          <h5 className="truncate text-sm font-medium text-foreground">{entry.name}</h5>
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground sm:truncate">
+          <h5 className="truncate text-sm font-medium text-text-primary">{entry.name}</h5>
+          <p className="mt-0.5 line-clamp-2 text-sm text-text-secondary sm:truncate">
             {entry.description ?? entry.url}
           </p>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <span className="hidden text-xs text-muted-foreground sm:inline">
+          <span className="hidden text-xs text-text-secondary sm:inline">
             {AUTH_TYPE_LABELS[entry.auth.type] ?? AUTH_TYPE_LABELS.none}
           </span>
           <Button
@@ -385,11 +395,11 @@ const ConnectorSettings = () => {
 
   return (
     <>
-      <h3 className="text-xl font-semibold tracking-tight text-foreground">Connectors</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Connect tools your agents can use.</p>
+      <h3 className="text-xl font-semibold tracking-tight text-text-primary">Connectors</h3>
+      <p className="mt-1 text-sm text-text-secondary">Connect tools your agents can use.</p>
 
       {error ? (
-        <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p className="mt-3 rounded-md border border-failure-bg/30 bg-failure-bg/10 px-3 py-2 text-sm text-failure-bg">
           {error}
         </p>
       ) : null}
@@ -413,17 +423,17 @@ const ConnectorSettings = () => {
           </div>
 
           <div className="flex flex-1 flex-col gap-5 overflow-y-auto pb-1">
-            {loading ? <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p> : null}
+            {loading ? <p className="py-8 text-center text-sm text-text-secondary">Loading…</p> : null}
 
             {!loading && matchingConnected.length > 0 ? (
               <section aria-labelledby="connected-connectors-heading">
                 <h4
                   id="connected-connectors-heading"
-                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-muted-foreground"
+                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
                 >
                   Configured · {matchingConnected.length}
                 </h4>
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                   {matchingConnected.map(connector => renderConnector(connector, true))}
                 </div>
               </section>
@@ -433,18 +443,18 @@ const ConnectorSettings = () => {
               <section aria-labelledby="available-connectors-heading">
                 <h4
                   id="available-connectors-heading"
-                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-muted-foreground"
+                  className="mb-2 text-[0.8125rem] font-semibold uppercase text-text-secondary"
                 >
                   Available · {availableConnectors.length}
                 </h4>
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
                   {availableConnectors.map(entry => renderCatalogEntry(entry))}
                 </div>
               </section>
             ) : null}
 
             {!loading && !hasMatches ? (
-              <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border p-8 text-center text-sm text-text-secondary">
                 {query.trim() ? `No connectors match “${query.trim()}”.` : 'No connectors yet.'}
               </div>
             ) : null}
@@ -464,21 +474,21 @@ const ConnectorSettings = () => {
               <div className="space-y-5 px-5 py-5">
                 <div className="flex items-center gap-3">
                   <span
-                    className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted"
+                    className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-secondary-bg"
                     aria-hidden
                   >
-                    <Icon name="mcp-server" className="size-6 text-foreground" />
+                    <Icon name="mcp-server" className="size-6 text-text-primary" />
                   </span>
                   <div className="min-w-0">
-                    <p className="font-medium text-foreground">{connectorAwaitingKey?.name}</p>
-                    <p className="truncate text-sm text-muted-foreground">{connectorAwaitingKey?.description}</p>
+                    <p className="font-medium text-text-primary">{connectorAwaitingKey?.name}</p>
+                    <p className="truncate text-sm text-text-secondary">{connectorAwaitingKey?.description}</p>
                   </div>
                 </div>
 
                 <div>
                   <label
                     htmlFor="connector-api-key"
-                    className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                    className="mb-2 block text-xs font-semibold uppercase tracking-wide text-text-secondary"
                   >
                     API key / token
                   </label>
@@ -492,7 +502,7 @@ const ConnectorSettings = () => {
                     placeholder={`Paste the token from ${connectorAwaitingKey?.name ?? 'the provider'}`}
                     autoFocus
                     required
-                    className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/40"
+                    className={auiInputClass('h-11')}
                   />
                 </div>
               </div>

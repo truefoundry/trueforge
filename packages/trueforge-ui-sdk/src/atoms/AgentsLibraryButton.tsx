@@ -58,9 +58,9 @@ export function AgentsLibraryButton({ className, compact = false, onSelectAgent 
           className={auiButtonClass({
             variant: 'ghost',
             className: cn(
-              'h-8 rounded-md text-sm font-medium text-foreground shadow-none hover:bg-accent hover:text-accent-foreground',
+              'h-8 rounded-md text-sm font-medium text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
               compact ? 'w-8 !justify-center p-0' : 'w-full !justify-start px-2.5',
-              open && 'bg-accent text-accent-foreground',
+              open && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
             ),
           })}
           onClick={() => setOpen(true)}
@@ -70,7 +70,7 @@ export function AgentsLibraryButton({ className, compact = false, onSelectAgent 
             <>
               <span className="truncate">
                 Agents Library
-                {countLabel != null ? <span className="text-muted-foreground"> ({countLabel})</span> : null}
+                {countLabel != null ? <span className="text-text-secondary"> ({countLabel})</span> : null}
               </span>
               <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
             </>

@@ -71,7 +71,7 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
   const content = (
     <>
       <div className="border-b border-border px-3 py-2">
-        <p className="text-foreground text-sm font-semibold">Reasoning effort</p>
+        <p className="text-text-primary text-sm font-semibold">Reasoning effort</p>
       </div>
       <div
         id={menuId}
@@ -89,7 +89,9 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
               aria-selected={active}
               className={cn(
                 'flex w-full items-center rounded-md px-2 py-2 text-left text-sm',
-                active ? 'bg-accent' : 'hover:bg-accent/60',
+                active
+                  ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
+                  : 'hover:bg-ghost-button-hover',
               )}
               onClick={() => {
                 if (!selected || !updateAgentSpec) return;
@@ -123,7 +125,10 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
         className={auiButtonClass({
           variant: 'ghost',
           size: 'sm',
-          className: cn('h-8 max-w-[10rem] gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-accent'),
+          className: cn(
+            'h-8 max-w-[10rem] gap-1.5 rounded-full px-2 text-xs font-medium',
+            'hover:bg-ghost-button-hover',
+          ),
         })}
         onClick={() => setOpen(v => !v)}
       >
@@ -137,7 +142,7 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
             {content}
           </BottomSheet>
         ) : (
-          <div className="bg-popover text-popover-foreground absolute right-0 bottom-full z-50 mb-2 flex max-h-[22rem] w-[12rem] flex-col overflow-hidden rounded-lg border border-border shadow-lg">
+          <div className="bg-card-bg text-text-primary absolute right-0 bottom-full z-50 mb-2 flex max-h-[22rem] w-[12rem] flex-col overflow-hidden rounded-lg border border-border shadow-lg">
             {content}
           </div>
         )

@@ -35,16 +35,16 @@ export function McpAuthPrompt({
       className={cn('aui-mcp-auth-prompt mt-2 overflow-hidden rounded-lg border border-border', className)}
       data-testid={dataTestPrefix ? `${dataTestPrefix}-mcp-auth-card` : undefined}
     >
-      <div className="border-b border-primary/30 bg-primary/10 px-4 py-2">
-        <div className="font-sans text-sm font-medium text-primary">{title}</div>
+      <div className="border-b border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2">
+        <div className="font-sans text-sm font-medium text-primary-button-bg">{title}</div>
       </div>
-      <div className="flex flex-col gap-3 bg-background px-4 py-3">
+      <div className="flex flex-col gap-3 bg-primary-bg px-4 py-3">
         {servers.map(server => (
           <div key={server.id} className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-1.5 text-sm">
-              <span className="shrink-0 font-medium text-muted-foreground">MCP Server Name</span>
-              <span className="shrink-0 text-xs font-semibold text-muted-foreground">:</span>
-              <span className="truncate font-sans font-medium text-foreground">{server.name}</span>
+              <span className="shrink-0 font-medium text-text-secondary">MCP Server Name</span>
+              <span className="shrink-0 text-xs font-semibold text-text-secondary">:</span>
+              <span className="truncate font-sans font-medium text-text-primary">{server.name}</span>
             </div>
             <Button size="sm" disabled={readOnly} onClick={() => onConnect(server.id)} className="shrink-0">
               Connect

@@ -45,7 +45,7 @@ export function AttachmentPreviewDialog({ previewSrc, children }: AttachmentPrev
               <Icon name="xmark" />
             </button>
           </span>
-          <div className="bg-background relative mx-auto flex max-h-[80dvh] w-full items-center justify-center overflow-hidden">
+          <div className="bg-primary-bg relative mx-auto flex max-h-[80dvh] w-full items-center justify-center overflow-hidden">
             <img
               src={previewSrc}
               alt="Attachment preview"

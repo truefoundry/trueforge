@@ -13,6 +13,8 @@ describe('AgentStepsCard', () => {
       </AgentStepsCard>,
     );
 
+    expect(screen.getByTestId('agent-agent-steps-card').className).toMatch(/bg-card-bg/);
+    expect(screen.getByTestId('agent-agent-steps-card').className).toMatch(/text-text-primary/);
     expect(screen.getByText(/1 tool call/)).toBeInTheDocument();
     expect(screen.getByText(/2 thoughts/)).toBeInTheDocument();
     expect(screen.queryByText('step details')).not.toBeInTheDocument();
