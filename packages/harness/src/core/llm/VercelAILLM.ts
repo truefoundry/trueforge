@@ -632,11 +632,9 @@ export function toAssistantModelMessage({
 
   // `thinking_blocks` / `source` are attached at runtime by AgentThread and absent from the OpenAI SDK type.
   const rawThinking: unknown = Reflect.get(msg, 'thinking_blocks');
-  const attachSignature = shouldAttachReasoningSignature({
-    source: Reflect.get(msg, 'source'),
-    provider,
-    providerName,
-  });
+  const rawSource: unknown = Reflect.get(msg, 'source');
+  const source = typeof rawSource === 'string' ? rawSource : undefined;
+  const attachSignature = shouldAttachReasoningSignature({ source, provider, providerName });
   // Alibaba appends replayed thinking to the visible answer, and Qwen signs nothing to preserve.
   if (Array.isArray(rawThinking) && provider !== 'alibaba') {
     // Widen any[] → unknown[] so the in-guards below narrow safely.
@@ -724,11 +722,8 @@ export function toAssistantModelMessage({
 
 /** Parse `provider_type/provider_name/model_name`. */
 function parseAssistantMessageSource(
-  source: unknown,
+  source: string,
 ): { providerType: string; providerName: string; modelName: string } | undefined {
-  if (typeof source !== 'string') {
-    return undefined;
-  }
   const [providerType, providerName, modelName, ...rest] = source.split('/');
   if (rest.length > 0 || !providerType || !providerName || !modelName) {
     return undefined;
@@ -742,10 +737,13 @@ export function shouldAttachReasoningSignature({
   provider,
   providerName,
 }: {
-  source: unknown;
+  source: string | undefined;
   provider: VercelAIProviderName;
   providerName: string;
 }): boolean {
+  if (source === undefined) {
+    return false;
+  }
   const parsed = parseAssistantMessageSource(source);
   if (parsed === undefined) {
     return false;
