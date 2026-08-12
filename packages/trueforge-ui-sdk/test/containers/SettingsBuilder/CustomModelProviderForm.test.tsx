@@ -70,7 +70,7 @@ describe('CustomModelProviderForm', () => {
     expect(submit).toBeDisabled(); // model ID still empty
 
     fireEvent.change(screen.getByPlaceholderText('llama3.1:70b'), { target: { value: 'llama3.1:70b' } });
-    // Enabled even though the collapsed limits are still empty — the click reveals them.
+    // Enabled even though the required limits are still empty — they're enforced on submit.
     expect(submit).toBeEnabled();
   });
 
@@ -93,18 +93,15 @@ describe('CustomModelProviderForm', () => {
 
   it('does not prefill Context length or Max output tokens', () => {
     renderForm();
-    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
+    // Advanced is expanded by default, so the limits are visible immediately.
     expect((screen.getByPlaceholderText('128000') as HTMLInputElement).value).toBe('');
     expect((screen.getByPlaceholderText('4096') as HTMLInputElement).value).toBe('');
   });
 
-  it('requires both limits: submitting empty auto-expands Advanced, shows the error, and does not submit', () => {
+  it('requires both limits: submitting with them empty shows the error and does not submit', () => {
     const onAdd = renderForm();
-    fillVisible();
-    expect(screen.queryByPlaceholderText('128000')).not.toBeInTheDocument(); // Advanced starts collapsed
+    fillVisible(); // Advanced is expanded by default; the limits are visible but empty.
     fireEvent.click(screen.getByRole('button', { name: 'Add provider' }));
-    // The offending model's Advanced expands and its required error appears; nothing is submitted.
-    expect(screen.getByPlaceholderText('128000')).toBeInTheDocument();
     expect(screen.getByText(/Set the model.s context window/)).toBeInTheDocument();
     expect(onAdd).not.toHaveBeenCalled();
   });
@@ -181,17 +178,25 @@ describe('CustomModelProviderForm', () => {
     expect(screen.getByRole('button', { name: 'Add provider' })).toBeDisabled();
   });
 
-  it('surfaces the auto-derived Model name error immediately, without a blur or submit', () => {
+  it('never errors the auto-derived Model name; the user just enters one', () => {
     renderForm();
-    fireEvent.change(screen.getByPlaceholderText('local-llama'), { target: { value: 'local-llama' } });
-    fireEvent.change(screen.getByPlaceholderText('http://localhost:11434/v1'), {
-      target: { value: 'http://localhost:11434/v1' },
-    });
-    // An all-digits id slugifies to an empty name. The error must show from typing alone —
-    // the id field is never blurred and the disabled button prevents a submit.
-    fireEvent.change(screen.getByPlaceholderText('llama3.1:70b'), { target: { value: '123' } });
-    expect(screen.getByText('Model name is required.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add provider' })).toBeDisabled();
+    const id = screen.getByPlaceholderText('llama3.1:70b');
+    // An all-digits id slugifies to an empty name. No error while typing…
+    fireEvent.change(id, { target: { value: '111' } });
+    expect(screen.queryByText('Model name is required.')).not.toBeInTheDocument();
+    // …and none after the id is blurred either — an auto-derived value is never flagged.
+    fireEvent.blur(id);
+    expect(screen.queryByText('Model name is required.')).not.toBeInTheDocument();
+  });
+
+  it('shows only the Model ID error when the id is empty (no stacked name error)', () => {
+    renderForm();
+    const id = screen.getByPlaceholderText('llama3.1:70b');
+    fireEvent.change(id, { target: { value: 'x' } }); // touch, then clear
+    fireEvent.change(id, { target: { value: '' } });
+    fireEvent.blur(id);
+    expect(screen.getByText('Model ID is required.')).toBeInTheDocument();
+    expect(screen.queryByText('Model name is required.')).not.toBeInTheDocument();
   });
 
   it('accepts backend-valid names with adjacent separators (matches NameSchema)', () => {

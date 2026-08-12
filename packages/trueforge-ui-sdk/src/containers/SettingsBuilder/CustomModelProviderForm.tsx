@@ -53,7 +53,9 @@ const PLACEHOLDER_MAX_OUTPUT_TOKENS = '4096';
 const createEmptyModelRow = (): ModelRow => ({
   id: '',
   name: '',
-  advancedExpanded: false,
+  // Expanded by default: Context length and Max output tokens are required, so they
+  // shouldn't be hidden behind a collapsed section.
+  advancedExpanded: true,
   contextLength: '',
   maxOutputTokens: '',
 });
@@ -199,7 +201,8 @@ const CustomModelProviderForm = ({
       const field = target && modelContextError(target) ? 'context-length' : 'max-output-tokens';
       setTimeout(() => {
         const el = document.getElementById(`custom-provider-model-${incompleteIndex}-${field}`);
-        el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        // scrollIntoView is unimplemented in jsdom; guard the method so tests don't throw.
+        el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
         (el as HTMLInputElement | null)?.focus();
       }, 0);
       return;
@@ -316,11 +319,10 @@ const CustomModelProviderForm = ({
                 const idError = modelIdError(model);
                 const showIdError = model.idTouched && idError;
                 const nameFieldError = modelNameError(model);
-                // Surface auto-derived name problems as soon as there is a Model ID: the name is
-                // derived from it, so a bad slug must show without waiting for a blur or submit
-                // (the submit button can be disabled, so those triggers may never fire). When the
-                // id is empty the id's own "required" error covers it, so we don't double up here.
-                const showNameFieldError = (model.id.trim() !== '' || model.nameDirty) && nameFieldError;
+                // The Model name is auto-derived from the Model ID and is editable. Never flag an
+                // auto-derived value: if the id yields no usable name, stay silent and let the user
+                // type one. Only surface an error once they have hand-edited the name themselves.
+                const showNameFieldError = !!nameFieldError && model.nameDirty;
                 const contextError = modelContextError(model);
                 const maxError = modelMaxOutputError(model);
                 const showContextError = model.contextTouched && contextError;
@@ -405,6 +407,60 @@ const CustomModelProviderForm = ({
 
                       {model.advancedExpanded ? (
                         <div id={`custom-provider-model-${index}-advanced`} className="mt-3 space-y-4 pl-6">
+                          <div>
+                            <label
+                              htmlFor={`custom-provider-model-${index}-context-length`}
+                              className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                            >
+                              Context length
+                              <RequiredMark />
+                            </label>
+                            <input
+                              id={`custom-provider-model-${index}-context-length`}
+                              type="number"
+                              min={1}
+                              inputMode="numeric"
+                              value={model.contextLength}
+                              onChange={event => updateModel(index, { contextLength: event.target.value })}
+                              onBlur={() => updateModel(index, { contextTouched: true })}
+                              placeholder={PLACEHOLDER_CONTEXT_LENGTH}
+                              aria-invalid={showContextError ? true : undefined}
+                              className={cn(inputClassName, showContextError && inputErrorClassName)}
+                            />
+                            {showContextError ? (
+                              <FieldError>{contextError}</FieldError>
+                            ) : model.contextLength.trim() === '' ? (
+                              <FieldHelp>Prevents the context window from overflowing during a run.</FieldHelp>
+                            ) : null}
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor={`custom-provider-model-${index}-max-output-tokens`}
+                              className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                            >
+                              Max output tokens
+                              <RequiredMark />
+                            </label>
+                            <input
+                              id={`custom-provider-model-${index}-max-output-tokens`}
+                              type="number"
+                              min={1}
+                              inputMode="numeric"
+                              value={model.maxOutputTokens}
+                              onChange={event => updateModel(index, { maxOutputTokens: event.target.value })}
+                              onBlur={() => updateModel(index, { maxTouched: true })}
+                              placeholder={PLACEHOLDER_MAX_OUTPUT_TOKENS}
+                              aria-invalid={showMaxError ? true : undefined}
+                              className={cn(inputClassName, showMaxError && inputErrorClassName)}
+                            />
+                            {showMaxError ? (
+                              <FieldError>{maxError}</FieldError>
+                            ) : model.maxOutputTokens.trim() === '' ? (
+                              <FieldHelp>Caps tokens per model call.</FieldHelp>
+                            ) : null}
+                          </div>
+
                           {reasoningEffortOptions && reasoningEffortOptions.length > 0 ? (
                             <div>
                               <div className="flex items-center justify-between gap-3">
@@ -471,60 +527,6 @@ const CustomModelProviderForm = ({
                               ) : null}
                             </div>
                           ) : null}
-
-                          <div>
-                            <label
-                              htmlFor={`custom-provider-model-${index}-context-length`}
-                              className="mb-1.5 block text-xs font-medium text-muted-foreground"
-                            >
-                              Context length
-                              <RequiredMark />
-                            </label>
-                            <input
-                              id={`custom-provider-model-${index}-context-length`}
-                              type="number"
-                              min={1}
-                              inputMode="numeric"
-                              value={model.contextLength}
-                              onChange={event => updateModel(index, { contextLength: event.target.value })}
-                              onBlur={() => updateModel(index, { contextTouched: true })}
-                              placeholder={PLACEHOLDER_CONTEXT_LENGTH}
-                              aria-invalid={showContextError ? true : undefined}
-                              className={cn(inputClassName, showContextError && inputErrorClassName)}
-                            />
-                            {showContextError ? (
-                              <FieldError>{contextError}</FieldError>
-                            ) : (
-                              <FieldHelp>Prevents the context window from overflowing during a run.</FieldHelp>
-                            )}
-                          </div>
-
-                          <div>
-                            <label
-                              htmlFor={`custom-provider-model-${index}-max-output-tokens`}
-                              className="mb-1.5 block text-xs font-medium text-muted-foreground"
-                            >
-                              Max output tokens
-                              <RequiredMark />
-                            </label>
-                            <input
-                              id={`custom-provider-model-${index}-max-output-tokens`}
-                              type="number"
-                              min={1}
-                              inputMode="numeric"
-                              value={model.maxOutputTokens}
-                              onChange={event => updateModel(index, { maxOutputTokens: event.target.value })}
-                              onBlur={() => updateModel(index, { maxTouched: true })}
-                              placeholder={PLACEHOLDER_MAX_OUTPUT_TOKENS}
-                              aria-invalid={showMaxError ? true : undefined}
-                              className={cn(inputClassName, showMaxError && inputErrorClassName)}
-                            />
-                            {showMaxError ? (
-                              <FieldError>{maxError}</FieldError>
-                            ) : (
-                              <FieldHelp>Caps tokens per model call.</FieldHelp>
-                            )}
-                          </div>
                         </div>
                       ) : null}
                     </div>
