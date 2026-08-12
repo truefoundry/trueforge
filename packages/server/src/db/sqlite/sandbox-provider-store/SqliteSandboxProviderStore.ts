@@ -37,6 +37,21 @@ export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transac
       .executeTakeFirst();
   }
 
+  /**
+   * SQLite has no row-level FOR UPDATE; the required write transaction (BEGIN IMMEDIATE)
+   * serializes concurrent writers so RMW of secrets stays consistent.
+   */
+  async getSandboxProviderForUpdate(
+    tenantId: string,
+    transaction: Transaction<Database>,
+  ): Promise<SandboxProviderRecord | undefined> {
+    return await transaction
+      .selectFrom('sandbox_provider')
+      .select(recordColumns)
+      .where('tenant_id', '=', tenantId)
+      .executeTakeFirst();
+  }
+
   async upsertSandboxProvider(
     input: UpsertSandboxProviderInput,
     transaction?: Transaction<Database>,
