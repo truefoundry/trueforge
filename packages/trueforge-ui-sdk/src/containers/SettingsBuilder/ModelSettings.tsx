@@ -2,15 +2,26 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Button } from '../../atoms/primitives/Button.js';
-import { CatalogLogo } from '../../atoms/primitives/CatalogLogo.js';
-import SearchInput from '../../atoms/primitives/SearchInput.js';
-import { Icon } from '../../icons/Icon.js';
-import { useCatalogServer } from '../../server/ServerContext.js';
-import type { ModelEntry, ModelProviderBase, ModelProviderCatalogEntry } from '../../server/types.js';
-import { getErrorMessage } from '../../utils/getErrorMessage.js';
-import { useErrorToasterOptional } from '../ErrorToasterContainer.js';
-import CustomModelProviderForm, { type CustomProviderDraft } from './CustomModelProviderForm.js';
+import { cn } from '@/atoms/lib/cn.js';
+import { Accordion, AccordionDetails, AccordionSummary } from '@/atoms/primitives/Accordion.js';
+import { Button } from '@/atoms/primitives/Button.js';
+import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
+import SearchInput from '@/atoms/primitives/SearchInput.js';
+import { useErrorToasterOptional } from '@/containers/ErrorToasterContainer.js';
+import CustomModelProviderForm, {
+  type CustomProviderDraft,
+} from '@/containers/SettingsBuilder/CustomModelProviderForm.js';
+import { Icon } from '@/icons/Icon.js';
+import { useCatalogServer } from '@/server/ServerContext.js';
+import type { ModelEntry, ModelProviderBase, ModelProviderCatalogEntry } from '@/server/types.js';
+import { getErrorMessage } from '@/utils/getErrorMessage.js';
+
+function catalogBaseUrl(provider: ModelProviderCatalogEntry): string {
+  if ('baseUrl' in provider && typeof provider.baseUrl === 'string') {
+    return provider.baseUrl;
+  }
+  return '';
+}
 
 const ModelSettings = () => {
   const { modelCatalog } = useCatalogServer();
@@ -26,6 +37,8 @@ const ModelSettings = () => {
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
   const [editingCatalogType, setEditingCatalogType] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [customProviderOpen, setCustomProviderOpen] = useState(false);
 
   const modelProviderIconMap = useMemo(() => {
@@ -107,6 +120,8 @@ const ModelSettings = () => {
     setEditingProviderId(null);
     setEditingCatalogType(null);
     setApiKey('');
+    setBaseUrl('');
+    setAdvancedOpen(false);
   };
 
   const runMutation = async (fn: () => Promise<void>) => {
@@ -136,6 +151,7 @@ const ModelSettings = () => {
       await modelCatalog.createModelProvider({
         type: entry.type,
         name: entry.name,
+        ...(baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
         apiKey: apiKey.trim(),
         models: entry.models,
       });
@@ -150,7 +166,7 @@ const ModelSettings = () => {
         id: provider.id,
         type: provider.type,
         name: provider.name,
-        ...(provider.baseUrl ? { baseUrl: provider.baseUrl } : {}),
+        ...(baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
         apiKey: apiKey.trim(),
         models: provider.models,
       });
@@ -191,7 +207,7 @@ const ModelSettings = () => {
     });
   };
 
-  const renderKeyEditor = (opts: { id: string; submitLabel: string; onSave: () => void }) => (
+  const renderKeyEditor = (opts: { id: string; submitLabel: string; onSave: () => void; isReplacingKey?: boolean }) => (
     <form
       className="mt-4 rounded-lg border border-border bg-muted/20 p-4"
       onSubmit={event => {
@@ -203,7 +219,7 @@ const ModelSettings = () => {
         htmlFor={`api-key-${opts.id}`}
         className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
       >
-        API key
+        {opts.isReplacingKey ? 'New API key' : 'API key'}
       </label>
       <input
         id={`api-key-${opts.id}`}
@@ -212,17 +228,55 @@ const ModelSettings = () => {
         onChange={event => {
           setApiKey(event.target.value);
         }}
-        placeholder="Enter API Key"
+        placeholder={opts.isReplacingKey ? 'Enter a new key to replace the saved one' : 'Enter API Key'}
         autoFocus
         className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
       />
-      <div className="mt-3 flex justify-end gap-2">
-        <Button variant="ghost" size="sm" type="button" onClick={closeKeyEditor} disabled={busy}>
-          Cancel
-        </Button>
-        <Button size="sm" type="submit" disabled={!apiKey.trim() || busy}>
-          {opts.submitLabel}
-        </Button>
+      <Accordion expanded={advancedOpen} onChange={(_event, next) => setAdvancedOpen(next)}>
+        <AccordionSummary className="pt-2 pb-1.5">
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Icon
+              name="chevron-down"
+              className={`size-4 transition-transform duration-200 ${advancedOpen ? '' : '-rotate-90'}`}
+            />
+            Advanced · custom endpoint
+          </span>
+        </AccordionSummary>
+        <AccordionDetails className="flex flex-col gap-1">
+          <label
+            htmlFor={`base-url-${opts.id}`}
+            className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+          >
+            Base URL
+          </label>
+          <input
+            id={`base-url-${opts.id}`}
+            type="url"
+            value={baseUrl}
+            onChange={event => {
+              setBaseUrl(event.target.value);
+            }}
+            placeholder="https://api.openai.com/v1"
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+          />
+          <p className="text-sm text-muted-foreground">
+            Leave as the default unless you use a regional or proxy endpoint.
+          </p>
+        </AccordionDetails>
+      </Accordion>
+
+      <div className={cn('mt-2 flex items-center gap-2', opts.isReplacingKey ? 'justify-between' : 'justify-end')}>
+        {opts.isReplacingKey ? (
+          <p className="text-sm text-muted-foreground">The saved key is hidden. Saving replaces it.</p>
+        ) : null}
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" type="button" onClick={closeKeyEditor} disabled={busy}>
+            Cancel
+          </Button>
+          <Button size="sm" type="submit" disabled={!apiKey.trim() || busy}>
+            {opts.submitLabel}
+          </Button>
+        </div>
       </div>
     </form>
   );
@@ -307,6 +361,8 @@ const ModelSettings = () => {
                                 setEditingCatalogType(null);
                                 setEditingProviderId(provider.id);
                                 setApiKey('');
+                                setBaseUrl(provider.baseUrl ?? '');
+                                setAdvancedOpen(false);
                               }}
                             >
                               <Icon name="wrench" className="size-3.5" />
@@ -332,7 +388,8 @@ const ModelSettings = () => {
                         {editingProviderId === provider.id
                           ? renderKeyEditor({
                               id: provider.id,
-                              submitLabel: 'Update',
+                              submitLabel: 'Replace key',
+                              isReplacingKey: true,
                               onSave: () => {
                                 handleReplaceKey(provider);
                               },
@@ -438,6 +495,8 @@ const ModelSettings = () => {
                               setEditingProviderId(null);
                               setEditingCatalogType(provider.type);
                               setApiKey('');
+                              setBaseUrl(catalogBaseUrl(provider));
+                              setAdvancedOpen(false);
                             }}
                           >
                             <Icon name="wrench" className="size-4" />
