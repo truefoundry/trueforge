@@ -1813,7 +1813,7 @@ await client.skills.list();
 <dl>
 <dd>
 
-MCP server presets shipped with the server (mcp-catalog.yaml). Discovery-only: copy an entry into PUT /settings/mcp-servers to configure it.
+Shipped MCP server presets (discovery-only). Copy into PUT /settings/mcp-servers to configure.
 </dd>
 </dl>
 </dd>
@@ -1869,7 +1869,7 @@ await client.catalog.mcpServers.list();
 <dl>
 <dd>
 
-Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Includes a `custom` sentinel with `supported_reasoning_efforts` for the custom-provider form (not configurable from catalog).
+Shipped model-provider presets (discovery-only). Copy into PUT /settings/model-providers to configure. Includes a `custom` sentinel with `supported_reasoning_efforts`.
 </dd>
 </dl>
 </dd>
@@ -1925,7 +1925,7 @@ await client.catalog.modelProviders.list();
 <dl>
 <dd>
 
-Sandbox provider presets shipped with the server (sandbox-catalog.yaml). Discovery-only: copy an entry into PUT /settings/sandbox-providers to configure it.
+Shipped sandbox-provider presets (discovery-only). Copy into PUT /settings/sandbox-providers to configure.
 </dd>
 </dl>
 </dd>
@@ -1981,7 +1981,7 @@ await client.catalog.sandboxProviders.list();
 <dl>
 <dd>
 
-Skill presets shipped with the server (skill-catalog.yaml). Discovery-only: copy an entry into PUT /settings/skills to configure it.
+Shipped skill presets (discovery-only). Copy into PUT /settings/skills to configure.
 </dd>
 </dl>
 </dd>

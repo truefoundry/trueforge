@@ -4665,7 +4665,7 @@
     },
     "/api/v1/catalog/mcp-servers": {
       "get": {
-        "description": "MCP server presets shipped with the server (mcp-catalog.yaml). Discovery-only: copy an entry into PUT /settings/mcp-servers to configure it.",
+        "description": "Shipped MCP server presets (discovery-only). Copy into PUT /settings/mcp-servers to configure.",
         "responses": {
           "200": {
             "content": {
@@ -4675,7 +4675,7 @@
                 }
               }
             },
-            "description": "The shipped catalog, verbatim."
+            "description": "Shipped MCP server presets."
           },
           "401": {
             "content": {
@@ -4685,7 +4685,7 @@
                 }
               }
             },
-            "description": "OIDC is configured and the request has no valid session cookie."
+            "description": "Not authenticated."
           }
         },
         "summary": "Get the MCP catalog",
@@ -4701,7 +4701,7 @@
     },
     "/api/v1/catalog/model-providers": {
       "get": {
-        "description": "Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Includes a `custom` sentinel with `supported_reasoning_efforts` for the custom-provider form (not configurable from catalog).",
+        "description": "Shipped model-provider presets (discovery-only). Copy into PUT /settings/model-providers to configure. Includes a `custom` sentinel with `supported_reasoning_efforts`.",
         "responses": {
           "200": {
             "content": {
@@ -4711,7 +4711,7 @@
                 }
               }
             },
-            "description": "The shipped catalog, verbatim."
+            "description": "Shipped model-provider presets."
           },
           "401": {
             "content": {
@@ -4721,7 +4721,7 @@
                 }
               }
             },
-            "description": "OIDC is configured and the request has no valid session cookie."
+            "description": "Not authenticated."
           }
         },
         "summary": "Get the model catalog",
@@ -4737,7 +4737,7 @@
     },
     "/api/v1/catalog/sandbox-providers": {
       "get": {
-        "description": "Sandbox provider presets shipped with the server (sandbox-catalog.yaml). Discovery-only: copy an entry into PUT /settings/sandbox-providers to configure it.",
+        "description": "Shipped sandbox-provider presets (discovery-only). Copy into PUT /settings/sandbox-providers to configure.",
         "responses": {
           "200": {
             "content": {
@@ -4747,7 +4747,7 @@
                 }
               }
             },
-            "description": "The shipped catalog, verbatim."
+            "description": "Shipped sandbox-provider presets."
           },
           "401": {
             "content": {
@@ -4757,7 +4757,7 @@
                 }
               }
             },
-            "description": "OIDC is configured and the request has no valid session cookie."
+            "description": "Not authenticated."
           }
         },
         "summary": "Get the sandbox provider catalog",
@@ -4773,7 +4773,7 @@
     },
     "/api/v1/catalog/skills": {
       "get": {
-        "description": "Skill presets shipped with the server (skill-catalog.yaml). Discovery-only: copy an entry into PUT /settings/skills to configure it.",
+        "description": "Shipped skill presets (discovery-only). Copy into PUT /settings/skills to configure.",
         "responses": {
           "200": {
             "content": {
@@ -4783,7 +4783,7 @@
                 }
               }
             },
-            "description": "The shipped catalog, verbatim."
+            "description": "Shipped skill presets."
           },
           "401": {
             "content": {
@@ -4793,7 +4793,7 @@
                 }
               }
             },
-            "description": "OIDC is configured and the request has no valid session cookie."
+            "description": "Not authenticated."
           }
         },
         "summary": "Get the skill catalog",

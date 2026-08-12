@@ -23,7 +23,7 @@ export class ModelProvidersClient {
     }
 
     /**
-     * Provider and model presets shipped with the server (model-catalog.yaml). Discovery-only: an entry becomes a PUT /settings/model-providers body once the catalog-only `logo` and `name` are dropped and `auth` is added. Includes a `custom` sentinel with `supported_reasoning_efforts` for the custom-provider form (not configurable from catalog).
+     * Shipped model-provider presets (discovery-only). Copy into PUT /settings/model-providers to configure. Includes a `custom` sentinel with `supported_reasoning_efforts`.
      *
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *

@@ -23,7 +23,7 @@ export class McpServersClient {
     }
 
     /**
-     * MCP server presets shipped with the server (mcp-catalog.yaml). Discovery-only: copy an entry into PUT /settings/mcp-servers to configure it.
+     * Shipped MCP server presets (discovery-only). Copy into PUT /settings/mcp-servers to configure.
      *
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *

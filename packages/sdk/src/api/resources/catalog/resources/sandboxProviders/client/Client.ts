@@ -23,7 +23,7 @@ export class SandboxProvidersClient {
     }
 
     /**
-     * Sandbox provider presets shipped with the server (sandbox-catalog.yaml). Discovery-only: copy an entry into PUT /settings/sandbox-providers to configure it.
+     * Shipped sandbox-provider presets (discovery-only). Copy into PUT /settings/sandbox-providers to configure.
      *
      * @param {SandboxProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *

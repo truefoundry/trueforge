@@ -23,7 +23,7 @@ export class SkillsClient {
     }
 
     /**
-     * Skill presets shipped with the server (skill-catalog.yaml). Discovery-only: copy an entry into PUT /settings/skills to configure it.
+     * Shipped skill presets (discovery-only). Copy into PUT /settings/skills to configure.
      *
      * @param {SkillsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
