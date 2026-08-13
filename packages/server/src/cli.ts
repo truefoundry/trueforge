@@ -54,6 +54,6 @@ try {
     await import('./main.js');
   }
 } catch (error) {
-  console.error(error instanceof Error ? error.message : error);
+  console.error(error);
   process.exit(1);
 }

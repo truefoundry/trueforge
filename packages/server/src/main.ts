@@ -9,6 +9,7 @@
  * (migrate, Redis, listen) are caught below and exit non-zero. SQLite vs
  * Postgres store modules stay dynamic so only the active engine is loaded.
  */
+import { extractErrorLogFields } from '@truefoundry/utils-core/core';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -270,7 +271,7 @@ try {
   if (redis) {
     requestReplySubscriber = redis.duplicate();
     requestReplySubscriber.on('error', (error: Error) => {
-      logger.error('[RedisSubscriber] Client error', { error: error.message });
+      logger.error('[RedisSubscriber] Client error', extractErrorLogFields(error));
     });
     await requestReplySubscriber.connect();
     requestReplyExecutor = new RequestReplyExecutor({
@@ -326,14 +327,10 @@ try {
       // the clients this process owns: the subscriber duplicate and the primary.
       await requestReplyExecutor?.drain();
       await requestReplySubscriber?.close().catch((error: unknown) => {
-        logger.warn('[Redis] Error closing subscriber client during shutdown', {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        logger.warn('[Redis] Error closing subscriber client during shutdown', extractErrorLogFields(error));
       });
       await redis?.close().catch((error: unknown) => {
-        logger.warn('[Redis] Error closing client during shutdown', {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        logger.warn('[Redis] Error closing client during shutdown', extractErrorLogFields(error));
       });
       await destroyDb();
       process.exit(0);

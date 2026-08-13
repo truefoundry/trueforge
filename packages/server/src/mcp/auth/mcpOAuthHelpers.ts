@@ -18,8 +18,10 @@ export function mcpOAuthCallbackUrl(): string {
   try {
     const publicBaseUrl = getPublicBaseUrl();
     return `${publicBaseUrl}${MCP_OAUTH_CALLBACK_PATH}`;
-  } catch {
-    throw new McpConnectionError('PUBLIC_BASE_URL is required for MCP OAuth registration but was empty', 500);
+  } catch (error) {
+    throw new McpConnectionError('PUBLIC_BASE_URL is required for MCP OAuth registration but was empty', 500, {
+      cause: error,
+    });
   }
 }
 
@@ -80,8 +82,8 @@ export function validateRedirectUris({ redirectUris }: { redirectUris: string[] 
     let parsed: URL;
     try {
       parsed = new URL(redirectUri);
-    } catch {
-      throw new McpConnectionError(`Invalid redirect URI: ${redirectUri}. Must be a valid URL.`, 400);
+    } catch (error) {
+      throw new McpConnectionError(`Invalid redirect URI: ${redirectUri}. Must be a valid URL.`, 400, { cause: error });
     }
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       throw new McpConnectionError(`Invalid redirect URI: ${redirectUri}. Must be a valid URL.`, 400);

@@ -104,7 +104,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .execute();
   } catch (error) {
     if (isPgUniqueViolation(error)) {
-      throw new SessionAlreadyExistsError(input.session_id);
+      throw new SessionAlreadyExistsError(input.session_id, { cause: error });
     }
     throw error;
   }
