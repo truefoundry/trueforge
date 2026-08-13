@@ -101,8 +101,14 @@ jobs:
 
   # Always-on: format + lint cover the whole tree (incl. roots outside packages/*);
   # typecheck/build stay always-on. Per-package jobs only run tests.
+
+  # Order matters for fail-fast and lint correctness:
+  # - format first (cheapest signal)
+  # - typecheck next (types + sdk/ui pretypecheck so .d.ts exist)
+  # - lint after typecheck (type-aware eslint resolves workspace packages via dist)
+  # - build last (full emit; not required for lint, still always-on as a ship gate)
   typecheck-and-build:
-    name: Format, Lint, Typecheck and Build
+    name: Format, Typecheck, Lint and Build
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -128,12 +134,12 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Build
-        run: pnpm build
-
-      # After typecheck/build so trueforge-ui and sdk .d.ts exist for type-aware eslint.
+      # After typecheck so trueforge-ui and sdk .d.ts exist for type-aware eslint.
       - name: Lint
         run: pnpm lint:ci
+
+      - name: Build
+        run: pnpm build
 
   # Path-gated tests only — format/lint are covered by the global job above.
   package-checks:

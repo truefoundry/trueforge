@@ -5,7 +5,7 @@
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type { AgentBuilderServer, AgentLibraryEntry, ModelSelection, SearchAgentsParams } from '../../server/types.js';
 import { toUiConnectorFromReadEntry } from './catalogs/connectorCatalog.js';
-import { agentManifest, toHarnessAgentSpec, toUiAgentSpec } from './chatServer.js';
+import { toHarnessAgentSpec, toUiAgentSpec } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
 import { listConfiguredMcpServers, listSkills } from './lists.js';
 import type { HarnessAgentSpec } from './types.js';
@@ -48,7 +48,7 @@ function toLibraryEntry(agent: TrueForgeApi.Agent): AgentLibraryEntry {
   return {
     name: agent.name,
     agentId: agent.id,
-    agentSpec: toUiAgentSpec(agentManifest(agent)),
+    agentSpec: toUiAgentSpec(agent.manifest),
   };
 }
 
@@ -96,10 +96,13 @@ export function createHarnessBuilderServer(
       if (intent === 'update') {
         const { data } = await client.agents.list();
         const existing = data.find(agent => agent.name === agentName);
-        await client.agents.update(agentName, manifest);
-        return existing === undefined ? {} : { agentId: existing.id };
+        if (!existing) {
+          return {};
+        }
+        await client.agents.update(existing.id, { manifest });
+        return { agentId: existing.id };
       }
-      const created = await client.agents.create({ name: agentName, ...manifest });
+      const created = await client.agents.create({ name: agentName, manifest });
       return { agentId: created.data.id };
     },
   };

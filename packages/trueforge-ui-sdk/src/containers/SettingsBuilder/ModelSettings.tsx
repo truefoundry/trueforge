@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { auiInputClass } from '@/atoms/lib/inputClasses.js';
-import { Accordion, AccordionDetails, AccordionSummary } from '@/atoms/primitives/Accordion.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
 import SearchInput from '@/atoms/primitives/SearchInput.js';
+import ConfigureModelProviderForm, {
+  type ModelProviderKeyDraft,
+} from '@/containers/SettingsBuilder/ConfigureModelProviderForm.js';
 import CustomModelProviderForm, {
   type CustomProviderDraft,
 } from '@/containers/SettingsBuilder/CustomModelProviderForm.js';
@@ -37,9 +38,7 @@ const ModelSettings = () => {
 
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
   const [editingCatalogType, setEditingCatalogType] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
   const [customProviderOpen, setCustomProviderOpen] = useState(false);
   const [customProviderToEdit, setCustomProviderToEdit] = useState<ModelProviderBase | null>(null);
 
@@ -121,9 +120,7 @@ const ModelSettings = () => {
   const closeKeyEditor = () => {
     setEditingProviderId(null);
     setEditingCatalogType(null);
-    setApiKey('');
-    setBaseUrl('');
-    setAdvancedOpen(false);
+    setKeyError(null);
   };
 
   const runMutation = async (fn: () => Promise<void>, onError?: (error: unknown) => void) => {
@@ -147,36 +144,41 @@ const ModelSettings = () => {
     }
   };
 
-  const handleCreateFromCatalog = (providerType: string) => {
-    const entry = catalog.find(item => item.type === providerType);
-    if (!entry || !apiKey.trim()) return;
-
-    void runMutation(async () => {
-      await modelCatalog.createModelProvider({
-        type: entry.type,
-        name: entry.name,
-        ...(baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
-        apiKey: apiKey.trim(),
-        models: entry.models,
-      });
-    }).catch(() => {});
+  // The key/endpoint modal owns the draft and awaits these handlers: on failure runMutation
+  // re-throws so the modal stays open and shows `keyError`; on success it closes the editor.
+  const handleCreateFromCatalog = async (entry: ModelProviderCatalogEntry, draft: ModelProviderKeyDraft) => {
+    setKeyError(null);
+    await runMutation(
+      async () => {
+        await modelCatalog.createModelProvider({
+          type: entry.type,
+          name: entry.name,
+          ...(draft.baseUrl ? { baseUrl: draft.baseUrl } : {}),
+          apiKey: draft.apiKey,
+          models: entry.models,
+        });
+      },
+      err => setKeyError(getErrorMessage(err, 'Request failed')),
+    );
   };
 
-  const handleReplaceKey = (provider: ModelProviderBase) => {
-    void runMutation(async () => {
-      await modelCatalog.updateModelProvider({
-        id: provider.id,
-        type: provider.type,
-        name: provider.name,
-        ...(baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
-        apiKey: apiKey.trim(),
-        models: provider.models,
-      });
-    })
-      .then(() => {
-        toaster?.showSuccess({ title: `${provider.name} updated` });
-      })
-      .catch(() => {});
+  const handleReplaceKey = async (provider: ModelProviderBase, draft: ModelProviderKeyDraft) => {
+    setKeyError(null);
+    await runMutation(
+      async () => {
+        await modelCatalog.updateModelProvider({
+          id: provider.id,
+          type: provider.type,
+          name: provider.name,
+          ...(draft.baseUrl ? { baseUrl: draft.baseUrl } : {}),
+          // Empty key means "keep the existing one" for hosts that support it.
+          apiKey: draft.apiKey,
+          models: provider.models,
+        });
+      },
+      err => setKeyError(getErrorMessage(err, 'Request failed')),
+    );
+    toaster?.showSuccess({ title: `${provider.name} updated` });
   };
 
   const handleRemoveProvider = (provider: ModelProviderBase) => {
@@ -254,79 +256,12 @@ const ModelSettings = () => {
       }
     : undefined;
 
-  const renderKeyEditor = (opts: { id: string; submitLabel: string; onSave: () => void; isReplacingKey?: boolean }) => (
-    <form
-      className="mt-4 rounded-lg bg-secondary-bg/40 p-4"
-      onSubmit={event => {
-        event.preventDefault();
-        opts.onSave();
-      }}
-    >
-      <label
-        htmlFor={`api-key-${opts.id}`}
-        className="mb-2 block text-xs font-semibold uppercase tracking-wide text-text-secondary"
-      >
-        {opts.isReplacingKey ? 'New API key' : 'API key'}
-      </label>
-      <input
-        id={`api-key-${opts.id}`}
-        type="password"
-        value={apiKey}
-        onChange={event => {
-          setApiKey(event.target.value);
-        }}
-        placeholder={opts.isReplacingKey ? 'Enter a new key' : 'Enter API Key'}
-        autoFocus
-        className={auiInputClass('h-10')}
-      />
-      {opts.isReplacingKey ? (
-        <p className="mt-1.5 text-sm text-text-secondary">
-          Leave blank to keep the current key; enter a new one to replace it.
-        </p>
-      ) : null}
-      <Accordion expanded={advancedOpen} onChange={(_event, next) => setAdvancedOpen(next)}>
-        <AccordionSummary className="pt-2 pb-1.5">
-          <span className="flex items-center gap-1.5 text-xs text-text-secondary">
-            <Icon
-              name="chevron-down"
-              className={`size-4 transition-transform duration-200 ${advancedOpen ? '' : '-rotate-90'}`}
-            />
-            Advanced · custom endpoint
-          </span>
-        </AccordionSummary>
-        <AccordionDetails className="flex flex-col gap-1">
-          <label
-            htmlFor={`base-url-${opts.id}`}
-            className="block text-xs font-semibold uppercase tracking-wide text-text-secondary"
-          >
-            Base URL
-          </label>
-          <input
-            id={`base-url-${opts.id}`}
-            type="url"
-            value={baseUrl}
-            onChange={event => {
-              setBaseUrl(event.target.value);
-            }}
-            placeholder="https://api.openai.com/v1"
-            className={auiInputClass('h-10')}
-          />
-          <p className="text-sm text-text-secondary">
-            Leave as the default unless you use a regional or proxy endpoint.
-          </p>
-        </AccordionDetails>
-      </Accordion>
-
-      <div className="mt-2 flex items-center justify-end gap-2">
-        <Button variant="ghost" size="sm" type="button" onClick={closeKeyEditor} disabled={busy}>
-          Cancel
-        </Button>
-        <Button size="sm" type="submit" disabled={busy || (!opts.isReplacingKey && !apiKey.trim())}>
-          {opts.submitLabel}
-        </Button>
-      </div>
-    </form>
-  );
+  // The key/endpoint editor is a single centered modal driven by which entry is being edited.
+  const editingProvider =
+    editingProviderId != null ? (configured.find(item => item.id === editingProviderId) ?? null) : null;
+  const editingCatalogEntry =
+    editingCatalogType != null ? (catalog.find(item => item.type === editingCatalogType) ?? null) : null;
+  const keyModalOpen = editingProvider != null || editingCatalogEntry != null;
 
   return (
     <>
@@ -415,11 +350,9 @@ const ModelSettings = () => {
                                   setCustomProviderToEdit(provider);
                                   setCustomProviderOpen(true);
                                 } else {
+                                  setKeyError(null);
                                   setEditingCatalogType(null);
                                   setEditingProviderId(provider.id);
-                                  setApiKey('');
-                                  setBaseUrl(provider.baseUrl ?? '');
-                                  setAdvancedOpen(false);
                                 }
                               }}
                             >
@@ -442,17 +375,6 @@ const ModelSettings = () => {
                             ) : null}
                           </div>
                         </header>
-
-                        {editingProviderId === provider.id
-                          ? renderKeyEditor({
-                              id: provider.id,
-                              submitLabel: 'Save',
-                              isReplacingKey: true,
-                              onSave: () => {
-                                handleReplaceKey(provider);
-                              },
-                            })
-                          : null}
 
                         <div className="mt-3 overflow-hidden rounded-lg border border-border bg-secondary-bg/30">
                           {provider.models.map(model => (
@@ -550,26 +472,15 @@ const ModelSettings = () => {
                             type="button"
                             disabled={busy}
                             onClick={() => {
+                              setKeyError(null);
                               setEditingProviderId(null);
                               setEditingCatalogType(provider.type);
-                              setApiKey('');
-                              setBaseUrl(catalogBaseUrl(provider));
-                              setAdvancedOpen(false);
                             }}
                           >
                             <Icon name="wrench" className="size-4" />
                             Configure
                           </Button>
                         </header>
-                        {editingCatalogType === provider.type
-                          ? renderKeyEditor({
-                              id: provider.type,
-                              submitLabel: 'Create',
-                              onSave: () => {
-                                handleCreateFromCatalog(provider.type);
-                              },
-                            })
-                          : null}
                       </article>
                     );
                   })}
@@ -583,6 +494,29 @@ const ModelSettings = () => {
               </div>
             ) : null}
           </div>
+
+          <ConfigureModelProviderForm
+            open={keyModalOpen}
+            onOpenChange={open => {
+              if (!open) closeKeyEditor();
+            }}
+            onSave={draft => {
+              if (editingProvider) return handleReplaceKey(editingProvider, draft);
+              if (editingCatalogEntry) return handleCreateFromCatalog(editingCatalogEntry, draft);
+            }}
+            title={editingProvider ? 'Edit Provider Details' : 'Configure Provider Details'}
+            initialBaseUrl={
+              editingProvider
+                ? (editingProvider.baseUrl ?? '')
+                : editingCatalogEntry
+                  ? catalogBaseUrl(editingCatalogEntry)
+                  : ''
+            }
+            requireApiKey={editingProvider == null}
+            submitLabel={editingProvider ? 'Save' : 'Create'}
+            busy={busy}
+            error={keyError}
+          />
 
           <CustomModelProviderForm
             key={customProviderToEdit?.id ?? 'add-custom-provider'}

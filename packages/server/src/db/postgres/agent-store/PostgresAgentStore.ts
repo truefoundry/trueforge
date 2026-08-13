@@ -83,7 +83,7 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
         updated_at: now(),
       })
       .where('tenant_id', '=', input.tenant_id)
-      .where('name', '=', input.name)
+      .where('id', '=', input.id)
       .returningAll()
       .executeTakeFirst();
     return row === undefined ? undefined : toRecord(row);

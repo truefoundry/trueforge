@@ -5,13 +5,16 @@ import type * as TrueForge from "../../../../index.js";
 /**
  * @example
  *     {
- *         model: {
- *             name: "name"
+ *         manifest: {
+ *             model: {
+ *                 name: "name"
+ *             }
  *         },
  *         name: "name"
  *     }
  */
-export interface AgentWriteRequest extends TrueForge.AgentSpec {
+export interface CreateAgentRequest {
+    manifest: TrueForge.AgentSpec;
     /** Fully qualified name. Unique within a tenant. */
     name: string;
 }
