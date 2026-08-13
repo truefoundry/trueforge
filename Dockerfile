@@ -36,6 +36,7 @@ FROM store AS workspace
 COPY package.json .npmrc tsconfig.base.json ./
 COPY packages/harness/package.json packages/harness/package.json
 COPY packages/server/package.json packages/server/package.json
+COPY packages/sdk/package.json packages/sdk/package.json
 COPY packages/frontend/package.json packages/frontend/package.json
 COPY packages/trueforge-ui-sdk/package.json packages/trueforge-ui-sdk/package.json
 COPY packages/harness/scripts packages/harness/scripts
@@ -57,16 +58,11 @@ RUN pnpm --filter @truefoundry/utils-core build && pnpm --filter @truefoundry/ut
 FROM workspace AS frontend-builder
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
   pnpm install --frozen-lockfile --offline --filter frontend...
+COPY packages/sdk packages/sdk
+RUN pnpm --filter @truefoundry/trueforge-sdk build
 COPY packages/trueforge-ui-sdk packages/trueforge-ui-sdk
 RUN pnpm --filter @truefoundry/trueforge-ui build
 COPY packages/frontend packages/frontend
-# trueforge is linked from packages/sdk (outside the pnpm workspace).
-COPY packages/sdk/package.json packages/sdk/pnpm-lock.yaml packages/sdk/pnpm-workspace.yaml packages/sdk/
-COPY packages/sdk/scripts packages/sdk/scripts
-COPY packages/sdk/src packages/sdk/src
-COPY packages/sdk/tsconfig*.json packages/sdk/
-RUN --mount=type=cache,id=pnpm-sdk,target=/pnpm/store \
-  cd packages/sdk && pnpm install --frozen-lockfile
 RUN pnpm --filter frontend build
 
 # ---------------------------------------------------------------------------

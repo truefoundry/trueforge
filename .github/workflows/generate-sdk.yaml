@@ -106,14 +106,14 @@ jobs:
           set -euo pipefail
 
           # --porcelain, not `git diff`, so new files count too.
-          if [ -z "$(git status --porcelain -- .github/fern/openapi packages/sdk)" ]; then
+          if [ -z "$(git status --porcelain -- .github/fern/openapi packages/sdk pnpm-lock.yaml)" ]; then
             echo "OpenAPI document and SDK are already up to date."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/fern/openapi packages/sdk
+          git add .github/fern/openapi packages/sdk pnpm-lock.yaml
           git commit -m "Regenerate OpenAPI document and TypeScript SDK"
           git push origin "HEAD:refs/heads/$BRANCH"
 

@@ -4,7 +4,7 @@
     "generatorVersion": "3.87.1",
     "generatorConfig": {
         "packageJson": {
-            "name": "trueforge-sdk"
+            "name": "@truefoundry/trueforge-sdk"
         },
         "allowExtraFields": true,
         "allowCustomFetcher": true,
@@ -28,7 +28,7 @@
         "streamType": "web",
         "useDefaultRequestParameterValues": true
     },
-    "originGitCommit": "7d6c22892289e07c6dc2526a5ddad23806cf35ee",
+    "originGitCommit": "5c2a556b861f2d72781df14d00a04e64fbcc6566",
     "originGitCommitIsDirty": true,
     "invokedBy": "ci",
     "requestedVersion": "0.0.0",
