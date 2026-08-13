@@ -1,68 +1,76 @@
+# npm publish for the four public packages.
+#
+# Filename is load-bearing: npm trusted publishers are bound to `release.yml`.
+# Do not rename this file without updating every package on npmjs.com.
+#
+# On every push to main, changesets/action does one of:
+#   - pending `.changeset/*.md` → open/update the Version Packages PR
+#   - none pending → `pnpm release` (build + `changeset publish`)
+# Merge the Version Packages PR to publish. There is no separate publish Action
+# and no `v*` tag trigger.
+#
+# Auth is GitHub OIDC (no NPM_TOKEN). An `_authToken` in user `.npmrc` disables
+# pnpm's OIDC exchange, so this job must not set NPM_TOKEN / NODE_AUTH_TOKEN.
 name: Release
+
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Never cancel a publish that is already talking to npm.
+  cancel-in-progress: false
 
 permissions:
-  contents: read
-  id-token: write # required for trusted publishing (OIDC)
+  contents: write # Version Packages branch + optional GitHub Releases
+  pull-requests: write # open/update the Version Packages PR
+  id-token: write # npm trusted publishing (OIDC)
 
 jobs:
-  publish:
+  release:
+    name: Version or publish
     runs-on: ubuntu-latest
+    # Same ceiling as generate-sdk.yaml: a Version Packages run that also
+    # rebakes the SDK (Docker Fern) is the slow path. Publish is just CI + npm.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so `changeset version` can write CHANGELOG from commits.
+          fetch-depth: 0
+          # Named branch, not a detached SHA: `pnpm publish` git-checks require
+          # HEAD to be on `main` (the old tag-push job needed --no-git-checks).
+          ref: ${{ github.ref }}
 
-      - uses: pnpm/action-setup@v4 # reads pnpm version from root packageManager field
+      - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
+          cache: pnpm
           registry-url: https://registry.npmjs.org
 
       - run: pnpm install --frozen-lockfile
+
       - run: pnpm build
       - run: pnpm test
 
-      # Guard: git tag must match @truefoundry/trueforge-core (library is the version authority).
-      # npm publishes what's in package.json, not the tag name. @truefoundry/trueforge may
-      # use an independent version; bump it in the same release PR when the app changes.
-      - name: Verify tag matches trueforge-core version
-        working-directory: packages/harness
+      # Root build copies FE into packages/server/dist/_frontend; refuse an API-only tarball.
+      - name: Verify packaged UI is present
         run: |
-          PKG_VERSION="v$(node -p "require('./package.json').version")"
-          if [ "$PKG_VERSION" != "$GITHUB_REF_NAME" ]; then
-            echo "Tag $GITHUB_REF_NAME does not match packages/harness ($PKG_VERSION)"
-            exit 1
-          fi
+          test -f packages/server/dist/cli.js
+          test -f packages/server/dist/_frontend/index.html
 
-      # Library first: @truefoundry/trueforge pins workspace:* → this concrete version on publish.
-      # Prereleases (e.g. 0.1.9-rc.1) pass --tag explicitly; first preid → dist-tag (rc).
-      # --no-git-checks: this job checks out a tag (detached HEAD), so pnpm's default
-      # "current branch is main/master" check would otherwise always fail here.
-      - name: Publish @truefoundry/trueforge-core
-        working-directory: packages/harness
-        run: |
-          VERSION="$(node -p "require('./package.json').version")"
-          if [[ "$VERSION" == *-* ]]; then
-            TAG="${VERSION#*-}"
-            TAG="${TAG%%.*}"
-            echo "Publishing $VERSION with --tag $TAG"
-            pnpm publish --access public --tag "$TAG" --no-git-checks
-          else
-            echo "Publishing $VERSION (latest)"
-            pnpm publish --access public --no-git-checks
-          fi
-        # TODO(oss): add --provenance once the repo is public. Do NOT add it now:
-        # provenance publicly attests the source repo and commit.
-
-      # TODO: Publish @truefoundry/trueforge
-
-      # # Root build copies FE into packages/server/dist/_frontend; refuse an API-only tarball.
-      # - name: Verify packaged UI is present
-      #   run: |
-      #     test -f packages/server/dist/cli.js
-      #     test -f packages/server/dist/_frontend/index.html
-
-      # App + CLI from package root (dist/ includes dist/_frontend/).
-      # pnpm publish rewrites workspace:* deps to the trueforge-core version just published.
+      - name: Create Version Packages PR or publish to npm
+        uses: changesets/action@v1
+        with:
+          version: pnpm run version
+          publish: pnpm run release
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # TODO(oss): set NPM_CONFIG_PROVENANCE once the repo is public. Do NOT
+          # set it now: provenance publicly attests the source repo and commit.
+          # publishConfig.provenance is false on every public package.
