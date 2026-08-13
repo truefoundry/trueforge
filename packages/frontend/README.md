@@ -72,7 +72,7 @@ callbacks; `App.tsx` spreads them into `createTrueFoundryServer` (settings CRUD 
 | `getMcp`       | `GET /api/v1/mcp-servers` (name/url + per-user auth_status)       |
 | `getSkills`    | `GET /api/v1/skills` when `GET /api/v1/capabilities` has skill on |
 | `searchAgents` | `GET /api/v1/agents`, filtered by `query` and paged client-side   |
-| `saveAgent`    | `PUT`/`POST /api/v1/agents` — updates by name, else creates       |
+| `saveAgent`    | `POST /api/v1/agents` create; `PUT /api/v1/agents/{name}` update  |
 
 The SDK's picker round-trips a skill as `{ id, name }`. Harness persists name refs only
 (`{ name }`), so `harnessServer` derives `id` from `name` on read and strips `id` on write.

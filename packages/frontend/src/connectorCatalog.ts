@@ -1,6 +1,5 @@
 /**
  * Maps trueforge-ui connector-settings calls onto Harness
- * `/api/v1/settings/mcp-servers` (upsert/list/tools) and `/api/v1/mcp-servers` (authorize).
  *
  * UI: `dcr` / `header` / `none`, connector `id`.
  * Harness: `dcr` / `header` / omitted auth, resource `name`.
@@ -188,7 +187,7 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
     },
     createConnector: async req => {
       const auth = await resolveWriteAuth({ auth: req.auth });
-      const body = await client.settings.mcpServers.upsert(toHarnessManifest({ name: req.name, url: req.url, auth }));
+      const body = await client.settings.mcpServers.create(toHarnessManifest({ name: req.name, url: req.url, auth }));
       return toUiConnector(body.data);
     },
     updateConnector: async req => {
