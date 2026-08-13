@@ -20,10 +20,13 @@ export function toDaytonaSandboxProvider({
   manifest,
   tenant_id,
   logger,
+  buildRef,
 }: {
   manifest: SandboxProviderManifest;
   tenant_id: string;
   logger: Logger;
+  /** Snapshot name to clone from (persisted build_ref). Omit to derive from the current image. */
+  buildRef?: string;
 }): DaytonaSandboxProvider {
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
   return new DaytonaSandboxProvider({
@@ -31,6 +34,7 @@ export function toDaytonaSandboxProvider({
     ...settings,
     tenantName: tenant_id,
     sandboxImage: SANDBOX_IMAGE_URI,
+    buildRef,
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,
   });

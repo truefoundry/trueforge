@@ -221,7 +221,14 @@ export async function resolveSandboxProvider({
   if (record === undefined) {
     return undefined;
   }
-  return toDaytonaSandboxProvider({ manifest: record.manifest, tenant_id, logger });
+  // Clone from the snapshot that was actually built (persisted build_ref), not a name
+  // derived from the current image — otherwise an image bump breaks creation until rebuild.
+  return toDaytonaSandboxProvider({
+    manifest: record.manifest,
+    tenant_id,
+    logger,
+    buildRef: record.build_metadata.build_ref,
+  });
 }
 
 /**

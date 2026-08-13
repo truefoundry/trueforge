@@ -61,6 +61,12 @@ export interface DaytonaSandboxProviderOptions {
   tenantName: string;
   /** Release-owned sandbox image reference; built into a Daytona snapshot and cloned per sandbox. */
   sandboxImage: string;
+  /**
+   * Daytona snapshot name to clone sandboxes from. When omitted it is derived from the image
+   * digest. Callers that create sandboxes pass the persisted build_ref so cloning targets the
+   * snapshot that was actually built, not a speculative name derived from the current image.
+   */
+  buildRef?: string | undefined;
   timeoutMs: number;
   autoStopIntervalInMinutes: number;
   autoArchiveIntervalInMinutes: number;
@@ -77,7 +83,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private readonly tenantName: string;
   /** Release-owned sandbox image reference; built into a Daytona snapshot and cloned per sandbox. */
   private readonly imageUri: string;
-  /** Daytona snapshot name derived from the image digest; sandboxes are cloned from it. */
+  /** Daytona snapshot name sandboxes are cloned from; the persisted build_ref, or derived from the image digest. */
   private readonly buildRef: string;
   private readonly timeoutMs: number;
   private readonly autoStopIntervalInMinutes: number;
@@ -96,7 +102,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.daytona = options.client;
     this.tenantName = options.tenantName;
     this.imageUri = options.sandboxImage;
-    this.buildRef = deriveImageBuildName(imageDigest(options.sandboxImage));
+    this.buildRef = options.buildRef ?? deriveImageBuildName(imageDigest(options.sandboxImage));
     this.timeoutMs = options.timeoutMs;
     this.autoStopIntervalInMinutes = options.autoStopIntervalInMinutes;
     this.autoArchiveIntervalInMinutes = options.autoArchiveIntervalInMinutes;
