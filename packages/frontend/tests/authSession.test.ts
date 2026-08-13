@@ -1,6 +1,6 @@
+import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { TrueForge } from 'trueforge-sdk';
 import {
   getCachedIsOidcConnectedSession,
   isOidcConnectedSession,

@@ -2,31 +2,44 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { auiInputClass } from '../../atoms/lib/inputClasses.js';
-import { Button } from '../../atoms/primitives/Button.js';
-import { CatalogLogo } from '../../atoms/primitives/CatalogLogo.js';
-import SearchInput from '../../atoms/primitives/SearchInput.js';
-import { Icon } from '../../icons/Icon.js';
-import { useCatalogServer } from '../../server/ServerContext.js';
-import type { ModelEntry, ModelProviderBase, ModelProviderCatalogEntry } from '../../server/types.js';
-import { getErrorMessage } from '../../utils/getErrorMessage.js';
-import { useErrorToasterOptional } from '../ErrorToasterContainer.js';
-import CustomModelProviderForm, { type CustomProviderDraft } from './CustomModelProviderForm.js';
+import { auiInputClass } from '@/atoms/lib/inputClasses.js';
+import { Accordion, AccordionDetails, AccordionSummary } from '@/atoms/primitives/Accordion.js';
+import { Button } from '@/atoms/primitives/Button.js';
+import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
+import SearchInput from '@/atoms/primitives/SearchInput.js';
+import CustomModelProviderForm, {
+  type CustomProviderDraft,
+} from '@/containers/SettingsBuilder/CustomModelProviderForm.js';
+import { useToasterOptional } from '@/containers/ToasterContainer.js';
+import { Icon } from '@/icons/Icon.js';
+import { useCatalogServer } from '@/server/ServerContext.js';
+import type { ModelEntry, ModelProviderBase, ModelProviderCatalogEntry } from '@/server/types.js';
+import { getErrorMessage } from '@/utils/getErrorMessage.js';
+
+function catalogBaseUrl(provider: ModelProviderCatalogEntry): string {
+  if ('baseUrl' in provider && typeof provider.baseUrl === 'string') {
+    return provider.baseUrl;
+  }
+  return '';
+}
 
 const ModelSettings = () => {
   const { modelCatalog } = useCatalogServer();
-  const toaster = useErrorToasterOptional();
+  const toaster = useToasterOptional();
 
   const [query, setQuery] = useState('');
   const [configured, setConfigured] = useState<ModelProviderBase[]>([]);
   const [catalog, setCatalog] = useState<ModelProviderCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
   const [editingCatalogType, setEditingCatalogType] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [customProviderOpen, setCustomProviderOpen] = useState(false);
 
   const modelProviderIconMap = useMemo(() => {
@@ -108,9 +121,11 @@ const ModelSettings = () => {
     setEditingProviderId(null);
     setEditingCatalogType(null);
     setApiKey('');
+    setBaseUrl('');
+    setAdvancedOpen(false);
   };
 
-  const runMutation = async (fn: () => Promise<void>) => {
+  const runMutation = async (fn: () => Promise<void>, onError?: (error: unknown) => void) => {
     setBusy(true);
     setError(null);
     try {
@@ -118,10 +133,12 @@ const ModelSettings = () => {
       await refresh();
       closeKeyEditor();
     } catch (err) {
-      if (toaster != null) {
-        toaster.showError(err);
-      } else {
+      if (onError) {
+        onError(err);
+      } else if (toaster == null) {
         setError(getErrorMessage(err, 'Request failed'));
+      } else {
+        toaster.showError(err);
       }
       throw err;
     } finally {
@@ -137,6 +154,7 @@ const ModelSettings = () => {
       await modelCatalog.createModelProvider({
         type: entry.type,
         name: entry.name,
+        ...(baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
         apiKey: apiKey.trim(),
         models: entry.models,
       });
@@ -144,18 +162,20 @@ const ModelSettings = () => {
   };
 
   const handleReplaceKey = (provider: ModelProviderBase) => {
-    if (!apiKey.trim()) return;
-
     void runMutation(async () => {
       await modelCatalog.updateModelProvider({
         id: provider.id,
         type: provider.type,
         name: provider.name,
-        ...(provider.baseUrl ? { baseUrl: provider.baseUrl } : {}),
+        ...(baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
         apiKey: apiKey.trim(),
         models: provider.models,
       });
-    }).catch(() => {});
+    })
+      .then(() => {
+        toaster?.showSuccess({ title: `${provider.name} updated` });
+      })
+      .catch(() => {});
   };
 
   const handleRemoveProvider = (provider: ModelProviderBase) => {
@@ -181,20 +201,27 @@ const ModelSettings = () => {
   };
 
   const handleAddCustomProvider = async (draft: CustomProviderDraft) => {
-    await runMutation(async () => {
-      await modelCatalog.createModelProvider({
-        type: 'custom',
-        name: draft.name,
-        baseUrl: draft.baseUrl,
-        apiKey: draft.apiKey,
-        models: draft.models,
-      });
-    });
+    setFormError(null);
+    await runMutation(
+      async () => {
+        await modelCatalog.createModelProvider({
+          type: 'custom',
+          name: draft.name,
+          baseUrl: draft.baseUrl,
+          apiKey: draft.apiKey,
+          models: draft.models,
+        });
+      },
+      err => setFormError(getErrorMessage(err, 'Request failed')),
+    );
+    setTimeout(() => {
+      toaster?.showSuccess({ title: `${draft.name} added` });
+    }, 0);
   };
 
-  const renderKeyEditor = (opts: { id: string; submitLabel: string; onSave: () => void }) => (
+  const renderKeyEditor = (opts: { id: string; submitLabel: string; onSave: () => void; isReplacingKey?: boolean }) => (
     <form
-      className="mt-4 rounded-lg border border-border bg-secondary-bg/40 p-4"
+      className="mt-4 rounded-lg bg-secondary-bg/40 p-4"
       onSubmit={event => {
         event.preventDefault();
         opts.onSave();
@@ -204,7 +231,7 @@ const ModelSettings = () => {
         htmlFor={`api-key-${opts.id}`}
         className="mb-2 block text-xs font-semibold uppercase tracking-wide text-text-secondary"
       >
-        API key
+        {opts.isReplacingKey ? 'New API key' : 'API key'}
       </label>
       <input
         id={`api-key-${opts.id}`}
@@ -213,15 +240,53 @@ const ModelSettings = () => {
         onChange={event => {
           setApiKey(event.target.value);
         }}
-        placeholder="Enter API Key"
+        placeholder={opts.isReplacingKey ? 'Enter a new key' : 'Enter API Key'}
         autoFocus
         className={auiInputClass('h-10')}
       />
-      <div className="mt-3 flex justify-end gap-2">
+      {opts.isReplacingKey ? (
+        <p className="mt-1.5 text-sm text-text-secondary">
+          Leave blank to keep the current key; enter a new one to replace it.
+        </p>
+      ) : null}
+      <Accordion expanded={advancedOpen} onChange={(_event, next) => setAdvancedOpen(next)}>
+        <AccordionSummary className="pt-2 pb-1.5">
+          <span className="flex items-center gap-1.5 text-xs text-text-secondary">
+            <Icon
+              name="chevron-down"
+              className={`size-4 transition-transform duration-200 ${advancedOpen ? '' : '-rotate-90'}`}
+            />
+            Advanced · custom endpoint
+          </span>
+        </AccordionSummary>
+        <AccordionDetails className="flex flex-col gap-1">
+          <label
+            htmlFor={`base-url-${opts.id}`}
+            className="block text-xs font-semibold uppercase tracking-wide text-text-secondary"
+          >
+            Base URL
+          </label>
+          <input
+            id={`base-url-${opts.id}`}
+            type="url"
+            value={baseUrl}
+            onChange={event => {
+              setBaseUrl(event.target.value);
+            }}
+            placeholder="https://api.openai.com/v1"
+            className={auiInputClass('h-10')}
+          />
+          <p className="text-sm text-text-secondary">
+            Leave as the default unless you use a regional or proxy endpoint.
+          </p>
+        </AccordionDetails>
+      </Accordion>
+
+      <div className="mt-2 flex items-center justify-end gap-2">
         <Button variant="ghost" size="sm" type="button" onClick={closeKeyEditor} disabled={busy}>
           Cancel
         </Button>
-        <Button size="sm" type="submit" disabled={!apiKey.trim() || busy}>
+        <Button size="sm" type="submit" disabled={busy || (!opts.isReplacingKey && !apiKey.trim())}>
           {opts.submitLabel}
         </Button>
       </div>
@@ -249,6 +314,7 @@ const ModelSettings = () => {
               variant="secondary"
               type="button"
               onClick={() => {
+                setFormError(null);
                 setCustomProviderOpen(true);
               }}
             >
@@ -298,21 +364,25 @@ const ModelSettings = () => {
                               <span className="h-1.5 w-1.5 rounded-full bg-success-bg"></span>
                               Connected
                             </span>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="text-[0.8125rem]"
-                              type="button"
-                              disabled={busy}
-                              onClick={() => {
-                                setEditingCatalogType(null);
-                                setEditingProviderId(provider.id);
-                                setApiKey('');
-                              }}
-                            >
-                              <Icon name="wrench" className="size-3.5" />
-                              Replace key
-                            </Button>
+                            {editingProviderId === provider.id ? null : (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="text-[0.8125rem]"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => {
+                                  setEditingCatalogType(null);
+                                  setEditingProviderId(provider.id);
+                                  setApiKey('');
+                                  setBaseUrl(provider.baseUrl ?? '');
+                                  setAdvancedOpen(false);
+                                }}
+                              >
+                                <Icon name="wrench" className="size-3.5" />
+                                Edit
+                              </Button>
+                            )}
                             {modelCatalog.deleteModelProvider ? (
                               <Button
                                 variant="outline"
@@ -333,7 +403,8 @@ const ModelSettings = () => {
                         {editingProviderId === provider.id
                           ? renderKeyEditor({
                               id: provider.id,
-                              submitLabel: 'Update',
+                              submitLabel: 'Save',
+                              isReplacingKey: true,
                               onSave: () => {
                                 handleReplaceKey(provider);
                               },
@@ -439,6 +510,8 @@ const ModelSettings = () => {
                               setEditingProviderId(null);
                               setEditingCatalogType(provider.type);
                               setApiKey('');
+                              setBaseUrl(catalogBaseUrl(provider));
+                              setAdvancedOpen(false);
                             }}
                           >
                             <Icon name="wrench" className="size-4" />
@@ -470,10 +543,14 @@ const ModelSettings = () => {
 
           <CustomModelProviderForm
             open={customProviderOpen}
-            onOpenChange={setCustomProviderOpen}
+            onOpenChange={open => {
+              setCustomProviderOpen(open);
+              if (!open) setFormError(null);
+            }}
             onAdd={handleAddCustomProvider}
             reasoningEffortOptions={supportedReasoningEfforts}
             busy={busy}
+            error={formError}
           />
         </div>
       </div>

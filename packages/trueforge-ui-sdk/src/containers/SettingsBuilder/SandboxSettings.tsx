@@ -7,6 +7,7 @@ import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { SandboxProviderBase, SandboxProviderCatalogEntry, SandboxProviderConfig } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
+import { useToasterOptional } from '../ToasterContainer.js';
 import ConfigureSandboxForm, { type SandboxConfigDraft } from './ConfigureSandboxForm.js';
 
 const configFrom = ({
@@ -25,11 +26,13 @@ const configFrom = ({
 
 const SandboxSettings = () => {
   const { sandboxCatalog } = useCatalogServer();
+  const toaster = useToasterOptional();
 
   const [providers, setProviders] = useState<SandboxProviderBase[]>([]);
   const [catalog, setCatalog] = useState<SandboxProviderCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [createEntry, setCreateEntry] = useState<SandboxProviderCatalogEntry | null>(null);
@@ -77,14 +80,14 @@ const SandboxSettings = () => {
     return <p className="text-sm text-text-secondary">Sandbox provider catalog is not available.</p>;
   }
 
-  const runMutation = async (fn: () => Promise<void>) => {
+  const runMutation = async (fn: () => Promise<void>, setMutationError = setError) => {
     setBusy(true);
     setError(null);
     try {
       await fn();
       await refresh({ quiet: true });
     } catch (err) {
-      setError(getErrorMessage(err, 'Request failed'));
+      setMutationError(getErrorMessage(err, 'Request failed'));
       throw err;
     } finally {
       setBusy(false);
@@ -93,6 +96,7 @@ const SandboxSettings = () => {
 
   const handleCreate = async (draft: SandboxConfigDraft) => {
     if (!createEntry) return;
+    setFormError(null);
     await runMutation(async () => {
       await sandboxCatalog.createSandboxProvider({
         catalogId: createEntry.id,
@@ -101,20 +105,27 @@ const SandboxSettings = () => {
         ...configFrom(draft),
         apiKey: draft.apiKey,
       });
-    });
+    }, setFormError);
     setCreateEntry(null);
+    setTimeout(() => {
+      toaster?.showSuccess({ title: `${createEntry.name} configured` });
+    }, 0);
   };
 
   const handleUpdate = async (draft: SandboxConfigDraft) => {
     if (!updateProvider) return;
+    setFormError(null);
     await runMutation(async () => {
       await sandboxCatalog.updateSandboxProvider({
         id: updateProvider.id,
         ...configFrom(draft),
         ...(draft.apiKey ? { apiKey: draft.apiKey } : {}),
       });
-    });
+    }, setFormError);
     setUpdateProvider(null);
+    setTimeout(() => {
+      toaster?.showSuccess({ title: `${updateProvider.name} updated` });
+    }, 0);
   };
 
   const handleRemove = (provider: SandboxProviderBase) => {
@@ -188,6 +199,7 @@ const SandboxSettings = () => {
                           type="button"
                           disabled={busy}
                           onClick={() => {
+                            setFormError(null);
                             setCreateEntry(null);
                             setUpdateProvider(provider);
                           }}
@@ -251,6 +263,7 @@ const SandboxSettings = () => {
                           type="button"
                           disabled={busy}
                           onClick={() => {
+                            setFormError(null);
                             setUpdateProvider(null);
                             setCreateEntry(entry);
                           }}
@@ -271,6 +284,7 @@ const SandboxSettings = () => {
         open={formOpen}
         onOpenChange={open => {
           if (!open) {
+            setFormError(null);
             setCreateEntry(null);
             setUpdateProvider(null);
           }
@@ -285,6 +299,7 @@ const SandboxSettings = () => {
         initialConfig={formInitialConfig}
         requireApiKey={!isUpdate}
         busy={busy}
+        error={formError}
       />
     </>
   );

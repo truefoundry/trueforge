@@ -5,7 +5,7 @@ description: "Build your own custom theme"
 
 ## The Theme Object
 
-Theme object supports params to pass `tokens` to override styles of UI components. You can also override app level classes
+The theme object lets you customize the appearance of the UI by passing design tokens that override component styles. You can also use it to override app-level CSS classes for broader layout and styling customizations.
 
 ```jsx App.jsx
 type ThemeConfig = {
@@ -18,91 +18,80 @@ type ThemeConfig = {
 
 ## The Token Object
 
+The theme object provides a flexible way to customize the colors and visual appearance of the Agent SDK. You can override individual design tokens to control the appearance of different UI elements, including the sidebar, page background, popups, buttons, input fields, and more.
+
+Theme tokens can be configured independently for both light and dark modes, allowing you to create a consistent experience across different color schemes without having to override individual components manually.
+
+The easiest way to explore and customize the theme is through our UI Config App. You can experiment with different color tokens and see your changes reflected in real time in the preview window. Once you’re happy with the theme, you can use the generated configuration in your application. [Visit Config App](https://ui.trueforge.dev/)
+
+
 ```json Token Object
 {
-  "sidebarBg": "#ffffff",
-  "topbarBg": "#ffffff",
-  "primaryBg": "#fdfcfc",
-  "secondaryBg": "#f8fafd",
-  "border": "#dadce0",
-  "fontFamily": "\"GeistSans\", \"GeistSans Fallback\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
-  "inputBoxBg": "#ffffff",
-  "inputBorder": "#dadce0",
-  "textPrimary": "#1f1f1f",
-  "textSecondary": "#444746",
-  "cardBg": "#ffffff",
-  "dropdownSelectedItemBg": "#e9eef6",
-  "dropdownSelectedItemText": "#1f1f1f",
-  "userMessageBg": "#f3f6fc",
-  "userMessageText": "#1f1f1f",
-  "assistantMessageBg": "transparent",
-  "assistantMessageText": "#1f1f1f",
-  "primaryButtonBg": "#1f3b9b",
-  "primaryButtonHover": "#1a3285",
-  "primaryButtonText": "#ffffff",
-  "secondaryButtonBg": "#e8eaed",
-  "secondaryButtonHover": "#dadce0",
-  "secondaryButtonText": "#1f1f1f",
-  "ghostButtonBg": "transparent",
-  "ghostButtonHover": "#e9eef6",
-  "ghostButtonText": "#1f1f1f",
-  "successBg": "#188038",
-  "successText": "#ffffff",
-  "failureBg": "#b3261e",
-  "failureText": "#ffffff",
-  "warningBg": "#b06000",
-  "warningText": "#ffffff",
-  "focusRing": "#1f3b9b",
-  "radius": "1rem",
-  "composerRadius": "2rem",
-  "overlay": "rgb(9 9 11 / 0.5)",
-  "shadowColor": "#1f1f1f",
-  "scrollbarThumb": "#444746"
+  "light": {
+    "sidebarBg": "#FAFAFA",
+    "topbarBg": "#FFFFFF",
+    "primaryBg": "#FFFFFF",
+    "secondaryBg": "#F4F4F5",
+    "border": "#E4E4E7",
+    "inputBoxBg": "#FAFAFA",
+    "inputBorder": "#E4E4E7",
+    "textPrimary": "#18181B",
+    "textSecondary": "#62626A",
+    "cardBg": "#FFFFFF",
+    "dropdownSelectedItemBg": "#F1F1F2",
+    "dropdownSelectedItemText": "#18181B",
+    "userMessageBg": "#18181B",
+    "userMessageText": "#FFFFFF",
+    "assistantMessageBg": "transparent",
+    "assistantMessageText": "#18181B",
+    "primaryButtonBg": "#18181B",
+    "primaryButtonHover": "#27272A",
+    "primaryButtonText": "#FFFFFF",
+    "secondaryButtonBg": "#FAFAFA",
+    "secondaryButtonHover": "#E4E4E7",
+    "secondaryButtonText": "#18181B",
+    "ghostButtonBg": "transparent",
+    "ghostButtonHover": "#F4F4F5",
+    "ghostButtonText": "#18181B",
+    "successBg": "#16A34A",
+    "successText": "#FFFFFF",
+    "failureBg": "#EF4444",
+    "failureText": "#FFFFFF",
+    "warningBg": "#D97706",
+    "warningText": "#FFFFFF",
+    "scrollbarThumb": "#62626A"
+  },
+  "dark": {
+    ... //Same tokens as light mode
+  }
 }
 ```
 
-## Precedence
-
-The provider resolves the preset for the current mode, merges your `theme.tokens` over it, and writes the result as **inline styles** on the theme root. So within `theme.tokens`, your entries beat the preset — that part is straightforward.
-
-<Warning>
-  Because those tokens land as inline styles, a `:root { --primary-button-bg: … }` rule in your own CSS will **not** override them. This applies to every token a preset defines, whether or not you passed `theme.tokens`. Use `theme.tokens` to change these, not CSS.
-</Warning>
-
-`theme.className` is applied to the theme root, for utility-class adjustments alongside the tokens.
-
-<Note>
-  `brand`, `icons`, and `classNames` are not part of this cascade — they are separate context values, not tokens that layer over one another.
-</Note>
-
-## Reading theme state
-
-```tsx
-import { useTheme, useThemeMode, useBrand, useBrandName } from "@truefoundry/trueforge-ui";
-
-const { preset, mode, preference, isDark, setTheme } = useTheme();
-const resolved = useThemeMode(); // "light" | "dark", defaults to "light" outside a provider
-const brand = useBrand();
-const brandName = useBrandName(); // brand.name, or "TrueForge"
-```
-
-`BrandLogo` renders `theme.brand.logo`, resolved against the active mode and labelled with `theme.brand.name`. Omit `logo` — or `brand` entirely — and it falls back to the default mark; `brand` is optional, but setting it requires a `name`. Pair it with `useBrandName()` when you also want the name as text. It is an overridable slot — use `overrides` to render a component instead of an image.
-
 ## Token naming
 
-`SemanticTokens` keys map to the kebab-cased CSS variable of the same name — `primaryButtonBg` becomes `--primary-button-bg`, `userMessageText` becomes `--user-message-text`, `composerRadius` becomes `--composer-radius`, `scrollbarThumb` becomes `--scrollbar-thumb`.
+SemanticTokens keys map directly to kebab-cased CSS variables. For example, `primaryButtonBg` maps to `--primary-button-bg`, and `userMessageText` maps to `--user-message-text`. The only exception is `fontFamily`, which maps to the `--font-agent-ui` CSS variable.
 
-One token breaks that rule:
-
-| Token | CSS variable |
-| --- | --- |
-| `fontFamily` | `--font-agent-ui` |
-
-Status tokens use `failure` / `success` / `warning` with `*Bg` / `*Text` pairs (not `*Foreground`). Buttons follow the same pattern: `primaryButtonBg` / `primaryButtonHover` / `primaryButtonText`, and likewise for secondary and ghost.
-
-<Note>
-  `theme.tokens` is a `Partial`, so you only supply the tokens you want to change and the preset fills in the rest. Building a complete `SemanticTokens` object — for instance when authoring your own preset — requires every key, including the status `*Bg` / `*Text` pairs and the kept internals (`focusRing`, `radius`, `composerRadius`, `overlay`, `shadowColor`, `scrollbarThumb`).
-</Note>
+Suppose your application uses a specific brand color for primary actions and a custom font. You can override the corresponding semantic tokens to apply your branding across the Agent SDK:
+```ts
+const theme = {
+  tokens: {
+    primaryButtonBg: "#635BFF",
+    primaryButtonHover: "#5147E5",
+    primaryButtonText: "#FFFFFF",
+    fontFamily: "Inter, sans-serif",
+    composerRadius: "12px",
+  },
+};
+```
+These tokens are automatically mapped to CSS variables:
+```ts
+--primary-button-bg
+--primary-button-hover
+--primary-button-text
+--font-agent-ui
+--composer-radius
+```
+This approach is useful when you want to customize the look and feel of the SDK while keeping the existing components, behavior, and layout intact. Instead of writing component-specific CSS overrides, you can change a small set of semantic tokens and have the changes applied consistently throughout the UI.
 
 ## Styling rendered content
 
@@ -145,65 +134,4 @@ type ContentClassNames = {
 };
 ```
 
-| Key | Applied on |
-| --- | --- |
-| `markdown` | Markdown message body |
-| `inlineCode` | Inline code inside markdown |
-| `syntaxHighlighter.*` | Fenced non-OpenUI code blocks |
-| `openui.*` | Generative UI (OpenUI) fence blocks |
-| `monaco.*` | Monaco editor surfaces (e.g. skill / draft editors) |
-
 For CSS-only adjustments you can instead target the stable class names directly: `.aui-markdown`, `.aui-syntax-highlighter`, `.aui-openui`, `.aui-monaco`.
-
-## CSS targeting with `data-slot`
-
-Chat-shell components expose stable `data-slot` attributes — the same styling hook pattern [assistant-ui uses for its UI kit](https://www.assistant-ui.com/docs/tools/generative-ui#styling) (there: `data-aui` on generative vocabulary nodes; here: `data-slot` on thread, composer, and message parts). Prefer `theme.tokens` for colors and radii; use these selectors when you need layout or typography tweaks that tokens do not cover.
-
-```css
-/* Scope under the theme root so host-app styles do not leak in the other direction */
-.aui-theme-root [data-slot="aui_user-message-content"] {
-  font-size: 0.95rem;
-}
-
-.aui-theme-root [data-slot="aui_composer-shell"] {
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--shadow-color) 12%, transparent);
-}
-```
-
-Stable slots (most are prefixed `aui_`; a few are not — inspect the element if unsure):
-
-| `data-slot` | Surface |
-| --- | --- |
-| `aui_thread-viewport` | Scrollable message list |
-| `aui_thread-composer` | Composer region under the viewport |
-| `aui_composer-shell` | Composer chrome |
-| `aui_composer-root` | Composer inner root |
-| `aui_composer-input` | Composer text area |
-| `aui_composer-attachment-dropzone` | Attachment drop target |
-| `aui_message-group` | Grouped message block |
-| `aui_user-message-root` / `aui_user-message-content` | User bubble |
-| `aui_user-message-edit` | Edit affordance on a user message |
-| `aui_user-edit-composer-root` / `aui_user-edit-input` | In-place edit composer |
-| `aui_assistant-message-root` | Assistant bubble |
-| `aui_assistant-message-indicator` | Assistant status indicator |
-| `aui_thread-list-viewport` | History list scroll area |
-| `aui_thread-list-item` / `aui_thread-list-item-age` / `aui_thread-list-item-actions` | History row |
-| `aui_history-loader` / `aui_thread-history-skeleton` | History loading UI |
-| `aui_attachment-preview` / `aui_attachment-chip` | Attachments |
-| `aui_select-agent-empty` | Empty “pick an agent” state |
-| `avatar` / `avatar-image` / `avatar-fallback` | Avatar parts |
-| `tool-call-card` / `tool-group-card` | Tool call chrome |
-
-There is no `data-id` attribute for theming. Generative charts/cards/tables in chat are **OpenUI** (not `@assistant-ui/react-generative-ui`), so they do not emit assistant-ui’s `data-aui` / `data-aui-*` hooks. Style that surface with `.aui-openui`, `theme.classNames.openui`, or by [overriding the `OpenUiFenceBlock` slot](/ui-sdk/setup-custom-ui/slot-overrides).
-
-## Presets
-
-```ts
-import { PRESETS, resolvePresetTokens } from "@truefoundry/trueforge-ui";
-
-const tokens = resolvePresetTokens("gemini", "dark");
-```
-
-`PRESETS` is a `Record<ThemePreset, { light, dark }>` — useful for building a preset picker.
-
-Refer to [Building custom theme](/ui-sdk/setup-custom-ui/custom-theme) to build a theme from scratch

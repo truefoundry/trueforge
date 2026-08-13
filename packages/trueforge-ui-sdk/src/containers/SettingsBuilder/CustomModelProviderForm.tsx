@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react';
 import { cn } from '../../atoms/lib/cn.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
+import { Switch } from '../../atoms/primitives/Switch.js';
 import { Icon } from '../../icons/Icon.js';
 
 export type CustomProviderDraft = {
@@ -28,6 +29,7 @@ type CustomModelProviderFormProps = {
   onAdd: (draft: CustomProviderDraft) => void | Promise<void>;
   reasoningEffortOptions?: readonly string[];
   busy?: boolean;
+  error?: string | null;
 };
 
 type ModelRow = {
@@ -108,6 +110,7 @@ const CustomModelProviderForm = ({
   onAdd,
   reasoningEffortOptions,
   busy = false,
+  error,
 }: CustomModelProviderFormProps) => {
   const [name, setName] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
@@ -141,7 +144,14 @@ const CustomModelProviderForm = ({
   const markAllTouched = () => {
     setNameTouched(true);
     setBaseUrlTouched(true);
-    setModels(current => current.map(model => ({ ...model, idTouched: true, contextTouched: true, maxTouched: true })));
+    setModels(current =>
+      current.map(model => ({
+        ...model,
+        idTouched: true,
+        contextTouched: true,
+        maxTouched: true,
+      })),
+    );
   };
 
   // ── Validation (client-side; do not rely on backend errors) ──
@@ -348,7 +358,10 @@ const CustomModelProviderForm = ({
                           onChange={event => {
                             const id = event.target.value;
                             // Keep the model name in sync with the id until the user edits it by hand.
-                            updateModel(index, { id, ...(model.nameDirty ? {} : { name: slugifyModelId(id) }) });
+                            updateModel(index, {
+                              id,
+                              ...(model.nameDirty ? {} : { name: slugifyModelId(id) }),
+                            });
                           }}
                           onBlur={() => updateModel(index, { idTouched: true })}
                           placeholder="llama3.1:70b"
@@ -464,32 +477,18 @@ const CustomModelProviderForm = ({
                           {reasoningEffortOptions && reasoningEffortOptions.length > 0 ? (
                             <div>
                               <div className="flex items-center justify-between gap-3">
-                                <span className="text-xs font-medium text-text-secondary">Reasoning effort</span>
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={model.reasoningEfforts !== undefined}
+                                <span className="text-text-secondary text-xs font-medium">Reasoning effort</span>
+                                <Switch
+                                  checked={model.reasoningEfforts !== undefined}
                                   aria-label={`Enable reasoning effort for model ${index + 1}`}
                                   disabled={busy}
-                                  className={cn(
-                                    'relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40 disabled:opacity-50',
-                                    model.reasoningEfforts !== undefined
-                                      ? 'bg-primary-button-bg'
-                                      : 'bg-text-secondary/30 dark:bg-text-secondary/50',
-                                  )}
-                                  onClick={() =>
+                                  size="md"
+                                  onCheckedChange={nextChecked =>
                                     updateModel(index, {
-                                      reasoningEfforts: model.reasoningEfforts === undefined ? [] : undefined,
+                                      reasoningEfforts: nextChecked ? [] : undefined,
                                     })
                                   }
-                                >
-                                  <span
-                                    className={cn(
-                                      'absolute top-0.5 left-0 size-5 rounded-full bg-white shadow-sm transition-transform',
-                                      model.reasoningEfforts !== undefined ? 'translate-x-5' : 'translate-x-0.5',
-                                    )}
-                                  />
-                                </button>
+                                />
                               </div>
                               {model.reasoningEfforts !== undefined ? (
                                 <div
@@ -549,7 +548,8 @@ const CustomModelProviderForm = ({
         </div>
 
         {/* Sticky footer */}
-        <div className="shrink-0 border-t border-border px-5 py-4">
+        <div className="shrink-0 space-y-3 border-t border-border px-5 py-4">
+          {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
           <Button type="submit" size="lg" disabled={!visibleValid || busy} className="w-full">
             Add provider
           </Button>

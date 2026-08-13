@@ -41,7 +41,7 @@ groups:
           path: ../../packages/sdk
         config:
           packageJson:
-            name: trueforge-sdk
+            name: '@truefoundry/trueforge-sdk'
           allowExtraFields: true
           allowCustomFetcher: true
           enableInlineTypes: false

@@ -8,11 +8,11 @@ import { Button } from '@/atoms/primitives/Button.js';
 import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
 import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
 import SearchInput from '@/atoms/primitives/SearchInput.js';
-import { useMCPAuth } from '@/hooks/useMcpAuth.js';
 import { Icon } from '@/icons/Icon.js';
 import { useCatalogServer } from '@/server/ServerContext.js';
 import type { ConnectorAuth, ConnectorBase, ConnectorCatalogEntry } from '@/server/types.js';
 import { getErrorMessage } from '@/utils/getErrorMessage.js';
+import { useToasterOptional } from '../ToasterContainer.js';
 import AddMcpServerForm, { type AddMcpServerDraft } from './AddMcpServerForm.js';
 import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
 import ConnectorDetails from './ConnectorDetails.js';
@@ -27,7 +27,7 @@ type ConnectorsState = {
 
 const ConnectorSettings = () => {
   const { connectorCatalog } = useCatalogServer();
-  const { handleAuthorize, isOAuthLoading } = useMCPAuth();
+  const toaster = useToasterOptional();
 
   const [query, setQuery] = useState('');
   const [connectors, setConnectors] = useState<ConnectorsState>({
@@ -36,6 +36,7 @@ const ConnectorSettings = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [catalog, setCatalog] = useState<ConnectorCatalogEntry[]>([]);
@@ -123,14 +124,14 @@ const ConnectorSettings = () => {
     return result;
   }, [matchingConnectors]);
 
-  const runMutation = async (fn: () => Promise<void>) => {
+  const runMutation = async (fn: () => Promise<void>, setMutationError = setError) => {
     setBusy(true);
     setError(null);
     try {
       await fn();
       await refresh();
     } catch (err) {
-      setError(getErrorMessage(err, 'Request failed'));
+      setMutationError(getErrorMessage(err, 'Request failed'));
       throw err;
     } finally {
       setBusy(false);
@@ -140,25 +141,7 @@ const ConnectorSettings = () => {
   const closeApiKeyModal = () => {
     setConnectorAwaitingKey(null);
     setApiKey('');
-  };
-
-  const authorizeOAuthConnector = async (integrationId: string) => {
-    await handleAuthorize(integrationId, isSuccess => {
-      if (isSuccess) {
-        void connectorCatalog
-          .getConnector({ id: integrationId })
-          .then(connector => {
-            setConnectors(current => {
-              const updated = new Map(current.authStatusById);
-              updated.set(connector.id, connector.authenticated);
-              return { ...current, authStatusById: updated };
-            });
-          })
-          .catch(err => {
-            setError(getErrorMessage(err, 'Failed to load connector'));
-          });
-      }
-    });
+    setFormError(null);
   };
 
   const createFromCatalog = async (entry: ConnectorCatalogEntry, authOverride?: ConnectorAuth) => {
@@ -172,19 +155,17 @@ const ConnectorSettings = () => {
         : entry.auth.type === 'dcr'
           ? { type: 'dcr' }
           : { type: 'none' });
-    const created = await connectorCatalog.createConnector({
+    await connectorCatalog.createConnector({
       name: entry.name,
       url: entry.url,
       auth,
     });
-    if (auth.type === 'dcr') {
-      await authorizeOAuthConnector(created.id);
-    }
   };
 
   const handleConnect = (entry: ConnectorCatalogEntry) => {
     if (entry.auth.type === 'header') {
       setApiKey('');
+      setFormError(null);
       setConnectorAwaitingKey(entry);
       return;
     }
@@ -199,6 +180,7 @@ const ConnectorSettings = () => {
     if (!connectorAwaitingKey || !apiKey.trim()) return;
 
     const entry = connectorAwaitingKey;
+    setFormError(null);
     void runMutation(async () => {
       const auth: ConnectorAuth = {
         type: 'header',
@@ -218,20 +200,24 @@ const ConnectorSettings = () => {
         await createFromCatalog(entry, auth);
       }
       closeApiKeyModal();
-    }).catch(() => {});
+      setTimeout(() => {
+        toaster?.showSuccess({ title: `${entry.name} ${existingConnector ? 'updated' : 'connected'}` });
+      }, 100);
+    }, setFormError).catch(() => {});
   };
 
   const handleAddMcpServer = async (draft: AddMcpServerDraft) => {
+    setFormError(null);
     await runMutation(async () => {
-      const created = await connectorCatalog.createConnector({
+      await connectorCatalog.createConnector({
         name: draft.name,
         url: draft.url,
         auth: draft.auth,
       });
-      if (draft.auth.type === 'dcr') {
-        await authorizeOAuthConnector(created.id);
-      }
-    });
+    }, setFormError);
+    setTimeout(() => {
+      toaster?.showSuccess({ title: `${draft.name} added` });
+    }, 0);
   };
 
   const handleDisconnect = (connector: ConnectorBase) => {
@@ -239,6 +225,23 @@ const ConnectorSettings = () => {
       await connectorCatalog.disconnectConnector({ id: connector.id });
       setSelectedConnector(null);
     }).catch(() => {});
+  };
+
+  const handleConnectorRefreshed = (refreshedConnector: ConnectorBase) => {
+    setSelectedConnector(current => (current?.id === refreshedConnector.id ? refreshedConnector : current));
+    setConnectors(current => {
+      const authStatusById = new Map(current.authStatusById);
+      authStatusById.set(refreshedConnector.id, refreshedConnector.authenticated);
+
+      return {
+        ordered: current.ordered.map(item =>
+          item.isConfigured && item.connector.id === refreshedConnector.id
+            ? { connector: refreshedConnector, isConfigured: true }
+            : item,
+        ),
+        authStatusById,
+      };
+    });
   };
 
   const renderConnector = (connector: ConnectorBase, isConnected: boolean) => {
@@ -298,7 +301,7 @@ const ConnectorSettings = () => {
                 variant="secondary"
                 size="sm"
                 type="button"
-                disabled={busy || isOAuthLoading}
+                disabled={busy}
                 onClick={event => {
                   event.stopPropagation();
                   setApiKey('');
@@ -355,7 +358,7 @@ const ConnectorSettings = () => {
             variant="secondary"
             size="sm"
             type="button"
-            disabled={busy || isOAuthLoading}
+            disabled={busy}
             onClick={() => {
               handleConnect(entry);
             }}
@@ -384,6 +387,7 @@ const ConnectorSettings = () => {
         onBack={() => {
           setSelectedConnector(null);
         }}
+        onConnectorRefreshed={handleConnectorRefreshed}
         onDisconnect={() => {
           handleDisconnect(selectedConnector);
         }}
@@ -414,6 +418,7 @@ const ConnectorSettings = () => {
               variant="secondary"
               type="button"
               onClick={() => {
+                setFormError(null);
                 setAddMcpServerFormOpen(true);
               }}
             >
@@ -505,13 +510,14 @@ const ConnectorSettings = () => {
                     className={auiInputClass('h-11')}
                   />
                 </div>
+                {formError ? <p className="text-failure-bg text-sm">{formError}</p> : null}
               </div>
 
               <footer className="flex justify-end gap-2 border-t border-border px-5 py-4">
-                <Button variant="ghost" type="button" onClick={closeApiKeyModal} disabled={busy || isOAuthLoading}>
+                <Button variant="ghost" type="button" onClick={closeApiKeyModal} disabled={busy}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={!apiKey.trim() || busy || isOAuthLoading}>
+                <Button type="submit" disabled={!apiKey.trim() || busy}>
                   {isReplacingKey ? 'Replace Key' : 'Connect'}
                 </Button>
               </footer>
@@ -520,9 +526,13 @@ const ConnectorSettings = () => {
 
           <AddMcpServerForm
             open={addMcpServerFormOpen}
-            onOpenChange={setAddMcpServerFormOpen}
+            onOpenChange={open => {
+              setAddMcpServerFormOpen(open);
+              if (!open) setFormError(null);
+            }}
             onAdd={handleAddMcpServer}
-            busy={busy || isOAuthLoading}
+            busy={busy}
+            error={formError}
           />
         </div>
       </div>

@@ -11,7 +11,7 @@ import { useCallback, useMemo, type ReactNode } from 'react';
 
 import { notifyComposerBusyFailure } from '../hooks/useComposerBusyState.js';
 import type { AgentUIServer } from '../server/types.js';
-import { ErrorToasterProvider, useErrorToaster } from './ErrorToasterContainer.js';
+import { ToasterProvider, useToaster } from './ToasterContainer.js';
 
 type RuntimeAdapters = NonNullable<UseTrueFoundryAgentRuntimeOptions['adapters']>;
 
@@ -48,7 +48,7 @@ function ChatRuntimeScope({
   onError?: (error: unknown) => void;
   children: ReactNode;
 }) {
-  const { showError } = useErrorToaster();
+  const { showError } = useToaster();
   const reportError = onError ?? showError;
   // composer().send() is void and swallows onNew rejections; clear optimistic
   // busy when the runtime reports a pre-stream failure (e.g. createSession).
@@ -86,7 +86,7 @@ export function TrueFoundryChatProvider(props: TrueFoundryChatProviderProps) {
   const stableServer = useMemo(() => server, [server]);
 
   return (
-    <ErrorToasterProvider>
+    <ToasterProvider>
       <ChatRuntimeScope
         server={stableServer}
         agent={agent}
@@ -98,6 +98,6 @@ export function TrueFoundryChatProvider(props: TrueFoundryChatProviderProps) {
       >
         {children}
       </ChatRuntimeScope>
-    </ErrorToasterProvider>
+    </ToasterProvider>
   );
 }

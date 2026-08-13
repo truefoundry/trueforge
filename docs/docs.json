@@ -94,16 +94,13 @@
               "ui-sdk/guides/layouts",
               "ui-sdk/guides/layouts-and-theme",
               "ui-sdk/guides/agent-modes",
-              {
-                "group": "Setup Custom UI",
-                "pages": ["ui-sdk/setup-custom-ui/custom-theme", "ui-sdk/setup-custom-ui/custom-layout"]
-              },
+              "ui-sdk/setup-custom-ui/custom-theme",
               {
                 "group": "Setup Custom Server",
                 "pages": [
-                  "ui-sdk/setup-custom-servers/server-contract",
+                  "ui-sdk/setup-custom-servers/connect-with-truefoundry",
                   "ui-sdk/setup-custom-servers/custom-server",
-                  "ui-sdk/setup-custom-servers/connect-with-truefoundry"
+                  "ui-sdk/setup-custom-servers/server-contract"
                 ]
               },
               "ui-sdk/guides/troubleshooting"

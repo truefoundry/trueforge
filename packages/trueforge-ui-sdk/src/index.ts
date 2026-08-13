@@ -33,6 +33,8 @@ export type { ButtonProps, ButtonSize, ButtonVariant } from './atoms/primitives/
 export { CenteredModal } from './atoms/primitives/CenteredModal.js';
 export type { CenteredModalProps } from './atoms/primitives/CenteredModal.js';
 export type { IconButtonProps } from './atoms/primitives/IconButton.js';
+export { Switch } from './atoms/primitives/Switch.js';
+export type { SwitchProps, SwitchSize } from './atoms/primitives/Switch.js';
 export { Icon } from './icons/Icon.js';
 export type { IconProps } from './icons/Icon.js';
 
@@ -114,6 +116,8 @@ export type {
 } from './atoms/ComposerSections.js';
 export { ComposerShell } from './atoms/ComposerShell.js';
 export type { ComposerShellProps } from './atoms/ComposerShell.js';
+export { ResumeUnavailable } from './atoms/ResumeUnavailable.js';
+export type { ResumeUnavailableProps } from './atoms/ResumeUnavailable.js';
 export { SandboxToolCallCard } from './atoms/SandboxToolCallCard.js';
 export type { SandboxToolCallCardProps } from './atoms/SandboxToolCallCard.js';
 export { SubAgentCard } from './atoms/SubAgentCard.js';
@@ -154,16 +158,17 @@ export {
 } from './containers/AttachmentsContainer.js';
 export { ComposerContainer } from './containers/ComposerContainer.js';
 export type { ComposerContainerProps } from './containers/ComposerContainer.js';
-export { ErrorToasterProvider, useErrorToaster, useErrorToasterOptional } from './containers/ErrorToasterContainer.js';
 export { HistoryLoaderContainer } from './containers/HistoryLoaderContainer.js';
 export { McpAuthContainer } from './containers/McpAuthContainer.js';
 export { default as PostMcpOauthScreen } from './containers/McpOauthContainer/PostMcpOauthScreen.js';
 export { ReasoningContainer } from './containers/ReasoningContainer.js';
+export { ResumeUnavailableContainer } from './containers/ResumeUnavailableContainer.js';
 export { Thread } from './containers/Thread.js';
 export { ThreadContainer } from './containers/ThreadContainer.js';
 export type { ThreadContainerProps } from './containers/ThreadContainer.js';
 export { ThreadListContainer } from './containers/ThreadListContainer.js';
 export type { ThreadListContainerProps } from './containers/ThreadListContainer.js';
+export { ToasterProvider, useToaster, useToasterOptional } from './containers/ToasterContainer.js';
 export { ToolApprovalContainer } from './containers/ToolApprovalContainer.js';
 export type { ToolApprovalOption } from './containers/ToolApprovalContainer.js';
 export { ToolCallContainer } from './containers/ToolCallContainer.js';
@@ -297,6 +302,7 @@ export type {
   SandboxProviderCatalogEntry,
   SandboxProviderConfig,
   SaveAgentRequest,
+  SaveAgentResult,
   SearchAgentsParams,
   SelectRegistrySkillRequest,
   Session,

@@ -6,21 +6,51 @@ re-exports override **types** only where needed.
 
 ## Quick start
 
-| Export                           | Notes                             |
-| -------------------------------- | --------------------------------- |
-| `TrueforgeUI`                    | Slots + runtime + built-in layout |
-| `TrueforgeUIProps`, `ChatLayout` | Props / layout union              |
+| Export                           | Notes                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| `TrueforgeUI`                    | Slots + runtime + built-in layout                                                    |
+| `TrueforgeUIProps`, `ChatLayout` | Props / layout union                                                                 |
+| `TrueforgeServerConfig`          | `server` prop: `type: "truefoundry"` \| `type: "trueforge"` \| ready `AgentUIServer` |
+
+### Built-in servers
+
+| `server` config                                                      | What the SDK does                                                                       |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `{ type: 'truefoundry', apiKey, controlPlaneURL, gatewayPlaneURL? }` | Calls runtime `createTrueFoundryAgentUIServer`                                          |
+| `{ type: 'trueforge', baseUrl?, token?, fetch?, catalog? }`          | Dynamic-imports `plugins/trueforge-agent-server-adapter` → full Harness `AgentUIServer` |
+| Ready `AgentUIServer`                                                | Passthrough (host-composed or `createTrueFoundryServer`)                                |
+
+TrueForge hosts need `@truefoundry/trueforge-sdk`. Cookie apps pass `fetch`; embeds usually pass `token`.
+
+```tsx
+// Harness / TrueForge
+<TrueforgeUI
+  server={{ type: 'trueforge', baseUrl: '/', token: process.env.TRUEFORGE_TOKEN }}
+  layout="sidebar"
+/>
+
+// Or same-origin cookies:
+<TrueforgeUI server={{ type: 'trueforge', fetch: authAwareFetch }} layout="sidebar" />
+```
+
+Factory without `<TrueforgeUI />`:
+
+```ts
+import { createTrueForgeAgentUIServer } from '@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter';
+
+const server = createTrueForgeAgentUIServer({ baseUrl: '/', token });
+```
 
 ## Compose
 
-| Export                                                               | Notes                           |
-| -------------------------------------------------------------------- | ------------------------------- |
-| `TrueFoundryChatProvider`                                            | Named-agent runtime + toasts    |
-| `TrueFoundryChatProviderProps`                                       | `client` XOR `apiKey`+`baseUrl` |
-| `Thread`                                                             | Full thread + composer          |
-| `ThreadContainer`, `ComposerContainer`, `ThreadListContainer`        | Building blocks                 |
-| `ErrorToasterProvider`, `useErrorToaster`, `useErrorToasterOptional` | Error toasts                    |
-| Other `*Container` exports                                           | Advanced message / tool wiring  |
+| Export                                                        | Notes                           |
+| ------------------------------------------------------------- | ------------------------------- |
+| `TrueFoundryChatProvider`                                     | Named-agent runtime + toasts    |
+| `TrueFoundryChatProviderProps`                                | `client` XOR `apiKey`+`baseUrl` |
+| `Thread`                                                      | Full thread + composer          |
+| `ThreadContainer`, `ComposerContainer`, `ThreadListContainer` | Building blocks                 |
+| `ToasterProvider`, `useToaster`, `useToasterOptional`         | Success and error toasts        |
+| Other `*Container` exports                                    | Advanced message / tool wiring  |
 
 ## Slots / theme
 

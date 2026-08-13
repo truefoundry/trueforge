@@ -1,5 +1,5 @@
 - Workspace tasks MUST use `package.json` scripts; add a script when a missing workflow is repeatable like the existing commands, not ad hoc commands.
-- Release wiring MUST keep dist-free host development, `pnpm smoke`, and packed CJS/ESM consumers of `@truefoundry/utils-core` working without changes.
+- Release wiring MUST keep dist-free host development, `pnpm smoke`, and packed CJS/ESM consumers of `@truefoundry/trueforge-core` working without changes.
 - Shared Postgres/Redis settings in `docker-compose.yml` and `docker-compose.dev.yml` (image versions, health checks, `env_file`) MUST stay synchronized; intentional differences (app services, data paths, project `name`, host ports, in-network `POSTGRES_HOST` / `REDIS_URL`) MUST stay explicit. `packages/server/.env` is the host-dev + secrets source; `docker-compose.yml` may read it but MUST override container connectivity so host-dev localhost values are not used inside the smoke-test stack.
 - Changes to types or schemas MUST keep `packages/harness`, `packages/frontend`, `packages/server`, and `patches` synchronized; they MUST NOT update only one affected layer.
 - TypeScript code MUST NOT use assertion escapes such as `as T`, `as unknown as T`, non-null `!`, or `as never` to silence type errors; implementations MUST use sound contracts, guards, or corrected types.

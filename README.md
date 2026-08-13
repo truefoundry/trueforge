@@ -22,7 +22,7 @@ Building an agent is easy. Running one well is not — you need streaming, sessi
 - **Sandbox as a tool** — isolated code/file execution (Daytona today; more providers planned), provisioned only when needed. Secrets stay in the harness.
 - **Human checkpoints** — tool approval, ask-user-questions, and Generative UI in chat.
 - **Context engineering** — subagents, deferred tool loading, Code Mode, large-result offloading, and compaction.
-- **Chat UI + SDK** — use the bundled UI, automate with `trueforge-sdk`, or embed `@truefoundry/trueforge-ui`.
+- **Chat UI + SDK** — use the bundled UI, automate with `@truefoundry/trueforge-sdk`, or embed `@truefoundry/trueforge-ui`.
 
 It scales down and up: **local mode** (one process, SQLite) or **hosted mode** (Postgres + Redis, Docker Compose or Helm).
 

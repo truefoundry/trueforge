@@ -12,10 +12,11 @@ export type ToastProps = {
   description: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  variant?: 'error' | 'success';
   className?: string;
 };
 
-export function Toast({ title, description, open, onOpenChange, className }: ToastProps) {
+export function Toast({ title, description, open, onOpenChange, variant = 'error', className }: ToastProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
@@ -40,21 +41,34 @@ export function Toast({ title, description, open, onOpenChange, className }: Toa
         className,
       )}
     >
-      <Icon name="circle-exclamation" size="1.25em" className="text-failure-bg shrink-0" />
+      <Icon
+        name={variant === 'success' ? 'circle-check' : 'circle-exclamation'}
+        size="1.25em"
+        className={cn('shrink-0', variant === 'success' ? 'text-success-bg' : 'text-failure-bg')}
+      />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <div className="text-failure-bg text-sm leading-none font-semibold">{title}</div>
+          <div
+            className={cn(
+              'text-sm leading-none font-semibold',
+              variant === 'success' ? 'text-success-bg' : 'text-failure-bg',
+            )}
+          >
+            {title}
+          </div>
           <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              aria-label="Copy"
-              title="Copy"
-              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-              onClick={handleCopy}
-            >
-              <Icon name={copied ? 'check' : 'clone'} />
-            </button>
+            {variant === 'error' ? (
+              <button
+                type="button"
+                aria-label="Copy"
+                title="Copy"
+                className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                onClick={handleCopy}
+              >
+                <Icon name={copied ? 'check' : 'clone'} />
+              </button>
+            ) : null}
             <button
               type="button"
               aria-label="Close"
@@ -66,9 +80,11 @@ export function Toast({ title, description, open, onOpenChange, className }: Toa
             </button>
           </div>
         </div>
-        <div className="text-text-secondary mt-1 max-h-24 overflow-y-auto text-sm leading-snug break-words whitespace-pre-wrap">
-          {description}
-        </div>
+        {description ? (
+          <div className="text-text-secondary mt-1 max-h-24 overflow-y-auto text-sm leading-snug break-words whitespace-pre-wrap">
+            {description}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -95,7 +111,7 @@ export function ToastStack({ children, duration: _duration = Number.POSITIVE_INF
     <div
       ref={openToastStack}
       popover="manual"
-      className="pointer-events-none fixed top-auto right-auto bottom-4 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 flex-col-reverse gap-2 overflow-visible bg-transparent px-4"
+      className="pointer-events-none fixed inset-auto right-4 bottom-4 z-50 m-0 flex w-[calc(100vw-2rem)] max-w-md flex-col-reverse gap-2 overflow-visible bg-transparent"
     >
       {children}
     </div>

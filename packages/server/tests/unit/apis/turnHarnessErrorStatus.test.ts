@@ -1,6 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { Sessions } from '@truefoundry/utils-core/agent-session';
-import { AgentHarnessError } from '@truefoundry/utils-core/core';
+import type { Sessions } from '@truefoundry/trueforge-core/agent-session';
+import { AgentHarnessError } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';

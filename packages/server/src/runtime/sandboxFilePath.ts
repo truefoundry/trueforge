@@ -2,7 +2,7 @@
  * Validation for caller-supplied sandbox download paths. This is an HTTP concern — the harness
  * library only guards its own file operations — so it lives with the route that accepts the path.
  */
-import { SandboxError, validateNoPathTraversal } from '@truefoundry/utils-core/core';
+import { SandboxError, validateNoPathTraversal } from '@truefoundry/trueforge-core/core';
 
 class SandboxInvalidPathError extends SandboxError {
   readonly statusCode = 400;

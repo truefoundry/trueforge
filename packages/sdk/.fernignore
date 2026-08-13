@@ -1,3 +1,4 @@
 pnpm-workspace.yaml
+pnpm-lock.yaml
 src/index.ts
 src/events.ts

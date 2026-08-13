@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-import { toHarnessManifest, toUiCatalogEntry, toUiSkill } from '../src/skillCatalog';
+import { describe, it } from 'vitest';
+
+import {
+  toHarnessManifest,
+  toUiCatalogEntry,
+  toUiSkill,
+} from '@/plugins/trueforge-agent-server-adapter/catalogs/skillCatalog.js';
 
 describe('skillCatalog mappers', () => {
   it('maps catalog presets with id = name and repoURL from url', () => {

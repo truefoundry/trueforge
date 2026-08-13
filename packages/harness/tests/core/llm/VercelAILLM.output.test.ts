@@ -235,7 +235,7 @@ describe('buildProviderOptions', () => {
           structuredOutputSpec: textSpec,
           rawBody: {},
         });
-        expect(opts).toEqual({});
+        expect(opts).toEqual({ anthropic: { cacheControl: { type: 'ephemeral' } } });
       }
     });
 
@@ -248,6 +248,7 @@ describe('buildProviderOptions', () => {
         rawBody: { thinking: { type: 'adaptive', display: 'summarized' }, effort: 'max' },
       });
       expect(opts['anthropic']).toEqual({
+        cacheControl: { type: 'ephemeral' },
         thinking: { type: 'adaptive', display: 'summarized' },
         effort: 'max',
       });
@@ -260,7 +261,17 @@ describe('buildProviderOptions', () => {
         structuredOutputSpec: schemaSpecStrict,
         rawBody: {},
       });
-      expect(opts).toEqual({});
+      expect(opts).toEqual({ anthropic: { cacheControl: { type: 'ephemeral' } } });
+    });
+
+    it('defaults cacheControl to ephemeral when cache_control is omitted', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: undefined,
+        structuredOutputSpec: textSpec,
+        rawBody: {},
+      });
+      expect(opts['anthropic']).toEqual({ cacheControl: { type: 'ephemeral' } });
     });
 
     it('forwards cache_control and disable_parallel_tool_use from rawBody', () => {
@@ -268,10 +279,10 @@ describe('buildProviderOptions', () => {
         config,
         reasoningEffort: undefined,
         structuredOutputSpec: textSpec,
-        rawBody: { cache_control: { type: 'ephemeral' }, disable_parallel_tool_use: true },
+        rawBody: { cache_control: { type: 'ephemeral', ttl: '1h' }, disable_parallel_tool_use: true },
       });
       expect(opts['anthropic']).toMatchObject({
-        cacheControl: { type: 'ephemeral' },
+        cacheControl: { type: 'ephemeral', ttl: '1h' },
         disableParallelToolUse: true,
       });
     });

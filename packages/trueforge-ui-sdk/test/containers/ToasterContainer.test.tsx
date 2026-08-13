@@ -2,11 +2,11 @@ import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Toast } from '@/atoms/Toast.js';
-import { ErrorToasterProvider, useErrorToaster, useErrorToasterOptional } from '@/containers/ErrorToasterContainer.js';
+import { ToasterProvider, useToaster, useToasterOptional } from '@/containers/ToasterContainer.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
 function Trigger({ errors }: { errors: unknown[] }) {
-  const { showError } = useErrorToaster();
+  const { showError } = useToaster();
   return (
     <button
       type="button"
@@ -19,7 +19,7 @@ function Trigger({ errors }: { errors: unknown[] }) {
   );
 }
 
-describe('ErrorToasterProvider', () => {
+describe('ToasterProvider', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
@@ -28,21 +28,19 @@ describe('ErrorToasterProvider', () => {
     vi.restoreAllMocks();
   });
 
-  it('requires a provider for useErrorToaster while the optional hook returns null', () => {
-    expect(() => renderHook(() => useErrorToaster())).toThrow(
-      'useErrorToaster must be used within ErrorToasterProvider',
-    );
+  it('requires a provider for useToaster while the optional hook returns null', () => {
+    expect(() => renderHook(() => useToaster())).toThrow('useToaster must be used within ToasterProvider');
 
-    const { result } = renderHook(() => useErrorToasterOptional());
+    const { result } = renderHook(() => useToasterOptional());
     expect(result.current).toBeNull();
   });
 
   it('stacks multiple error toasts', async () => {
     render(
       <SlotsProvider>
-        <ErrorToasterProvider>
+        <ToasterProvider>
           <Trigger errors={[new Error('first'), new Error('second')]} />
-        </ErrorToasterProvider>
+        </ToasterProvider>
       </SlotsProvider>,
     );
 
@@ -56,9 +54,9 @@ describe('ErrorToasterProvider', () => {
   it('dismisses one toast without removing the other', async () => {
     render(
       <SlotsProvider>
-        <ErrorToasterProvider>
+        <ToasterProvider>
           <Trigger errors={[new Error('keep-me'), new Error('drop-me')]} />
-        </ErrorToasterProvider>
+        </ToasterProvider>
       </SlotsProvider>,
     );
 
@@ -87,9 +85,9 @@ describe('ErrorToasterProvider', () => {
 
     render(
       <SlotsProvider>
-        <ErrorToasterProvider>
+        <ToasterProvider>
           <Trigger errors={[httpError]} />
-        </ErrorToasterProvider>
+        </ToasterProvider>
       </SlotsProvider>,
     );
 
@@ -107,9 +105,9 @@ describe('ErrorToasterProvider', () => {
 
     render(
       <SlotsProvider>
-        <ErrorToasterProvider>
+        <ToasterProvider>
           <Trigger errors={[httpError]} />
-        </ErrorToasterProvider>
+        </ToasterProvider>
       </SlotsProvider>,
     );
 
@@ -124,9 +122,9 @@ describe('ErrorToasterProvider', () => {
 
     render(
       <SlotsProvider>
-        <ErrorToasterProvider>
+        <ToasterProvider>
           <Trigger errors={errors} />
-        </ErrorToasterProvider>
+        </ToasterProvider>
       </SlotsProvider>,
     );
 

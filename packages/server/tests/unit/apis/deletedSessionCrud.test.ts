@@ -1,6 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { AgentSpecSchema, Sessions } from '@truefoundry/utils-core/agent-session';
-import { RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
+import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
+import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
 import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';

@@ -2,7 +2,7 @@
  * Backend-agnostic behavioural contract for IMcpServerStore.
  * Runs under jest against a fresh store per test (see backend test files).
  */
-import type { IMcpServerStore } from '../../src/db/mcpServerStore';
+import { McpServerNameConflictError, type IMcpServerStore } from '../../src/db/mcpServerStore';
 import type { OAuthClientRecord } from '../../src/mcp/auth/types';
 import type { McpServerManifest } from '../../src/schemas/mcpServer';
 
@@ -50,6 +50,20 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
 
     const fetched = await store.getServer({ tenant_id: TENANT, name: 'linear' });
     expect(fetched).toEqual(created);
+  });
+
+  it('createServer inserts and throws McpServerNameConflictError on name clash', async () => {
+    const store = getStore();
+    const created = await store.createServer({
+      tenant_id: TENANT,
+      name: 'linear',
+      manifest: manifest(),
+    });
+    expect(created.name).toBe('linear');
+
+    await expect(
+      store.createServer({ tenant_id: TENANT, name: 'linear', manifest: manifest() }),
+    ).rejects.toBeInstanceOf(McpServerNameConflictError);
   });
 
   it('getServer returns undefined for unknown servers', async () => {
