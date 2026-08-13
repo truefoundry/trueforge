@@ -40,6 +40,7 @@ const ModelSettings = () => {
   const [editingCatalogType, setEditingCatalogType] = useState<string | null>(null);
   const [keyError, setKeyError] = useState<string | null>(null);
   const [customProviderOpen, setCustomProviderOpen] = useState(false);
+  const [customProviderToEdit, setCustomProviderToEdit] = useState<ModelProviderBase | null>(null);
 
   const modelProviderIconMap = useMemo(() => {
     return (catalog ?? []).reduce(
@@ -221,6 +222,40 @@ const ModelSettings = () => {
     }, 0);
   };
 
+  const handleUpdateCustomProvider = async (draft: CustomProviderDraft) => {
+    if (!customProviderToEdit) return;
+
+    const provider = customProviderToEdit;
+    setFormError(null);
+    await runMutation(
+      async () => {
+        await modelCatalog.updateModelProvider({
+          id: provider.id,
+          type: provider.type,
+          name: provider.name,
+          baseUrl: draft.baseUrl,
+          apiKey: draft.apiKey,
+          models: draft.models,
+        });
+      },
+      err => setFormError(getErrorMessage(err, 'Request failed')),
+    );
+    setTimeout(() => {
+      toaster?.showSuccess({
+        title: 'Model provider updated',
+        description: `${provider.name} was updated successfully.`,
+      });
+    }, 0);
+  };
+
+  const customProviderInitialValues = customProviderToEdit
+    ? {
+        name: customProviderToEdit.name,
+        baseUrl: customProviderToEdit.baseUrl ?? '',
+        models: customProviderToEdit.models,
+      }
+    : undefined;
+
   // The key/endpoint editor is a single centered modal driven by which entry is being edited.
   const editingProvider =
     editingProviderId != null ? (configured.find(item => item.id === editingProviderId) ?? null) : null;
@@ -250,6 +285,7 @@ const ModelSettings = () => {
               type="button"
               onClick={() => {
                 setFormError(null);
+                setCustomProviderToEdit(null);
                 setCustomProviderOpen(true);
               }}
             >
@@ -304,11 +340,20 @@ const ModelSettings = () => {
                               size="sm"
                               className="text-[0.8125rem]"
                               type="button"
+                              aria-label={`Edit ${provider.name}`}
+                              title={`Edit ${provider.name}`}
                               disabled={busy}
                               onClick={() => {
-                                setKeyError(null);
-                                setEditingCatalogType(null);
-                                setEditingProviderId(provider.id);
+                                if (provider.type === 'custom') {
+                                  closeKeyEditor();
+                                  setFormError(null);
+                                  setCustomProviderToEdit(provider);
+                                  setCustomProviderOpen(true);
+                                } else {
+                                  setKeyError(null);
+                                  setEditingCatalogType(null);
+                                  setEditingProviderId(provider.id);
+                                }
                               }}
                             >
                               <Icon name="wrench" className="size-3.5" />
@@ -474,12 +519,18 @@ const ModelSettings = () => {
           />
 
           <CustomModelProviderForm
+            key={customProviderToEdit?.id ?? 'add-custom-provider'}
             open={customProviderOpen}
             onOpenChange={open => {
               setCustomProviderOpen(open);
-              if (!open) setFormError(null);
+              if (!open) {
+                setFormError(null);
+                setCustomProviderToEdit(null);
+              }
             }}
-            onAdd={handleAddCustomProvider}
+            isEditMode={customProviderToEdit !== null}
+            initialValues={customProviderInitialValues}
+            onSubmit={customProviderToEdit ? handleUpdateCustomProvider : handleAddCustomProvider}
             reasoningEffortOptions={supportedReasoningEfforts}
             busy={busy}
             error={formError}

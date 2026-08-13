@@ -22,10 +22,14 @@ export type CustomProviderDraft = {
   }>;
 };
 
+export type CustomProviderInitialValues = Omit<CustomProviderDraft, 'apiKey'>;
+
 type CustomModelProviderFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAdd: (draft: CustomProviderDraft) => void | Promise<void>;
+  onSubmit: (draft: CustomProviderDraft) => void | Promise<void>;
+  isEditMode?: boolean;
+  initialValues?: CustomProviderInitialValues;
   reasoningEffortOptions?: readonly string[];
   busy?: boolean;
   error?: string | null;
@@ -60,6 +64,17 @@ const createEmptyModelRow = (): ModelRow => ({
   contextLength: '',
   maxOutputTokens: '',
 });
+
+const createModelRows = (initialValues?: CustomProviderInitialValues): ModelRow[] =>
+  initialValues?.models.map(model => ({
+    id: model.id,
+    name: model.name,
+    advancedExpanded: true,
+    reasoningEfforts: model.properties?.reasoningEfforts,
+    contextLength: model.properties?.contextLength?.toString() ?? '',
+    maxOutputTokens: model.properties?.maxOutputTokens?.toString() ?? '',
+    nameDirty: true,
+  })) ?? [createEmptyModelRow()];
 
 // Flat, de-boxed input with enough contrast to read as editable: a slightly
 // deeper fill, a subtle hairline, and a clear focus ring.
@@ -103,23 +118,25 @@ const FieldHelp = ({ children }: { children: ReactNode }) => (
 const CustomModelProviderForm = ({
   open,
   onOpenChange,
-  onAdd,
+  onSubmit,
   reasoningEffortOptions,
   busy = false,
   error,
+  isEditMode = false,
+  initialValues,
 }: CustomModelProviderFormProps) => {
-  const [name, setName] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
+  const [name, setName] = useState(initialValues?.name ?? '');
+  const [baseUrl, setBaseUrl] = useState(initialValues?.baseUrl ?? '');
   const [apiKey, setApiKey] = useState('');
-  const [models, setModels] = useState<ModelRow[]>([createEmptyModelRow()]);
+  const [models, setModels] = useState<ModelRow[]>(() => createModelRows(initialValues));
   const [nameTouched, setNameTouched] = useState(false);
   const [baseUrlTouched, setBaseUrlTouched] = useState(false);
 
   const resetForm = () => {
-    setName('');
-    setBaseUrl('');
+    setName(initialValues?.name ?? '');
+    setBaseUrl(initialValues?.baseUrl ?? '');
     setApiKey('');
-    setModels([createEmptyModelRow()]);
+    setModels(createModelRows(initialValues));
     setNameTouched(false);
     setBaseUrlTouched(false);
   };
@@ -173,7 +190,7 @@ const CustomModelProviderForm = ({
 
   // Both limits are required: the harness budgets a run as input + reserved output ≤ context window.
   const modelContextError = (model: ModelRow): string | null =>
-    parsePositiveInt(model.contextLength) == null ? 'Set the model’s context window.' : null;
+    parsePositiveInt(model.contextLength) == null ? "Set the model's context window." : null;
   const modelMaxOutputError = (model: ModelRow): string | null =>
     parsePositiveInt(model.maxOutputTokens) == null ? 'Set the max output tokens.' : null;
 
@@ -206,7 +223,7 @@ const CustomModelProviderForm = ({
     }
 
     try {
-      await onAdd({
+      await onSubmit({
         name: trimmedName,
         baseUrl: trimmedBaseUrl,
         apiKey: apiKey.trim(),
@@ -224,8 +241,7 @@ const CustomModelProviderForm = ({
           };
         }),
       });
-      resetForm();
-      onOpenChange(false);
+      handleOpenChange(false);
     } catch {
       // Parent surfaces error; keep form open.
     }
@@ -235,8 +251,12 @@ const CustomModelProviderForm = ({
     <CenteredModal
       open={open}
       onOpenChange={handleOpenChange}
-      title="Add custom provider"
-      description="Connect any OpenAI-compatible endpoint, whether it's a local model, a proxy, or your own hosted service."
+      title={isEditMode ? `Edit ${initialValues?.name ?? name}` : 'Add custom provider'}
+      description={
+        isEditMode
+          ? 'Update the endpoint, credentials, and models for this provider.'
+          : "Connect any OpenAI-compatible endpoint, whether it's a local model, a proxy, or your own hosted service."
+      }
       contentSized
     >
       <form
@@ -260,10 +280,17 @@ const CustomModelProviderForm = ({
               onChange={event => setName(event.target.value)}
               onBlur={() => setNameTouched(true)}
               placeholder="local-llama"
-              autoFocus
+              autoFocus={!isEditMode}
+              readOnly={isEditMode}
+              aria-readonly={isEditMode}
               aria-invalid={showNameError ? true : undefined}
-              className={cn(inputClassName, showNameError && inputErrorClassName)}
+              className={cn(
+                inputClassName,
+                isEditMode && 'cursor-not-allowed bg-secondary-bg/60 text-text-secondary',
+                showNameError && inputErrorClassName,
+              )}
             />
+            {isEditMode ? <FieldHelp>Provider names cannot be changed after creation.</FieldHelp> : null}
             {showNameError ? <FieldError>{nameError}</FieldError> : null}
           </div>
 
@@ -279,6 +306,7 @@ const CustomModelProviderForm = ({
               onChange={event => setBaseUrl(event.target.value)}
               onBlur={() => setBaseUrlTouched(true)}
               placeholder="http://localhost:11434/v1"
+              autoFocus={isEditMode}
               aria-invalid={showBaseUrlError ? true : undefined}
               className={cn(inputClassName, showBaseUrlError && inputErrorClassName)}
             />
@@ -302,7 +330,11 @@ const CustomModelProviderForm = ({
               placeholder="sk-…"
               className={inputClassName}
             />
-            <FieldHelp>Leave blank if your endpoint needs no key (e.g. a local model).</FieldHelp>
+            <FieldHelp>
+              {isEditMode
+                ? 'Leave blank to keep the saved key, or enter a new key to replace it.'
+                : 'Leave blank if your endpoint needs no key (e.g. a local model).'}
+            </FieldHelp>
           </div>
 
           <fieldset className="m-0 min-w-0 border-0 p-0">
@@ -539,7 +571,7 @@ const CustomModelProviderForm = ({
         <div className="shrink-0 space-y-3 border-t border-border px-5 py-4">
           {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
           <Button type="submit" size="lg" disabled={!visibleValid || busy} className="w-full">
-            Add provider
+            {isEditMode ? 'Save changes' : 'Add provider'}
           </Button>
         </div>
       </form>
