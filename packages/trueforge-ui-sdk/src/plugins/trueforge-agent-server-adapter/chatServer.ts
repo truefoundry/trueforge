@@ -1,5 +1,5 @@
 /**
- * Harness `AgentUIServer` adapter for @truefoundry/trueforge-ui.
+ * Harness `AgentChatServer` adapter for @truefoundry/trueforge-ui.
  *
  * Runtime contract: opaque mounts (`object`), flat `ListResult` (`data` +
  * `nextPageToken`), and `null` normalized to absent. Harness keys MCP mounts by
@@ -11,34 +11,24 @@
  * `reference`/`inline` discriminator, with reference rows already naming their
  * agent. The UI filters with registry `agentId`.
  */
-import type { TrueForgeApi } from '@truefoundry/trueforge-sdk';
+import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type {
   AgentChatServer,
-  AgentSpec,
   ListResult,
   Session,
   SessionEventItem,
   Turn,
   TurnInputItem,
   UserMessageContent,
-} from '@truefoundry/trueforge-ui';
-import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
+} from '../../server/types.js';
+import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
+import type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
 
-export type HarnessSkillMount = TrueForgeApi.SkillNameRef;
-export type HarnessMcpServerMount = TrueForgeApi.McpServer;
-
-export interface HarnessAgentSpec extends AgentSpec<
-  TrueForgeApi.AgentSpecModel,
-  HarnessSkillMount,
-  HarnessMcpServerMount
-> {
-  config?: TrueForgeApi.RuntimeConfig;
-  instructions?: string;
-  messages?: TrueForgeApi.AgentSpecUserMessage[];
-  responseFormat?: TrueForgeApi.ResponseFormat;
-}
-
-export type CreateHarnessServerOptions = CreateHarnessClientOptions;
+export type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
+export type CreateHarnessChatServerOptions = CreateTrueForgeClientOptions & {
+  /** Injected client — skips creating one from options. */
+  client?: TrueForge;
+};
 
 function toUiMcpServer(server: TrueForgeApi.McpServer): HarnessMcpServerMount {
   return server;
@@ -164,9 +154,10 @@ function toHarnessInput(input: TurnInputItem[]): TrueForgeApi.TurnInputItem[] {
   );
 }
 
-export function createHarnessChatServer(options: CreateHarnessServerOptions = {}): AgentChatServer<HarnessAgentSpec> {
-  const client =
-    options.baseUrl === undefined && options.fetch === undefined ? harnessClient : createHarnessClient(options);
+export function createHarnessChatServer(
+  options: CreateHarnessChatServerOptions = {},
+): AgentChatServer<HarnessAgentSpec> {
+  const client = options.client ?? createTrueForgeClient(options);
   return {
     // The sandbox is resolved server-side from the turn, so `sandboxId` is accepted for parity
     // with hosts that address sandboxes directly and deliberately not forwarded.

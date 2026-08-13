@@ -5,6 +5,7 @@
  * UI: flat `apiKey` / model `id`. Harness: `auth.apiKey` / `modelId`.
  * Provider `id` in the UI is the Harness resource `name`.
  */
+import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type {
   CreateModelProviderRequest,
@@ -13,8 +14,8 @@ import type {
   ModelProviderBase,
   ModelProviderCatalogEntry,
   UpdateModelProviderRequest,
-} from '@truefoundry/trueforge-ui';
-import { harnessClient as client } from './harnessClient';
+} from '../../../server/types.js';
+
 /** Custom-form rows omit properties; catalog rows round-trip them. */
 export type UiModelEntry = ModelEntry & {
   properties?: TrueForgeApi.ModelProperties;
@@ -109,54 +110,56 @@ export function toHarnessModelProvider(req: {
   return { type: req.type, auth, models };
 }
 
-async function resolveApiKey(req: { id?: string; type?: string; apiKey: string }): Promise<string> {
-  const trimmed = req.apiKey.trim();
-  if (trimmed !== '') {
-    return trimmed;
-  }
-  if (req.id === undefined) {
-    // Create with a blank key: allow only for custom; "" is mapped to omitted auth below.
-    if (req.type === 'custom') {
-      return '';
-    }
-    throw new Error('API key is required');
-  }
-  // Update with empty means keep the stored key.
-  const listed = await client.settings.modelProviders.list();
-  const existing = listed.data.find(provider => toUiModelProvider(provider).id === req.id);
-  if (existing === undefined) {
-    throw new Error(`Model provider "${req.id}" not found`);
-  }
-  return existing.auth?.apiKey ?? '';
-}
-
-async function upsertFromUi(req: {
-  type: string;
-  name: string;
-  apiKey: string;
-  baseUrl?: string;
-  models: UiModelEntry[];
-}): Promise<UiModelProvider> {
-  const body = await client.settings.modelProviders.upsert(
-    toHarnessModelProvider({
-      type: req.type,
-      name: req.name,
-      apiKey: req.apiKey,
-      ...(req.baseUrl === undefined ? {} : { baseUrl: req.baseUrl }),
-      models: req.models,
-    }),
-  );
-  return toUiModelProvider(body.data);
-}
-
 /** Settings model-catalog port for `createTrueFoundryServer`. Delete is omitted (no BE route). */
-export function createModelProviderCatalog(): ModelCatalogServer<
+export function createModelProviderCatalog(
+  client: TrueForge,
+): ModelCatalogServer<
   UiModelEntry,
   UiModelProvider,
   UiModelProviderCatalogEntry,
   CreateModelProviderRequest<UiModelEntry>,
   UpdateModelProviderRequest<UiModelEntry>
 > {
+  async function resolveApiKey(req: { id?: string; type?: string; apiKey: string }): Promise<string> {
+    const trimmed = req.apiKey.trim();
+    if (trimmed !== '') {
+      return trimmed;
+    }
+    if (req.id === undefined) {
+      // Create with a blank key: allow only for custom; "" is mapped to omitted auth below.
+      if (req.type === 'custom') {
+        return '';
+      }
+      throw new Error('API key is required');
+    }
+    // Update with empty means keep the stored key.
+    const listed = await client.settings.modelProviders.list();
+    const existing = listed.data.find(provider => toUiModelProvider(provider).id === req.id);
+    if (existing === undefined) {
+      throw new Error(`Model provider "${req.id}" not found`);
+    }
+    return existing.auth?.apiKey ?? '';
+  }
+
+  async function upsertFromUi(req: {
+    type: string;
+    name: string;
+    apiKey: string;
+    baseUrl?: string;
+    models: UiModelEntry[];
+  }): Promise<UiModelProvider> {
+    const body = await client.settings.modelProviders.upsert(
+      toHarnessModelProvider({
+        type: req.type,
+        name: req.name,
+        apiKey: req.apiKey,
+        ...(req.baseUrl === undefined ? {} : { baseUrl: req.baseUrl }),
+        models: req.models,
+      }),
+    );
+    return toUiModelProvider(body.data);
+  }
+
   return {
     getModelProviderCatalog: async () => {
       const body = await client.catalog.modelProviders.list();

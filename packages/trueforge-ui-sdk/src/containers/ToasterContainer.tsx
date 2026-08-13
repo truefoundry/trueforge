@@ -7,8 +7,9 @@ import { getErrorMessage } from '../utils/getErrorMessage.js';
 
 const MAX_TOAST_DESCRIPTION_CHARS = 480;
 const MAX_VISIBLE_TOASTS = 5;
+const SUCCESS_TOAST_TTL_MS = 3000;
 
-type ToastContent = { title: string; description: string };
+type ToastContent = { title: string; description?: string };
 
 type ToastItem = ToastContent & { id: string; variant: 'error' | 'success' };
 
@@ -55,20 +56,29 @@ export function ToasterProvider({ children }: { children: ReactNode }) {
   const ToastStack = useSlot('ToastStack');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
+  const dismiss = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
   const showError = useCallback((error: unknown) => {
     console.error('[trueforge-ui]', error);
     const item: ToastItem = { id: nextToastId(), variant: 'error', ...normalizeError(error) };
     setToasts(prev => [...prev, item].slice(-MAX_VISIBLE_TOASTS));
   }, []);
 
-  const showSuccess = useCallback((content: ToastContent) => {
-    const item: ToastItem = { id: nextToastId(), variant: 'success', ...content };
-    setToasts(prev => [...prev, item].slice(-MAX_VISIBLE_TOASTS));
-  }, []);
-
-  const dismiss = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
+  const showSuccess = useCallback(
+    (content: ToastContent) => {
+      const id = nextToastId();
+      const item: ToastItem = { id, variant: 'success', ...content };
+      setToasts(prev => [...prev, item].slice(-MAX_VISIBLE_TOASTS));
+      // Success is a transient confirmation — auto-dismiss so it doesn't linger. Errors persist
+      // (a dev may need to read or copy them).
+      if (typeof window !== 'undefined') {
+        window.setTimeout(() => dismiss(id), SUCCESS_TOAST_TTL_MS);
+      }
+    },
+    [dismiss],
+  );
 
   const value = useMemo(() => ({ showError, showSuccess }), [showError, showSuccess]);
 
@@ -80,7 +90,7 @@ export function ToasterProvider({ children }: { children: ReactNode }) {
           <Toast
             key={toast.id}
             title={toast.title}
-            description={toast.description}
+            description={toast.description ?? ''}
             variant={toast.variant}
             open
             onOpenChange={open => {

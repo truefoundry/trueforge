@@ -224,7 +224,7 @@ function SaveAgentButtonContent({
                   value={name}
                   disabled={saving || intent === 'update'}
                   onChange={event => setName(event.target.value)}
-                  placeholder="my-agent"
+                  placeholder="release-notes"
                   className={auiInputClass('h-9 disabled:opacity-60')}
                 />
               </label>
@@ -236,32 +236,36 @@ function SaveAgentButtonContent({
                   disabled={saving}
                   onChange={event => setDraftSpec({ ...draftSpec, instructions: event.target.value })}
                   rows={4}
+                  placeholder="You are a release notes writer for a platform team."
                   className={auiInputClass('resize-y py-2 disabled:opacity-60')}
                 />
               </label>
 
-              <div className="mb-4 overflow-hidden rounded-xl border border-border">
-                <SummarySection
-                  icon="cpu"
-                  title="Model"
-                  value={draftSpec.model.name ? displayModelLabel(draftSpec.model.name) : 'Not selected'}
-                  disabled={saving}
-                  onEdit={() => setEditor('model')}
-                />
-                <SummarySection
-                  icon="plug"
-                  title="MCP servers"
-                  value={`${mcpMounts.length} selected`}
-                  disabled={saving}
-                  onEdit={() => setEditor('mcp')}
-                />
-                <SummarySection
-                  icon="lightbulb"
-                  title="Skills"
-                  value={`${skillMounts.length} selected`}
-                  disabled={saving}
-                  onEdit={() => setEditor('skills')}
-                />
+              <div className="mb-4">
+                <h3 className="mb-2 text-sm font-medium">Configuration</h3>
+                <div className="overflow-hidden rounded-xl border border-border">
+                  <SummarySection
+                    icon="cpu"
+                    title="Model"
+                    value={draftSpec.model.name ? displayModelLabel(draftSpec.model.name) : 'Not selected'}
+                    disabled={saving}
+                    onEdit={() => setEditor('model')}
+                  />
+                  <SummarySection
+                    icon="plug"
+                    title="Connectors"
+                    value={`${mcpMounts.length} selected`}
+                    disabled={saving}
+                    onEdit={() => setEditor('mcp')}
+                  />
+                  <SummarySection
+                    icon="lightbulb"
+                    title="Skills"
+                    value={`${skillMounts.length} selected`}
+                    disabled={saving}
+                    onEdit={() => setEditor('skills')}
+                  />
+                </div>
               </div>
 
               <div>
@@ -317,10 +321,10 @@ function SaveAgentButtonContent({
             setModelQuery('');
           }
         }}
-        title={editor === 'model' ? 'Select model' : editor === 'mcp' ? 'MCP servers' : 'Skills'}
+        title={editor === 'model' ? 'Select model' : editor === 'mcp' ? 'Connectors' : 'Skills'}
         className="md:max-w-md"
         contentSized
-        aria-label={editor === 'model' ? 'Edit model' : editor === 'mcp' ? 'Edit MCP servers' : 'Edit skills'}
+        aria-label={editor === 'model' ? 'Edit model' : editor === 'mcp' ? 'Edit Connectors' : 'Edit skills'}
       >
         {draftSpec && editor ? (
           <div className="flex h-[min(28rem,calc(100dvh-10rem))] w-[min(28rem,calc(100vw-2rem))] flex-col">
@@ -338,6 +342,7 @@ function SaveAgentButtonContent({
                   query={modelQuery}
                   onQueryChange={setModelQuery}
                   listboxId={modelListId}
+                  showHeading={false}
                   onSelect={nextModel => {
                     setDraftSpec({
                       ...draftSpec,
@@ -347,7 +352,6 @@ function SaveAgentButtonContent({
                         nextModel.properties.reasoningEfforts,
                       ),
                     });
-                    setEditor(null);
                   }}
                 />
               </>
@@ -367,7 +371,7 @@ function SaveAgentButtonContent({
                     <input
                       value={search}
                       onChange={event => setSearch(event.target.value)}
-                      placeholder={editor === 'mcp' ? 'Search MCP servers' : 'Search skills'}
+                      placeholder={editor === 'mcp' ? 'Search connectors' : 'Search skills'}
                       className={auiInputClass('h-8 pr-2 pl-7')}
                       autoFocus
                     />
@@ -443,6 +447,19 @@ function SaveAgentButtonContent({
                 </div>
               </>
             )}
+            <div className="bg-card-bg sticky bottom-0 z-10 flex shrink-0 justify-end border-t border-border px-5 py-4">
+              <button
+                type="button"
+                className={auiButtonClass({ variant: 'default' })}
+                onClick={() => {
+                  setEditor(null);
+                  setSearch('');
+                  setModelQuery('');
+                }}
+              >
+                Continue
+              </button>
+            </div>
           </div>
         ) : null}
       </CenteredModal>

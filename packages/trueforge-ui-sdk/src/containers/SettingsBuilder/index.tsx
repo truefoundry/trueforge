@@ -119,7 +119,7 @@ const TruefoundrySettingsBuilder = () => {
                 // Narrow panels cannot fit fixed-width tabs, so tabs split the row instead.
                 compact ? 'min-w-0 flex-1 justify-center gap-1.5 px-1.5' : 'shrink-0',
                 section === item.id
-                  ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
+                  ? 'bg-primary-button-bg text-primary-button-text'
                   : 'text-text-secondary hover:bg-ghost-button-hover/60 hover:text-text-primary',
               )}
               onClick={() => {

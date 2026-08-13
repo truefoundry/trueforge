@@ -7,9 +7,8 @@
  * For now UI `id = name`; registry link uses `catalogId = name` when the
  * configured skill name matches a catalog preset.
  */
-import type { TrueForgeApi } from '@truefoundry/trueforge-sdk';
-import type { DefinedSkill, SkillCatalogEntry, SkillCatalogServer, SkillConfigBase } from '@truefoundry/trueforge-ui';
-import { harnessClient as client } from './harnessClient';
+import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
+import type { DefinedSkill, SkillCatalogEntry, SkillCatalogServer, SkillConfigBase } from '../../../server/types.js';
 
 export type UiSkill = DefinedSkill;
 export type UiSkillCatalogEntry = SkillCatalogEntry;
@@ -50,7 +49,7 @@ export function toUiSkill(skill: TrueForgeApi.SkillManifest, catalogNames: Reado
 }
 
 /** Settings skill-catalog port for `createTrueFoundryServer`. Delete omitted (no BE route). */
-export function createSkillCatalog(): SkillCatalogServer<UiSkill> {
+export function createSkillCatalog(client: TrueForge): SkillCatalogServer<UiSkill> {
   return {
     getSkillCatalog: async () => {
       const body = await client.catalog.skills.list();

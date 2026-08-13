@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { execPath } from 'node:process';
 import { fileURLToPath, URL } from 'node:url';
@@ -27,6 +27,12 @@ try {
   await mkdir(packageDir, { recursive: true });
   execFileSync('tar', ['-xzf', path.join(tempDir, tarballName), '--strip-components=1', '-C', packageDir]);
 
+  // Plugin adapter depends on @truefoundry/trueforge-sdk (workspace:* in monorepo) — expose it to the smoke consumer.
+  await symlink(
+    path.resolve(packageRoot, '../sdk'),
+    path.join(tempDir, 'node_modules', '@truefoundry', 'trueforge-sdk'),
+  );
+
   // create a package.json for the consumer
   await writeFile(
     path.join(tempDir, 'package.json'),
@@ -42,12 +48,14 @@ import { fileURLToPath } from 'node:url';
 
 const sdk = await import('@truefoundry/trueforge-ui');
 const assistantUi = await import('@truefoundry/trueforge-ui/assistant-ui');
+const trueforgeAdapter = await import('@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter');
 
 assert.equal(typeof sdk.TrueforgeUI, 'function');
 assert.equal(typeof sdk.createTrueFoundryServer, 'function');
 assert.equal(typeof sdk.useMCPAuth, 'function');
 assert.equal(typeof assistantUi.useAui, 'function');
 assert.equal(typeof assistantUi.useAuiState, 'function');
+assert.equal(typeof trueforgeAdapter.createTrueForgeAgentUIServer, 'function');
 
 const stylesPath = fileURLToPath(import.meta.resolve('@truefoundry/trueforge-ui/styles.css'));
 await access(stylesPath);

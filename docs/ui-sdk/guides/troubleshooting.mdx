@@ -60,9 +60,10 @@ description: "Common failure modes and their causes."
   </Accordion>
 
   <Accordion title="An error alert appears immediately on mount">
-    If you passed `type: "trueforge"`, that is expected — the harness adapter has not shipped, so it resolves to a not-implemented error. Use `type: "truefoundry"` or a [custom server](/ui-sdk/guides/custom-server) instead.
-
-    Otherwise the server failed to resolve: check that `apiKey` and `controlPlaneURL` are set and reachable. Attach an `onError` handler to see the underlying error.
+    The built-in server failed to resolve. For `type: "trueforge"`, confirm `@truefoundry/trueforge-sdk`
+    is installed, `baseUrl` is reachable, and you passed either `token` or a working `fetch` — see
+    [Quickstart](/ui-sdk/get-started/quickstart). For `type: "truefoundry"`, check that `apiKey` and
+    `controlPlaneURL` are set and reachable. Attach an `onError` handler to see the underlying error.
   </Accordion>
 
   <Accordion title="Requests fail in composer mode with an unknown model">

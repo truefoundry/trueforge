@@ -5,17 +5,22 @@ Private agent chat UI for the harness server (registry + inline sessions). **Not
 Built on:
 
 ```
-trueforge (local Harness SDK)
-  → Harness AgentChatServer adapter
-    → createTrueFoundryServer (chat port + catalog callbacks)
-      → @truefoundry/trueforge-ui (TrueforgeUI, layout="sidebar")
+@truefoundry/trueforge-sdk  (HTTP client; cookie/OIDC via host fetch)
+  → @truefoundry/trueforge-ui
+       server={{ type: 'trueforge', baseUrl, fetch }}
+         → plugins/trueforge-agent-server-adapter
+              (chat + builder + settings catalogs)
+           → TrueforgeUI (layout="sidebar")
 ```
 
-The SDK owns the shell: sidebar, thread list, composer, model and connector pickers, and the
-runtime wiring. [`App.tsx`](src/App.tsx) only seeds `defaultAgentSpec` from the Harness catalogs
-and renders the API error card.
+[`App.tsx`](src/App.tsx) owns product chrome only:
 
-No login is required.
+- auth gate / welcome / logout (`authFetch`, `authSession`)
+- boot: first model → `defaultAgentSpec`, `initialSettingsOpen`
+- `<TrueforgeUI server={{ type: 'trueforge', baseUrl: '/', fetch: authAwareFetch }} />`
+
+Chat, agent library, and settings catalogs are composed inside the UI SDK plugin —
+the host does **not** call `createTrueFoundryServer` or maintain harness adapters.
 
 ## Local development
 
@@ -29,25 +34,29 @@ pnpm dev:infra        # then in another terminal:
 pnpm dev              # Postgres + Redis, Vite :3000 + API :8790
 ```
 
-Open `http://localhost:3000`: Vite serves the UI from source (edits hot-reload, no rebuild or server
-restart) and proxies `/api/*` to `VITE_SERVER_URL`, default `http://localhost:8790`. `FRONTEND_PORT`
-moves Vite off `:3000`. Vite uses `strictPort` — if that port is already bound, dev exits instead of
-picking another. That proxy is the only dev-specific wiring and lives entirely in
-[`vite.config.ts`](vite.config.ts); the server needs no build to answer the API.
+Open `http://localhost:3000`: Vite serves the UI from source (edits hot-reload) and
+proxies `/api/*` to `VITE_SERVER_URL` (default `http://localhost:8790`).
+`FRONTEND_PORT` moves Vite off `:3000`. Vite uses `strictPort` — if that port is
+already bound, dev exits instead of picking another. Proxy wiring lives in
+[`vite.config.ts`](vite.config.ts).
 
-### Server adapter
+`predev` / `prebuild` / `pretypecheck` build `@truefoundry/trueforge-sdk` and
+`@truefoundry/trueforge-ui` first so clean checkouts do not rely on stale `dist/`.
 
-[`src/harnessServer.ts`](src/harnessServer.ts) wraps the Harness SDK with the flat `AgentChatServer`
-contract. It maps mutable session DTOs, pagination, turns, event history, turn subscribe/resume,
-cancellation, and SSE metadata while keeping the browser pointed directly at `/api/v1/sessions`.
+### Auth
 
-`trueforge-ui` still declares the pre-0.1.6 contract (mounts carry `id`, list results are
-`PageResult`, absent values are `undefined`) while the runtime it delegates to reads `nextPageToken`
-and tolerates `null`. The adapter emits values valid under both — derived mount ids, pages carrying
-`nextPageToken` _and_ `hasNextPage()`, `null` normalised to absent — so no layer needs a cast.
+[`authFetch.ts`](src/authFetch.ts) wraps `fetch` and redirects to OIDC login on HTTP 401.
+[`authSession.ts`](src/authSession.ts) probes `/me` with a non-redirecting client so the
+welcome screen can show before login. Pass the auth-aware `fetch` into
+`server={{ type: 'trueforge', fetch }}` so the built-in Harness adapter shares the same
+session cookies.
 
-The local SDK is linked as `trueforge`. Frontend dev, typecheck, test, and build scripts build it first,
-so clean checkouts do not rely on committed `dist/` output.
+### Server adapter (in the UI package)
+
+Harness ↔ `AgentUIServer` mapping lives in
+[`@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter`](../trueforge-ui-sdk/src/plugins/trueforge-agent-server-adapter/).
+Hosts that need the factory outside `<TrueforgeUI />` can import
+`createTrueForgeAgentUIServer` from that subpath.
 
 ## Production
 
@@ -59,29 +68,6 @@ those on the fly.
 ```bash
 docker compose up --build   # UI + API on http://localhost:8791
 ```
-
-## Composer lists + builder (model + MCP + skills)
-
-[`src/composerLists.ts`](src/composerLists.ts) calls the DB-backed list endpoints via `trueforge`.
-[`src/harnessBuilderServer.ts`](src/harnessBuilderServer.ts) maps those into `AgentBuilderServer`
-callbacks; `App.tsx` spreads them into `createTrueFoundryServer` (settings CRUD lives in `*Catalog.ts`):
-
-| Callback       | Source                                                            |
-| -------------- | ----------------------------------------------------------------- |
-| `getModels`    | `GET /api/v1/models` (also seeds `defaultAgentSpec.model`)        |
-| `getMcp`       | `GET /api/v1/mcp-servers` (name/url + per-user auth_status)       |
-| `getSkills`    | `GET /api/v1/skills` when `GET /api/v1/capabilities` has skill on |
-| `searchAgents` | `GET /api/v1/agents`, filtered by `query` and paged client-side   |
-| `saveAgent`    | `PUT`/`POST /api/v1/agents` — updates by name, else creates       |
-
-The SDK's picker round-trips a skill as `{ id, name }`. Harness persists name refs only
-(`{ name }`), so `harnessServer` derives `id` from `name` on read and strips `id` on write.
-Skills stay empty in the picker when the skill capability is off (no sandbox provider configured).
-
-The Agents Library lists the registry, so sessions bind either to a registry agent (`{ name }`) or
-to an inline spec (`{ spec }`). Reads name their agent on the `reference` arm, so the adapter never
-resolves display names through the registry. History filtering forwards the library `agentId`
-straight to `GET /sessions?agent_id=`.
 
 ## Gaps
 
@@ -99,3 +85,4 @@ straight to `GET /sessions?agent_id=`.
 | `pnpm dev`       | Vite dev server               |
 | `pnpm build`     | Typecheck + production bundle |
 | `pnpm typecheck` | `tsc --noEmit`                |
+| `pnpm test`      | Auth unit tests               |

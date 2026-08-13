@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-import { createHarnessChatServer, type HarnessAgentSpec } from '../src/harnessServer';
+import { describe, it } from 'vitest';
+
+import { createHarnessChatServer, type HarnessAgentSpec } from '@/plugins/trueforge-agent-server-adapter/chatServer.js';
 
 const session = {
   id: 'ses_1',
