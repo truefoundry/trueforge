@@ -227,7 +227,7 @@ export async function resolveSandboxProvider({
     manifest: record.manifest,
     tenant_id,
     logger,
-    buildRef: record.build_metadata.build_ref,
+    build_metadata: record.build_metadata,
   });
 }
 

@@ -40,7 +40,7 @@ const IMAGE_URI = 'tfy.jfrog.io/tfy-images/truefoundry-utils-core-sandbox:029ea5
 const readyBuild: SandboxBuild = {
   status: 'ready',
   reason: null,
-  metadata: { buildRef: 'trueforge-build-029ea5ff', imageUri: IMAGE_URI },
+  metadata: { build_ref: 'trueforge-build-029ea5ff', image_uri: IMAGE_URI },
 };
 const expectedStatus = {
   status: 'ready' as const,

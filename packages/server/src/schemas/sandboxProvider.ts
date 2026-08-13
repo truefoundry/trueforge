@@ -62,13 +62,10 @@ export const SandboxBuildStatusSchema = z
   .describe('Current build status.')
   .openapi('SandboxBuildStatus');
 
-/** Provider-specific build identity, persisted alongside the status. */
+/** Provider-specific opaque build metadata (string map), persisted alongside the status. */
 export const SandboxBuildMetadataSchema = z
-  .object({
-    build_ref: z.string().describe('Provider build handle derived from the image digest (e.g. Daytona snapshot name).'),
-    image_uri: z.string().describe('Full reference of the release sandbox image this build refers to.'),
-  })
-  .strict()
+  .record(z.string(), z.string())
+  .describe('Provider-specific build metadata (opaque string map).')
   .openapi('SandboxBuildMetadata');
 
 /** Build status + identity, without the provider manifest. Persisted and refreshed on read. */
@@ -76,7 +73,9 @@ export const SandboxStatusSchema = z
   .object({
     status: SandboxBuildStatusSchema,
     status_reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
-    build_metadata: SandboxBuildMetadataSchema,
+    build_metadata: SandboxBuildMetadataSchema.nullable().describe(
+      'Provider-specific build metadata; null when the provider has none.',
+    ),
   })
   .strict();
 
@@ -86,7 +85,9 @@ export const SandboxProviderResponseSchema = z
     manifest: SandboxProviderManifestSchema,
     status: SandboxBuildStatusSchema,
     status_reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
-    build_metadata: SandboxBuildMetadataSchema,
+    build_metadata: SandboxBuildMetadataSchema.nullable().describe(
+      'Provider-specific build metadata; null when the provider has none.',
+    ),
   })
   .strict()
   .openapi('SandboxProviderResponse');

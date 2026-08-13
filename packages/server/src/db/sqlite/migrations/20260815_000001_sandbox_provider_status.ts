@@ -2,7 +2,7 @@ import { sql, type Kysely } from 'kysely';
 
 /**
  * Persist the release sandbox image build status alongside the provider config.
- * `build_metadata` holds the build_ref + image_uri and is set on every upsert.
+ * `build_metadata` is nullable opaque jsonb (build_ref + image_uri when present).
  *
  * `status` keeps the 'pending' default here: SQLite cannot drop a column default
  * without rebuilding the table, and it is harmless because every upsert writes
@@ -18,7 +18,8 @@ const RELEASE_IMAGE_URI =
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`ALTER TABLE sandbox_provider ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'`.execute(db);
   await sql`ALTER TABLE sandbox_provider ADD COLUMN status_reason TEXT`.execute(db);
-  await sql`ALTER TABLE sandbox_provider ADD COLUMN build_metadata BLOB NOT NULL DEFAULT (jsonb('{}'))`.execute(db);
+  // Nullable: SQLite forbids non-constant DEFAULTs on ADD COLUMN when rows exist.
+  await sql`ALTER TABLE sandbox_provider ADD COLUMN build_metadata BLOB`.execute(db);
 
   await sql`
     UPDATE sandbox_provider
