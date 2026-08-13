@@ -234,8 +234,8 @@ importers:
         specifier: ^0.204.1
         version: 0.204.1(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
       '@hono/node-server':
-        specifier: ^2.0.11
-        version: 2.0.11(hono@4.13.0)
+        specifier: ^2.0.12
+        version: 2.0.12(hono@4.13.0)
       '@hono/swagger-ui':
         specifier: ^0.2.1
         version: 0.2.2(hono@4.13.0)
@@ -1624,8 +1624,8 @@ packages:
     peerDependencies:
       hono: ^4
 
-  '@hono/node-server@2.0.11':
-    resolution: {integrity: sha512-bjD221KPLoJTWUwso1J6fGKiTXEUFedG/s0visavY4zakFPkeGURMRNly+FhBHs7T8Dz4qHaZIMX9ZoJHSJtKA==}
+  '@hono/node-server@2.0.12':
+    resolution: {integrity: sha512-eWpQYr67tqJLeaSUl0Q+TquuYfUdTibpOJlUMV2FfUP7+KqCC5TufnwnlXL6mobZBJbGAYRd7ZvEBDCbLInjhg==}
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4
@@ -7626,7 +7626,7 @@ snapshots:
       '@aws/lambda-invoke-store': 0.3.0
       '@smithy/core': 3.32.0
       '@smithy/signature-v4': 5.7.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       bowser: 2.14.1
       tslib: 2.8.1
 
@@ -7635,7 +7635,7 @@ snapshots:
       '@aws-sdk/core': 3.977.7
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-http@3.972.70':
@@ -7645,7 +7645,7 @@ snapshots:
       '@smithy/core': 3.32.0
       '@smithy/fetch-http-handler': 5.7.0
       '@smithy/node-http-handler': 4.10.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-ini@3.973.13':
@@ -7661,7 +7661,7 @@ snapshots:
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
       '@smithy/credential-provider-imds': 4.5.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-login@3.972.75':
@@ -7670,7 +7670,7 @@ snapshots:
       '@aws-sdk/nested-clients': 3.997.42
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-node@3.972.79':
@@ -7684,7 +7684,7 @@ snapshots:
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
       '@smithy/credential-provider-imds': 4.5.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-process@3.972.68':
@@ -7692,7 +7692,7 @@ snapshots:
       '@aws-sdk/core': 3.977.7
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-sso@3.973.12':
@@ -7702,7 +7702,7 @@ snapshots:
       '@aws-sdk/token-providers': 3.1108.0
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-web-identity@3.972.74':
@@ -7711,7 +7711,7 @@ snapshots:
       '@aws-sdk/nested-clients': 3.997.42
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/lib-storage@3.1109.0(@aws-sdk/client-s3@3.1109.0)':
@@ -7741,7 +7741,7 @@ snapshots:
       '@smithy/core': 3.32.0
       '@smithy/fetch-http-handler': 5.7.0
       '@smithy/node-http-handler': 4.10.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/signature-v4-multi-region@3.996.44':
@@ -7757,17 +7757,17 @@ snapshots:
       '@aws-sdk/nested-clients': 3.997.42
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/types@3.974.3':
     dependencies:
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/xml-builder@3.972.38':
     dependencies:
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws/lambda-invoke-store@0.3.0': {}
@@ -8651,7 +8651,7 @@ snapshots:
     dependencies:
       hono: 4.13.0
 
-  '@hono/node-server@2.0.11(hono@4.13.0)':
+  '@hono/node-server@2.0.12(hono@4.13.0)':
     dependencies:
       hono: 4.13.0
 
@@ -13058,7 +13058,7 @@ snapshots:
       whatwg-encoding: 3.1.1
       whatwg-mimetype: 4.0.0
       whatwg-url: 14.2.0
-      ws: 8.21.1
+      ws: 8.21.3
       xml-name-validator: 5.0.0
     transitivePeerDependencies:
       - bufferutil
