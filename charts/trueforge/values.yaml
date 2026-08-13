@@ -1,9 +1,9 @@
-# Default values for the truefoundry-utils chart.
+# Default values for the trueforge chart.
 
 replicaCount: 1
 
 image:
-  repository: tfy.jfrog.io/tfy-images/truefoundry-utils
+  repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to the chart appVersion when empty; the release workflow stamps
   # the released version here.
   tag: ""
@@ -70,7 +70,7 @@ configs:
     # clientSecret:
     #   valueFrom:
     #     secretKeyRef:
-    #       name: truefoundry-utils-oidc
+    #       name: trueforge-oidc
     #       key: client-secret
     userReferenceClaim: sub
     userRoleClaim: groups
@@ -157,22 +157,22 @@ externalRedis:
 # Extra raw manifests deployed alongside the server, e.g. an Istio
 # VirtualService, a Gateway, an Ingress, or a NetworkPolicy. Each entry is a
 # full Kubernetes object rendered through `tpl`, so Helm templating works and
-# helpers like `{{ include "truefoundry-utils.fullname" . }}` resolve. Example:
+# helpers like `{{ include "trueforge.fullname" . }}` resolve. Example:
 #
 # extraObjects:
 #   - apiVersion: networking.istio.io/v1
 #     kind: VirtualService
 #     metadata:
-#       name: '{{ include "truefoundry-utils.fullname" . }}'
+#       name: '{{ include "trueforge.fullname" . }}'
 #     spec:
 #       hosts:
-#         - truefoundry-utils.example.com
+#         - trueforge.example.com
 #       gateways:
 #         - istio-system/public-gateway
 #       http:
 #         - route:
 #             - destination:
-#                 host: '{{ include "truefoundry-utils.fullname" . }}'
+#                 host: '{{ include "trueforge.fullname" . }}'
 #                 port:
 #                   number: '{{ .Values.service.port }}'
 extraObjects: []

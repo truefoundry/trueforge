@@ -4,7 +4,22 @@
     "generatorVersion": "3.87.1",
     "generatorConfig": {
         "packageJson": {
-            "name": "@truefoundry/trueforge-sdk"
+            "name": "@truefoundry/trueforge-sdk",
+            "license": "MIT",
+            "author": "TrueForge",
+            "repository": {
+                "type": "git",
+                "url": "git+https://github.com/truefoundry/trueforge.git",
+                "directory": "packages/sdk"
+            },
+            "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/sdk#readme",
+            "bugs": {
+                "url": "https://github.com/truefoundry/trueforge/issues"
+            },
+            "publishConfig": {
+                "access": "public",
+                "provenance": false
+            }
         },
         "allowExtraFields": true,
         "allowCustomFetcher": true,
@@ -28,10 +43,6 @@
         "streamType": "web",
         "useDefaultRequestParameterValues": true
     },
-    "originGitCommit": "5676ea0eb7e3d959b8bc49a361bd8782d4fdce6d",
-    "originGitCommitIsDirty": true,
-    "invokedBy": "ci",
-    "requestedVersion": "0.0.0",
-    "ciProvider": "github",
-    "sdkVersion": "0.0.0"
+    "requestedVersion": "0.1.0-rc.1",
+    "sdkVersion": "0.1.0-rc.1"
 }

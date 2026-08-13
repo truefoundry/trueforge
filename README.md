@@ -73,15 +73,15 @@ Every environment variable is documented in [`packages/server/.env.example`](pac
 
 ### Hosted mode (Kubernetes)
 
-The [`charts/truefoundry-utils`](charts/truefoundry-utils) Helm chart deploys hosted mode with bundled Postgres and Redis (or your own):
+The [`charts/trueforge`](charts/trueforge) Helm chart deploys hosted mode with bundled Postgres and Redis (or your own):
 
 ```bash
 # TODO: replace <HELM_REPO> with the published Helm repo URL
-helm install truefoundry-utils oci://<HELM_REPO>/truefoundry-utils \
+helm install trueforge oci://<HELM_REPO>/trueforge \
   --version <x.y.z>
 ```
 
-See the [chart README](charts/truefoundry-utils/README.md) (including [`configs.oidc`](charts/truefoundry-utils/README.md#oidc)) and [Quickstart](https://trueforge.dev/quickstart) for values and details.
+See the [chart README](charts/trueforge/README.md) (including [`configs.oidc`](charts/trueforge/README.md#oidc)) and [Quickstart](https://trueforge.dev/quickstart) for values and details.
 
 ## Build your first agent
 

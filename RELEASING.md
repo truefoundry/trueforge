@@ -172,7 +172,7 @@ CODE_OF_CONDUCT, issue/PR templates.
 # Releasing the server image + Helm chart
 
 A separate pipeline ships the deployable artifacts: the server container image
-(API + UI, built from the root `Dockerfile`) and the `charts/truefoundry-utils` Helm
+(API + UI, built from the root `Dockerfile`) and the `charts/trueforge` Helm
 chart. It is driven by `.github/workflows/release-image-and-chart.yml` and runs
 only on manual **`workflow_dispatch`** (Actions → "Release image and Helm chart"
 → Run workflow).
@@ -189,7 +189,7 @@ The dispatch commit SHA is the image tag. The workflow:
    `version` to `0.0.0-<sha>` (Helm SemVer-compatible prerelease), and
    `appVersion` / `image.tag` to the raw SHA. It does **not** commit those
    stamps back to `main`.
-3. **Publishes the chart** — packages `charts/truefoundry-utils` and pushes it to
+3. **Publishes the chart** — packages `charts/trueforge` and pushes it to
    the JFrog public OCI Helm repo. It does not attach artifacts to a GitHub
    Release.
 
@@ -217,7 +217,7 @@ Org/repo **secrets**: `TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME`,
 ## Bundled dependencies
 
 The chart bundles Postgres and Redis as optional Bitnami subcharts, declared in
-`charts/truefoundry-utils/Chart.yaml` against the public Bitnami OCI archive
+`charts/trueforge/Chart.yaml` against the public Bitnami OCI archive
 (`oci://registry-1.docker.io/bitnamicharts`) and pinned by the committed
 `Chart.lock`. The workflow fetches them with `helm dependency build` before
 packaging (the archive is public, no auth). Disable them with
@@ -225,7 +225,7 @@ packaging (the archive is public, no auth). Disable them with
 
 **Images vs charts.** Bitnami left the charts public but relocated their
 container images to `docker.io/bitnamilegacy` (frozen, no security updates). So
-`charts/truefoundry-utils/values.yaml` overrides the subchart images to pinned legacy
+`charts/trueforge/values.yaml` overrides the subchart images to pinned legacy
 tags mirrored to the TrueFoundry JFrog registry, and sets
 `global.security.allowInsecureImages: true` (required once the registry differs
 from Bitnami's default). Mirror the images once per pinned tag:
@@ -251,7 +251,7 @@ Fetch the subchart deps first (public archive, no auth), then lint/template:
 
 ```bash
 pnpm chart:deps       # helm dependency build (writes charts/, uses Chart.lock)
-pnpm chart:lint       # helm lint with charts/truefoundry-utils/ci/lint-values.yaml
+pnpm chart:lint       # helm lint with charts/trueforge/ci/lint-values.yaml
 pnpm chart:template   # render the manifests
 pnpm chart:package    # package to dist/ (gitignored)
 ```

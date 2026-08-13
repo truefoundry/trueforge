@@ -1,6 +1,6 @@
 apiVersion: v2
-name: truefoundry-utils
-description: TrueFoundry Utils server (API + UI) served from a single container image.
+name: trueforge
+description: TrueForge server (API + UI) served from a single container image.
 type: application
 # version (chart) and appVersion are stamped at publish time by
 # .github/workflows/release-image-and-chart.yml (workflow_dispatch, commit SHA);
@@ -12,7 +12,7 @@ home: https://truefoundry.com
 sources:
   - https://truefoundry.com
 maintainers:
-  - name: TrueFoundry
+  - name: TrueForge
     url: https://truefoundry.com
 # Postgres and Redis ship as optional bundled dependencies, pulled from the
 # public Bitnami OCI chart archive at build time (`helm dependency build`, pinned
