@@ -74,13 +74,17 @@ describe('CustomModelProviderForm', () => {
     expect(submit).toBeEnabled();
   });
 
-  it('shows an inline slug error for an invalid provider name and blocks submit', () => {
+  it('requires the provider name but defers format validation to the server', () => {
     renderForm();
     const name = screen.getByPlaceholderText('local-llama');
+    // A non-empty name with backend-specific format issues is not rejected client-side —
+    // the server validates format and surfaces it on submit.
     fireEvent.change(name, { target: { value: 'Local Llama' } }); // spaces + capitals
     fireEvent.blur(name);
-    expect(screen.getByText(/2–64 lowercase characters/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add provider' })).toBeDisabled();
+    expect(screen.queryByText(/lowercase characters/)).not.toBeInTheDocument();
+    // Emptiness is the only client-side check.
+    fireEvent.change(name, { target: { value: '' } });
+    expect(screen.getByText('Name is required.')).toBeInTheDocument();
   });
 
   it('flags an invalid base URL', () => {
@@ -150,7 +154,7 @@ describe('CustomModelProviderForm', () => {
   it('includes selected reasoning efforts in properties', async () => {
     const onAdd = renderForm();
     fillValid(); // expands Advanced and fills the required limits
-    fireEvent.click(screen.getByRole('switch', { name: /Enable reasoning effort/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Enable reasoning effort/ }));
     fireEvent.click(screen.getByRole('button', { name: 'low' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add provider' }));
 
@@ -168,14 +172,16 @@ describe('CustomModelProviderForm', () => {
     expect((screen.getByPlaceholderText('llama-3-1-70b') as HTMLInputElement).value).toBe('llama-3-1-70b');
   });
 
-  it('requires the Model name to be a valid slug and blocks submit otherwise', () => {
+  it('defers Model name format validation to the server', () => {
     renderForm();
     fillVisible();
     const modelName = screen.getByPlaceholderText('llama-3-1-70b');
     fireEvent.change(modelName, { target: { value: 'Bad Name' } }); // spaces + capitals
     fireEvent.blur(modelName);
-    expect(screen.getByText(/2–64 lowercase characters/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add provider' })).toBeDisabled();
+    // No client-side format error; the server validates the slug on submit.
+    expect(screen.queryByText(/lowercase characters/)).not.toBeInTheDocument();
+    // A non-empty (if malformed) model name does not block submit client-side.
+    expect(screen.getByRole('button', { name: 'Add provider' })).toBeEnabled();
   });
 
   it('never errors the auto-derived Model name; the user just enters one', () => {
@@ -197,16 +203,6 @@ describe('CustomModelProviderForm', () => {
     fireEvent.blur(id);
     expect(screen.getByText('Model ID is required.')).toBeInTheDocument();
     expect(screen.queryByText('Model name is required.')).not.toBeInTheDocument();
-  });
-
-  it('accepts backend-valid names with adjacent separators (matches NameSchema)', () => {
-    renderForm();
-    fillVisible();
-    const modelName = screen.getByPlaceholderText('llama-3-1-70b');
-    // Adjacent/mixed separators are valid under the backend NameSchema; the form must not reject them.
-    fireEvent.change(modelName, { target: { value: 'gpt--4.1_turbo' } });
-    fireEvent.blur(modelName);
-    expect(screen.queryByText(/2–64 lowercase characters/)).not.toBeInTheDocument();
   });
 
   it('submits the derived slug as the model name', async () => {
