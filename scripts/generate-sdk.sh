@@ -17,7 +17,7 @@ fern() {
 # a version changesets (or a human) already set.
 current_version="$(node -p "require('./packages/sdk/package.json').version")"
 
-pnpm --filter @truefoundry/utils-core build
+pnpm --filter @truefoundry/trueforge-core build
 pnpm openapi:write
 fern check
 # --force skips the overwrite prompt when packages/sdk already exists (needed non-interactively / in CI).

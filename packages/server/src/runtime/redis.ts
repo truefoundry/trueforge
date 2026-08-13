@@ -3,7 +3,7 @@
  * boot, closed last during shutdown. Injected into the request-reply
  * transport (which duplicates it only for its subscriber).
  */
-import { extractErrorLogFields } from '@truefoundry/utils-core/core';
+import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import { createClient, type RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 

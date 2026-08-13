@@ -1,4 +1,4 @@
-import { AgentSpecSchema } from '@truefoundry/utils-core/agent-session';
+import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';

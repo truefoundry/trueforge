@@ -1,9 +1,9 @@
 /** Server-only turn wire schemas (SSE resume / cancel / list). Core turn schemas live in agent-session. */
 import { z } from '@hono/zod-openapi';
-import { SessionEventSchema, TokenPaginationSchema, TurnSchema } from '@truefoundry/utils-core/agent-session';
+import { SessionEventSchema, TokenPaginationSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
 
-export { CreateTurnRequestSchema, TurnSchema } from '@truefoundry/utils-core/agent-session';
-export type { Turn } from '@truefoundry/utils-core/agent-session';
+export { CreateTurnRequestSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
+export type { Turn } from '@truefoundry/trueforge-core/agent-session';
 
 export const SubscribeTurnQuerySchema = z
   .object({

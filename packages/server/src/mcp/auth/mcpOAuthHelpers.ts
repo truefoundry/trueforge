@@ -3,7 +3,7 @@ import type {
   OAuthClientInformationMixed,
   OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
-import { McpConnectionError } from '@truefoundry/utils-core/core';
+import { McpConnectionError } from '@truefoundry/trueforge-core/core';
 import { getPublicBaseUrl } from '../../config';
 import type { OAuthClientCredentials, OAuthServerMetadata, OAuthToken } from './types';
 

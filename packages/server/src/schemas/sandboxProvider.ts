@@ -6,7 +6,7 @@
  * Singleton per tenant — no identity `name` (unlike model providers / skills).
  */
 import { z } from '@hono/zod-openapi';
-import type { DaytonaSandboxProviderOptions } from '@truefoundry/utils-core/core';
+import type { DaytonaSandboxProviderOptions } from '@truefoundry/trueforge-core/core';
 
 const DaytonaSandboxProviderAuthSchema = z
   .object({

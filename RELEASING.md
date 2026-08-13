@@ -2,25 +2,25 @@
 
 Two public packages ship from this repo:
 
-| Package                   | Source             | How it publishes                                                |
-| ------------------------- | ------------------ | --------------------------------------------------------------- |
-| `@truefoundry/utils-core` | `packages/harness` | From package root (`dist/`)                                     |
-| `@truefoundry/utils`      | `packages/server`  | From package root (`dist/`, including `dist/_frontend/` for UI) |
+| Package                       | Source             | How it publishes                                                |
+| ----------------------------- | ------------------ | --------------------------------------------------------------- |
+| `@truefoundry/trueforge-core` | `packages/harness` | From package root (`dist/`)                                     |
+| `@truefoundry/trueforge`      | `packages/server`  | From package root (`dist/`, including `dist/_frontend/` for UI) |
 
-The git tag `v*` must match **`packages/harness` (`@truefoundry/utils-core`) version**.
-`@truefoundry/utils` may use an independent version — bump it in the same release PR
-whenever the app/CLI changes. CI publishes **core first**, then utils (so
+The git tag `v*` must match **`packages/harness` (`@truefoundry/trueforge-core`) version**.
+`@truefoundry/trueforge` may use an independent version — bump it in the same release PR
+whenever the app/CLI changes. CI publishes **core first**, then `@truefoundry/trueforge` (so
 `workspace:*` rewrites to the core version that just landed on npm).
 
-> **Currently only `@truefoundry/utils-core` publishes.** The `@truefoundry/utils`
+> **Currently only `@truefoundry/trueforge-core` publishes.** The `@truefoundry/trueforge`
 > publish step in `release.yml` is deferred (`TODO`); CI still builds and tests it.
 
 ---
 
-# Releasing `@truefoundry/utils-core`
+# Releasing `@truefoundry/trueforge-core`
 
 Interim setup for the fast development phase: the library in
-`packages/harness` is published **publicly** to npm as `@truefoundry/utils-core`
+`packages/harness` is published **publicly** to npm as `@truefoundry/trueforge-core`
 so the gateway can consume it like any normal dependency. The real
 open-source release happens later — every deferred item carries a
 `TODO(oss):` comment in code so we can grep for them when that day comes.
@@ -42,7 +42,7 @@ its own `.js` (CJS) + `.mjs` (ESM) + `.d.ts` triple under `dist/`, and
 scopes the published tarball to just the compiled output. Consequences:
 
 - Deep imports keep the same specifier as before, e.g.
-  `@truefoundry/utils-core/core/llm/LLMTypes` — the package's own `"./*"`
+  `@truefoundry/trueforge-core/core/llm/LLMTypes` — the package's own `"./*"`
   export pattern maps that to `./dist/core/llm/LLMTypes.{d.ts,js,mjs}`
   internally, so no consumer using exports-aware resolution (`bundler`,
   `node16`, `nodenext`) needs to change anything. Only a genuinely legacy
@@ -94,7 +94,7 @@ scopes the published tarball to just the compiled output. Consequences:
 
 3. **CI publishes automatically.** `.github/workflows/release.yml` installs,
    builds, tests, verifies the tag matches `packages/harness/package.json`, then
-   runs `pnpm publish` from `packages/harness`. (The `@truefoundry/utils`
+   runs `pnpm publish` from `packages/harness`. (The `@truefoundry/trueforge`
    publish is deferred — see the note above.)
 
    Auth is trusted publishing (OIDC — no `NPM_TOKEN`). pnpm 11 implements the
@@ -102,23 +102,23 @@ scopes the published tarball to just the compiled output. Consequences:
 
    **Dist-tags:** CI passes an explicit `--tag` for prereleases, derived from the
    semver prerelease id (`0.2.0-rc.1` → `--tag rc`). Stable releases publish to
-   `latest`. Install with `npx @truefoundry/utils@rc` or `@0.2.0-rc.1`; bare
-   `npx @truefoundry/utils` stays on `latest`.
+   `latest`. Install with `npx @truefoundry/trueforge@rc` or `@0.2.0-rc.1`; bare
+   `npx @truefoundry/trueforge` stays on `latest`.
 
 4. **Bump the pinned version in the gateway.** Pin exact versions (no `^`)
    during the fast 0.x churn:
 
    ```json
-   "@truefoundry/utils-core": "0.x.y"
+   "@truefoundry/trueforge-core": "0.x.y"
    ```
 
-## Why core must publish before utils
+## Why core must publish before `@truefoundry/trueforge`
 
-`@truefoundry/utils` depends on `@truefoundry/utils-core: workspace:*`. On
+`@truefoundry/trueforge` depends on `@truefoundry/trueforge-core: workspace:*`. On
 publish, pnpm rewrites that to the **version in `packages/harness/package.json`**.
 If that core version is missing from npm (or is an older build without exports
-the server imports), `npx @truefoundry/utils` fails at runtime. Always ship
-matching core+utils together when the app uses new core APIs.
+the server imports), `npx @truefoundry/trueforge` fails at runtime. Always ship
+matching core and `@truefoundry/trueforge` together when the app uses new core APIs.
 
 ## Local iteration without publishing
 
@@ -145,7 +145,7 @@ Publish a real version when CI or teammates need it.
   match `packages/harness/package.json`. Delete the tag
   (`git push origin :refs/tags/vX.Y.Z`), fix the version via PR, re-tag.
 - **Missing `dist/_frontend/index.html`**: root `pnpm build` must build
-  `frontend` before `@truefoundry/utils`; the release job fails closed if the
+  `frontend` before `@truefoundry/trueforge`; the release job fails closed if the
   copy is absent.
 - **OIDC/auth error in the publish step**: trusted publishing requires
   pnpm >= 11.0.7 (native OIDC token exchange; `pnpm/action-setup@v4` reads the
@@ -200,7 +200,7 @@ The dispatch commit SHA is the image tag. The workflow:
 2. Watch the run. The image and chart land in JFrog; the job summary prints the
    image URI.
 
-> Publishing `@truefoundry/utils-core` (via `pnpm publish`) is a separate pipeline
+> Publishing `@truefoundry/trueforge-core` (via `pnpm publish`) is a separate pipeline
 > (`release.yml`) triggered by a `vX.Y.Z` GitHub Release tag that must match
 > `packages/harness/package.json`. It is independent of this image/chart
 > workflow.

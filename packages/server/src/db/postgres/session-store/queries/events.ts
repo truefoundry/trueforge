@@ -1,20 +1,23 @@
-import type { PersistedTurnEvent, SessionEventItem } from '@truefoundry/utils-core/agent-session/schemas/events';
-import type { TokenPagination } from '@truefoundry/utils-core/agent-session/schemas/pagination';
+import type { PersistedTurnEvent, SessionEventItem } from '@truefoundry/trueforge-core/agent-session/schemas/events';
+import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session/schemas/pagination';
 import type {
   AppendToEventsInput,
   ListSessionEventsInput,
   ListTurnEventsInput,
-} from '@truefoundry/utils-core/agent-session/store/ISessionStore';
-import { decodeOffsetPageToken, paginateOffsetRows } from '@truefoundry/utils-core/agent-session/store/OffsetPageToken';
+} from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
+import {
+  decodeOffsetPageToken,
+  paginateOffsetRows,
+} from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import {
   decodeSessionEventPageToken,
   paginateSessionEventRows,
   type SessionEventPageCursor,
-} from '@truefoundry/utils-core/agent-session/store/SessionEventPageToken';
+} from '@truefoundry/trueforge-core/agent-session/store/SessionEventPageToken';
 import {
   SessionNotFoundError,
   TurnNotFoundError,
-} from '@truefoundry/utils-core/agent-session/store/SessionStoreErrors';
+} from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import { json } from '../../sqlExpressions';

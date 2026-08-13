@@ -1,5 +1,5 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/utils-core/core';
+import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
 import type { McpCatalog } from '../catalog/McpCatalog';
 import type { ModelCatalog } from '../catalog/ModelCatalog';
 import type { SandboxCatalog } from '../catalog/SandboxCatalog';

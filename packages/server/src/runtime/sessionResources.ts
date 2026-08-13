@@ -2,7 +2,7 @@
  * Store-backed model/MCP/skill/sandbox resolution for session admit and turns.
  */
 import { Daytona } from '@daytona/sdk';
-import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
+import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
   DaytonaSandboxProvider,
   Sandbox,
@@ -13,7 +13,7 @@ import {
   type RemoteMcpHeaders,
   type SandboxProvider,
   type VercelAIProviderConfig,
-} from '@truefoundry/utils-core/core';
+} from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import configuration from '../config';
