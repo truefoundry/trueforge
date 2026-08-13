@@ -2,10 +2,10 @@
 
 import { Icon } from '../../icons/Icon.js';
 import type { ModelSelection } from '../../server/types.js';
-import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
+import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 
 function monogram(value: string): string {
   const trimmed = value.trim();
@@ -112,21 +112,12 @@ export function DraftModelCatalogPanel({
         className="flex min-h-0 flex-1 flex-col overflow-y-auto p-1"
       >
         {filtered.length === 0 ? (
-          !loading && onOpenSettings ? (
-            <button
-              type="button"
-              className={auiButtonClass({
-                variant: 'ghost',
-                className: 'text-text-secondary w-full justify-center py-4 text-sm',
-              })}
-              onClick={onOpenSettings}
-            >
-              Please configure Models in the <span className="underline">settings</span>
-              <Icon name="chevron-right" className="size-3.5" />
-            </button>
-          ) : (
-            <p className="text-text-secondary px-2 py-4 text-center text-sm">{loading ? 'Loading…' : 'No models'}</p>
-          )
+          <DraftCatalogEmptyState
+            loading={loading}
+            emptyLabel="No models"
+            settingsTarget="Models"
+            onOpenSettings={onOpenSettings}
+          />
         ) : (
           sections.map((section, sectionIndex) => {
             const headingId = `${listboxId}-provider-${sectionIndex}`;

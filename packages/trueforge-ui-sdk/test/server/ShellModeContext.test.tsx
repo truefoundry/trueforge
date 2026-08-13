@@ -29,11 +29,21 @@ describe('ShellModeProvider', () => {
   it('opens settings on first paint when initialSettingsOpen is true', () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap(undefined, true) });
     expect(result.current.settingsOpen).toBe(true);
+    expect(result.current.settingsSection).toBe('models');
 
     act(() => result.current.setSettingsOpen(false));
     expect(result.current.settingsOpen).toBe(false);
     act(() => result.current.openDraft());
     expect(result.current.settingsOpen).toBe(false);
+  });
+
+  it('opens settings to a requested section', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.setSettingsOpen(true, 'connectors'));
+
+    expect(result.current.settingsOpen).toBe(true);
+    expect(result.current.settingsSection).toBe('connectors');
   });
 
   it('defaults to AgentLibraryWithComposer (mutable + library)', () => {

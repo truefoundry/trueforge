@@ -6,15 +6,18 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
 import { Icon } from '../../icons/Icon.js';
 import { useServerCapabilities } from '../../server/ServerContext.js';
+import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
+import { auiInputClass } from '../lib/inputClasses.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { readAgentCapabilities, withAgentCapabilities } from './agentCapabilities.js';
 import { DraftCapabilitiesPanel } from './DraftCapabilitiesPanel.js';
+import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 
 /** Catalog-backed mount shape used by the draft picker (runtime mounts stay opaque). */
@@ -186,7 +189,7 @@ function SearchField({
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="border-input-border bg-secondary-bg/40 text-text-primary placeholder:text-text-secondary h-8 w-full rounded-md border-0 py-1 pr-2 pl-7 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40"
+        className={auiInputClass('h-8 bg-secondary-bg py-1 pr-2 pl-7 dark:bg-primary-bg')}
       />
     </label>
   );
@@ -207,8 +210,9 @@ function SectionHeading({ label, count }: { label: string; count: number }) {
 }
 
 export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
-  const { skills, connectors, ensureLoaded, refreshConnectors } = useDraftCatalog();
+  const { skills, connectors, loading, ensureLoaded, refreshConnectors } = useDraftCatalog();
   const capabilities = useServerCapabilities();
+  const shell = useOptionalShellMode();
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
   const [open, setOpen] = useState(false);
@@ -233,6 +237,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const compactLayout = useCompactLayout();
   const skillsDisabled = capabilities?.skill.enabled !== true;
   const skillsDisabledReason = capabilities?.skill.reason;
+  const needsSandbox = capabilities?.sandbox.enabled === false;
 
   const specMcp = useMemo(() => draftMountsFromSpec(agentSpec?.mcpServers), [agentSpec?.mcpServers]);
   const specSkills = useMemo(() => draftMountsFromSpec(agentSpec?.skills), [agentSpec?.skills]);
@@ -378,6 +383,12 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     setOpen(true);
   };
 
+  const openSettings = (section: SettingsSection) => {
+    setOpenAndFlush(false);
+    setQuery('');
+    shell?.setSettingsOpen(true, section);
+  };
+
   const content = (
     <>
       <div className="flex shrink-0 border-b border-border">
@@ -485,6 +496,14 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     ))}
                   </>
                 ) : null}
+                {filteredConnectors.length === 0 ? (
+                  <DraftCatalogEmptyState
+                    loading={loading}
+                    emptyLabel="No connectors"
+                    settingsTarget="Connectors"
+                    onOpenSettings={connectors.length === 0 && shell ? () => openSettings('connectors') : undefined}
+                  />
+                ) : null}
               </>
             ) : (
               <>
@@ -517,6 +536,18 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                       />
                     ))}
                   </>
+                ) : null}
+                {filteredSkills.length === 0 ? (
+                  <DraftCatalogEmptyState
+                    loading={loading}
+                    emptyLabel="No skills"
+                    settingsTarget={needsSandbox ? 'a Sandbox' : 'Skills'}
+                    onOpenSettings={
+                      skills.length === 0 && shell
+                        ? () => openSettings(needsSandbox ? 'sandbox' : 'skills')
+                        : undefined
+                    }
+                  />
                 ) : null}
               </>
             )}
@@ -551,9 +582,11 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         >
           <Icon name="wrench" className="size-3.5" />
           <span>Tools</span>
-          <span className="bg-primary-button-bg/10 text-primary-button-bg rounded px-1.5 py-0.5 text-[10px] font-semibold">
-            {toolsCount}
-          </span>
+          {toolsCount > 0 ? (
+            <span className="bg-primary-button-bg/10 text-primary-button-bg rounded px-1.5 py-0.5 text-[10px] font-semibold">
+              {toolsCount}
+            </span>
+          ) : null}
         </button>
       ) : null}
 
