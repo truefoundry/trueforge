@@ -2652,7 +2652,7 @@ await client.settings.sandboxProviders.upsert({
 <dl>
 <dd>
 
-**request:** `TrueForge.DaytonaSandboxProvider` 
+**request:** `TrueForge.SandboxProviderManifest` 
     
 </dd>
 </dl>

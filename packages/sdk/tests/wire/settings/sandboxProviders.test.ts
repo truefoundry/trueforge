@@ -11,14 +11,17 @@ describe("SandboxProvidersClient", () => {
 
         const rawResponseBody = {
             data: {
-                auth: { api_key: "api_key" },
-                auto_archive_interval_in_minutes: 1,
-                auto_delete_interval_in_minutes: 1,
-                auto_stop_interval_in_minutes: 1,
-                exec_timeout_ms: 1,
-                type: "daytona",
                 build_metadata: { build_ref: "build_ref", image_uri: "image_uri" },
-                sandbox_status: { reason: "reason", status: "pending" },
+                manifest: {
+                    auth: { api_key: "api_key" },
+                    auto_archive_interval_in_minutes: 1,
+                    auto_delete_interval_in_minutes: 1,
+                    auto_stop_interval_in_minutes: 1,
+                    exec_timeout_ms: 1,
+                    type: "daytona",
+                },
+                status: "pending",
+                status_reason: "status_reason",
             },
         };
 
@@ -33,22 +36,22 @@ describe("SandboxProvidersClient", () => {
         const response = await client.settings.sandboxProviders.get();
         expect(response).toEqual({
             data: {
-                auth: {
-                    apiKey: "api_key",
-                },
-                autoArchiveIntervalInMinutes: 1,
-                autoDeleteIntervalInMinutes: 1,
-                autoStopIntervalInMinutes: 1,
-                execTimeoutMs: 1,
-                type: "daytona",
                 buildMetadata: {
                     buildRef: "build_ref",
                     imageUri: "image_uri",
                 },
-                sandboxStatus: {
-                    reason: "reason",
-                    status: "pending",
+                manifest: {
+                    auth: {
+                        apiKey: "api_key",
+                    },
+                    autoArchiveIntervalInMinutes: 1,
+                    autoDeleteIntervalInMinutes: 1,
+                    autoStopIntervalInMinutes: 1,
+                    execTimeoutMs: 1,
+                    type: "daytona",
                 },
+                status: "pending",
+                statusReason: "status_reason",
             },
         });
     });
@@ -85,14 +88,17 @@ describe("SandboxProvidersClient", () => {
         };
         const rawResponseBody = {
             data: {
-                auth: { api_key: "api_key" },
-                auto_archive_interval_in_minutes: 1,
-                auto_delete_interval_in_minutes: 1,
-                auto_stop_interval_in_minutes: 1,
-                exec_timeout_ms: 1,
-                type: "daytona",
                 build_metadata: { build_ref: "build_ref", image_uri: "image_uri" },
-                sandbox_status: { reason: "reason", status: "pending" },
+                manifest: {
+                    auth: { api_key: "api_key" },
+                    auto_archive_interval_in_minutes: 1,
+                    auto_delete_interval_in_minutes: 1,
+                    auto_stop_interval_in_minutes: 1,
+                    exec_timeout_ms: 1,
+                    type: "daytona",
+                },
+                status: "pending",
+                status_reason: "status_reason",
             },
         };
 
@@ -117,22 +123,22 @@ describe("SandboxProvidersClient", () => {
         });
         expect(response).toEqual({
             data: {
-                auth: {
-                    apiKey: "api_key",
-                },
-                autoArchiveIntervalInMinutes: 1,
-                autoDeleteIntervalInMinutes: 1,
-                autoStopIntervalInMinutes: 1,
-                execTimeoutMs: 1,
-                type: "daytona",
                 buildMetadata: {
                     buildRef: "build_ref",
                     imageUri: "image_uri",
                 },
-                sandboxStatus: {
-                    reason: "reason",
-                    status: "pending",
+                manifest: {
+                    auth: {
+                        apiKey: "api_key",
+                    },
+                    autoArchiveIntervalInMinutes: 1,
+                    autoDeleteIntervalInMinutes: 1,
+                    autoStopIntervalInMinutes: 1,
+                    execTimeoutMs: 1,
+                    type: "daytona",
                 },
+                status: "pending",
+                statusReason: "status_reason",
             },
         });
     });

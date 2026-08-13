@@ -4,15 +4,15 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const SandboxProviderResponseBuildMetadata: core.serialization.ObjectSchema<
-    serializers.SandboxProviderResponseBuildMetadata.Raw,
-    TrueForge.SandboxProviderResponseBuildMetadata
+export const SandboxBuildMetadata: core.serialization.ObjectSchema<
+    serializers.SandboxBuildMetadata.Raw,
+    TrueForge.SandboxBuildMetadata
 > = core.serialization.object({
     buildRef: core.serialization.property("build_ref", core.serialization.string()),
     imageUri: core.serialization.property("image_uri", core.serialization.string()),
 });
 
-export declare namespace SandboxProviderResponseBuildMetadata {
+export declare namespace SandboxBuildMetadata {
     export interface Raw {
         build_ref: string;
         image_uri: string;
