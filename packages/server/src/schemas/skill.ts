@@ -74,9 +74,7 @@ export const SkillManifestSchema = SkillManifestObjectSchema.openapi('SkillManif
 /** Admin/settings wire view — same fields as the stored manifest (no auth_status). */
 export const ConfiguredSkillSchema = SkillManifestSchema;
 
-export const CreateSkillRequestSchema = SkillManifestObjectSchema.openapi('CreateSkillRequest');
-export const CreateSkillResponseSchema = z.object({ data: ConfiguredSkillSchema }).openapi('CreateSkillResponse');
-export const PutSkillRequestSchema = SkillManifestSchema;
+/** Shared create/upsert response envelope (`{ data: SkillManifest }`). */
 export const PutSkillResponseSchema = z.object({ data: ConfiguredSkillSchema }).openapi('PutSkillResponse');
 export const ListConfiguredSkillsResponseSchema = z
   .object({ data: z.array(ConfiguredSkillSchema) })

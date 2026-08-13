@@ -72,12 +72,8 @@ export const ConfiguredMcpServerSchema = McpServerManifestObjectSchema.extend({
   auth_status: McpAuthStatusSchema,
 }).openapi('ConfiguredMcpServer');
 
-export const PutMcpServerRequestSchema = McpServerManifestSchema;
+/** Shared create/upsert/disconnect response envelope (`{ data: ConfiguredMcpServer }`). */
 export const PutMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('PutMcpServerResponse');
-export const CreateMcpServerRequestSchema = McpServerManifestObjectSchema.openapi('CreateMcpServerRequest');
-export const CreateMcpServerResponseSchema = z
-  .object({ data: ConfiguredMcpServerSchema })
-  .openapi('CreateMcpServerResponse');
 export const GetMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('GetMcpServerResponse');
 export const ListMcpServersResponseSchema = z
   .object({ data: z.array(ConfiguredMcpServerSchema) })

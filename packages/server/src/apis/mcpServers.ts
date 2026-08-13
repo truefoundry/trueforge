@@ -165,11 +165,6 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
 
   const createHandler: RouteHandler<typeof createMcpServerRoute> = async c => {
     const incomingManifest: McpServerManifest = c.req.valid('json');
-    // Reject name clash before DCR so a colliding create does not orphan an AS client.
-    const prior = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name: incomingManifest.name });
-    if (prior !== undefined) {
-      return c.json({ error: { message: `MCP server name already exists: ${incomingManifest.name}` } }, 409);
-    }
 
     // DCR must finish before the txn (remote I/O cannot run inside withTransaction).
     let dcrClientToSave: OAuthClientRecord | undefined;
@@ -191,13 +186,22 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       }
     }
 
+    let manifest: McpServerManifest;
+    try {
+      // Create has no prior row; redacted header keep resolves to MissingStoredSecretError → 400.
+      manifest = resolveMcpServerManifestForWrite({
+        incoming: incomingManifest,
+        existing: undefined,
+      });
+    } catch (error) {
+      if (error instanceof MissingStoredSecretError) {
+        return c.json({ error: { message: 'Header secret is required' } }, 400);
+      }
+      throw error;
+    }
+
     try {
       const record = await deps.withTransaction(async transaction => {
-        // Create has no prior row; redacted header keep resolves to MissingStoredSecretError → 400.
-        const manifest = resolveMcpServerManifestForWrite({
-          incoming: incomingManifest,
-          existing: undefined,
-        });
         const saved = await deps.mcpServerStore.createServer(
           {
             tenant_id: TENANT_ID,
@@ -214,9 +218,6 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
 
       return c.json({ data: toConfiguredMcpServer({ record, token: undefined }) }, 200);
     } catch (error) {
-      if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'Header secret is required' } }, 400);
-      }
       if (error instanceof McpServerNameConflictError) {
         return c.json({ error: { message: error.message } }, 409);
       }

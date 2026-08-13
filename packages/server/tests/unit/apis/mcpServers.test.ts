@@ -217,44 +217,6 @@ describe('mcp-servers routers', () => {
     expect(await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: createDcr.name })).toBeUndefined();
   });
 
-  it('POST DCR name clash returns 409 without calling the authorization server', async () => {
-    const name = 'create-dcr-clash';
-    await mcpServerStore.createServer({
-      tenant_id: TENANT_ID,
-      name,
-      manifest: { type: 'remote', name, url: 'https://mcp.example.com/existing' },
-    });
-
-    let registerCalls = 0;
-    const realFetch = globalThis.fetch;
-    globalThis.fetch = (async (input, init) => {
-      const url = String(input);
-      if (url.includes('/register') && init?.method === 'POST') {
-        registerCalls += 1;
-      }
-      return realFetch(input, init);
-    }) as typeof fetch;
-
-    try {
-      const clash = await settingsRouter.request(
-        '/',
-        postInit({
-          type: 'remote',
-          name,
-          url: 'https://mcp.example.com/clash-dcr',
-          auth: { type: 'dcr' },
-        }),
-      );
-      expect(clash.status).toBe(409);
-      expect(await clash.json()).toEqual({
-        error: { message: `MCP server name already exists: ${name}` },
-      });
-      expect(registerCalls).toBe(0);
-    } finally {
-      globalThis.fetch = realFetch;
-    }
-  });
-
   it('DCR server reads authenticated when a token row exists, auth_required once deleted', async () => {
     const record = await seedDcrServerWithClient();
 

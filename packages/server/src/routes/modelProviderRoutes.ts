@@ -6,10 +6,8 @@
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
-  CreateModelProviderRequestSchema,
-  CreateModelProviderResponseSchema,
   ListModelProvidersResponseSchema,
-  PutModelProviderRequestSchema,
+  ModelProviderSchema,
   PutModelProviderResponseSchema,
 } from '../schemas/modelProvider';
 
@@ -51,13 +49,13 @@ export const createModelProviderRoute = createRoute({
   'x-fern-sdk-method-name': 'create',
   request: {
     body: {
-      content: { 'application/json': { schema: CreateModelProviderRequestSchema } },
+      content: { 'application/json': { schema: ModelProviderSchema } },
       required: true,
     },
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: CreateModelProviderResponseSchema } },
+      content: { 'application/json': { schema: PutModelProviderResponseSchema } },
       description: 'The created provider',
     },
     400: {
@@ -83,7 +81,7 @@ export const putModelProviderRoute = createRoute({
   'x-fern-sdk-method-name': 'upsert',
   request: {
     body: {
-      content: { 'application/json': { schema: PutModelProviderRequestSchema } },
+      content: { 'application/json': { schema: ModelProviderSchema } },
       required: true,
     },
   },

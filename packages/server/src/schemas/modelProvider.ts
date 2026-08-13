@@ -176,21 +176,13 @@ export function modelProviderName(provider: ModelProvider): ResourceName {
   return provider.type === 'custom' ? provider.name : provider.type;
 }
 
-export const CreateModelProviderRequestSchema = ModelProviderBodySchema.openapi('CreateModelProviderRequest');
-export const CreateModelProviderResponseSchema = z
-  .object({
-    data: ModelProviderSchema,
-  })
-  .openapi('CreateModelProviderResponse');
-
-export const PutModelProviderRequestSchema = ModelProviderSchema;
-
 export const ListModelProvidersResponseSchema = z
   .object({
     data: z.array(ModelProviderSchema),
   })
   .openapi('ListModelProvidersResponse');
 
+/** Shared create/upsert response envelope (`{ data: ModelProvider }`). */
 export const PutModelProviderResponseSchema = z
   .object({
     data: ModelProviderSchema,

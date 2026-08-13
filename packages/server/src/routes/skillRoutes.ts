@@ -7,12 +7,10 @@
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
-  CreateSkillRequestSchema,
-  CreateSkillResponseSchema,
   ListAvailableSkillsResponseSchema,
   ListConfiguredSkillsResponseSchema,
-  PutSkillRequestSchema,
   PutSkillResponseSchema,
+  SkillManifestSchema,
 } from '../schemas/skill';
 
 const SKILLS_TAG = 'Skills';
@@ -72,13 +70,13 @@ export const createSkillRoute = createRoute({
   'x-fern-sdk-method-name': 'create',
   request: {
     body: {
-      content: { 'application/json': { schema: CreateSkillRequestSchema } },
+      content: { 'application/json': { schema: SkillManifestSchema } },
       required: true,
     },
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: CreateSkillResponseSchema } },
+      content: { 'application/json': { schema: PutSkillResponseSchema } },
       description: 'The created skill.',
     },
     400: {
@@ -102,7 +100,7 @@ export const putSkillRoute = createRoute({
   'x-fern-sdk-method-name': 'upsert',
   request: {
     body: {
-      content: { 'application/json': { schema: PutSkillRequestSchema } },
+      content: { 'application/json': { schema: SkillManifestSchema } },
       required: true,
     },
   },
