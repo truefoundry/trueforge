@@ -394,7 +394,7 @@ describe('TurnHandle.stream()', () => {
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
-          modelParams: {},
+          defaultModelParams: {},
         }),
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
       mcpRequestTimeoutMs: 60_000,
@@ -449,7 +449,7 @@ describe('TurnResourceResolver caches', () => {
         expect(a).toBe(b);
       }
     })({
-      llm: () => Promise.resolve({ modelClient: makeMockILLM(), modelParams: {} }),
+      llm: () => Promise.resolve({ modelClient: makeMockILLM(), defaultModelParams: {} }),
       mcp: () => Promise.resolve({ url: 'http://example.invalid' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
@@ -468,7 +468,7 @@ describe('TurnResourceResolver caches', () => {
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
-          modelParams: {},
+          defaultModelParams: {},
         }),
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
       mcpRequestTimeoutMs: 60_000,

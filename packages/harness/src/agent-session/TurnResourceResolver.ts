@@ -61,7 +61,7 @@ export class TurnResourceResolver<
       /** Model name → client and defaults. Called once per resolved definition; may load provider config. */
       llm: (model: string) => Promise<{
         modelClient: ILLM;
-        modelParams: ModelParams;
+        defaultModelParams: ModelParams;
       }>;
       /**
        * MCP server name → connection details. Required to use spec.mcp_servers:
@@ -213,7 +213,7 @@ export class TurnResourceResolver<
               content: m.content,
             })),
         modelParams: {
-          ...resolvedModel.modelParams,
+          ...resolvedModel.defaultModelParams,
           ...spec.model.params,
         },
         // Sub-agents should return free-form summaries to the parent, not the user-facing structured response.

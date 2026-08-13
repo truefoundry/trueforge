@@ -49,7 +49,7 @@ import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
   getMcpConnection,
-  getModelRuntimeConfig,
+  getModelDetails,
   resolveGitSkills,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
@@ -141,7 +141,7 @@ function createTurnResolver(deps: {
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
-      const { providerConfig, modelParams } = await getModelRuntimeConfig({
+      const { providerConfig, defaultModelParams } = await getModelDetails({
         tenant_id: TENANT_ID,
         name,
         store: modelProviderStore,
@@ -152,7 +152,7 @@ function createTurnResolver(deps: {
           logger,
           signal,
         }),
-        modelParams,
+        defaultModelParams,
       };
     },
     mcp: async name => {

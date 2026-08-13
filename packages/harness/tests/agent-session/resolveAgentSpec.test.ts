@@ -8,7 +8,7 @@ import { makeAgentSpec, makeMockILLM, makeSilentLogger, makeTestResolver, mintTe
 describe('TurnResourceResolver.resolveAgentSpec', () => {
   it('fails closed when deps.agent is not wired for a named lookup', async () => {
     const resolver = new TurnResourceResolver({
-      llm: () => Promise.resolve({ modelClient: makeMockILLM(), modelParams: {} }),
+      llm: () => Promise.resolve({ modelClient: makeMockILLM(), defaultModelParams: {} }),
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
       mcpConnectTimeoutMs: 1_000,
@@ -38,7 +38,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       llm: () =>
         Promise.resolve({
           modelClient: makeMockILLM(),
-          modelParams: resolvedModelParams,
+          defaultModelParams: resolvedModelParams,
         }),
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,

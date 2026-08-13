@@ -47,7 +47,7 @@ export function parseModelFqn(name: string): { providerName: string; modelName: 
  * Load turn-ready model config and defaults for a configured FQN (`provider/model`).
  * Malformed FQN or missing provider/model → HTTPException(422).
  */
-export async function getModelRuntimeConfig({
+export async function getModelDetails({
   tenant_id,
   name,
   store,
@@ -57,7 +57,7 @@ export async function getModelRuntimeConfig({
   store: IModelProviderStore;
 }): Promise<{
   providerConfig: VercelAIProviderConfig;
-  modelParams: ModelParams;
+  defaultModelParams: ModelParams;
 }> {
   const parsed = parseModelFqn(name);
   if (parsed === undefined) {
@@ -90,7 +90,7 @@ export async function getModelRuntimeConfig({
       apiKey: provider.manifest.auth?.api_key ?? '',
       headers: {},
     },
-    modelParams: model.properties.max_output_tokens ? { max_tokens: model.properties.max_output_tokens } : {},
+    defaultModelParams: model.properties.max_output_tokens ? { max_tokens: model.properties.max_output_tokens } : {},
   };
 }
 
