@@ -6,20 +6,20 @@
  * Harness: one Daytona provider per tenant; catalog YAML has no name — synthetic
  * identity uses `type` (`daytona`) as id/catalogId and display name `Daytona`.
  */
-import type { TrueForge } from "@truefoundry/trueforge-sdk";
-import { TrueForgeApi } from "@truefoundry/trueforge-sdk";
+import type { TrueForge } from '@truefoundry/trueforge-sdk';
+import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type {
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
   SandboxProviderConfig,
-} from "../../../server/types.js";
+} from '../../../server/types.js';
 
 export type UiSandboxProvider = SandboxProviderBase;
 export type UiSandboxProviderCatalogEntry = SandboxProviderCatalogEntry;
 
-const DAYTONA_TYPE = "daytona";
-const DAYTONA_DISPLAY_NAME = "Daytona";
+const DAYTONA_TYPE = 'daytona';
+const DAYTONA_DISPLAY_NAME = 'Daytona';
 
 function displayNameForType(type: string): string {
   if (type === DAYTONA_TYPE) {
@@ -34,7 +34,7 @@ export function configFromHarness(
   return {
     // Snapshot/image is now release-owned; the field is gone from the backend. The external
     // SandboxProviderConfig still requires it, so send an empty placeholder until that type drops it.
-    snapshotName: "",
+    snapshotName: '',
     execTimeoutMs: provider.execTimeoutMs,
     autoStopIntervalInMinutes: provider.autoStopIntervalInMinutes,
     autoArchiveIntervalInMinutes: provider.autoArchiveIntervalInMinutes,
@@ -42,9 +42,7 @@ export function configFromHarness(
   };
 }
 
-export function toUiCatalogEntry(
-  provider: TrueForgeApi.CatalogDaytonaSandboxProvider,
-): UiSandboxProviderCatalogEntry {
+export function toUiCatalogEntry(provider: TrueForgeApi.CatalogDaytonaSandboxProvider): UiSandboxProviderCatalogEntry {
   return {
     id: provider.type,
     name: displayNameForType(provider.type),
@@ -53,9 +51,7 @@ export function toUiCatalogEntry(
   };
 }
 
-export function toUiSandboxProvider(
-  provider: TrueForgeApi.SandboxProviderManifest,
-): UiSandboxProvider {
+export function toUiSandboxProvider(provider: TrueForgeApi.SandboxProviderManifest): UiSandboxProvider {
   return {
     id: provider.type,
     name: displayNameForType(provider.type),
@@ -69,7 +65,7 @@ export function toHarnessManifest(
   req: {
     type: string;
     apiKey: string;
-  } & Omit<SandboxProviderConfig, "snapshotName">,
+  } & Omit<SandboxProviderConfig, 'snapshotName'>,
 ): TrueForgeApi.SandboxProviderManifest {
   if (req.type !== DAYTONA_TYPE) {
     throw new Error(`Unsupported sandbox provider type: ${req.type}`);
@@ -88,7 +84,7 @@ export function toHarnessManifest(
 export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogServer {
   async function resolveApiKey(apiKey: string | undefined): Promise<string> {
     const trimmed = apiKey?.trim();
-    if (trimmed !== undefined && trimmed !== "") {
+    if (trimmed !== undefined && trimmed !== '') {
       return trimmed;
     }
     const existing = await client.settings.sandboxProviders.get();
@@ -100,7 +96,7 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
       const body = await client.catalog.sandboxProviders.list();
       return body.data.map(toUiCatalogEntry);
     },
-    listSandboxProviders: async (req) => {
+    listSandboxProviders: async req => {
       let providers: UiSandboxProvider[];
       try {
         const body = await client.settings.sandboxProviders.get();
@@ -113,15 +109,14 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
         }
       }
       const query = req?.query?.trim().toLowerCase();
-      if (query === undefined || query === "") {
+      if (query === undefined || query === '') {
         return providers;
       }
       return providers.filter(
-        (provider) =>
-          provider.name.toLowerCase().includes(query) || provider.id.toLowerCase().includes(query),
+        provider => provider.name.toLowerCase().includes(query) || provider.id.toLowerCase().includes(query),
       );
     },
-    createSandboxProvider: async (req) => {
+    createSandboxProvider: async req => {
       const body = await client.settings.sandboxProviders.upsert(
         toHarnessManifest({
           type: req.type,
@@ -134,7 +129,7 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
       );
       return toUiSandboxProvider(body.data.manifest);
     },
-    updateSandboxProvider: async (req) => {
+    updateSandboxProvider: async req => {
       const apiKey = await resolveApiKey(req.apiKey);
       const body = await client.settings.sandboxProviders.upsert(
         toHarnessManifest({
