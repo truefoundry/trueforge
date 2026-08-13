@@ -37,9 +37,9 @@ export function AssistantTextContainer() {
   downloadRef.current = { downloadSandboxFile, toaster };
   const partState = useAuiState(s => s.part as MessagePartState & (TextMessagePart | ReasoningMessagePart));
   const smoothedPart = useSmooth(partState, {
-    drainMs: 300,
-    maxCharIntervalMs: 6,
-    maxCharsPerFrame: 32,
+    drainMs: 150,
+    maxCharIntervalMs: 4,
+    maxCharsPerFrame: 128,
     minCommitMs: 48,
   });
   const text = smoothedPart.text;
