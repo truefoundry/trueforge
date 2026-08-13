@@ -1,13 +1,14 @@
 import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
+
 import {
   toHarnessModelEntry,
   toHarnessModelProvider,
   toUiCatalogModelProviderEntry,
   toUiModelEntry,
   toUiModelProvider,
-} from '../src/modelProviderCatalog';
+} from '@/plugins/trueforge-agent-server-adapter/catalogs/modelProviderCatalog.js';
 
 describe('modelProviderCatalog mappers', () => {
   it('round-trips harness model entries through the UI shape', () => {
@@ -17,7 +18,7 @@ describe('modelProviderCatalog mappers', () => {
       properties: {
         contextLength: 400000,
         maxOutputTokens: 32768,
-        reasoningEfforts: ['low', 'medium', 'high'],
+        reasoningEfforts: ['low', 'medium', 'high'] as TrueForgeApi.ReasoningEffort[],
       },
     };
 
