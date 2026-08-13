@@ -1,11 +1,14 @@
 import type { Kysely, Selectable, Transaction } from 'kysely';
 import {
+  SkillNameConflictError,
+  type CreateSkillInput,
   type GetSkillInput,
   type ISkillStore,
   type ListSkillsInput,
   type SkillRecord,
   type UpsertSkillInput,
 } from '../../skillStore';
+import { isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';
 import type { Database, SkillTable } from '../types';
 
@@ -48,6 +51,29 @@ export class PostgresSkillStore implements ISkillStore<Transaction<Database>> {
       .where('name', '=', input.name)
       .executeTakeFirst();
     return row === undefined ? undefined : toRecord(row);
+  }
+
+  async createSkill(input: CreateSkillInput, transaction?: Transaction<Database>): Promise<SkillRecord> {
+    const db = transaction ?? this.#db;
+    try {
+      const row = await db
+        .insertInto('skill')
+        .values({
+          tenant_id: input.tenant_id,
+          name: input.name,
+          manifest: json(input.manifest),
+          created_at: now(),
+          updated_at: now(),
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+      return toRecord(row);
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new SkillNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
+      }
+      throw error;
+    }
   }
 
   async upsertSkill(input: UpsertSkillInput, transaction?: Transaction<Database>): Promise<SkillRecord> {

@@ -819,6 +819,45 @@
         ],
         "type": "object"
       },
+      "CreateMcpServerRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+              },
+              {
+                "description": "Optional auth settings. Omit when the server needs no credentials."
+              }
+            ]
+          },
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/McpServerType"
+          },
+          "url": {
+            "description": "URL of the remote MCP server.",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "url"
+        ],
+        "type": "object"
+      },
       "CreateSessionAgent": {
         "anyOf": [
           {
@@ -6348,6 +6387,70 @@
         ],
         "x-fern-sdk-method-name": "list"
       },
+      "post": {
+        "description": "Creates an MCP server by `name`. Fails if `name` is already taken. Runs DCR registration when `auth.type` is `dcr`. Header secrets: real value required; redacted with no stored value returns 400.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMcpServerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutMcpServerResponse"
+                }
+              }
+            },
+            "description": "The created MCP server with auth_status"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body, or redacted header secret with no stored value to keep."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "An MCP server with this name already exists."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint)."
+          }
+        },
+        "summary": "Create an MCP server",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "create"
+      },
       "put": {
         "description": "Create or replace by `name`. Does not start DCR or change oauth client columns. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).",
         "requestBody": {
@@ -6576,6 +6679,60 @@
         ],
         "x-fern-sdk-method-name": "list"
       },
+      "post": {
+        "description": "Creates a provider (models included). Fails if `name` is already taken. Well-known types use `type` as `name` (one each); `custom` is named by the caller. `auth.api_key`: real value required; redacted with no stored secret returns 400.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelProvider"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutModelProviderResponse"
+                }
+              }
+            },
+            "description": "The created provider"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body, or redacted API key with no stored secret to keep."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "A model provider with this name already exists."
+          }
+        },
+        "summary": "Create a model provider",
+        "tags": [
+          "Model Providers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "modelProviders"
+        ],
+        "x-fern-sdk-method-name": "create"
+      },
       "put": {
         "description": "Create or replace a provider (models included). Well-known types use `type` as `name` (one each); `custom` is named by the caller. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).",
         "requestBody": {
@@ -6745,6 +6902,60 @@
           "skills"
         ],
         "x-fern-sdk-method-name": "list"
+      },
+      "post": {
+        "description": "Creates a skill keyed by `name`. Fails if `name` is already taken.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillManifest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutSkillResponse"
+                }
+              }
+            },
+            "description": "The created skill."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "A skill with this name already exists."
+          }
+        },
+        "summary": "Create a skill",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "create"
       },
       "put": {
         "description": "Full upsert keyed by `name`: creates the skill or replaces its entire manifest.",

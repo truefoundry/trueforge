@@ -5,6 +5,20 @@ import { describe, expect, it, vi } from 'vitest';
 import { useResolvedServer } from '@/containers/useResolvedServer.js';
 import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer.js';
 
+const mockCreateTrueForgeAgentUIServer = vi.fn((_options?: unknown) =>
+  Promise.resolve(
+    createMockAgentUIServer({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          settings: { enabled: true },
+        },
+      }),
+    }),
+  ),
+);
+
 vi.mock('@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adapter', () => ({
   createTrueFoundryAgentUIServer: vi.fn(async () => ({
     createSession: vi.fn(),
@@ -24,6 +38,10 @@ vi.mock('@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adap
   })),
 }));
 
+vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
+  createTrueForgeAgentUIServer: (options?: unknown) => mockCreateTrueForgeAgentUIServer(options),
+}));
+
 describe('useResolvedServer', () => {
   it('passes through AgentUIServer synchronously', () => {
     const server = createMockAgentUIServer({ saveAgent: vi.fn() });
@@ -35,15 +53,59 @@ describe('useResolvedServer', () => {
     });
   });
 
-  it('errors for trueforge until the adapter exists', async () => {
-    const onError = vi.fn();
-    const { result } = renderHook(() => useResolvedServer({ type: 'trueforge', apiKey: 'k' }, onError));
+  it('loads trueforge via createTrueForgeAgentUIServer', async () => {
+    mockCreateTrueForgeAgentUIServer.mockClear();
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const { result } = renderHook(() =>
+      useResolvedServer({
+        type: 'trueforge',
+        baseUrl: 'https://harness.example',
+        token: 'tok',
+        fetch: fetchImpl,
+      }),
+    );
 
     await waitFor(() => {
-      expect(result.current.status).toBe('error');
+      expect(result.current.status).toBe('ready');
     });
-    expect(String(result.current.error)).toMatch(/not implemented/i);
-    expect(onError).toHaveBeenCalled();
+    expect(mockCreateTrueForgeAgentUIServer).toHaveBeenCalledWith({
+      baseUrl: 'https://harness.example',
+      token: 'tok',
+      fetch: fetchImpl,
+    });
+    expect(result.current.server?.getCapabilities).toEqual(expect.any(Function));
+  });
+
+  it('attaches an optional catalog onto the trueforge server when factory returns one', async () => {
+    const catalog = createMockCatalog();
+    mockCreateTrueForgeAgentUIServer.mockImplementationOnce(async () =>
+      createMockAgentUIServer({
+        catalog,
+        getCapabilities: async () => ({
+          data: {
+            sandbox: { enabled: true },
+            skill: { enabled: true },
+            settings: { enabled: true },
+          },
+        }),
+      }),
+    );
+    const { result } = renderHook(() =>
+      useResolvedServer({
+        type: 'trueforge',
+        token: 'tok',
+        catalog,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready');
+    });
+    expect(mockCreateTrueForgeAgentUIServer).toHaveBeenCalledWith({
+      token: 'tok',
+      catalog,
+    });
+    expect(result.current.server?.catalog).toBe(catalog);
   });
 
   it('loads truefoundry via createTrueFoundryAgentUIServer', async () => {

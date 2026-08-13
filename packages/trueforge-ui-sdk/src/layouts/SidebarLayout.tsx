@@ -10,6 +10,7 @@ import { Spinner } from '../atoms/primitives/Spinner.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { Thread } from '../containers/Thread.js';
 import { ThreadListContainer } from '../containers/ThreadListContainer.js';
+import { useChatHeaderContentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useBrandName } from '../theme/brand.js';
@@ -44,6 +45,7 @@ export function SidebarLayout({ className }: { className?: string }) {
   const wasOpen = useRef(false);
   const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
+  const hasChatHeaderContent = useChatHeaderContentVisible();
 
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -141,8 +143,9 @@ export function SidebarLayout({ className }: { className?: string }) {
         <header
           className={cn(
             'flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
-            // Settings / idle: desktop uses aside chrome; mobile still needs ShellActions.
-            (settingsOpen || isIdle) && 'md:hidden',
+            // Desktop: hide when settings/idle or the thread header has nothing to show
+            // (empty untitled draft). Mobile still needs Sessions + ShellActions.
+            (settingsOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
           )}
         >
           {!settingsOpen ? (

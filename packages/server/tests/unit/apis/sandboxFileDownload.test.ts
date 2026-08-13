@@ -1,6 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
-import { AgentSpecSchema, Sessions } from '@truefoundry/utils-core/agent-session';
+import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { createLogger } from 'winston';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, toContentDisposition } from '../../../src/apis/turns';

@@ -2,18 +2,18 @@
  * DB-backed sessions API (mounted at /api/v1/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { ISessionStore, SessionRecord, Sessions } from '@truefoundry/utils-core/agent-session';
+import type { ISessionStore, SessionRecord, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import {
   CancellationReason,
   SessionStoreConflictError,
   SessionStoreInvariantError,
   SessionStoreNotFoundError,
-} from '@truefoundry/utils-core/agent-session';
+} from '@truefoundry/trueforge-core/agent-session';
 import type {
   RouteHandler as RequestReplyRouteHandler,
   RequestReplyRouter,
-} from '@truefoundry/utils-core/request-reply';
-import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundry/utils-core/request-reply';
+} from '@truefoundry/trueforge-core/request-reply';
+import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundry/trueforge-core/request-reply';
 import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';

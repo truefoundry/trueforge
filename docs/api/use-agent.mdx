@@ -4,7 +4,7 @@ sidebarTitle: 'Use an agent'
 description: 'Run a saved agent with the TypeScript SDK — create sessions, stream turns, merge deltas, and handle approvals, questions, threads, and reconnects.'
 ---
 
-This guide covers everything you need to **run** an agent with [`trueforge-sdk`](https://www.npmjs.com/package/trueforge-sdk): open a session, send turns, consume the event stream, and handle pauses, threads, and disconnects.
+This guide covers everything you need to **run** an agent with [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/trueforge-sdk): open a session, send turns, consume the event stream, and handle pauses, threads, and disconnects.
 
 For the conceptual hierarchy (Agent → Session → Turn → Event → Delta) and a short end-to-end walkthrough, see [SDK Overview](/api/overview). For every event field, see [Turn events](/api/turn-events).
 
@@ -15,11 +15,11 @@ Prerequisite: a named agent in the registry, or an inline [agent spec](/create-a
 ## Install and connect
 
 ```bash
-npm i -s trueforge-sdk
+npm i -s @truefoundry/trueforge-sdk
 ```
 
 ```typescript
-import { TrueForge } from 'trueforge-sdk';
+import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -49,7 +49,7 @@ stateDiagram-v2
 Create a session by agent name, or pass an inline [agent spec](/create-agent/agent-spec):
 
 ```typescript
-import { TrueForge } from 'trueforge-sdk';
+import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -79,7 +79,7 @@ console.log('session id:', session.id);
 List your sessions with `sessions.list()`. Newest-first by default; filter with `agentId` when you only want sessions for one saved agent. The returned `Page` is an async iterable and auto-paginates.
 
 ```typescript
-import { TrueForge } from 'trueforge-sdk';
+import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -108,7 +108,7 @@ Creating a new turn in a session automatically cancels any other turn that is st
 </Note>
 
 ```typescript
-import { TrueForge } from 'trueforge-sdk';
+import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -153,7 +153,7 @@ for await (const { data: event, id } of next.withMetadata()) {
 List turns in a session with `sessions.listTurns()`. Turns are returned oldest-first. Each turn exposes its `input` and `state`.
 
 ```typescript
-import { TrueForge } from 'trueforge-sdk';
+import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -189,7 +189,7 @@ for await (const turn of await client.sessions.listTurns('sess-abc123')) {
 If you don't need live events on the create call, use `sessions.createTurn` (sets `stream: false`). It returns the turn immediately with `state.status: "running"` while execution continues in the background. Poll `sessions.getTurn` until `state.status` is terminal (`done`, `cancelled`, or `error`).
 
 ```typescript
-import { TrueForge } from 'trueforge-sdk';
+import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -228,7 +228,7 @@ A `user.message`'s `content` can be a plain string or a list of content parts. U
 
 ```typescript
 import { readFileSync } from 'node:fs';
-import { TrueForge } from 'trueforge-sdk';
+import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -275,7 +275,7 @@ Non-image files such as PDFs require the [sandbox](/sandbox) to be enabled on th
 To stop the currently running turn, call `sessions.cancel(sessionId)`. Cancelling aborts any in-flight model request, waits for running MCP tool calls to finish, and force-stops any sandbox the turn provisioned. Cancellation is idempotent. You can continue by creating a new turn, which chains on the cancelled turn's history.
 
 ```typescript
-import { TrueForge } from 'trueforge-sdk';
+import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -339,7 +339,7 @@ When the previous turn ended with `mcp.auth_required`, passing a `user.message` 
 ```typescript
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
-import { TrueForge, TrueForgeApi } from 'trueforge-sdk';
+import { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -390,7 +390,7 @@ import {
   TrueForgeApi,
   isEventDelta,
   mergeEventDelta,
-} from 'trueforge-sdk';
+} from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -457,7 +457,7 @@ import {
   TrueForgeApi,
   isEventDelta,
   mergeEventDelta,
-} from 'trueforge-sdk';
+} from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -549,7 +549,7 @@ Because every delta carries the base event's `id`, keep an `id`-keyed index of a
 The SDK exports `isEventDelta` and `mergeEventDelta` for this:
 
 ```typescript
-import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from 'trueforge-sdk';
+import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -583,7 +583,7 @@ Event deltas appear only while streaming. When you [list turn events](#listing-e
 When you lose the original `createTurnStream` connection (for example, after a process restart), call `sessions.getTurn`, then check `turn.state`. If it is still running, reconnect with `sessions.subscribeToTurn` and pass `afterSequenceNumber` to continue after a known point; if it has already finished, rebuild the index from `sessions.listTurnEvents` instead.
 
 ```typescript
-import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from 'trueforge-sdk';
+import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -697,7 +697,7 @@ sequenceDiagram
 ```
 
 ```typescript
-import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from 'trueforge-sdk';
+import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
@@ -775,7 +775,7 @@ is returned by `listTurnEvents` as one fully-merged event:
 </Note>
 
 ```typescript
-import { TrueForge } from 'trueforge-sdk';
+import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
   baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',

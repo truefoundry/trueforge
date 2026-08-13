@@ -1,4 +1,4 @@
-import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
+import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import { ulid } from 'ulid';
 import {

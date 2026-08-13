@@ -3,13 +3,16 @@ import { ulid } from 'ulid';
 import type { OAuthClientRecord } from '../../../mcp/auth/types';
 import {
   fromStoredOAuthClientRecord,
+  McpServerNameConflictError,
   toStoredOAuthClientRecord,
+  type CreateMcpServerInput,
   type GetMcpServerInput,
   type IMcpServerStore,
   type ListMcpServersInput,
   type McpServerRecord,
   type UpsertMcpServerInput,
 } from '../../mcpServerStore';
+import { isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';
 import type { Database, McpServerTable } from '../types';
 
@@ -67,6 +70,32 @@ export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Datab
       .forUpdate()
       .executeTakeFirst();
     return row ? toRecord(row) : undefined;
+  }
+
+  async createServer(input: CreateMcpServerInput, transaction?: Transaction<Database>): Promise<McpServerRecord> {
+    const db = transaction ?? this.#db;
+    try {
+      const row = await db
+        .insertInto('mcp_server')
+        .values({
+          id: ulid(),
+          tenant_id: input.tenant_id,
+          name: input.name,
+          manifest: json(input.manifest),
+          oauth_server: null,
+          oauth_client: null,
+          created_at: now(),
+          updated_at: now(),
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+      return toRecord(row);
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new McpServerNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
+      }
+      throw error;
+    }
   }
 
   async upsertServer(input: UpsertMcpServerInput, transaction?: Transaction<Database>): Promise<McpServerRecord> {

@@ -60,6 +60,14 @@ function putInit(body: unknown): RequestInit {
   };
 }
 
+function postInit(body: unknown): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
 function withRedactedApiKey<T extends { auth: { api_key: string } }>(provider: T): T {
   return {
     ...provider,
@@ -134,6 +142,19 @@ describe('settings model-providers and models routers', () => {
     expect(await list.json()).toEqual({ data: [anthropicProviderWire] });
   });
 
+  it('POST creates a provider and returns 409 on name clash', async () => {
+    const { settingsRouter: fresh } = await createRouters();
+    const created = await fresh.request('/model-providers', postInit(anthropicBody));
+    expect(created.status).toBe(200);
+    expect(await created.json()).toEqual({ data: anthropicProviderWire });
+
+    const clash = await fresh.request('/model-providers', postInit(anthropicBody));
+    expect(clash.status).toBe(409);
+    expect(await clash.json()).toEqual({
+      error: { message: 'Model provider name already exists: anthropic' },
+    });
+  });
+
   it('PUT requires base_url for custom providers', async () => {
     const { base_url: _, ...withoutBaseUrl } = customBody;
     const missingBaseUrl = await settingsRouter.request('/model-providers', putInit(withoutBaseUrl));
@@ -187,14 +208,14 @@ describe('custom providers may omit auth', () => {
     },
   ])('PUT stores and lists custom provider with $label', async ({ auth, name }) => {
     const { settingsRouter } = await createRouters();
-    const body = {
+    const base = {
       type: 'custom' as const,
       name,
       base_url: 'http://localhost:11434/v1',
       models: [model],
-      ...(auth === undefined ? {} : { auth }),
     };
-    const expectedWire = auth === undefined ? body : withRedactedApiKey(body);
+    const body = auth === undefined ? base : { ...base, auth };
+    const expectedWire = auth === undefined ? body : withRedactedApiKey({ ...base, auth });
 
     const put = await settingsRouter.request('/model-providers', putInit(body));
     expect(put.status).toBe(200);
@@ -309,6 +330,19 @@ describe('model-provider secret redaction and strict PUT', () => {
     expect(await response.json()).toEqual({ error: { message: 'API key is required' } });
   });
 
+  it('POST create with a redacted api_key returns 400', async () => {
+    const { settingsRouter } = await createRouters();
+    const response = await settingsRouter.request(
+      '/model-providers',
+      postInit({
+        ...anthropicBody,
+        auth: { api_key: toRedactedSecretValue('sk-ant-secret') },
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: { message: 'API key is required' } });
+  });
+
   it('PUT rejects a missing api_key at the Zod layer', async () => {
     const { settingsRouter } = await createRouters();
     const response = await settingsRouter.request('/model-providers', putInit({ ...anthropicBody, auth: {} }));
@@ -340,7 +374,7 @@ describe('model-provider secret redaction and strict PUT', () => {
     expect(updateBody.data.models).toHaveLength(2);
 
     const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
-    expect(stored?.manifest.auth.api_key).toBe('sk-ant-secret');
+    expect(stored?.manifest.auth?.api_key).toBe('sk-ant-secret');
   });
 
   it('PUT with a real api_key rotates the stored secret', async () => {
@@ -356,7 +390,7 @@ describe('model-provider secret redaction and strict PUT', () => {
     });
 
     const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
-    expect(stored?.manifest.auth.api_key).toBe(rotatedKey);
+    expect(stored?.manifest.auth?.api_key).toBe(rotatedKey);
   });
 });
 
