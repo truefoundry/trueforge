@@ -80,3 +80,9 @@ mcp_servers:
     url: https://mcp.atlassian.com/v1/mcp
     auth:
       type: dcr
+  - type: remote
+    name: posthog
+    logo: https://assets.production.truefoundry.com/posthog.svg
+    url: https://mcp.posthog.com/mcp
+    auth:
+      type: dcr
