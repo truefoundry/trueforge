@@ -76,8 +76,7 @@ Every environment variable is documented in [`packages/server/.env.example`](pac
 The [`charts/trueforge`](charts/trueforge) Helm chart deploys hosted mode with bundled Postgres and Redis (or your own):
 
 ```bash
-# TODO: replace <HELM_REPO> with the published Helm repo URL
-helm install trueforge oci://<HELM_REPO>/trueforge \
+helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
   --version <x.y.z>
 ```
 

@@ -7,11 +7,11 @@ This distribution may include or depend on third-party software. Notable
 dependencies and their licenses include (non-exhaustive):
 
 - @assistant-ui/react / @assistant-ui/core — see their respective LICENSE files
-- tfy-web-components — see its LICENSE
 - @openuidev/react-ui and related OpenUI packages — see their LICENSE files
-- @fortawesome/fontawesome-svg-core and related packages — Font Awesome Free license
-- @mui/material and @emotion/* — see their respective LICENSE files
+- @truefoundry/assistant-ui-runtime — see its LICENSE
 - lucide-react — ISC / Lucide license
+- monaco-editor — see its LICENSE
+- react-markdown / remark-gfm / react-syntax-highlighter — see their respective LICENSE files
 
 Full license texts for installed packages are available in node_modules under
 each package's LICENSE (or equivalent) file.

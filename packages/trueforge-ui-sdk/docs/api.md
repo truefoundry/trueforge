@@ -1,8 +1,11 @@
 # Public API
 
-Curated exports from `@truefoundry/trueforge-ui`. Design-system **component
-values** (`Button`, `Modal`, …) live on `tfy-web-components` — this package
-re-exports override **types** only where needed.
+Curated exports from `@truefoundry/trueforge-ui`. Design-system primitives
+(`CenteredModal`, `Switch`, …) are owned in this package. Low-level controls
+like `Button` / `IconButton` are styled via theme tokens / CSS (not
+`SlotsProvider` slots); their **prop types** (`ButtonProps`, `IconButtonProps`,
+…) are exported for hosts that build around those contracts. Component
+**values** appear below only when they are part of the public surface.
 
 ## Quick start
 
@@ -71,10 +74,10 @@ const server = createTrueForgeAgentUIServer({ baseUrl: '/', token });
 
 ## Types for overrides
 
-| Export                                         | Notes                    |
-| ---------------------------------------------- | ------------------------ |
-| `ButtonProps`, `ButtonSize`, `IconButtonProps` | Slot override contracts  |
-| Atom `*Props` types                            | Per-atom override shapes |
+| Export                                         | Notes                                                            |
+| ---------------------------------------------- | ---------------------------------------------------------------- |
+| `ButtonProps`, `ButtonSize`, `IconButtonProps` | Prop contracts for in-package primitives (tokens/CSS, not slots) |
+| Atom `*Props` types                            | Per-atom override shapes                                         |
 
 ## Styles
 
