@@ -55,7 +55,7 @@ It scales down and up: **local mode** (one process, SQLite) or **hosted mode** (
 Requires [Node.js](https://nodejs.org) 22.13 or newer. One command, no other infrastructure - UI and backend run locally; data is stored in SQLite:
 
 ```bash
-npx @truefoundry/trueforge
+npx @truefoundry/trueforge@rc
 ```
 
 Then open [http://localhost:8790](http://localhost:8790).
