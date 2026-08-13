@@ -22,7 +22,9 @@ Override individual design tokens to change colors and other visual properties: 
 
 Set tokens separately for light and dark mode so both schemes stay consistent without per-component CSS.
 
+<Note>
 The fastest way to try tokens is the [UI Config App](https://ui.trueforge.dev/). Change colors in the preview, then copy the generated config into your app.
+</Note>
 
 
 ```json Token Object
@@ -49,24 +51,24 @@ See [Token naming](#token-naming) for how each key maps to a CSS variable.
 
 | Token name | Description |
 | --- | --- |
-| `sidebarBg` | Thread-list / nav rail background. Sidebar, chat history, chat drawer. |
-| `topbarBg` | Shell and modal headers. Sidebar and drawer layout chrome, centered modal headers. |
-| `primaryBg` | Page canvas — thread, settings body, dock/widget chrome. Background color of all pages. |
-| `secondaryBg` | Icon wells, soft chips, and secondary nav tracks. |
+| `sidebarBg` | Sidebar, chat history, chat drawer. |
+| `topbarBg` | Topbar of all pages. |
+| `primaryBg` | Background color of all pages. |
+| `secondaryBg` | Icon background and secondary navigation |
 | `border` | Dividers and outlines. Panel edges, list rows, cards, and form fields. |
-| `fontFamily` | Base UI font across the SDK shell. |
+| `fontFamily` | UI font across the Application |
 | `inputBoxBg` | Input and composer surfaces. Chat composer, search fields, shared text inputs. |
 | `inputBorder` | Borders on text inputs and outline / secondary buttons. |
 | `textPrimary` | Headings, labels, and primary body copy. |
 | `textSecondary` | Muted labels, placeholders, timestamps, and helper text. |
 | `cardBg` | Elevated surfaces. Dialogs, menus, tooltips, settings cards, bottom sheets. |
-| `dropdownSelectedItemBg` | Selected / active menu and list rows. Dropdowns, thread list, segmented toggles. |
+| `dropdownSelectedItemBg` | Selected item in a dropdown. |
 | `dropdownSelectedItemText` | Text on selected / active menu and list rows. |
 | `userMessageBg` | User chat message bubble background. |
 | `userMessageText` | User chat message bubble text. |
 | `assistantMessageBg` | Assistant message bubble background (default transparent). |
 | `assistantMessageText` | Assistant chat message text. |
-| `primaryButtonBg` | Primary CTAs. Save, Connect, active settings tabs, widget launcher. |
+| `primaryButtonBg` | Primary CTAs. Active settings tabs, widget launcher. |
 | `primaryButtonHover` | Primary button hover fill. |
 | `primaryButtonText` | Primary button label color. |
 | `secondaryButtonBg` | Secondary / outline buttons. Cancel, Configure, and similar actions. |
@@ -75,8 +77,8 @@ See [Token naming](#token-naming) for how each key maps to a CSS variable.
 | `ghostButtonBg` | Ghost button background (usually transparent). Icon actions and quiet controls. |
 | `ghostButtonHover` | Ghost button and row hover fill. Message actions, nav hover, menu highlight. |
 | `ghostButtonText` | Ghost button icon and label color. |
-| `successBg` | Success icons, status dots, and tinted success badges. |
-| `successText` | Paired text color for solid success fills (rarely used directly today). |
+| `successBg` | Success pills, icons, and success card fills. |
+| `successText` | Paired text color for solid success fills. |
 | `failureBg` | Error banners, destructive buttons, validation errors, and denied states. |
 | `failureText` | Text on solid failure / destructive fills. |
 | `warningBg` | Warning pills and status dots. Editing badge, in-progress step indicators. |
