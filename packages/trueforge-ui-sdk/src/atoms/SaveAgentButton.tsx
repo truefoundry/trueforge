@@ -194,9 +194,7 @@ function SaveAgentButtonContent({
     (shell.mode.agentName !== undefined || shell.mode.agentId !== undefined);
   const triggerLabel = isUpdateMode && children === 'Save Agent' ? 'Update Agent' : children;
 
-  if (!visible || (shell !== null && shell.mode.locked)) {
-    return null;
-  }
+  if (!visible) return null;
 
   return (
     <>
