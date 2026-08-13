@@ -65,8 +65,11 @@ if __name__ == "__main__":
     if "cma" in harnesses:
         setup_cma()
     if "tfy" in harnesses:
-        print("[tfy] no setup step here — in TrueForge, configure a provider for "
-              "MODEL_TFY and register the MCP_CONFIG servers as Connectors under the "
-              "same names; the agent spec is sent inline when each session is created.",
-              flush=True)
+        print("[tfy] no setup step here, but TrueForge itself needs THREE things "
+              "configured (see README): (1) a model provider for MODEL_TFY, (2) the "
+              "MCP_CONFIG servers registered as Connectors under the same names, and "
+              "(3) a SANDBOX PROVIDER (e.g. Daytona) — required so oversized tool results "
+              "offload to a file instead of aborting the heaviest tasks. The agent spec "
+              "(sub-agents, compaction, sandbox on, 500 iterations) is sent inline when "
+              "each session is created.", flush=True)
     print("[setup] done", flush=True)
