@@ -167,7 +167,14 @@ describe('DraftCatalogProvider', () => {
   });
 
   it('refreshes connectors without reloading models or skills', async () => {
-    const getModels = vi.fn(async () => [{ name: 'openai/gpt-4.1', provider: 'OpenAI' }]);
+    const getModels = vi.fn(async (): Promise<ModelSelection[]> => [
+      {
+        id: 'gpt-4.1',
+        name: 'openai/gpt-4.1',
+        provider: { name: 'OpenAI' },
+        properties: {},
+      },
+    ]);
     const getSkills = vi.fn(async () => [{ id: 'skill-1', name: 'Release notes' }]);
     const getMcp = vi
       .fn<() => Promise<ConnectorState[]>>()

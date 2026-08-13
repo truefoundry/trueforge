@@ -1,6 +1,6 @@
-// Post-build smoke tests, mirroring the tail of openai-node's build script:
-// the staged dist must be loadable via require() and import() at the root,
-// the subpath barrels, and a deep file path, with declarations beside them.
+// Post-build smoke test: the exact regression class this guards against is
+// dist/*.js being silently misinterpreted as ESM (see write-dist-package-json.mjs) —
+// require()/import() failing here is how that would first surface.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -40,19 +40,27 @@ if (!fs.existsSync(distPkgPath)) {
   console.error('FAIL dist/package.json is missing (run build:pkg)');
 } else {
   const distPkg = JSON.parse(fs.readFileSync(distPkgPath, 'utf-8'));
-  const staged = JSON.stringify(distPkg);
   if (distPkg.type !== 'commonjs') {
     failures += 1;
-    console.error('FAIL dist/package.json type must be "commonjs"');
+    console.error('FAIL dist/package.json must set "type": "commonjs" (or dist/*.js resolves as ESM)');
   }
-  if (staged.includes('./dist/')) {
-    failures += 1;
-    console.error('FAIL dist/package.json still references ./dist/ paths');
-  }
-  if (staged.includes('./src/') || staged.includes('"development"')) {
-    failures += 1;
-    console.error('FAIL dist/package.json must not ship development → src/ export conditions');
-  }
+}
+
+// package.json is published as-is (no more staged dist/package.json rewrite), and only
+// `dist` ships (files: ["dist"]) — so a literal "development" condition pointing at
+// ./src/... would be a live, resolvable-but-broken promise for any consumer whose
+// tooling defaults to activating it, not dead weight. Vite's default resolve.conditions
+// is ['module', 'browser', 'development|production'], which it substitutes to the literal
+// string "development" whenever NODE_ENV !== 'production' — i.e. every Vite dev-mode
+// consumer would hit this with zero opt-in. The real condition name must never collide
+// with a tool's own auto-activated condition (see packages/harness/package.json).
+const rootPkgPath = path.join(pkgRoot, 'package.json');
+const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, 'utf-8'));
+if (JSON.stringify(rootPkg.exports ?? {}).includes('"development"')) {
+  failures += 1;
+  console.error(
+    'FAIL package.json exports must not use a literal "development" condition key (Vite/webpack auto-activate it in dev mode; src/ is not shipped)',
+  );
 }
 
 if (failures > 0) {

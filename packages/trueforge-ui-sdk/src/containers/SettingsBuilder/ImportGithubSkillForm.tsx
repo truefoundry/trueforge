@@ -13,9 +13,10 @@ type ImportGithubSkillFormProps = {
   onOpenChange: (open: boolean) => void;
   onImport: (draft: SkillConfigBase) => void | Promise<void>;
   busy?: boolean;
+  error?: string | null;
 };
 
-const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: ImportGithubSkillFormProps) => {
+const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false, error }: ImportGithubSkillFormProps) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [repoURL, setRepoURL] = useState('');
@@ -156,9 +157,12 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false }: I
             />
           </div>
 
-          <Button type="submit" disabled={!canImport} className="w-full">
-            Import
-          </Button>
+          <div className="space-y-3">
+            {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
+            <Button type="submit" disabled={!canImport} className="w-full">
+              Import
+            </Button>
+          </div>
         </div>
       </form>
     </CenteredModal>

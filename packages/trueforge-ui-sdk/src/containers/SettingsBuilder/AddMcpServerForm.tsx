@@ -21,6 +21,7 @@ type AddMcpServerFormProps = {
   onOpenChange: (open: boolean) => void;
   onAdd: (draft: AddMcpServerDraft) => void | Promise<void>;
   busy?: boolean;
+  error?: string | null;
 };
 
 const AUTH_OPTIONS: Array<{ value: McpAuthType; label: string }> = [
@@ -37,7 +38,7 @@ const RequiredMark = () => (
   </span>
 );
 
-const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false }: AddMcpServerFormProps) => {
+const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: AddMcpServerFormProps) => {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [authType, setAuthType] = useState<McpAuthType>('dcr');
@@ -216,9 +217,12 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false }: AddMcpSer
           ) : null}
         </div>
 
-        <Button type="submit" size="lg" disabled={!isValid || busy} className="mt-6 w-full shrink-0">
-          Add
-        </Button>
+        <div className="mt-6 space-y-3">
+          {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
+          <Button type="submit" size="lg" disabled={!isValid || busy} className="w-full shrink-0">
+            Add
+          </Button>
+        </div>
       </form>
     </CenteredModal>
   );

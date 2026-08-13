@@ -1,8 +1,8 @@
 {
   "name": "@truefoundry/utils-core",
-  "version": "0.1.9",
-  "description": "TrueFoundry agent core and session library",
-  "author": "Truefoundry",
+  "version": "0.1.10-rc.1",
+  "description": "TrueFoundry Utils Core",
+  "author": "TrueFoundry",
   "license": "MIT",
   "private": false,
   "type": "module",
@@ -11,7 +11,7 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "development": {
+      "trueforge-dev": {
         "types": "./src/index.ts",
         "default": "./src/index.ts"
       },
@@ -20,7 +20,7 @@
       "default": "./dist/index.mjs"
     },
     "./core": {
-      "development": {
+      "trueforge-dev": {
         "types": "./src/core/index.ts",
         "default": "./src/core/index.ts"
       },
@@ -29,7 +29,7 @@
       "default": "./dist/core/index.mjs"
     },
     "./agent-session": {
-      "development": {
+      "trueforge-dev": {
         "types": "./src/agent-session/index.ts",
         "default": "./src/agent-session/index.ts"
       },
@@ -38,7 +38,7 @@
       "default": "./dist/agent-session/index.mjs"
     },
     "./request-reply": {
-      "development": {
+      "trueforge-dev": {
         "types": "./src/request-reply/index.ts",
         "default": "./src/request-reply/index.ts"
       },
@@ -55,7 +55,7 @@
       "default": "./dist/*.js"
     },
     "./*": {
-      "development": {
+      "trueforge-dev": {
         "types": "./src/*.ts",
         "default": "./src/*.ts"
       },
@@ -75,11 +75,11 @@
     "dev": "pnpm run build:gen:watch",
     "build:js": "tsup",
     "build:dts": "tsc -p tsconfig.build.json --emitDeclarationOnly",
-    "build:pkg": "node scripts/make-dist-package-json.mjs",
+    "build:pkg": "node scripts/write-dist-package-json.mjs",
     "build:check": "node scripts/check-dist.mjs",
     "typecheck": "pnpm run build:gen && tsc --noEmit",
     "test": "pnpm run build:gen && jest --config jest.config.cjs",
-    "pack:dry": "cd dist && pnpm pack --dry-run"
+    "pack:dry": "pnpm pack --dry-run"
   },
   "dependencies": {
     "@ai-sdk/alibaba": "^2.0.24",

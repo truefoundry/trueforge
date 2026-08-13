@@ -371,19 +371,22 @@ function openaiProviderOptions({
  * Forwards but never pins `thinking` and `effort`: both replace the adapter's per-model resolution
  * and no single value fits every model. This is the caller's only route to disabling thinking, or to
  * the `display: 'summarized'` that makes Claude 5 return reasoning text instead of an empty block.
+ *
+ * Prompt caching defaults on: Anthropic bills a write once, then cheaper reads on stable prefixes
+ * (system / tools / early messages). Callers can override via `cache_control` in the request body.
  */
 function anthropicProviderOptions(rawBody: unknown): JSONObject | undefined {
-  const cacheControl = readBodyField({ rawBody, key: 'cache_control' });
+  const cacheControl = readBodyField({ rawBody, key: 'cache_control' }) ?? { type: 'ephemeral' };
   const disableParallelToolUse = readBodyField({ rawBody, key: 'disable_parallel_tool_use' });
   const thinking = readBodyField({ rawBody, key: 'thinking' });
   const effort = readBodyField({ rawBody, key: 'effort' });
   const opts: JSONObject = {
-    ...(cacheControl !== undefined ? { cacheControl } : {}),
+    cacheControl,
     ...(disableParallelToolUse !== undefined ? { disableParallelToolUse } : {}),
     ...(thinking !== undefined ? { thinking } : {}),
     ...(effort !== undefined ? { effort } : {}),
   };
-  return Object.keys(opts).length > 0 ? opts : undefined;
+  return opts;
 }
 
 /**

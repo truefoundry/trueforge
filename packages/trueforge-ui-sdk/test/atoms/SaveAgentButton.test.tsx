@@ -1,20 +1,32 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { SaveAgentButton } from '@/atoms/SaveAgentButton.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
+import type { SaveAgentResult } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+import { RuntimeHarness } from '../containers/RuntimeHarness.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
+
+type MockAgentSpec = {
+  model?: { name?: string };
+  skills?: { id: string; name: string }[];
+  instructions?: string;
+};
+
+const agentSpecState: { agentSpec: MockAgentSpec } = {
+  agentSpec: {
+    model: { name: 'openai-main/gpt-4.1' },
+    skills: [{ id: 's1', name: 'Skill One' }],
+  },
+};
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   useTrueFoundryAgentSpec: () => ({
-    agentSpec: {
-      model: { name: 'openai-main/gpt-4.1' },
-      skills: [{ id: 's1', name: 'Skill One' }],
-    },
+    agentSpec: agentSpecState.agentSpec,
   }),
 }));
 
@@ -28,7 +40,11 @@ beforeAll(() => {
   };
 });
 
-function mockServer(saveAgent = vi.fn(async () => ({ ok: true }))) {
+const startedMessages = [{ role: 'user' as const, content: 'hello', id: 'm1' }];
+
+type SaveAgentMock = ReturnType<typeof vi.fn<(...args: never[]) => Promise<SaveAgentResult>>>;
+
+function mockServer(saveAgent: SaveAgentMock = vi.fn(async () => ({ agentId: 'agt_1' }))) {
   return createMockAgentUIServer({ saveAgent });
 }
 
@@ -40,33 +56,67 @@ function getSubmitButton(dialog: HTMLElement): HTMLButtonElement {
   return button;
 }
 
+function renderSaveAgent({
+  children,
+  messages = startedMessages,
+  agentConfig,
+  saveAgent,
+}: {
+  children: ReactNode;
+  messages?: typeof startedMessages | [];
+  agentConfig?: Parameters<typeof ShellModeProvider>[0]['agentConfig'];
+  saveAgent?: SaveAgentMock;
+}) {
+  return render(
+    <SlotsProvider>
+      <ServerProvider server={mockServer(saveAgent)}>
+        <ShellModeProvider agentConfig={agentConfig}>
+          <RuntimeHarness messages={messages}>{children}</RuntimeHarness>
+        </ShellModeProvider>
+      </ServerProvider>
+    </SlotsProvider>,
+  );
+}
+
 describe('SaveAgentButton', () => {
   it('is hidden when the shell is locked to a named agent', () => {
-    render(
-      <SlotsProvider>
-        <ServerProvider server={mockServer()}>
-          <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'locked-agent' }}>
-            <SaveAgentButton />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderSaveAgent({
+      agentConfig: { mode: 'SingleAgent', name: 'locked-agent' },
+      children: <SaveAgentButton />,
+    });
 
     expect(screen.queryByRole('button', { name: 'Save agent' })).not.toBeInTheDocument();
   });
 
-  it('opens a modal with name + system instructions and saves them on agentSpec', async () => {
-    const saveAgent = vi.fn(async () => ({ ok: true }));
+  it('shows on an empty new chat when a model is selected', () => {
+    renderSaveAgent({
+      messages: [],
+      children: <SaveAgentButton />,
+    });
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={mockServer(saveAgent)}>
-          <ShellModeProvider>
-            <SaveAgentButton />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    expect(screen.getByRole('button', { name: 'Save agent' })).toBeInTheDocument();
+  });
+
+  it('is hidden when the draft has no model', () => {
+    const previous = agentSpecState.agentSpec;
+    agentSpecState.agentSpec = { skills: [{ id: 's1', name: 'Skill One' }] };
+    try {
+      renderSaveAgent({
+        children: <SaveAgentButton />,
+      });
+      expect(screen.queryByRole('button', { name: 'Save agent' })).not.toBeInTheDocument();
+    } finally {
+      agentSpecState.agentSpec = previous;
+    }
+  });
+
+  it('opens a modal with name + system instructions and saves them on agentSpec', async () => {
+    const saveAgent = vi.fn(async () => ({ agentId: 'agt_1' }));
+
+    renderSaveAgent({
+      saveAgent,
+      children: <SaveAgentButton />,
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Save agent' }));
     const dialog = screen.getByRole('dialog', { name: 'Save agent' });
@@ -102,7 +152,7 @@ describe('SaveAgentButton', () => {
   });
 
   it('binds the same draft chat as editable agent without remounting', async () => {
-    const saveAgent = vi.fn(async () => ({ ok: true }));
+    const saveAgent = vi.fn(async () => ({ agentId: 'agt_1' }));
     let shellSnap: ReturnType<typeof useShellMode> | undefined;
 
     function Probe() {
@@ -110,15 +160,10 @@ describe('SaveAgentButton', () => {
       return <SaveAgentButton />;
     }
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={mockServer(saveAgent)}>
-          <ShellModeProvider>
-            <Probe />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderSaveAgent({
+      saveAgent,
+      children: <Probe />,
+    });
 
     expect(shellSnap).toBeDefined();
     if (shellSnap == null) throw new Error('expected shell');
@@ -160,15 +205,10 @@ describe('SaveAgentButton', () => {
       throw new Error('Name taken');
     });
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={mockServer(saveAgent)}>
-          <ShellModeProvider>
-            <SaveAgentButton />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderSaveAgent({
+      saveAgent,
+      children: <SaveAgentButton />,
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Save agent' }));
     const dialog = screen.getByRole('dialog', { name: 'Save agent' });
@@ -181,7 +221,7 @@ describe('SaveAgentButton', () => {
     expect(screen.getByRole('dialog', { name: 'Save agent' })).toBeInTheDocument();
   });
 
-  it('shows Update Agent and prefills name when editing a library agent', async () => {
+  it('shows Update Agent on an empty library Edit and prefills name', async () => {
     function EditSeed() {
       const shell = useShellMode();
       const seeded = useRef(false);
@@ -201,15 +241,11 @@ describe('SaveAgentButton', () => {
       return <SaveAgentButton />;
     }
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={mockServer()}>
-          <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
-            <EditSeed />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderSaveAgent({
+      messages: [],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      children: <EditSeed />,
+    });
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Update Agent' })).toBeInTheDocument();

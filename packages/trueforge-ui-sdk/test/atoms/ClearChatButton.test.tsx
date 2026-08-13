@@ -7,7 +7,18 @@ import { SelectAgentEmptyState } from '@/atoms/SelectAgentEmptyState.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+import { RuntimeHarness } from '../containers/RuntimeHarness.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
+
+vi.mock('@truefoundry/assistant-ui-runtime', () => ({
+  useTrueFoundryAgentSpec: () => ({
+    agentSpec: {
+      model: { name: 'openai-main/gpt-4.1' },
+    },
+  }),
+}));
+
+const startedMessages = [{ role: 'user' as const, content: 'hello', id: 'm1' }];
 
 function mockServer() {
   return createMockAgentUIServer({
@@ -20,29 +31,48 @@ describe('ClearChatButton', () => {
     render(
       <SlotsProvider>
         <ShellModeProvider agentConfig={{ mode: 'AgentLibrary' }}>
-          <ClearChatButton />
+          <RuntimeHarness messages={[]}>
+            <ClearChatButton />
+          </RuntimeHarness>
         </ShellModeProvider>
       </SlotsProvider>,
     );
     expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
   });
 
-  it('is hidden on mutable sessions', () => {
-    render(
-      <SlotsProvider>
-        <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
-          <ClearChatButton />
-        </ShellModeProvider>
-      </SlotsProvider>,
-    );
-    expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
-  });
-
-  it('calls clearChat when clicked in named mode', () => {
+  it('is visible on an empty named agent chat', () => {
     render(
       <SlotsProvider>
         <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
-          <ClearChatButton />
+          <RuntimeHarness messages={[]}>
+            <ClearChatButton />
+          </RuntimeHarness>
+        </ShellModeProvider>
+      </SlotsProvider>,
+    );
+    expect(screen.getByRole('button', { name: 'Clear chat' })).toBeInTheDocument();
+  });
+
+  it('is hidden on an empty untitled draft', () => {
+    render(
+      <SlotsProvider>
+        <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+          <RuntimeHarness messages={[]}>
+            <ClearChatButton />
+          </RuntimeHarness>
+        </ShellModeProvider>
+      </SlotsProvider>,
+    );
+    expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
+  });
+
+  it('calls clearChat when clicked after a chat has started', () => {
+    render(
+      <SlotsProvider>
+        <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
+          <RuntimeHarness messages={startedMessages}>
+            <ClearChatButton />
+          </RuntimeHarness>
         </ShellModeProvider>
       </SlotsProvider>,
     );

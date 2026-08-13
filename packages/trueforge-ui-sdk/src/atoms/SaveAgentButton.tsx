@@ -3,6 +3,7 @@
 import { useTrueFoundryAgentSpec } from '@truefoundry/assistant-ui-runtime';
 import { useId, useState, type FormEvent } from 'react';
 
+import { useSaveAgentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import type { AgentSpec } from '../server/types.js';
@@ -17,6 +18,7 @@ export function SaveAgentButton() {
   const shell = useOptionalShellMode();
   const server = useOptionalServer();
   const { agentSpec } = useTrueFoundryAgentSpec();
+  const visible = useSaveAgentVisible();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [instructions, setInstructions] = useState('');
@@ -25,7 +27,7 @@ export function SaveAgentButton() {
   const nameId = useId();
   const instructionsId = useId();
 
-  if (shell?.mode.status !== 'active' || !shell.mode.isMutable || server == null) return null;
+  if (!visible || shell?.mode.status !== 'active' || !shell.mode.isMutable || server == null) return null;
 
   const editingAgentName = shell.mode.agentName ?? shell.mode.agentId;
   const isUpdate = editingAgentName != null && editingAgentName !== '';

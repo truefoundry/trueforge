@@ -12,10 +12,11 @@ export type ToastProps = {
   description: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  variant?: 'error' | 'success';
   className?: string;
 };
 
-export function Toast({ title, description, open, onOpenChange, className }: ToastProps) {
+export function Toast({ title, description, open, onOpenChange, variant = 'error', className }: ToastProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
@@ -40,11 +41,22 @@ export function Toast({ title, description, open, onOpenChange, className }: Toa
         className,
       )}
     >
-      <Icon name="circle-exclamation" size="1.25em" className="text-failure-bg shrink-0" />
+      <Icon
+        name={variant === 'success' ? 'circle-check' : 'circle-exclamation'}
+        size="1.25em"
+        className={cn('shrink-0', variant === 'success' ? 'text-success-bg' : 'text-failure-bg')}
+      />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <div className="text-failure-bg text-sm leading-none font-semibold">{title}</div>
+          <div
+            className={cn(
+              'text-sm leading-none font-semibold',
+              variant === 'success' ? 'text-success-bg' : 'text-failure-bg',
+            )}
+          >
+            {title}
+          </div>
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"

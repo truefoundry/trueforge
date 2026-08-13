@@ -1,5 +1,6 @@
 'use client';
 
+import { useNamedAgentHeaderVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { cn } from './lib/cn.js';
@@ -7,7 +8,8 @@ import { cn } from './lib/cn.js';
 /** Left-of-header title for an immutable (named) agent chat. Hidden for idle / draft. */
 export function NamedAgentHeaderLabel({ className }: { className?: string }) {
   const shell = useOptionalShellMode();
-  if (shell == null || shell.mode.status !== 'active' || shell.mode.isMutable) return null;
+  const visible = useNamedAgentHeaderVisible();
+  if (!visible || shell == null || shell.mode.status !== 'active') return null;
 
   const name = shell.mode.agentName ?? shell.mode.agentId;
   if (name == null || name.length === 0) return null;
