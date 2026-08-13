@@ -2,17 +2,17 @@
  * AgentBuilderServer callbacks for createTrueFoundryServer.
  * Composer pickers + agent library backed by the Harness agents registry.
  */
-import type { TrueForgeApi } from '@truefoundry/trueforge-sdk';
-import type {
-  AgentBuilderServer,
-  AgentLibraryEntry,
-  ModelSelection,
-  SearchAgentsParams,
-} from '@truefoundry/trueforge-ui';
-import { listConfiguredMcpServers, listSkills } from './composerLists';
-import { toUiConnectorFromReadEntry } from './connectorCatalog';
-import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
-import { agentManifest, toHarnessAgentSpec, toUiAgentSpec, type HarnessAgentSpec } from './harnessServer';
+import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
+import type { AgentBuilderServer, AgentLibraryEntry, ModelSelection, SearchAgentsParams } from '../../server/types.js';
+import { toUiConnectorFromReadEntry } from './catalogs/connectorCatalog.js';
+import { agentManifest, toHarnessAgentSpec, toUiAgentSpec } from './chatServer.js';
+import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
+import { listConfiguredMcpServers, listSkills } from './lists.js';
+import type { HarnessAgentSpec } from './types.js';
+
+export type CreateHarnessBuilderServerOptions = CreateTrueForgeClientOptions & {
+  client?: TrueForge;
+};
 
 /** Well-known catalog entries key logos by `type` (same as configured provider resource name). */
 export function modelProviderLogosByName(
@@ -53,10 +53,9 @@ function toLibraryEntry(agent: TrueForgeApi.Agent): AgentLibraryEntry {
 }
 
 export function createHarnessBuilderServer(
-  options: CreateHarnessClientOptions = {},
+  options: CreateHarnessBuilderServerOptions = {},
 ): AgentBuilderServer<HarnessAgentSpec> {
-  const client =
-    options.baseUrl === undefined && options.fetch === undefined ? harnessClient : createHarnessClient(options);
+  const client = options.client ?? createTrueForgeClient(options);
 
   return {
     getCapabilities: () => client.server.getCapabilities(),
@@ -77,10 +76,10 @@ export function createHarnessBuilderServer(
     },
     // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
     getSkills: async () => {
-      const skills = await listSkills();
+      const skills = await listSkills(client);
       return skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }));
     },
-    getMcp: async () => (await listConfiguredMcpServers()).map(toUiConnectorFromReadEntry),
+    getMcp: async () => (await listConfiguredMcpServers(client)).map(toUiConnectorFromReadEntry),
 
     async searchAgents(req?: SearchAgentsParams) {
       const { data } = await client.agents.list();

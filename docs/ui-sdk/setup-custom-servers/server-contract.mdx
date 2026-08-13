@@ -14,13 +14,25 @@ type TrueforgeServerConfig =
       gatewayPlaneURL?: string;
       catalog?: CatalogServer;
     }
-  | ({ type: "trueforge"; apiKey: string; catalog?: CatalogServer } & Record<string, unknown>)
+  | {
+      type: "trueforge";
+      baseUrl?: string;
+      token?: string;
+      fetch?: typeof fetch;
+      catalog?: CatalogServer;
+    }
   | AgentUIServer;
 ```
 
-Each form resolves differently. An `AgentUIServer` object is used immediately. A `truefoundry` config is resolved asynchronously, so the SDK renders a loading indicator (`role="status"`) for a moment first. A `trueforge` config is typed for the forthcoming harness adapter and currently resolves to a not-implemented error — see [Quickstart](/ui-sdk/get-started/quickstart#trueforge).
+Each form resolves differently. An `AgentUIServer` object is used immediately. Built-in configs
+(`truefoundry` / `trueforge`) resolve asynchronously, so the SDK renders a loading indicator
+(`role="status"`) for a moment first. `type: "trueforge"` loads
+`plugins/trueforge-agent-server-adapter` and composes a full Harness `AgentUIServer` — see
+[Quickstart](/ui-sdk/get-started/quickstart).
 
-`catalog` is optional on both built-in forms and is attached to the resolved server, which is how you enable the [settings UI](/ui-sdk/reference/catalog) without hand-building a server.
+`catalog` is optional on both built-in forms. For `truefoundry` it is attached after resolution; for
+`trueforge` it overrides the adapter's default settings catalogs. Either way it enables the
+[settings UI](/ui-sdk/reference/catalog) without hand-building a server.
 
 ## The composed contract
 

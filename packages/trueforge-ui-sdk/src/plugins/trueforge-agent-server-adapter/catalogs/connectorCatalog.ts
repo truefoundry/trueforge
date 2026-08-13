@@ -5,7 +5,7 @@
  * UI: `dcr` / `header` / `none`, connector `id`.
  * Harness: `dcr` / `header` / omitted auth, resource `name`.
  */
-import type { TrueForgeApi } from '@truefoundry/trueforge-sdk';
+import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type {
   ConnectorAuth,
   ConnectorAuthPublic,
@@ -15,8 +15,7 @@ import type {
   CreateConnectorRequest,
   ToolBase,
   UpdateConnectorRequest,
-} from '@truefoundry/trueforge-ui';
-import { harnessClient as client } from './harnessClient';
+} from '../../../server/types.js';
 
 export type UiConnectorAuth = ConnectorAuth;
 export type UiConnectorAuthPublic = ConnectorAuthPublic;
@@ -112,45 +111,10 @@ export function toHarnessManifest(req: { name: string; url: string; auth: Connec
   };
 }
 
-async function getConfigured(name: string): Promise<TrueForgeApi.ConfiguredMcpServer> {
-  const listed = await client.settings.mcpServers.list();
-  const existing = listed.data.find(server => server.name === name);
-  if (existing === undefined) {
-    throw new Error(`MCP server "${name}" not found`);
-  }
-  return existing;
-}
-
-async function resolveWriteAuth(req: { id?: string; auth: ConnectorAuth }): Promise<ConnectorAuth> {
-  if (req.auth.type !== 'header') {
-    return req.auth;
-  }
-  const apiKey = req.auth.apiKey?.trim();
-  if (apiKey !== undefined && apiKey !== '') {
-    return req.auth;
-  }
-  if (req.id === undefined) {
-    throw new Error('API key is required for header-authenticated MCP servers');
-  }
-  const existing = await getConfigured(req.id);
-  if (existing.auth?.type !== 'header') {
-    throw new Error(`MCP server "${req.id}" has no stored header credentials to reuse`);
-  }
-  const preferredHeader = req.auth.headerName?.trim();
-  const storedHeaderName = Object.keys(existing.auth.headers)[0];
-  const headerName =
-    preferredHeader !== undefined && preferredHeader !== ''
-      ? preferredHeader
-      : (storedHeaderName ?? DEFAULT_API_KEY_HEADER);
-  const stored = existing.auth.headers[headerName] ?? Object.values(existing.auth.headers)[0];
-  if (stored === undefined) {
-    throw new Error(`MCP server "${req.id}" has no stored header credentials to reuse`);
-  }
-  return { type: 'header', apiKey: stored, headerName };
-}
-
 /** Settings connector port for `createTrueFoundryServer`. Delete omitted; disconnect unsupported. */
-export function createConnectorCatalog(): ConnectorCatalogServer<
+export function createConnectorCatalog(
+  client: TrueForge,
+): ConnectorCatalogServer<
   ToolBase,
   UiConnectorAuth,
   UiConnectorAuthPublic,
@@ -159,6 +123,43 @@ export function createConnectorCatalog(): ConnectorCatalogServer<
   CreateConnectorRequest,
   UpdateConnectorRequest
 > {
+  async function getConfigured(name: string): Promise<TrueForgeApi.ConfiguredMcpServer> {
+    const listed = await client.settings.mcpServers.list();
+    const existing = listed.data.find(server => server.name === name);
+    if (existing === undefined) {
+      throw new Error(`MCP server "${name}" not found`);
+    }
+    return existing;
+  }
+
+  async function resolveWriteAuth(req: { id?: string; auth: ConnectorAuth }): Promise<ConnectorAuth> {
+    if (req.auth.type !== 'header') {
+      return req.auth;
+    }
+    const apiKey = req.auth.apiKey?.trim();
+    if (apiKey !== undefined && apiKey !== '') {
+      return req.auth;
+    }
+    if (req.id === undefined) {
+      throw new Error('API key is required for header-authenticated MCP servers');
+    }
+    const existing = await getConfigured(req.id);
+    if (existing.auth?.type !== 'header') {
+      throw new Error(`MCP server "${req.id}" has no stored header credentials to reuse`);
+    }
+    const preferredHeader = req.auth.headerName?.trim();
+    const storedHeaderName = Object.keys(existing.auth.headers)[0];
+    const headerName =
+      preferredHeader !== undefined && preferredHeader !== ''
+        ? preferredHeader
+        : (storedHeaderName ?? DEFAULT_API_KEY_HEADER);
+    const stored = existing.auth.headers[headerName] ?? Object.values(existing.auth.headers)[0];
+    if (stored === undefined) {
+      throw new Error(`MCP server "${req.id}" has no stored header credentials to reuse`);
+    }
+    return { type: 'header', apiKey: stored, headerName };
+  }
+
   return {
     getConnectorCatalog: async () => {
       const body = await client.catalog.mcpServers.list();

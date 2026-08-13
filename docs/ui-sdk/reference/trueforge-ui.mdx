@@ -15,11 +15,12 @@ import { TrueforgeUI } from "@truefoundry/trueforge-ui";
   <Expandable title="TrueforgeServerConfig">
     <ParamField path="type" type='"truefoundry" | "trueforge"'>
       Omit entirely to pass an `AgentUIServer` object directly — there is no `"custom"` wrapper.
-      `"trueforge"` is typed for the forthcoming harness adapter and currently resolves to a
-      not-implemented error.
+      `"trueforge"` loads the Harness adapter (`plugins/trueforge-agent-server-adapter`). See
+      [Quickstart](/ui-sdk/get-started/quickstart).
     </ParamField>
     <ParamField path="apiKey" type="string" required>
-      Required by both built-in types. Client-side keys are for local development only.
+      TrueFoundry API key. Required when `type` is `"truefoundry"`. Client-side keys are for local
+      development only.
     </ParamField>
     <ParamField path="controlPlaneURL" type="string" required>
       TrueFoundry control plane URL. Required when `type` is `"truefoundry"`.
@@ -27,12 +28,22 @@ import { TrueforgeUI } from "@truefoundry/trueforge-ui";
     <ParamField path="gatewayPlaneURL" type="string">
       Target a specific gateway. Resolved from the control plane when omitted.
     </ParamField>
+    <ParamField path="baseUrl" type="string">
+      TrueForge / Harness API root. Used when `type` is `"trueforge"`. Defaults to `'/'`.
+    </ParamField>
+    <ParamField path="token" type="string">
+      Bearer token for `@truefoundry/trueforge-sdk` when `type` is `"trueforge"`. Prefer `fetch` for
+      cookie / OIDC hosts.
+    </ParamField>
+    <ParamField path="fetch" type="typeof fetch">
+      Custom fetch for `type: "trueforge"` (cookie sessions, auth interceptors).
+    </ParamField>
     <ParamField path="catalog" type="CatalogServer">
-      Attach to enable the settings panel. See [Settings catalog](/ui-sdk/reference/catalog).
+      Attach or override settings catalogs. See [Settings catalog](/ui-sdk/reference/catalog).
     </ParamField>
   </Expandable>
 
-  See [Server contract](/ui-sdk/concepts/server-contract).
+  See [Server contract](/ui-sdk/setup-custom-servers/server-contract).
 </ParamField>
 
 <ParamField path="layout" type="LayoutProp" required>

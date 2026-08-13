@@ -33,6 +33,10 @@
       "types": "./dist/assistant-ui.d.ts",
       "default": "./dist/assistant-ui.js"
     },
+    "./plugins/trueforge-agent-server-adapter": {
+      "types": "./dist/plugins/trueforge-agent-server-adapter/index.d.ts",
+      "default": "./dist/plugins/trueforge-agent-server-adapter/index.js"
+    },
     "./styles.css": "./dist/styles.css"
   },
   "main": "./dist/index.js",

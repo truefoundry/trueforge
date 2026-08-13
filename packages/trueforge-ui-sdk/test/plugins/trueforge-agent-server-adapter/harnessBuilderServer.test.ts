@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-import { createHarnessBuilderServer, modelProviderLogosByName, toModelSelection } from '../src/harnessBuilderServer';
+import { describe, it } from 'vitest';
+
+import {
+  createHarnessBuilderServer,
+  modelProviderLogosByName,
+  toModelSelection,
+} from '@/plugins/trueforge-agent-server-adapter/builderServer.js';
 
 describe('harnessBuilderServer', () => {
   it('modelProviderLogosByName maps well-known catalog logos by type', () => {
