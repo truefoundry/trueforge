@@ -1,4 +1,4 @@
-import type { Sandbox } from '@daytona/sdk';
+import type { Sandbox, Snapshot } from '@daytona/sdk';
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
@@ -12,13 +12,7 @@ import {
   SandboxPathIsDirectoryError,
 } from '../SandboxErrors';
 import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
-import type {
-  ExecResult,
-  SandboxBuild,
-  SandboxExecParams,
-  SandboxFileInfo,
-  SandboxProvider,
-} from './Provider';
+import type { ExecResult, SandboxBuild, SandboxExecParams, SandboxFileInfo, SandboxProvider } from './Provider';
 
 const SANDBOX_NOT_FOUND_STATUS = 404;
 const SANDBOX_STATE_STARTED = 'started';
@@ -29,10 +23,6 @@ const BUILD_STATE_ERROR = 'error';
 const BUILD_STATE_BUILD_FAILED = 'build_failed';
 
 const IMAGE_BUILD_NAME_PREFIX = 'trueforge-build-';
-
-// The SDK does not export its branded `Snapshot` type, so recover it from the client surface:
-// take `daytona.snapshot.get`'s return type (`Promise<Snapshot>`) and unwrap the promise to `Snapshot`.
-type DaytonaSnapshot = Awaited<ReturnType<Daytona['snapshot']['get']>>;
 
 /**
  * Digest portion of a container image reference (the tag/digest after the final `:`)
@@ -53,7 +43,7 @@ function deriveImageBuildName(digest: string): string {
 }
 
 /** Terminal-failure build states: a build stuck here never becomes ready on its own. */
-function isFailedBuildState(state: DaytonaSnapshot['state']): boolean {
+function isFailedBuildState(state: Snapshot['state']): boolean {
   return state === BUILD_STATE_ERROR || state === BUILD_STATE_BUILD_FAILED;
 }
 
@@ -218,7 +208,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   }
 
   /** Resolves undefined when no snapshot carries that name; auth/other failures throw. */
-  private async getSnapshot(name: string): Promise<DaytonaSnapshot | undefined> {
+  private async getSnapshot(name: string): Promise<Snapshot | undefined> {
     try {
       return await this.daytona.snapshot.get(name);
     } catch (error) {
@@ -234,7 +224,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
    * deterministic name. A concurrent replica may have deleted it already (404) — that
    * is fine and treated as success.
    */
-  private async deleteFailedBuild(snapshot: DaytonaSnapshot): Promise<void> {
+  private async deleteFailedBuild(snapshot: Snapshot): Promise<void> {
     try {
       await this.daytona.snapshot.delete(snapshot);
     } catch (error) {
@@ -245,7 +235,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     }
   }
 
-  private toBuild(state: DaytonaSnapshot['state'], errorReason: string | null): SandboxBuild {
+  private toBuild(state: Snapshot['state'], errorReason: string | null): SandboxBuild {
     const metadata = { buildRef: this.buildRef, imageUri: this.imageUri };
     switch (state) {
       case BUILD_STATE_ACTIVE:

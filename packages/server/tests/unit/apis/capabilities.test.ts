@@ -1,8 +1,7 @@
-// Sandbox capability is driven by the live image status; stub it so tests never touch Daytona.
-jest.mock('../../../src/sandbox/providerUtils', () => ({ sandboxImageStatus: jest.fn() }));
+// Sandbox capability is driven by the refreshed image status; stub it so tests never touch Daytona.
+jest.mock('../../../src/sandbox/providerUtils', () => ({ checkSnapshotStatus: jest.fn() }));
 
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { SandboxBuild } from '@truefoundry/utils-core/core';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { Configuration } from 'openid-client';
 import { createLogger } from 'winston';
@@ -13,15 +12,16 @@ import type { OIDCConfig } from '../../../src/config';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
-import { sandboxImageStatus } from '../../../src/sandbox/providerUtils';
+import { checkSnapshotStatus } from '../../../src/sandbox/providerUtils';
+import type { SandboxBuildStatus, SandboxStatus } from '../../../src/schemas/sandboxProvider';
 
-const mockStatus = sandboxImageStatus as jest.Mock;
+const mockStatus = checkSnapshotStatus as jest.Mock;
 const silentLogger = createLogger({ silent: true });
 
-const buildWithStatus = (status: SandboxBuild['status']): SandboxBuild => ({
+const buildWithStatus = (status: SandboxBuildStatus): SandboxStatus => ({
   status,
-  reason: status === 'failed' ? 'Sandbox image build failed (build_failed).' : null,
-  metadata: { buildRef: 'trueforge-build-029ea5ff', imageUri: 'tfy.jfrog.io/tfy-images/sandbox:029ea5ff' },
+  status_reason: status === 'failed' ? 'Sandbox image build failed (build_failed).' : null,
+  build_metadata: { build_ref: 'trueforge-build-029ea5ff', image_uri: 'tfy.jfrog.io/tfy-images/sandbox:029ea5ff' },
 });
 
 const ISSUER = 'https://issuer.example.com';
@@ -103,14 +103,37 @@ describe('capabilities routers', () => {
     });
   });
 
-  it('reports sandbox disabled while the image is still pending', async () => {
+  it('reports sandbox disabled with a "being prepared" skill reason while the image is still pending', async () => {
     disableOidcAuth();
     mockStatus.mockResolvedValue(buildWithStatus('pending'));
     const router = makeRouter();
 
     const response = await router.request('/');
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ data: { sandbox: { enabled: false } } });
+    expect(await response.json()).toMatchObject({
+      data: {
+        sandbox: { enabled: false },
+        skill: {
+          enabled: false,
+          reason: 'Skills run in a sandbox whose image is still being prepared — retry shortly.',
+        },
+      },
+    });
+  });
+
+  it('reports "not configured" skill reason when the image build failed', async () => {
+    disableOidcAuth();
+    mockStatus.mockResolvedValue(buildWithStatus('failed'));
+    const router = makeRouter();
+
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        sandbox: { enabled: false },
+        skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
+      },
+    });
   });
 
   it('fails closed (sandbox disabled) when the status check throws', async () => {

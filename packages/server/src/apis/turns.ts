@@ -53,6 +53,7 @@ import {
   resolveGitSkills,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
+import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import { TENANT_ID } from './sessions';
 
 export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
@@ -184,16 +185,19 @@ function createTurnResolver(deps: {
           message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
         });
       }
-      // We are failing here even if the existingSandboxId is existing
-      // We dont do backward compatibility here.
-      const build = await provider.getImageBuildStatus();
-      if (build.status !== 'ready') {
-        throw new HTTPException(422, {
-          message:
-            build.status === 'failed'
-              ? `sandbox image build failed (${build.reason ?? 'unknown error'})`
-              : 'sandbox image is still being prepared — retry shortly',
-        });
+      // A fresh sandbox is cloned from the release snapshot, so the build must be ready first.
+      // Restoring an existing sandbox goes through daytona.get and never touches the snapshot,
+      // so reuse skips this gate entirely.
+      if (existingSandboxId === undefined) {
+        const status = await checkSnapshotStatus({ store: sandboxProviderStore, tenant_id: TENANT_ID, logger });
+        if (status?.status !== 'ready') {
+          throw new HTTPException(422, {
+            message:
+              status?.status === 'failed'
+                ? `sandbox image build failed (${status.status_reason ?? 'unknown error'})`
+                : 'sandbox image is activating — retry shortly',
+          });
+        }
       }
       const gitSkills = await resolveGitSkills({
         tenant_id: TENANT_ID,

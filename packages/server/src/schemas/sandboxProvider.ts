@@ -21,8 +21,10 @@ const DaytonaSandboxProviderAuthSchema = z
   .openapi('DaytonaSandboxProviderAuth');
 
 /**
- * Daytona-backed sandbox provider. Wire PUT body and persisted
- * `sandbox_provider.manifest` document share this shape.
+ * Daytona-backed sandbox provider config. Wire PUT body and persisted
+ * `sandbox_provider.manifest` document share this shape. Left unnamed for OpenAPI so
+ * `SandboxProviderManifest` (its single-variant alias) is the one emitted component and the
+ * response `manifest` field is a plain `$ref` instead of an `allOf` wrapper.
  */
 export const DaytonaSandboxProviderSchema = z
   .object({
@@ -45,8 +47,14 @@ export const DaytonaSandboxProviderSchema = z
       .nonnegative()
       .describe('Minutes before Daytona auto-deletes the sandbox (0 disables).'),
   })
-  .strict()
-  .openapi('DaytonaSandboxProvider');
+  .strict();
+
+/**
+ * Persisted jsonb + PUT body: the provider config only (no build status). Single variant today —
+ * this alias carries the OpenAPI name so the spec emits one `SandboxProviderManifest` component.
+ * Widen to `z.discriminatedUnion('type', [...])` when a second provider ships.
+ */
+export const SandboxProviderManifestSchema = DaytonaSandboxProviderSchema.openapi('SandboxProviderManifest');
 
 /** Named enum so the generated SDK exposes a reusable `SandboxBuildStatus` type. */
 export const SandboxBuildStatusSchema = z
@@ -54,42 +62,36 @@ export const SandboxBuildStatusSchema = z
   .describe('Current build status.')
   .openapi('SandboxBuildStatus');
 
-export const SandboxStatusSchema = z
+/** Provider-specific build identity, persisted alongside the status. */
+export const SandboxBuildMetadataSchema = z
   .object({
-    sandbox_status: z
-      .object({
-        status: SandboxBuildStatusSchema,
-        reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
-      })
-      .strict()
-      .describe('Live build status of the sandbox image.'),
-    build_metadata: z
-      .object({
-        build_ref: z.string().describe('Provider build handle derived from the image digest (e.g. Daytona snapshot name).'),
-        image_uri: z.string().describe('Full reference of the release sandbox image this build refers to.'),
-      })
-      .strict()
-      .describe('Provider-specific build identity.'),
+    build_ref: z.string().describe('Provider build handle derived from the image digest (e.g. Daytona snapshot name).'),
+    image_uri: z.string().describe('Full reference of the release sandbox image this build refers to.'),
   })
   .strict()
-  .openapi('SandboxStatus');
+  .openapi('SandboxBuildMetadata');
 
-/**
- * Wire + persisted sandbox provider. Single variant today — use this alias so
- * OpenAPI does not emit a one-member `oneOf` (Fern then invents ComponentsSchemas* types).
- * Widen to `z.discriminatedUnion('type', [...])` when a second provider ships.
- */
-export const SandboxProviderSchema = DaytonaSandboxProviderSchema;
+/** Build status + identity, without the provider manifest. Persisted and refreshed on read. */
+export const SandboxStatusSchema = z
+  .object({
+    status: SandboxBuildStatusSchema,
+    status_reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
+    build_metadata: SandboxBuildMetadataSchema,
+  })
+  .strict();
 
-/** GET/PUT response body: the stored provider plus its live sandbox status. */
-export const SandboxProviderResponseSchema = DaytonaSandboxProviderSchema.extend(SandboxStatusSchema.shape).openapi(
-  'SandboxProviderResponse',
-);
+/** GET/PUT response body: the stored provider manifest plus its build status. */
+export const SandboxProviderResponseSchema = z
+  .object({
+    manifest: SandboxProviderManifestSchema,
+    status: SandboxBuildStatusSchema,
+    status_reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
+    build_metadata: SandboxBuildMetadataSchema,
+  })
+  .strict()
+  .openapi('SandboxProviderResponse');
 
-/** Persisted jsonb — the provider config only (no image status). */
-export type SandboxProviderManifest = z.infer<typeof SandboxProviderSchema>;
-
-export const PutSandboxProviderRequestSchema = SandboxProviderSchema;
+export const PutSandboxProviderRequestSchema = SandboxProviderManifestSchema;
 
 export const PutSandboxProviderResponseSchema = z
   .object({
@@ -103,9 +105,11 @@ export const GetSandboxProviderResponseSchema = z
   })
   .openapi('GetSandboxProviderResponse');
 
+/** Persisted jsonb — the provider config only (no build status). */
+export type SandboxProviderManifest = z.infer<typeof SandboxProviderManifestSchema>;
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
-export type SandboxProvider = z.infer<typeof SandboxProviderSchema>;
 export type SandboxBuildStatus = z.infer<typeof SandboxBuildStatusSchema>;
+export type SandboxBuildMetadata = z.infer<typeof SandboxBuildMetadataSchema>;
 export type SandboxStatus = z.infer<typeof SandboxStatusSchema>;
 export type SandboxProviderResponse = z.infer<typeof SandboxProviderResponseSchema>;
 export type PutSandboxProviderRequest = z.infer<typeof PutSandboxProviderRequestSchema>;

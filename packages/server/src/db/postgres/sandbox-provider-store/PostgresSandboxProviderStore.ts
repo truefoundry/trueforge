@@ -2,6 +2,7 @@ import type { Kysely, Selectable, Transaction } from 'kysely';
 import {
   type ISandboxProviderStore,
   type SandboxProviderRecord,
+  type UpdateSandboxStatusInput,
   type UpsertSandboxProviderInput,
 } from '../../sandboxProviderStore';
 import { json, now } from '../sqlExpressions';
@@ -11,6 +12,9 @@ function toRecord(row: Selectable<SandboxProviderTable>): SandboxProviderRecord 
   return {
     tenant_id: row.tenant_id,
     manifest: row.manifest,
+    status: row.status,
+    status_reason: row.status_reason,
+    build_metadata: row.build_metadata,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -59,17 +63,42 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore<Trans
       .values({
         tenant_id: input.tenant_id,
         manifest: json(input.manifest),
+        status: input.status,
+        status_reason: input.status_reason,
+        build_metadata: json(input.build_metadata),
         created_at: now(),
         updated_at: now(),
       })
       .onConflict(oc =>
         oc.columns(['tenant_id']).doUpdateSet({
           manifest: json(input.manifest),
+          status: input.status,
+          status_reason: input.status_reason,
+          build_metadata: json(input.build_metadata),
           updated_at: now(),
         }),
       )
       .returningAll()
       .executeTakeFirstOrThrow();
     return toRecord(row);
+  }
+
+  async updateSandboxStatus(
+    input: UpdateSandboxStatusInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxProviderRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
+      .updateTable('sandbox_provider')
+      .set({
+        status: input.status,
+        status_reason: input.status_reason,
+        build_metadata: json(input.build_metadata),
+        updated_at: now(),
+      })
+      .where('tenant_id', '=', input.tenant_id)
+      .returningAll()
+      .executeTakeFirst();
+    return row === undefined ? undefined : toRecord(row);
   }
 }

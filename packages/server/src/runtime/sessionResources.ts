@@ -21,7 +21,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
-import { getSandboxProvider } from '../sandbox/providerUtils';
+import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
 
 export interface McpConnection {
@@ -221,7 +221,7 @@ export async function resolveSandboxProvider({
   if (record === undefined) {
     return undefined;
   }
-  return getSandboxProvider({ manifest: record.manifest, tenant_id, logger });
+  return toDaytonaSandboxProvider({ manifest: record.manifest, tenant_id, logger });
 }
 
 /**

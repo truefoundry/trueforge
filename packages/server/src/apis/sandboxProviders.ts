@@ -1,11 +1,16 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { withTimeout } from '@truefoundry/utils-core/core';
+import { withTimeout } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
-import { getSandboxProvider, isDaytonaAuthError, toSandboxStatus } from '../sandbox/providerUtils';
-import type { SandboxProvider } from '../schemas/sandboxProvider';
+import {
+  checkSnapshotStatus,
+  isDaytonaAuthError,
+  toDaytonaSandboxProvider,
+  toSandboxStatus,
+} from '../sandbox/providerUtils';
+import type { SandboxProviderManifest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
@@ -18,7 +23,7 @@ export interface SandboxProvidersRouterDeps<TTransaction> {
   logger: Logger;
 }
 
-function redactSandboxProvider(manifest: SandboxProvider): SandboxProvider {
+function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProviderManifest {
   return {
     ...manifest,
     auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) },
@@ -32,15 +37,30 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     if (record === undefined) {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
-    // Build status is not persisted; read it live from the provider on every GET.
-    const provider = getSandboxProvider({ manifest: record.manifest, tenant_id: TENANT_ID, logger: deps.logger });
-    const build = await provider.getImageBuildStatus();
-    return c.json({ data: { ...redactSandboxProvider(record.manifest), ...toSandboxStatus(build) } }, 200);
+    // Refresh the persisted build status (and re-activate an idle snapshot) on every GET.
+    const status = await checkSnapshotStatus({
+      store: deps.sandboxProviderStore,
+      tenant_id: TENANT_ID,
+      logger: deps.logger,
+    });
+    return c.json(
+      {
+        data: {
+          manifest: redactSandboxProvider(record.manifest),
+          ...(status ?? {
+            status: record.status,
+            status_reason: record.status_reason,
+            build_metadata: record.build_metadata,
+          }),
+        },
+      },
+      200,
+    );
   };
 
   const putHandler: RouteHandler<typeof putSandboxProviderRoute> = async c => {
-    const incoming: SandboxProvider = c.req.valid('json');
-    const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProvider => ({
+    const incoming: SandboxProviderManifest = c.req.valid('json');
+    const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProviderManifest => ({
       ...incoming,
       auth: {
         api_key: resolveStoredSecretValue({
@@ -51,18 +71,20 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     });
     try {
       // NOTE: build (Daytona network I/O) runs inside the transaction for now; the design is being revisited.
-      const { manifest, build } = await deps.withTransaction(async transaction => {
+      const { manifest, status } = await deps.withTransaction(async transaction => {
         const locked = await deps.sandboxProviderStore.getSandboxProviderForUpdate(TENANT_ID, transaction);
         const resolved = resolveManifest(locked);
-        const provider = getSandboxProvider({ manifest: resolved, tenant_id: TENANT_ID, logger: deps.logger });
-        const built = await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage');
+        const provider = toDaytonaSandboxProvider({ manifest: resolved, tenant_id: TENANT_ID, logger: deps.logger });
+        const built = toSandboxStatus(
+          await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
+        );
         await deps.sandboxProviderStore.upsertSandboxProvider(
-          { tenant_id: TENANT_ID, manifest: resolved },
+          { tenant_id: TENANT_ID, manifest: resolved, ...built },
           transaction,
         );
-        return { manifest: resolved, build: built };
+        return { manifest: resolved, status: built };
       });
-      return c.json({ data: { ...redactSandboxProvider(manifest), ...toSandboxStatus(build) } }, 200);
+      return c.json({ data: { manifest: redactSandboxProvider(manifest), ...status } }, 200);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'API key is required' } }, 400);

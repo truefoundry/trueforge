@@ -90,7 +90,7 @@
     "@ai-sdk/openai-compatible": "^3.0.18",
     "@ai-sdk/provider": "^4.0.4",
     "@ai-sdk/provider-utils": "^5.0.16",
-    "@daytona/sdk": "^0.190.0",
+    "@daytona/sdk": "^0.204.1",
     "@hono/zod-openapi": "^1.5.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@nats-io/nats-core": "3.0.2",
