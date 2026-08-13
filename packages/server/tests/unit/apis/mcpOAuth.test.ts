@@ -122,7 +122,13 @@ describe('MCP OAuth authorize + callback', () => {
     const put = await settingsRouter.request('/', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ type: 'remote', name, url: MCP_URL, auth: { type: 'dcr' } }),
+      body: JSON.stringify({
+        type: 'remote',
+        name,
+        url: MCP_URL,
+        description: 'OAuth MCP server.',
+        auth: { type: 'dcr' },
+      }),
     });
     expect(put.status).toBe(200);
 
@@ -144,6 +150,7 @@ describe('MCP OAuth authorize + callback', () => {
         type: 'remote',
         name: 'oauth-mcp',
         url: MCP_URL,
+        description: 'OAuth MCP server.',
         auth: { type: 'dcr' },
       }),
     });
@@ -226,6 +233,7 @@ describe('MCP OAuth authorize + callback', () => {
         type: 'remote',
         name: 'oauth-mcp-scoped',
         url: MCP_URL,
+        description: 'OAuth MCP server.',
         auth: { type: 'dcr' },
       }),
     });

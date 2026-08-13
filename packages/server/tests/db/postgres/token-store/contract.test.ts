@@ -36,7 +36,12 @@ describePg('PostgresOAuthTokenStore (IOAuthTokenStore contract)', () => {
     return {
       store: new PostgresOAuthTokenStore(db),
       async seedResource(id) {
-        const manifest: McpServerManifest = { type: 'remote', name: id, url: 'https://mcp.example.com/sse' };
+        const manifest: McpServerManifest = {
+          type: 'remote',
+          name: id,
+          url: 'https://mcp.example.com/sse',
+          description: 'Test MCP server.',
+        };
         await db
           .insertInto('mcp_server')
           .values({
