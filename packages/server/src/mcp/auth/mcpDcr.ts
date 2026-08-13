@@ -171,7 +171,7 @@ export async function createMcpOAuthClient(params: {
   });
 }
 
-export async function ensureMcpClientRegistered<TTransaction = never>(params: {
+export async function ensureMcpClientRegistered<TTransaction>(params: {
   mcpServerStore: IOAuthClientStore<TTransaction>;
   serverId: string;
   mcpServerUrl: string;
@@ -196,7 +196,7 @@ export async function ensureMcpClientRegistered<TTransaction = never>(params: {
   return client;
 }
 
-export async function buildMcpAuthorizationUrl<TTransaction = never>(params: {
+export async function buildMcpAuthorizationUrl<TTransaction>(params: {
   tokenStore: IOAuthTokenStore<TTransaction>;
   mcpServerStore: IOAuthClientStore<TTransaction>;
   serverId: string;
@@ -245,7 +245,7 @@ export async function buildMcpAuthorizationUrl<TTransaction = never>(params: {
   return started.authorizationUrl;
 }
 
-export async function resolveMcpAuth<TTransaction = never>(params: {
+export async function resolveMcpAuth<TTransaction>(params: {
   tokenStore: IOAuthTokenStore<TTransaction>;
   mcpServerStore: IOAuthClientStore<TTransaction>;
   serverId: string;
