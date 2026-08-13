@@ -30,6 +30,7 @@ type ConfigureSandboxFormProps = {
 
 /** Sensible defaults so the advanced fields are never blank, even without a catalog preset. */
 const EMPTY_CONFIG: SandboxProviderConfig = {
+  // Snapshot/image is release-owned now; kept only to satisfy the external SandboxProviderConfig type.
   snapshotName: '',
   execTimeoutMs: 300000,
   autoStopIntervalInMinutes: 15,
@@ -57,7 +58,6 @@ const ConfigureSandboxForm = ({
   busy = false,
   error,
 }: ConfigureSandboxFormProps) => {
-  const [snapshotName, setSnapshotName] = useState('');
   const [execTimeoutMs, setExecTimeoutMs] = useState('');
   const [autoStopIntervalInMinutes, setAutoStopIntervalInMinutes] = useState('');
   const [autoArchiveIntervalInMinutes, setAutoArchiveIntervalInMinutes] = useState('');
@@ -66,7 +66,6 @@ const ConfigureSandboxForm = ({
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const resetForm = () => {
-    setSnapshotName('');
     setExecTimeoutMs('');
     setAutoStopIntervalInMinutes('');
     setAutoArchiveIntervalInMinutes('');
@@ -78,7 +77,6 @@ const ConfigureSandboxForm = ({
   useEffect(() => {
     if (!open) return;
     const config = initialConfig ?? EMPTY_CONFIG;
-    setSnapshotName(config.snapshotName);
     setExecTimeoutMs(String(config.execTimeoutMs));
     setAutoStopIntervalInMinutes(String(config.autoStopIntervalInMinutes));
     setAutoArchiveIntervalInMinutes(String(config.autoArchiveIntervalInMinutes));
@@ -99,7 +97,6 @@ const ConfigureSandboxForm = ({
   const trimmedKey = apiKey.trim();
 
   const isValid =
-    !!snapshotName.trim() &&
     (!requireApiKey || !!trimmedKey) &&
     execTimeout != null &&
     autoStop != null &&
@@ -114,7 +111,8 @@ const ConfigureSandboxForm = ({
 
     try {
       await onSave({
-        snapshotName: snapshotName.trim(),
+        // Snapshot/image is release-owned; the field is retained only for the external type.
+        snapshotName: '',
         execTimeoutMs: execTimeout,
         autoStopIntervalInMinutes: autoStop,
         autoArchiveIntervalInMinutes: autoArchive,
@@ -147,24 +145,6 @@ const ConfigureSandboxForm = ({
       <form className="flex flex-col overflow-y-auto p-5 md:p-6" onSubmit={handleSubmit}>
         <div className="space-y-4">
           <div>
-            <label htmlFor="sandbox-snapshot-name" className="mb-1.5 block text-sm font-medium text-text-primary">
-              Snapshot name
-            </label>
-            <input
-              id="sandbox-snapshot-name"
-              type="text"
-              required
-              value={snapshotName}
-              onChange={event => {
-                setSnapshotName(event.target.value);
-              }}
-              placeholder="daytona-default"
-              autoFocus
-              className={inputClassName}
-            />
-          </div>
-
-          <div>
             <label htmlFor="sandbox-api-key" className="mb-1.5 block text-sm font-medium text-text-primary">
               API key
               {!requireApiKey ? <span className="font-normal text-text-secondary"> (optional)</span> : null}
@@ -178,6 +158,7 @@ const ConfigureSandboxForm = ({
                 setApiKey(event.target.value);
               }}
               placeholder={requireApiKey ? 'dtn_...' : 'Leave blank to keep existing'}
+              autoFocus
               className={inputClassName}
             />
           </div>

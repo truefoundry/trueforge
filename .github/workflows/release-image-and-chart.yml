@@ -48,7 +48,7 @@ jobs:
     with:
       artifactory_registry_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
       artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
-      image_artifact_name: truefoundry-utils
+      image_artifact_name: trueforge
       image_tag: ${{ github.sha }}
       image_context: .
       dockerfile_path: Dockerfile
@@ -71,7 +71,7 @@ jobs:
       # commit SHA while remaining packageable. Image tag stays the raw SHA.
       VERSION: 0.0.0-${{ github.sha }}
       IMAGE_TAG: ${{ github.sha }}
-      CHART_DIR: charts/truefoundry-utils
+      CHART_DIR: charts/trueforge
       HELM_REGISTRY_URL: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
       HELM_REGISTRY_USERNAME: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME }}
       HELM_REGISTRY_PASSWORD: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD }}
@@ -118,7 +118,7 @@ jobs:
 
       - name: Print image URI
         env:
-          IMAGE_URI: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}/truefoundry-utils:${{ github.sha }}
+          IMAGE_URI: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}/trueforge:${{ github.sha }}
         run: |
           set -euo pipefail
           echo "Pushed image URI: $IMAGE_URI"

@@ -108,7 +108,7 @@ describe('SandboxSettings', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Snapshot name')).toHaveProperty('value', 'daytona-default');
+      expect(screen.getByRole('button', { name: /Advanced settings/ })).toBeTruthy();
     });
     fireEvent.click(screen.getByRole('button', { name: /Advanced settings/ }));
     expect(screen.getByLabelText('Exec timeout (ms)')).toHaveProperty('value', '300000');
@@ -129,7 +129,8 @@ describe('SandboxSettings', () => {
       catalogId: 'cat-daytona',
       name: 'Daytona',
       type: 'daytona',
-      snapshotName: 'daytona-default',
+      // Snapshot/image is release-owned now; the UI always sends an empty placeholder.
+      snapshotName: '',
       execTimeoutMs: 300000,
       autoStopIntervalInMinutes: 15,
       autoArchiveIntervalInMinutes: 10080,
@@ -166,7 +167,7 @@ describe('SandboxSettings', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Update' }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Snapshot name')).toHaveProperty('value', 'custom-snap');
+      expect(screen.getByRole('button', { name: /Advanced settings/ })).toBeTruthy();
     });
     fireEvent.click(screen.getByRole('button', { name: /Advanced settings/ }));
     expect(screen.getByLabelText('Exec timeout (ms)')).toHaveProperty('value', '60000');
@@ -180,7 +181,7 @@ describe('SandboxSettings', () => {
     });
     expect(host.updated[0]).toEqual({
       id: 'sb-1',
-      snapshotName: 'custom-snap',
+      snapshotName: '',
       execTimeoutMs: 60000,
       autoStopIntervalInMinutes: 30,
       autoArchiveIntervalInMinutes: 1440,

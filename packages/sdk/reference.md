@@ -2635,7 +2635,6 @@ await client.settings.sandboxProviders.upsert({
     autoDeleteIntervalInMinutes: 1,
     autoStopIntervalInMinutes: 1,
     execTimeoutMs: 1,
-    snapshotName: "snapshot_name",
     type: "daytona"
 });
 
@@ -2653,7 +2652,7 @@ await client.settings.sandboxProviders.upsert({
 <dl>
 <dd>
 
-**request:** `TrueForge.DaytonaSandboxProvider` 
+**request:** `TrueForge.SandboxProviderManifest` 
     
 </dd>
 </dl>

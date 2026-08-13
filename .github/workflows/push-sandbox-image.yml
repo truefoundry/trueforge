@@ -22,7 +22,7 @@ jobs:
     with:
       artifactory_registry_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
       artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
-      image_artifact_name: truefoundry-utils-core-sandbox
+      image_artifact_name: trueforge-sandbox
       image_tag: ${{ github.sha }}
       image_context: packages/harness/scripts/sandbox
       dockerfile_path: packages/harness/scripts/sandbox/sandbox.Dockerfile
@@ -41,7 +41,7 @@ jobs:
     steps:
       - name: Print image URI
         env:
-          IMAGE_URI: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}/truefoundry-utils-core-sandbox:${{ github.sha }}
+          IMAGE_URI: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}/trueforge-sandbox:${{ github.sha }}
         run: |
           set -euo pipefail
           echo "Pushed image URI: $IMAGE_URI"

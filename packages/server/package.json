@@ -1,9 +1,22 @@
 {
   "name": "@truefoundry/trueforge",
-  "version": "0.2.0-rc.2",
-  "description": "TrueFoundry agent server + UI (npx @truefoundry/trueforge)",
-  "author": "Truefoundry",
+  "version": "0.0.0",
+  "description": "TrueForge agent server + UI (npx @truefoundry/trueforge)",
+  "author": "TrueFoundry",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/truefoundry/trueforge.git",
+    "directory": "packages/server"
+  },
+  "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/server#readme",
+  "bugs": {
+    "url": "https://github.com/truefoundry/trueforge/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
   "private": false,
   "type": "module",
   "bin": "./dist/cli.js",
@@ -34,7 +47,7 @@
     "typecheck": "pnpm run build:gen && tsc --noEmit && tsc --noEmit -p tests/db/tsconfig.json && tsc --noEmit -p tests/unit/tsconfig.json"
   },
   "dependencies": {
-    "@daytona/sdk": "^0.190.0",
+    "@daytona/sdk": "^0.204.1",
     "@hono/node-server": "^2.0.11",
     "@hono/swagger-ui": "^0.2.1",
     "@hono/zod-openapi": "^1.5.1",

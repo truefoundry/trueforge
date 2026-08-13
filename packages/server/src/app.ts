@@ -160,6 +160,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createCapabilitiesRouter({
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
+        logger: deps.logger,
       }),
     ),
   );
