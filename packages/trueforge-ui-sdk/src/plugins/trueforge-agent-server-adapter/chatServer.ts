@@ -69,14 +69,6 @@ export function toUiAgentSpec(spec: TrueForgeApi.AgentSpec): HarnessAgentSpec {
   };
 }
 
-/** Drop registry identity columns so the rest is a plain AgentSpec. */
-export function agentManifest(agent: TrueForgeApi.Agent): TrueForgeApi.AgentSpec {
-  const { id, name, ...spec } = agent;
-  void id;
-  void name;
-  return spec;
-}
-
 function toUiSession(session: TrueForgeApi.Session): Session<HarnessAgentSpec> {
   return {
     id: session.id,

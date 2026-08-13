@@ -39,7 +39,6 @@ export {
 } from './catalogs/sandboxProviderCatalog.js';
 export { createSkillCatalog, toHarnessManifest as toHarnessSkillManifest, toUiSkill } from './catalogs/skillCatalog.js';
 export {
-  agentManifest,
   createHarnessChatServer,
   toHarnessAgentSpec,
   toUiAgentSpec,

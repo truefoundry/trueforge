@@ -24,36 +24,33 @@
         ]
       },
       "Agent": {
-        "allOf": [
-          {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Immutable server-generated agent identifier.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "manifest": {
             "$ref": "#/components/schemas/AgentSpec"
           },
-          {
-            "properties": {
-              "id": {
-                "description": "Immutable server-generated agent identifier.",
-                "minLength": 1,
-                "type": "string"
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
               },
-              "name": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/ResourceName"
-                  },
-                  {
-                    "description": "Immutable unique agent name within the tenant."
-                  }
-                ]
+              {
+                "description": "Fully qualified name. Unique within a tenant."
               }
-            },
-            "required": [
-              "id",
-              "name"
-            ],
-            "type": "object"
+            ]
           }
+        },
+        "required": [
+          "id",
+          "name",
+          "manifest"
         ],
-        "description": "Complete agent definition used inline on a session or saved as a named agent."
+        "type": "object"
       },
       "AgentInfo": {
         "properties": {
@@ -181,32 +178,6 @@
           "content"
         ],
         "type": "object"
-      },
-      "AgentWriteRequest": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/AgentSpec"
-          },
-          {
-            "properties": {
-              "name": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/ResourceName"
-                  },
-                  {
-                    "description": "Fully qualified name. Unique within a tenant."
-                  }
-                ]
-              }
-            },
-            "required": [
-              "name"
-            ],
-            "type": "object"
-          }
-        ],
-        "description": "Complete agent definition used inline on a session or saved as a named agent."
       },
       "AlibabaModelProvider": {
         "additionalProperties": false,
@@ -808,14 +779,26 @@
         },
         "type": "object"
       },
-      "CreateAgentResponse": {
+      "CreateAgentRequest": {
+        "additionalProperties": false,
         "properties": {
-          "data": {
-            "$ref": "#/components/schemas/Agent"
+          "manifest": {
+            "$ref": "#/components/schemas/AgentSpec"
+          },
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           }
         },
         "required": [
-          "data"
+          "name",
+          "manifest"
         ],
         "type": "object"
       },
@@ -1007,6 +990,10 @@
         "required": [
           "api_key"
         ],
+        "type": "object"
+      },
+      "DeleteAgentResponse": {
+        "properties": {},
         "type": "object"
       },
       "DynamicSubAgentsConfig": {
@@ -2491,14 +2478,15 @@
         "default": "auto",
         "description": "Defaults to 'auto' (chain to session last turn). Use 'none' for a new root turn."
       },
-      "PutAgentResponse": {
+      "PutAgentRequest": {
+        "additionalProperties": false,
         "properties": {
-          "data": {
-            "$ref": "#/components/schemas/Agent"
+          "manifest": {
+            "$ref": "#/components/schemas/AgentSpec"
           }
         },
         "required": [
-          "data"
+          "manifest"
         ],
         "type": "object"
       },
@@ -4044,49 +4032,6 @@
           }
         ]
       },
-      "UpdateAgentRequest": {
-        "description": "Complete agent definition used inline on a session or saved as a named agent.",
-        "properties": {
-          "config": {
-            "$ref": "#/components/schemas/RuntimeConfig"
-          },
-          "instructions": {
-            "description": "Optional system prompt — the agent's role, behavior, and constraints.",
-            "type": "string"
-          },
-          "mcp_servers": {
-            "description": "Optional MCP servers attached by configured name.",
-            "items": {
-              "$ref": "#/components/schemas/MCPServer"
-            },
-            "type": "array"
-          },
-          "messages": {
-            "description": "Optional seed user messages injected at the start of every session.",
-            "items": {
-              "$ref": "#/components/schemas/AgentSpecUserMessage"
-            },
-            "type": "array"
-          },
-          "model": {
-            "$ref": "#/components/schemas/AgentSpecModel"
-          },
-          "response_format": {
-            "$ref": "#/components/schemas/ResponseFormat"
-          },
-          "skills": {
-            "description": "Optional name-only skill references. Requires `config.sandbox.enabled: true`.",
-            "items": {
-              "$ref": "#/components/schemas/SkillNameRef"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "model"
-        ],
-        "type": "object"
-      },
       "UpdateSessionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4298,18 +4243,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AgentWriteRequest"
+                "$ref": "#/components/schemas/CreateAgentRequest"
               }
             }
           },
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreateAgentResponse"
+                  "$ref": "#/components/schemas/GetAgentResponse"
                 }
               }
             },
@@ -4374,7 +4319,14 @@
           }
         ],
         "responses": {
-          "204": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteAgentResponse"
+                }
+              }
+            },
             "description": "Agent deleted."
           },
           "401": {
@@ -4443,26 +4395,20 @@
           "agents"
         ],
         "x-fern-sdk-method-name": "get"
-      }
-    },
-    "/api/v1/agents/{name}": {
+      },
       "put": {
-        "description": "Replaces the AgentSpec for an existing agent keyed by immutable `name`.",
+        "description": "Replaces the manifest for an existing agent keyed by immutable `agent_id`.",
         "parameters": [
           {
-            "description": "Immutable unique agent name within the tenant.",
+            "description": "Immutable agent identifier.",
             "in": "path",
-            "name": "name",
+            "name": "agent_id",
             "required": true,
             "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/ResourceName"
-                },
-                {
-                  "description": "Immutable unique agent name within the tenant."
-                }
-              ]
+              "description": "Immutable agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
             }
           }
         ],
@@ -4470,7 +4416,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateAgentRequest"
+                "$ref": "#/components/schemas/PutAgentRequest"
               }
             }
           },
@@ -4481,7 +4427,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PutAgentResponse"
+                  "$ref": "#/components/schemas/GetAgentResponse"
                 }
               }
             },

@@ -20,15 +20,27 @@ const modelProvider = {
   ],
 };
 
-const writeBody = {
-  name: 'research',
+const manifest = {
   model: { name: 'anthropic/claude-sonnet-4-6' },
   instructions: 'Be helpful.',
 };
 
+const writeBody = {
+  name: 'research',
+  manifest,
+};
+
 const updateBody = {
-  model: { name: 'anthropic/claude-sonnet-4-6' },
-  instructions: 'Updated instructions.',
+  manifest: {
+    model: { name: 'anthropic/claude-sonnet-4-6' },
+    instructions: 'Updated instructions.',
+  },
+};
+
+type WireAgent = {
+  id: string;
+  name: string;
+  manifest: { model: { name: string }; instructions?: string };
 };
 
 function jsonInit(method: string, body: unknown): RequestInit {
@@ -57,45 +69,48 @@ describe('agents router', () => {
     });
   });
 
-  it('POST returns a flattened Agent; PUT by immutable name keeps the same id', async () => {
+  it('POST returns a wrapped Agent; PUT by immutable id keeps the same id', async () => {
     const created = await router.request('/', jsonInit('POST', writeBody));
-    expect(created.status).toBe(200);
-    const createdJson = (await created.json()) as {
-      data: { id: string; name: string; model: { name: string }; instructions?: string };
-    };
-    // HTTP wire flattens store.manifest onto the response; id is allocated server-side.
+    expect(created.status).toBe(201);
+    const createdJson = (await created.json()) as { data: WireAgent };
     expect(createdJson.data.id.length).toBeGreaterThan(0);
     expect(createdJson.data).toMatchObject({
       name: 'research',
-      model: { name: 'anthropic/claude-sonnet-4-6' },
-      instructions: 'Be helpful.',
+      manifest: {
+        model: { name: 'anthropic/claude-sonnet-4-6' },
+        instructions: 'Be helpful.',
+      },
     });
 
-    const updated = await router.request('/research', jsonInit('PUT', updateBody));
+    const updated = await router.request(`/${createdJson.data.id}`, jsonInit('PUT', updateBody));
     expect(updated.status).toBe(200);
-    const updatedJson = (await updated.json()) as {
-      data: { id: string; name: string; instructions?: string };
-    };
+    const updatedJson = (await updated.json()) as { data: WireAgent };
     expect(updatedJson.data.id).toBe(createdJson.data.id);
-    expect(updatedJson.data.instructions).toBe('Updated instructions.');
+    expect(updatedJson.data.name).toBe('research');
+    expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
   });
 
-  it('GET returns 404 for unknown ids; PUT returns 404 for unknown names', async () => {
+  it('GET and PUT return 404 for unknown ids', async () => {
     const get = await router.request('/missing-agent-id');
     expect(get.status).toBe(404);
 
-    const put = await router.request('/missing-agent', jsonInit('PUT', updateBody));
+    const put = await router.request('/missing-agent-id', jsonInit('PUT', updateBody));
     expect(put.status).toBe(404);
   });
 
   it('DELETE removes an agent by id and is idempotent', async () => {
     const created = await router.request('/', jsonInit('POST', { ...writeBody, name: 'deletable' }));
-    expect(created.status).toBe(200);
+    expect(created.status).toBe(201);
     const { data } = (await created.json()) as { data: { id: string } };
 
-    expect((await router.request(`/${data.id}`, { method: 'DELETE' })).status).toBe(204);
+    const deleted = await router.request(`/${data.id}`, { method: 'DELETE' });
+    expect(deleted.status).toBe(200);
+    expect(await deleted.json()).toEqual({});
+
     expect((await router.request(`/${data.id}`)).status).toBe(404);
-    expect((await router.request(`/${data.id}`, { method: 'DELETE' })).status).toBe(204);
+    const deletedAgain = await router.request(`/${data.id}`, { method: 'DELETE' });
+    expect(deletedAgain.status).toBe(200);
+    expect(await deletedAgain.json()).toEqual({});
   });
 
   it('POST rejects invalid bodies, unknown models, and duplicate names', async () => {
@@ -104,12 +119,15 @@ describe('agents router', () => {
 
     const unknownModel = await router.request(
       '/',
-      jsonInit('POST', { ...writeBody, name: 'other', model: { name: 'missing/model' } }),
+      jsonInit('POST', {
+        name: 'other',
+        manifest: { ...manifest, model: { name: 'missing/model' } },
+      }),
     );
     expect(unknownModel.status).toBe(422);
 
     const first = await router.request('/', jsonInit('POST', { ...writeBody, name: 'alpha' }));
-    expect(first.status).toBe(200);
+    expect(first.status).toBe(201);
 
     const clash = await router.request('/', jsonInit('POST', { ...writeBody, name: 'alpha' }));
     expect(clash.status).toBe(409);
