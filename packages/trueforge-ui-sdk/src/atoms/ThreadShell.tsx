@@ -34,7 +34,7 @@ export const ThreadViewportShell = forwardRef<HTMLDivElement, ThreadViewportShel
       ref={ref}
       data-slot="aui_thread-viewport"
       className={cn(
-        'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain scroll-smooth',
+        'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain',
         className,
       )}
       {...rest}
