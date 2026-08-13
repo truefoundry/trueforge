@@ -122,6 +122,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Cache prettier
+        uses: actions/cache@v6.1.0
+        with:
+          path: .prettiercache
+          key: prettier-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', '.prettierrc', '.prettierignore', 'package.json') }}
+
       - name: Format
         run: pnpm format:check
 
