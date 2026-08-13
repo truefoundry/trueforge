@@ -8,8 +8,9 @@ import {
   type TextMessagePart,
 } from '@assistant-ui/react';
 import { useTrueFoundryDownloadSandboxFile } from '@truefoundry/assistant-ui-runtime';
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
+import { MARKDOWN_SMOOTH_BACKLOG_CHARS, useThrottledMarkdownText } from '../hooks/useThrottledMarkdownText.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { useToasterOptional } from './ToasterContainer.js';
 
@@ -36,15 +37,42 @@ export function AssistantTextContainer() {
   const downloadRef = useRef({ downloadSandboxFile, toaster });
   downloadRef.current = { downloadSandboxFile, toaster };
   const partState = useAuiState(s => s.part as MessagePartState & (TextMessagePart | ReasoningMessagePart));
-  const smoothedPart = useSmooth(partState, {
-    drainMs: 300,
-    maxCharIntervalMs: 6,
-    maxCharsPerFrame: 32,
-    minCommitMs: 48,
+
+  // Preserve the typewriter effect while it keeps pace. If its visible prefix falls too far
+  // behind the raw stream, latch this part into bounded latest-prefix snapshots instead of
+  // animating an ever-growing queue. We intentionally do not re-enable useSmooth for this part:
+  // its private cursor still points at the old prefix and could visibly rewind the message.
+  const pacedModeRef = useRef(false);
+  const smoothedPart = useSmooth(
+    partState,
+    pacedModeRef.current
+      ? false
+      : {
+          drainMs: 150,
+          maxCharIntervalMs: 4,
+          maxCharsPerFrame: 128,
+          minCommitMs: 48,
+        },
+  );
+
+  const networkComplete = partState.status?.type !== 'running';
+  const smoothLag = partState.text.length - smoothedPart.text.length;
+  if (!pacedModeRef.current && !networkComplete && smoothLag >= MARKDOWN_SMOOTH_BACKLOG_CHARS) {
+    pacedModeRef.current = true;
+  }
+  const usePacedMode = pacedModeRef.current;
+
+  const pacedText = useThrottledMarkdownText(partState.text, {
+    enabled: usePacedMode,
+    isComplete: networkComplete,
   });
-  const text = smoothedPart.text;
-  // true while network stream is active OR while reveal is still catching up
-  const isStreaming = smoothedPart.status?.type === 'running';
+
+  const text = usePacedMode ? pacedText : smoothedPart.text;
+  // true while network stream is active OR while reveal/paced commit is still catching up
+  const isStreaming = usePacedMode
+    ? !networkComplete || text !== partState.text
+    : smoothedPart.status?.type === 'running';
+
   const handleDownloadArtifact = useCallback(async (path: string) => {
     const { downloadSandboxFile, toaster } = downloadRef.current;
     try {
@@ -58,5 +86,9 @@ export function AssistantTextContainer() {
     }
   }, []);
 
-  return <Markdown content={text} isStreaming={isStreaming} onDownloadArtifact={handleDownloadArtifact} />;
+  // Skip markdown re-parse when a raw SSE tick did not advance the committed display text.
+  return useMemo(
+    () => <Markdown content={text} isStreaming={isStreaming} onDownloadArtifact={handleDownloadArtifact} />,
+    [Markdown, text, isStreaming, handleDownloadArtifact],
+  );
 }
