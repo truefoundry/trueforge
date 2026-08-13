@@ -55,6 +55,11 @@ describe('validateAgentSpec', () => {
         store: stores.modelProviderStore,
       }),
     ).resolves.toMatchObject({
+      providerConfig: {
+        provider: { type: 'custom', name: 'test-provider' },
+        model: { id: 'test-model', name: 'test-model' },
+        name: 'test-provider/test-model',
+      },
       defaultModelParams: { max_tokens: 4096 },
     });
   });
