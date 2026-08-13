@@ -1,7 +1,6 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, McpConnectionError } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
-import type { WithTransaction } from '../db/transaction';
 import { completeMcpAuthorization } from '../mcp/auth/mcpDcr';
 import type { IOAuthClientStore, IOAuthTokenStore, OAuthPendingAuthorization } from '../mcp/auth/types';
 import { mcpOAuthCallbackRoute } from '../routes/mcpOAuthRoutes';
@@ -9,7 +8,6 @@ import { mcpOAuthCallbackRoute } from '../routes/mcpOAuthRoutes';
 export interface McpOAuthRouterDeps<TTransaction> {
   tokenStore: IOAuthTokenStore<TTransaction>;
   mcpServerStore: IOAuthClientStore<TTransaction>;
-  withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
 }
 
@@ -77,7 +75,6 @@ export function createMcpOAuthRouter<TTransaction>(deps: McpOAuthRouterDeps<TTra
       await completeMcpAuthorization({
         tokenStore: deps.tokenStore,
         mcpServerStore: deps.mcpServerStore,
-        withTransaction: deps.withTransaction,
         pending,
         code,
       });
