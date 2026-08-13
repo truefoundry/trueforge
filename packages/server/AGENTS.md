@@ -24,7 +24,7 @@ If a settings resource is one-per-tenant (e.g. sandbox provider), keep the plura
 
 Prefer reusing `GetFooResponse` when create/update return the same item.
 
-Writable config without `id` → `FooManifest`.
+**Request body vs manifest:** OpenAPI create/put bodies MUST be titled `CreateFooRequest` / `PutFooRequest`. `FooManifest` is the persisted jsonb document (store/DB), not the HTTP operation name. When the PUT body _is_ that document, share one Zod schema and alias — e.g. `PutFooRequestSchema = FooManifestSchema.openapi('PutFooRequest')` (keep `FooManifest` as the TS/DB type). Do not use Manifest for session/turn-style creates or PATCH `UpdateFooRequest` bodies that are not the stored blob.
 
 Settings list → `ListFoosResponse`; chat → `ListAvailableFoosResponse`; catalog → `ListCatalogFoosResponse` / item `CatalogFoo`.
 
