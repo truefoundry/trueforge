@@ -17,9 +17,8 @@ describe("SandboxProvidersClient", () => {
                 auto_stop_interval_in_minutes: 1,
                 exec_timeout_ms: 1,
                 type: "daytona",
-                metadata: { build_ref: "build_ref", image_tag: "image_tag" },
-                reason: "reason",
-                status: "pending",
+                build_metadata: { build_ref: "build_ref", image_uri: "image_uri" },
+                sandbox_status: { reason: "reason", status: "pending" },
             },
         };
 
@@ -42,12 +41,14 @@ describe("SandboxProvidersClient", () => {
                 autoStopIntervalInMinutes: 1,
                 execTimeoutMs: 1,
                 type: "daytona",
-                metadata: {
+                buildMetadata: {
                     buildRef: "build_ref",
-                    imageTag: "image_tag",
+                    imageUri: "image_uri",
                 },
-                reason: "reason",
-                status: "pending",
+                sandboxStatus: {
+                    reason: "reason",
+                    status: "pending",
+                },
             },
         });
     });
@@ -90,9 +91,8 @@ describe("SandboxProvidersClient", () => {
                 auto_stop_interval_in_minutes: 1,
                 exec_timeout_ms: 1,
                 type: "daytona",
-                metadata: { build_ref: "build_ref", image_tag: "image_tag" },
-                reason: "reason",
-                status: "pending",
+                build_metadata: { build_ref: "build_ref", image_uri: "image_uri" },
+                sandbox_status: { reason: "reason", status: "pending" },
             },
         };
 
@@ -125,12 +125,14 @@ describe("SandboxProvidersClient", () => {
                 autoStopIntervalInMinutes: 1,
                 execTimeoutMs: 1,
                 type: "daytona",
-                metadata: {
+                buildMetadata: {
                     buildRef: "build_ref",
-                    imageTag: "image_tag",
+                    imageUri: "image_uri",
                 },
-                reason: "reason",
-                status: "pending",
+                sandboxStatus: {
+                    reason: "reason",
+                    status: "pending",
+                },
             },
         });
     });

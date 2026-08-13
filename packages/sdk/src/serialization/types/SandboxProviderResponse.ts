@@ -4,24 +4,22 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { DaytonaSandboxProvider } from "./DaytonaSandboxProvider.js";
-import { SandboxBuildStatus } from "./SandboxBuildStatus.js";
-import { SandboxProviderResponseMetadata } from "./SandboxProviderResponseMetadata.js";
+import { SandboxProviderResponseBuildMetadata } from "./SandboxProviderResponseBuildMetadata.js";
+import { SandboxProviderResponseSandboxStatus } from "./SandboxProviderResponseSandboxStatus.js";
 
 export const SandboxProviderResponse: core.serialization.ObjectSchema<
     serializers.SandboxProviderResponse.Raw,
     TrueForge.SandboxProviderResponse
 > = core.serialization
     .object({
-        metadata: SandboxProviderResponseMetadata,
-        reason: core.serialization.string().nullable(),
-        status: SandboxBuildStatus,
+        buildMetadata: core.serialization.property("build_metadata", SandboxProviderResponseBuildMetadata),
+        sandboxStatus: core.serialization.property("sandbox_status", SandboxProviderResponseSandboxStatus),
     })
     .extend(DaytonaSandboxProvider);
 
 export declare namespace SandboxProviderResponse {
     export interface Raw extends DaytonaSandboxProvider.Raw {
-        metadata: SandboxProviderResponseMetadata.Raw;
-        reason?: string | null;
-        status: SandboxBuildStatus.Raw;
+        build_metadata: SandboxProviderResponseBuildMetadata.Raw;
+        sandbox_status: SandboxProviderResponseSandboxStatus.Raw;
     }
 }

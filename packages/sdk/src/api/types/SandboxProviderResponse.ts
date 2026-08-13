@@ -3,9 +3,8 @@
 import type * as TrueForge from "../index.js";
 
 export interface SandboxProviderResponse extends TrueForge.DaytonaSandboxProvider {
-    /** Provider-specific build details. */
-    metadata: TrueForge.SandboxProviderResponseMetadata;
-    /** Human-readable detail for the current status; null when ready. */
-    reason: string | null;
-    status: TrueForge.SandboxBuildStatus;
+    /** Provider-specific build identity. */
+    buildMetadata: TrueForge.SandboxProviderResponseBuildMetadata;
+    /** Live build status of the sandbox image. */
+    sandboxStatus: TrueForge.SandboxProviderResponseSandboxStatus;
 }

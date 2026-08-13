@@ -2900,40 +2900,50 @@
           {
             "additionalProperties": false,
             "properties": {
-              "metadata": {
+              "build_metadata": {
                 "additionalProperties": false,
-                "description": "Provider-specific build details.",
+                "description": "Provider-specific build identity.",
                 "properties": {
                   "build_ref": {
-                    "description": "Provider build handle (e.g. Daytona snapshot name).",
+                    "description": "Provider build handle derived from the image digest (e.g. Daytona snapshot name).",
                     "type": "string"
                   },
-                  "image_tag": {
-                    "description": "Tag of the release sandbox image this build refers to.",
+                  "image_uri": {
+                    "description": "Full reference of the release sandbox image this build refers to.",
                     "type": "string"
                   }
                 },
                 "required": [
                   "build_ref",
-                  "image_tag"
+                  "image_uri"
                 ],
                 "type": "object"
               },
-              "reason": {
-                "description": "Human-readable detail for the current status; null when ready.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "status": {
-                "$ref": "#/components/schemas/SandboxBuildStatus"
+              "sandbox_status": {
+                "additionalProperties": false,
+                "description": "Live build status of the sandbox image.",
+                "properties": {
+                  "reason": {
+                    "description": "Human-readable detail for the current status; null when ready.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/SandboxBuildStatus"
+                  }
+                },
+                "required": [
+                  "status",
+                  "reason"
+                ],
+                "type": "object"
               }
             },
             "required": [
-              "status",
-              "reason",
-              "metadata"
+              "sandbox_status",
+              "build_metadata"
             ],
             "type": "object"
           }
