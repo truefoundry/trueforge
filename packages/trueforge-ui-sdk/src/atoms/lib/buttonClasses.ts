@@ -21,7 +21,7 @@ const sizeClasses: Record<AuiButtonSize, string> = {
 };
 
 const baseClasses =
-  'inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring disabled:pointer-events-none disabled:opacity-50';
+  'inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50';
 
 /** Shared Button / native `<button>` className helper (SDK utilities are layered). */
 export function auiButtonClass({

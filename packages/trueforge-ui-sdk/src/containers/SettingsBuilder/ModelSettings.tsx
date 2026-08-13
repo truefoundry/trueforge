@@ -41,6 +41,7 @@ const ModelSettings = () => {
   const [baseUrl, setBaseUrl] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [customProviderOpen, setCustomProviderOpen] = useState(false);
+  const [customProviderToEdit, setCustomProviderToEdit] = useState<ModelProviderBase | null>(null);
 
   const modelProviderIconMap = useMemo(() => {
     return (catalog ?? []).reduce(
@@ -219,6 +220,40 @@ const ModelSettings = () => {
     }, 0);
   };
 
+  const handleUpdateCustomProvider = async (draft: CustomProviderDraft) => {
+    if (!customProviderToEdit) return;
+
+    const provider = customProviderToEdit;
+    setFormError(null);
+    await runMutation(
+      async () => {
+        await modelCatalog.updateModelProvider({
+          id: provider.id,
+          type: provider.type,
+          name: provider.name,
+          baseUrl: draft.baseUrl,
+          apiKey: draft.apiKey,
+          models: draft.models,
+        });
+      },
+      err => setFormError(getErrorMessage(err, 'Request failed')),
+    );
+    setTimeout(() => {
+      toaster?.showSuccess({
+        title: 'Model provider updated',
+        description: `${provider.name} was updated successfully.`,
+      });
+    }, 0);
+  };
+
+  const customProviderInitialValues = customProviderToEdit
+    ? {
+        name: customProviderToEdit.name,
+        baseUrl: customProviderToEdit.baseUrl ?? '',
+        models: customProviderToEdit.models,
+      }
+    : undefined;
+
   const renderKeyEditor = (opts: { id: string; submitLabel: string; onSave: () => void; isReplacingKey?: boolean }) => (
     <form
       className="mt-4 rounded-lg bg-secondary-bg/40 p-4"
@@ -315,6 +350,7 @@ const ModelSettings = () => {
               type="button"
               onClick={() => {
                 setFormError(null);
+                setCustomProviderToEdit(null);
                 setCustomProviderOpen(true);
               }}
             >
@@ -364,25 +400,32 @@ const ModelSettings = () => {
                               <span className="h-1.5 w-1.5 rounded-full bg-success-bg"></span>
                               Connected
                             </span>
-                            {editingProviderId === provider.id ? null : (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                className="text-[0.8125rem]"
-                                type="button"
-                                disabled={busy}
-                                onClick={() => {
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="text-[0.8125rem]"
+                              type="button"
+                              aria-label={`Edit ${provider.name}`}
+                              title={`Edit ${provider.name}`}
+                              disabled={busy}
+                              onClick={() => {
+                                if (provider.type === 'custom') {
+                                  closeKeyEditor();
+                                  setFormError(null);
+                                  setCustomProviderToEdit(provider);
+                                  setCustomProviderOpen(true);
+                                } else {
                                   setEditingCatalogType(null);
                                   setEditingProviderId(provider.id);
                                   setApiKey('');
                                   setBaseUrl(provider.baseUrl ?? '');
                                   setAdvancedOpen(false);
-                                }}
-                              >
-                                <Icon name="wrench" className="size-3.5" />
-                                Edit
-                              </Button>
-                            )}
+                                }
+                              }}
+                            >
+                              <Icon name="wrench" className="size-3.5" />
+                              Edit
+                            </Button>
                             {modelCatalog.deleteModelProvider ? (
                               <Button
                                 variant="outline"
@@ -542,12 +585,18 @@ const ModelSettings = () => {
           </div>
 
           <CustomModelProviderForm
+            key={customProviderToEdit?.id ?? 'add-custom-provider'}
             open={customProviderOpen}
             onOpenChange={open => {
               setCustomProviderOpen(open);
-              if (!open) setFormError(null);
+              if (!open) {
+                setFormError(null);
+                setCustomProviderToEdit(null);
+              }
             }}
-            onAdd={handleAddCustomProvider}
+            isEditMode={customProviderToEdit !== null}
+            initialValues={customProviderInitialValues}
+            onSubmit={customProviderToEdit ? handleUpdateCustomProvider : handleAddCustomProvider}
             reasoningEffortOptions={supportedReasoningEfforts}
             busy={busy}
             error={formError}
