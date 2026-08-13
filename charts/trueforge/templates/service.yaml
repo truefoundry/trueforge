@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "truefoundry-utils.fullname" . }}
+  name: {{ include "trueforge.fullname" . }}
   labels:
-    {{- include "truefoundry-utils.labels" . | nindent 4 }}
+    {{- include "trueforge.labels" . | nindent 4 }}
     {{- with .Values.service.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -19,4 +19,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "truefoundry-utils.selectorLabels" . | nindent 4 }}
+    {{- include "trueforge.selectorLabels" . | nindent 4 }}

@@ -1,45 +1,76 @@
 # Releasing
 
-Two public packages ship from this repo:
+Two pipelines ship from this repo:
 
-| Package                       | Source             | How it publishes                                                |
-| ----------------------------- | ------------------ | --------------------------------------------------------------- |
-| `@truefoundry/trueforge-core` | `packages/harness` | From package root (`dist/`)                                     |
-| `@truefoundry/trueforge`      | `packages/server`  | From package root (`dist/`, including `dist/_frontend/` for UI) |
+| What                      | Trigger                     | Workflow                                                                                         |
+| ------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------ |
+| Four public npm packages  | Push to `main` (Changesets) | [`.github/workflows/release.yml`](.github/workflows/release.yml)                                 |
+| Server image + Helm chart | Manual `workflow_dispatch`  | [`.github/workflows/release-image-and-chart.yml`](.github/workflows/release-image-and-chart.yml) |
 
-The git tag `v*` must match **`packages/harness` (`@truefoundry/trueforge-core`) version**.
-`@truefoundry/trueforge` may use an independent version — bump it in the same release PR
-whenever the app/CLI changes. CI publishes **core first**, then `@truefoundry/trueforge` (so
-`workspace:*` rewrites to the core version that just landed on npm).
+They are independent. Publishing npm does not stamp or push the chart, and the chart workflow does not publish npm.
 
-> **Currently only `@truefoundry/trueforge-core` publishes.** The `@truefoundry/trueforge`
-> publish step in `release.yml` is deferred (`TODO`); CI still builds and tests it.
+| Package                       | Source                      | Notes                                          |
+| ----------------------------- | --------------------------- | ---------------------------------------------- |
+| `@truefoundry/trueforge-core` | `packages/harness`          | Library. `files: ["dist"]`.                    |
+| `@truefoundry/trueforge`      | `packages/server`           | App + CLI. Tarball includes `dist/_frontend/`. |
+| `@truefoundry/trueforge-sdk`  | `packages/sdk`              | Fern-generated client. Do not hand-edit.       |
+| `@truefoundry/trueforge-ui`   | `packages/trueforge-ui-sdk` | Embeddable chat UI.                            |
+
+`frontend` is private and is not published; the server build copies its output into `dist/_frontend/`.
+
+Internal deps use `workspace:*`. On publish, pnpm rewrites those to the exact version in the dependency's `package.json`. `changeset publish` publishes in dependency order (core before server, sdk before ui), so a published dependent never points at an unpublished dep from the same run.
 
 ---
 
-# Releasing `@truefoundry/trueforge-core`
+# Releasing npm packages
 
-Interim setup for the fast development phase: the library in
-`packages/harness` is published **publicly** to npm as `@truefoundry/trueforge-core`
-so the gateway can consume it like any normal dependency. The real
-open-source release happens later — every deferred item carries a
-`TODO(oss):` comment in code so we can grep for them when that day comes.
+## Per-release flow
 
-> **Reality check we've accepted:** a public npm package is discoverable
-> regardless of its name (npm's public change feed is scraped, and the
-> package is listed on npmjs.com/org/truefoundry). Anything that must NOT be
-> effectively public should not ship in the tarball. Note: sourcemaps are
-> currently **enabled** (`sourcemap: true` in tsup, `declarationMap` in
-> tsconfig.build.json), which embeds/references original TypeScript source in
-> the published tarball — this is a deliberate, accepted trade-off for now.
+There is no `v*` git-tag publish. One workflow both versions and publishes:
 
-## Publishing model
+1. **Land a changeset on `main`.** In the same PR as the code change:
 
-The package publishes from the package root (`packages/harness`), same as
-every other package in this repo. The build compiles every `src/**/*.ts` to
-its own `.js` (CJS) + `.mjs` (ESM) + `.d.ts` triple under `dist/`, and
-`package.json`'s `exports` map points at `./dist/...` paths; `files: ["dist"]`
-scopes the published tarball to just the compiled output. Consequences:
+   ```bash
+   pnpm changeset
+   # or, non-interactive:
+   pnpm change --bump patch --summary "…" @truefoundry/trueforge-core
+   ```
+
+   Name only the packages that should bump. A dep can ship without its dependent (the dependent's `workspace:*` stays untouched until that package is itself changeset + published). SDK regen on a PR already adds `@truefoundry/trueforge-sdk` via `pnpm changeset:sdk-regen`.
+
+2. **Merge to `main`.** `.github/workflows/release.yml` runs. If `.changeset/*.md` files are pending, `changesets/action` opens (or updates) a **Version Packages** PR. That PR is `pnpm run version`: `changeset version`, then `pnpm sdk:generate` only if `@truefoundry/trueforge-sdk`'s version actually moved (Fern rebakes version literals). Review the version bumps and CHANGELOGs, then merge.
+
+3. **Merging Version Packages publishes.** The same workflow sees no pending changesets and runs `pnpm release` (`pnpm build && changeset publish`). Auth is trusted publishing (OIDC — no `NPM_TOKEN`). pnpm 11 implements the OIDC token exchange natively. Watch the repo Actions tab.
+
+   **Dist-tags:** while `.changeset/pre.json` exists (`pnpm changeset pre enter rc`), publishes use the `rc` dist-tag, not `latest`. After `pnpm changeset pre exit`, the next Version Packages merge publishes to `latest`. Install an RC with `npx @truefoundry/trueforge@rc` or `@0.1.0-rc.1`; bare `npx @truefoundry/trueforge` stays on `latest`.
+
+4. **Bump the pinned version in downstream consumers** (e.g. the gateway). Pin exact versions (no `^`) during the fast 0.x churn:
+
+   ```json
+   "@truefoundry/trueforge-core": "0.x.y"
+   ```
+
+`workflow_dispatch` on **Release** re-runs the same job (useful after a bot-only commit that GitHub did not chain into this workflow).
+
+A push to `main` with **no** pending changesets still runs `changeset publish`, which publishes any package whose current `package.json` version is not yet on npm and no-ops the rest. The first time this workflow lands on `main`, unpublished packages at `0.1.0-rc.1` will try to publish.
+
+## Prerelease mode
+
+Pre mode is repo-wide (`.changeset/pre.json`), not per-package. The repo is currently in `rc`.
+
+| Goal                 | Command                       | Then                                                                      |
+| -------------------- | ----------------------------- | ------------------------------------------------------------------------- |
+| Stay on RCs          | (already in pre)              | Normal PRs + Version Packages. Versions look like `0.1.0-rc.N`.           |
+| Ship stable `latest` | `pnpm changeset pre exit`     | Commit the deleted `pre.json`, merge, then merge the Version Packages PR. |
+| Start a new RC line  | `pnpm changeset pre enter rc` | Commit `pre.json`, merge, continue as above.                              |
+
+`pre enter` / `pre exit` do not bump versions or publish. The Version Packages PR is what versions; merging it is what publishes.
+
+Do not mix “this package stable, that package RC” in one `changeset version` — exit pre only when the next publish should be GA.
+
+## Publishing model (`@truefoundry/trueforge-core`)
+
+The package publishes from the package root (`packages/harness`), same as every other package in this repo. The build compiles every `src/**/*.ts` to its own `.js` (CJS) + `.mjs` (ESM) + `.d.ts` triple under `dist/`, and `package.json`'s `exports` map points at `./dist/...` paths; `files: ["dist"]` scopes the published tarball to just the compiled output. Consequences:
 
 - Deep imports keep the same specifier as before, e.g.
   `@truefoundry/trueforge-core/core/llm/LLMTypes` — the package's own `"./*"`
@@ -65,60 +96,19 @@ scopes the published tarball to just the compiled output. Consequences:
   explicit `--conditions=trueforge-dev` opt-in, which no external
   consumer would ever set — so it ships as truly inert dead weight.
 
-## Per-release flow
+> **Reality check we've accepted:** a public npm package is discoverable
+> regardless of its name (npm's public change feed is scraped, and the
+> package is listed on npmjs.com/org/truefoundry). Anything that must NOT be
+> effectively public should not ship in the tarball. Note: sourcemaps are
+> currently **enabled** (`sourcemap: true` in tsup, `declarationMap` in
+> tsconfig.build.json), which embeds/references original TypeScript source in
+> the published tarball — this is a deliberate, accepted trade-off for now.
+> Every deferred OSS item carries a `TODO(oss):` comment so we can grep for
+> them when that day comes.
 
-1. **Bump versions via PR** (direct pushes to `main` are blocked by org
-   ruleset):
+## Why dependents pin exact versions
 
-   ```bash
-   git checkout -b release/v0.x.y
-   cd packages/harness
-   npm version 0.x.y --no-git-tag-version   # or 0.x.y-rc.N for a prerelease
-   cd ../server
-   npm version 0.x.y --no-git-tag-version   # bump when the app/CLI changes; may differ from core
-   cd ../..
-   git add packages/harness/package.json packages/server/package.json
-   git commit -m "chore: release v0.x.y"
-   git push -u origin release/v0.x.y
-   ```
-
-   Open the PR, get 1 approval, squash-merge.
-
-2. **Tag the merged commit** (tags trigger the publish):
-
-   ```bash
-   git checkout main && git pull
-   git tag v0.x.y          # must equal packages/harness version (e.g. v0.1.9-rc.1)
-   git push origin v0.x.y
-   ```
-
-3. **CI publishes automatically.** `.github/workflows/release.yml` installs,
-   builds, tests, verifies the tag matches `packages/harness/package.json`, then
-   runs `pnpm publish` from `packages/harness`. (The `@truefoundry/trueforge`
-   publish is deferred — see the note above.)
-
-   Auth is trusted publishing (OIDC — no `NPM_TOKEN`). pnpm 11 implements the
-   OIDC token exchange natively (no npm CLI involved). Watch the repo Actions tab.
-
-   **Dist-tags:** CI passes an explicit `--tag` for prereleases, derived from the
-   semver prerelease id (`0.2.0-rc.1` → `--tag rc`). Stable releases publish to
-   `latest`. Install with `npx @truefoundry/trueforge@rc` or `@0.2.0-rc.1`; bare
-   `npx @truefoundry/trueforge` stays on `latest`.
-
-4. **Bump the pinned version in the gateway.** Pin exact versions (no `^`)
-   during the fast 0.x churn:
-
-   ```json
-   "@truefoundry/trueforge-core": "0.x.y"
-   ```
-
-## Why core must publish before `@truefoundry/trueforge`
-
-`@truefoundry/trueforge` depends on `@truefoundry/trueforge-core: workspace:*`. On
-publish, pnpm rewrites that to the **version in `packages/harness/package.json`**.
-If that core version is missing from npm (or is an older build without exports
-the server imports), `npx @truefoundry/trueforge` fails at runtime. Always ship
-matching core and `@truefoundry/trueforge` together when the app uses new core APIs.
+`@truefoundry/trueforge` depends on `@truefoundry/trueforge-core: workspace:*` (and `@truefoundry/trueforge-ui` on the sdk the same way). On publish, pnpm rewrites that to the **version in the dependency's `package.json`**. If that version is missing from npm, `npx @truefoundry/trueforge` fails at runtime. Changeset both packages in the same Version Packages PR when the dependent uses new APIs from the dep.
 
 ## Local iteration without publishing
 
@@ -134,23 +124,24 @@ cd packages/server && pnpm pack
 Point consumers at a tarball via a `file:` dependency (or use `yalc`).
 Publish a real version when CI or teammates need it.
 
+## npm trusted publishing
+
+Each of the four packages must list this repo + workflow as a trusted publisher on npmjs.com:
+
+- Repository: `truefoundry/trueforge`
+- Workflow filename: `release.yml` (must match exactly; renaming the file breaks publish)
+- No environment name (the job does not use a GitHub Environment)
+
+Packages that have never been published need that trusted-publisher row **before** the first `changeset publish` (npm allows creating a package via OIDC when the org is configured for it). `@truefoundry/trueforge-core` already publishes this way; sdk / ui / server need the same config before they can land.
+
 ## Troubleshooting
 
-- **Publish fails requiring a tag**: prerelease versions need `--tag`.
-  CI handles this; for local publishes use e.g. `pnpm publish --tag rc`.
-- **Publish fails with 403/E403**: version already published (npm versions
-  are immutable — bump and re-tag), or the trusted publisher config doesn't
-  match the workflow filename/repo exactly.
-- **Tag/version mismatch failure**: the guard step caught a tag that doesn't
-  match `packages/harness/package.json`. Delete the tag
-  (`git push origin :refs/tags/vX.Y.Z`), fix the version via PR, re-tag.
-- **Missing `dist/_frontend/index.html`**: root `pnpm build` must build
-  `frontend` before `@truefoundry/trueforge`; the release job fails closed if the
-  copy is absent.
-- **OIDC/auth error in the publish step**: trusted publishing requires
-  pnpm >= 11.0.7 (native OIDC token exchange; `pnpm/action-setup@v4` reads the
-  pinned version from root `packageManager`) and the npmjs.com trusted
-  publisher config (repo + workflow filename + ref) matching exactly.
+- **Version Packages PR never appears**: no `.changeset/*.md` on `main` (only `config.json` / `README.md` / `pre.json` stay). Add a changeset in a PR and merge, or run **Release** via `workflow_dispatch`.
+- **Publish fails requiring a tag**: prerelease versions need the `rc` dist-tag. `changeset publish` sets that while pre mode is on; for a local publish use `pnpm publish --tag rc`.
+- **Publish fails with 403/E403**: version already published (npm versions are immutable — add a changeset and merge Version Packages again), or the trusted publisher config doesn't match the workflow filename/repo exactly.
+- **OIDC/auth error in the publish step**: trusted publishing requires pnpm >= 11.0.7 (native OIDC; `pnpm/action-setup@v4` reads the pinned version from root `packageManager`) and the npmjs.com trusted publisher config matching exactly. Do not set `NPM_TOKEN` — a registry `_authToken` disables the OIDC exchange.
+- **Missing `dist/_frontend/index.html`**: root `pnpm build` must build `frontend` before `@truefoundry/trueforge`; the release job fails closed if the copy is absent.
+- **Version PR did not regenerate the SDK**: `scripts/version.mjs` only runs `pnpm sdk:generate` when `@truefoundry/trueforge-sdk`'s version changed. That step needs Docker on the runner (already true on `ubuntu-latest`).
 
 ## Deferred to the real OSS release — grep for `TODO(oss)`
 
@@ -160,7 +151,6 @@ CODE_OF_CONDUCT, issue/PR templates.
 | Item                                                                               | Where                                                   |
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | Ship README (currently no `README.md` in `packages/harness`, npm page stays blank) | packages/harness                                        |
-| Add repository/homepage/bugs/keywords metadata                                     | packages/harness/package.json                           |
 | Add `--provenance` to publish                                                      | .github/workflows/release.yml                           |
 | Private-repo links in shipped sandbox scripts                                      | packages/harness/src/core/sandbox/scripts/mcp_client.py |
 | Sourcemaps/declarationMap decision                                                 | packages/harness/tsup.config.ts, tsconfig.build.json    |
@@ -172,7 +162,7 @@ CODE_OF_CONDUCT, issue/PR templates.
 # Releasing the server image + Helm chart
 
 A separate pipeline ships the deployable artifacts: the server container image
-(API + UI, built from the root `Dockerfile`) and the `charts/truefoundry-utils` Helm
+(API + UI, built from the root `Dockerfile`) and the `charts/trueforge` Helm
 chart. It is driven by `.github/workflows/release-image-and-chart.yml` and runs
 only on manual **`workflow_dispatch`** (Actions → "Release image and Helm chart"
 → Run workflow).
@@ -189,7 +179,7 @@ The dispatch commit SHA is the image tag. The workflow:
    `version` to `0.0.0-<sha>` (Helm SemVer-compatible prerelease), and
    `appVersion` / `image.tag` to the raw SHA. It does **not** commit those
    stamps back to `main`.
-3. **Publishes the chart** — packages `charts/truefoundry-utils` and pushes it to
+3. **Publishes the chart** — packages `charts/trueforge` and pushes it to
    the JFrog public OCI Helm repo. It does not attach artifacts to a GitHub
    Release.
 
@@ -200,9 +190,8 @@ The dispatch commit SHA is the image tag. The workflow:
 2. Watch the run. The image and chart land in JFrog; the job summary prints the
    image URI.
 
-> Publishing `@truefoundry/trueforge-core` (via `pnpm publish`) is a separate pipeline
-> (`release.yml`) triggered by a `vX.Y.Z` GitHub Release tag that must match
-> `packages/harness/package.json`. It is independent of this image/chart
+> Publishing the npm packages is a separate pipeline (`release.yml`) triggered
+> by pushes to `main` via Changesets. It is independent of this image/chart
 > workflow.
 
 ## Required repository configuration
@@ -217,7 +206,7 @@ Org/repo **secrets**: `TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME`,
 ## Bundled dependencies
 
 The chart bundles Postgres and Redis as optional Bitnami subcharts, declared in
-`charts/truefoundry-utils/Chart.yaml` against the public Bitnami OCI archive
+`charts/trueforge/Chart.yaml` against the public Bitnami OCI archive
 (`oci://registry-1.docker.io/bitnamicharts`) and pinned by the committed
 `Chart.lock`. The workflow fetches them with `helm dependency build` before
 packaging (the archive is public, no auth). Disable them with
@@ -225,7 +214,7 @@ packaging (the archive is public, no auth). Disable them with
 
 **Images vs charts.** Bitnami left the charts public but relocated their
 container images to `docker.io/bitnamilegacy` (frozen, no security updates). So
-`charts/truefoundry-utils/values.yaml` overrides the subchart images to pinned legacy
+`charts/trueforge/values.yaml` overrides the subchart images to pinned legacy
 tags mirrored to the TrueFoundry JFrog registry, and sets
 `global.security.allowInsecureImages: true` (required once the registry differs
 from Bitnami's default). Mirror the images once per pinned tag:
@@ -251,7 +240,7 @@ Fetch the subchart deps first (public archive, no auth), then lint/template:
 
 ```bash
 pnpm chart:deps       # helm dependency build (writes charts/, uses Chart.lock)
-pnpm chart:lint       # helm lint with charts/truefoundry-utils/ci/lint-values.yaml
+pnpm chart:lint       # helm lint with charts/trueforge/ci/lint-values.yaml
 pnpm chart:template   # render the manifests
 pnpm chart:package    # package to dist/ (gitignored)
 ```

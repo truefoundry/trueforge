@@ -1,6 +1,6 @@
-# truefoundry-utils Helm chart
+# trueforge Helm chart
 
-Deploys the TrueFoundry Utils server, a single container image that serves both the API
+Deploys the TrueForge server, a single container image that serves both the API
 and the UI (built from the repository-root `Dockerfile`).
 
 The chart always runs the server in **distributed** mode (`STANDALONE=false`) against
@@ -31,7 +31,7 @@ Disable either dependency to point at an external service instead (see below).
 ## Install
 
 ```bash
-helm install truefoundry-utils oci://<jfrog-public-helm-repo>/truefoundry-utils \
+helm install trueforge oci://<jfrog-public-helm-repo>/trueforge \
   --version <x.y.z>
 ```
 
@@ -39,9 +39,9 @@ Optional: set the public origin once you expose the service (needed for MCP OAut
 and OIDC callbacks):
 
 ```bash
-helm upgrade --install truefoundry-utils oci://<jfrog-public-helm-repo>/truefoundry-utils \
+helm upgrade --install trueforge oci://<jfrog-public-helm-repo>/trueforge \
   --version <x.y.z> \
-  --set server.publicBaseUrl=https://truefoundry-utils.example.com
+  --set server.publicBaseUrl=https://trueforge.example.com
 ```
 
 ## Postgres
@@ -100,16 +100,16 @@ Also set `server.publicBaseUrl` to the public origin and register
 
 ```yaml
 server:
-  publicBaseUrl: https://truefoundry-utils.example.com
+  publicBaseUrl: https://trueforge.example.com
 configs:
   oidc:
     enabled: true
     issuerUrl: https://idp.example.com/oauth2/default
-    clientId: truefoundry-utils
+    clientId: trueforge
     clientSecret:
       valueFrom:
         secretKeyRef:
-          name: truefoundry-utils-oidc
+          name: trueforge-oidc
           key: client-secret
     # optional claim overrides (defaults shown):
     # userReferenceClaim: sub
@@ -150,16 +150,16 @@ extraObjects:
   - apiVersion: networking.istio.io/v1
     kind: VirtualService
     metadata:
-      name: '{{ include "truefoundry-utils.fullname" . }}'
+      name: '{{ include "trueforge.fullname" . }}'
     spec:
       hosts:
-        - truefoundry-utils.example.com
+        - trueforge.example.com
       gateways:
         - istio-system/public-gateway
       http:
         - route:
             - destination:
-                host: '{{ include "truefoundry-utils.fullname" . }}'
+                host: '{{ include "trueforge.fullname" . }}'
                 port:
                   number: '{{ .Values.service.port }}'
 ```
@@ -169,7 +169,7 @@ extraObjects:
 | Value                 | Default                             | Description                           |
 | --------------------- | ----------------------------------- | ------------------------------------- |
 | `replicaCount`        | `1`                                 | Number of server replicas.            |
-| `image.repository`    | `tfy.jfrog.io/tfy-images/truefoundry-utils` | Image repository.                     |
+| `image.repository`    | `tfy.jfrog.io/tfy-images/trueforge` | Image repository.                     |
 | `image.tag`           | chart `appVersion`                  | Image tag; stamped on release.        |
 | `server.publicBaseUrl`| `""`                                | Public origin for OAuth/OIDC callbacks (required for MCP OAuth / OIDC). |
 | `configs.oidc.enabled`| `false`                             | Inject `OIDC_*` env for IdP login.    |
