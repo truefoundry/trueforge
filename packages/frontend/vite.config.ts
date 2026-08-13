@@ -10,7 +10,7 @@ import monacoEditorPlugin from 'vite-plugin-monaco-editor-esm';
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const gatewaySdkStub = path.join(rootDir, 'src/gatewaySdkStubs.ts');
 
-const SERVER = process.env.VITE_SERVER_URL ?? 'http://localhost:8791';
+const SERVER = process.env.VITE_SERVER_URL ?? 'http://localhost:8790';
 const PORT = Number(process.env.FRONTEND_PORT ?? 3000);
 if (!Number.isInteger(PORT)) {
   throw new Error(`FRONTEND_PORT must be an integer, got "${process.env.FRONTEND_PORT}"`);
