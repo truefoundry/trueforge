@@ -17,15 +17,15 @@ We benchmarked TrueForge against two alternatives — the closed **Claude Manage
   />
 </Frame>
 
-## What we measured
+## What We Measured
 
-We use the **L1-L2 tasks from [DevRev's Enterprise-Bench](https://x.com/devrev/status/2075815567458734468)**: 14 cross-system tasks that read like real B2B operations work across engineering, sales, and support. Each task makes the agent join data across three MCP servers: a CRM (Salesforce-style), a project tracker (Jira-style), and a document store (Drive-style).
+We use the **L1-L2 tasks from [DevRev's Enterprise-Bench](https://x.com/devrev/status/2075815567458734468)** — 14 cross-system tasks that read like real B2B operations work across engineering, sales, and support. Each task makes the agent join data across three MCP servers: a CRM (Salesforce-style), a project tracker (Jira-style), and a document store (Drive-style).
 
-## How we measured
+## How We Measured
 
 Every harness runs the **same model, the same three MCP servers, and the same system prompt**, with each task in a fresh session and nothing carried over. We run **n = 3 trials** per configuration and report the mean.
 
-Answers are graded by an independent LLM judge that sees only the task's criteria and the answer, never which harness produced it. A task passes only if it meets **every** required criterion.
+Answers are graded by an independent LLM judge that sees only the task's criteria and the answer — never which harness produced it — and a task passes only if it meets **every** required criterion.
 
 ## Results
 

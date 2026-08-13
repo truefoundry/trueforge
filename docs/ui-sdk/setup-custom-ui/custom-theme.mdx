@@ -3,9 +3,9 @@ title: "Custom Theme"
 description: "Build your own custom theme"
 ---
 
-## The theme object
+## The Theme Object
 
-Pass design tokens on the theme object to override component styles. You can also override app-level CSS classes for broader layout and styling changes.
+The theme object lets you customize the appearance of the UI by passing design tokens that override component styles. You can also use it to override app-level CSS classes for broader layout and styling customizations.
 
 ```jsx App.jsx
 type ThemeConfig = {
@@ -16,81 +16,62 @@ type ThemeConfig = {
 };
 ```
 
-## The token object
+## The Token Object
 
-Override individual design tokens to change colors and other visual properties: sidebar, page background, popups, buttons, inputs, and the rest of the surfaces listed below.
+The theme object provides a flexible way to customize the colors and visual appearance of the Agent SDK. You can override individual design tokens to control the appearance of different UI elements, including the sidebar, page background, popups, buttons, input fields, and more.
 
-Set tokens separately for light and dark mode so both schemes stay consistent without per-component CSS.
+Theme tokens can be configured independently for both light and dark modes, allowing you to create a consistent experience across different color schemes without having to override individual components manually.
 
-The fastest way to try tokens is the [UI Config App](https://ui.trueforge.dev/). Change colors in the preview, then copy the generated config into your app.
+The easiest way to explore and customize the theme is through our UI Config App. You can experiment with different color tokens and see your changes reflected in real time in the preview window. Once you’re happy with the theme, you can use the generated configuration in your application. [Visit Config App](https://ui.trueforge.dev/)
 
 
 ```json Token Object
 {
-  "light": {
-    "sidebarBg": "#FAFAFA",
-    "primaryBg": "#FFFFFF",
-    "textPrimary": "#18181B",
-    "primaryButtonBg": "#6366F1",
-    "userMessageBg": "#6366F1"
-    // ...others (see the full list below)
-  },
-  "dark": {
-    // ...same tokens as light mode
-  }
+  "light": {
+    "sidebarBg": "#FAFAFA",
+    "topbarBg": "#FFFFFF",
+    "primaryBg": "#FFFFFF",
+    "secondaryBg": "#F4F4F5",
+    "border": "#E4E4E7",
+    "inputBoxBg": "#FAFAFA",
+    "inputBorder": "#E4E4E7",
+    "textPrimary": "#18181B",
+    "textSecondary": "#62626A",
+    "cardBg": "#FFFFFF",
+    "dropdownSelectedItemBg": "#F1F1F2",
+    "dropdownSelectedItemText": "#18181B",
+    "userMessageBg": "#18181B",
+    "userMessageText": "#FFFFFF",
+    "assistantMessageBg": "transparent",
+    "assistantMessageText": "#18181B",
+    "primaryButtonBg": "#18181B",
+    "primaryButtonHover": "#27272A",
+    "primaryButtonText": "#FFFFFF",
+    "secondaryButtonBg": "#FAFAFA",
+    "secondaryButtonHover": "#E4E4E7",
+    "secondaryButtonText": "#18181B",
+    "ghostButtonBg": "transparent",
+    "ghostButtonHover": "#F4F4F5",
+    "ghostButtonText": "#18181B",
+    "successBg": "#16A34A",
+    "successText": "#FFFFFF",
+    "failureBg": "#EF4444",
+    "failureText": "#FFFFFF",
+    "warningBg": "#D97706",
+    "warningText": "#FFFFFF",
+    "scrollbarThumb": "#62626A"
+  },
+  "dark": {
+    ... //Same tokens as light mode
+  }
 }
 ```
-
-### All tokens
-
-Default values are from the built-in `trueforge` preset (light mode). See [Token naming](#token-naming) for how each key maps to a CSS variable.
-
-| Token name | Default value | Description |
-| --- | --- | --- |
-| `sidebarBg` | `#FAFAFA` | Sidebar background. |
-| `topbarBg` | `#FFFFFF` | Top bar background. |
-| `primaryBg` | `#FFFFFF` | Primary page background. |
-| `secondaryBg` | `#F4F4F5` | Secondary surface background. |
-| `border` | `#E4E4E7` | Default border color. |
-| `fontFamily` | `ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif` | Base UI font family. |
-| `inputBoxBg` | `#FAFAFA` | Input field background. |
-| `inputBorder` | `#E4E4E7` | Input field border color. |
-| `textPrimary` | `#18181B` | Primary text color. |
-| `textSecondary` | `#62626A` | Secondary / muted text color. |
-| `cardBg` | `#FFFFFF` | Card surface background. |
-| `dropdownSelectedItemBg` | `#F1F1F2` | Selected dropdown item background. |
-| `dropdownSelectedItemText` | `#18181B` | Selected dropdown item text color. |
-| `userMessageBg` | `#6366F1` | User chat message bubble background. |
-| `userMessageText` | `#FFFFFF` | User chat message text color. |
-| `assistantMessageBg` | `transparent` | Assistant chat message background. |
-| `assistantMessageText` | `#18181B` | Assistant chat message text color. |
-| `primaryButtonBg` | `#6366F1` | Primary button background. |
-| `primaryButtonHover` | `#4F46E5` | Primary button hover background. |
-| `primaryButtonText` | `#FFFFFF` | Primary button text color. |
-| `secondaryButtonBg` | `#FAFAFA` | Secondary button background. |
-| `secondaryButtonHover` | `#E4E4E7` | Secondary button hover background. |
-| `secondaryButtonText` | `#18181B` | Secondary button text color. |
-| `ghostButtonBg` | `transparent` | Ghost button background. |
-| `ghostButtonHover` | `#F4F4F5` | Ghost button hover background. |
-| `ghostButtonText` | `#18181B` | Ghost button text color. |
-| `successBg` | `#16A34A` | Success state background. |
-| `successText` | `#FFFFFF` | Success state text color. |
-| `failureBg` | `#EF4444` | Error / failure state background. |
-| `failureText` | `#FFFFFF` | Error / failure state text color. |
-| `warningBg` | `#D97706` | Warning state background. |
-| `warningText` | `#FFFFFF` | Warning state text color. |
-| `focusRing` | `#E4E4E7` | Focus ring color. |
-| `radius` | `0.5rem` | Base border radius. |
-| `composerRadius` | `1.5rem` | Chat composer border radius. |
-| `overlay` | `rgb(24 24 27 / 0.5)` | Modal / overlay backdrop color. |
-| `shadowColor` | `#18181B` | Shadow color. |
-| `scrollbarThumb` | `#62626A` | Scrollbar thumb color. |
 
 ## Token naming
 
 SemanticTokens keys map directly to kebab-cased CSS variables. For example, `primaryButtonBg` maps to `--primary-button-bg`, and `userMessageText` maps to `--user-message-text`. The only exception is `fontFamily`, which maps to the `--font-agent-ui` CSS variable.
 
-To apply a brand primary color and font across the SDK, override the matching semantic tokens:
+Suppose your application uses a specific brand color for primary actions and a custom font. You can override the corresponding semantic tokens to apply your branding across the Agent SDK:
 ```ts
 const theme = {
   tokens: {
@@ -102,7 +83,7 @@ const theme = {
   },
 };
 ```
-Those tokens map to CSS variables:
+These tokens are automatically mapped to CSS variables:
 ```ts
 --primary-button-bg
 --primary-button-hover
@@ -110,7 +91,7 @@ Those tokens map to CSS variables:
 --font-agent-ui
 --composer-radius
 ```
-Changing a few semantic tokens updates the UI consistently without writing component-specific CSS.
+This approach is useful when you want to customize the look and feel of the SDK while keeping the existing components, behavior, and layout intact. Instead of writing component-specific CSS overrides, you can change a small set of semantic tokens and have the changes applied consistently throughout the UI.
 
 ## Styling rendered content
 
