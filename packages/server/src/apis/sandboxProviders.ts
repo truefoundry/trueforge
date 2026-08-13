@@ -1,12 +1,16 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
+import { withTimeout } from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
-import { getSandboxProvider, isDaytonaAuthError, safeSandboxBuild, toSandboxBuild } from '../sandbox/providerUtils';
+import { getSandboxProvider, isDaytonaAuthError, toSandboxStatus } from '../sandbox/providerUtils';
 import type { SandboxProvider } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
+
+/** Cap the Daytona build kickoff so a slow/unreachable provider can't hold the request (or DB txn) open. */
+const BUILD_REQUEST_TIMEOUT_MS = 15_000;
 
 export interface SandboxProvidersRouterDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
@@ -28,12 +32,10 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     if (record === undefined) {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
-    // Build status is not persisted; read it live from the provider on every GET. A Daytona
-    // outage or bad key must not hide the stored config (admins need it to rotate creds), so
-    // safeSandboxBuild degrades to a failed build instead of throwing.
+    // Build status is not persisted; read it live from the provider on every GET.
     const provider = getSandboxProvider({ manifest: record.manifest, tenant_id: TENANT_ID, logger: deps.logger });
-    const build = await safeSandboxBuild({ provider, logger: deps.logger });
-    return c.json({ data: { ...redactSandboxProvider(record.manifest), ...build } }, 200);
+    const build = await provider.getImageBuildStatus();
+    return c.json({ data: { ...redactSandboxProvider(record.manifest), ...toSandboxStatus(build) } }, 200);
   };
 
   const putHandler: RouteHandler<typeof putSandboxProviderRoute> = async c => {
@@ -48,25 +50,19 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       },
     });
     try {
-      // Validate the key + kick off the build (Daytona network I/O) BEFORE persisting, outside any
-      // transaction so no row lock is held during remote I/O. A bad key throws here → 422, nothing saved.
-      const snapshot = await deps.sandboxProviderStore.getSandboxProvider(TENANT_ID);
-      const provider = getSandboxProvider({
-        manifest: resolveManifest(snapshot),
-        tenant_id: TENANT_ID,
-        logger: deps.logger,
-      });
-      const build = await provider.buildImage();
-      // Persist under a row lock (local DB work only), re-resolving the secret from the locked row so
-      // a concurrent keep/rotate cannot interleave — same contract as the model-provider PUT.
-      const record = await deps.withTransaction(async transaction => {
+      // NOTE: build (Daytona network I/O) runs inside the transaction for now; the design is being revisited.
+      const { manifest, build } = await deps.withTransaction(async transaction => {
         const locked = await deps.sandboxProviderStore.getSandboxProviderForUpdate(TENANT_ID, transaction);
-        return deps.sandboxProviderStore.upsertSandboxProvider(
-          { tenant_id: TENANT_ID, manifest: resolveManifest(locked) },
+        const resolved = resolveManifest(locked);
+        const provider = getSandboxProvider({ manifest: resolved, tenant_id: TENANT_ID, logger: deps.logger });
+        const built = await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage');
+        await deps.sandboxProviderStore.upsertSandboxProvider(
+          { tenant_id: TENANT_ID, manifest: resolved },
           transaction,
         );
+        return { manifest: resolved, build: built };
       });
-      return c.json({ data: { ...redactSandboxProvider(record.manifest), ...toSandboxBuild(build) } }, 200);
+      return c.json({ data: { ...redactSandboxProvider(manifest), ...toSandboxStatus(build) } }, 200);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'API key is required' } }, 400);

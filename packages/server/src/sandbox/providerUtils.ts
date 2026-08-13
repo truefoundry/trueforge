@@ -4,19 +4,13 @@
  * used by the settings GET, capabilities, and the turn path.
  */
 import { Daytona, DaytonaError } from '@daytona/sdk';
-import {
-  DaytonaSandboxProvider,
-  extractErrorLogFields,
-  SANDBOX_IMAGE_NAME,
-  type SandboxBuild,
-} from '@truefoundry/utils-core/core';
-import { createHash } from 'crypto';
+import { DaytonaSandboxProvider, SANDBOX_IMAGE_NAME, type SandboxBuild } from '@truefoundry/utils-core/core';
 import type { Logger } from 'winston';
 import configuration from '../config';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import {
   toDaytonaSandboxProviderInput,
-  type SandboxBuild as SandboxBuildWire,
+  type SandboxStatus as SandboxStatusWire,
   type SandboxProviderManifest,
 } from '../schemas/sandboxProvider';
 
@@ -38,8 +32,6 @@ export function getSandboxProvider({
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
   return new DaytonaSandboxProvider({
     client: new Daytona({ apiKey }),
-    // Scopes build de-duplication to these credentials without holding the raw key in a map.
-    credentialFingerprint: createHash('sha256').update(apiKey).digest('hex'),
     ...settings,
     tenantName: tenant_id,
     sandboxImage: SANDBOX_IMAGE_NAME,
@@ -49,35 +41,11 @@ export function getSandboxProvider({
 }
 
 /** Maps the provider's runtime build onto the snake_case wire shape. */
-export function toSandboxBuild(build: SandboxBuild): SandboxBuildWire {
+export function toSandboxStatus(build: SandboxBuild): SandboxStatusWire {
   return {
-    status: build.status,
-    reason: build.reason,
-    metadata: { build_ref: build.metadata.buildRef, image_tag: build.metadata.imageTag },
+    sandbox_status: { status: build.status, reason: build.reason },
+    build_metadata: { build_ref: build.metadata.buildRef, image_uri: build.metadata.imageUri },
   };
-}
-
-/**
- * Live wire build for a provider that never throws: a provider/Daytona failure is logged and
- * reported as a `failed` build, so GET can still serve the stored config (e.g. to rotate a bad key).
- */
-export async function safeSandboxBuild({
-  provider,
-  logger,
-}: {
-  provider: DaytonaSandboxProvider;
-  logger: Logger;
-}): Promise<SandboxBuildWire> {
-  try {
-    return toSandboxBuild(await provider.getImageBuildStatus());
-  } catch (error) {
-    logger.warn('Live sandbox build status check failed; serving stored config', extractErrorLogFields(error));
-    return {
-      status: 'failed',
-      reason: 'Could not fetch build status from the sandbox provider — check connectivity and credentials.',
-      metadata: { build_ref: provider.buildMetadata.buildRef, image_tag: provider.buildMetadata.imageTag },
-    };
-  }
 }
 
 /** Live build status for the configured provider, or undefined when none is configured. */

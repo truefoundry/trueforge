@@ -1,5 +1,5 @@
 // Replace the runtime provider factory so the router never talks to Daytona; isDaytonaAuthError
-// and toSandboxBuild stay real so the auth-error mapping and wire shape are exercised.
+// and toSandboxStatus stay real so the auth-error mapping and wire shape are exercised.
 jest.mock('../../../src/sandbox/providerUtils', () => {
   const actual = jest.requireActual('../../../src/sandbox/providerUtils');
   return { ...actual, getSandboxProvider: jest.fn() };
@@ -34,15 +34,15 @@ const putBody = {
   auto_delete_interval_in_minutes: 7200,
 };
 
+const IMAGE_URI = 'tfy.jfrog.io/tfy-images/truefoundry-utils-core-sandbox:029ea5ff';
 const readyBuild: SandboxBuild = {
   status: 'ready',
   reason: null,
-  metadata: { buildRef: 'trueforge-snapshot-029ea5ff', imageTag: '029ea5ff' },
+  metadata: { buildRef: 'trueforge-build-029ea5ff', imageUri: IMAGE_URI },
 };
 const expectedBuild = {
-  status: 'ready',
-  reason: null,
-  metadata: { build_ref: 'trueforge-snapshot-029ea5ff', image_tag: '029ea5ff' },
+  sandbox_status: { status: 'ready', reason: null },
+  build_metadata: { build_ref: 'trueforge-build-029ea5ff', image_uri: IMAGE_URI },
 };
 
 // Wire GET/PUT response: redacted api_key + the live build status flattened onto the provider.
@@ -56,8 +56,6 @@ function stubProvider(overrides: { buildImage?: jest.Mock; getImageBuildStatus?:
   return {
     buildImage: overrides.buildImage ?? jest.fn().mockResolvedValue(readyBuild),
     getImageBuildStatus: overrides.getImageBuildStatus ?? jest.fn().mockResolvedValue(readyBuild),
-    // Network-free identity used by safeSandboxBuild when the live status read fails.
-    buildMetadata: readyBuild.metadata,
   };
 }
 
@@ -139,7 +137,7 @@ describe('sandboxProviders router', () => {
     expect(stored?.manifest).toEqual(putBody);
   });
 
-  it('GET degrades to a failed build (still returns stored config) when the live status check throws', async () => {
+  it('GET surfaces an error (500) when the live status check throws', async () => {
     const { settingsRouter: router } = await createRouters();
     expect((await router.request('/', putInit(putBody))).status).toBe(200);
 
@@ -147,16 +145,7 @@ describe('sandboxProviders router', () => {
       stubProvider({ getImageBuildStatus: jest.fn().mockRejectedValue(new DaytonaError('unreachable', 500)) }),
     );
     const get = await router.request('/');
-    expect(get.status).toBe(200);
-    expect(await get.json()).toMatchObject({
-      data: {
-        ...putBody,
-        auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) },
-        status: 'failed',
-        reason: expect.stringContaining('Could not fetch build status'),
-        metadata: expectedBuild.metadata,
-      },
-    });
+    expect(get.status).toBe(500);
   });
 
   it('PUT returns 422 when Daytona rejects the API key', async () => {

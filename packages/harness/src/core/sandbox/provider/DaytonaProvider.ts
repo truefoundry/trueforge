@@ -15,7 +15,6 @@ import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from
 import type {
   ExecResult,
   SandboxBuild,
-  SandboxBuildMetadata,
   SandboxExecParams,
   SandboxFileInfo,
   SandboxProvider,
@@ -29,25 +28,26 @@ const BUILD_STATE_INACTIVE = 'inactive';
 const BUILD_STATE_ERROR = 'error';
 const BUILD_STATE_BUILD_FAILED = 'build_failed';
 
-const IMAGE_BUILD_NAME_PREFIX = 'trueforge-snapshot-';
+const IMAGE_BUILD_NAME_PREFIX = 'trueforge-build-';
 
-// The SDK does not export its branded `Snapshot` type; derive it from the client surface.
+// The SDK does not export its branded `Snapshot` type, so recover it from the client surface:
+// take `daytona.snapshot.get`'s return type (`Promise<Snapshot>`) and unwrap the promise to `Snapshot`.
 type DaytonaSnapshot = Awaited<ReturnType<Daytona['snapshot']['get']>>;
 
 /**
- * Tag portion of a container image reference. Isolates the final path segment first so a
- * registry port (`host:5000/repo`) is never mistaken for the tag; falls back to `latest`
- * when the reference carries no explicit tag.
+ * Digest portion of a container image reference (the tag/digest after the final `:`). Isolates
+ * the last path segment first so a registry port (`host:5000/repo`) is never mistaken for it;
+ * falls back to `latest` when the reference carries no explicit tag/digest.
  */
-function imageTag(image: string): string {
+function imageDigest(image: string): string {
   const lastSegment = image.slice(image.lastIndexOf('/') + 1);
   const colon = lastSegment.lastIndexOf(':');
   return colon === -1 ? 'latest' : lastSegment.slice(colon + 1);
 }
 
-/** Deterministic build name per image tag so every server replica converges on one build. */
-function deriveImageBuildName(tag: string): string {
-  return `${IMAGE_BUILD_NAME_PREFIX}${tag}`;
+/** Deterministic build name per image digest so every server replica converges on one build. */
+function deriveImageBuildName(digest: string): string {
+  return `${IMAGE_BUILD_NAME_PREFIX}${digest}`;
 }
 
 /** Terminal-failure build states: a build stuck here never becomes ready on its own. */
@@ -69,12 +69,6 @@ export interface DaytonaSandboxProviderOptions {
   tenantName: string;
   /** Release-owned sandbox image reference; built into a Daytona snapshot and cloned per sandbox. */
   sandboxImage: string;
-  /**
-   * Stable fingerprint of the provider credentials (a hash — never the raw key). Scopes
-   * build de-duplication so concurrent `buildImage()` calls made with different credentials
-   * never share one in-flight promise (which would skip validating the other's key).
-   */
-  credentialFingerprint: string;
   timeoutMs: number;
   autoStopIntervalInMinutes: number;
   autoArchiveIntervalInMinutes: number;
@@ -90,13 +84,9 @@ export interface DaytonaSandboxProviderOptions {
 export class DaytonaSandboxProvider implements SandboxProvider {
   private readonly tenantName: string;
   /** Release-owned sandbox image reference; built into a Daytona snapshot and cloned per sandbox. */
-  private readonly sandboxImage: string;
-  /** Tag portion of the release image. */
-  private readonly imageTag: string;
-  /** Daytona snapshot name derived from the image tag; sandboxes are cloned from it. */
+  private readonly imageUri: string;
+  /** Daytona snapshot name derived from the image digest; sandboxes are cloned from it. */
   private readonly buildRef: string;
-  /** In-flight build dedupe key: build ref scoped by credential fingerprint so different keys never share a build. */
-  private readonly buildDedupeKey: string;
   private readonly timeoutMs: number;
   private readonly autoStopIntervalInMinutes: number;
   private readonly autoArchiveIntervalInMinutes: number;
@@ -109,16 +99,12 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; defaultTimeoutMs: number }>();
   // De-dupes concurrent recovery attempts on the same sandbox to a single refreshData+start round-trip.
   private static readonly inFlightRecoveries = new Map<string, Promise<boolean>>();
-  // De-dupes concurrent buildImage() calls for the same build+credentials so only one delete/create round-trip runs.
-  private static readonly inFlightBuilds = new Map<string, Promise<SandboxBuild>>();
 
   constructor(options: DaytonaSandboxProviderOptions) {
     this.daytona = options.client;
     this.tenantName = options.tenantName;
-    this.sandboxImage = options.sandboxImage;
-    this.imageTag = imageTag(options.sandboxImage);
-    this.buildRef = deriveImageBuildName(this.imageTag);
-    this.buildDedupeKey = `${this.buildRef}::${options.credentialFingerprint}`;
+    this.imageUri = options.sandboxImage;
+    this.buildRef = deriveImageBuildName(imageDigest(options.sandboxImage));
     this.timeoutMs = options.timeoutMs;
     this.autoStopIntervalInMinutes = options.autoStopIntervalInMinutes;
     this.autoArchiveIntervalInMinutes = options.autoArchiveIntervalInMinutes;
@@ -242,18 +228,6 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   }
 
   /**
-   * The SDK's `snapshot.create` polls until the snapshot is terminal, which can take
-   * minutes on a cold image pull. Daytona registers the snapshot on the first request,
-   * so fire the call in the background and observe progress via `getImageBuildStatus`.
-   * A concurrent-create conflict is harmless: the winner's snapshot is the one polled.
-   */
-  private startImageBuild(): void {
-    void this.daytona.snapshot.create({ name: this.buildRef, image: this.sandboxImage }).catch((error: unknown) => {
-      this.logger.error(`Daytona snapshot create failed: name=${this.buildRef}`, extractErrorLogFields(error));
-    });
-  }
-
-  /**
    * Drops a build stuck in a terminal-failure state so a fresh create can reuse its
    * deterministic name. A concurrent replica may have deleted it already (404) — that
    * is fine and treated as success.
@@ -269,40 +243,21 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     }
   }
 
-  /** Network-free build identity (ref + tag), so callers can describe the build even when Daytona is unreachable. */
-  get buildMetadata(): SandboxBuildMetadata {
-    return { buildRef: this.buildRef, imageTag: this.imageTag };
-  }
-
-  private build(status: SandboxBuild['status'], reason: string | null): SandboxBuild {
-    return { status, reason, metadata: this.buildMetadata };
-  }
-
   private toBuild(state: DaytonaSnapshot['state'], errorReason: string | null): SandboxBuild {
+    const metadata = { buildRef: this.buildRef, imageUri: this.imageUri };
     switch (state) {
       case BUILD_STATE_ACTIVE:
-        return this.build('ready', null);
+        return { status: 'ready', reason: null, metadata };
       case BUILD_STATE_ERROR:
       case BUILD_STATE_BUILD_FAILED:
-        return this.build('failed', errorReason ?? `Sandbox image build failed (${state}).`);
+        return { status: 'failed', reason: errorReason ?? `Sandbox image build failed (${state}).`, metadata };
       default:
         // pending / building / pulling / removing / future states: not ready yet.
-        return this.build('pending', `Sandbox image build in progress (${state}).`);
+        return { status: 'pending', reason: `Sandbox image build in progress (${state}).`, metadata };
     }
   }
 
   async buildImage(): Promise<SandboxBuild> {
-    const inFlight = DaytonaSandboxProvider.inFlightBuilds.get(this.buildDedupeKey);
-    if (inFlight) return inFlight;
-
-    const op = this.runBuild().finally(() => {
-      DaytonaSandboxProvider.inFlightBuilds.delete(this.buildDedupeKey);
-    });
-    DaytonaSandboxProvider.inFlightBuilds.set(this.buildDedupeKey, op);
-    return op;
-  }
-
-  private async runBuild(): Promise<SandboxBuild> {
     const existing = await this.getSnapshot(this.buildRef);
     if (existing) {
       // Daytona parks unused snapshots as 'inactive' after ~2 idle weeks; reactivate rather than rebuild.
@@ -317,15 +272,28 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       // re-saving settings (which calls buildImage) could never retry. Drop it, then recreate.
       await this.deleteFailedBuild(existing);
     }
-    this.startImageBuild();
-    return this.build('pending', 'Sandbox image build started.');
+    // Fire the create in the background: the SDK's snapshot.create polls until the snapshot is
+    // terminal (minutes on a cold image pull), but Daytona registers it on the first request, so
+    // progress is observed via getImageBuildStatus. A concurrent-create conflict is harmless.
+    void this.daytona.snapshot.create({ name: this.buildRef, image: this.imageUri }).catch((error: unknown) => {
+      this.logger.error(`Daytona snapshot create failed: name=${this.buildRef}`, extractErrorLogFields(error));
+    });
+    return {
+      status: 'pending',
+      reason: 'Sandbox image build started.',
+      metadata: { buildRef: this.buildRef, imageUri: this.imageUri },
+    };
   }
 
   async getImageBuildStatus(): Promise<SandboxBuild> {
     const snapshot = await this.getSnapshot(this.buildRef);
     // Read-only: a missing build reports pending; PUT /settings/sandbox-providers starts the build.
     if (!snapshot) {
-      return this.build('pending', 'Sandbox image build not started.');
+      return {
+        status: 'pending',
+        reason: 'Sandbox image build not started.',
+        metadata: { buildRef: this.buildRef, imageUri: this.imageUri },
+      };
     }
     return this.toBuild(snapshot.state, snapshot.errorReason);
   }

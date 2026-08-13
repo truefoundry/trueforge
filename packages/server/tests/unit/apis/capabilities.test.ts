@@ -21,7 +21,7 @@ const silentLogger = createLogger({ silent: true });
 const buildWithStatus = (status: SandboxBuild['status']): SandboxBuild => ({
   status,
   reason: status === 'failed' ? 'boom' : null,
-  metadata: { buildRef: 'trueforge-snapshot-029ea5ff', imageTag: '029ea5ff' },
+  metadata: { buildRef: 'trueforge-build-029ea5ff', imageUri: 'tfy.jfrog.io/tfy-images/sandbox:029ea5ff' },
 });
 
 const ISSUER = 'https://issuer.example.com';

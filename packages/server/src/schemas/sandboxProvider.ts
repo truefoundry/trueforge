@@ -54,20 +54,25 @@ export const SandboxBuildStatusSchema = z
   .describe('Current build status.')
   .openapi('SandboxBuildStatus');
 
-export const SandboxBuildSchema = z
+export const SandboxStatusSchema = z
   .object({
-    status: SandboxBuildStatusSchema,
-    reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
-    metadata: z
+    sandbox_status: z
       .object({
-        build_ref: z.string().describe('Provider build handle (e.g. Daytona snapshot name).'),
-        image_tag: z.string().describe('Tag of the release sandbox image this build refers to.'),
+        status: SandboxBuildStatusSchema,
+        reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
       })
       .strict()
-      .describe('Provider-specific build details.'),
+      .describe('Live build status of the sandbox image.'),
+    build_metadata: z
+      .object({
+        build_ref: z.string().describe('Provider build handle derived from the image digest (e.g. Daytona snapshot name).'),
+        image_uri: z.string().describe('Full reference of the release sandbox image this build refers to.'),
+      })
+      .strict()
+      .describe('Provider-specific build identity.'),
   })
   .strict()
-  .openapi('SandboxBuild');
+  .openapi('SandboxStatus');
 
 /**
  * Wire + persisted sandbox provider. Single variant today — use this alias so
@@ -76,8 +81,8 @@ export const SandboxBuildSchema = z
  */
 export const SandboxProviderSchema = DaytonaSandboxProviderSchema;
 
-/** GET/PUT response body: the stored provider plus its live build status. */
-export const SandboxProviderResponseSchema = DaytonaSandboxProviderSchema.extend(SandboxBuildSchema.shape).openapi(
+/** GET/PUT response body: the stored provider plus its live sandbox status. */
+export const SandboxProviderResponseSchema = DaytonaSandboxProviderSchema.extend(SandboxStatusSchema.shape).openapi(
   'SandboxProviderResponse',
 );
 
@@ -101,7 +106,7 @@ export const GetSandboxProviderResponseSchema = z
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
 export type SandboxProvider = z.infer<typeof SandboxProviderSchema>;
 export type SandboxBuildStatus = z.infer<typeof SandboxBuildStatusSchema>;
-export type SandboxBuild = z.infer<typeof SandboxBuildSchema>;
+export type SandboxStatus = z.infer<typeof SandboxStatusSchema>;
 export type SandboxProviderResponse = z.infer<typeof SandboxProviderResponseSchema>;
 export type PutSandboxProviderRequest = z.infer<typeof PutSandboxProviderRequestSchema>;
 

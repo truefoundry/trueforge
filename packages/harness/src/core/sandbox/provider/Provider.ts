@@ -53,10 +53,10 @@ export type SandboxBuildStatus = 'pending' | 'ready' | 'failed';
 
 /** Provider-internal build details, surfaced to callers as opaque metadata. */
 export interface SandboxBuildMetadata {
-  /** Provider build handle (e.g. the Daytona snapshot name). */
+  /** Provider build handle derived from the image digest (e.g. the Daytona snapshot name). */
   buildRef: string;
-  /** Tag of the release sandbox image this build refers to. */
-  imageTag: string;
+  /** Full reference of the release sandbox image this build refers to. */
+  imageUri: string;
 }
 
 export interface SandboxBuild {

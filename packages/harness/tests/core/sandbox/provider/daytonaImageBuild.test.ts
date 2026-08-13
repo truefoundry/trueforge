@@ -1,7 +1,7 @@
 /**
  * DaytonaSandboxProvider.buildImage / getImageBuildStatus behaviour against a
  * spied SDK client: build-state mapping, missing-build semantics, fire-and-forget
- * create, failed-build recreation, inactive reactivation, and concurrency dedupe.
+ * create, failed-build recreation, and inactive reactivation.
  * The image reference is passed in at construction. No network traffic.
  */
 import { Daytona, DaytonaError } from '@daytona/sdk';
@@ -11,8 +11,8 @@ import { makeSilentLogger } from '../../harnessMocks';
 
 type DaytonaSnapshot = Awaited<ReturnType<Daytona['snapshot']['get']>>;
 
-const EXPECTED_TAG = SANDBOX_IMAGE_NAME.slice(SANDBOX_IMAGE_NAME.lastIndexOf(':') + 1);
-const EXPECTED_REF = `trueforge-snapshot-${EXPECTED_TAG}`;
+const EXPECTED_DIGEST = SANDBOX_IMAGE_NAME.slice(SANDBOX_IMAGE_NAME.lastIndexOf(':') + 1);
+const EXPECTED_REF = `trueforge-build-${EXPECTED_DIGEST}`;
 
 function makeSnapshot(params: { state: DaytonaSnapshot['state']; errorReason?: string | null }): DaytonaSnapshot {
   return {
@@ -35,7 +35,7 @@ function makeSnapshot(params: { state: DaytonaSnapshot['state']; errorReason?: s
   };
 }
 
-function makeProvider(credentialFingerprint = 'fp-default') {
+function makeProvider() {
   const daytona = new Daytona({ apiKey: 'dtn-test' });
   const get = jest.spyOn(daytona.snapshot, 'get');
   const create = jest.spyOn(daytona.snapshot, 'create');
@@ -45,7 +45,6 @@ function makeProvider(credentialFingerprint = 'fp-default') {
     client: daytona,
     tenantName: 'test-tenant',
     sandboxImage: SANDBOX_IMAGE_NAME,
-    credentialFingerprint,
     timeoutMs: 60_000,
     autoStopIntervalInMinutes: 5,
     autoArchiveIntervalInMinutes: 60,
@@ -67,7 +66,7 @@ describe('DaytonaSandboxProvider.buildImage', () => {
     const build = await provider.buildImage();
 
     expect(build.status).toBe('pending');
-    expect(build.metadata).toEqual({ buildRef: EXPECTED_REF, imageTag: EXPECTED_TAG });
+    expect(build.metadata).toEqual({ buildRef: EXPECTED_REF, imageUri: SANDBOX_IMAGE_NAME });
     expect(create).toHaveBeenCalledWith({ name: EXPECTED_REF, image: SANDBOX_IMAGE_NAME });
   });
 
@@ -122,36 +121,6 @@ describe('DaytonaSandboxProvider.buildImage', () => {
     expect(build.status).toBe('pending');
   });
 
-  it('dedupes concurrent build requests to a single create', async () => {
-    const { provider, get, create } = makeProvider();
-    get.mockRejectedValue(notFound());
-    create.mockResolvedValue(makeSnapshot({ state: 'pending' }));
-
-    const [a, b] = await Promise.all([provider.buildImage(), provider.buildImage()]);
-
-    expect(get).toHaveBeenCalledTimes(1);
-    expect(create).toHaveBeenCalledTimes(1);
-    expect(a.status).toBe('pending');
-    expect(b.status).toBe('pending');
-  });
-
-  it('does not dedupe builds across different credentials', async () => {
-    const a = makeProvider('fp-key-a');
-    const b = makeProvider('fp-key-b');
-    a.get.mockRejectedValue(notFound());
-    b.get.mockRejectedValue(notFound());
-    a.create.mockResolvedValue(makeSnapshot({ state: 'pending' }));
-    b.create.mockResolvedValue(makeSnapshot({ state: 'pending' }));
-
-    await Promise.all([a.provider.buildImage(), b.provider.buildImage()]);
-
-    // Each credential must run its own lookup + create so both keys get validated independently.
-    expect(a.get).toHaveBeenCalledTimes(1);
-    expect(b.get).toHaveBeenCalledTimes(1);
-    expect(a.create).toHaveBeenCalledTimes(1);
-    expect(b.create).toHaveBeenCalledTimes(1);
-  });
-
   it('propagates a non-404 delete failure without recreating', async () => {
     const { provider, get, create, del } = makeProvider();
     get.mockResolvedValue(makeSnapshot({ state: 'error' }));
@@ -184,7 +153,7 @@ describe('DaytonaSandboxProvider.getImageBuildStatus', () => {
 
     const build = await provider.getImageBuildStatus();
     expect(build.status).toBe(expected);
-    expect(build.metadata).toEqual({ buildRef: EXPECTED_REF, imageTag: EXPECTED_TAG });
+    expect(build.metadata).toEqual({ buildRef: EXPECTED_REF, imageUri: SANDBOX_IMAGE_NAME });
   });
 
   it.each(['error', 'build_failed'] as const)('maps build state %s to failed with the reason', async state => {

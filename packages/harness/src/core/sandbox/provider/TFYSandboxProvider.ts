@@ -59,7 +59,7 @@ export class TFYSandboxProvider implements SandboxProvider {
   private static readonly readyBuild: SandboxBuild = {
     status: 'ready',
     reason: null,
-    metadata: { buildRef: 'tfy-managed', imageTag: 'tfy-managed' },
+    metadata: { buildRef: 'tfy-managed', imageUri: 'tfy-managed' },
   };
 
   buildImage(): Promise<SandboxBuild> {
