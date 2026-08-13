@@ -73,6 +73,31 @@ describe('DraftCompositeSelector', () => {
     expect(screen.queryByRole('dialog', { name: 'Add to composer' })).not.toBeInTheDocument();
   });
 
+  it('shows selected connectors and skills in the Tools tooltip', () => {
+    renderSelector();
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Tools (2)' }));
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Connectors: Slack');
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Skills: Research');
+  });
+
+  it('truncates Tools tooltip names after 4 with a remainder count', () => {
+    agentSpec = {
+      ...agentSpec,
+      mcpServers: [
+        { id: 'a', name: 'Alpha' },
+        { id: 'b', name: 'Beta' },
+        { id: 'c', name: 'Gamma' },
+        { id: 'd', name: 'Delta' },
+        { id: 'e', name: 'Epsilon' },
+        { id: 'f', name: 'Zeta' },
+      ],
+      skills: [],
+    };
+    renderSelector();
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Tools (6)' }));
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Connectors: Alpha, Beta, Gamma, Delta +2');
+  });
+
   it('renders attachment as a standalone tooltip control', () => {
     const onAttach = vi.fn();
     renderSelector({ onAttach });

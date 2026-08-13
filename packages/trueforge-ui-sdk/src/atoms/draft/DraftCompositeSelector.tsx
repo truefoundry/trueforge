@@ -243,6 +243,21 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const selectedSkillIds = useMemo(() => new Set(selectedSkills.map(s => s.id)), [selectedSkills]);
   const hasValidModel = Boolean(agentSpec?.model?.name.trim());
   const toolsCount = selectedMcp.length + selectedSkills.length;
+  const toolsTooltip = useMemo(() => {
+    const formatNames = (items: Array<{ name: string }>) => {
+      const names = items.map(item => item.name);
+      if (names.length <= 4) return names.join(', ');
+      return `${names.slice(0, 4).join(', ')} +${names.length - 4}`;
+    };
+    const lines: string[] = [];
+    if (selectedMcp.length > 0) {
+      lines.push(`Connectors: ${formatNames(selectedMcp)}`);
+    }
+    if (selectedSkills.length > 0) {
+      lines.push(`Skills: ${formatNames(selectedSkills)}`);
+    }
+    return lines.length > 0 ? lines.join('\n') : 'No connectors or skills selected';
+  }, [selectedMcp, selectedSkills]);
 
   const clearFlushTimer = useCallback(() => {
     if (flushTimerRef.current != null) {
@@ -390,7 +405,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
               type="button"
               className={cn(
                 'text-text-secondary flex flex-1 items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-medium',
-                active && 'text-text-primary border-b-2 border-text-primary',
+                active && 'text-primary-button-bg border-b-2 border-primary-button-bg',
               )}
               onClick={() => {
                 setTab(t.id);
@@ -529,32 +544,34 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   return (
     <div ref={containerRef} className="relative flex flex-wrap items-center gap-1.5">
       {hasValidModel ? (
-        <button
-          type="button"
-          disabled={disabled || isRunning}
-          aria-label={`Tools (${toolsCount})`}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-controls={open ? menuId : undefined}
-          className={auiButtonClass({
-            variant: 'ghost',
-            size: 'sm',
-            className: 'h-8 gap-1.5 rounded-md px-2 text-xs',
-          })}
-          onClick={() => {
-            if (open) {
-              setOpenAndFlush(false);
-              return;
-            }
-            openPicker();
-          }}
-        >
-          <Icon name="wrench" className="size-3.5" />
-          <span>Tools</span>
-          <span className="bg-primary-button-bg/10 text-primary-button-bg rounded px-1.5 py-0.5 text-[10px] font-semibold">
-            {toolsCount}
-          </span>
-        </button>
+        <Tooltip content={toolsTooltip} className="max-w-xs whitespace-pre-line text-left" side="top">
+          <button
+            type="button"
+            disabled={disabled || isRunning}
+            aria-label={`Tools (${toolsCount})`}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-controls={open ? menuId : undefined}
+            className={auiButtonClass({
+              variant: 'ghost',
+              size: 'sm',
+              className: 'h-8 gap-1.5 rounded-md px-2 text-xs',
+            })}
+            onClick={() => {
+              if (open) {
+                setOpenAndFlush(false);
+                return;
+              }
+              openPicker();
+            }}
+          >
+            <Icon name="wrench" className="size-3.5" />
+            <span>Tools</span>
+            <span className="bg-primary-button-bg/10 text-primary-button-bg rounded px-1.5 py-0.5 text-[10px] font-semibold">
+              {toolsCount}
+            </span>
+          </button>
+        </Tooltip>
       ) : null}
 
       {onAttach ? (
