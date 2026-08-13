@@ -579,7 +579,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
     });
   } catch (err) {
     if (err instanceof SessionStoreNotFoundError || err instanceof SessionStoreConflictError) throw err;
-    if (isUniqueViolation(err)) throw new TurnAlreadyExistsError(input.turn.turn_id);
+    if (isUniqueViolation(err)) throw new TurnAlreadyExistsError(input.turn.turn_id, { cause: err });
     throw err;
   }
 }

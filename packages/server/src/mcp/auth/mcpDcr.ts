@@ -223,7 +223,7 @@ export async function buildMcpAuthorizationUrl(params: {
     });
   } catch (error: unknown) {
     throw new McpConnectionError(`Failed to start OAuth authorization for MCP server '${params.mcpServerName}'`, 424, {
-      cause: error instanceof Error ? error : undefined,
+      cause: error,
     });
   }
   await params.tokenStore.savePendingAuthorization({

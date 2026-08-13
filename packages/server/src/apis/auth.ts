@@ -1,4 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
+import { extractErrorLogFields } from '@truefoundry/utils-core/core';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
 import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCookie } from '../auth/cookies';
@@ -34,9 +35,7 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
       });
       return c.redirect(authorizationUrl, 302);
     } catch (error) {
-      params.logger.error('Failed to build login authorization', {
-        error: error instanceof Error ? error.message : error,
-      });
+      params.logger.error('Failed to build login authorization', extractErrorLogFields(error));
       return c.redirect(oauthErrorRedirect('login_failed'), 302);
     }
   });
@@ -69,9 +68,7 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
       });
       return c.redirect(safeReturnTo(pending.return_to), 302);
     } catch (error) {
-      params.logger.error('Failed to exchange authorization code', {
-        error: error instanceof Error ? error.message : error,
-      });
+      params.logger.error('Failed to exchange authorization code', extractErrorLogFields(error));
       const reason = error instanceof Error ? error.message : 'login_failed';
       return c.redirect(oauthErrorRedirect(reason), 302);
     }
