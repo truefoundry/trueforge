@@ -217,13 +217,15 @@ describe('validateAgentSpec', () => {
       tenant_id: TENANT_ID,
       manifest: {
         type: 'daytona',
-        snapshot_name: 'snap',
         auth: { api_key: 'dtn-test' },
         exec_timeout_ms: 60_000,
         auto_stop_interval_in_minutes: 5,
         auto_archive_interval_in_minutes: 60,
         auto_delete_interval_in_minutes: 7200,
       },
+      status: 'pending',
+      status_reason: 'Sandbox image build started.',
+      build_metadata: { build_ref: 'trueforge-build-029ea5ff', image_uri: 'tfy.jfrog.io/tfy-images/sandbox:029ea5ff' },
     });
 
     await expect(

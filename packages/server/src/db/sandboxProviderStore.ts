@@ -1,13 +1,20 @@
 /**
- * DB-backed configured sandbox provider: at most one row per tenant,
- * Zod-validated `SandboxProviderManifest` jsonb document.
+ * DB-backed configured sandbox provider: at most one row per tenant. Persists the
+ * Zod-validated `SandboxProviderManifest` jsonb document plus the last-known build
+ * status (`status` / `status_reason` / `build_metadata`), refreshed on read.
  * Implementations: PostgresSandboxProviderStore and SqliteSandboxProviderStore.
  */
-import type { SandboxProviderManifest } from '../schemas/sandboxProvider';
+import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../schemas/sandboxProvider';
 
 export interface SandboxProviderRecord {
   tenant_id: string;
   manifest: SandboxProviderManifest;
+  /** Last persisted build status of the release sandbox image. */
+  status: SandboxBuildStatus;
+  /** Human-readable detail for `status`; null when ready. */
+  status_reason: string | null;
+  /** Provider build identity (build_ref + image_uri) persisted alongside the status. */
+  build_metadata: SandboxBuildMetadata;
   /** ISO-8601 UTC instant. */
   created_at: string;
   /** ISO-8601 UTC instant. */
@@ -17,6 +24,16 @@ export interface SandboxProviderRecord {
 export interface UpsertSandboxProviderInput {
   tenant_id: string;
   manifest: SandboxProviderManifest;
+  status: SandboxBuildStatus;
+  status_reason: string | null;
+  build_metadata: SandboxBuildMetadata;
+}
+
+export interface UpdateSandboxStatusInput {
+  tenant_id: string;
+  status: SandboxBuildStatus;
+  status_reason: string | null;
+  build_metadata: SandboxBuildMetadata;
 }
 
 export interface ISandboxProviderStore<TTransaction = never> {
@@ -27,6 +44,14 @@ export interface ISandboxProviderStore<TTransaction = never> {
    * Required before read-modify-write of secrets so concurrent keep/rotate cannot interleave.
    */
   getSandboxProviderForUpdate(tenantId: string, transaction: TTransaction): Promise<SandboxProviderRecord | undefined>;
-  /** Single-row write: creates the provider or replaces the whole manifest. */
+  /** Single-row write: creates the provider or replaces the whole manifest + build status. */
   upsertSandboxProvider(input: UpsertSandboxProviderInput, transaction?: TTransaction): Promise<SandboxProviderRecord>;
+  /**
+   * Refresh only the build status columns (status / status_reason / build_metadata) of the
+   * existing row, leaving the manifest untouched. Returns undefined when no row exists.
+   */
+  updateSandboxStatus(
+    input: UpdateSandboxStatusInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxProviderRecord | undefined>;
 }

@@ -102,7 +102,7 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
         updated_at: nowIso(),
       })
       .where('tenant_id', '=', input.tenant_id)
-      .where('name', '=', input.name)
+      .where('id', '=', input.id)
       .returning(recordColumns)
       .executeTakeFirst();
     return row === undefined ? undefined : toRecord(row);

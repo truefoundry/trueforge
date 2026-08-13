@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "truefoundry-utils.fullname" . }}
+  name: {{ include "trueforge.fullname" . }}
   labels:
-    {{- include "truefoundry-utils.labels" . | nindent 4 }}
+    {{- include "trueforge.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
@@ -14,11 +14,11 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "truefoundry-utils.selectorLabels" . | nindent 6 }}
+      {{- include "trueforge.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "truefoundry-utils.selectorLabels" . | nindent 8 }}
+        {{- include "trueforge.selectorLabels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -31,7 +31,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "truefoundry-utils.serviceAccountName" . }}
+      serviceAccountName: {{ include "trueforge.serviceAccountName" . }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -47,7 +47,7 @@ spec:
       {{- end }}
       containers:
         - name: server
-          image: {{ include "truefoundry-utils.image" . | quote }}
+          image: {{ include "trueforge.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.securityContext }}
           securityContext:
@@ -58,7 +58,7 @@ spec:
               containerPort: {{ .Values.server.port }}
               protocol: TCP
           env:
-            {{- include "truefoundry-utils.server.env" . | nindent 12 }}
+            {{- include "trueforge.server.env" . | nindent 12 }}
           {{- with .Values.startupProbe }}
           startupProbe:
             {{- toYaml . | nindent 12 }}

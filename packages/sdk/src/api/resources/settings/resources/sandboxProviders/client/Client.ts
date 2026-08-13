@@ -111,10 +111,11 @@ export class SandboxProvidersClient {
     /**
      * Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
      *
-     * @param {TrueForge.DaytonaSandboxProvider} request
+     * @param {TrueForge.SandboxProviderManifest} request
      * @param {SandboxProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.UnprocessableEntityError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -127,19 +128,18 @@ export class SandboxProvidersClient {
      *         autoDeleteIntervalInMinutes: 1,
      *         autoStopIntervalInMinutes: 1,
      *         execTimeoutMs: 1,
-     *         snapshotName: "snapshot_name",
      *         type: "daytona"
      *     })
      */
     public upsert(
-        request: TrueForge.DaytonaSandboxProvider,
+        request: TrueForge.SandboxProviderManifest,
         requestOptions?: SandboxProvidersClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.PutSandboxProviderResponse> {
         return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
     }
 
     private async __upsert(
-        request: TrueForge.DaytonaSandboxProvider,
+        request: TrueForge.SandboxProviderManifest,
         requestOptions?: SandboxProvidersClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.PutSandboxProviderResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
@@ -160,7 +160,7 @@ export class SandboxProvidersClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.DaytonaSandboxProvider.jsonOrThrow(request, {
+                serializers.SandboxProviderManifest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -191,6 +191,17 @@ export class SandboxProvidersClient {
             switch (_response.error.statusCode) {
                 case 400:
                     throw new TrueForge.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 422:
+                    throw new TrueForge.UnprocessableEntityError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,

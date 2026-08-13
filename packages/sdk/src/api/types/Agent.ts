@@ -2,12 +2,10 @@
 
 import type * as TrueForge from "../index.js";
 
-/**
- * Complete agent definition used inline on a session or saved as a named agent.
- */
-export interface Agent extends TrueForge.AgentSpec {
+export interface Agent {
     /** Immutable server-generated agent identifier. */
     id: string;
-    /** Immutable unique agent name within the tenant. */
+    manifest: TrueForge.AgentSpec;
+    /** Fully qualified name. Unique within a tenant. */
     name: string;
 }

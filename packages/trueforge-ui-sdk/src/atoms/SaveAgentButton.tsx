@@ -5,7 +5,7 @@ import {
   useTrueFoundryAgentSpec,
   useTrueFoundryFlushAgentSpec,
 } from '@truefoundry/assistant-ui-runtime';
-import { useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSaveAgentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
@@ -117,9 +117,16 @@ function SaveAgentButtonContent({
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
 
   const mcpMounts = useMemo(() => editableMountsFromSpec(draftSpec?.mcpServers), [draftSpec?.mcpServers]);
   const skillMounts = useMemo(() => editableMountsFromSpec(draftSpec?.skills), [draftSpec?.skills]);
+
+  useEffect(() => {
+    if (error === null) return;
+    // scrollIntoView is unimplemented in jsdom; guard so tests don't throw.
+    errorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  }, [error]);
 
   const close = () => {
     if (saving) return;
@@ -204,6 +211,7 @@ function SaveAgentButtonContent({
         className={auiButtonClass({ variant: 'outline', size: 'sm', className })}
         onClick={() => void show()}
       >
+        <Icon name="save" className="size-3.5" />
         {triggerLabel}
       </button>
 
@@ -284,7 +292,7 @@ function SaveAgentButtonContent({
               </div>
 
               {error ? (
-                <p role="alert" className="text-failure-bg mt-3 text-sm">
+                <p ref={errorRef} role="alert" className="text-failure-bg mt-3 text-sm">
                   {error}
                 </p>
               ) : null}
