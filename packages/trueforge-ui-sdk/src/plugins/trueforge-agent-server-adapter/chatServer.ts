@@ -60,21 +60,13 @@ export function toHarnessAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSp
   };
 }
 
-export function toUiAgentSpec(spec: TrueForgeApi.AgentSpec): HarnessAgentSpec {
+export function toUiAgentSpec(spec: TrueForgeApi.AgentSpec | TrueForgeApi.AgentManifest): HarnessAgentSpec {
   const { mcpServers, skills, ...rest } = spec;
   return {
     ...rest,
     ...(mcpServers ? { mcpServers: mcpServers.map(toUiMcpServer) } : {}),
     ...(skills ? { skills: skills.map(toUiSkill) } : {}),
   };
-}
-
-/** Drop registry identity columns so the rest is a plain AgentSpec. */
-export function agentManifest(agent: TrueForgeApi.Agent): TrueForgeApi.AgentSpec {
-  const { id, name, ...spec } = agent;
-  void id;
-  void name;
-  return spec;
 }
 
 function toUiSession(session: TrueForgeApi.Session): Session<HarnessAgentSpec> {
