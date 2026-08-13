@@ -16,7 +16,7 @@ allowBuilds:
 # Silence peer mismatches between trueforge-ui peers and the versions we pin.
 peerDependencyRules:
   allowedVersions:
-    '@truefoundry/assistant-ui-runtime': '0.1.14'
+    '@truefoundry/assistant-ui-runtime': '0.1.15'
 
 # One Context module for assistant-ui (avoids "requires an AuiProvider").
 overrides:

@@ -1425,10 +1425,10 @@
     "@tailwindcss/oxide" "4.3.3"
     tailwindcss "4.3.3"
 
-"@truefoundry/assistant-ui-runtime@0.1.14":
-  version "0.1.14"
-  resolved "https://registry.yarnpkg.com/@truefoundry/assistant-ui-runtime/-/assistant-ui-runtime-0.1.14.tgz#c77b2f41ae260b965c16d72dc1b9f73ddde66813"
-  integrity sha512-xdFob3v6KdhUVFrDuw1OAcX6o8lsnT+kQAo82gzCgXbg3YvdIs4cDWRswZdCI83FriRieYtMc8kZPjrRysJSkQ==
+"@truefoundry/assistant-ui-runtime@0.1.15":
+  version "0.1.15"
+  resolved "https://registry.yarnpkg.com/@truefoundry/assistant-ui-runtime/-/assistant-ui-runtime-0.1.15.tgz#9acfd809a1364d2a9b58c48ddc28ff67fb1ee1bd"
+  integrity sha512-WHbQJ0pEoVNYJ5dt99powKqPqLQejpOEYX5jsLkmZMLwty1fgGYgflovXo0StD2VUAblklstL9vpwu/pqMMh/g==
   dependencies:
     "@assistant-ui/core" "^0.2.22"
     "@assistant-ui/store" "^0.2.21"
