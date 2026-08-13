@@ -59,12 +59,16 @@ describe('draft composer sections', () => {
     updateAgentSpec.mockReset();
   });
 
-  it('composes the Tools count and standalone attachment control', () => {
+  it('composes selection chips and forwards attachment behavior from the left section', () => {
     const onAttach = vi.fn();
     render(<DraftSections onAttach={onAttach} />);
 
-    expect(screen.getByRole('button', { name: 'Tools (3)' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Attach a file' }));
+    expect(screen.getByText('1 Connector')).toBeInTheDocument();
+    expect(screen.getByText('2 Skills')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Attachment' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add files or photos/ }));
 
     expect(onAttach).toHaveBeenCalledTimes(1);
   });
@@ -79,12 +83,12 @@ describe('draft composer sections', () => {
   it('propagates disabled and running state to composed controls', async () => {
     const { rerender } = render(<DraftSections disabled />);
 
-    expect(screen.getByRole('button', { name: 'Tools (3)' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' })).toBeDisabled();
     expect(await screen.findByTitle('Select model')).toBeDisabled();
     expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
 
     rerender(<DraftSections isRunning />);
-    expect(screen.getByRole('button', { name: 'Tools (3)' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' })).toBeDisabled();
     expect(await screen.findByTitle('Select model')).toBeDisabled();
     expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
   });

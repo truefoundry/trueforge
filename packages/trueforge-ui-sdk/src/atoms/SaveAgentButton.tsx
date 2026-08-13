@@ -1,450 +1,154 @@
 'use client';
 
-import {
-  useTrueFoundryAdoptAgentSpec,
-  useTrueFoundryAgentSpec,
-  useTrueFoundryFlushAgentSpec,
-} from '@truefoundry/assistant-ui-runtime';
-import { useId, useMemo, useRef, useState } from 'react';
+import { useTrueFoundryAgentSpec } from '@truefoundry/assistant-ui-runtime';
+import { useId, useState, type FormEvent } from 'react';
+
 import { useSaveAgentVisible } from '../hooks/useChatChromeActionsVisible.js';
-import { Icon } from '../icons/Icon.js';
-import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
+import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import type { AgentSpec } from '../server/types.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
-import { readAgentCapabilities, withAgentCapabilities } from './draft/agentCapabilities.js';
-import { DraftCapabilitiesPanel } from './draft/DraftCapabilitiesPanel.js';
-import { DraftCatalogProvider, useDraftCatalog } from './draft/DraftCatalogProvider.js';
-import { CatalogRow, ConnectorConnectButton, isUnauthenticatedDcrConnector } from './draft/DraftCompositeSelector.js';
-import { displayModelLabel, DraftModelCatalogPanel } from './draft/DraftModelCatalogPanel.js';
-import { modelPatchWithReasoningEffort } from './draft/reasoningEffort.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { auiInputClass } from './lib/inputClasses.js';
 import { CenteredModal } from './primitives/CenteredModal.js';
 
-type SaveIntent = 'create' | 'update';
-type Editor = 'model' | 'mcp' | 'skills';
-type EditableMount = { id: string; name: string; value: object };
+const inputClassName = auiInputClass('disabled:opacity-50');
 
-function editableMountsFromSpec(value: unknown): EditableMount[] {
-  if (!Array.isArray(value)) return [];
-  const mounts: EditableMount[] = [];
-  for (const item of value) {
-    if (typeof item !== 'object' || item === null) continue;
-    const name = Reflect.get(item, 'name');
-    if (typeof name !== 'string') continue;
-    const id = Reflect.get(item, 'id');
-    mounts.push({ id: typeof id === 'string' ? id : name, name, value: item });
-  }
-  return mounts;
-}
-
-function SummarySection({
-  icon,
-  title,
-  value,
-  onEdit,
-  disabled,
-}: {
-  icon: string;
-  title: string;
-  value: string;
-  onEdit: () => void;
-  disabled: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-3 border-b border-border px-5 py-3.5 last:border-b-0">
-      <Icon name={icon} className="text-text-secondary size-4 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <p className="text-text-primary text-sm font-medium">{title}</p>
-        <p className="text-text-secondary mt-0.5 truncate text-xs">{value}</p>
-      </div>
-      <button
-        type="button"
-        aria-label={`Edit ${title}`}
-        disabled={disabled}
-        className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-8' })}
-        onClick={onEdit}
-      >
-        <Icon name="pencil" className="size-3.5" />
-      </button>
-    </div>
-  );
-}
-
-export type SaveAgentButtonProps = {
-  disabled?: boolean;
-  className?: string;
-  children?: string;
-};
-
-export function SaveAgentButton({ disabled = false, className, children = 'Save Agent' }: SaveAgentButtonProps) {
-  return (
-    <DraftCatalogProvider>
-      <SaveAgentButtonContent disabled={disabled} className={className}>
-        {children}
-      </SaveAgentButtonContent>
-    </DraftCatalogProvider>
-  );
-}
-
-function SaveAgentButtonContent({
-  disabled,
-  className,
-  children,
-}: {
-  disabled: boolean;
-  className?: string;
-  children: string;
-}) {
-  const { agentSpec, draftSessionId } = useTrueFoundryAgentSpec();
-  const agentSpecRef = useRef(agentSpec);
-  agentSpecRef.current = agentSpec;
-  const flushAgentSpec = useTrueFoundryFlushAgentSpec();
-  const adoptAgentSpec = useTrueFoundryAdoptAgentSpec();
-  const builder = useOptionalServer();
+export function SaveAgentButton() {
   const shell = useOptionalShellMode();
-  const catalog = useDraftCatalog();
-  const serverCapabilities = useServerCapabilities();
-  const modelListId = useId();
+  const server = useOptionalServer();
+  const { agentSpec } = useTrueFoundryAgentSpec();
   const visible = useSaveAgentVisible();
   const [open, setOpen] = useState(false);
-  const [editor, setEditor] = useState<Editor | null>(null);
-  const [intent, setIntent] = useState<SaveIntent>('create');
   const [name, setName] = useState('');
-  const [draftSpec, setDraftSpec] = useState<AgentSpec | null>(null);
-  const [modelQuery, setModelQuery] = useState('');
-  const [search, setSearch] = useState('');
+  const [instructions, setInstructions] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const nameId = useId();
+  const instructionsId = useId();
 
-  const mcpMounts = useMemo(() => editableMountsFromSpec(draftSpec?.mcpServers), [draftSpec?.mcpServers]);
-  const skillMounts = useMemo(() => editableMountsFromSpec(draftSpec?.skills), [draftSpec?.skills]);
+  if (!visible || shell?.mode.status !== 'active' || !shell.mode.isMutable || server == null) return null;
 
-  const close = () => {
-    if (saving) return;
-    setEditor(null);
-    setOpen(false);
-    setDraftSpec(null);
+  const editingAgentName = shell.mode.agentName ?? shell.mode.agentId;
+  const isUpdate = editingAgentName != null && editingAgentName !== '';
+  const draftSpec = shell.mode.agentSpec ?? { model: { name: 'openai-main/gpt-4.1' } };
+  // Runtime AgentSpec is structurally compatible; cast across package boundary.
+  const specToSave: AgentSpec = (agentSpec as AgentSpec | undefined) ?? draftSpec;
+
+  const reset = () => {
+    setName('');
+    setInstructions('');
     setError(null);
+    setSaving(false);
   };
 
-  const show = async () => {
-    if (agentSpecRef.current === null || builder === null) return;
-    setError(null);
-    catalog.ensureLoaded();
-    await flushAgentSpec();
-    const latestAgentSpec = agentSpecRef.current;
-    if (latestAgentSpec === null) return;
-    const currentName = shell?.mode.status === 'active' ? (shell.mode.agentName ?? shell.mode.agentId ?? '') : '';
-    setIntent(currentName ? 'update' : 'create');
-    setName(currentName);
-    setDraftSpec({
-      ...latestAgentSpec,
-      model: {
-        ...latestAgentSpec.model,
-        params: latestAgentSpec.model.params ? { ...latestAgentSpec.model.params } : undefined,
-      },
-      mcpServers: latestAgentSpec.mcpServers?.map(item => ({ ...item })),
-      skills: latestAgentSpec.skills?.map(item => ({ ...item })),
-      config: latestAgentSpec.config ? { ...latestAgentSpec.config } : undefined,
-    });
-    setOpen(true);
+  const handleOpenChange = (next: boolean) => {
+    if (next) {
+      setName(editingAgentName ?? '');
+      setInstructions(specToSave.instructions ?? draftSpec.instructions ?? '');
+    } else {
+      reset();
+    }
+    setOpen(next);
   };
 
-  const save = async () => {
-    if (builder === null || draftSpec === null) return;
-    const normalizedName = name.trim();
-    if (!normalizedName || !draftSpec.model.name.trim()) return;
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    const agentName = name.trim();
+    if (!agentName || saving) return;
+
     setSaving(true);
     setError(null);
+    const trimmedInstructions = instructions.trim();
+    const savedSpec: AgentSpec = {
+      ...specToSave,
+      instructions: trimmedInstructions || undefined,
+    };
     try {
-      const result = await builder.saveAgent({
-        agentName: normalizedName,
-        agentSpec: draftSpec,
-        intent,
-        sessionId: draftSessionId,
+      await server.saveAgent({
+        agentName,
+        agentSpec: savedSpec,
+        intent: isUpdate ? 'update' : 'create',
       });
-      adoptAgentSpec({ agentSpec: draftSpec, updatedAt: result.sessionUpdatedAt });
-      shell?.bindMutableAgent({
-        agentId: result.agentId ?? normalizedName,
-        agentName: normalizedName,
-        agentSpec: draftSpec,
+      // Same draft chat continues as editable agent — do not remount via selectLibraryAgent.
+      shell.bindMutableAgent({
+        agentId: agentName,
+        agentName,
+        agentSpec: savedSpec,
       });
-      shell?.invalidateAgentsList();
-      setOpen(false);
-      setDraftSpec(null);
-      setEditor(null);
-    } catch (caught) {
-      setError(getErrorMessage(caught, 'Could not save agent'));
-    } finally {
+      shell.invalidateAgentsList();
+      handleOpenChange(false);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, isUpdate ? 'Failed to update agent.' : 'Failed to save agent.'));
       setSaving(false);
     }
   };
 
-  const filteredConnectors = catalog.connectors.filter(item =>
-    `${item.name} ${item.description ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()),
-  );
-  const filteredSkills = catalog.skills.filter(item =>
-    `${item.name} ${item.description ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()),
-  );
-  const isUpdateMode =
-    shell?.mode.status === 'active' &&
-    shell.mode.isMutable &&
-    (shell.mode.agentName !== undefined || shell.mode.agentId !== undefined);
-  const triggerLabel = isUpdateMode && children === 'Save Agent' ? 'Update Agent' : children;
-
-  if (!visible) return null;
+  const triggerLabel = isUpdate ? 'Update Agent' : 'Save agent';
+  const modalTitle = isUpdate ? 'Update Agent' : 'Save agent';
+  const modalDescription = isUpdate
+    ? 'Save changes to this agent in the Agents library'
+    : 'Reuse this setup later from the Agents library';
+  const submitLabel = saving ? (isUpdate ? 'Updating…' : 'Saving…') : isUpdate ? 'Update' : 'Save';
 
   return (
     <>
       <button
         type="button"
-        disabled={disabled || builder === null || agentSpec === null}
-        className={auiButtonClass({ variant: 'outline', size: 'sm', className })}
-        onClick={() => void show()}
+        className={auiButtonClass({ variant: 'outline', size: 'sm' })}
+        onClick={() => handleOpenChange(true)}
       >
         {triggerLabel}
       </button>
 
       <CenteredModal
         open={open}
-        onOpenChange={next => !next && close()}
-        title={intent === 'create' ? 'Save agent' : 'Update agent'}
-        description="Review the configuration before saving."
-        className="md:max-w-lg"
-        aria-label={intent === 'create' ? 'Save agent' : 'Update agent'}
-      >
-        {draftSpec ? (
-          <div className="flex min-h-0 w-[min(32rem,calc(100vw-2rem))] flex-1 flex-col">
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-              <label className="mb-4 block">
-                <span className="mb-1.5 block text-sm font-medium">Agent name</span>
-                <input
-                  value={name}
-                  disabled={saving || intent === 'update'}
-                  onChange={event => setName(event.target.value)}
-                  placeholder="my-agent"
-                  className={auiInputClass('h-9 disabled:opacity-60')}
-                />
-              </label>
-
-              <label className="mb-4 block">
-                <span className="mb-1.5 block text-sm font-medium">Instructions</span>
-                <textarea
-                  value={draftSpec.instructions ?? ''}
-                  disabled={saving}
-                  onChange={event => setDraftSpec({ ...draftSpec, instructions: event.target.value })}
-                  rows={4}
-                  className={auiInputClass('resize-y py-2 disabled:opacity-60')}
-                />
-              </label>
-
-              <div className="mb-4 overflow-hidden rounded-xl border border-border">
-                <SummarySection
-                  icon="cpu"
-                  title="Model"
-                  value={draftSpec.model.name ? displayModelLabel(draftSpec.model.name) : 'Not selected'}
-                  disabled={saving}
-                  onEdit={() => setEditor('model')}
-                />
-                <SummarySection
-                  icon="plug"
-                  title="MCP servers"
-                  value={`${mcpMounts.length} selected`}
-                  disabled={saving}
-                  onEdit={() => setEditor('mcp')}
-                />
-                <SummarySection
-                  icon="lightbulb"
-                  title="Skills"
-                  value={`${skillMounts.length} selected`}
-                  disabled={saving}
-                  onEdit={() => setEditor('skills')}
-                />
-              </div>
-
-              <div>
-                <h3 className="mb-2 text-sm font-medium">Capabilities</h3>
-                <DraftCapabilitiesPanel
-                  divided
-                  value={readAgentCapabilities(draftSpec.config)}
-                  disabled={saving}
-                  onChange={values =>
-                    setDraftSpec({
-                      ...draftSpec,
-                      config: withAgentCapabilities({ config: draftSpec.config, values }),
-                    })
-                  }
-                />
-              </div>
-
-              {error ? (
-                <p role="alert" className="text-failure-bg mt-3 text-sm">
-                  {error}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="bg-card-bg sticky bottom-0 z-10 flex shrink-0 justify-end gap-2 border-t border-border px-5 py-4">
-              <button
-                type="button"
-                disabled={saving}
-                className={auiButtonClass({ variant: 'secondary' })}
-                onClick={close}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={saving || !name.trim() || !draftSpec.model.name.trim()}
-                className={auiButtonClass({ variant: 'default' })}
-                onClick={() => void save()}
-              >
-                {saving ? 'Saving…' : 'Save changes'}
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </CenteredModal>
-
-      <CenteredModal
-        open={editor !== null}
-        onOpenChange={next => {
-          if (!next) {
-            setEditor(null);
-            setSearch('');
-            setModelQuery('');
-          }
-        }}
-        title={editor === 'model' ? 'Select model' : editor === 'mcp' ? 'MCP servers' : 'Skills'}
-        className="md:max-w-md"
+        onOpenChange={handleOpenChange}
+        title={modalTitle}
+        description={modalDescription}
         contentSized
-        aria-label={editor === 'model' ? 'Edit model' : editor === 'mcp' ? 'Edit MCP servers' : 'Edit skills'}
       >
-        {draftSpec && editor ? (
-          <div className="flex h-[min(28rem,calc(100dvh-10rem))] w-[min(28rem,calc(100vw-2rem))] flex-col">
-            {editor === 'model' ? (
-              <>
-                {catalog.error ? (
-                  <p role="alert" className="text-failure-bg px-3 pt-3 text-sm">
-                    {catalog.error}
-                  </p>
-                ) : null}
-                <DraftModelCatalogPanel
-                  models={catalog.models}
-                  loading={catalog.loading}
-                  selectedName={draftSpec.model.name}
-                  query={modelQuery}
-                  onQueryChange={setModelQuery}
-                  listboxId={modelListId}
-                  onSelect={nextModel => {
-                    setDraftSpec({
-                      ...draftSpec,
-                      model: modelPatchWithReasoningEffort(
-                        nextModel.name,
-                        draftSpec.model.params,
-                        nextModel.properties.reasoningEfforts,
-                      ),
-                    });
-                    setEditor(null);
-                  }}
-                />
-              </>
-            ) : (
-              <>
-                {catalog.error ? (
-                  <p role="alert" className="text-failure-bg px-3 pt-3 text-sm">
-                    {catalog.error}
-                  </p>
-                ) : null}
-                <div className="border-b border-border p-3">
-                  <label className="relative block">
-                    <Icon
-                      name="search"
-                      className="text-text-secondary pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2"
-                    />
-                    <input
-                      value={search}
-                      onChange={event => setSearch(event.target.value)}
-                      placeholder={editor === 'mcp' ? 'Search MCP servers' : 'Search skills'}
-                      className={auiInputClass('h-8 pr-2 pl-7')}
-                      autoFocus
-                    />
-                  </label>
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto p-2">
-                  {editor === 'mcp'
-                    ? filteredConnectors.map(connector => {
-                        const checked = mcpMounts.some(item => item.id === connector.id);
-                        const needsConnect = isUnauthenticatedDcrConnector(connector);
-                        return (
-                          <CatalogRow
-                            key={connector.id}
-                            title={connector.name}
-                            description={connector.description}
-                            checked={checked}
-                            disabled={!connector.authenticated && !checked}
-                            action={
-                              needsConnect ? (
-                                <ConnectorConnectButton connector={connector} onConnected={catalog.refreshConnectors} />
-                              ) : undefined
-                            }
-                            onToggle={() => {
-                              if (!connector.authenticated && !checked) return;
-                              const next = checked
-                                ? mcpMounts.filter(item => item.id !== connector.id)
-                                : [
-                                    ...mcpMounts,
-                                    {
-                                      id: connector.id,
-                                      name: connector.name,
-                                      value: { id: connector.id, name: connector.name },
-                                    },
-                                  ];
-                              setDraftSpec({
-                                ...draftSpec,
-                                mcpServers: next.map(item => item.value),
-                              });
-                            }}
-                          />
-                        );
-                      })
-                    : filteredSkills.map(skill => {
-                        const checked = skillMounts.some(item => item.id === skill.id);
-                        const disabledSkill = serverCapabilities?.skill.enabled !== true;
-                        return (
-                          <CatalogRow
-                            key={skill.id}
-                            title={skill.name}
-                            description={skill.description}
-                            checked={checked}
-                            disabled={disabledSkill && !checked}
-                            onToggle={() => {
-                              if (disabledSkill && !checked) return;
-                              const next = checked
-                                ? skillMounts.filter(item => item.id !== skill.id)
-                                : [
-                                    ...skillMounts,
-                                    {
-                                      id: skill.id,
-                                      name: skill.name,
-                                      value: { id: skill.id, name: skill.name },
-                                    },
-                                  ];
-                              setDraftSpec({
-                                ...draftSpec,
-                                skills: next.map(item => item.value),
-                              });
-                            }}
-                          />
-                        );
-                      })}
-                </div>
-              </>
-            )}
+        <form className="flex flex-col gap-4 p-5" onSubmit={e => void handleSubmit(e)}>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={nameId} className="text-text-primary text-sm font-medium">
+              Name
+            </label>
+            <input
+              id={nameId}
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="release-notes-writer"
+              autoFocus={!isUpdate}
+              autoComplete="off"
+              disabled={saving || isUpdate}
+              className={`${inputClassName} h-9`}
+            />
           </div>
-        ) : null}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={instructionsId} className="text-text-primary text-sm font-medium">
+              System instructions
+            </label>
+            <textarea
+              id={instructionsId}
+              value={instructions}
+              onChange={e => setInstructions(e.target.value)}
+              placeholder="You are a release notes writer for the platform team..."
+              rows={4}
+              autoFocus={isUpdate}
+              disabled={saving}
+              className={`${inputClassName} min-h-24 resize-y py-2`}
+            />
+          </div>
+          {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
+          <button
+            type="submit"
+            disabled={saving || name.trim().length === 0}
+            className={auiButtonClass({ variant: 'default', className: 'w-full' })}
+          >
+            {submitLabel}
+          </button>
+        </form>
       </CenteredModal>
     </>
   );

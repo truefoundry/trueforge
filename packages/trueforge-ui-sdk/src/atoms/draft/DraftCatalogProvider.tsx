@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { useOptionalServer } from '../../server/ServerContext.js';
-import type { AgentSkill, AgentUIServer, ConnectorState, ModelSelection } from '../../server/types.js';
+import type { AgentSkill, ConnectorState, ModelSelection } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 
 type DraftCatalogValue = {
@@ -18,25 +18,13 @@ type DraftCatalogValue = {
   refreshConnectors: () => Promise<void>;
 };
 
-type DraftCatalogContextValue = DraftCatalogValue & {
-  server: AgentUIServer | null;
-};
-
-const DraftCatalogContext = createContext<DraftCatalogContextValue | null>(null);
+const DraftCatalogContext = createContext<DraftCatalogValue | null>(null);
 
 const IDLE_ENSURE = () => undefined;
 const IDLE_REFRESH = async () => undefined;
 
 export function DraftCatalogProvider({ children }: { children: ReactNode }) {
   const server = useOptionalServer();
-  const existing = useContext(DraftCatalogContext);
-  if (existing?.server === server) {
-    return children;
-  }
-  return <DraftCatalogStore server={server}>{children}</DraftCatalogStore>;
-}
-
-function DraftCatalogStore({ server, children }: { server: AgentUIServer | null; children: ReactNode }) {
   const [requested, setRequested] = useState(false);
   const [models, setModels] = useState<ModelSelection[]>([]);
   const [skills, setSkills] = useState<AgentSkill[]>([]);
@@ -98,8 +86,8 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
   }, [requested, server]);
 
   const value = useMemo(
-    () => ({ server, models, skills, connectors, loading, error, ensureLoaded, refreshConnectors }),
-    [server, models, skills, connectors, loading, error, ensureLoaded, refreshConnectors],
+    () => ({ models, skills, connectors, loading, error, ensureLoaded, refreshConnectors }),
+    [models, skills, connectors, loading, error, ensureLoaded, refreshConnectors],
   );
 
   return <DraftCatalogContext.Provider value={value}>{children}</DraftCatalogContext.Provider>;

@@ -5,7 +5,6 @@ import { useState, type ReactNode } from 'react';
 import { cn } from '../../atoms/lib/cn.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
-import { Switch } from '../../atoms/primitives/Switch.js';
 import { Icon } from '../../icons/Icon.js';
 
 export type CustomProviderDraft = {
@@ -477,18 +476,32 @@ const CustomModelProviderForm = ({
                           {reasoningEffortOptions && reasoningEffortOptions.length > 0 ? (
                             <div>
                               <div className="flex items-center justify-between gap-3">
-                                <span className="text-text-secondary text-xs font-medium">Reasoning effort</span>
-                                <Switch
-                                  checked={model.reasoningEfforts !== undefined}
+                                <span className="text-xs font-medium text-text-secondary">Reasoning effort</span>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={model.reasoningEfforts !== undefined}
                                   aria-label={`Enable reasoning effort for model ${index + 1}`}
                                   disabled={busy}
-                                  size="md"
-                                  onCheckedChange={nextChecked =>
+                                  className={cn(
+                                    'relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40 disabled:opacity-50',
+                                    model.reasoningEfforts !== undefined
+                                      ? 'bg-primary-button-bg'
+                                      : 'bg-text-secondary/30 dark:bg-text-secondary/50',
+                                  )}
+                                  onClick={() =>
                                     updateModel(index, {
-                                      reasoningEfforts: nextChecked ? [] : undefined,
+                                      reasoningEfforts: model.reasoningEfforts === undefined ? [] : undefined,
                                     })
                                   }
-                                />
+                                >
+                                  <span
+                                    className={cn(
+                                      'absolute top-0.5 left-0 size-5 rounded-full bg-white shadow-sm transition-transform',
+                                      model.reasoningEfforts !== undefined ? 'translate-x-5' : 'translate-x-0.5',
+                                    )}
+                                  />
+                                </button>
                               </div>
                               {model.reasoningEfforts !== undefined ? (
                                 <div
