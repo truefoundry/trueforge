@@ -181,6 +181,7 @@ describe("McpServersClient", () => {
             data: {
                 auth: { type: "dcr" },
                 auth_status: { authorization_url: "authorization_url", status: "authenticated" },
+                description: "description",
                 name: "name",
                 type: "remote",
                 url: "url",
@@ -205,6 +206,7 @@ describe("McpServersClient", () => {
                     authorizationUrl: "authorization_url",
                     status: "authenticated",
                 },
+                description: "description",
                 name: "name",
                 type: "remote",
                 url: "url",

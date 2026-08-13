@@ -470,6 +470,11 @@
           "auth": {
             "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
           },
+          "description": {
+            "description": "Concise summary of what this MCP server provides.",
+            "minLength": 1,
+            "type": "string"
+          },
           "logo": {
             "description": "URL of the MCP server logo asset.",
             "format": "uri",
@@ -497,7 +502,8 @@
         "required": [
           "type",
           "name",
-          "url"
+          "url",
+          "description"
         ],
         "type": "object"
       },
@@ -729,6 +735,11 @@
           "auth_status": {
             "$ref": "#/components/schemas/McpAuthStatus"
           },
+          "description": {
+            "description": "Concise summary of what this MCP server provides.",
+            "minLength": 1,
+            "type": "string"
+          },
           "name": {
             "allOf": [
               {
@@ -752,6 +763,7 @@
           "type",
           "name",
           "url",
+          "description",
           "auth_status"
         ],
         "type": "object"
@@ -832,6 +844,11 @@
               }
             ]
           },
+          "description": {
+            "description": "Concise summary of what this MCP server provides.",
+            "minLength": 1,
+            "type": "string"
+          },
           "name": {
             "allOf": [
               {
@@ -854,7 +871,8 @@
         "required": [
           "type",
           "name",
-          "url"
+          "url",
+          "description"
         ],
         "type": "object"
       },
@@ -1910,6 +1928,11 @@
               }
             ]
           },
+          "description": {
+            "description": "Concise summary of what this MCP server provides.",
+            "minLength": 1,
+            "type": "string"
+          },
           "name": {
             "allOf": [
               {
@@ -1932,7 +1955,8 @@
         "required": [
           "type",
           "name",
-          "url"
+          "url",
+          "description"
         ],
         "type": "object"
       },
