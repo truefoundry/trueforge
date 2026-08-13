@@ -6,14 +6,14 @@
  * Harness: one Daytona provider per tenant; catalog YAML has no name — synthetic
  * identity uses `type` (`daytona`) as id/catalogId and display name `Daytona`.
  */
+import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type {
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
   SandboxProviderConfig,
-} from '@truefoundry/trueforge-ui';
-import { harnessClient as client } from './harnessClient';
+} from '../../../server/types.js';
 
 export type UiSandboxProvider = SandboxProviderBase;
 export type UiSandboxProviderCatalogEntry = SandboxProviderCatalogEntry;
@@ -79,17 +79,17 @@ export function toHarnessManifest(
   };
 }
 
-async function resolveApiKey(apiKey: string | undefined): Promise<string> {
-  const trimmed = apiKey?.trim();
-  if (trimmed !== undefined && trimmed !== '') {
-    return trimmed;
-  }
-  const existing = await client.settings.sandboxProviders.get();
-  return existing.data.auth.apiKey;
-}
-
 /** Settings sandbox-catalog port for `createTrueFoundryServer`. Delete omitted (no BE route). */
-export function createSandboxProviderCatalog(): SandboxCatalogServer {
+export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogServer {
+  async function resolveApiKey(apiKey: string | undefined): Promise<string> {
+    const trimmed = apiKey?.trim();
+    if (trimmed !== undefined && trimmed !== '') {
+      return trimmed;
+    }
+    const existing = await client.settings.sandboxProviders.get();
+    return existing.data.auth.apiKey;
+  }
+
   return {
     getSandboxProviderCatalog: async () => {
       const body = await client.catalog.sandboxProviders.list();

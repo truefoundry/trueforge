@@ -207,8 +207,8 @@ describe('SaveAgentButton', () => {
     expect(within(dialog).getByLabelText('Instructions')).toHaveValue('Latest flushed instructions.');
     expect(within(dialog).getByRole('switch', { name: 'Generative UI' })).toHaveAttribute('aria-checked', 'false');
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Edit MCP servers' }));
-    const mcpDialog = await findStackedDialog('Edit MCP servers');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Edit Connectors' }));
+    const mcpDialog = await findStackedDialog('Edit Connectors');
     expect(await within(mcpDialog).findByRole('menuitemcheckbox', { name: /Slack/ })).toHaveAttribute(
       'aria-checked',
       'true',
@@ -313,8 +313,8 @@ describe('SaveAgentButton', () => {
     const saveDialog = await screen.findByRole('dialog', { name: 'Save agent' });
     fireEvent.change(within(saveDialog).getByLabelText('Agent name'), { target: { value: 'preserved-agent' } });
 
-    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit MCP servers' }));
-    const mcpDialog = await findStackedDialog('Edit MCP servers');
+    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Connectors' }));
+    const mcpDialog = await findStackedDialog('Edit Connectors');
     fireEvent.click(await within(mcpDialog).findByRole('menuitemcheckbox', { name: /Slack/ }));
     fireEvent.click(within(mcpDialog).getByRole('button', { name: 'Close' }));
 
@@ -359,8 +359,8 @@ describe('SaveAgentButton', () => {
     const saveDialog = await screen.findByRole('dialog', { name: 'Save agent' });
     fireEvent.change(within(saveDialog).getByLabelText('Agent name'), { target: { value: 'trimmed-agent' } });
 
-    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit MCP servers' }));
-    const mcpDialog = await findStackedDialog('Edit MCP servers');
+    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Connectors' }));
+    const mcpDialog = await findStackedDialog('Edit Connectors');
     fireEvent.click(await within(mcpDialog).findByRole('menuitemcheckbox', { name: /GitHub/ }));
     fireEvent.click(within(mcpDialog).getByRole('button', { name: 'Close' }));
 

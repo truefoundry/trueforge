@@ -74,7 +74,7 @@ function isAgentUIServer(value: object): value is AgentUIServer {
  * Resolves a {@link TrueforgeServerConfig} to an {@link AgentUIServer}.
  * - `AgentUIServer` — sync passthrough
  * - `truefoundry` — async via `createTrueFoundryAgentUIServer`
- * - `trueforge` — not implemented yet (error state)
+ * - `trueforge` — via dynamic import of the Harness plugin adapter
  */
 export function useResolvedServer(
   config: TrueforgeServerConfig,
@@ -83,21 +83,17 @@ export function useResolvedServer(
   const builtIn = isBuiltInConfig(config) ? config : null;
   const directServer: AgentUIServer | null = isBuiltInConfig(config) ? null : config;
   const type = builtIn?.type;
-  const apiKey = builtIn?.apiKey ?? '';
+  const apiKey = builtIn?.type === 'truefoundry' ? builtIn.apiKey : '';
   const controlPlaneURL = builtIn?.type === 'truefoundry' ? builtIn.controlPlaneURL : '';
   const gatewayPlaneURL = builtIn?.type === 'truefoundry' ? (builtIn.gatewayPlaneURL ?? '') : '';
+  const trueforgeBaseUrl = builtIn?.type === 'trueforge' ? (builtIn.baseUrl ?? '') : '';
+  const trueforgeToken = builtIn?.type === 'trueforge' ? (builtIn.token ?? '') : '';
+  const trueforgeFetch = builtIn?.type === 'trueforge' ? builtIn.fetch : undefined;
   const catalog = builtIn?.catalog;
 
   const [state, setState] = useState<ResolvedServerState>(() => {
     if (directServer) {
       return { status: 'ready', server: directServer, error: null };
-    }
-    if (type === 'trueforge') {
-      return {
-        status: 'error',
-        server: null,
-        error: new Error('TrueforgeUI: type "trueforge" is not implemented yet'),
-      };
     }
     return { status: 'loading', server: null, error: null };
   });
@@ -108,27 +104,37 @@ export function useResolvedServer(
       return;
     }
 
-    if (type === 'trueforge') {
-      const error = new Error('TrueforgeUI: type "trueforge" is not implemented yet');
-      onError?.(error);
-      setState({ status: 'error', server: null, error });
-      return;
-    }
-
     let cancelled = false;
     setState({ status: 'loading', server: null, error: null });
 
-    void createTrueFoundryAgentUIServer({
-      apiKey,
-      cpURL: controlPlaneURL,
-      ...(gatewayPlaneURL ? { gatewayURL: gatewayPlaneURL } : {}),
-    })
-      .then(runtimeServer => {
+    const resolve = async (): Promise<AgentUIServer> => {
+      if (type === 'trueforge') {
+        const { createTrueForgeAgentUIServer } = await import('../plugins/trueforge-agent-server-adapter/index.js');
+        return createTrueForgeAgentUIServer({
+          ...(trueforgeBaseUrl ? { baseUrl: trueforgeBaseUrl } : {}),
+          ...(trueforgeToken ? { token: trueforgeToken } : {}),
+          ...(trueforgeFetch !== undefined ? { fetch: trueforgeFetch } : {}),
+          ...(catalog != null ? { catalog } : {}),
+        });
+      }
+
+      const runtimeServer = await createTrueFoundryAgentUIServer({
+        apiKey,
+        cpURL: controlPlaneURL,
+        ...(gatewayPlaneURL ? { gatewayURL: gatewayPlaneURL } : {}),
+      });
+      // TrueFoundry adapter may omit catalog; attach host-supplied catalog here.
+      return toAgentUIServer(runtimeServer, catalog);
+    };
+
+    void resolve()
+      .then(server => {
         if (cancelled) return;
         try {
+          // trueforge factory already includes catalog; still normalize capabilities.
           setState({
             status: 'ready',
-            server: toAgentUIServer(runtimeServer, catalog),
+            server: type === 'trueforge' ? toAgentUIServer(server, undefined) : server,
             error: null,
           });
         } catch (error: unknown) {
@@ -145,7 +151,18 @@ export function useResolvedServer(
     return () => {
       cancelled = true;
     };
-  }, [type, directServer, apiKey, controlPlaneURL, gatewayPlaneURL, catalog, onError]);
+  }, [
+    type,
+    directServer,
+    apiKey,
+    controlPlaneURL,
+    gatewayPlaneURL,
+    trueforgeBaseUrl,
+    trueforgeToken,
+    trueforgeFetch,
+    catalog,
+    onError,
+  ]);
 
   return state;
 }

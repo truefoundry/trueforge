@@ -201,10 +201,7 @@ const ConnectorSettings = () => {
       }
       closeApiKeyModal();
       setTimeout(() => {
-        toaster?.showSuccess({
-          title: existingConnector ? 'Connector updated' : 'Connector connected',
-          description: `${entry.name} is ready to use.`,
-        });
+        toaster?.showSuccess({ title: `${entry.name} ${existingConnector ? 'updated' : 'connected'}` });
       }, 100);
     }, setFormError).catch(() => {});
   };
@@ -219,10 +216,7 @@ const ConnectorSettings = () => {
       });
     }, setFormError);
     setTimeout(() => {
-      toaster?.showSuccess({
-        title: 'Connector added',
-        description: `${draft.name} is ready to use.`,
-      });
+      toaster?.showSuccess({ title: `${draft.name} added` });
     }, 0);
   };
 

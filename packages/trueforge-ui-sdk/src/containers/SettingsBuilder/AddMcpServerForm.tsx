@@ -152,7 +152,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
                   key={option.value}
                   className={`flex h-8 flex-1 cursor-pointer items-center justify-center rounded-sm text-sm font-medium transition-colors ${
                     authType === option.value
-                      ? 'bg-primary-bg text-text-primary shadow-sm'
+                      ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text shadow-sm'
                       : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >

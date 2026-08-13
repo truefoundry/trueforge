@@ -33,6 +33,10 @@
       "types": "./dist/assistant-ui.d.ts",
       "default": "./dist/assistant-ui.js"
     },
+    "./plugins/trueforge-agent-server-adapter": {
+      "types": "./dist/plugins/trueforge-agent-server-adapter/index.d.ts",
+      "default": "./dist/plugins/trueforge-agent-server-adapter/index.js"
+    },
     "./styles.css": "./dist/styles.css"
   },
   "main": "./dist/index.js",
@@ -49,14 +53,18 @@
     "src/icons/registerAgentIcons.ts"
   ],
   "scripts": {
+    "sdk:build": "pnpm --filter @truefoundry/trueforge-sdk build",
+    "prebuild": "pnpm run sdk:build",
     "build": "rm -rf dist && tailwindcss --input src/build-styles.css --output dist/styles.css --minify && tsup",
     "dev:watch": "pnpm run \"/^(dev:watch:js|dev:watch:css)$/\"",
     "dev:watch:js": "tsup --watch",
     "dev:watch:css": "tailwindcss --input src/build-styles.css --output dist/styles.css --watch",
     "pack:tgz": "pnpm build && pnpm pack",
+    "pretest": "pnpm run sdk:build",
     "test": "vitest run && pnpm test:package",
     "test:package": "pnpm build && node test/packageExports.smoke.mjs",
     "test:coverage": "vitest run --coverage",
+    "pretypecheck": "pnpm run sdk:build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p test/tsconfig.json",
     "lint": "eslint src test --ext .ts,.tsx",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md}\" \"test/**/*.{ts,tsx}\" \"*.md\" \"docs/**/*.md\" --config ../../.prettierrc"

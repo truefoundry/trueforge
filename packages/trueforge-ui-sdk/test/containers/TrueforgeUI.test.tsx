@@ -40,6 +40,20 @@ vi.mock('@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adap
   ),
 }));
 
+vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
+  createTrueForgeAgentUIServer: vi.fn(async () =>
+    createMockAgentUIServer({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          settings: { enabled: true },
+        },
+      }),
+    }),
+  ),
+}));
+
 import { TrueforgeUI, type ChatLayout } from '@/containers/TrueforgeUI.js';
 import { DrawerLayout } from '@/layouts/DrawerLayout.js';
 import { SidebarLayout } from '@/layouts/SidebarLayout.js';
@@ -197,8 +211,8 @@ describe('TrueforgeUI', () => {
     expect(await within(modelDialog).findByRole('option', { name: 'gpt-4.1' })).toBeInTheDocument();
     fireEvent.click(within(modelDialog).getByRole('button', { name: 'Close' }));
 
-    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit MCP servers' }));
-    const mcpDialog = document.querySelector('dialog[aria-label="Edit MCP servers"]');
+    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Connectors' }));
+    const mcpDialog = document.querySelector('dialog[aria-label="Edit Connectors"]');
     if (!(mcpDialog instanceof HTMLDialogElement)) throw new Error('expected stacked MCP dialog');
     expect(await within(mcpDialog).findByText('GitHub')).toBeInTheDocument();
     expect(getModels).toHaveBeenCalledOnce();
@@ -239,16 +253,13 @@ describe('TrueforgeUI', () => {
     }
   });
 
-  it('surfaces trueforge-not-implemented as an alert', async () => {
-    const onError = vi.fn();
-    render(
-      <TrueforgeUI server={{ type: 'trueforge', apiKey: 'k' }} layout="sidebar" className="h-96" onError={onError} />,
-    );
+  it('resolves type trueforge and mounts the layout', async () => {
+    render(<TrueforgeUI server={{ type: 'trueforge', token: 'tok' }} layout="sidebar" className="h-96" />);
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(/trueforge.*not implemented/i);
+      expect(screen.queryByRole('status', { name: 'Loading' })).not.toBeInTheDocument();
     });
-    expect(onError).toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('shows a loader while truefoundry server init is pending', () => {
