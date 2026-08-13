@@ -2705,16 +2705,6 @@
         },
         "type": "object"
       },
-      "SandboxBuildMetadata": {
-        "additionalProperties": {
-          "type": "string"
-        },
-        "description": "Provider-specific build metadata; null when the provider has none.",
-        "type": [
-          "object",
-          "null"
-        ]
-      },
       "SandboxBuildStatus": {
         "description": "Current build status.",
         "enum": [
@@ -2905,9 +2895,6 @@
       "SandboxProviderResponse": {
         "additionalProperties": false,
         "properties": {
-          "build_metadata": {
-            "$ref": "#/components/schemas/SandboxBuildMetadata"
-          },
           "manifest": {
             "$ref": "#/components/schemas/SandboxProviderManifest"
           },
@@ -2925,8 +2912,7 @@
         "required": [
           "manifest",
           "status",
-          "status_reason",
-          "build_metadata"
+          "status_reason"
         ],
         "type": "object"
       },

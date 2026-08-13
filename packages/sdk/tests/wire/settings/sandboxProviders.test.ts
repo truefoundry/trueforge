@@ -11,7 +11,6 @@ describe("SandboxProvidersClient", () => {
 
         const rawResponseBody = {
             data: {
-                build_metadata: { key: "value" },
                 manifest: {
                     auth: { api_key: "api_key" },
                     auto_archive_interval_in_minutes: 1,
@@ -36,9 +35,6 @@ describe("SandboxProvidersClient", () => {
         const response = await client.settings.sandboxProviders.get();
         expect(response).toEqual({
             data: {
-                buildMetadata: {
-                    key: "value",
-                },
                 manifest: {
                     auth: {
                         apiKey: "api_key",
@@ -87,7 +83,6 @@ describe("SandboxProvidersClient", () => {
         };
         const rawResponseBody = {
             data: {
-                build_metadata: { key: "value" },
                 manifest: {
                     auth: { api_key: "api_key" },
                     auto_archive_interval_in_minutes: 1,
@@ -122,9 +117,6 @@ describe("SandboxProvidersClient", () => {
         });
         expect(response).toEqual({
             data: {
-                buildMetadata: {
-                    key: "value",
-                },
                 manifest: {
                     auth: {
                         apiKey: "api_key",
