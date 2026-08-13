@@ -17,7 +17,6 @@
     "preview": "vite preview",
     "pretypecheck": "pnpm run sdk:build && pnpm run ui:build",
     "typecheck": "tsc --noEmit",
-    "typecheck:ci": "tsc --noEmit",
     "pretest": "pnpm run sdk:build && pnpm run ui:build",
     "test": "tsx --test \"tests/**/*.test.ts\""
   },
