@@ -1,10 +1,8 @@
 'use client';
 
-import { useAuiState } from '@assistant-ui/react';
 import { useTrueFoundryAgentSpec } from '@truefoundry/assistant-ui-runtime';
 
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { isNewChatView } from '../utils/isNewChatView.js';
 
 // Immutable named-agent title in the thread header.
 export function useNamedAgentHeaderVisible(): boolean {
@@ -22,21 +20,10 @@ export function useSaveAgentVisible(): boolean {
   return Boolean(agentSpec?.model?.name?.trim());
 }
 
-// Clear chat: after a chat has started (drafts need a model).
-// Named / saved agents keep Clear visible even on an empty welcome thread.
+// Clear chat: only on immutable (named / saved) sessions — same gate as the agent title.
 export function useChatChromeActionsVisible(): boolean {
   const shell = useOptionalShellMode();
-  const { agentSpec } = useTrueFoundryAgentSpec();
-  const isEmpty = useAuiState(isNewChatView);
-
-  if (shell == null || shell.mode.status !== 'active') return false;
-  if (shell.mode.isMutable && !agentSpec?.model?.name?.trim()) return false;
-  if (isEmpty) {
-    const boundName = shell.mode.agentName ?? shell.mode.agentId;
-    const isNamedOrSaved = boundName != null && boundName.length > 0;
-    if (!isNamedOrSaved) return false;
-  }
-  return true;
+  return shell != null && shell.mode.status === 'active' && !shell.mode.isMutable;
 }
 
 // True when the thread header has anything to show (title, Save, and/or Clear).

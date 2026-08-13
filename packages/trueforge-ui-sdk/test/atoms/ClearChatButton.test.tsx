@@ -53,11 +53,11 @@ describe('ClearChatButton', () => {
     expect(screen.getByRole('button', { name: 'Clear chat' })).toBeInTheDocument();
   });
 
-  it('is hidden on an empty untitled draft', () => {
+  it('is hidden on mutable sessions', () => {
     render(
       <SlotsProvider>
         <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
-          <RuntimeHarness messages={[]}>
+          <RuntimeHarness messages={startedMessages}>
             <ClearChatButton />
           </RuntimeHarness>
         </ShellModeProvider>
