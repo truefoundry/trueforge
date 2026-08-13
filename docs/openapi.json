@@ -6826,10 +6826,5 @@
         "x-fern-sdk-method-name": "list"
       }
     }
-  },
-  "security": [
-    {
-      "BearerAuth": []
-    }
-  ]
+  }
 }

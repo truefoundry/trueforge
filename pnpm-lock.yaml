@@ -60,6 +60,9 @@ importers:
       '@truefoundry/assistant-ui-runtime':
         specifier: 0.1.14
         version: 0.1.14(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
+      '@truefoundry/trueforge-sdk':
+        specifier: workspace:*
+        version: link:../sdk
       '@truefoundry/trueforge-ui':
         specifier: workspace:*
         version: link:../trueforge-ui-sdk
@@ -72,9 +75,6 @@ importers:
       react-dom:
         specifier: ^19.2.4
         version: 19.2.8(react@19.2.8)
-      trueforge-sdk:
-        specifier: workspace:*
-        version: link:../sdk
     devDependencies:
       '@types/react':
         specifier: ^19.2.17
@@ -333,6 +333,9 @@ importers:
       '@truefoundry/assistant-ui-runtime':
         specifier: 0.1.14
         version: 0.1.14(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
+      '@truefoundry/trueforge-sdk':
+        specifier: workspace:*
+        version: link:../sdk
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -357,9 +360,6 @@ importers:
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0
-      trueforge-sdk:
-        specifier: workspace:*
-        version: link:../sdk
       truefoundry-gateway-sdk:
         specifier: ^0.4.0-rc.6
         version: 0.4.0

@@ -2,7 +2,7 @@
  * Configured-resource list helpers for composer pickers and app boot.
  * Not the settings catalog ports (`*Catalog.ts`).
  */
-import type { TrueForgeApi } from 'trueforge-sdk';
+import type { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import { harnessClient as client } from './harnessClient';
 
 export async function listModels(): Promise<TrueForgeApi.Model[]> {
