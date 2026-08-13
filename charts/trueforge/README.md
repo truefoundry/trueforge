@@ -219,5 +219,5 @@ Also available (defaults inert): `strategy`, `priorityClassName`,
 - Prefer `valueFrom.secretKeyRef` for Postgres password, Redis URL, and OIDC client secret; do not commit secrets in values files.
 - Prefer external managed Postgres/Redis over the bundled subcharts for production HA.
 - Set container `resources` (especially CPU requests) before enabling HPA.
-- Add `imagePullSecrets` when pulling from `tfy.jfrog.io`.
+- Default `tfy.jfrog.io` images and the Helm chart are anonymously pullable — set `imagePullSecrets` only if you override to a private registry.
 - Enable `podDisruptionBudget` when running multiple replicas (defaults to `minAvailable: 1`; set exactly one of `minAvailable` or `maxUnavailable`).

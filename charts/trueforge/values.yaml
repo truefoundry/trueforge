@@ -10,6 +10,8 @@ image:
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
+# Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
+# overriding image.repository / subchart registries to a private registry.
 nameOverride: ""
 fullnameOverride: ""
 
