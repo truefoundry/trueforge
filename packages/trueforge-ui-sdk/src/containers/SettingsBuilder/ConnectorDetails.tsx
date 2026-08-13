@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { cn } from '../../atoms/lib/cn.js';
 import { Button } from '../../atoms/primitives/Button.js';
+import { useMCPAuth } from '../../hooks/useMcpAuth.js';
 import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type { ConnectorBase, ToolBase } from '../../server/types.js';
@@ -13,6 +14,7 @@ import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
 type ConnectorDetailsProps = {
   connector: ConnectorBase;
   onBack: () => void;
+  onConnectorRefreshed: (connector: ConnectorBase) => void;
   onDisconnect: () => void;
   busy?: boolean;
 };
@@ -92,11 +94,19 @@ function ExpandableDescription({ text }: { text: string }) {
   );
 }
 
-const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: ConnectorDetailsProps) => {
+const ConnectorDetails = ({
+  connector,
+  onBack,
+  onConnectorRefreshed,
+  onDisconnect,
+  busy = false,
+}: ConnectorDetailsProps) => {
   const { connectorCatalog } = useCatalogServer();
+  const { handleAuthorize, isOAuthLoading } = useMCPAuth();
   const [tools, setTools] = useState<ToolBase[]>([]);
   const [toolsLoading, setToolsLoading] = useState(true);
   const [toolsError, setToolsError] = useState<string | null>(null);
+  const [refreshingAfterAuth, setRefreshingAfterAuth] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,7 +131,23 @@ const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: Con
     return () => {
       cancelled = true;
     };
-  }, [connector.id, connectorCatalog]);
+  }, [connector.authenticated, connector.id, connectorCatalog]);
+
+  const refreshAfterAuthentication = async () => {
+    setRefreshingAfterAuth(true);
+    setToolsError(null);
+
+    try {
+      const refreshedConnector = await connectorCatalog.getConnector({ id: connector.id });
+      onConnectorRefreshed(refreshedConnector);
+    } catch (err: unknown) {
+      setToolsError(getErrorMessage(err, 'Failed to refresh connector details'));
+    } finally {
+      setRefreshingAfterAuth(false);
+    }
+  };
+
+  const connecting = isOAuthLoading || refreshingAfterAuth;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -167,7 +193,21 @@ const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: Con
             </span>
           </div>
 
-          {connector.auth.type === 'dcr' && !connector.requiresAuth ? (
+          {connector.auth.type === 'dcr' && !connector.authenticated ? (
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              disabled={busy || connecting}
+              onClick={() => {
+                void handleAuthorize(connector.id, isSuccess => {
+                  if (isSuccess) void refreshAfterAuthentication();
+                });
+              }}
+            >
+              {connecting ? 'Connecting…' : 'Connect'}
+            </Button>
+          ) : connector.auth.type === 'dcr' && !connector.requiresAuth ? (
             <Button variant="outline" size="sm" type="button" disabled={busy} onClick={onDisconnect}>
               Disconnect
             </Button>
@@ -182,6 +222,9 @@ const ConnectorDetails = ({ connector, onBack, onDisconnect, busy = false }: Con
           ) : toolsError ? (
             <div className="rounded-xl border border-failure-bg/30 bg-failure-bg/10 p-6 text-center text-sm text-failure-bg">
               {toolsError}
+              {connector.auth.type === 'dcr' && !connector.authenticated && (
+                <div className="font-bold mt-1">Click Connect and authenticate successfully to view tools.</div>
+              )}
             </div>
           ) : tools.length > 0 ? (
             <>
