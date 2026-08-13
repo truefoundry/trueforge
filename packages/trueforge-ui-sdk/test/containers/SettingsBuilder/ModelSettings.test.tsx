@@ -43,7 +43,7 @@ const builtInProvider: ModelProviderBase = {
 };
 
 describe('ModelSettings custom provider editing', () => {
-  it('shows a custom-only pencil action and updates the provider from the prefilled modal', async () => {
+  it('opens the custom provider modal from Edit and updates the provider from the prefilled form', async () => {
     const updateModelProvider = vi.fn(async (request: UpdateModelProviderRequest) => ({
       ...customProvider,
       baseUrl: request.baseUrl,
@@ -74,7 +74,7 @@ describe('ModelSettings custom provider editing', () => {
     );
 
     const editButton = await screen.findByRole('button', { name: 'Edit local-llama' });
-    expect(screen.queryByRole('button', { name: 'Edit OpenAI' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit OpenAI' })).toBeInTheDocument();
     fireEvent.click(editButton);
 
     expect(screen.getByRole('heading', { name: 'Edit local-llama' })).toBeInTheDocument();

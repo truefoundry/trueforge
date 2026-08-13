@@ -405,6 +405,8 @@ const ModelSettings = () => {
                               size="sm"
                               className="text-[0.8125rem]"
                               type="button"
+                              aria-label={`Edit ${provider.name}`}
+                              title={`Edit ${provider.name}`}
                               disabled={busy}
                               onClick={() => {
                                 if (provider.type === 'custom') {
