@@ -173,7 +173,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
           </fieldset>
 
           {authType === 'dcr' ? (
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 bg-secondary-bg/40 p-2 rounded-md">
               <Icon name="info" className="size-3.5 mt-1 text-text-secondary" />
               <div className="text-xs text-text-secondary leading-5.5">
                 Sign-in only — the server must support dynamic client registration. Manual OAuth (client ID / secret)
