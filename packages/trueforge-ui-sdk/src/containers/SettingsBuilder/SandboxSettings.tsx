@@ -108,10 +108,7 @@ const SandboxSettings = () => {
     }, setFormError);
     setCreateEntry(null);
     setTimeout(() => {
-      toaster?.showSuccess({
-        title: 'Sandbox provider configured',
-        description: `${createEntry.name} is ready to use.`,
-      });
+      toaster?.showSuccess({ title: `${createEntry.name} configured` });
     }, 0);
   };
 
@@ -127,10 +124,7 @@ const SandboxSettings = () => {
     }, setFormError);
     setUpdateProvider(null);
     setTimeout(() => {
-      toaster?.showSuccess({
-        title: 'Sandbox provider updated',
-        description: `${updateProvider.name} was updated successfully.`,
-      });
+      toaster?.showSuccess({ title: `${updateProvider.name} updated` });
     }, 0);
   };
 

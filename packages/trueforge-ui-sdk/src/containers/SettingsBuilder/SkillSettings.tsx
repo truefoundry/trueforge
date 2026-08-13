@@ -107,10 +107,7 @@ const SkillSettings = () => {
       await skillCatalog.createSkill(draft);
     }, setFormError);
     setTimeout(() => {
-      toaster?.showSuccess({
-        title: 'Skill imported',
-        description: `${draft.name} is ready to use.`,
-      });
+      toaster?.showSuccess({ title: `${draft.name} imported` });
     }, 0);
   };
 
