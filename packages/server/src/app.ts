@@ -190,7 +190,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     createMcpOAuthRouter({
       tokenStore: deps.tokenStore,
       mcpServerStore: deps.mcpServerStore,
-      withTransaction: deps.withTransaction,
       logger: deps.logger,
     }),
   );
