@@ -13,17 +13,19 @@ import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
 import { Tooltip } from '../primitives/Tooltip.js';
+import { readAgentCapabilities, withAgentCapabilities } from './agentCapabilities.js';
+import { DraftCapabilitiesPanel } from './DraftCapabilitiesPanel.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 
 /** Catalog-backed mount shape used by the draft picker (runtime mounts stay opaque). */
-type DraftMount = { id: string; name: string };
+export type DraftMount = { id: string; name: string };
 
 /**
  * Harness wire mounts are name-keyed (`{ name }` only). Catalog rows use
  * `id === name`, so missing ids hydrate from name — otherwise save/load drops
  * mounts from the picker and the next flush can wipe them from the spec.
  */
-function draftMountsFromSpec(value: unknown): DraftMount[] {
+export function draftMountsFromSpec(value: unknown): DraftMount[] {
   if (!Array.isArray(value)) return [];
   const mounts: DraftMount[] = [];
   for (const item of value) {
@@ -35,12 +37,12 @@ function draftMountsFromSpec(value: unknown): DraftMount[] {
   }
   return mounts;
 }
-type AttachTab = 'connectors' | 'skills' | 'files';
+type AttachTab = 'connectors' | 'skills' | 'capabilities';
 
 const TABS: { id: AttachTab; label: string; icon: string }[] = [
   { id: 'connectors', label: 'Connectors', icon: 'plug' },
   { id: 'skills', label: 'Skills', icon: 'lightbulb' },
-  { id: 'files', label: 'Attachment', icon: 'paperclip' },
+  { id: 'capabilities', label: 'Capabilities', icon: 'wrench' },
 ];
 
 const SPEC_FLUSH_MS = 300;
@@ -61,7 +63,7 @@ function Checkbox({ checked }: { checked: boolean }) {
   );
 }
 
-function CatalogRow({
+export function CatalogRow({
   title,
   description,
   checked,
@@ -124,7 +126,7 @@ function CatalogRow({
   );
 }
 
-function isUnauthenticatedDcrConnector(connector: ConnectorState): boolean {
+export function isUnauthenticatedDcrConnector(connector: ConnectorState): boolean {
   const auth = Reflect.get(connector, 'auth');
   return (
     connector.authenticated === false &&
@@ -134,7 +136,7 @@ function isUnauthenticatedDcrConnector(connector: ConnectorState): boolean {
   );
 }
 
-function ConnectorConnectButton({
+export function ConnectorConnectButton({
   connector,
   onConnected,
 }: {
@@ -239,6 +241,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const selectedSkills = open ? localSkills : specSkills;
   const selectedMcpIds = useMemo(() => new Set(selectedMcp.map(m => m.id)), [selectedMcp]);
   const selectedSkillIds = useMemo(() => new Set(selectedSkills.map(s => s.id)), [selectedSkills]);
+  const hasValidModel = Boolean(agentSpec?.model?.name.trim());
+  const toolsCount = selectedMcp.length + selectedSkills.length;
 
   const clearFlushTimer = useCallback(() => {
     if (flushTimerRef.current != null) {
@@ -278,14 +282,26 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   }, [open, ensureLoaded]);
 
   useEffect(() => {
+    if (open && !hasValidModel) {
+      setOpenAndFlush(false);
+    }
+  }, [hasValidModel, open, setOpenAndFlush]);
+
+  useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
+    // Flush on pointer or keyboard focus leaving the picker so Save Agent (and
+    // other outside actions) see the latest local connector/skill toggles.
+    const handler = (e: Event) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpenAndFlush(false);
       }
     };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('focusin', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('focusin', handler);
+    };
   }, [open, setOpenAndFlush]);
 
   useEffect(() => () => clearFlushTimer(), [clearFlushTimer]);
@@ -391,24 +407,27 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         })}
       </div>
 
-      {tab === 'files' ? (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => {
-            onAttach?.();
-            setOpenAndFlush(false);
-          }}
-          className={cn(
-            'm-3 flex min-h-48 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-8',
-            'text-center outline-none transition-colors hover:bg-ghost-button-hover',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-          )}
-        >
-          <Icon name="paperclip" className="text-primary-button-bg size-6" />
-          <span className="text-sm font-medium">Add files or photos</span>
-          <span className="text-text-secondary text-xs">Upto 5 attachments | 10 MB each</span>
-        </button>
+      {tab === 'capabilities' ? (
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+          <DraftCapabilitiesPanel
+            value={readAgentCapabilities(agentSpec?.config)}
+            disabled={disabled || isRunning}
+            onChange={values => {
+              // Capability writes bypass the mount debounce. Fold in any dirty
+              // local mounts in the same update so a pending connector/skill
+              // toggle is not overwritten by a config-only sync.
+              clearFlushTimer();
+              const includeLocalMounts = dirtyRef.current;
+              if (includeLocalMounts) {
+                dirtyRef.current = false;
+              }
+              updateAgentSpec?.({
+                ...(includeLocalMounts ? { mcpServers: localMcpRef.current, skills: localSkillsRef.current } : {}),
+                config: withAgentCapabilities({ config: agentSpec?.config, values }),
+              });
+            }}
+          />
+        </div>
       ) : (
         <>
           <SearchField
@@ -509,33 +528,50 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
 
   return (
     <div ref={containerRef} className="relative flex flex-wrap items-center gap-1.5">
-      <button
-        type="button"
-        disabled={disabled || isRunning}
-        aria-label="Add connectors, skills, or attachments"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-        onClick={() => {
-          if (open) {
-            setOpenAndFlush(false);
-            return;
-          }
-          openPicker();
-        }}
-      >
-        <Icon name="plus" className="text-primary-button-bg" />
-      </button>
+      {hasValidModel ? (
+        <button
+          type="button"
+          disabled={disabled || isRunning}
+          aria-label={`Tools (${toolsCount})`}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={open ? menuId : undefined}
+          className={auiButtonClass({
+            variant: 'ghost',
+            size: 'sm',
+            className: 'h-8 gap-1.5 rounded-md px-2 text-xs',
+          })}
+          onClick={() => {
+            if (open) {
+              setOpenAndFlush(false);
+              return;
+            }
+            openPicker();
+          }}
+        >
+          <Icon name="wrench" className="size-3.5" />
+          <span>Tools</span>
+          <span className="bg-primary-button-bg/10 text-primary-button-bg rounded px-1.5 py-0.5 text-[10px] font-semibold">
+            {toolsCount}
+          </span>
+        </button>
+      ) : null}
 
-      <DraftSelectionChips
-        disabled={disabled || isRunning}
-        onOpenTab={tabId => {
-          openPicker(tabId);
-        }}
-      />
+      {onAttach ? (
+        <Tooltip content="Attach a file">
+          <button
+            type="button"
+            disabled={disabled || isRunning}
+            aria-label="Attach a file"
+            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+            onClick={onAttach}
+          >
+            <Icon name="paperclip" />
+          </button>
+        </Tooltip>
+      ) : null}
 
-      {open ? (
+      {open && hasValidModel ? (
         isMobile || compactLayout ? (
           <BottomSheet id={menuId} open onOpenChange={setOpenAndFlush} aria-label="Add to composer">
             {content}
@@ -550,70 +586,6 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             {content}
           </div>
         )
-      ) : null}
-    </div>
-  );
-}
-
-export type DraftSelectionChipsProps = {
-  disabled?: boolean;
-  onOpenTab?: (tab: 'connectors' | 'skills') => void;
-};
-
-function SelectionChipTooltipList({ mounts }: { mounts: DraftMount[] }) {
-  return (
-    <ul className="m-0 flex max-w-48 list-none flex-col gap-0.5 p-0 text-left">
-      {mounts.map(mount => (
-        <li key={mount.id} className="truncate" title={mount.name}>
-          {mount.name}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-export function DraftSelectionChips({ disabled, onOpenTab }: DraftSelectionChipsProps = {}) {
-  const { agentSpec } = useTrueFoundryAgentSpec();
-  const mcpMounts = useMemo(() => draftMountsFromSpec(agentSpec?.mcpServers), [agentSpec?.mcpServers]);
-  const skillMounts = useMemo(() => draftMountsFromSpec(agentSpec?.skills), [agentSpec?.skills]);
-
-  if (mcpMounts.length === 0 && skillMounts.length === 0) return null;
-
-  const chipClassName = cn(
-    'bg-secondary-bg text-text-secondary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs outline-none',
-    'focus-visible:ring-1 focus-visible:ring-focus-ring',
-    disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-ghost-button-hover cursor-pointer',
-  );
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {mcpMounts.length > 0 ? (
-        <Tooltip content={<SelectionChipTooltipList mounts={mcpMounts} />} className="max-w-48 whitespace-normal">
-          <button
-            type="button"
-            disabled={disabled}
-            aria-label={`View ${mcpMounts.length} selected connector${mcpMounts.length === 1 ? '' : 's'}`}
-            className={chipClassName}
-            onClick={() => onOpenTab?.('connectors')}
-          >
-            <Icon name="plug" className="size-3" />
-            {mcpMounts.length} Connector{mcpMounts.length === 1 ? '' : 's'}
-          </button>
-        </Tooltip>
-      ) : null}
-      {skillMounts.length > 0 ? (
-        <Tooltip content={<SelectionChipTooltipList mounts={skillMounts} />} className="max-w-48 whitespace-normal">
-          <button
-            type="button"
-            disabled={disabled}
-            aria-label={`View ${skillMounts.length} selected skill${skillMounts.length === 1 ? '' : 's'}`}
-            className={chipClassName}
-            onClick={() => onOpenTab?.('skills')}
-          >
-            <Icon name="lightbulb" className="size-3" />
-            {skillMounts.length} Skill{skillMounts.length === 1 ? '' : 's'}
-          </button>
-        </Tooltip>
       ) : null}
     </div>
   );

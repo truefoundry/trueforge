@@ -1,6 +1,6 @@
 /**
  * Copies the monorepo frontend build into `dist/_frontend` so the published
- * `@truefoundry/utils` tarball (and local `node dist/main.js` / `pnpm start`) can serve the UI
+ * `@truefoundry/trueforge` tarball (and local `node dist/main.js` / `pnpm start`) can serve the UI
  * from next to the server bundle. Cleared by `pnpm clean` with the rest of dist/.
  *
  * Root `pnpm build` builds frontend before this package; a missing source only

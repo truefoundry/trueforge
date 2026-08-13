@@ -1,16 +1,16 @@
-import type { TurnRecord, TurnSnapshot } from '@truefoundry/utils-core/agent-session/models/TurnRecord';
+import type { TurnRecord, TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
   CancellationReason,
   type TerminalTurnState,
   type TurnInputItem,
   type TurnState,
-} from '@truefoundry/utils-core/agent-session/schemas/turn';
-import { assertCreateTurnThreadDelta } from '@truefoundry/utils-core/agent-session/store/assertCreateTurnThreadDelta';
+} from '@truefoundry/trueforge-core/agent-session/schemas/turn';
+import { assertCreateTurnThreadDelta } from '@truefoundry/trueforge-core/agent-session/store/assertCreateTurnThreadDelta';
 import type {
   FreezeAndGetTurnInput,
   TurnRecordWithoutSnapshot,
   UpdateTurnStateInput,
-} from '@truefoundry/utils-core/agent-session/store/ISessionStore';
+} from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import {
   PreviousTurnRunningError,
   SessionNotFoundError,
@@ -20,13 +20,13 @@ import {
   TurnAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
-} from '@truefoundry/utils-core/agent-session/store/SessionStoreErrors';
-import type { CapabilityState, JsonValue } from '@truefoundry/utils-core/core/capabilities/AgentCapability';
-import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/utils-core/core/events/schema';
-import type { AgentThreadSnapshot, ContextMessage } from '@truefoundry/utils-core/core/runtime/AgentThread.types';
-import type { CurrentContextUsage } from '@truefoundry/utils-core/core/runtime/contextUsage';
-import { getEmptyCurrentContextUsage } from '@truefoundry/utils-core/core/runtime/contextUsage';
-import type { SandboxInfo } from '@truefoundry/utils-core/core/sandbox/Sandbox';
+} from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
+import type { CapabilityState, JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
+import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/trueforge-core/core/events/schema';
+import type { AgentThreadSnapshot, ContextMessage } from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
+import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
+import { getEmptyCurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
+import type { SandboxInfo } from '@truefoundry/trueforge-core/core/sandbox/Sandbox';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
 import { isUniqueViolation } from '../../client';
 import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';

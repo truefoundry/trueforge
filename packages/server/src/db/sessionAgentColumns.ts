@@ -1,4 +1,4 @@
-import { AgentSpecSchema, type AgentSpec, type SessionAgent } from '@truefoundry/utils-core/agent-session';
+import { AgentSpecSchema, type AgentSpec, type SessionAgent } from '@truefoundry/trueforge-core/agent-session';
 
 /** Flatten domain agent for SQL session columns (XOR agent_id / agent_spec; optional name snapshot). */
 export function sessionAgentToColumns(agent: SessionAgent): {

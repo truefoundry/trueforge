@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
+
 import {
   configFromHarness,
   toHarnessManifest,
   toUiCatalogEntry,
   toUiSandboxProvider,
-} from '../src/sandboxProviderCatalog';
+} from '@/plugins/trueforge-agent-server-adapter/catalogs/sandboxProviderCatalog.js';
 
 describe('sandboxProviderCatalog mappers', () => {
   const harnessCatalog = {

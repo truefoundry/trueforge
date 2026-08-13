@@ -1,21 +1,21 @@
-import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
-import type { SessionRecord } from '@truefoundry/utils-core/agent-session/models/SessionRecord';
+import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
   DeleteSessionInput,
   GetSessionInput,
   ListSessionsInput,
   UpdateSessionInput,
-} from '@truefoundry/utils-core/agent-session/store/ISessionStore';
+} from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import {
   decodeSessionListPageToken,
   paginateSessionListRows,
-} from '@truefoundry/utils-core/agent-session/store/SessionListPageToken';
+} from '@truefoundry/trueforge-core/agent-session/store/SessionListPageToken';
 import {
   SessionAlreadyExistsError,
   SessionNotFoundError,
   SessionStoreInvariantError,
-} from '@truefoundry/utils-core/agent-session/store/SessionStoreErrors';
+} from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
 import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
 import { isUniqueViolation } from '../../client';

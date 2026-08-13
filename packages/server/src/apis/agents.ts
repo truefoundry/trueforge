@@ -2,7 +2,7 @@
  * DB-backed agent registry API (mounted at /api/v1/agents).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { AgentSpec } from '@truefoundry/utils-core/agent-session';
+import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import { AgentNameConflictError, type AgentRecord, type IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';

@@ -4,7 +4,7 @@ import {
   Sessions,
   TurnNotFoundError,
   type TurnStreamingEvent,
-} from '@truefoundry/utils-core/agent-session';
+} from '@truefoundry/trueforge-core/agent-session';
 import { createLogger } from 'winston';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, turnStreamId } from '../../../src/apis/turns';

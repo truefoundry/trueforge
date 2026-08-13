@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`type: "trueforge"` built-in server** — `<TrueforgeUI server={{ type: 'trueforge', baseUrl?, token?, fetch? }} />`
+  resolves a full Harness `AgentUIServer` via
+  `@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter`
+  (`createTrueForgeAgentUIServer`), including chat, builder, and default settings
+  catalogs. Depends on `@truefoundry/trueforge-sdk` (workspace:* in-monorepo; external in the bundle).
 - **Light/dark brand logo** — `theme.brand.logo` accepts a `BrandLogoConfig`
   (`{ src?, light?, dark?, href? }`). The source is picked from the resolved theme
   mode, falling back to the other mode and then `src`, so a single configured mode

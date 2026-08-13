@@ -1,17 +1,26 @@
 'use client';
 
-import { useAuiState } from '@assistant-ui/react';
 import { useTrueFoundryAgentSpec } from '@truefoundry/assistant-ui-runtime';
 
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { isNewChatView } from '../utils/isNewChatView.js';
 
-// Immutable named-agent title in the thread header.
-export function useNamedAgentHeaderVisible(): boolean {
+export type NamedAgentHeaderState = {
+  name: string;
+  isEditing: boolean;
+};
+
+// Canonical named-agent header state, including mutable edit mode.
+export function useNamedAgentHeaderState(): NamedAgentHeaderState | null {
   const shell = useOptionalShellMode();
-  if (shell == null || shell.mode.status !== 'active' || shell.mode.isMutable) return false;
+  if (shell == null || shell.mode.status !== 'active') return null;
   const name = shell.mode.agentName ?? shell.mode.agentId;
-  return name != null && name.length > 0;
+  if (name == null || name.length === 0) return null;
+  return { name, isEditing: shell.mode.isMutable };
+}
+
+export function useNamedAgentHeaderVisible(): boolean {
+  const state = useNamedAgentHeaderState();
+  return state !== null;
 }
 
 // Mutable draft/edit with a selected model — drives Save Agent + header chrome.
@@ -22,21 +31,10 @@ export function useSaveAgentVisible(): boolean {
   return Boolean(agentSpec?.model?.name?.trim());
 }
 
-// Clear chat: after a chat has started (drafts need a model).
-// Named / saved agents keep Clear visible even on an empty welcome thread.
+// Clear chat: only on immutable (named / saved) sessions — same gate as the agent title.
 export function useChatChromeActionsVisible(): boolean {
   const shell = useOptionalShellMode();
-  const { agentSpec } = useTrueFoundryAgentSpec();
-  const isEmpty = useAuiState(isNewChatView);
-
-  if (shell == null || shell.mode.status !== 'active') return false;
-  if (shell.mode.isMutable && !agentSpec?.model?.name?.trim()) return false;
-  if (isEmpty) {
-    const boundName = shell.mode.agentName ?? shell.mode.agentId;
-    const isNamedOrSaved = boundName != null && boundName.length > 0;
-    if (!isNamedOrSaved) return false;
-  }
-  return true;
+  return shell != null && shell.mode.status === 'active' && !shell.mode.isMutable;
 }
 
 // True when the thread header has anything to show (title, Save, and/or Clear).

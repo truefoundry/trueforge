@@ -1,12 +1,15 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { SkillManifest } from '../../../schemas/skill';
 import {
+  SkillNameConflictError,
+  type CreateSkillInput,
   type GetSkillInput,
   type ISkillStore,
   type ListSkillsInput,
   type SkillRecord,
   type UpsertSkillInput,
 } from '../../skillStore';
+import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
@@ -48,6 +51,29 @@ export class SqliteSkillStore implements ISkillStore<Transaction<Database>> {
       .where('tenant_id', '=', input.tenant_id)
       .where('name', '=', input.name)
       .executeTakeFirst();
+  }
+
+  async createSkill(input: CreateSkillInput, transaction?: Transaction<Database>): Promise<SkillRecord> {
+    const db = transaction ?? this.#db;
+    const timestamp = nowIso();
+    try {
+      return await db
+        .insertInto('skill')
+        .values({
+          tenant_id: input.tenant_id,
+          name: input.name,
+          manifest: jsonbBind(input.manifest),
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .returning(recordColumns)
+        .executeTakeFirstOrThrow();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new SkillNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
+      }
+      throw error;
+    }
   }
 
   async upsertSkill(input: UpsertSkillInput, transaction?: Transaction<Database>): Promise<SkillRecord> {

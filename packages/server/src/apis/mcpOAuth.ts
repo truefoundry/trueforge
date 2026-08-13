@@ -1,5 +1,5 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { extractErrorLogFields, McpConnectionError } from '@truefoundry/utils-core/core';
+import { extractErrorLogFields, McpConnectionError } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import type { WithTransaction } from '../db/transaction';
 import { completeMcpAuthorization } from '../mcp/auth/mcpDcr';

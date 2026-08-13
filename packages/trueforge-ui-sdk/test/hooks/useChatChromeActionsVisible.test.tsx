@@ -62,7 +62,7 @@ describe('useChatHeaderContentVisible', () => {
     expect(result.current.header).toBe(true);
   });
 
-  it('is false on an empty untitled draft with no model', () => {
+  it('hides Clear on mutable sessions even after chat has started', () => {
     const { result } = renderHook(
       () => ({
         named: useNamedAgentHeaderVisible(),
@@ -72,15 +72,12 @@ describe('useChatHeaderContentVisible', () => {
       }),
       {
         wrapper: wrap({
-          messages: [],
           agentConfig: { mode: 'AgentComposer' },
         }),
       },
     );
 
     expect(result.current.named).toBe(false);
-    expect(result.current.save).toBe(false);
     expect(result.current.clear).toBe(false);
-    expect(result.current.header).toBe(false);
   });
 });

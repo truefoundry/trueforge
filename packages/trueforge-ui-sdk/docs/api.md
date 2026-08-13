@@ -6,10 +6,40 @@ re-exports override **types** only where needed.
 
 ## Quick start
 
-| Export                           | Notes                             |
-| -------------------------------- | --------------------------------- |
-| `TrueforgeUI`                    | Slots + runtime + built-in layout |
-| `TrueforgeUIProps`, `ChatLayout` | Props / layout union              |
+| Export                           | Notes                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| `TrueforgeUI`                    | Slots + runtime + built-in layout                                                    |
+| `TrueforgeUIProps`, `ChatLayout` | Props / layout union                                                                 |
+| `TrueforgeServerConfig`          | `server` prop: `type: "truefoundry"` \| `type: "trueforge"` \| ready `AgentUIServer` |
+
+### Built-in servers
+
+| `server` config                                                      | What the SDK does                                                                       |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `{ type: 'truefoundry', apiKey, controlPlaneURL, gatewayPlaneURL? }` | Calls runtime `createTrueFoundryAgentUIServer`                                          |
+| `{ type: 'trueforge', baseUrl?, token?, fetch?, catalog? }`          | Dynamic-imports `plugins/trueforge-agent-server-adapter` → full Harness `AgentUIServer` |
+| Ready `AgentUIServer`                                                | Passthrough (host-composed or `createTrueFoundryServer`)                                |
+
+TrueForge hosts need `@truefoundry/trueforge-sdk`. Cookie apps pass `fetch`; embeds usually pass `token`.
+
+```tsx
+// Harness / TrueForge
+<TrueforgeUI
+  server={{ type: 'trueforge', baseUrl: '/', token: process.env.TRUEFORGE_TOKEN }}
+  layout="sidebar"
+/>
+
+// Or same-origin cookies:
+<TrueforgeUI server={{ type: 'trueforge', fetch: authAwareFetch }} layout="sidebar" />
+```
+
+Factory without `<TrueforgeUI />`:
+
+```ts
+import { createTrueForgeAgentUIServer } from '@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter';
+
+const server = createTrueForgeAgentUIServer({ baseUrl: '/', token });
+```
 
 ## Compose
 

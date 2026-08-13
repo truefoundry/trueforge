@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
+
 import {
   toHarnessAuth,
   toHarnessManifest,
@@ -8,7 +9,7 @@ import {
   toUiConnector,
   toUiConnectorFromReadEntry,
   toUiTool,
-} from '../src/connectorCatalog';
+} from '@/plugins/trueforge-agent-server-adapter/catalogs/connectorCatalog.js';
 
 describe('connectorCatalog mappers', () => {
   it('maps harness auth to UI public auth without secrets', () => {
