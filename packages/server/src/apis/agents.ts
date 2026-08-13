@@ -99,13 +99,9 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     const { agent_id: agentId } = c.req.valid('param');
     const body = c.req.valid('json');
     const manifest = await validateManifest({ spec: body.manifest, deps });
-    const existing = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: agentId });
-    if (existing === undefined) {
-      return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
-    }
     const record = await deps.agentStore.updateAgent({
       tenant_id: TENANT_ID,
-      name: existing.name,
+      id: agentId,
       manifest,
     });
     if (record === undefined) {

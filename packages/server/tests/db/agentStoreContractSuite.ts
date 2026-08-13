@@ -46,7 +46,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     expect(await store.getAgent({ tenant_id: TENANT, name: 'missing' })).toBeUndefined();
   });
 
-  it('updateAgent by name replaces manifest but keeps id, name, and created_at', async () => {
+  it('updateAgent by id replaces manifest but keeps id, name, and created_at', async () => {
     const store = getStore();
     const created = await store.createAgent({
       tenant_id: TENANT,
@@ -57,7 +57,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     const replacement = manifest({ instructions: 'Updated instructions.' });
     const updated = await store.updateAgent({
       tenant_id: TENANT,
-      name: 'research',
+      id: created.id,
       manifest: replacement,
     });
 
@@ -78,12 +78,12 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     expect(await store.getAgent({ tenant_id: TENANT, name: 'research' })).toEqual(updated);
   });
 
-  it('updateAgent returns undefined for unknown names', async () => {
+  it('updateAgent returns undefined for unknown ids', async () => {
     const store = getStore();
     expect(
       await store.updateAgent({
         tenant_id: TENANT,
-        name: 'missing',
+        id: 'missing',
         manifest: manifest(),
       }),
     ).toBeUndefined();
