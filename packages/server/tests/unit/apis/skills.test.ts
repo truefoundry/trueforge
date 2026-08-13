@@ -25,6 +25,14 @@ function putInit(body: unknown): RequestInit {
   };
 }
 
+function postInit(body: unknown): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
 describe('skills routers', () => {
   let settingsRouter: ReturnType<typeof createSkillsRouter>;
   let catalogRouter: ReturnType<typeof createCatalogRouter>;
@@ -71,11 +79,31 @@ describe('skills routers', () => {
     expect(await list.json()).toEqual({ data: [putBody] });
   });
 
+  it('POST creates a skill and returns 409 on name clash', async () => {
+    const createBody = {
+      ...putBody,
+      name: 'create-only-skill',
+      path: 'skills/create-only-skill',
+    };
+    const created = await settingsRouter.request('/', postInit(createBody));
+    expect(created.status).toBe(200);
+    expect(await created.json()).toEqual({ data: createBody });
+
+    const clash = await settingsRouter.request('/', postInit(createBody));
+    expect(clash.status).toBe(409);
+    expect(await clash.json()).toEqual({
+      error: { message: 'Skill name already exists: create-only-skill' },
+    });
+  });
+
   it('GET / on the chat router returns the slim name/description projection', async () => {
     const response = await availableRouter.request('/');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: [{ name: putBody.name, description: putBody.description }],
+      data: [
+        { name: putBody.name, description: putBody.description },
+        { name: 'create-only-skill', description: putBody.description },
+      ],
     });
   });
 

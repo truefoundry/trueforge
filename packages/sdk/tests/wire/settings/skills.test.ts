@@ -74,6 +74,94 @@ describe("SkillsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
     });
 
+    test("create (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { description: "description", name: "name", ref: "ref", type: "git", url: "url" };
+        const rawResponseBody = {
+            data: { description: "description", name: "name", path: "path", ref: "ref", type: "git", url: "url" },
+        };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/settings/skills")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.settings.skills.create({
+            description: "description",
+            name: "name",
+            ref: "ref",
+            type: "git",
+            url: "url",
+        });
+        expect(response).toEqual({
+            data: {
+                description: "description",
+                name: "name",
+                path: "path",
+                ref: "ref",
+                type: "git",
+                url: "url",
+            },
+        });
+    });
+
+    test("create (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { description: "x", name: "xy", ref: "x", type: "git", url: "x" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/settings/skills")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(400)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.skills.create({
+                description: "x",
+                name: "xy",
+                ref: "x",
+                type: "git",
+                url: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("create (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { description: "x", name: "xy", ref: "x", type: "git", url: "x" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/settings/skills")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(409)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.skills.create({
+                description: "x",
+                name: "xy",
+                ref: "x",
+                type: "git",
+                url: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.ConflictError);
+    });
+
     test("upsert (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });

@@ -3,13 +3,14 @@ import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } 
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
 import configuration from '../config';
-import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
+import { McpServerNameConflictError, type IMcpServerStore, type McpServerRecord } from '../db/mcpServerStore';
 import type { WithTransaction } from '../db/transaction';
 import { createMcpOAuthClient, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import { mcpOAuthCallbackUrl, validateRedirectUris } from '../mcp/auth/mcpOAuthHelpers';
 import type { IOAuthTokenStore, OAuthClientRecord, OAuthToken } from '../mcp/auth/types';
 import {
   authorizeMcpServerRoute,
+  createMcpServerRoute,
   deleteMcpServerAuthRoute,
   getMcpServerRoute,
   listAvailableMcpServersRoute,
@@ -162,6 +163,68 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     return c.json({ data: toConfiguredMcpServer({ record, token }) }, 200);
   };
 
+  const createHandler: RouteHandler<typeof createMcpServerRoute> = async c => {
+    const incomingManifest: McpServerManifest = c.req.valid('json');
+
+    // DCR must finish before the txn (remote I/O cannot run inside withTransaction).
+    let dcrClientToSave: OAuthClientRecord | undefined;
+    if (incomingManifest.auth?.type === 'dcr') {
+      try {
+        dcrClientToSave = await createMcpOAuthClient({
+          mcpServerUrl: incomingManifest.url,
+          mcpServerName: incomingManifest.name,
+          redirectUri: mcpOAuthCallbackUrl(),
+          clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+        });
+      } catch (error) {
+        deps.logger.error(
+          `DCR client registration failed for "${incomingManifest.name}"; rejecting create`,
+          extractErrorLogFields(error),
+        );
+        const message = error instanceof Error ? error.message : 'Failed to register OAuth client for this MCP server';
+        return c.json({ error: { message } }, 422);
+      }
+    }
+
+    let manifest: McpServerManifest;
+    try {
+      // Create has no prior row; redacted header keep resolves to MissingStoredSecretError → 400.
+      manifest = resolveMcpServerManifestForWrite({
+        incoming: incomingManifest,
+        existing: undefined,
+      });
+    } catch (error) {
+      if (error instanceof MissingStoredSecretError) {
+        return c.json({ error: { message: 'Header secret is required' } }, 400);
+      }
+      throw error;
+    }
+
+    try {
+      const record = await deps.withTransaction(async transaction => {
+        const saved = await deps.mcpServerStore.createServer(
+          {
+            tenant_id: TENANT_ID,
+            name: manifest.name,
+            manifest,
+          },
+          transaction,
+        );
+        if (dcrClientToSave !== undefined) {
+          await deps.mcpServerStore.saveClient({ id: saved.id, record: dcrClientToSave }, transaction);
+        }
+        return saved;
+      });
+
+      return c.json({ data: toConfiguredMcpServer({ record, token: undefined }) }, 200);
+    } catch (error) {
+      if (error instanceof McpServerNameConflictError) {
+        return c.json({ error: { message: error.message } }, 409);
+      }
+      throw error;
+    }
+  };
+
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
     const userRef = deps.resolveUserContext(c).userRef;
     const incomingManifest: McpServerManifest = c.req.valid('json');
@@ -288,6 +351,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
 
   const router = new OpenAPIHono();
   router.openapi(listMcpServersRoute, listHandler);
+  router.openapi(createMcpServerRoute, createHandler);
   router.openapi(putMcpServerRoute, putHandler);
   // `/{name}/tools` before `/{name}` so the tools suffix is not swallowed.
   router.openapi(listMcpServerToolsRoute, listToolsHandler);

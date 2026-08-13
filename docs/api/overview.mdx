@@ -4,7 +4,7 @@ sidebarTitle: 'Overview'
 description: 'Understand Agent, Session, Turn, Event, and Delta — then drive TrueForge with the TypeScript SDK.'
 ---
 
-Everything the chat UI does is available programmatically. Use the TypeScript client [`trueforge-sdk`](https://www.npmjs.com/package/trueforge-sdk) to create sessions, stream turns, and handle approvals. For a full cookbook (streaming, approvals, reconnects, threads), see [Use an agent](/api/use-agent). For raw HTTP schemas and paths, use the **API Reference** tab.
+Everything the chat UI does is available programmatically. Use the TypeScript client [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/trueforge-sdk) to create sessions, stream turns, and handle approvals. For a full cookbook (streaming, approvals, reconnects, threads), see [Use an agent](/api/use-agent). For raw HTTP schemas and paths, use the **API Reference** tab.
 
 ## Core concepts
 
@@ -304,7 +304,7 @@ A separate issue — Bob's shipping question, or even Jane's next problem — ru
 Pass an inline agent spec, or reference a saved agent by name:
 
 ```typescript
-import { TrueForge } from 'trueforge-sdk';
+import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({ baseUrl: 'http://localhost:8790' });
 

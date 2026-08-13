@@ -6,6 +6,7 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
+  CreateMcpServerRequestSchema,
   GetMcpServerResponseSchema,
   ListAvailableMcpServersResponseSchema,
   ListMcpServersResponseSchema,
@@ -86,6 +87,42 @@ export const getMcpServerRoute = createRoute({
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'MCP server not found.',
+    },
+  },
+});
+
+export const createMcpServerRoute = createRoute({
+  method: 'post',
+  path: '/',
+  tags: [MCP_SERVERS_TAG],
+  summary: 'Create an MCP server',
+  description:
+    'Creates an MCP server by `name`. Fails if `name` is already taken. Runs DCR registration when `auth.type` is `dcr`. ' +
+    'Header secrets: real value required; redacted with no stored value returns 400.',
+  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
+  'x-fern-sdk-method-name': 'create',
+  request: {
+    body: {
+      content: { 'application/json': { schema: CreateMcpServerRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: PutMcpServerResponseSchema } },
+      description: 'The created MCP server with auth_status',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body, or redacted header secret with no stored value to keep.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'An MCP server with this name already exists.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint).',
     },
   },
 });

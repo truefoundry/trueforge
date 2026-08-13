@@ -12,9 +12,19 @@ fern() {
   (cd .github && pnpm dlx "fern-api@${fern_version}" "$@")
 }
 
+# Fern --version stamps package.json and baked-in TS literals (SDK_VERSION,
+# User-Agent). Pass the version already in package.json so a regen never stomps
+# a version changesets (or a human) already set.
+current_version="$(node -p "require('./packages/sdk/package.json').version")"
+
 pnpm --filter @truefoundry/utils-core build
 pnpm openapi:write
 fern check
 # --force skips the overwrite prompt when packages/sdk already exists (needed non-interactively / in CI).
-fern generate --group ts-sdk --version 0.0.0 --local --generate-tests --force --log-level debug
+fern generate --group ts-sdk --version "$current_version" --local --generate-tests --force --log-level debug
+
+# Fern's generated verify.sh runs `pnpm install` from packages/sdk, which now
+# resolves to this workspace. CI sets frozen-lockfile, so refresh the root
+# lockfile first or that install fails when the generator added/removed deps.
+pnpm install --no-frozen-lockfile
 (cd packages/sdk && bash .fern/verify.sh)

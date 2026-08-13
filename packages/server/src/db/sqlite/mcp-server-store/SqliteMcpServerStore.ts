@@ -4,7 +4,9 @@ import type { OAuthClientRecord } from '../../../mcp/auth/types';
 import type { McpServerManifest } from '../../../schemas/mcpServer';
 import {
   fromStoredOAuthClientRecord,
+  McpServerNameConflictError,
   toStoredOAuthClientRecord,
+  type CreateMcpServerInput,
   type GetMcpServerInput,
   type IMcpServerStore,
   type ListMcpServersInput,
@@ -13,6 +15,7 @@ import {
   type OAuthServer,
   type UpsertMcpServerInput,
 } from '../../mcpServerStore';
+import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
@@ -71,6 +74,32 @@ export class SqliteMcpServerStore implements IMcpServerStore<Transaction<Databas
       .where('tenant_id', '=', input.tenant_id)
       .where('name', '=', input.name)
       .executeTakeFirst();
+  }
+
+  async createServer(input: CreateMcpServerInput, transaction?: Transaction<Database>): Promise<McpServerRecord> {
+    const db = transaction ?? this.#db;
+    const timestamp = nowIso();
+    try {
+      return await db
+        .insertInto('mcp_server')
+        .values({
+          id: ulid(),
+          tenant_id: input.tenant_id,
+          name: input.name,
+          manifest: jsonbBind(input.manifest),
+          oauth_server: null,
+          oauth_client: null,
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .returning(recordColumns)
+        .executeTakeFirstOrThrow();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new McpServerNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
+      }
+      throw error;
+    }
   }
 
   async upsertServer(input: UpsertMcpServerInput, transaction?: Transaction<Database>): Promise<McpServerRecord> {

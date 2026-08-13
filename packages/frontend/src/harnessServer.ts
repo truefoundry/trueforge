@@ -11,6 +11,7 @@
  * `reference`/`inline` discriminator, with reference rows already naming their
  * agent. The UI filters with registry `agentId`.
  */
+import type { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type {
   AgentChatServer,
   AgentSpec,
@@ -21,7 +22,6 @@ import type {
   TurnInputItem,
   UserMessageContent,
 } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi } from 'trueforge-sdk';
 import { createHarnessClient, harnessClient, type CreateHarnessClientOptions } from './harnessClient';
 
 export type HarnessSkillMount = TrueForgeApi.SkillNameRef;
