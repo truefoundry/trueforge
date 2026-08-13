@@ -155,7 +155,7 @@ const ConnectorSettings = () => {
         : entry.auth.type === 'dcr'
           ? { type: 'dcr' }
           : { type: 'none' });
-    connectorCatalog.createConnector({
+    await connectorCatalog.createConnector({
       name: entry.name,
       url: entry.url,
       auth,
