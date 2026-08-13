@@ -1,2 +1,2 @@
-export { AgentWriteRequest } from "./AgentWriteRequest.js";
-export { UpdateAgentRequest } from "./UpdateAgentRequest.js";
+export { CreateAgentRequest } from "./CreateAgentRequest.js";
+export { PutAgentRequest } from "./PutAgentRequest.js";
