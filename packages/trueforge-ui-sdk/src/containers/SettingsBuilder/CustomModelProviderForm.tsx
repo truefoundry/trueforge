@@ -5,7 +5,6 @@ import { useState, type ReactNode } from 'react';
 import { cn } from '../../atoms/lib/cn.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
-import { Switch } from '../../atoms/primitives/Switch.js';
 import { Icon } from '../../icons/Icon.js';
 
 export type CustomProviderDraft = {
@@ -82,9 +81,6 @@ const createModelRows = (initialValues?: CustomProviderInitialValues): ModelRow[
 const inputClassName =
   'h-11 w-full rounded-md border border-border/70 bg-secondary-bg px-3 text-sm text-text-primary outline-none transition-colors placeholder:text-text-secondary/70 focus-visible:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/50';
 const inputErrorClassName = 'border-failure-bg focus-visible:border-failure-bg focus-visible:ring-failure-bg';
-
-/** Client-side slug rule — identical to the backend NameSchema so the form never rejects a name the server accepts. */
-const NAME_RE = /^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$/;
 
 /** Parse an optional positive integer; returns null when empty or invalid (so it's simply omitted). */
 function parsePositiveInt(raw: string): number | null {
@@ -171,13 +167,11 @@ const CustomModelProviderForm = ({
     );
   };
 
-  // ── Validation (client-side; do not rely on backend errors) ──
+  // ── Validation ── Client checks stay backend-agnostic: presence only. Name *format*
+  // rules (slug pattern, length) belong to the server, which may differ per deployment;
+  // violations surface via the `error` prop on submit rather than being second-guessed here.
   const trimmedName = name.trim();
-  const nameError = !trimmedName
-    ? 'Name is required.'
-    : trimmedName.length < 2 || trimmedName.length > 64 || !NAME_RE.test(trimmedName)
-      ? 'Must be 2–64 lowercase characters, start with a letter, using . _ or - as separators.'
-      : null;
+  const nameError = trimmedName ? null : 'Name is required.';
 
   const trimmedBaseUrl = baseUrl.trim();
   let baseUrlError: string | null = null;
@@ -192,14 +186,7 @@ const CustomModelProviderForm = ({
   }
 
   const modelIdError = (model: ModelRow): string | null => (model.id.trim() ? null : 'Model ID is required.');
-  const modelNameError = (model: ModelRow): string | null => {
-    const value = model.name.trim();
-    if (!value) return 'Model name is required.';
-    if (value.length < 2 || value.length > 64 || !NAME_RE.test(value)) {
-      return 'Must be 2–64 lowercase characters, start with a letter, using . _ or - as separators.';
-    }
-    return null;
-  };
+  const modelNameError = (model: ModelRow): string | null => (model.name.trim() ? null : 'Model name is required.');
 
   // Both limits are required: the harness budgets a run as input + reserved output ≤ context window.
   const modelContextError = (model: ModelRow): string | null =>
@@ -345,8 +332,8 @@ const CustomModelProviderForm = ({
             />
             <FieldHelp>
               {isEditMode
-                ? 'Leave empty to keep the saved key, or enter a new key to replace it.'
-                : 'Leave empty if your endpoint needs no key (e.g. a local model).'}
+                ? 'Leave blank to keep the saved key, or enter a new key to replace it.'
+                : 'Leave blank if your endpoint needs no key (e.g. a local model).'}
             </FieldHelp>
           </div>
 
@@ -508,20 +495,21 @@ const CustomModelProviderForm = ({
 
                           {reasoningEffortOptions && reasoningEffortOptions.length > 0 ? (
                             <div>
-                              <div className="flex items-center justify-between gap-3">
-                                <span className="text-text-secondary text-xs font-medium">Reasoning effort</span>
-                                <Switch
+                              <label className="flex w-fit cursor-pointer items-center gap-2 select-none">
+                                <input
+                                  type="checkbox"
+                                  className="size-4 shrink-0 cursor-pointer accent-primary-button-bg disabled:cursor-not-allowed disabled:opacity-50"
                                   checked={model.reasoningEfforts !== undefined}
                                   aria-label={`Enable reasoning effort for model ${index + 1}`}
                                   disabled={busy}
-                                  size="md"
-                                  onCheckedChange={nextChecked =>
+                                  onChange={event =>
                                     updateModel(index, {
-                                      reasoningEfforts: nextChecked ? [] : undefined,
+                                      reasoningEfforts: event.target.checked ? [] : undefined,
                                     })
                                   }
                                 />
-                              </div>
+                                <span className="text-text-secondary text-xs font-medium">Reasoning effort</span>
+                              </label>
                               {model.reasoningEfforts !== undefined ? (
                                 <div
                                   role="group"
