@@ -5,7 +5,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
 import { Icon } from '../../icons/Icon.js';
-import { useServerCapabilities } from '../../server/ServerContext.js';
+import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
@@ -212,6 +212,7 @@ function SectionHeading({ label, count }: { label: string; count: number }) {
 export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
   const { skills, connectors, loading, ensureLoaded, refreshConnectors } = useDraftCatalog();
   const capabilities = useServerCapabilities();
+  const settingsCatalog = useOptionalCatalogServer();
   const shell = useOptionalShellMode();
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
@@ -238,6 +239,10 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const skillsDisabled = capabilities?.skill.enabled !== true;
   const skillsDisabledReason = capabilities?.skill.reason;
   const needsSandbox = capabilities?.sandbox.enabled === false;
+  const settingsEnabled = capabilities?.settings?.enabled !== false;
+  const canConfigureConnectors = settingsEnabled && settingsCatalog?.connectorCatalog != null;
+  const canConfigureSkills = settingsEnabled && settingsCatalog?.skillCatalog != null;
+  const canConfigureSandbox = settingsEnabled && settingsCatalog?.sandboxCatalog != null;
 
   const specMcp = useMemo(() => draftMountsFromSpec(agentSpec?.mcpServers), [agentSpec?.mcpServers]);
   const specSkills = useMemo(() => draftMountsFromSpec(agentSpec?.skills), [agentSpec?.skills]);
@@ -516,7 +521,11 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     loading={loading}
                     emptyLabel="No connectors"
                     settingsTarget="Connectors"
-                    onOpenSettings={connectors.length === 0 && shell ? () => openSettings('connectors') : undefined}
+                    onOpenSettings={
+                      connectors.length === 0 && shell && canConfigureConnectors
+                        ? () => openSettings('connectors')
+                        : undefined
+                    }
                   />
                 ) : null}
               </>
@@ -558,7 +567,9 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     emptyLabel="No skills"
                     settingsTarget={needsSandbox ? 'a Sandbox' : 'Skills'}
                     onOpenSettings={
-                      skills.length === 0 && shell ? () => openSettings(needsSandbox ? 'sandbox' : 'skills') : undefined
+                      skills.length === 0 && shell && (needsSandbox ? canConfigureSandbox : canConfigureSkills)
+                        ? () => openSettings(needsSandbox ? 'sandbox' : 'skills')
+                        : undefined
                     }
                   />
                 ) : null}

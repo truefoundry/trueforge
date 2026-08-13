@@ -5,12 +5,31 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftCompositeSelector } from '@/atoms/draft/DraftCompositeSelector.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentSpec } from '@/server/types.js';
-import { createMockAgentUIServer } from '../../server/mockServer.js';
+import type { AgentSpec, CatalogServer, SandboxCatalogServer, SkillCatalogServer } from '@/server/types.js';
+import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec;
 const updateAgentSpec = vi.fn();
 const setSettingsOpen = vi.fn();
+
+async function unavailable(): Promise<never> {
+  throw new Error('Unexpected settings catalog call');
+}
+
+const skillCatalog: SkillCatalogServer = {
+  getSkillCatalog: async () => [],
+  listSkills: async () => [],
+  createSkill: unavailable,
+};
+
+const sandboxCatalog: SandboxCatalogServer = {
+  getSandboxProviderCatalog: async () => [],
+  listSandboxProviders: async () => [],
+  createSandboxProvider: unavailable,
+  updateSandboxProvider: unavailable,
+};
+
+const settingsCatalog = createMockCatalog({ skillCatalog, sandboxCatalog });
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   useTrueFoundryAgentSpec: () => ({ agentSpec }),
@@ -26,15 +45,22 @@ function renderSelector({
   getCapabilities,
   getSkills,
   getMcp,
+  catalog = settingsCatalog,
 }: {
   onAttach?: () => void;
   getCapabilities?: () => Promise<{
-    data: { sandbox: { enabled: boolean }; skill: { enabled: boolean; reason?: string } };
+    data: {
+      sandbox: { enabled: boolean };
+      skill: { enabled: boolean; reason?: string };
+      settings?: { enabled: boolean };
+    };
   }>;
   getSkills?: () => Promise<{ id: string; name: string }[]>;
   getMcp?: () => Promise<{ id: string; name: string; authenticated: boolean }[]>;
+  catalog?: CatalogServer | null;
 } = {}) {
   const server = createMockAgentUIServer({
+    ...(catalog === null ? {} : { catalog }),
     getCapabilities:
       getCapabilities ??
       (async () => ({
@@ -257,5 +283,57 @@ describe('DraftCompositeSelector', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Please configure Skills in the settings/ }));
 
     expect(setSettingsOpen).toHaveBeenCalledWith(true, 'skills');
+  });
+
+  it('does not offer connector settings without a settings catalog', async () => {
+    renderSelector({ getMcp: async () => [], catalog: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+
+    expect(await screen.findByText('No connectors')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Please configure Connectors/ })).not.toBeInTheDocument();
+  });
+
+  it('does not offer connector settings when settings are disabled', async () => {
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          settings: { enabled: false },
+        },
+      }),
+      getMcp: async () => [],
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+
+    expect(await screen.findByText('No connectors')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Please configure Connectors/ })).not.toBeInTheDocument();
+  });
+
+  it('does not offer skills settings when the skills settings section is unavailable', async () => {
+    renderSelector({ getSkills: async () => [], catalog: createMockCatalog() });
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+
+    expect(await screen.findByText('No skills')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Please configure Skills/ })).not.toBeInTheDocument();
+  });
+
+  it('does not offer sandbox settings when the sandbox settings section is unavailable', async () => {
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: false },
+          skill: { enabled: false, reason: 'Skills run in a sandbox, which is not configured.' },
+        },
+      }),
+      getSkills: async () => [],
+      catalog: createMockCatalog({ skillCatalog }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+
+    expect(await screen.findByText('No skills')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Please configure a Sandbox/ })).not.toBeInTheDocument();
   });
 });

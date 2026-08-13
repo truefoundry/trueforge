@@ -8,7 +8,7 @@ import { cn } from '@/atoms/lib/cn.js';
 import { useCompactLayout } from '@/atoms/lib/CompactLayoutContext.js';
 import { Spinner } from '@/atoms/primitives/Spinner.js';
 import { Icon } from '@/icons/Icon.js';
-import { useOptionalCatalogServer } from '@/server/ServerContext.js';
+import { useOptionalCatalogServer, useOptionalRefreshServerCapabilities } from '@/server/ServerContext.js';
 import { useShellMode, type SettingsSection } from '@/server/ShellModeContext.js';
 
 // Section modules (and their list/catalog APIs) load only when that tab mounts.
@@ -29,6 +29,7 @@ function SettingsSectionFallback() {
 const TruefoundrySettingsBuilder = () => {
   const { settingsOpen, settingsSection: section, setSettingsOpen } = useShellMode();
   const catalog = useOptionalCatalogServer();
+  const refreshServerCapabilities = useOptionalRefreshServerCapabilities();
   const { refresh: refreshDraftCatalog } = useDraftCatalog();
   // dock/widget panels are ~mobile width even on a wide viewport — keep Settings stacked.
   const compact = useCompactLayout();
@@ -38,7 +39,8 @@ const TruefoundrySettingsBuilder = () => {
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
     refreshDraftCatalog();
-  }, [refreshDraftCatalog, setSettingsOpen]);
+    refreshServerCapabilities?.();
+  }, [refreshDraftCatalog, refreshServerCapabilities, setSettingsOpen]);
 
   useEffect(() => {
     if (!hasSkills && section === 'skills') {
