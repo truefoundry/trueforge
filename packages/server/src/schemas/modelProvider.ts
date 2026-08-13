@@ -4,7 +4,7 @@
  * live on ModelCatalog.
  */
 import { z } from '@hono/zod-openapi';
-import { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/utils-core/core';
+import { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/trueforge-core/core';
 import { NameSchema, uniqueNames, type ResourceName } from './common';
 
 /** Every type the harness has an adapter for; a test asserts each one has a schema below. */
@@ -155,7 +155,7 @@ export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
  * in one shape. Only `custom` carries a name, so the row's key column comes from
  * `modelProviderName` rather than from a field every type repeats.
  */
-export const ModelProviderSchema = z
+const ModelProviderBodySchema = z
   .discriminatedUnion('type', [
     OpenAiModelProviderSchema,
     AnthropicModelProviderSchema,
@@ -167,15 +167,14 @@ export const ModelProviderSchema = z
     AlibabaModelProviderSchema,
     CustomModelProviderSchema,
   ])
-  .superRefine(refineModelProviderManifest)
-  .openapi('ModelProvider');
+  .superRefine(refineModelProviderManifest);
+
+export const ModelProviderSchema = ModelProviderBodySchema.openapi('ModelProvider');
 
 /** The row's key: only `custom` carries a name of its own. */
 export function modelProviderName(provider: ModelProvider): ResourceName {
   return provider.type === 'custom' ? provider.name : provider.type;
 }
-
-export const PutModelProviderRequestSchema = ModelProviderSchema;
 
 export const ListModelProvidersResponseSchema = z
   .object({
@@ -183,6 +182,7 @@ export const ListModelProvidersResponseSchema = z
   })
   .openapi('ListModelProvidersResponse');
 
+/** Shared create/upsert response envelope (`{ data: ModelProvider }`). */
 export const PutModelProviderResponseSchema = z
   .object({
     data: ModelProviderSchema,

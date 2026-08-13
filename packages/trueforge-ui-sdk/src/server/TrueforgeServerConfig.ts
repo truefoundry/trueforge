@@ -12,11 +12,16 @@ export type TrueforgeBuiltInServerConfig =
       gatewayPlaneURL?: string;
       catalog?: CatalogServer;
     }
-  | ({
+  | {
       type: 'trueforge';
-      apiKey: string;
+      /** Harness API root. Defaults to `'/'` (same-origin / proxied). */
+      baseUrl?: string;
+      /** Bearer token for `@truefoundry/trueforge-sdk` (`Authorization: Bearer …`). */
+      token?: string;
+      /** Custom fetch (cookie sessions, auth interceptors). */
+      fetch?: typeof fetch;
       catalog?: CatalogServer;
-    } & Record<string, unknown>);
+    };
 
 /**
  * `server` prop for `<TrueforgeUI />`: a built-in config, or a ready

@@ -1,7 +1,11 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { IModelProviderStore } from '../db/modelProviderStore';
+import { ModelProviderNameConflictError, type IModelProviderStore } from '../db/modelProviderStore';
 import type { WithTransaction } from '../db/transaction';
-import { listModelProvidersRoute, putModelProviderRoute } from '../routes/modelProviderRoutes';
+import {
+  createModelProviderRoute,
+  listModelProvidersRoute,
+  putModelProviderRoute,
+} from '../routes/modelProviderRoutes';
 import { modelProviderName, type ModelProvider } from '../schemas/modelProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
@@ -21,10 +25,50 @@ function redactModelProvider(manifest: ModelProvider): ModelProvider {
   };
 }
 
+function resolveModelProviderManifestForWrite({
+  incoming,
+  existing,
+}: {
+  incoming: ModelProvider;
+  existing: ModelProvider | undefined;
+}): ModelProvider {
+  if (incoming.auth === undefined) {
+    return incoming;
+  }
+  return {
+    ...incoming,
+    auth: {
+      api_key: resolveStoredSecretValue({
+        incoming: incoming.auth.api_key,
+        existing: existing?.auth?.api_key,
+      }),
+    },
+  };
+}
+
 export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listModelProvidersRoute> = async c => {
     const records = await deps.modelProviderStore.listProviders(TENANT_ID);
     return c.json({ data: records.map(record => redactModelProvider(record.manifest)) }, 200);
+  };
+
+  const createHandler: RouteHandler<typeof createModelProviderRoute> = async c => {
+    const provider = c.req.valid('json');
+    const name = modelProviderName(provider);
+    try {
+      // Create has no prior row; redacted keep resolves to MissingStoredSecretError → 400.
+      const manifest = resolveModelProviderManifestForWrite({ incoming: provider, existing: undefined });
+      const record = await deps.modelProviderStore.createProvider({ tenant_id: TENANT_ID, name, manifest });
+      return c.json({ data: redactModelProvider(record.manifest) }, 200);
+    } catch (error) {
+      if (error instanceof MissingStoredSecretError) {
+        return c.json({ error: { message: 'API key is required' } }, 400);
+      }
+      if (error instanceof ModelProviderNameConflictError) {
+        return c.json({ error: { message: error.message } }, 409);
+      }
+      throw error;
+    }
   };
 
   const putHandler: RouteHandler<typeof putModelProviderRoute> = async c => {
@@ -38,18 +82,10 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
           { tenant_id: TENANT_ID, name },
           transaction,
         );
-        const manifest: ModelProvider =
-          provider.auth === undefined
-            ? provider
-            : {
-                ...provider,
-                auth: {
-                  api_key: resolveStoredSecretValue({
-                    incoming: provider.auth.api_key,
-                    existing: existing?.manifest.auth?.api_key,
-                  }),
-                },
-              };
+        const manifest = resolveModelProviderManifestForWrite({
+          incoming: provider,
+          existing: existing?.manifest,
+        });
         return deps.modelProviderStore.upsertProvider({ tenant_id: TENANT_ID, name, manifest }, transaction);
       });
       return c.json({ data: redactModelProvider(record.manifest) }, 200);
@@ -63,6 +99,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
 
   const router = new OpenAPIHono();
   router.openapi(listModelProvidersRoute, listHandler);
+  router.openapi(createModelProviderRoute, createHandler);
   router.openapi(putModelProviderRoute, putHandler);
   return router;
 }

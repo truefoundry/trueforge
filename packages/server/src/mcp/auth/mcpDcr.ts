@@ -13,7 +13,7 @@ import type {
   OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
-import { McpConnectionError, McpDcrConfigurationError } from '@truefoundry/utils-core/core';
+import { McpConnectionError, McpDcrConfigurationError } from '@truefoundry/trueforge-core/core';
 import { randomBytes } from 'node:crypto';
 import type { WithTransaction } from '../../db/transaction';
 import {
@@ -223,7 +223,7 @@ export async function buildMcpAuthorizationUrl(params: {
     });
   } catch (error: unknown) {
     throw new McpConnectionError(`Failed to start OAuth authorization for MCP server '${params.mcpServerName}'`, 424, {
-      cause: error instanceof Error ? error : undefined,
+      cause: error,
     });
   }
   await params.tokenStore.savePendingAuthorization({

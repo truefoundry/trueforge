@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import z from 'zod';
+import { extractErrorLogFields } from '../core/util/errorLogFields';
 import { ReplyError } from './errors';
 import type { JSONReply, RequestHandler } from './types';
 import { publishedRequestSchema } from './types';
@@ -104,7 +105,7 @@ export class RequestReplyExecutor {
     this.subscriberClient.on('error', (err: Error) => {
       this.logger.error('[RequestReplyExecutor] Subscriber error', {
         executorId: this.executorId,
-        error: err.message,
+        ...extractErrorLogFields(err),
       });
       this.onError?.(err, { executorId: this.executorId, channel: this.channel });
       this.stopHeartbeat();
@@ -139,7 +140,7 @@ export class RequestReplyExecutor {
       const error = err instanceof Error ? err : new Error(String(err), { cause: err });
       this.logger.error('[RequestReplyExecutor] Error subscribing to request channel', {
         executorId: this.executorId,
-        error: error.message,
+        ...extractErrorLogFields(error),
       });
       this.onError?.(error, { executorId: this.executorId, channel: this.channel });
       this.stopHeartbeat();
@@ -151,8 +152,10 @@ export class RequestReplyExecutor {
     try {
       await this.redis.set(this.heartbeatKey, '1', { PX: this.heartbeatTtlMs });
     } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
-      this.logger.error('[RequestReplyExecutor] Heartbeat error', { executorId: this.executorId, error });
+      this.logger.error('[RequestReplyExecutor] Heartbeat error', {
+        executorId: this.executorId,
+        ...extractErrorLogFields(err),
+      });
     }
   }
 
@@ -186,7 +189,7 @@ export class RequestReplyExecutor {
       // Drop the request, this should never happen
       this.logger.warn('[RequestReplyExecutor] Request message is not valid JSON', { executorId: this.executorId });
       this.onError?.(
-        new Error(`Request message is not valid JSON for executorId: ${this.executorId}, message: ${message}`, {
+        new Error(`Request message is not valid JSON for executorId: ${this.executorId}`, {
           cause: err,
         }),
         {
@@ -233,9 +236,9 @@ export class RequestReplyExecutor {
       await this.redis.set(replyKey, JSON.stringify(replyPayload), { PX: this.replyTtlMs });
     } catch (err) {
       this.logger.error('[RequestReplyExecutor] Request processing failed', {
-        error: err instanceof Error ? err.message : String(err),
         executorId: this.executorId,
         replyKey,
+        ...extractErrorLogFields(err),
       });
     }
   }

@@ -1,7 +1,12 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { ISkillStore, SkillRecord } from '../db/skillStore';
+import { SkillNameConflictError, type ISkillStore, type SkillRecord } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
-import { listAvailableSkillsRoute, listConfiguredSkillsRoute, putSkillRoute } from '../routes/skillRoutes';
+import {
+  createSkillRoute,
+  listAvailableSkillsRoute,
+  listConfiguredSkillsRoute,
+  putSkillRoute,
+} from '../routes/skillRoutes';
 import type { ConfiguredSkill, SkillManifest } from '../schemas/skill';
 import { TENANT_ID } from './sessions';
 
@@ -25,6 +30,23 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
     return c.json({ data: records.map(toConfiguredSkill) }, 200);
   };
 
+  const createHandler: RouteHandler<typeof createSkillRoute> = async c => {
+    const manifest: SkillManifest = c.req.valid('json');
+    try {
+      const record = await deps.skillStore.createSkill({
+        tenant_id: TENANT_ID,
+        name: manifest.name,
+        manifest,
+      });
+      return c.json({ data: toConfiguredSkill(record) }, 200);
+    } catch (error) {
+      if (error instanceof SkillNameConflictError) {
+        return c.json({ error: { message: error.message } }, 409);
+      }
+      throw error;
+    }
+  };
+
   const putHandler: RouteHandler<typeof putSkillRoute> = async c => {
     const manifest: SkillManifest = c.req.valid('json');
     const record = await deps.skillStore.upsertSkill({
@@ -37,6 +59,7 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
 
   const router = new OpenAPIHono();
   router.openapi(listConfiguredSkillsRoute, listConfiguredHandler);
+  router.openapi(createSkillRoute, createHandler);
   router.openapi(putSkillRoute, putHandler);
   return router;
 }

@@ -23,15 +23,15 @@ For security vulnerabilities, do **not** open a public issue — see [SECURITY.m
 
 This is a pnpm workspace:
 
-| Workspace package           | Published as                  | Path                                                     | What it is                                   |
-| --------------------------- | ----------------------------- | -------------------------------------------------------- | -------------------------------------------- |
-| `@truefoundry/utils`        | `@truefoundry/trueforge`      | [`packages/server`](packages/server)                     | Agent server + bundled UI                    |
-| `@truefoundry/utils-core`   | `@truefoundry/trueforge-core` | [`packages/harness`](packages/harness)                   | Library: agent core, sessions, and streaming |
-| `@truefoundry/trueforge-ui` | `@truefoundry/trueforge-ui`   | [`packages/trueforge-ui-sdk`](packages/trueforge-ui-sdk) | Embeddable agent chat UI SDK                 |
-| `trueforge`                 | `trueforge`                   | [`packages/sdk`](packages/sdk)                           | Generated TypeScript API client              |
-| `frontend`                  | —                             | [`packages/frontend`](packages/frontend)                 | Chat UI app (bundled into the server)        |
+| Workspace package             | Published as                  | Path                                                     | What it is                                   |
+| ----------------------------- | ----------------------------- | -------------------------------------------------------- | -------------------------------------------- |
+| `@truefoundry/trueforge`      | `@truefoundry/trueforge`      | [`packages/server`](packages/server)                     | Agent server + bundled UI                    |
+| `@truefoundry/trueforge-core` | `@truefoundry/trueforge-core` | [`packages/harness`](packages/harness)                   | Library: agent core, sessions, and streaming |
+| `@truefoundry/trueforge-ui`   | `@truefoundry/trueforge-ui`   | [`packages/trueforge-ui-sdk`](packages/trueforge-ui-sdk) | Embeddable agent chat UI SDK                 |
+| `@truefoundry/trueforge-sdk`  | `@truefoundry/trueforge-sdk`  | [`packages/sdk`](packages/sdk)                           | Generated TypeScript API client              |
+| `frontend`                    | —                             | [`packages/frontend`](packages/frontend)                 | Chat UI app (bundled into the server)        |
 
-> Note: some workspace package and folder names (`utils`, `harness`) predate the public release names and will be renamed.
+> Note: some folder names (`packages/harness`, `packages/server`) predate the public package names.
 
 ## Setup
 
@@ -76,7 +76,7 @@ pnpm dev
 | Dev       | `pnpm standalone:dev`                  | `pnpm dev` (after infra)                        |
 | Prod-like | `pnpm build` → `pnpm standalone:start` | `pnpm build` → `pnpm start`                     |
 
-Local server scripts resolve `@truefoundry/utils-core` from source, so you do not need a utils-core `dist/` build for `pnpm dev` / `standalone:dev`. Frontend scripts build `@truefoundry/trueforge-ui` `dist/` before Vite starts (workspace package exports point at `dist/`).
+Local server scripts resolve `@truefoundry/trueforge-core` from source, so you do not need a trueforge-core `dist/` build for `pnpm dev` / `standalone:dev`. Frontend scripts build `@truefoundry/trueforge-ui` `dist/` before Vite starts (workspace package exports point at `dist/`).
 
 ### How the UI is served
 
@@ -124,7 +124,7 @@ See [`packages/server/.env.example`](packages/server/.env.example) for every env
 Migrations run on server startup. To run Postgres migrations without starting HTTP:
 
 ```bash
-pnpm --filter @truefoundry/utils migrate
+pnpm --filter @truefoundry/trueforge migrate
 ```
 
 That script sets `STANDALONE=false` and uses `POSTGRES_*` from `packages/server/.env`. It will not run in standalone mode (SQLite migrations happen on boot instead).

@@ -72,8 +72,12 @@ export const ConfiguredMcpServerSchema = McpServerManifestObjectSchema.extend({
   auth_status: McpAuthStatusSchema,
 }).openapi('ConfiguredMcpServer');
 
+/** PUT body — same Zod shape as `McpServerManifest` (OpenAPI name stays `McpServerManifest`). */
 export const PutMcpServerRequestSchema = McpServerManifestSchema;
+/** Shared create/upsert/disconnect response envelope (`{ data: ConfiguredMcpServer }`). */
 export const PutMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('PutMcpServerResponse');
+/** POST create body — separate OpenAPI name so Fern keeps the main-branch upsert request + `type` inject. */
+export const CreateMcpServerRequestSchema = McpServerManifestObjectSchema.openapi('CreateMcpServerRequest');
 export const GetMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('GetMcpServerResponse');
 export const ListMcpServersResponseSchema = z
   .object({ data: z.array(ConfiguredMcpServerSchema) })

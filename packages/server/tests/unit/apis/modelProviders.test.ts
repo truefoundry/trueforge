@@ -60,6 +60,14 @@ function putInit(body: unknown): RequestInit {
   };
 }
 
+function postInit(body: unknown): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
 function withRedactedApiKey<T extends { auth: { api_key: string } }>(provider: T): T {
   return {
     ...provider,
@@ -132,6 +140,19 @@ describe('settings model-providers and models routers', () => {
     const list = await settingsRouter.request('/model-providers');
     expect(list.status).toBe(200);
     expect(await list.json()).toEqual({ data: [anthropicProviderWire] });
+  });
+
+  it('POST creates a provider and returns 409 on name clash', async () => {
+    const { settingsRouter: fresh } = await createRouters();
+    const created = await fresh.request('/model-providers', postInit(anthropicBody));
+    expect(created.status).toBe(200);
+    expect(await created.json()).toEqual({ data: anthropicProviderWire });
+
+    const clash = await fresh.request('/model-providers', postInit(anthropicBody));
+    expect(clash.status).toBe(409);
+    expect(await clash.json()).toEqual({
+      error: { message: 'Model provider name already exists: anthropic' },
+    });
   });
 
   it('PUT requires base_url for custom providers', async () => {
@@ -301,6 +322,19 @@ describe('model-provider secret redaction and strict PUT', () => {
     const response = await settingsRouter.request(
       '/model-providers',
       putInit({
+        ...anthropicBody,
+        auth: { api_key: toRedactedSecretValue('sk-ant-secret') },
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: { message: 'API key is required' } });
+  });
+
+  it('POST create with a redacted api_key returns 400', async () => {
+    const { settingsRouter } = await createRouters();
+    const response = await settingsRouter.request(
+      '/model-providers',
+      postInit({
         ...anthropicBody,
         auth: { api_key: toRedactedSecretValue('sk-ant-secret') },
       }),

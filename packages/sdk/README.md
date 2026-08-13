@@ -1,7 +1,7 @@
 # Truefoundry TypeScript Library
 
 [![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=Truefoundry%2FTypeScript)
-[![npm shield](https://img.shields.io/npm/v/trueforge-sdk)](https://www.npmjs.com/package/trueforge-sdk)
+[![npm shield](https://img.shields.io/npm/v/@truefoundry/trueforge-sdk)](https://www.npmjs.com/package/@truefoundry/trueforge-sdk)
 
 TypeScript client for the TrueFoundry agent harness server: a self-hosted runtime that executes agent turns and streams them over Server-Sent Events.
 
@@ -34,7 +34,7 @@ When auth is enabled on the server, pass an ID token via the optional `token` cl
 ## Installation
 
 ```sh
-npm i -s trueforge-sdk
+npm i -s @truefoundry/trueforge-sdk
 ```
 
 ## Reference
@@ -46,7 +46,7 @@ A full reference for this library is available [here](./reference.md).
 Instantiate and use the client with the following:
 
 ```typescript
-import { TrueForge } from "trueforge-sdk";
+import { TrueForge } from "@truefoundry/trueforge-sdk";
 
 const client = new TrueForge({ baseUrl: "YOUR_BASE_URL", token: "YOUR_TOKEN" });
 const response = await client.sessions.createTurnStream("session_id", {});
@@ -61,7 +61,7 @@ The SDK exports all request and response types as TypeScript interfaces. Simply 
 following namespace:
 
 ```typescript
-import { TrueForge } from "trueforge-sdk";
+import { TrueForge } from "@truefoundry/trueforge-sdk";
 
 const request: TrueForge.AgentWriteRequest = {
     ...
@@ -74,7 +74,7 @@ When the API returns a non-success status code (4xx or 5xx response), a subclass
 will be thrown.
 
 ```typescript
-import { TrueForgeError } from "trueforge-sdk";
+import { TrueForgeError } from "@truefoundry/trueforge-sdk";
 
 try {
     await client.sessions.createTurnStream(...);
@@ -94,7 +94,7 @@ Some endpoints return streaming responses instead of returning the full response
 The SDK uses async iterators, so you can consume the responses using a `for await...of` loop.
 
 ```typescript
-import { TrueForge } from "trueforge-sdk";
+import { TrueForge } from "@truefoundry/trueforge-sdk";
 
 const client = new TrueForge({ baseUrl: "YOUR_BASE_URL", token: "YOUR_TOKEN" });
 const response = await client.sessions.createTurnStream("session_id", {});
@@ -499,7 +499,7 @@ const text = new TextDecoder().decode(bytes);
 This SDK supports direct imports of subpackage clients, which allows JavaScript bundlers to tree-shake and include only the imported subpackage code. This results in much smaller bundle sizes.
 
 ```typescript
-import { AgentsClient } from 'trueforge-sdk/agents';
+import { AgentsClient } from '@truefoundry/trueforge-sdk/agents';
 
 const client = new AgentsClient({...});
 ```
@@ -509,7 +509,7 @@ const client = new AgentsClient({...});
 If you would like to send additional headers as part of the request, use the `headers` request option.
 
 ```typescript
-import { TrueForge } from "trueforge-sdk";
+import { TrueForge } from "@truefoundry/trueforge-sdk";
 
 const client = new TrueForge({
     ...
@@ -604,7 +604,7 @@ console.log(rawResponse.headers['X-My-Header']);
 The SDK supports logging. You can configure the logger by passing in a `logging` object to the client options.
 
 ```typescript
-import { TrueForge, logging } from "trueforge-sdk";
+import { TrueForge, logging } from "@truefoundry/trueforge-sdk";
 
 const client = new TrueForge({
     ...
@@ -688,7 +688,7 @@ The SDK provides a way for you to customize the underlying HTTP client / Fetch f
 unsupported environment, this provides a way for you to break glass and ensure the SDK works.
 
 ```typescript
-import { TrueForge } from "trueforge-sdk";
+import { TrueForge } from "@truefoundry/trueforge-sdk";
 
 const client = new TrueForge({
     ...

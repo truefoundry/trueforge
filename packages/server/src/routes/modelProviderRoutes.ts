@@ -7,7 +7,7 @@ import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   ListModelProvidersResponseSchema,
-  PutModelProviderRequestSchema,
+  ModelProviderSchema,
   PutModelProviderResponseSchema,
 } from '../schemas/modelProvider';
 
@@ -37,6 +37,38 @@ export const listModelProvidersRoute = createRoute({
   },
 });
 
+export const createModelProviderRoute = createRoute({
+  method: 'post',
+  path: '/',
+  tags: [MODEL_PROVIDERS_TAG],
+  summary: 'Create a model provider',
+  description:
+    'Creates a provider (models included). Fails if `name` is already taken. Well-known types use `type` as `name` (one each); ' +
+    '`custom` is named by the caller. `auth.api_key`: real value required; redacted with no stored secret returns 400.',
+  'x-fern-sdk-group-name': ['settings', 'modelProviders'],
+  'x-fern-sdk-method-name': 'create',
+  request: {
+    body: {
+      content: { 'application/json': { schema: ModelProviderSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: PutModelProviderResponseSchema } },
+      description: 'The created provider',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body, or redacted API key with no stored secret to keep.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'A model provider with this name already exists.',
+    },
+  },
+});
+
 export const putModelProviderRoute = createRoute({
   method: 'put',
   path: '/',
@@ -49,7 +81,7 @@ export const putModelProviderRoute = createRoute({
   'x-fern-sdk-method-name': 'upsert',
   request: {
     body: {
-      content: { 'application/json': { schema: PutModelProviderRequestSchema } },
+      content: { 'application/json': { schema: ModelProviderSchema } },
       required: true,
     },
   },

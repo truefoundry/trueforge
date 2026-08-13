@@ -7,7 +7,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "sdk:build": "pnpm --pm-on-fail=ignore --dir ../sdk install --ignore-scripts && pnpm --pm-on-fail=ignore --dir ../sdk build",
+    "sdk:build": "pnpm --filter @truefoundry/trueforge-sdk build",
     "ui:build": "pnpm --filter @truefoundry/trueforge-ui build",
     "predev": "pnpm run sdk:build && pnpm run ui:build",
     "dev": "trap 'exit 0' INT TERM; vite",
@@ -25,11 +25,11 @@
     "@assistant-ui/react": "^0.14.24",
     "@assistant-ui/store": "0.2.21",
     "@truefoundry/assistant-ui-runtime": "0.1.14",
+    "@truefoundry/trueforge-sdk": "workspace:*",
     "@truefoundry/trueforge-ui": "workspace:*",
     "monaco-editor": "^0.52.0",
-    "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "trueforge-sdk": "link:../sdk"
+    "react": "^19.2.4"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
