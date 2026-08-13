@@ -126,7 +126,8 @@ jobs:
         uses: actions/cache@v6.1.0
         with:
           path: .prettiercache
-          key: prettier-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', '.prettierrc', '.prettierignore', 'package.json') }}
+          # Include tsconfigs: prettier-plugin-organize-imports uses them; content cache only hashes sources.
+          key: prettier-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', '.prettierrc', '.prettierignore', 'package.json', '**/tsconfig*.json') }}
 
       - name: Format
         run: pnpm format:check

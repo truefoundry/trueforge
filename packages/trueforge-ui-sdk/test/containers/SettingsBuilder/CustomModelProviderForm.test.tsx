@@ -21,7 +21,7 @@ function renderForm(onAdd: (draft: CustomProviderDraft) => void | Promise<void> 
     <CustomModelProviderForm
       open
       onOpenChange={() => undefined}
-      onAdd={onAdd}
+      onSubmit={onAdd}
       reasoningEffortOptions={['low', 'high']}
     />,
   );
@@ -218,6 +218,69 @@ describe('CustomModelProviderForm', () => {
     expect(onAdd).toHaveBeenCalledWith(
       expect.objectContaining({
         models: [expect.objectContaining({ id: 'llama3.1:70b', name: 'llama-3-1-70b' })],
+      }),
+    );
+  });
+
+  it('prefills edit values, keeps the provider name immutable, and preserves model properties', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(
+      <CustomModelProviderForm
+        isEditMode
+        open
+        onOpenChange={() => undefined}
+        onSubmit={onSubmit}
+        reasoningEffortOptions={['low', 'high']}
+        initialValues={{
+          name: 'local-llama',
+          baseUrl: 'http://localhost:11434/v1',
+          models: [
+            {
+              id: 'llama3.1:70b',
+              name: 'llama-3-1-70b',
+              properties: {
+                contextLength: 64000,
+                maxOutputTokens: 2048,
+                reasoningEfforts: ['high'],
+              },
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Edit local-llama' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('local-llama')).toHaveValue('local-llama');
+    expect(screen.getByPlaceholderText('local-llama')).toHaveAttribute('readonly');
+    expect(screen.getByPlaceholderText('http://localhost:11434/v1')).toHaveValue('http://localhost:11434/v1');
+    expect(screen.getByPlaceholderText('llama3.1:70b')).toHaveValue('llama3.1:70b');
+    expect(screen.getByPlaceholderText('llama-3-1-70b')).toHaveValue('llama-3-1-70b');
+    expect(screen.getByPlaceholderText('128000')).toHaveValue(64000);
+    expect(screen.getByPlaceholderText('4096')).toHaveValue(2048);
+    expect(screen.getByRole('button', { name: 'high' })).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.change(screen.getByPlaceholderText('http://localhost:11434/v1'), {
+      target: { value: 'http://localhost:11434/v2' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'local-llama',
+        baseUrl: 'http://localhost:11434/v2',
+        apiKey: '',
+        models: [
+          expect.objectContaining({
+            id: 'llama3.1:70b',
+            name: 'llama-3-1-70b',
+            properties: {
+              contextLength: 64000,
+              maxOutputTokens: 2048,
+              reasoningEfforts: ['high'],
+            },
+          }),
+        ],
       }),
     );
   });
