@@ -6,6 +6,7 @@ import configuration from '../config';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import {
   toDaytonaSandboxProviderInput,
+  type SandboxBuildMetadata,
   type SandboxProviderManifest,
   type SandboxStatus,
 } from '../schemas/sandboxProvider';
@@ -20,13 +21,12 @@ export function toDaytonaSandboxProvider({
   manifest,
   tenant_id,
   logger,
-  buildRef,
+  build_metadata,
 }: {
   manifest: SandboxProviderManifest;
   tenant_id: string;
   logger: Logger;
-  /** Snapshot name to clone from (persisted build_ref). Omit to derive from the current image. */
-  buildRef?: string;
+  build_metadata?: SandboxBuildMetadata | null;
 }): DaytonaSandboxProvider {
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
   return new DaytonaSandboxProvider({
@@ -34,17 +34,18 @@ export function toDaytonaSandboxProvider({
     ...settings,
     tenantName: tenant_id,
     sandboxImage: SANDBOX_IMAGE_URI,
-    buildRef,
+    buildRef: build_metadata?.['build_ref'],
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,
   });
 }
 
+/** Maps a core `SandboxBuild` onto the persisted/wire status shape (metadata passes through). */
 export function toSandboxStatus(build: SandboxBuild): SandboxStatus {
   return {
     status: build.status,
     status_reason: build.reason,
-    build_metadata: { build_ref: build.metadata.buildRef, image_uri: build.metadata.imageUri },
+    build_metadata: build.metadata,
   };
 }
 
@@ -61,7 +62,7 @@ export async function checkSnapshotStatus({
   logger: Logger;
 }): Promise<SandboxStatus | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
-  if (record === undefined) {
+  if (!record) {
     return undefined;
   }
 
@@ -77,7 +78,12 @@ export async function checkSnapshotStatus({
     return persisted;
   }
 
-  const provider = toDaytonaSandboxProvider({ manifest: record.manifest, tenant_id, logger });
+  const provider = toDaytonaSandboxProvider({
+    manifest: record.manifest,
+    tenant_id,
+    logger,
+    build_metadata: record.build_metadata,
+  });
   let build: SandboxBuild;
   if (record.status === 'ready') {
     // this is because image may have deactivated

@@ -13,8 +13,8 @@ export interface SandboxProviderRecord {
   status: SandboxBuildStatus;
   /** Human-readable detail for `status`; null when ready. */
   status_reason: string | null;
-  /** Provider build identity (build_ref + image_uri) persisted alongside the status. */
-  build_metadata: SandboxBuildMetadata;
+  /** Provider-specific build metadata; null when the provider has none. */
+  build_metadata: SandboxBuildMetadata | null;
   /** ISO-8601 UTC instant. */
   created_at: string;
   /** ISO-8601 UTC instant. */
@@ -26,14 +26,14 @@ export interface UpsertSandboxProviderInput {
   manifest: SandboxProviderManifest;
   status: SandboxBuildStatus;
   status_reason: string | null;
-  build_metadata: SandboxBuildMetadata;
+  build_metadata: SandboxBuildMetadata | null;
 }
 
 export interface UpdateSandboxStatusInput {
   tenant_id: string;
   status: SandboxBuildStatus;
   status_reason: string | null;
-  build_metadata: SandboxBuildMetadata;
+  build_metadata: SandboxBuildMetadata | null;
 }
 
 export interface ISandboxProviderStore<TTransaction = never> {

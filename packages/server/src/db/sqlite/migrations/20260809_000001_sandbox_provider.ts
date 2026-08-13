@@ -6,17 +6,21 @@ import { sql, type Kysely } from 'kysely';
  * Singleton per tenant: PK is `tenant_id` only. Manifest is BLOB JSONB.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
-  await sql`
-    CREATE TABLE sandbox_provider (
-      tenant_id TEXT NOT NULL,
-      manifest BLOB NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      PRIMARY KEY (tenant_id)
-    ) STRICT
-  `.execute(db);
+  await db.transaction().execute(async trx => {
+    await sql`
+      CREATE TABLE sandbox_provider (
+        tenant_id TEXT NOT NULL,
+        manifest BLOB NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (tenant_id)
+      ) STRICT
+    `.execute(trx);
+  });
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
-  await sql`DROP TABLE IF EXISTS sandbox_provider`.execute(db);
+  await db.transaction().execute(async trx => {
+    await sql`DROP TABLE IF EXISTS sandbox_provider`.execute(trx);
+  });
 }

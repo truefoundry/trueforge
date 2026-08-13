@@ -2,7 +2,7 @@ import { sql, type Kysely } from 'kysely';
 
 /**
  * Persist the release sandbox image build status alongside the provider config.
- * `build_metadata` holds the build_ref + image_uri and is set on every upsert.
+ * `build_metadata` is nullable opaque jsonb (build_ref + image_uri when present).
  *
  * `status` is added with a temporary 'pending' default so the NOT NULL column can
  * be backfilled on existing rows, then the default is dropped — every upsert writes
@@ -21,7 +21,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .alterTable('sandbox_provider')
     .addColumn('status', 'text', col => col.notNull().defaultTo('pending'))
     .addColumn('status_reason', 'text')
-    .addColumn('build_metadata', 'jsonb', col => col.notNull().defaultTo(sql`'{}'::jsonb`))
+    .addColumn('build_metadata', 'jsonb')
     .execute();
 
   await sql`

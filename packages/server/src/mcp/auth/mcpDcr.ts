@@ -15,7 +15,6 @@ import type {
 import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { McpConnectionError, McpDcrConfigurationError } from '@truefoundry/trueforge-core/core';
 import { randomBytes } from 'node:crypto';
-import type { WithTransaction } from '../../db/transaction';
 import {
   isOAuthAccessTokenUsable,
   mcpAuthorizationServerMetadata,
@@ -122,6 +121,11 @@ async function registerMcpClientWithAuthMethodFallback(params: {
   };
 }
 
+/**
+ * Discovers the MCP server's authorization server, validates DCR + S256 PKCE support, and
+ * registers a new OAuth client (RFC 7591). Returns AS endpoints + client credentials for the
+ * caller to persist; does not write to the store.
+ */
 export async function createMcpOAuthClient(params: {
   mcpServerUrl: string;
   mcpServerName: string;
@@ -171,6 +175,10 @@ export async function createMcpOAuthClient(params: {
   });
 }
 
+/**
+ * Returns the stored OAuth client for `serverId`, or discovers + DCR-registers and persists one.
+ * Used from `resolveMcpAuth` only — callers that already hold the client should pass it through.
+ */
 export async function ensureMcpClientRegistered(params: {
   mcpServerStore: IOAuthClientStore;
   serverId: string;
@@ -182,7 +190,6 @@ export async function ensureMcpClientRegistered(params: {
   if (existing) {
     return existing;
   }
-  // Remote DCR finishes before any DB write so we never hold a connection during HTTP.
   const client = await createMcpOAuthClient({
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
@@ -193,30 +200,23 @@ export async function ensureMcpClientRegistered(params: {
   return client;
 }
 
+/** Builds the AS authorize URL and saves the pending PKCE row. Caller must already have `client`. */
 export async function buildMcpAuthorizationUrl(params: {
   tokenStore: IOAuthTokenStore;
-  mcpServerStore: IOAuthClientStore;
+  client: OAuthClientRecord;
   serverId: string;
   userRef: string;
   mcpServerUrl: string;
   mcpServerName: string;
-  clientName: string;
   redirectUrl?: string;
 }): Promise<URL> {
-  const client = await ensureMcpClientRegistered({
-    mcpServerStore: params.mcpServerStore,
-    serverId: params.serverId,
-    mcpServerUrl: params.mcpServerUrl,
-    mcpServerName: params.mcpServerName,
-    clientName: params.clientName,
-  });
   const state = randomBytes(32).toString('base64url');
   const redirectUri = mcpOAuthCallbackUrl();
   let started: Awaited<ReturnType<typeof startAuthorization>>;
   try {
-    started = await startAuthorization(mcpAuthorizationServerOrigin(client.server), {
-      metadata: mcpAuthorizationServerMetadata(client.server),
-      clientInformation: mcpClientInformation(client.client),
+    started = await startAuthorization(mcpAuthorizationServerOrigin(params.client.server), {
+      metadata: mcpAuthorizationServerMetadata(params.client.server),
+      clientInformation: mcpClientInformation(params.client.client),
       redirectUrl: redirectUri,
       resource: resourceUrlFromServerUrl(params.mcpServerUrl),
       state,
@@ -253,23 +253,27 @@ export async function resolveMcpAuth(params: {
   if (token && isOAuthAccessTokenUsable(token.expiresAt, nowMs)) {
     return { headers: { Authorization: `Bearer ${token.accessToken}` } };
   }
+  const client = await ensureMcpClientRegistered({
+    mcpServerStore: params.mcpServerStore,
+    serverId: params.serverId,
+    mcpServerUrl: params.mcpServerUrl,
+    mcpServerName: params.mcpServerName,
+    clientName: params.clientName,
+  });
   if (token?.refreshToken) {
-    const client = await params.mcpServerStore.getClient({ id: params.serverId });
-    if (client) {
-      try {
-        const refreshed = await refreshAuthorization(mcpAuthorizationServerOrigin(client.server), {
-          metadata: mcpAuthorizationServerMetadata(client.server),
-          clientInformation: mcpClientInformation(client.client),
-          refreshToken: token.refreshToken,
-          resource: resourceUrlFromServerUrl(params.mcpServerUrl),
-          fetchFn: mcpOAuthFetch,
-        });
-        const saved = oauthTokensToOAuthToken(refreshed, nowMs, token.refreshToken);
-        await params.tokenStore.saveToken({ ...tokenKey, token: saved });
-        return { headers: { Authorization: `Bearer ${saved.accessToken}` } };
-      } catch {
-        // Refresh failure falls through to a fresh authorization.
-      }
+    try {
+      const refreshed = await refreshAuthorization(mcpAuthorizationServerOrigin(client.server), {
+        metadata: mcpAuthorizationServerMetadata(client.server),
+        clientInformation: mcpClientInformation(client.client),
+        refreshToken: token.refreshToken,
+        resource: resourceUrlFromServerUrl(params.mcpServerUrl),
+        fetchFn: mcpOAuthFetch,
+      });
+      const saved = oauthTokensToOAuthToken(refreshed, nowMs, token.refreshToken);
+      await params.tokenStore.saveToken({ ...tokenKey, token: saved });
+      return { headers: { Authorization: `Bearer ${saved.accessToken}` } };
+    } catch {
+      // Refresh failure falls through to a fresh authorization.
     }
   }
   if (token) {
@@ -277,12 +281,11 @@ export async function resolveMcpAuth(params: {
   }
   const authUrl = await buildMcpAuthorizationUrl({
     tokenStore: params.tokenStore,
-    mcpServerStore: params.mcpServerStore,
+    client,
     serverId: params.serverId,
     userRef: params.userRef,
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
-    clientName: params.clientName,
     ...(params.redirectUrl !== undefined ? { redirectUrl: params.redirectUrl } : {}),
   });
   return { authUrl };
@@ -292,12 +295,11 @@ export async function resolveMcpAuth(params: {
  * Exchanges `code` for tokens against an already-claimed `pending` row: the caller claims it with
  * `consumePendingAuthorization` so duplicate callbacks lose the race, and keeps it for its FE
  * landing URL. Route must already reject IdP `error` params. On `invalid_client`, clears the stored
- * client and token so the next authorize re-registers.
+ * client so the next authorize re-registers (per-user tokens are left; there is usually none yet).
  */
 export async function completeMcpAuthorization<TTransaction>(params: {
   tokenStore: IOAuthTokenStore<TTransaction>;
   mcpServerStore: IOAuthClientStore<TTransaction>;
-  withTransaction: WithTransaction<TTransaction>;
   pending: OAuthPendingAuthorization;
   code: string;
 }): Promise<void> {
@@ -327,10 +329,7 @@ export async function completeMcpAuthorization<TTransaction>(params: {
     });
   } catch (error: unknown) {
     if (error instanceof InvalidClientError) {
-      await params.withTransaction(async transaction => {
-        await params.tokenStore.deleteToken({ id: pending.id, userRef: pending.userRef }, transaction);
-        await params.mcpServerStore.deleteClient({ id: pending.id }, transaction);
-      });
+      await params.mcpServerStore.deleteClient({ id: pending.id });
       throw new McpConnectionError('OAuth client registration is invalid; please retry connecting', 400, {
         cause: error,
       });

@@ -11,6 +11,10 @@ import type { Database } from './sqlite/types';
  *
  * Used at sqlite startup and by SQLite store tests.
  * Resolves `…/sqlite/migrations` next to this module (source or `dist/`).
+ *
+ * Kysely does not wrap SQLite migrations in a transaction (`supportsTransactionalDdl`
+ * is false). Migrations that need atomicity open `db.transaction()` themselves;
+ * `PRAGMA foreign_keys` must stay outside that txn.
  */
 export async function migrateSqliteToLatest(db: Kysely<Database>): Promise<void> {
   const migrator = new Migrator({

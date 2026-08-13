@@ -11,6 +11,24 @@ The chart version, `appVersion`, and `image.tag` are stamped at publish time by
 (manual `workflow_dispatch`, commit SHA as the image tag). Committed chart
 values are placeholders until that workflow runs.
 
+## Dev defaults (read before exposing)
+
+A bare `helm install` is intentionally easy for local / private-cluster trials.
+Those defaults are **not** production-safe:
+
+| Default | Risk if the Service / Ingress is reachable |
+| --- | --- |
+| `configs.oidc.enabled: false` | No login; every caller is the shared local admin (`trueforge-default`) |
+| `postgresql.auth.password: trueforge` | Well-known Postgres password (unless you set `existingSecret` / a strong password) |
+| `redis.auth.enabled: false` | Unauthenticated Redis on the cluster network |
+
+Before exposing TrueForge beyond a trusted network: enable OIDC, change or
+Secret-back the Postgres password, and prefer external passworded Redis (or
+keep Redis ClusterIP-only and NetworkPolicy-restricted). See
+[Production checklist](#production-checklist) and the
+[Setup Login](https://github.com/truefoundry/trueforge/blob/main/docs/authentication/overview.mdx)
+docs.
+
 ## Dependencies
 
 Postgres and Redis ship as **bundled** dependencies (the Bitnami `postgresql`
@@ -31,7 +49,7 @@ Disable either dependency to point at an external service instead (see below).
 ## Install
 
 ```bash
-helm install trueforge oci://<jfrog-public-helm-repo>/trueforge \
+helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
   --version <x.y.z>
 ```
 
@@ -39,16 +57,18 @@ Optional: set the public origin once you expose the service (needed for MCP OAut
 and OIDC callbacks):
 
 ```bash
-helm upgrade --install trueforge oci://<jfrog-public-helm-repo>/trueforge \
+helm upgrade --install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
   --version <x.y.z> \
   --set server.publicBaseUrl=https://trueforge.example.com
 ```
 
 ## Postgres
 
-Bundled by default (`postgresql.enabled=true`). Set `postgresql.auth.username`,
-`postgresql.auth.password` (or Bitnami's `postgresql.auth.existingSecret`), and
-`postgresql.auth.database`; the server connects to it automatically.
+Bundled by default (`postgresql.enabled=true`). The chart ships a **dev**
+password (`trueforge`). Change `postgresql.auth.password` or set
+Bitnami's `postgresql.auth.existingSecret` before any shared / public deploy.
+Also set `postgresql.auth.username` and `postgresql.auth.database` as needed;
+the server connects to the bundled instance automatically.
 
 To use an **external** Postgres, set `postgresql.enabled=false` and provide
 `externalPostgres.host` (+ `port`, `database`, `user`). Set
@@ -70,9 +90,10 @@ externalPostgres:
 ## Redis
 
 The server always runs peered (`STANDALONE=false`), so Redis is always required.
-Bundled by default (`redis.enabled=true`, auth disabled). To use an **external**
-Redis, set `redis.enabled=false` and provide `externalRedis.url` as a string or
-`valueFrom.secretKeyRef`:
+Bundled by default (`redis.enabled=true`, **auth disabled** — fine only when
+Redis stays unreachable outside the cluster trust boundary). To use an
+**external** Redis, set `redis.enabled=false` and provide `externalRedis.url`
+as a string or `valueFrom.secretKeyRef`:
 
 ```yaml
 redis:
@@ -90,9 +111,11 @@ For passworded Redis, prefer an external instance and load `REDIS_URL` via
 
 ## OIDC
 
-Configure IdP login under `configs.oidc`. When `enabled` is false, no `OIDC_*`
-env is set (fixed local admin identity). When enabled, set string `issuerUrl`
-and `clientId`, and `clientSecret` as a string or `valueFrom.secretKeyRef`
+Configure IdP login under `configs.oidc`. When `enabled` is false (the default),
+no `OIDC_*` env is set and the server uses a **fixed local admin** identity —
+anyone who can reach the API/UI has full admin access. Enable OIDC for any
+shared or public deployment. When enabled, set string `issuerUrl` and
+`clientId`, and `clientSecret` as a string or `valueFrom.secretKeyRef`
 (prefer valueFrom in production).
 
 Also set `server.publicBaseUrl` to the public origin and register
@@ -189,10 +212,12 @@ Also available (defaults inert): `strategy`, `priorityClassName`,
 
 ## Production checklist
 
+- **Enable `configs.oidc`** — leaving it off grants shared admin to anyone who can reach the server.
+- **Replace the bundled Postgres password** (`trueforge`) or set `postgresql.auth.existingSecret`.
+- Treat bundled Redis (`redis.auth.enabled: false`) as cluster-internal only, or switch to external passworded Redis via `externalRedis.url`.
 - Set `server.publicBaseUrl` to the real public origin before using MCP OAuth or OIDC.
 - Prefer `valueFrom.secretKeyRef` for Postgres password, Redis URL, and OIDC client secret; do not commit secrets in values files.
 - Prefer external managed Postgres/Redis over the bundled subcharts for production HA.
 - Set container `resources` (especially CPU requests) before enabling HPA.
-- Add `imagePullSecrets` when pulling from `tfy.jfrog.io`.
-- Configure IdP login via `configs.oidc` when you need OIDC.
+- Default `tfy.jfrog.io` images and the Helm chart are anonymously pullable — set `imagePullSecrets` only if you override to a private registry.
 - Enable `podDisruptionBudget` when running multiple replicas (defaults to `minAvailable: 1`; set exactly one of `minAvailable` or `maxUnavailable`).

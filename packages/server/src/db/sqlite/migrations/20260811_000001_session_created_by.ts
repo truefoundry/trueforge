@@ -2,10 +2,12 @@ import { sql, type Kysely } from 'kysely';
 
 /** Add immutable `created_by` identity on session. */
 export async function up(db: Kysely<unknown>): Promise<void> {
-  await sql`
-    ALTER TABLE session
-      ADD COLUMN created_by TEXT NOT NULL DEFAULT ''
-  `.execute(db);
+  await db.transaction().execute(async trx => {
+    await sql`
+      ALTER TABLE session
+        ADD COLUMN created_by TEXT NOT NULL DEFAULT ''
+    `.execute(trx);
+  });
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
