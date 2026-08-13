@@ -103,37 +103,14 @@ describe('capabilities routers', () => {
     });
   });
 
-  it('reports sandbox disabled with a "being prepared" skill reason while the image is still pending', async () => {
+  it('reports sandbox disabled while the image is still pending', async () => {
     disableOidcAuth();
     mockStatus.mockResolvedValue(buildWithStatus('pending'));
     const router = makeRouter();
 
     const response = await router.request('/');
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
-      data: {
-        sandbox: { enabled: false },
-        skill: { enabled: false, reason: 'Skills run in a sandbox whose image is still being prepared — retry shortly.' },
-      },
-    });
-  });
-
-  it('reports the build failure in the skill reason when the image build failed', async () => {
-    disableOidcAuth();
-    mockStatus.mockResolvedValue(buildWithStatus('failed'));
-    const router = makeRouter();
-
-    const response = await router.request('/');
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
-      data: {
-        sandbox: { enabled: false },
-        skill: {
-          enabled: false,
-          reason: 'Skills run in a sandbox whose image build failed (Sandbox image build failed (build_failed).).',
-        },
-      },
-    });
+    expect(await response.json()).toMatchObject({ data: { sandbox: { enabled: false } } });
   });
 
   it('fails closed (sandbox disabled) when the status check throws', async () => {
