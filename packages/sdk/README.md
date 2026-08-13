@@ -17,6 +17,7 @@ When auth is enabled on the server, pass an ID token via the optional `token` cl
 - [Exception Handling](#exception-handling)
 - [Streaming Response](#streaming-response)
 - [Binary Response](#binary-response)
+- [Pagination](#pagination)
 - [Advanced](#advanced)
   - [Subpackage Exports](#subpackage-exports)
   - [Additional Headers](#additional-headers)
@@ -491,6 +492,29 @@ const text = new TextDecoder().decode(bytes);
 </blockquote>
 
 </details>
+
+## Pagination
+
+List endpoints are paginated. The SDK provides an iterator so that you can simply loop over the items:
+
+```typescript
+import { TrueForge } from "trueforge-sdk";
+
+const client = new TrueForge({ baseUrl: "YOUR_BASE_URL", token: "YOUR_TOKEN" });
+const pageableResponse = await client.sessions.list();
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.sessions.list();
+while (page.hasNextPage()) {
+    page = page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
+```
 
 ## Advanced
 
