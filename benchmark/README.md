@@ -63,10 +63,10 @@ granularity, and use all the related data — with no task-specific detail.
 ## How it works
 
 1. **`setup.py`** — creates the CMA environment/agent/vault with the shipped system
-   prompt and the MCP servers. TrueForge and deepagents need no setup step: TrueForge
+   prompt and the MCP servers. TrueForge and deepagents need no setup step here: TrueForge
    sends an inline agent spec when it creates each session, and deepagents attaches the
-   MCP tools at run time. (TrueForge does need, on its side, a model provider for
-   `MODEL_TFY` and the MCP servers registered as Connectors — see `.env.example`.)
+   MCP tools at run time. (TrueForge does need three things configured on its side — a model
+   provider, the MCP Connectors, and a **sandbox provider** — see **TrueForge setup** below.)
 2. **`bench_matrix.py run-all`** — runs every `{arm × task × trial}` cell. Each task
    runs as a subprocess with a hard wall-clock timeout and is retried on
    timeout / crash / empty answer. Fully resumable — rerun to continue.
@@ -77,6 +77,45 @@ granularity, and use all the related data — with no task-specific detail.
    partial credit). Writes `results/grades.jsonl`.
 4. **`aggregate.py`** — rolls the matrix up into per-arm accuracy, cost, and latency.
    `Solved / 14` is the mean number of tasks passed per trial. Writes `results/summary.csv`.
+
+### TrueForge setup (required to reproduce)
+
+The `tfy` arm talks to a running TrueForge server (`TFY_BASE_URL`). Before running it,
+configure three things **inside TrueForge** — miss any one and the data-heavy tasks fail:
+
+1. **A model provider** for `MODEL_TFY` (e.g. `anthropic/claude-opus-4-8`, `zai/glm-5-2`).
+2. **The MCP servers** from `mcp_config.json`, registered as Connectors **under the same
+   names**.
+3. **A sandbox provider** (e.g. Daytona). This is the one people miss. The benchmark config
+   enables `large_tool_response`, which **offloads oversized query results to a sandbox
+   file** instead of letting them pile into the model's context. Several of these tasks scan
+   tens of thousands of records; **without a sandbox the context blows past the token budget
+   and the turn aborts with `max_tokens breached`.**
+
+The agent config is sent **inline by the adapter** (`run_tfy` in `bench_matrix.py`) — you do
+not set it in TrueForge — and is the validated setup that produced the results below:
+
+| Setting                                  | Value                         | Why                                                      |
+| ---------------------------------------- | ----------------------------- | -------------------------------------------------------- |
+| `iteration_limit`                        | **500**                       | enough tool-use steps to fully work a cross-system task  |
+| `dynamic_sub_agents`                     | **enabled**                   | decompose big sub-tasks to sub-agents with fresh context |
+| `sandbox`                                | **enabled**                   | needed for `large_tool_response` offload (see #3 above)  |
+| `context_management.compaction`          | **enabled, threshold 60 000** | summarize old history so long turns stay under budget    |
+| `context_management.large_tool_response` | **enabled**                   | offload oversized tool results to the sandbox            |
+| `generative_ui`                          | disabled                      | not needed for a headless benchmark                      |
+| `ask_user_questions`                     | disabled                      | fully autonomous; never pause a turn for input           |
+
+**Long turns.** The heaviest tasks run for several minutes. TrueForge streams turn events
+over SSE, and on a long turn that stream can close before the turn finishes (the turn keeps
+running server-side). The adapter handles this: if the stream ends without a terminal
+`turn.done`, it **polls the turn to its terminal state** rather than recording an empty
+answer. If you write your own client, do the same, or long tasks will look like spurious
+failures.
+
+**Strict MCP servers.** The MCP spec requires clients to send
+`Accept: application/json, text/event-stream`. If your MCP server enforces this strictly and
+TrueForge's connector doesn't satisfy it, tool listing fails; use an MCP server (or a thin
+proxy) that accepts the header TrueForge sends.
 
 ### Cost model
 
