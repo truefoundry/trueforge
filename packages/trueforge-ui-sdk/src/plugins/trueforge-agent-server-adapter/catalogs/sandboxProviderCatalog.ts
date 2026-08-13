@@ -29,10 +29,12 @@ function displayNameForType(type: string): string {
 }
 
 export function configFromHarness(
-  provider: TrueForgeApi.CatalogDaytonaSandboxProvider | TrueForgeApi.DaytonaSandboxProvider,
+  provider: TrueForgeApi.CatalogDaytonaSandboxProvider | TrueForgeApi.SandboxProviderManifest,
 ): SandboxProviderConfig {
   return {
-    snapshotName: provider.snapshotName,
+    // Snapshot/image is now release-owned; the field is gone from the backend. The external
+    // SandboxProviderConfig still requires it, so send an empty placeholder until that type drops it.
+    snapshotName: '',
     execTimeoutMs: provider.execTimeoutMs,
     autoStopIntervalInMinutes: provider.autoStopIntervalInMinutes,
     autoArchiveIntervalInMinutes: provider.autoArchiveIntervalInMinutes,
@@ -49,7 +51,7 @@ export function toUiCatalogEntry(provider: TrueForgeApi.CatalogDaytonaSandboxPro
   };
 }
 
-export function toUiSandboxProvider(provider: TrueForgeApi.DaytonaSandboxProvider): UiSandboxProvider {
+export function toUiSandboxProvider(provider: TrueForgeApi.SandboxProviderManifest): UiSandboxProvider {
   return {
     id: provider.type,
     name: displayNameForType(provider.type),
@@ -63,14 +65,13 @@ export function toHarnessManifest(
   req: {
     type: string;
     apiKey: string;
-  } & SandboxProviderConfig,
-): TrueForgeApi.DaytonaSandboxProvider {
+  } & Omit<SandboxProviderConfig, 'snapshotName'>,
+): TrueForgeApi.SandboxProviderManifest {
   if (req.type !== DAYTONA_TYPE) {
     throw new Error(`Unsupported sandbox provider type: ${req.type}`);
   }
   return {
     type: DAYTONA_TYPE,
-    snapshotName: req.snapshotName,
     execTimeoutMs: req.execTimeoutMs,
     autoStopIntervalInMinutes: req.autoStopIntervalInMinutes,
     autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
@@ -87,7 +88,7 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
       return trimmed;
     }
     const existing = await client.settings.sandboxProviders.get();
-    return existing.data.auth.apiKey;
+    return existing.data.manifest.auth.apiKey;
   }
 
   return {
@@ -99,7 +100,7 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
       let providers: UiSandboxProvider[];
       try {
         const body = await client.settings.sandboxProviders.get();
-        providers = [toUiSandboxProvider(body.data)];
+        providers = [toUiSandboxProvider(body.data.manifest)];
       } catch (err) {
         if (err instanceof TrueForgeApi.NotFoundError) {
           providers = [];
@@ -112,10 +113,7 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
         return providers;
       }
       return providers.filter(
-        provider =>
-          provider.name.toLowerCase().includes(query) ||
-          provider.id.toLowerCase().includes(query) ||
-          provider.snapshotName.toLowerCase().includes(query),
+        provider => provider.name.toLowerCase().includes(query) || provider.id.toLowerCase().includes(query),
       );
     },
     createSandboxProvider: async req => {
@@ -123,14 +121,13 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
         toHarnessManifest({
           type: req.type,
           apiKey: req.apiKey,
-          snapshotName: req.snapshotName,
           execTimeoutMs: req.execTimeoutMs,
           autoStopIntervalInMinutes: req.autoStopIntervalInMinutes,
           autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
           autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
         }),
       );
-      return toUiSandboxProvider(body.data);
+      return toUiSandboxProvider(body.data.manifest);
     },
     updateSandboxProvider: async req => {
       const apiKey = await resolveApiKey(req.apiKey);
@@ -138,14 +135,13 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
         toHarnessManifest({
           type: DAYTONA_TYPE,
           apiKey,
-          snapshotName: req.snapshotName,
           execTimeoutMs: req.execTimeoutMs,
           autoStopIntervalInMinutes: req.autoStopIntervalInMinutes,
           autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
           autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
         }),
       );
-      return toUiSandboxProvider(body.data);
+      return toUiSandboxProvider(body.data.manifest);
     },
   };
 }

@@ -11,7 +11,6 @@ import {
 describe('sandboxProviderCatalog mappers', () => {
   const harnessCatalog = {
     type: 'daytona' as const,
-    snapshotName: 'truefoundry-platform-dev',
     execTimeoutMs: 60000,
     autoStopIntervalInMinutes: 5,
     autoArchiveIntervalInMinutes: 60,
@@ -23,12 +22,14 @@ describe('sandboxProviderCatalog mappers', () => {
     auth: { apiKey: 'dtn_secret' },
   };
 
+  // Snapshot/image is release-owned now; mappers emit an empty snapshotName only to satisfy
+  // the external SandboxProviderConfig type, and toHarnessManifest omits it entirely.
   it('stamps catalog identity from type and strips auth', () => {
     assert.deepEqual(toUiCatalogEntry(harnessCatalog), {
       id: 'daytona',
       name: 'Daytona',
       type: 'daytona',
-      snapshotName: 'truefoundry-platform-dev',
+      snapshotName: '',
       execTimeoutMs: 60000,
       autoStopIntervalInMinutes: 5,
       autoArchiveIntervalInMinutes: 60,
@@ -42,7 +43,7 @@ describe('sandboxProviderCatalog mappers', () => {
       name: 'Daytona',
       catalogId: 'daytona',
       isConnected: true,
-      snapshotName: 'truefoundry-platform-dev',
+      snapshotName: '',
       execTimeoutMs: 60000,
       autoStopIntervalInMinutes: 5,
       autoArchiveIntervalInMinutes: 60,
@@ -52,7 +53,7 @@ describe('sandboxProviderCatalog mappers', () => {
     assert.equal('apiKey' in toUiSandboxProvider(harnessConfigured), false);
   });
 
-  it('round-trips config fields into harness upsert body', () => {
+  it('round-trips config fields into harness upsert body without a snapshot name', () => {
     assert.deepEqual(
       toHarnessManifest({
         type: 'daytona',
@@ -69,7 +70,6 @@ describe('sandboxProviderCatalog mappers', () => {
         toHarnessManifest({
           type: 'other',
           apiKey: 'x',
-          snapshotName: 'snap',
           execTimeoutMs: 1,
           autoStopIntervalInMinutes: 1,
           autoArchiveIntervalInMinutes: 1,
