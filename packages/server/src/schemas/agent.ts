@@ -1,23 +1,16 @@
 /**
- * Configured agent domain + wire schemas: identity columns plus a persisted
- * AgentManifest document (same fields as harness AgentSpec).
+ * Configured agent domain + wire schemas: identity columns plus a nested
+ * AgentSpec document (JSON key `manifest`).
  */
 import { z } from '@hono/zod-openapi';
-import { AgentSpecObjectSchema } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema } from './common';
-
-/** Persisted `agent.manifest` jsonb */
-export const AgentManifestSchema = z
-  .object({ ...AgentSpecObjectSchema.shape })
-  .strict()
-  .describe('Persisted agent registry document.')
-  .openapi('AgentManifest');
 
 /** Create body: unique immutable `name` plus manifest. `id` is never client-supplied. */
 export const CreateAgentRequestSchema = z
   .object({
     name: NameSchema,
-    manifest: AgentManifestSchema,
+    manifest: AgentSpecSchema,
   })
   .strict()
   .openapi('CreateAgentRequest');
@@ -25,7 +18,7 @@ export const CreateAgentRequestSchema = z
 /** PUT body: full manifest replacement. Identity is the path `agent_id`. */
 export const PutAgentRequestSchema = z
   .object({
-    manifest: AgentManifestSchema,
+    manifest: AgentSpecSchema,
   })
   .strict()
   .openapi('PutAgentRequest');
@@ -35,7 +28,7 @@ export const AgentSchema = z
   .object({
     id: z.string().min(1).describe('Immutable server-generated agent identifier.'),
     name: NameSchema,
-    manifest: AgentManifestSchema,
+    manifest: AgentSpecSchema,
   })
   .strict()
   .openapi('Agent');
@@ -44,7 +37,6 @@ export const GetAgentResponseSchema = z.object({ data: AgentSchema }).openapi('G
 export const ListAgentsResponseSchema = z.object({ data: z.array(AgentSchema) }).openapi('ListAgentsResponse');
 export const DeleteAgentResponseSchema = z.object({}).openapi('DeleteAgentResponse');
 
-export type AgentManifest = z.infer<typeof AgentManifestSchema>;
 export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>;
 export type PutAgentRequest = z.infer<typeof PutAgentRequestSchema>;
 export type Agent = z.infer<typeof AgentSchema>;

@@ -296,27 +296,31 @@ const AgentSpecUserMessageSchema = z
 
 // --- Agent spec ---
 
-/** Unnamed object so registry wire can attach `AgentManifest` without `.extend()` on a named schema. */
-export const AgentSpecObjectSchema = z.object({
-  model: ModelSpecSchema,
-  instructions: z.string().optional().describe("Optional system prompt — the agent's role, behavior, and constraints."),
-  messages: z
-    .array(AgentSpecUserMessageSchema)
-    .optional()
-    .describe('Optional seed user messages injected at the start of every session.'),
-  mcp_servers: z.array(MCPServerRequestSchema).optional().describe('Optional MCP servers attached by configured name.'),
-  response_format: ResponseFormatSchema.optional(),
-  skills: z
-    .array(SkillNameRefSchema)
-    .optional()
-    .describe('Optional name-only skill references. Requires `config.sandbox.enabled: true`.'),
-  // Factory must parse so nested RuntimeConfig field defaults materialize.
-  config: RuntimeConfigSchema.default(() => RuntimeConfigSchema.parse({})),
-});
-
-export const AgentSpecSchema = AgentSpecObjectSchema.describe(
-  'Complete agent definition used inline on a session or saved as a named agent.',
-).openapi('AgentSpec');
+export const AgentSpecSchema = z
+  .object({
+    model: ModelSpecSchema,
+    instructions: z
+      .string()
+      .optional()
+      .describe("Optional system prompt — the agent's role, behavior, and constraints."),
+    messages: z
+      .array(AgentSpecUserMessageSchema)
+      .optional()
+      .describe('Optional seed user messages injected at the start of every session.'),
+    mcp_servers: z
+      .array(MCPServerRequestSchema)
+      .optional()
+      .describe('Optional MCP servers attached by configured name.'),
+    response_format: ResponseFormatSchema.optional(),
+    skills: z
+      .array(SkillNameRefSchema)
+      .optional()
+      .describe('Optional name-only skill references. Requires `config.sandbox.enabled: true`.'),
+    // Factory must parse so nested RuntimeConfig field defaults materialize.
+    config: RuntimeConfigSchema.default(() => RuntimeConfigSchema.parse({})),
+  })
+  .describe('Complete agent definition used inline on a session or saved as a named agent.')
+  .openapi('AgentSpec');
 
 export type AgentSpec = z.infer<typeof AgentSpecSchema>;
 export type SkillNameRef = z.infer<typeof SkillNameRefSchema>;
