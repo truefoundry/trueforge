@@ -9,22 +9,31 @@ Wire fields stay `snake_case`. New endpoints MUST follow this; renames of shippe
 
 If a settings resource is one-per-tenant (e.g. sandbox provider), keep the plural path `/api/v1/settings/sandbox-providers` for URL consistency, but Fern methods are `get`/`upsert` returning a single object — not `list` returning an array.
 
-**Verbs:** `GET` list/get → 200; `POST` create → **201**; `PUT` replace/upsert → 200; `PATCH` partial → 200; `DELETE` → **204** (no body schema); actions `POST /{id}/{action}`.
+**Verbs:** `GET` list/get → 200; `POST` create → **201**; `PUT` replace/upsert → 200; `DELETE` → **200** with `DeleteFooResponse` (`{}`), optional `DeleteFoosRequestQuery`; actions `POST /{id}/{action}`.
 
 **Schemas** (resource `Foo`, collection `foos`; item OpenAPI name is PascalCase singular):
 
-| Operation               | Request                                   | Response                                  |
-| ----------------------- | ----------------------------------------- | ----------------------------------------- |
-| `GET /foos`             | `ListFoosRequestQuery` (if any)           | `ListFoosResponse`                        |
-| `POST /foos`            | `CreateFooRequest`                        | `GetFooResponse` (or `CreateFooResponse`) |
-| `GET /foos/{foo_id}`    | —                                         | `GetFooResponse`                          |
-| `PUT` upsert/replace    | `PutFooRequest` (may alias `FooManifest`) | `GetFooResponse` (or `PutFooResponse`)    |
-| `PATCH /foos/{foo_id}`  | `UpdateFooRequest`                        | `GetFooResponse` (or `UpdateFooResponse`) |
-| `DELETE /foos/{foo_id}` | —                                         | 204                                       |
+| Operation               | Request                             | Response                                  |
+| ----------------------- | ----------------------------------- | ----------------------------------------- |
+| `GET /foos`             | `ListFoosRequestQuery` (if any)     | `ListFoosResponse`                        |
+| `POST /foos`            | `CreateFooRequest`                  | `GetFooResponse` (or `CreateFooResponse`) |
+| `GET /foos/{foo_id}`    | —                                   | `GetFooResponse`                          |
+| `PUT` upsert/replace    | `PutFooRequest`                     | `GetFooResponse` (or `PutFooResponse`)    |
+| `DELETE /foos/{foo_id}` | `DeleteFoosRequestQuery` (optional) | `DeleteFooResponse` (`{}`)                |
 
 Prefer reusing `GetFooResponse` when create/update return the same item.
 
-**Request body vs manifest:** OpenAPI create/put bodies MUST be titled `CreateFooRequest` / `PutFooRequest`. `FooManifest` is the persisted jsonb document (store/DB), not the HTTP operation name. When the PUT body _is_ that document, share one Zod schema and alias — e.g. `PutFooRequestSchema = FooManifestSchema.openapi('PutFooRequest')` (keep `FooManifest` as the TS/DB type). Do not use Manifest for session/turn-style creates or PATCH `UpdateFooRequest` bodies that are not the stored blob.
+**Request body vs manifest:** `FooManifest` is only the persisted jsonb document. Create/put OpenAPI bodies MUST be `CreateFooRequest` / `PutFooRequest` with an explicit wrapper — never flatten manifest fields onto the request root and never alias the request schema to `FooManifest`:
+
+```ts
+// CreateFooRequest / PutFooRequest
+{
+  manifest: FooManifest; // stored document only
+  dry_run?: boolean;     // operation-level fields live beside manifest
+}
+```
+
+Session/turn-style creates that are not a stored manifest keep a flat `Create*Request` without a `manifest` key.
 
 Settings list → `ListFoosResponse`; chat → `ListAvailableFoosResponse`; catalog → `ListCatalogFoosResponse` / item `CatalogFoo`.
 
@@ -33,6 +42,8 @@ Nested child `Bar`: `ListBarsResponse`, `CreateBarRequest`, `GetBarResponse`; Fe
 **Envelopes:** success `{ data: Item | Item[] }` (+ `pagination` via `fernExtensions.ts` token contract); errors `RequestErrorResponse`.
 
 **Fern:** set `x-fern-sdk-group-name` / `x-fern-sdk-method-name` (`list`/`get`/`create`/`update`/`upsert`/`delete` + snake_case actions). Do not hand-edit OpenAPI or `packages/sdk`. Schemas live in `src/schemas/` with matching `.openapi('…')` names; types via `z.infer`.
+
+**No inline object schemas:** do not nest anonymous `z.object({ … })` inside another object. Extract each nested object as a top-level named schema with a meaningful `.openapi('…')` name (e.g. `FooAuth`, `FooManifest`) so OpenAPI emits a `$ref` and other schemas can reuse it. Primitives, arrays of primitives, and `$ref`s to existing named schemas are fine inline.
 
 **Avoid `allOf`:** new wire schemas MUST emit flat OpenAPI objects.
 
