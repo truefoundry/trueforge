@@ -2,7 +2,7 @@
  * Backend-agnostic behavioural contract for IModelProviderStore.
  * Runs under jest against a fresh store per test (see backend test files).
  */
-import type { IModelProviderStore } from '../../src/db/modelProviderStore';
+import { ModelProviderNameConflictError, type IModelProviderStore } from '../../src/db/modelProviderStore';
 import type { ModelProvider } from '../../src/schemas/modelProvider';
 
 const TENANT = 'default';
@@ -53,6 +53,16 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
 
     const fetched = await store.getProvider({ tenant_id: TENANT, name: 'anthropic' });
     expect(fetched).toEqual(created);
+  });
+
+  it('createProvider inserts and throws ModelProviderNameConflictError on name clash', async () => {
+    const store = getStore();
+    const created = await store.createProvider({ tenant_id: TENANT, name: 'anthropic', manifest: anthropic });
+    expect(created.manifest).toEqual(anthropic);
+
+    await expect(
+      store.createProvider({ tenant_id: TENANT, name: 'anthropic', manifest: anthropic }),
+    ).rejects.toBeInstanceOf(ModelProviderNameConflictError);
   });
 
   it('getProvider returns undefined for unknown providers', async () => {

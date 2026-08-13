@@ -2,7 +2,7 @@
  * Session helpers: SDK `auth.me()` / `auth.logout()` only.
  * Login is not on the SDK (browser redirect to `/api/v1/auth/login`).
  */
-import type { TrueForge, TrueForgeApi } from 'trueforge-sdk';
+import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import { harnessClient, harnessProbeClient } from './harnessClient';
 
 export type MeResponse = TrueForgeApi.MeResponse;

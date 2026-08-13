@@ -2,11 +2,14 @@ import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { Model, ModelProvider } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
-  type GetProviderInput,
+  ModelProviderNameConflictError,
+  type CreateModelProviderInput,
+  type GetModelProviderInput,
   type IModelProviderStore,
   type ModelProviderRecord,
-  type UpsertProviderInput,
+  type UpsertModelProviderInput,
 } from '../../modelProviderStore';
+import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
@@ -39,7 +42,7 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
   }
 
   async getProvider(
-    input: GetProviderInput,
+    input: GetModelProviderInput,
     transaction?: Transaction<Database>,
   ): Promise<ModelProviderRecord | undefined> {
     const db = transaction ?? this.#db;
@@ -56,7 +59,7 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
    * serializes concurrent writers so RMW of secrets stays consistent.
    */
   async getProviderForUpdate(
-    input: GetProviderInput,
+    input: GetModelProviderInput,
     transaction: Transaction<Database>,
   ): Promise<ModelProviderRecord | undefined> {
     return await transaction
@@ -67,7 +70,36 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
       .executeTakeFirst();
   }
 
-  async upsertProvider(input: UpsertProviderInput, transaction?: Transaction<Database>): Promise<ModelProviderRecord> {
+  async createProvider(
+    input: CreateModelProviderInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ModelProviderRecord> {
+    const db = transaction ?? this.#db;
+    const timestamp = nowIso();
+    try {
+      return await db
+        .insertInto('model_provider')
+        .values({
+          tenant_id: input.tenant_id,
+          name: input.name,
+          manifest: jsonbBind(input.manifest),
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .returning(recordColumns)
+        .executeTakeFirstOrThrow();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ModelProviderNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
+      }
+      throw error;
+    }
+  }
+
+  async upsertProvider(
+    input: UpsertModelProviderInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ModelProviderRecord> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();
     return await db

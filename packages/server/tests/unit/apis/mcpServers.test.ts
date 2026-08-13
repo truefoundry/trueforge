@@ -56,6 +56,14 @@ function putInit(body: unknown): RequestInit {
   };
 }
 
+function postInit(body: unknown): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
 describe('mcp-servers routers', () => {
   let settingsRouter: ReturnType<typeof createSettingsMcpServersRouter>;
   let catalogRouter: ReturnType<typeof createCatalogRouter>;
@@ -153,6 +161,25 @@ describe('mcp-servers routers', () => {
     });
   });
 
+  it('POST creates a server and returns 409 on name clash', async () => {
+    const createBody = {
+      type: 'remote' as const,
+      name: 'create-only-mcp',
+      url: 'https://mcp.example.com/create-only',
+    };
+    const created = await settingsRouter.request('/', postInit(createBody));
+    expect(created.status).toBe(200);
+    expect(await created.json()).toEqual({
+      data: { ...createBody, auth_status: { status: 'not_required' } },
+    });
+
+    const clash = await settingsRouter.request('/', postInit(createBody));
+    expect(clash.status).toBe(409);
+    expect(await clash.json()).toEqual({
+      error: { message: 'MCP server name already exists: create-only-mcp' },
+    });
+  });
+
   it('GET /{name} returns the configured server and 404s unknowns', async () => {
     const response = await settingsRouter.request(`/${putBody.name}`);
     expect(response.status).toBe(200);
@@ -176,6 +203,18 @@ describe('mcp-servers routers', () => {
       },
     });
     expect(await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithDcr.name })).toBeUndefined();
+  });
+
+  it('POST with DCR fails registration without writing a server row', async () => {
+    const createDcr = {
+      type: 'remote' as const,
+      name: 'create-dcr-fail',
+      url: 'https://mcp.example.com/dcr-fail',
+      auth: { type: 'dcr' as const },
+    };
+    const response = await settingsRouter.request('/', postInit(createDcr));
+    expect(response.status).toBe(422);
+    expect(await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: createDcr.name })).toBeUndefined();
   });
 
   it('DCR server reads authenticated when a token row exists, auth_required once deleted', async () => {

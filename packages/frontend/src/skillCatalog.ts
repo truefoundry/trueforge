@@ -7,8 +7,8 @@
  * For now UI `id = name`; registry link uses `catalogId = name` when the
  * configured skill name matches a catalog preset.
  */
+import type { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type { DefinedSkill, SkillCatalogEntry, SkillCatalogServer, SkillConfigBase } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi } from 'trueforge-sdk';
 import { harnessClient as client } from './harnessClient';
 
 export type UiSkill = DefinedSkill;

@@ -5,6 +5,7 @@
  * UI: `dcr` / `header` / `none`, connector `id`.
  * Harness: `dcr` / `header` / omitted auth, resource `name`.
  */
+import type { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type {
   ConnectorAuth,
   ConnectorAuthPublic,
@@ -15,7 +16,6 @@ import type {
   ToolBase,
   UpdateConnectorRequest,
 } from '@truefoundry/trueforge-ui';
-import type { TrueForgeApi } from 'trueforge-sdk';
 import { harnessClient as client } from './harnessClient';
 
 export type UiConnectorAuth = ConnectorAuth;
