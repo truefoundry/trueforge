@@ -1,6 +1,5 @@
 /**
  * Maps trueforge-ui model-settings calls onto Harness
- * `/api/v1/settings/model-providers` (name-keyed upsert, no delete).
  *
  * UI: flat `apiKey` / model `id`. Harness: `auth.apiKey` / `modelId`.
  * Provider `id` in the UI is the Harness resource `name`.
@@ -141,25 +140,6 @@ export function createModelProviderCatalog(
     return existing.auth?.apiKey ?? '';
   }
 
-  async function upsertFromUi(req: {
-    type: string;
-    name: string;
-    apiKey: string;
-    baseUrl?: string;
-    models: UiModelEntry[];
-  }): Promise<UiModelProvider> {
-    const body = await client.settings.modelProviders.upsert(
-      toHarnessModelProvider({
-        type: req.type,
-        name: req.name,
-        apiKey: req.apiKey,
-        ...(req.baseUrl === undefined ? {} : { baseUrl: req.baseUrl }),
-        models: req.models,
-      }),
-    );
-    return toUiModelProvider(body.data);
-  }
-
   return {
     getModelProviderCatalog: async () => {
       const body = await client.catalog.modelProviders.list();
@@ -171,24 +151,30 @@ export function createModelProviderCatalog(
     },
     createModelProvider: async req => {
       const apiKey = await resolveApiKey({ type: req.type, apiKey: req.apiKey });
-      return upsertFromUi({
-        type: req.type,
-        name: req.name,
-        apiKey,
-        ...(req.baseUrl === undefined ? {} : { baseUrl: req.baseUrl }),
-        models: req.models,
-      });
+      const body = await client.settings.modelProviders.create(
+        toHarnessModelProvider({
+          type: req.type,
+          name: req.name,
+          apiKey,
+          ...(req.baseUrl === undefined ? {} : { baseUrl: req.baseUrl }),
+          models: req.models,
+        }),
+      );
+      return toUiModelProvider(body.data);
     },
     updateModelProvider: async req => {
       // UI sends apiKey: "" when only models change; reuse the stored key.
       const apiKey = await resolveApiKey({ id: req.id, type: req.type, apiKey: req.apiKey });
-      return upsertFromUi({
-        type: req.type,
-        name: req.id,
-        apiKey,
-        ...(req.baseUrl === undefined ? {} : { baseUrl: req.baseUrl }),
-        models: req.models,
-      });
+      const body = await client.settings.modelProviders.upsert(
+        toHarnessModelProvider({
+          type: req.type,
+          name: req.id,
+          apiKey,
+          ...(req.baseUrl === undefined ? {} : { baseUrl: req.baseUrl }),
+          models: req.models,
+        }),
+      );
+      return toUiModelProvider(body.data);
     },
   };
 }
