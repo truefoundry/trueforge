@@ -3,7 +3,7 @@
 [![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=Truefoundry%2FTypeScript)
 [![npm shield](https://img.shields.io/npm/v/@truefoundry/trueforge-sdk)](https://www.npmjs.com/package/@truefoundry/trueforge-sdk)
 
-TypeScript client for the TrueFoundry agent harness server: a self-hosted runtime that executes agent turns and streams them over Server-Sent Events.
+TypeScript client for the TrueForge agent harness server: a self-hosted runtime that executes agent turns and streams them over Server-Sent Events.
 
 When auth is enabled on the server, pass an ID token via the optional `token` client option (`Authorization: Bearer`).
 
@@ -17,6 +17,7 @@ When auth is enabled on the server, pass an ID token via the optional `token` cl
 - [Exception Handling](#exception-handling)
 - [Streaming Response](#streaming-response)
 - [Binary Response](#binary-response)
+- [Pagination](#pagination)
 - [Advanced](#advanced)
   - [Subpackage Exports](#subpackage-exports)
   - [Additional Headers](#additional-headers)
@@ -491,6 +492,29 @@ const text = new TextDecoder().decode(bytes);
 </blockquote>
 
 </details>
+
+## Pagination
+
+List endpoints are paginated. The SDK provides an iterator so that you can simply loop over the items:
+
+```typescript
+import { TrueForge } from "@truefoundry/trueforge-sdk";
+
+const client = new TrueForge({ baseUrl: "YOUR_BASE_URL", token: "YOUR_TOKEN" });
+const pageableResponse = await client.sessions.list();
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.sessions.list();
+while (page.hasNextPage()) {
+    page = page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
+```
 
 ## Advanced
 

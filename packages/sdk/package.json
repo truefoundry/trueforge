@@ -1,6 +1,6 @@
 {
     "name": "@truefoundry/trueforge-sdk",
-    "version": "0.0.0",
+    "version": "0.1.0-rc.1",
     "private": false,
     "type": "commonjs",
     "main": "./dist/cjs/index.js",
@@ -259,5 +259,20 @@
     "engines": {
         "node": ">=18.0.0"
     },
-    "sideEffects": false
+    "sideEffects": false,
+    "license": "MIT",
+    "author": "TrueForge",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/truefoundry/trueforge.git",
+        "directory": "packages/sdk"
+    },
+    "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/sdk#readme",
+    "bugs": {
+        "url": "https://github.com/truefoundry/trueforge/issues"
+    },
+    "publishConfig": {
+        "access": "public",
+        "provenance": false
+    }
 }

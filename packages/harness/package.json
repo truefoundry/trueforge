@@ -1,9 +1,22 @@
 {
   "name": "@truefoundry/trueforge-core",
-  "version": "0.1.10-rc.1",
+  "version": "0.1.0-rc.1",
   "description": "TrueForge core library",
   "author": "TrueFoundry",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/truefoundry/trueforge.git",
+    "directory": "packages/harness"
+  },
+  "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/harness#readme",
+  "bugs": {
+    "url": "https://github.com/truefoundry/trueforge/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
   "private": false,
   "type": "module",
   "main": "./dist/index.js",

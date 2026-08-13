@@ -1,9 +1,22 @@
 {
   "name": "@truefoundry/trueforge",
-  "version": "0.2.0-rc.2",
-  "description": "TrueFoundry agent server + UI (npx @truefoundry/trueforge)",
-  "author": "Truefoundry",
+  "version": "0.1.0-rc.1",
+  "description": "TrueForge agent server + UI (npx @truefoundry/trueforge)",
+  "author": "TrueFoundry",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/truefoundry/trueforge.git",
+    "directory": "packages/server"
+  },
+  "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/server#readme",
+  "bugs": {
+    "url": "https://github.com/truefoundry/trueforge/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
   "private": false,
   "type": "module",
   "bin": "./dist/cli.js",
