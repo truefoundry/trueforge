@@ -4,12 +4,23 @@ import { useTrueFoundryAgentSpec } from '@truefoundry/assistant-ui-runtime';
 
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 
-// Immutable named-agent title in the thread header.
-export function useNamedAgentHeaderVisible(): boolean {
+export type NamedAgentHeaderState = {
+  name: string;
+  isEditing: boolean;
+};
+
+// Canonical named-agent header state, including mutable edit mode.
+export function useNamedAgentHeaderState(): NamedAgentHeaderState | null {
   const shell = useOptionalShellMode();
-  if (shell == null || shell.mode.status !== 'active' || shell.mode.isMutable) return false;
+  if (shell == null || shell.mode.status !== 'active') return null;
   const name = shell.mode.agentName ?? shell.mode.agentId;
-  return name != null && name.length > 0;
+  if (name == null || name.length === 0) return null;
+  return { name, isEditing: shell.mode.isMutable };
+}
+
+export function useNamedAgentHeaderVisible(): boolean {
+  const state = useNamedAgentHeaderState();
+  return state !== null;
 }
 
 // Mutable draft/edit with a selected model — drives Save Agent + header chrome.

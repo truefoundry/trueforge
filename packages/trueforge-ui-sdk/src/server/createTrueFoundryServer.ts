@@ -19,7 +19,7 @@ export type CreateTrueFoundryServerOptions<
   TSkill extends AgentSkill = AgentSkill,
   TMcp extends ConnectorState = ConnectorState,
   TAgent extends AgentLibraryEntry = AgentLibraryEntry,
-  TSave = SaveAgentResult,
+  TSave extends SaveAgentResult = SaveAgentResult,
   TCatalog extends CatalogServer = CatalogServer,
   TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
 > = {
@@ -42,7 +42,7 @@ export type TrueFoundryServer<
   TSkill extends AgentSkill = AgentSkill,
   TMcp extends ConnectorState = ConnectorState,
   TAgent extends AgentLibraryEntry = AgentLibraryEntry,
-  TSave = SaveAgentResult,
+  TSave extends SaveAgentResult = SaveAgentResult,
   TCatalog extends CatalogServer = CatalogServer,
   TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
 > = AgentChatServer<TSpec> &
@@ -61,7 +61,7 @@ export function createTrueFoundryServer<
   TSkill extends AgentSkill = AgentSkill,
   TMcp extends ConnectorState = ConnectorState,
   TAgent extends AgentLibraryEntry = AgentLibraryEntry,
-  TSave = SaveAgentResult,
+  TSave extends SaveAgentResult = SaveAgentResult,
   TCatalog extends CatalogServer = CatalogServer,
   TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
 >(
