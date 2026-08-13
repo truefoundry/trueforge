@@ -36,8 +36,14 @@
     "standalone:start": "STANDALONE=true NODE_ENV=production pnpm --filter @truefoundry/trueforge start",
     "start": "STANDALONE=false NODE_ENV=production pnpm --filter @truefoundry/trueforge start",
     "push-sandbox-image-to-daytona": "pnpm --filter @truefoundry/trueforge push-sandbox-image-to-daytona",
+    "test:frontend": "pnpm --filter frontend test",
+    "test:harness": "pnpm --filter @truefoundry/trueforge-core test",
+    "test:server": "pnpm --filter @truefoundry/trueforge test",
     "test:store:local": "bash scripts/test-store-local.sh",
-    "test": "pnpm --filter @truefoundry/trueforge-core test && pnpm --filter @truefoundry/trueforge-ui test && pnpm --filter @truefoundry/trueforge test && pnpm --filter frontend test",
+    "test:store:postgres": "pnpm --filter @truefoundry/trueforge test:store:postgres",
+    "test:store:sqlite": "pnpm --filter @truefoundry/trueforge test:store:sqlite",
+    "test:trueforge-ui": "pnpm --filter @truefoundry/trueforge-ui test",
+    "test": "pnpm test:harness && pnpm test:trueforge-ui && pnpm test:server && pnpm test:frontend",
     "typecheck": "pnpm --filter @truefoundry/trueforge-core typecheck && pnpm --filter @truefoundry/trueforge-ui typecheck && pnpm --filter @truefoundry/trueforge typecheck && pnpm --filter frontend typecheck"
   },
   "devDependencies": {
