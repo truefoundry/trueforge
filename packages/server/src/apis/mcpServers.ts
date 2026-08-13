@@ -1,5 +1,5 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/utils-core/core';
+import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
 import configuration from '../config';

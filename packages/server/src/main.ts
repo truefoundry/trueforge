@@ -9,7 +9,7 @@
  * (migrate, Redis, listen) are caught below and exit non-zero. SQLite vs
  * Postgres store modules stay dynamic so only the active engine is loaded.
  */
-import { extractErrorLogFields } from '@truefoundry/utils-core/core';
+import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -32,8 +32,8 @@ import {
   Sessions,
   type ISessionStore,
   type TurnStreamingEvent,
-} from '@truefoundry/utils-core/agent-session';
-import { RequestReplyExecutor, RequestReplyRouter } from '@truefoundry/utils-core/request-reply';
+} from '@truefoundry/trueforge-core/agent-session';
+import { RequestReplyExecutor, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Transaction } from 'kysely';
 import type { RedisClientType } from 'redis';
 import winston, { type Logger } from 'winston';

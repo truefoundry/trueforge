@@ -5,7 +5,7 @@ import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type RemoteMcpHeaders } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
 import { ToolSet } from '../core/mcp/ToolSet';
-import type { AgentDefinition } from '../core/runtime/AgentDefinition';
+import type { AgentDefinition, ModelParams } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { Sandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
@@ -58,8 +58,11 @@ export class TurnResourceResolver<
 
   constructor(
     protected readonly deps: {
-      /** Model name → client. Called once per resolved definition; may load provider config. */
-      llm: (model: string) => Promise<ILLM>;
+      /** Model name → client and defaults. Called once per resolved definition; may load provider config. */
+      llm: (model: string) => Promise<{
+        modelClient: ILLM;
+        defaultModelParams: ModelParams;
+      }>;
       /**
        * MCP server name → connection details. Required to use spec.mcp_servers:
        * the AgentSpec carries names only (no url/headers on the wire) — the
@@ -196,9 +199,10 @@ export class TurnResourceResolver<
     // Sub-agents may request a different catalog model via agent_info.model;
     // resolve that name so modelClient matches the override (not just a label).
     const modelName = agentInfo?.model ?? spec.model.name;
+    const resolvedModel = await this.deps.llm(modelName);
     return {
       definition: {
-        modelClient: await this.deps.llm(modelName),
+        modelClient: resolvedModel.modelClient,
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.
         instruction: agentInfo ? undefined : spec.instructions,
@@ -208,7 +212,10 @@ export class TurnResourceResolver<
               role: 'user' as const,
               content: m.content,
             })),
-        modelParams: spec.model.params,
+        modelParams: {
+          ...resolvedModel.defaultModelParams,
+          ...spec.model.params,
+        },
         // Sub-agents should return free-form summaries to the parent, not the user-facing structured response.
         responseFormat: agentInfo ? undefined : spec.response_format,
         iterationLimit: spec.config.iteration_limit,

@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { extractErrorLogFields } from '@truefoundry/utils-core/core';
+import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
 import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCookie } from '../auth/cookies';

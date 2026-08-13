@@ -4,7 +4,7 @@
  */
 
 // Runtime
-export type { AgentDefinition } from './runtime/AgentDefinition';
+export type { AgentDefinition, ModelParams } from './runtime/AgentDefinition';
 export { AgentThread } from './runtime/AgentThread';
 export type {
   AgentInfo,

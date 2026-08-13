@@ -24,10 +24,10 @@ jobs:
       - run: pnpm build
       - run: pnpm test
 
-      # Guard: git tag must match @truefoundry/utils-core (library is the version authority).
-      # npm publishes what's in package.json, not the tag name. @truefoundry/utils may
+      # Guard: git tag must match @truefoundry/trueforge-core (library is the version authority).
+      # npm publishes what's in package.json, not the tag name. @truefoundry/trueforge may
       # use an independent version; bump it in the same release PR when the app changes.
-      - name: Verify tag matches utils-core version
+      - name: Verify tag matches trueforge-core version
         working-directory: packages/harness
         run: |
           PKG_VERSION="v$(node -p "require('./package.json').version")"
@@ -36,11 +36,11 @@ jobs:
             exit 1
           fi
 
-      # Library first: utils pins workspace:* → this concrete version on publish.
+      # Library first: @truefoundry/trueforge pins workspace:* → this concrete version on publish.
       # Prereleases (e.g. 0.1.9-rc.1) pass --tag explicitly; first preid → dist-tag (rc).
       # --no-git-checks: this job checks out a tag (detached HEAD), so pnpm's default
       # "current branch is main/master" check would otherwise always fail here.
-      - name: Publish @truefoundry/utils-core
+      - name: Publish @truefoundry/trueforge-core
         working-directory: packages/harness
         run: |
           VERSION="$(node -p "require('./package.json').version")"
@@ -56,7 +56,7 @@ jobs:
         # TODO(oss): add --provenance once the repo is public. Do NOT add it now:
         # provenance publicly attests the source repo and commit.
 
-      # TODO: Publish @truefoundry/utils
+      # TODO: Publish @truefoundry/trueforge
 
       # # Root build copies FE into packages/server/dist/_frontend; refuse an API-only tarball.
       # - name: Verify packaged UI is present
@@ -65,4 +65,4 @@ jobs:
       #     test -f packages/server/dist/_frontend/index.html
 
       # App + CLI from package root (dist/ includes dist/_frontend/).
-      # pnpm publish rewrites workspace:* deps to the utils-core version just published.
+      # pnpm publish rewrites workspace:* deps to the trueforge-core version just published.

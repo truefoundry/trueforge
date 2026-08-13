@@ -2,7 +2,7 @@
  * DB-backed turns API (mounted at /api/v1/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefoundry/utils-core/agent-session';
+import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
 import {
   CancellationReason,
   EventType,
@@ -11,7 +11,7 @@ import {
   TurnResourceResolver,
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
-} from '@truefoundry/utils-core/agent-session';
+} from '@truefoundry/trueforge-core/agent-session';
 import {
   AgentHarnessError,
   extractErrorLogFields,
@@ -21,7 +21,7 @@ import {
   SandboxError,
   validateSandboxOwnedByTenant,
   VercelAILLM,
-} from '@truefoundry/utils-core/core';
+} from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
@@ -49,7 +49,7 @@ import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
   getMcpConnection,
-  getModelProviderConfig,
+  getModelDetails,
   resolveGitSkills,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
@@ -141,16 +141,19 @@ function createTurnResolver(deps: {
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
-      const providerConfig = await getModelProviderConfig({
+      const { providerConfig, defaultModelParams } = await getModelDetails({
         tenant_id: TENANT_ID,
         name,
         store: modelProviderStore,
       });
-      return new VercelAILLM({
-        providerConfig,
-        logger,
-        signal,
-      });
+      return {
+        modelClient: new VercelAILLM({
+          providerConfig,
+          logger,
+          signal,
+        }),
+        defaultModelParams,
+      };
     },
     mcp: async name => {
       const connection = await getMcpConnection({

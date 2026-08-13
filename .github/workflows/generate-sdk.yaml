@@ -57,12 +57,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The spec script imports @truefoundry/utils-core from its build output.
-      - name: Build utils-core
-        run: pnpm --filter @truefoundry/utils-core build
+      # The spec script imports @truefoundry/trueforge-core from its build output.
+      - name: Build trueforge-core
+        run: pnpm --filter @truefoundry/trueforge-core build
 
       - name: Write OpenAPI document
-        run: pnpm --filter @truefoundry/utils openapi:write
+        run: pnpm --filter @truefoundry/trueforge openapi:write
 
       # Generation and its Docker pull are the slow part, so skip everything below
       # when neither the document nor the generator config moved.

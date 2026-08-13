@@ -4,7 +4,7 @@
  * registry identity (`id`, `name`).
  */
 import { z } from '@hono/zod-openapi';
-import { AgentSpecSchema, type AgentSpec } from '@truefoundry/utils-core/agent-session';
+import { AgentSpecSchema, type AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema } from './common';
 
 /** Create body: unique immutable `name` plus full AgentSpec. `id` is never client-supplied. */
