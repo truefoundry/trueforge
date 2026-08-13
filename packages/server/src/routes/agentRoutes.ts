@@ -4,24 +4,18 @@
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import {
-  AgentWriteRequestSchema,
-  CreateAgentResponseSchema,
+  CreateAgentRequestSchema,
+  DeleteAgentResponseSchema,
   GetAgentResponseSchema,
   ListAgentsResponseSchema,
-  PutAgentResponseSchema,
-  UpdateAgentRequestSchema,
+  PutAgentRequestSchema,
 } from '../schemas/agent';
-import { NameSchema } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 
 const AGENTS_TAG = 'Agents';
 
 export const AgentIdParamsSchema = z.object({
   agent_id: z.string().min(1).max(64).describe('Immutable agent identifier.'),
-});
-
-export const AgentNameParamsSchema = z.object({
-  name: NameSchema.describe('Immutable unique agent name within the tenant.'),
 });
 
 export const listAgentsRoute = createRoute({
@@ -55,13 +49,13 @@ export const createAgentRoute = createRoute({
   'x-fern-sdk-method-name': 'create',
   request: {
     body: {
-      content: { 'application/json': { schema: AgentWriteRequestSchema } },
+      content: { 'application/json': { schema: CreateAgentRequestSchema } },
       required: true,
     },
   },
   responses: {
-    200: {
-      content: { 'application/json': { schema: CreateAgentResponseSchema } },
+    201: {
+      content: { 'application/json': { schema: GetAgentResponseSchema } },
       description: 'The created agent.',
     },
     400: {
@@ -115,7 +109,8 @@ export const deleteAgentRoute = createRoute({
     params: AgentIdParamsSchema,
   },
   responses: {
-    204: {
+    200: {
+      content: { 'application/json': { schema: DeleteAgentResponseSchema } },
       description: 'Agent deleted.',
     },
     401: {
@@ -127,22 +122,22 @@ export const deleteAgentRoute = createRoute({
 
 export const putAgentRoute = createRoute({
   method: 'put',
-  path: '/{name}',
+  path: '/{agent_id}',
   tags: [AGENTS_TAG],
   summary: 'Update an agent',
-  description: 'Replaces the AgentSpec for an existing agent keyed by immutable `name`.',
+  description: 'Replaces the manifest for an existing agent keyed by immutable `agent_id`.',
   'x-fern-sdk-group-name': ['agents'],
   'x-fern-sdk-method-name': 'update',
   request: {
-    params: AgentNameParamsSchema,
+    params: AgentIdParamsSchema,
     body: {
-      content: { 'application/json': { schema: UpdateAgentRequestSchema } },
+      content: { 'application/json': { schema: PutAgentRequestSchema } },
       required: true,
     },
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: PutAgentResponseSchema } },
+      content: { 'application/json': { schema: GetAgentResponseSchema } },
       description: 'The saved agent.',
     },
     400: {

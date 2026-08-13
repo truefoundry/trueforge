@@ -182,12 +182,14 @@ describe('harnessBuilderServer', () => {
             {
               id: 'agt_1',
               name: 'reviewer',
-              model: { name: 'test/model' },
-              instructions: 'Review carefully.',
-              skills: [{ name: 'review' }],
-              mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
+              manifest: {
+                model: { name: 'test/model' },
+                instructions: 'Review carefully.',
+                skills: [{ name: 'review' }],
+                mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
+              },
             },
-            { id: 'agt_2', name: 'writer', model: { name: 'test/model' } },
+            { id: 'agt_2', name: 'writer', manifest: { model: { name: 'test/model' } } },
           ],
         });
       }
@@ -223,7 +225,11 @@ describe('harnessBuilderServer', () => {
       if (url.endsWith('/api/v1/agents') && method === 'POST' && typeof init?.body === 'string') {
         requests.push({ method, url, body: JSON.parse(init.body) });
         return Response.json({
-          data: { id: 'agt_new', name: 'saved-agent', model: { name: 'test/model' } },
+          data: {
+            id: 'agt_new',
+            name: 'saved-agent',
+            manifest: { model: { name: 'test/model' } },
+          },
         });
       }
       return new Response(`Unexpected request: ${method} ${url}`, { status: 500 });
@@ -242,8 +248,10 @@ describe('harnessBuilderServer', () => {
     assert.deepEqual(result, { agentId: 'agt_new' });
     assert.deepEqual(requests.at(-1)?.body, {
       name: 'saved-agent',
-      model: { name: 'test/model' },
-      skills: [{ name: 'review' }],
+      manifest: {
+        model: { name: 'test/model' },
+        skills: [{ name: 'review' }],
+      },
     });
   });
 
@@ -254,17 +262,19 @@ describe('harnessBuilderServer', () => {
       const method = init?.method ?? 'GET';
       if (url.endsWith('/api/v1/agents') && method === 'GET') {
         return Response.json({
-          data: [{ id: 'agt_1', name: 'writer', model: { name: 'test/model' } }],
+          data: [{ id: 'agt_1', name: 'writer', manifest: { model: { name: 'test/model' } } }],
         });
       }
-      if (url.endsWith('/api/v1/agents/writer') && method === 'PUT' && typeof init?.body === 'string') {
+      if (url.endsWith('/api/v1/agents/agt_1') && method === 'PUT' && typeof init?.body === 'string') {
         requests.push({ method, url, body: JSON.parse(init.body) });
         return Response.json({
           data: {
             id: 'agt_1',
             name: 'writer',
-            model: { name: 'test/model' },
-            instructions: 'Write release notes.',
+            manifest: {
+              model: { name: 'test/model' },
+              instructions: 'Write release notes.',
+            },
           },
         });
       }
@@ -284,8 +294,10 @@ describe('harnessBuilderServer', () => {
     assert.deepEqual(result, { agentId: 'agt_1' });
     assert.equal(requests.length, 1);
     assert.deepEqual(requests[0]?.body, {
-      model: { name: 'test/model' },
-      instructions: 'Write release notes.',
+      manifest: {
+        model: { name: 'test/model' },
+        instructions: 'Write release notes.',
+      },
     });
   });
 });
