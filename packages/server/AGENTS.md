@@ -47,6 +47,7 @@ Nested child `Bar`: `ListBarsResponse`, `CreateBarRequest`, `GetBarResponse`; Fe
 
 **Avoid `allOf`:** new wire schemas MUST emit flat OpenAPI objects.
 
+- **MUST NOT use `z.merge`** — it is a footgun (opaque composition, OpenAPI `allOf`, surprising overrides). Prefer `z.object({ ...A.shape, ...B.shape })` or leave bases unnamed and `.extend` only then.
 - Do not `.extend()` a schema that already has `.openapi('Name')` — use `z.object({ ...Base.shape, … })` or leave the base unnamed.
 - Do not `.describe()` a named `$ref` field (`NameSchema.describe(…)`) — describe the shared schema once, or inline constraints.
 - Discriminated `oneOf` for real polymorphism is fine; single-variant unions MUST be a plain object alias (no one-member `oneOf`).
