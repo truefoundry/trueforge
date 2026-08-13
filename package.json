@@ -20,7 +20,7 @@
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\" --cache --cache-location .prettiercache --cache-strategy content --error-on-unmatched-pattern --config .prettierrc",
     "format:fix": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\" --cache --cache-location .prettiercache --cache-strategy content --config .prettierrc",
     "format": "prettier --write . --cache --cache-location .prettiercache --cache-strategy content --config .prettierrc",
-    "lint:ci": "eslint .",
+    "lint:ci": "eslint . --cache --cache-location .eslintcache",
     "lint": "eslint . --fix --cache --cache-location .eslintcache --cache-strategy content",
     "openapi:write": "pnpm --filter @truefoundry/trueforge openapi:write",
     "pack:dry": "pnpm --filter @truefoundry/trueforge-core pack:dry && pnpm --filter @truefoundry/trueforge pack:dry",
