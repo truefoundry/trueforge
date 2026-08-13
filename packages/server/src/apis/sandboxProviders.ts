@@ -15,7 +15,7 @@ import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretVal
 import { TENANT_ID } from './sessions';
 
 /** Cap the Daytona build kickoff so a slow/unreachable provider can't hold the request (or DB txn) open. */
-const BUILD_REQUEST_TIMEOUT_MS = 15_000;
+const BUILD_REQUEST_TIMEOUT_MS = 3_000;
 
 export interface SandboxProvidersRouterDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;

@@ -76,6 +76,7 @@ export async function checkSnapshotStatus({
   const provider = toDaytonaSandboxProvider({ manifest: record.manifest, tenant_id, logger });
   let build: SandboxBuild;
   if (record.status === 'ready') {
+    // this is because image may have deactivated
     build = await provider.buildImage();
   } else {
     build = await provider.getImageBuildStatus();
