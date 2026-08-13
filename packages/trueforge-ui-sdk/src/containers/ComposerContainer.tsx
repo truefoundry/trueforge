@@ -75,7 +75,7 @@ function ComposerBody({ placeholder }: { placeholder: string }) {
                 disabled={isBusy}
                 submitMode="enter"
                 aria-label="Message input"
-                className="text-text-primary placeholder:text-text-secondary/80 max-h-[10lh] min-h-10 w-full resize-none overflow-y-auto rounded-lg border-none bg-transparent px-1 py-1 text-base leading-normal shadow-none outline-none"
+                className="text-text-primary placeholder:text-text-secondary/80 max-h-[10lh] min-h-10 w-full resize-none overflow-y-auto rounded-lg border-none bg-transparent px-1 py-1 text-base leading-normal shadow-none outline-none disabled:cursor-not-allowed"
               />
             }
             disabled={isBusy}
