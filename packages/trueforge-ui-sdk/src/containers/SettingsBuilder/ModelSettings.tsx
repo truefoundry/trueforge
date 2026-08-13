@@ -146,6 +146,7 @@ const ModelSettings = () => {
   // The key/endpoint modal owns the draft and awaits these handlers: on failure runMutation
   // re-throws so the modal stays open and shows `keyError`; on success it closes the editor.
   const handleCreateFromCatalog = async (entry: ModelProviderCatalogEntry, draft: ModelProviderKeyDraft) => {
+    setKeyError(null);
     await runMutation(
       async () => {
         await modelCatalog.createModelProvider({
@@ -161,6 +162,7 @@ const ModelSettings = () => {
   };
 
   const handleReplaceKey = async (provider: ModelProviderBase, draft: ModelProviderKeyDraft) => {
+    setKeyError(null);
     await runMutation(
       async () => {
         await modelCatalog.updateModelProvider({
