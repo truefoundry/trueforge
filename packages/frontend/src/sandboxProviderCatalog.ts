@@ -6,13 +6,13 @@
  * Harness: one Daytona provider per tenant; catalog YAML has no name — synthetic
  * identity uses `type` (`daytona`) as id/catalogId and display name `Daytona`.
  */
+import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type {
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
   SandboxProviderConfig,
 } from '@truefoundry/trueforge-ui';
-import { TrueForgeApi } from 'trueforge-sdk';
 import { harnessClient as client } from './harnessClient';
 
 export type UiSandboxProvider = SandboxProviderBase;

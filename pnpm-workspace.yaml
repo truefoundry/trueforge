@@ -1,7 +1,5 @@
 packages:
   - packages/*
-  # Out of the workspace: its generated devDeps would break --frozen-lockfile in CI.
-  - '!packages/sdk'
 
 minimumReleaseAge: 0
 trustLockfile: true
@@ -11,6 +9,8 @@ allowBuilds:
   '@swc/core': true
   better-sqlite3: true
   esbuild: true
+  # Fern-generated SDK tests (packages/sdk) run msw's postinstall.
+  msw: true
   protobufjs: true
 
 # Silence peer mismatches between trueforge-ui peers and the versions we pin.

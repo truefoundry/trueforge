@@ -1,4 +1,4 @@
-import type { PatchThreadCapabilityStateInput } from '@truefoundry/utils-core/agent-session/store/ISessionStore';
+import type { PatchThreadCapabilityStateInput } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import { sql, type Kysely } from 'kysely';
 import { jsonbBind, nowIso } from '../../sqlExpressions';
 import type { Database } from '../../types';

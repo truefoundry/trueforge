@@ -1,8 +1,8 @@
 /**
- * CLI entry for `@truefoundry/utils` (`package.json` `bin` → `dist/cli.js`).
+ * CLI entry for `@truefoundry/trueforge` (`package.json` `bin` → `dist/cli.js`).
  *
  * Kept separate from `main.ts` so Docker / `pnpm start` can boot with env only
- * (`node dist/main.js`), while `npx @truefoundry/utils` gets a shebang, `--help`,
+ * (`node dist/main.js`), while `npx @truefoundry/trueforge` gets a shebang, `--help`,
  * and `--port`. Flags must be applied before importing `./main` because config
  * reads `process.env` at module load.
  *
@@ -13,8 +13,8 @@ import { parseArgs } from 'node:util';
 
 function printUsage(): void {
   console.log(`Usage:
-  npx @truefoundry/utils
-  npx @truefoundry/utils --port <n>
+  npx @truefoundry/trueforge
+  npx @truefoundry/trueforge --port <n>
 
 Start the agent server. Defaults to standalone mode (SQLite, no Redis).
 Set STANDALONE=false with Postgres and Redis for multi-replica peering.

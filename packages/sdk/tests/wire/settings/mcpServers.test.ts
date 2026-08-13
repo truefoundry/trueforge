@@ -85,6 +85,118 @@ describe("McpServersClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
     });
 
+    test("create (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { name: "name", type: "remote", url: "url" };
+        const rawResponseBody = {
+            data: {
+                auth: { type: "dcr" },
+                auth_status: { authorization_url: "authorization_url", status: "authenticated" },
+                name: "name",
+                type: "remote",
+                url: "url",
+            },
+        };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/settings/mcp-servers")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.settings.mcpServers.create({
+            name: "name",
+            url: "url",
+        });
+        expect(response).toEqual({
+            data: {
+                auth: {
+                    type: "dcr",
+                },
+                authStatus: {
+                    authorizationUrl: "authorization_url",
+                    status: "authenticated",
+                },
+                name: "name",
+                type: "remote",
+                url: "url",
+            },
+        });
+    });
+
+    test("create (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { name: "xy", type: "remote", url: "url" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/settings/mcp-servers")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(400)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.mcpServers.create({
+                name: "xy",
+                url: "url",
+            });
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("create (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { name: "xy", type: "remote", url: "url" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/settings/mcp-servers")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(409)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.mcpServers.create({
+                name: "xy",
+                url: "url",
+            });
+        }).rejects.toThrow(TrueForgeTypes.ConflictError);
+    });
+
+    test("create (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { name: "xy", type: "remote", url: "url" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/settings/mcp-servers")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(422)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.mcpServers.create({
+                name: "xy",
+                url: "url",
+            });
+        }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
+    });
+
     test("upsert (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });

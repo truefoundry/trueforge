@@ -1425,10 +1425,10 @@
     "@tailwindcss/oxide" "4.3.3"
     tailwindcss "4.3.3"
 
-"@truefoundry/assistant-ui-runtime@0.1.13":
-  version "0.1.13"
-  resolved "https://registry.yarnpkg.com/@truefoundry/assistant-ui-runtime/-/assistant-ui-runtime-0.1.13.tgz#64191bf904a31c5a32f45c3314ebe86117f2e57a"
-  integrity sha512-pmY4Fvm5tZmX+uhsr3RegTeY3yYrdQdqaqYV5QzPZyrOPloboVPO07jbcZ2/D7S33622Ug0drhKGvWHpYTMTDw==
+"@truefoundry/assistant-ui-runtime@0.1.14":
+  version "0.1.14"
+  resolved "https://registry.yarnpkg.com/@truefoundry/assistant-ui-runtime/-/assistant-ui-runtime-0.1.14.tgz#c77b2f41ae260b965c16d72dc1b9f73ddde66813"
+  integrity sha512-xdFob3v6KdhUVFrDuw1OAcX6o8lsnT+kQAo82gzCgXbg3YvdIs4cDWRswZdCI83FriRieYtMc8kZPjrRysJSkQ==
   dependencies:
     "@assistant-ui/core" "^0.2.22"
     "@assistant-ui/store" "^0.2.21"
@@ -2858,6 +2858,11 @@ parse5@^7.0.0:
   integrity sha512-IInvU7fabl34qmi9gY8XOVxhYyMyuH2xUNpb2q8/Y+7552KlejkRvqvD19nMoUW/uQGGbqNpA6Tufu5FL5BZgw==
   dependencies:
     entities "^6.0.0"
+
+partial-json@^0.1.7:
+  version "0.1.7"
+  resolved "https://registry.yarnpkg.com/partial-json/-/partial-json-0.1.7.tgz#b735a89edb3e25f231a3c4caeaae71dc9f578605"
+  integrity sha512-Njv/59hHaokb/hRUjce3Hdv12wd60MtM9Z5Olmn+nehe0QDAsRtRbJPvJ0Z91TusF0SuZRIvnM+S4l6EIP8leA==
 
 picocolors@^1.1.1:
   version "1.1.1"

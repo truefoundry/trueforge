@@ -13,7 +13,7 @@ import type {
   OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
-import { McpConnectionError, McpDcrConfigurationError } from '@truefoundry/utils-core/core';
+import { McpConnectionError, McpDcrConfigurationError } from '@truefoundry/trueforge-core/core';
 import { randomBytes } from 'node:crypto';
 import type { WithTransaction } from '../../db/transaction';
 import {

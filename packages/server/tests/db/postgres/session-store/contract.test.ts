@@ -1,4 +1,4 @@
-import type { ISessionStore } from '@truefoundry/utils-core/agent-session/store/ISessionStore';
+import type { ISessionStore } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import { sql } from 'kysely';
 
 import { runStoreContractSuite } from '../../../../../harness/tests/agent-session/store/storeContractSuite';

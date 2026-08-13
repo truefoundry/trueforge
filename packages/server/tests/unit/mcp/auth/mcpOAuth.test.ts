@@ -3,7 +3,7 @@
  * Global fetch is stubbed; production code uses real fetch only.
  */
 import { resourceUrlFromServerUrl } from '@modelcontextprotocol/sdk/shared/auth-utils.js';
-import { McpConnectionError } from '@truefoundry/utils-core/core';
+import { McpConnectionError } from '@truefoundry/trueforge-core/core';
 import { InMemoryOAuthClientStore, InMemoryOAuthTokenStore } from '../../../../src/mcp/auth/inMemoryStores';
 import {
   buildMcpAuthorizationUrl,

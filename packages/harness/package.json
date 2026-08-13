@@ -1,7 +1,7 @@
 {
-  "name": "@truefoundry/utils-core",
+  "name": "@truefoundry/trueforge-core",
   "version": "0.1.10-rc.1",
-  "description": "TrueFoundry Utils Core",
+  "description": "TrueForge core library",
   "author": "TrueFoundry",
   "license": "MIT",
   "private": false,

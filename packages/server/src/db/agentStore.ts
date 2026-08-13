@@ -4,7 +4,7 @@
  * `AgentSpec` jsonb document.
  * Implementations: PostgresAgentStore and SqliteAgentStore.
  */
-import { AgentSpecSchema, type AgentSpec } from '@truefoundry/utils-core/agent-session';
+import { AgentSpecSchema, type AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { ResourceName } from '../schemas/common';
 
 export interface AgentRecord {

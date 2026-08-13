@@ -1,4 +1,4 @@
-import { VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/utils-core/core';
+import { VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/trueforge-core/core';
 import { ModelProviderSchema, modelProviderName } from '../../../src/schemas/modelProvider';
 
 const models = [{ model_id: 'a-model', name: 'a-model', properties: {} }];
