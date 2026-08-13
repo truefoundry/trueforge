@@ -95,18 +95,10 @@ export function CatalogRow({
       <div
         role="menuitemcheckbox"
         aria-checked={checked}
-        aria-disabled={disabled || undefined}
-        tabIndex={disabled ? -1 : 0}
-        className={cn(
-          'hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left',
-          disabled && 'cursor-not-allowed opacity-50 hover:bg-transparent',
-        )}
-        onClick={() => {
-          if (disabled) return;
-          onToggle();
-        }}
+        tabIndex={0}
+        className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left"
+        onClick={onToggle}
         onKeyDown={event => {
-          if (disabled) return;
           if (event.key !== 'Enter' && event.key !== ' ') return;
           event.preventDefault();
           onToggle();
