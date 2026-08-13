@@ -35,14 +35,16 @@ const IMAGE_BUILD_NAME_PREFIX = 'trueforge-build-';
 type DaytonaSnapshot = Awaited<ReturnType<Daytona['snapshot']['get']>>;
 
 /**
- * Digest portion of a container image reference (the tag/digest after the final `:`). Isolates
- * the last path segment first so a registry port (`host:5000/repo`) is never mistaken for it;
- * falls back to `latest` when the reference carries no explicit tag/digest.
+ * Digest portion of a container image reference (the tag/digest after the final `:`)
+ * The release image is always published with an explicit digest tag
  */
 function imageDigest(image: string): string {
   const lastSegment = image.slice(image.lastIndexOf('/') + 1);
   const colon = lastSegment.lastIndexOf(':');
-  return colon === -1 ? 'latest' : lastSegment.slice(colon + 1);
+  if (colon === -1) {
+    throw new Error(`Sandbox image reference has no tag/digest: ${image}`);
+  }
+  return lastSegment.slice(colon + 1);
 }
 
 /** Deterministic build name per image digest so every server replica converges on one build. */

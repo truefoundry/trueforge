@@ -184,8 +184,8 @@ function createTurnResolver(deps: {
           message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
         });
       }
-      // A turn cannot start until the release sandbox image is built; creating a sandbox
-      // from a pending/failed build would fail deeper in Daytona with a worse error.
+      // We are failing here even if the existingSandboxId is existing
+      // We dont do backward compatibility here.
       const build = await provider.getImageBuildStatus();
       if (build.status !== 'ready') {
         throw new HTTPException(422, {

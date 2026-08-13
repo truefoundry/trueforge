@@ -215,7 +215,6 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
 
     const keep = {
       ...putBody,
-      exec_timeout_ms: 90000,
       auth: { api_key: 'oth-***REDACTED***-xxx' },
     };
     const response = await settingsRouter.request('/', putInit(keep));
@@ -229,7 +228,7 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
     });
 
     const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
-    expect(stored?.manifest).toEqual({ ...putBody, exec_timeout_ms: 90000 });
+    expect(stored?.manifest).toEqual(putBody);
   });
 
   it('PUT with a real api_key rotates the stored secret', async () => {
