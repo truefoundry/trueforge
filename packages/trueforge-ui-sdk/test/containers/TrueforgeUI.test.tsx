@@ -2,7 +2,7 @@
 import type { CatalogServer } from '@/server/types.js';
 import { useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer.js';
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
@@ -26,8 +26,6 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   useTrueFoundryAgentSpec: () => ({
     agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
   }),
-  useTrueFoundryFlushAgentSpec: () => async () => {},
-  useTrueFoundryAdoptAgentSpec: () => vi.fn(),
   useTrueFoundryUpdateAgentSpec: () => vi.fn(),
 }));
 
@@ -56,16 +54,6 @@ function mockServer(catalog?: CatalogServer) {
 
 /** Minimal catalog stub — ShellActions only checks presence. */
 const stubCatalog = createMockCatalog();
-
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function showModal() {
-    this.setAttribute('open', '');
-  };
-  HTMLDialogElement.prototype.close = function close() {
-    this.removeAttribute('open');
-    this.dispatchEvent(new Event('close'));
-  };
-});
 
 describe('TrueforgeUI', () => {
   const server = mockServer();
@@ -163,47 +151,9 @@ describe('TrueforgeUI', () => {
       expect(getMcp).toHaveBeenCalledTimes(2);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (0)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add connectors, skills, or attachments' }));
     fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
     expect(await screen.findByRole('status')).toHaveTextContent('Select Sandbox first');
-  });
-
-  it('shares catalog data with the Save Agent stacked editors', async () => {
-    const getModels = vi.fn(async () => [
-      {
-        id: 'openai-main/gpt-4.1',
-        name: 'openai-main/gpt-4.1',
-        provider: { name: 'OpenAI' },
-        properties: {},
-      },
-    ]);
-    const getMcp = vi.fn(async () => [{ id: 'github', name: 'GitHub', authenticated: true }]);
-    const getSkills = vi.fn(async () => [{ id: 'research', name: 'Research' }]);
-
-    render(
-      <TrueforgeUI
-        server={createMockAgentUIServer({ getModels, getMcp, getSkills })}
-        agentConfig={{ mode: 'AgentComposer' }}
-        layout="sidebar"
-      />,
-    );
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Save Agent' }));
-    const saveDialog = await screen.findByRole('dialog', { name: 'Save agent' });
-    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Model' }));
-
-    const modelDialog = document.querySelector('dialog[aria-label="Edit model"]');
-    if (!(modelDialog instanceof HTMLDialogElement)) throw new Error('expected stacked model dialog');
-    expect(await within(modelDialog).findByRole('option', { name: 'gpt-4.1' })).toBeInTheDocument();
-    fireEvent.click(within(modelDialog).getByRole('button', { name: 'Close' }));
-
-    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit MCP servers' }));
-    const mcpDialog = document.querySelector('dialog[aria-label="Edit MCP servers"]');
-    if (!(mcpDialog instanceof HTMLDialogElement)) throw new Error('expected stacked MCP dialog');
-    expect(await within(mcpDialog).findByText('GitHub')).toBeInTheDocument();
-    expect(getModels).toHaveBeenCalledOnce();
-    expect(getMcp).toHaveBeenCalledOnce();
-    expect(getSkills).toHaveBeenCalledOnce();
   });
 
   it('renders only the MCP authorization screen when requested by the URL', async () => {

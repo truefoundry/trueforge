@@ -76,7 +76,7 @@ describe("AgentsClient", () => {
     test("create (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { model: { name: "name" }, name: "name", session_id: "session_id" };
+        const rawRequestBody = { model: { name: "name" }, name: "name" };
         const rawResponseBody = {
             data: {
                 config: { iteration_limit: 1, sandbox: { enabled: true } },
@@ -89,7 +89,6 @@ describe("AgentsClient", () => {
                 id: "id",
                 name: "name",
             },
-            session_updated_at: "2026-08-12T08:00:00.000Z",
         };
 
         server
@@ -106,7 +105,6 @@ describe("AgentsClient", () => {
                 name: "name",
             },
             name: "name",
-            sessionId: "session_id",
         });
         expect(response).toEqual({
             data: {
@@ -142,7 +140,6 @@ describe("AgentsClient", () => {
                 id: "id",
                 name: "name",
             },
-            sessionUpdatedAt: "2026-08-12T08:00:00.000Z",
         });
     });
 
@@ -336,7 +333,7 @@ describe("AgentsClient", () => {
     test("update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { model: { name: "name" }, session_id: "session_id" };
+        const rawRequestBody = { model: { name: "name" } };
         const rawResponseBody = {
             data: {
                 config: { iteration_limit: 1, sandbox: { enabled: true } },
@@ -349,7 +346,6 @@ describe("AgentsClient", () => {
                 id: "id",
                 name: "name",
             },
-            session_updated_at: "2026-08-12T09:00:00.000Z",
         };
 
         server
@@ -365,7 +361,6 @@ describe("AgentsClient", () => {
             model: {
                 name: "name",
             },
-            sessionId: "session_id",
         });
         expect(response).toEqual({
             data: {
@@ -401,7 +396,6 @@ describe("AgentsClient", () => {
                 id: "id",
                 name: "name",
             },
-            sessionUpdatedAt: "2026-08-12T09:00:00.000Z",
         });
     });
 

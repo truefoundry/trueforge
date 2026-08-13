@@ -28,7 +28,7 @@ function wrapperFor(tools: ToolBase[]) {
         getToolsByConnectorId: async () => tools,
         createConnector: async () => connector,
         updateConnector: async () => connector,
-        authenticateConnector: async () => ({ authorization_endpoint: '' }),
+        authenticateConnector: async () => connector,
         disconnectConnector: async () => connector,
       },
     }),

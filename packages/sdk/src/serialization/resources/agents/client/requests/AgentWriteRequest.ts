@@ -11,13 +11,11 @@ export const AgentWriteRequest: core.serialization.Schema<
 > = core.serialization
     .object({
         name: core.serialization.string(),
-        sessionId: core.serialization.property("session_id", core.serialization.string().optional()),
     })
     .extend(AgentSpec);
 
 export declare namespace AgentWriteRequest {
     export interface Raw extends AgentSpec.Raw {
         name: string;
-        session_id?: string | null;
     }
 }

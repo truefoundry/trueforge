@@ -10,10 +10,8 @@
 export type {
   AgentBuilderCapabilitiesResponse,
   AgentBuilderServer,
-  AgentCapabilityConfig,
   AgentChatServer,
   AgentLibraryEntry,
-  AgentRuntimeConfig,
   AgentSkill,
   AgentSpec,
   AgentUIServer,

@@ -10,12 +10,10 @@ export const CreateAgentResponse: core.serialization.ObjectSchema<
     TrueForge.CreateAgentResponse
 > = core.serialization.object({
     data: Agent,
-    sessionUpdatedAt: core.serialization.property("session_updated_at", core.serialization.string().optional()),
 });
 
 export declare namespace CreateAgentResponse {
     export interface Raw {
         data: Agent.Raw;
-        session_updated_at?: string | null;
     }
 }

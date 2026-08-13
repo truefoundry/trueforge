@@ -33,8 +33,6 @@ export type { ButtonProps, ButtonSize, ButtonVariant } from './atoms/primitives/
 export { CenteredModal } from './atoms/primitives/CenteredModal.js';
 export type { CenteredModalProps } from './atoms/primitives/CenteredModal.js';
 export type { IconButtonProps } from './atoms/primitives/IconButton.js';
-export { Switch } from './atoms/primitives/Switch.js';
-export type { SwitchProps, SwitchSize } from './atoms/primitives/Switch.js';
 export { Icon } from './icons/Icon.js';
 export type { IconProps } from './icons/Icon.js';
 

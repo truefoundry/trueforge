@@ -3,7 +3,6 @@
 import type { TrueFoundryAgentConfig, UseTrueFoundryAgentRuntimeOptions } from '@truefoundry/assistant-ui-runtime';
 import { lazy, Suspense, useMemo, type ReactNode } from 'react';
 
-import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { cn } from '../atoms/lib/cn.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { ServerProvider } from '../server/ServerContext.js';
@@ -180,7 +179,7 @@ function ChatProviderFromShell({
       listSessionsAgentId={listSessionsAgentId}
       initialSessionId={pendingSessionId ?? hostInitialSessionId}
     >
-      <DraftCatalogProvider>{children}</DraftCatalogProvider>
+      {children}
     </TrueFoundryChatProvider>
   );
 }
