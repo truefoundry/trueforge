@@ -10,10 +10,7 @@ import {
 import { useTrueFoundryDownloadSandboxFile } from '@truefoundry/assistant-ui-runtime';
 import { useCallback, useMemo, useRef } from 'react';
 
-import {
-  MARKDOWN_SMOOTH_BACKLOG_CHARS,
-  useThrottledMarkdownText,
-} from '../hooks/useThrottledMarkdownText.js';
+import { MARKDOWN_SMOOTH_BACKLOG_CHARS, useThrottledMarkdownText } from '../hooks/useThrottledMarkdownText.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { useToasterOptional } from './ToasterContainer.js';
 

@@ -4,10 +4,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  LARGE_MARKDOWN_THROTTLE_MS,
-  useThrottledMarkdownText,
-} from '@/hooks/useThrottledMarkdownText.js';
+import { LARGE_MARKDOWN_THROTTLE_MS, useThrottledMarkdownText } from '@/hooks/useThrottledMarkdownText.js';
 
 describe('useThrottledMarkdownText', () => {
   beforeEach(() => {

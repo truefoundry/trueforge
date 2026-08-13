@@ -1,6 +1,6 @@
 'use client';
 
-import { Children, cloneElement, isValidElement, memo, useCallback, useState, type ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, memo, useCallback, useState, type ComponentType, type ReactNode } from 'react';
 import { Prism as PrismHighlighter } from 'react-syntax-highlighter';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
@@ -96,7 +96,7 @@ function SyntaxHighlighterImpl({ code, language, darkTheme, className, showLineN
   );
 }
 
-export const SyntaxHighlighter = memo(SyntaxHighlighterImpl);
+export const SyntaxHighlighter: ComponentType<SyntaxHighlighterProps> = memo(SyntaxHighlighterImpl);
 
 declare module '../theme/SlotsProvider.js' {
   interface AtomSlots {

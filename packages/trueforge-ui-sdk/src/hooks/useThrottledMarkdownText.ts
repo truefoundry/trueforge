@@ -26,7 +26,11 @@ export const LARGE_MARKDOWN_THROTTLE_MS = 100;
  */
 export function useThrottledMarkdownText(
   text: string,
-  { isComplete, enabled, throttleMs = LARGE_MARKDOWN_THROTTLE_MS }: { isComplete: boolean; enabled: boolean; throttleMs?: number },
+  {
+    isComplete,
+    enabled,
+    throttleMs = LARGE_MARKDOWN_THROTTLE_MS,
+  }: { isComplete: boolean; enabled: boolean; throttleMs?: number },
 ): string {
   const [committed, setCommitted] = useState(text);
   const lastCommittedRef = useRef(text);

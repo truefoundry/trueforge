@@ -7,15 +7,12 @@ import {
 } from '@assistant-ui/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { trueFoundryExtras } from '@truefoundry/assistant-ui-runtime';
-import { describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { MarkdownProps } from '@/atoms/Markdown.js';
 import { AssistantMessageContainer } from '@/containers/AssistantMessageContainer.js';
-import {
-  LARGE_MARKDOWN_THROTTLE_MS,
-  MARKDOWN_SMOOTH_BACKLOG_CHARS,
-} from '@/hooks/useThrottledMarkdownText.js';
+import { LARGE_MARKDOWN_THROTTLE_MS, MARKDOWN_SMOOTH_BACKLOG_CHARS } from '@/hooks/useThrottledMarkdownText.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 

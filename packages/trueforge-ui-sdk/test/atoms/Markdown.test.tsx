@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { Markdown, LARGE_STREAMING_FENCE_CHARS, getActiveStreamingFenceCode } from '@/atoms/Markdown.js';
+import { LARGE_STREAMING_FENCE_CHARS, Markdown, getActiveStreamingFenceCode } from '@/atoms/Markdown.js';
 import type { SyntaxHighlighterProps } from '@/atoms/SyntaxHighlighter.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
@@ -60,12 +60,7 @@ describe('Markdown', () => {
   it('falls back to a plain pre only for the active unmatched oversized fence', () => {
     const closed = 'c'.repeat(LARGE_STREAMING_FENCE_CHARS + 1);
     const open = 'o'.repeat(LARGE_STREAMING_FENCE_CHARS + 1);
-    render(
-      <Markdown
-        content={`\`\`\`json\n${closed}\n\`\`\`\n\n\`\`\`json\n${open}`}
-        isStreaming
-      />,
-    );
+    render(<Markdown content={`\`\`\`json\n${closed}\n\`\`\`\n\n\`\`\`json\n${open}`} isStreaming />);
     expect(screen.getByTestId('aui-plain-streaming-fence')).toBeInTheDocument();
     expect(screen.getByTestId('aui-syntax-highlighter')).toBeInTheDocument();
     expect(screen.getByTestId('aui-plain-streaming-fence')).toHaveTextContent(open.slice(0, 32));
