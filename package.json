@@ -12,7 +12,7 @@
     "chart:package": "helm package charts/trueforge --destination dist",
     "chart:template": "helm template trueforge charts/trueforge --values charts/trueforge/ci/lint-values.yaml",
     "changeset": "changeset",
-    "changeset:sdk-regen": "pnpm change --bump patch --summary \"Regenerate SDK from updated OpenAPI spec.\" @truefoundry/trueforge-sdk",
+    "changeset:sdk-regen": "bash scripts/changeset-sdk-regen.sh",
     "clean:all": "node scripts/clean.mjs --dependencies",
     "clean": "node scripts/clean.mjs",
     "dev:infra": "docker compose -f docker-compose.dev.yml up",

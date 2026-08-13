@@ -115,7 +115,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Bot-authored sdk diffs need a changeset; the PR author never touches this commit.
-          if [ -n "$(git status --porcelain -- packages/sdk)" ]; then
+          # Skip packages/sdk/.fern — Fern metadata only, not a consumer-facing change.
+          # changeset:sdk-regen is a no-op if the sdk is already named in a pending file.
+          if [ -n "$(git status --porcelain -- packages/sdk ':!packages/sdk/.fern')" ]; then
             pnpm changeset:sdk-regen
           fi
 
