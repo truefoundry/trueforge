@@ -71,7 +71,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
         name: body.name,
         manifest,
       });
-      return c.json({ data: toWireAgent(record) }, 200);
+      return c.json({ data: toWireAgent(record) }, 201);
     } catch (error) {
       if (error instanceof AgentNameConflictError) {
         return c.json({ error: { message: error.message } }, 409);
@@ -92,20 +92,24 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
   const deleteHandler: RouteHandler<typeof deleteAgentRoute> = async c => {
     const { agent_id: agentId } = c.req.valid('param');
     await deps.agentStore.deleteAgent({ tenant_id: TENANT_ID, id: agentId });
-    return c.body(null, 204);
+    return c.json({}, 200);
   };
 
   const putHandler: RouteHandler<typeof putAgentRoute> = async c => {
-    const { name } = c.req.valid('param');
+    const { agent_id: agentId } = c.req.valid('param');
     const body = c.req.valid('json');
     const manifest = await validateManifest({ spec: body.manifest, deps });
+    const existing = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: agentId });
+    if (existing === undefined) {
+      return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
+    }
     const record = await deps.agentStore.updateAgent({
       tenant_id: TENANT_ID,
-      name,
+      name: existing.name,
       manifest,
     });
     if (record === undefined) {
-      return c.json({ error: { message: `Agent not found: ${name}` } }, 404);
+      return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
     }
     return c.json({ data: toWireAgent(record) }, 200);
   };
