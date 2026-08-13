@@ -53,9 +53,6 @@ for (const name of legacyNames) {
   try {
     unlinkSync(source);
   } catch (error) {
-    console.warn(
-      `Could not remove legacy ${source}:`,
-      error instanceof Error ? error.message : error,
-    );
+    console.warn(`Could not remove legacy ${source}:`, error instanceof Error ? error.message : error);
   }
 }

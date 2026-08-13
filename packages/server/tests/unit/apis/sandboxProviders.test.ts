@@ -53,7 +53,8 @@ async function createRouters(): Promise<{
 describe('sandboxProviders router', () => {
   let settingsRouter: ReturnType<typeof createSandboxProvidersRouter>;
   let catalogRouter: ReturnType<typeof createCatalogRouter>;
-  let sandboxProviderStore: ISandboxProviderStore;
+  // Concrete store keeps TTransaction as Transaction<Database>; the interface default is `never`.
+  let sandboxProviderStore: SqliteSandboxProviderStore;
 
   beforeAll(async () => {
     const db = createSqliteDb(':memory:');

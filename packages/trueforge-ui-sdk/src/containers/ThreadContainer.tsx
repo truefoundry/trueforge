@@ -1,32 +1,20 @@
 'use client';
 
-import { ThreadPrimitive, useAuiState, type AssistantState } from '@assistant-ui/react';
+import { ThreadPrimitive, useAuiState } from '@assistant-ui/react';
 import { useEffect, type ReactNode } from 'react';
 import { preloadMarkdownOpenUI } from '../atoms/Markdown.js';
 import { ComposerBusyProvider } from '../hooks/useComposerBusyState.js';
 import { useSyncSessionTitle } from '../hooks/useSyncSessionTitle.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { isNewChatView } from '../utils/isNewChatView.js';
 import { AssistantMessageContainer } from './AssistantMessageContainer.js';
 import { HistoryLoaderContainer } from './HistoryLoaderContainer.js';
 import { ResumeUnavailableContainer } from './ResumeUnavailableContainer.js';
 import { UserEditComposerContainer } from './UserEditComposerContainer.js';
 import { UserMessageContainer } from './UserMessageContainer.js';
 
-// Startup exposes a loading placeholder thread; treat it as a new chat so the
-// composer mounts centered. Loads after startup keep the docked layout.
-//
-// `remoteId == null` keeps welcome off during first-turn edit/retry: the
-// runtime briefly rewinds to an empty snapshot before applying pendingUser,
-// and messages.length===0 alone would flash the welcome screen.
-type NewChatViewState = {
-  thread: Pick<AssistantState['thread'], 'messages' | 'isLoading'>;
-  threads: Pick<AssistantState['threads'], 'isLoading'>;
-  threadListItem: Pick<AssistantState['threadListItem'], 'remoteId'>;
-};
-
-export const isNewChatView = (s: NewChatViewState) =>
-  s.thread.messages.length === 0 && (!s.thread.isLoading || s.threads.isLoading) && s.threadListItem.remoteId == null;
+export { isNewChatView } from '../utils/isNewChatView.js';
 
 /** Mount-only lift. Keyed by message.id via ThreadPrimitive.Messages — not content (streaming). */
 function AnimatedMessageShell({ children }: { children: ReactNode }) {

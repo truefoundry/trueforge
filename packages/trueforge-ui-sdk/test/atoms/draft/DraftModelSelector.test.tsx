@@ -136,6 +136,29 @@ describe('DraftModelSelector', () => {
     renderSelector();
 
     await waitFor(() => expect(screen.getByTitle('Select model')).toHaveTextContent('gpt-4.1'));
+    await waitFor(() => {
+      expect(updateAgentSpec).toHaveBeenCalledWith({
+        model: { name: 'openai/gpt-4.1' },
+      });
+    });
+  });
+
+  it('replaces a stale agentSpec model that is missing from the catalog', async () => {
+    agentSpec = { model: { name: 'openai-main/gpt-4.1' } };
+    renderSelector();
+
+    await waitFor(() => {
+      expect(updateAgentSpec).toHaveBeenCalledWith({
+        model: { name: 'openai/gpt-4.1' },
+      });
+    });
+  });
+
+  it('does not rewrite agentSpec when the selected model is already in the catalog', async () => {
+    renderSelector();
+
+    await waitFor(() => expect(screen.getByTitle('Select model')).toHaveTextContent('gpt-4.1'));
+    expect(updateAgentSpec).not.toHaveBeenCalled();
   });
 
   it('disables selection while disabled or running', () => {
