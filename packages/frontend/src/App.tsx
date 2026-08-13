@@ -1,36 +1,21 @@
+import { getErrorMessage, ThemeProvider, TrueforgeUI, type SlotOverrides } from '@truefoundry/trueforge-ui';
 import {
-  createTrueFoundryServer,
-  getErrorMessage,
-  ThemeProvider,
-  TrueforgeUI,
-  type SlotOverrides,
-} from '@truefoundry/trueforge-ui';
+  createTrueForgeClient,
+  getCapabilities,
+  listModels,
+  type HarnessAgentSpec,
+} from '@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter';
 import { useEffect, useMemo, useState } from 'react';
 import { AuthErrorScreen } from './AuthErrorScreen';
+import { createAuthAwareFetch } from './authFetch';
 import { probeSession, type SessionState } from './authSession';
 import { parseAuthErrorReason } from './authStatusSearch';
-import { getCapabilities, listModels } from './composerLists';
-import { createConnectorCatalog } from './connectorCatalog';
 import { GetStartedScreen } from './GetStartedScreen';
-import { createHarnessBuilderServer } from './harnessBuilderServer';
-import { createHarnessChatServer, type HarnessAgentSpec } from './harnessServer';
 import { LogoutButton } from './LogoutButton';
-import { createModelProviderCatalog } from './modelProviderCatalog';
-import { createSandboxProviderCatalog } from './sandboxProviderCatalog';
-import { createSkillCatalog } from './skillCatalog';
 
-const chatServer = createHarnessChatServer();
-
-const server = createTrueFoundryServer<HarnessAgentSpec>({
-  chatServer,
-  ...createHarnessBuilderServer(),
-  catalog: {
-    modelCatalog: createModelProviderCatalog(),
-    connectorCatalog: createConnectorCatalog(),
-    skillCatalog: createSkillCatalog(),
-    sandboxCatalog: createSandboxProviderCatalog(),
-  },
-});
+/** Shared cookie/OIDC fetch for boot helpers and `<TrueforgeUI server />`. */
+const authAwareFetch = createAuthAwareFetch();
+const bootClient = createTrueForgeClient({ fetch: authAwareFetch });
 
 type BootState =
   | { status: 'loading' }
@@ -66,7 +51,7 @@ export function App() {
     const state = { cancelled: false };
     void (async () => {
       try {
-        const [models, capabilities] = await Promise.all([listModels(), getCapabilities()]);
+        const [models, capabilities] = await Promise.all([listModels(bootClient), getCapabilities(bootClient)]);
         if (state.cancelled) {
           return;
         }
@@ -150,7 +135,7 @@ export function App() {
   return (
     <div className="app-root">
       <TrueforgeUI
-        server={server}
+        server={{ type: 'trueforge', baseUrl: '/', fetch: authAwareFetch }}
         theme={{
           brand: {
             name: 'TrueForge',

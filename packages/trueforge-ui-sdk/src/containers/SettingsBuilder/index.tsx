@@ -119,7 +119,7 @@ const TruefoundrySettingsBuilder = () => {
                 // Narrow panels cannot fit fixed-width tabs, so tabs split the row instead.
                 compact ? 'min-w-0 flex-1 justify-center gap-1.5 px-1.5' : 'shrink-0',
                 section === item.id
-                  ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
+                  ? 'bg-primary-button-bg text-primary-button-text'
                   : 'text-text-secondary hover:bg-ghost-button-hover/60 hover:text-text-primary',
               )}
               onClick={() => {
@@ -132,13 +132,15 @@ const TruefoundrySettingsBuilder = () => {
           ))}
         </nav>
 
-        <section className="flex h-full flex-1 flex-col overflow-y-hidden px-6 py-4">
-          <Suspense fallback={<SettingsSectionFallback />}>
-            {section === 'models' ? <ModelSettings /> : null}
-            {section === 'connectors' ? <ConnectorSettings /> : null}
-            {section === 'skills' && hasSkills ? <SkillSettings /> : null}
-            {section === 'sandbox' && hasSandbox ? <SandboxSettings /> : null}
-          </Suspense>
+        <section className="flex flex-col h-full flex-1 overflow-y-hidden px-6 py-4">
+          <div className="w-full max-w-210 h-full min-h-0 flex flex-col mx-auto">
+            <Suspense fallback={<SettingsSectionFallback />}>
+              {section === 'models' ? <ModelSettings /> : null}
+              {section === 'connectors' ? <ConnectorSettings /> : null}
+              {section === 'skills' && hasSkills ? <SkillSettings /> : null}
+              {section === 'sandbox' && hasSandbox ? <SandboxSettings /> : null}
+            </Suspense>
+          </div>
         </section>
       </div>
     </div>

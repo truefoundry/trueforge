@@ -63,6 +63,7 @@ export function DraftModelCatalogPanel({
   onSelect,
   onOpenSettings,
   listboxId,
+  showHeading = true,
 }: {
   models: ModelSelection[];
   loading: boolean;
@@ -72,6 +73,7 @@ export function DraftModelCatalogPanel({
   onSelect: (model: ModelSelection) => void;
   onOpenSettings?: () => void;
   listboxId: string;
+  showHeading?: boolean;
 }) {
   const needle = query.trim().toLowerCase();
   const filtered = needle
@@ -87,7 +89,7 @@ export function DraftModelCatalogPanel({
   return (
     <>
       <div className="border-b border-border px-3 py-2">
-        <p className="text-text-primary mb-2 text-sm font-semibold">Select model</p>
+        {showHeading ? <p className="text-text-primary mb-2 text-sm font-semibold">Select model</p> : null}
         <label className="relative block">
           <Icon
             name="search"

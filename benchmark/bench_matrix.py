@@ -50,10 +50,27 @@ def run_tfy(task, prompt, cap):
         "instructions": SYSTEM_PROMPT,
         "mcp_servers": [{"name": n, "enable_tools": ["@all"], "require_approval_for_tools": []}
                         for n in mcp],
-        # Fully autonomous: no approval gates (above) and no clarifying-question pauses,
-        # either of which would end a turn early with incomplete work.
-        "config": {"iteration_limit": int(os.environ.get("TFY_ITERATION_LIMIT", "100")),
-                   "ask_user_questions": {"enabled": False}},
+        # Validated benchmark config (the setup that produced the published results):
+        #  - fully autonomous: no approval gates (above) and no clarifying-question pauses,
+        #    either of which would end a turn early with incomplete work;
+        #  - dynamic sub-agents ON and a 500-iteration budget, so the agent can fully work
+        #    the data-heavy cross-system tasks (decompose big sub-tasks, take enough steps);
+        #  - compaction + large_tool_response keep long turns under the token budget:
+        #    large_tool_response OFFLOADS oversized query results to a sandbox file instead
+        #    of piling them into context. This REQUIRES a sandbox provider configured in
+        #    TrueForge (see README "Sandbox"); without one the offload can't happen and the
+        #    heaviest tasks abort with "max_tokens breached".
+        "config": {
+            "iteration_limit": int(os.environ.get("TFY_ITERATION_LIMIT", "500")),
+            "ask_user_questions": {"enabled": False},
+            "dynamic_sub_agents": {"enabled": True},
+            "sandbox": {"enabled": True},
+            "context_management": {
+                "compaction": {"enabled": True, "compaction_threshold_tokens": 60000},
+                "large_tool_response": {"enabled": True},
+            },
+            "generative_ui": {"enabled": False},
+        },
     }
 
     def _post(path, body, stream=False):
@@ -61,6 +78,10 @@ def run_tfy(task, prompt, cap):
             headers={"Content-Type": "application/json",
                      "Accept": "text/event-stream" if stream else "application/json"}, method="POST")
         return urllib.request.urlopen(req, timeout=TASK_TIMEOUT)
+
+    def _get(path):
+        req = urllib.request.Request(base + path, headers={"Accept": "application/json"})
+        return json.load(urllib.request.urlopen(req, timeout=60))
 
     def text_of(content):
         if isinstance(content, str):
@@ -71,7 +92,7 @@ def run_tfy(task, prompt, cap):
 
     sid = json.load(_post("/api/v1/sessions", {"agent": {"spec": spec}}))["data"]["id"]
     tot = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
-    tools = 0; answer = ""; last_msg = ""; cost = None
+    tools = 0; answer = ""; last_msg = ""; cost = None; terminal = False
     resp = _post(f"/api/v1/sessions/{sid}/turns",
                  {"input": [{"type": "user.message", "content": prompt}],
                   "previous_turn_id": "none", "stream": True}, stream=True)
@@ -100,7 +121,33 @@ def run_tfy(task, prompt, cap):
             cost = m.get("total_cost_in_usd")
             out = state.get("output") or {}
             answer = text_of(out.get("content") if isinstance(out, dict) else None)
+            terminal = True
             break
+    # On the data-heavy tasks a turn can run for several minutes, and the SSE stream may
+    # close before the turn finishes (the turn keeps running server-side). Don't treat the
+    # stream ending as "done" — poll the turn to its terminal state so we capture the real
+    # answer/metrics instead of an empty result. This is what keeps the heaviest tasks from
+    # being scored as spurious failures.
+    if not terminal:
+        try:
+            turns = _get(f"/api/v1/sessions/{sid}/turns").get("data", []) or []
+            tid = (turns[0] if turns else {}).get("id")
+            deadline = time.time() + TASK_TIMEOUT
+            while tid and time.time() < deadline:
+                st = (_get(f"/api/v1/sessions/{sid}/turns/{tid}").get("data", {}) or {}).get("state", {}) or {}
+                if st.get("status") in ("done", "error", "cancelled"):
+                    m = st.get("metrics") or {}
+                    tot = {"input": m.get("total_input_tokens", 0) or 0,
+                           "output": m.get("total_output_tokens", 0) or 0,
+                           "cache_read": m.get("total_cache_read_tokens", 0) or 0,
+                           "cache_write": m.get("total_cache_write_tokens", 0) or 0}
+                    cost = m.get("total_cost_in_usd")
+                    out = st.get("output") or {}
+                    answer = text_of(out.get("content") if isinstance(out, dict) else None) or answer
+                    break
+                time.sleep(6)
+        except Exception:
+            pass
     if not answer:
         answer = last_msg
     res = {"session_id": sid, "tokens": tot, "tool_calls": tools, "answer": answer}

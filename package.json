@@ -6,7 +6,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "build": "pnpm --filter @truefoundry/trueforge-core build && pnpm --filter @truefoundry/trueforge-ui build && pnpm --filter frontend build && pnpm --filter @truefoundry/trueforge build",
+    "build": "pnpm --filter @truefoundry/trueforge-core build && pnpm --filter @truefoundry/trueforge-sdk build && pnpm --filter @truefoundry/trueforge-ui build && pnpm --filter frontend build && pnpm --filter @truefoundry/trueforge build",
     "chart:deps": "helm dependency build charts/truefoundry-utils",
     "chart:lint": "helm lint charts/truefoundry-utils --values charts/truefoundry-utils/ci/lint-values.yaml",
     "chart:package": "helm package charts/truefoundry-utils --destination dist",

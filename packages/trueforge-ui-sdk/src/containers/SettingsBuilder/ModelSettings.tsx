@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { cn } from '@/atoms/lib/cn.js';
 import { auiInputClass } from '@/atoms/lib/inputClasses.js';
 import { Accordion, AccordionDetails, AccordionSummary } from '@/atoms/primitives/Accordion.js';
 import { Button } from '@/atoms/primitives/Button.js';
@@ -163,8 +162,6 @@ const ModelSettings = () => {
   };
 
   const handleReplaceKey = (provider: ModelProviderBase) => {
-    if (!apiKey.trim()) return;
-
     void runMutation(async () => {
       await modelCatalog.updateModelProvider({
         id: provider.id,
@@ -176,10 +173,7 @@ const ModelSettings = () => {
       });
     })
       .then(() => {
-        toaster?.showSuccess({
-          title: 'API key replaced',
-          description: `${provider.name} was updated successfully.`,
-        });
+        toaster?.showSuccess({ title: `${provider.name} updated` });
       })
       .catch(() => {});
   };
@@ -221,16 +215,13 @@ const ModelSettings = () => {
       err => setFormError(getErrorMessage(err, 'Request failed')),
     );
     setTimeout(() => {
-      toaster?.showSuccess({
-        title: 'Model provider added',
-        description: `${draft.name} is ready to use.`,
-      });
+      toaster?.showSuccess({ title: `${draft.name} added` });
     }, 0);
   };
 
   const renderKeyEditor = (opts: { id: string; submitLabel: string; onSave: () => void; isReplacingKey?: boolean }) => (
     <form
-      className="mt-4 rounded-lg border border-border bg-secondary-bg/40 p-4"
+      className="mt-4 rounded-lg bg-secondary-bg/40 p-4"
       onSubmit={event => {
         event.preventDefault();
         opts.onSave();
@@ -249,10 +240,15 @@ const ModelSettings = () => {
         onChange={event => {
           setApiKey(event.target.value);
         }}
-        placeholder={opts.isReplacingKey ? 'Enter a new key to replace the saved one' : 'Enter API Key'}
+        placeholder={opts.isReplacingKey ? 'Enter a new key' : 'Enter API Key'}
         autoFocus
         className={auiInputClass('h-10')}
       />
+      {opts.isReplacingKey ? (
+        <p className="mt-1.5 text-sm text-text-secondary">
+          Leave blank to keep the current key; enter a new one to replace it.
+        </p>
+      ) : null}
       <Accordion expanded={advancedOpen} onChange={(_event, next) => setAdvancedOpen(next)}>
         <AccordionSummary className="pt-2 pb-1.5">
           <span className="flex items-center gap-1.5 text-xs text-text-secondary">
@@ -286,18 +282,13 @@ const ModelSettings = () => {
         </AccordionDetails>
       </Accordion>
 
-      <div className={cn('mt-2 flex items-center gap-2', opts.isReplacingKey ? 'justify-between' : 'justify-end')}>
-        {opts.isReplacingKey ? (
-          <p className="text-sm text-text-secondary">The saved key is hidden. Saving replaces it.</p>
-        ) : null}
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" type="button" onClick={closeKeyEditor} disabled={busy}>
-            Cancel
-          </Button>
-          <Button size="sm" type="submit" disabled={!apiKey.trim() || busy}>
-            {opts.submitLabel}
-          </Button>
-        </div>
+      <div className="mt-2 flex items-center justify-end gap-2">
+        <Button variant="ghost" size="sm" type="button" onClick={closeKeyEditor} disabled={busy}>
+          Cancel
+        </Button>
+        <Button size="sm" type="submit" disabled={busy || (!opts.isReplacingKey && !apiKey.trim())}>
+          {opts.submitLabel}
+        </Button>
       </div>
     </form>
   );
@@ -373,23 +364,25 @@ const ModelSettings = () => {
                               <span className="h-1.5 w-1.5 rounded-full bg-success-bg"></span>
                               Connected
                             </span>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="text-[0.8125rem]"
-                              type="button"
-                              disabled={busy}
-                              onClick={() => {
-                                setEditingCatalogType(null);
-                                setEditingProviderId(provider.id);
-                                setApiKey('');
-                                setBaseUrl(provider.baseUrl ?? '');
-                                setAdvancedOpen(false);
-                              }}
-                            >
-                              <Icon name="wrench" className="size-3.5" />
-                              Replace key
-                            </Button>
+                            {editingProviderId === provider.id ? null : (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="text-[0.8125rem]"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => {
+                                  setEditingCatalogType(null);
+                                  setEditingProviderId(provider.id);
+                                  setApiKey('');
+                                  setBaseUrl(provider.baseUrl ?? '');
+                                  setAdvancedOpen(false);
+                                }}
+                              >
+                                <Icon name="wrench" className="size-3.5" />
+                                Edit
+                              </Button>
+                            )}
                             {modelCatalog.deleteModelProvider ? (
                               <Button
                                 variant="outline"
@@ -410,7 +403,7 @@ const ModelSettings = () => {
                         {editingProviderId === provider.id
                           ? renderKeyEditor({
                               id: provider.id,
-                              submitLabel: 'Replace key',
+                              submitLabel: 'Save',
                               isReplacingKey: true,
                               onSave: () => {
                                 handleReplaceKey(provider);
