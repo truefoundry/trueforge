@@ -15,7 +15,9 @@ module.exports = {
   },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@truefoundry/trueforge-core/agent-session$': '<rootDir>/../harness/src/agent-session/index.ts',
     '^@truefoundry/trueforge-core/agent-session/(.*)$': '<rootDir>/../harness/src/agent-session/$1',
+    '^@truefoundry/trueforge-core/core$': '<rootDir>/../harness/src/core/index.ts',
     '^@truefoundry/trueforge-core/core/(.*)$': '<rootDir>/../harness/src/core/$1',
   },
   transformIgnorePatterns: ['/node_modules/(?!.*kysely)'],

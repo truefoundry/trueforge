@@ -1,4 +1,4 @@
-name: Build, Lint and Test
+name: CI
 
 on:
   pull_request:
@@ -6,27 +6,115 @@ on:
   merge_group:
     types: [checks_requested]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
-  ci:
-    name: Build, Lint and Test
+  detect-changes:
+    name: Detect Changes
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     permissions:
       contents: read
+      pull-requests: read
+    outputs:
+      packages: ${{ steps.packages.outputs.list }}
+      store: ${{ steps.filter.outputs.store }}
 
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Detect path changes
+        uses: dorny/paths-filter@v4.0.3
+        id: filter
+        with:
+          # Shared roots on every package filter so path-gated tests still run when:
+          # - package.json: root test:* entrypoints change
+          # - pnpm-workspace.yaml: workspace membership/graph changes
+          # - tsconfig.base.json: shared TS settings affect package tests
+          # - .github/workflows/ci.yml: this workflow's package matrix/steps change
+          filters: |
+            harness:
+              - 'packages/harness/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'tsconfig.base.json'
+              - '.github/workflows/ci.yml'
+            server:
+              - 'packages/server/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'tsconfig.base.json'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'packages/frontend/**'
+              # trueforge-sdk is link:../sdk (no version bump); SDK-only PRs must still run FE checks.
+              - 'packages/sdk/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'tsconfig.base.json'
+              - '.github/workflows/ci.yml'
+            trueforge-ui:
+              - 'packages/trueforge-ui-sdk/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'tsconfig.base.json'
+              - '.github/workflows/ci.yml'
+            store:
+              - 'packages/server/src/db/**'
+              - 'packages/server/tests/db/**'
+              - 'packages/server/jest.store.postgres.config.cjs'
+              - 'packages/server/jest.store.sqlite.config.cjs'
+              - 'packages/server/package.json'
+              - 'packages/harness/package.json'
+              - 'packages/harness/src/agent-session/models/**'
+              - 'packages/harness/src/agent-session/schemas/**'
+              - 'packages/harness/src/agent-session/store/**'
+              - 'packages/harness/tests/agent-session/store/**'
+              - 'packages/harness/tests/agent-session/testHelpers.ts'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'tsconfig.base.json'
+              - '.github/workflows/ci.yml'
+
+      - name: Build package matrix
+        id: packages
+        env:
+          HARNESS: ${{ steps.filter.outputs.harness }}
+          SERVER: ${{ steps.filter.outputs.server }}
+          FRONTEND: ${{ steps.filter.outputs.frontend }}
+          TRUEFORGE_UI: ${{ steps.filter.outputs['trueforge-ui'] }}
+        run: |
+          node <<'EOF' >> "$GITHUB_OUTPUT"
+          const changedPackages = [];
+          if (process.env.HARNESS === 'true') changedPackages.push('harness');
+          if (process.env.SERVER === 'true') changedPackages.push('server');
+          if (process.env.FRONTEND === 'true') changedPackages.push('frontend');
+          if (process.env.TRUEFORGE_UI === 'true') changedPackages.push('trueforge-ui');
+          console.log(`list=${JSON.stringify(changedPackages)}`);
+          EOF
+
+  # Always-on: format + lint cover the whole tree (incl. roots outside packages/*);
+  # typecheck/build stay always-on. Per-package jobs only run tests.
+  typecheck-and-build:
+    name: Format, Lint, Typecheck and Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'pnpm'
@@ -34,60 +122,57 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Format check
+      - name: Format
         run: pnpm format:check
+
+      - name: Typecheck
+        run: pnpm typecheck
 
       - name: Build
         run: pnpm build
 
+      # After typecheck/build so trueforge-ui and sdk .d.ts exist for type-aware eslint.
       - name: Lint
         run: pnpm lint:ci
 
-      - name: Test
-        run: pnpm test
-
-  # Gate store suites so they do not start unless store-related paths changed.
-  store-changes:
-    name: Detect Store Changes
+  # Path-gated tests only — format/lint are covered by the global job above.
+  package-checks:
+    name: Package (${{ matrix.package }})
+    needs: detect-changes
+    if: needs.detect-changes.outputs.packages != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      store: ${{ steps.filter.outputs.store }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.detect-changes.outputs.packages) }}
 
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Detect store path changes
-        uses: dorny/paths-filter@v4
-        id: filter
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
         with:
-          filters: |
-            store:
-              - 'packages/server/src/db/**'
-              - 'packages/server/src/catalog/**'
-              - 'packages/server/catalog/**'
-              - 'packages/server/tsup.config.ts'
-              - 'packages/server/tests/db/**'
-              - 'packages/server/jest.store.postgres.config.cjs'
-              - 'packages/server/jest.store.sqlite.config.cjs'
-              - 'packages/server/package.json'
-              - 'packages/harness/src/agent-session/**'
-              - 'packages/harness/tests/agent-session/**'
-              - 'pnpm-workspace.yaml'
-              - '.github/workflows/ci.yml'
+          node-version: '24'
+          cache: 'pnpm'
 
-  postgres-store-tests:
-    name: Postgres Store Tests
-    needs: store-changes
-    if: needs.store-changes.outputs.store == 'true'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        run: pnpm "test:${{ matrix.package }}"
+
+  # Store contract suites when store paths change. Parallel with typecheck-and-build.
+  store-tests:
+    name: Store Tests
+    needs: detect-changes
+    if: needs.detect-changes.outputs.store == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
+    timeout-minutes: 30
 
     services:
       postgres:
@@ -106,13 +191,13 @@ jobs:
 
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'pnpm'
@@ -120,41 +205,35 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm build
+      - name: SQLite store tests
+        run: pnpm test:store:sqlite
 
-      - name: Postgres store contract tests
+      - name: Postgres store tests
         env:
           SESSION_STORE_TEST_PG_URL: postgres://proto:proto@localhost:55432/proto
-        run: pnpm --dir packages/server test:store:postgres
+        run: pnpm test:store:postgres
 
-  sqlite-store-tests:
-    name: SQLite Store Tests
-    needs: store-changes
-    if: needs.store-changes.outputs.store == 'true'
+  # https://github.com/marketplace/actions/alls-green#why
+  check:
+    if: always()
+    needs:
+      - detect-changes
+      - typecheck-and-build
+      - package-checks
+      - store-tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-
+    timeout-minutes: 5
     steps:
-      - name: Check out repository code
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build
-        run: pnpm build
-
-      - name: SQLite store contract tests
-        run: pnpm --dir packages/server test:store:sqlite
+      - name: Decide whether the needed jobs succeeded or failed
+        env:
+          DETECT_CHANGES: ${{ needs.detect-changes.result }}
+          TYPECHECK_AND_BUILD: ${{ needs.typecheck-and-build.result }}
+          PACKAGE_CHECKS: ${{ needs.package-checks.result }}
+          STORE_TESTS: ${{ needs.store-tests.result }}
+        run: |
+          ok() { [ "$1" = success ] || [ "$1" = skipped ]; }
+          echo "detect-changes=$DETECT_CHANGES typecheck-and-build=$TYPECHECK_AND_BUILD package-checks=$PACKAGE_CHECKS store-tests=$STORE_TESTS"
+          [ "$DETECT_CHANGES" = success ] || exit 1
+          [ "$TYPECHECK_AND_BUILD" = success ] || exit 1
+          ok "$PACKAGE_CHECKS" || exit 1
+          ok "$STORE_TESTS" || exit 1
