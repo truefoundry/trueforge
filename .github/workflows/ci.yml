@@ -33,10 +33,10 @@ jobs:
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
-          # Shared roots on every package filter so path-gated format/lint/test still run when:
-          # - package.json: root format:check:*/lint:*/test:* entrypoints change
+          # Shared roots on every package filter so path-gated tests still run when:
+          # - package.json: root test:* entrypoints change
           # - pnpm-workspace.yaml: workspace membership/graph changes
-          # - tsconfig.base.json: shared TS settings affect package typecheck/tests
+          # - tsconfig.base.json: shared TS settings affect package tests
           # - .github/workflows/ci.yml: this workflow's package matrix/steps change
           filters: |
             harness:
@@ -99,10 +99,10 @@ jobs:
           console.log(`list=${JSON.stringify(changedPackages)}`);
           EOF
 
-  # Always-on. Format/lint/test are path-gated per package below (roots outside
-  # packages/* are not format/lint checked in CI for now).
+  # Always-on: format + lint cover the whole tree (incl. roots outside packages/*);
+  # typecheck/build stay always-on. Per-package jobs only run tests.
   typecheck-and-build:
-    name: Typecheck and Build
+    name: Format, Lint, Typecheck and Build
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -122,13 +122,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Format
+        run: pnpm format:check
+
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Build
         run: pnpm build
 
-  # Path-gated. One job per changed package; one install, then format → lint → test.
+      # After typecheck/build so trueforge-ui and sdk .d.ts exist for type-aware eslint.
+      - name: Lint
+        run: pnpm lint:ci
+
+  # Path-gated tests only — format/lint are covered by the global job above.
   package-checks:
     name: Package (${{ matrix.package }})
     needs: detect-changes
@@ -155,12 +162,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Format
-        run: pnpm "format:check:${{ matrix.package }}"
-
-      - name: Lint
-        run: pnpm "lint:${{ matrix.package }}"
 
       - name: Test
         run: pnpm "test:${{ matrix.package }}"
