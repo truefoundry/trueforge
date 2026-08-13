@@ -60,7 +60,7 @@ export function toHarnessAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSp
   };
 }
 
-export function toUiAgentSpec(spec: TrueForgeApi.AgentSpec | TrueForgeApi.AgentManifest): HarnessAgentSpec {
+export function toUiAgentSpec(spec: TrueForgeApi.AgentSpec): HarnessAgentSpec {
   const { mcpServers, skills, ...rest } = spec;
   return {
     ...rest,
