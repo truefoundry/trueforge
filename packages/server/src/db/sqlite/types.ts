@@ -24,7 +24,7 @@ import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runti
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProvider } from '../../schemas/modelProvider';
-import type { SandboxProviderManifest } from '../../schemas/sandboxProvider';
+import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
@@ -192,6 +192,12 @@ export interface SandboxProviderTable {
   tenant_id: string;
   /** SandboxProviderManifest document; replaced whole on every upsert */
   manifest: JsonbColumn<SandboxProviderManifest>;
+  /** Last persisted build status of the release sandbox image. */
+  status: SandboxBuildStatus;
+  /** Human-readable detail for `status`; null when ready. */
+  status_reason: string | null;
+  /** SandboxBuildMetadata document (build_ref + image_uri). */
+  build_metadata: JsonbColumn<SandboxBuildMetadata>;
   created_at: string;
   updated_at: string;
 }

@@ -59,6 +59,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
     createSandboxProvidersRouter({
       sandboxProviderStore: deps.sandboxProviderStore,
       withTransaction: deps.withTransaction,
+      logger: deps.logger,
     }),
   );
   return router;
