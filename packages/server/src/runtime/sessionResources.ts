@@ -9,6 +9,7 @@ import {
   SkillMounter,
   type AgentTracing,
   type GitSkill,
+  type ModelParams,
   type RemoteMcpHeaders,
   type SandboxProvider,
   type VercelAIProviderConfig,
@@ -43,10 +44,10 @@ export function parseModelFqn(name: string): { providerName: string; modelName: 
 }
 
 /**
- * Load turn-ready LLM config for a configured FQN (`provider/model`).
+ * Load turn-ready model config and defaults for a configured FQN (`provider/model`).
  * Malformed FQN or missing provider/model → HTTPException(422).
  */
-export async function getModelProviderConfig({
+export async function getModelRuntimeConfig({
   tenant_id,
   name,
   store,
@@ -54,7 +55,10 @@ export async function getModelProviderConfig({
   tenant_id: string;
   name: string;
   store: IModelProviderStore;
-}): Promise<VercelAIProviderConfig> {
+}): Promise<{
+  providerConfig: VercelAIProviderConfig;
+  modelParams: ModelParams;
+}> {
   const parsed = parseModelFqn(name);
   if (parsed === undefined) {
     throw new HTTPException(422, {
@@ -77,14 +81,16 @@ export async function getModelProviderConfig({
   // `buildLanguageModel` case fails to compile here.
   const { type, base_url } = provider.manifest;
   return {
-    provider: type,
-    name,
-    modelId: model.model_id,
-    baseUrl: base_url,
-    // Custom providers may omit auth; adapters still require a string.
-    apiKey: provider.manifest.auth?.api_key ?? '',
-
-    headers: {},
+    providerConfig: {
+      provider: type,
+      name,
+      modelId: model.model_id,
+      baseUrl: base_url,
+      // Custom providers may omit auth; adapters still require a string.
+      apiKey: provider.manifest.auth?.api_key ?? '',
+      headers: {},
+    },
+    modelParams: model.properties.max_output_tokens ? { max_tokens: model.properties.max_output_tokens } : {},
   };
 }
 
