@@ -4,12 +4,10 @@
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import {
-  AgentWriteRequestSchema,
-  CreateAgentResponseSchema,
+  CreateAgentRequestSchema,
   GetAgentResponseSchema,
   ListAgentsResponseSchema,
-  PutAgentResponseSchema,
-  UpdateAgentRequestSchema,
+  PutAgentRequestSchema,
 } from '../schemas/agent';
 import { NameSchema } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -55,13 +53,13 @@ export const createAgentRoute = createRoute({
   'x-fern-sdk-method-name': 'create',
   request: {
     body: {
-      content: { 'application/json': { schema: AgentWriteRequestSchema } },
+      content: { 'application/json': { schema: CreateAgentRequestSchema } },
       required: true,
     },
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: CreateAgentResponseSchema } },
+      content: { 'application/json': { schema: GetAgentResponseSchema } },
       description: 'The created agent.',
     },
     400: {
@@ -136,13 +134,13 @@ export const putAgentRoute = createRoute({
   request: {
     params: AgentNameParamsSchema,
     body: {
-      content: { 'application/json': { schema: UpdateAgentRequestSchema } },
+      content: { 'application/json': { schema: PutAgentRequestSchema } },
       required: true,
     },
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: PutAgentResponseSchema } },
+      content: { 'application/json': { schema: GetAgentResponseSchema } },
       description: 'The saved agent.',
     },
     400: {

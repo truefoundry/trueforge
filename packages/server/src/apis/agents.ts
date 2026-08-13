@@ -17,7 +17,7 @@ import {
   putAgentRoute,
 } from '../routes/agentRoutes';
 import { validateAgentSpec } from '../runtime/sessionResources';
-import { toAgentManifest, type Agent, type AgentWriteRequest } from '../schemas/agent';
+import { type Agent, type CreateAgentRequest } from '../schemas/agent';
 import { TENANT_ID } from './sessions';
 
 export interface AgentsRouterDeps<TTransaction> {
@@ -29,12 +29,12 @@ export interface AgentsRouterDeps<TTransaction> {
   withTransaction: WithTransaction<TTransaction>;
 }
 
-/** Wire view: identity columns plus AgentSpec fields flattened. */
+/** Wire view: identity columns plus nested manifest. */
 function toWireAgent(record: AgentRecord): Agent {
   return {
     id: record.id,
     name: record.name,
-    ...record.manifest,
+    manifest: record.manifest,
   };
 }
 
@@ -63,8 +63,8 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
   };
 
   const createHandler: RouteHandler<typeof createAgentRoute> = async c => {
-    const body: AgentWriteRequest = c.req.valid('json');
-    const manifest = await validateManifest({ spec: toAgentManifest(body), deps });
+    const body: CreateAgentRequest = c.req.valid('json');
+    const manifest = await validateManifest({ spec: body.manifest, deps });
     try {
       const record = await deps.agentStore.createAgent({
         tenant_id: TENANT_ID,
@@ -98,7 +98,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
   const putHandler: RouteHandler<typeof putAgentRoute> = async c => {
     const { name } = c.req.valid('param');
     const body = c.req.valid('json');
-    const manifest = await validateManifest({ spec: body, deps });
+    const manifest = await validateManifest({ spec: body.manifest, deps });
     const record = await deps.agentStore.updateAgent({
       tenant_id: TENANT_ID,
       name,
