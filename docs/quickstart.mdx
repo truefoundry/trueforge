@@ -41,8 +41,7 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
     The Helm chart deploys the server in hosted mode with bundled Postgres and Redis (or point it at your own):
 
     ```bash
-    # TODO: replace <HELM_REPO> with the published Helm repo URL
-    helm install trueforge oci://<HELM_REPO>/trueforge \
+    helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
       --version <x.y.z>
     ```
 
@@ -52,7 +51,7 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
     | `postgresql.enabled`   | `true`  | Bundle Postgres; set `false` + `externalPostgres.*` to bring your own.   |
     | `redis.enabled`        | `true`  | Bundle Redis; set `false` + `externalRedis.url` (string or `valueFrom`). |
     | `server.publicBaseUrl` | `""`    | Public origin; required for OIDC and MCP OAuth callbacks.                |
-    | `configs.oidc.enabled` | `false` | Enable IdP login via `configs.oidc.*` (see chart README).                |
+    | `configs.oidc.enabled` | `false` | Enable IdP login via `configs.oidc.*`. Default off = shared local admin — see [chart README](https://github.com/truefoundry/trueforge/blob/main/charts/trueforge/README.md#dev-defaults-read-before-exposing). |
 
   </Tab>
 </Tabs>

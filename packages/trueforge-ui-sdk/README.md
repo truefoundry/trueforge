@@ -1,6 +1,6 @@
 # @truefoundry/trueforge-ui
 
-[CI](https://github.com/truefoundry/harness/actions/workflows/ci.yml)
+[CI](https://github.com/truefoundry/trueforge/actions/workflows/ci.yml)
 [npm](https://www.npmjs.com/package/@truefoundry/trueforge-ui)
 [License](./LICENSE)
 
