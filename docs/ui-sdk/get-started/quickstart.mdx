@@ -21,21 +21,11 @@ yarn add @truefoundry/trueforge-ui @truefoundry/trueforge-sdk
 
 </CodeGroup>
 
-`react` and `react-dom` are required peer dependencies and must be version 18 or 19.
+`react` and `react-dom` are required peer dependencies (version 18 or 19).
 
-`@truefoundry/trueforge-sdk` is the HTTP client used by the built-in Harness adapter
-(`type: "trueforge"`). It stays external to the UI bundle — install it alongside the UI package.
+## Render the UI
 
-## Connect with TrueForge Server
-
-Pass `server={{ type: "trueforge", … }}`. The SDK dynamically loads
-`@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter`, builds the HTTP client, and
-composes chat + builder + default settings catalogs into an `AgentUIServer`.
-
-Auth is host-owned: use a **Bearer `token`** for embeds / remote APIs, or inject **`fetch`** for
-same-origin cookie / OIDC sessions. `baseUrl` defaults to `'/'`.
-
-### Bearer token
+Point `TrueforgeUI` at your TrueForge server with a Bearer token:
 
 ```tsx App.tsx
 import { TrueforgeUI } from "@truefoundry/trueforge-ui";
@@ -45,9 +35,7 @@ export default function App() {
     <div style={{ height: "100dvh" }}>
       <TrueforgeUI
         server={{
-          type: "trueforge",
-          baseUrl: "http://localhost:8790", // optional; default '/'
-          token: process.env.TRUEFORGE_TOKEN!,
+          type: "trueforge"
         }}
         layout="sidebar"
       />
@@ -56,75 +44,7 @@ export default function App() {
 }
 ```
 
-### Cookie / same-origin hosts
-
-Omit `token` and pass a custom `fetch` (for example an auth-aware wrapper that follows OIDC cookies
-and redirects on HTTP 401):
-
-```tsx App.tsx
-import { TrueforgeUI } from "@truefoundry/trueforge-ui";
-
-export default function App({ authAwareFetch }: { authAwareFetch: typeof fetch }) {
-  return (
-    <div style={{ height: "100dvh" }}>
-      <TrueforgeUI
-        server={{
-          type: "trueforge",
-          baseUrl: "/",
-          fetch: authAwareFetch,
-        }}
-        layout="sidebar"
-        agentConfig={{
-          mode: "AgentLibraryWithComposer",
-          // Seed from your models list at boot when the composer needs a default.
-          defaultAgentSpec: { model: { name: "openai-main/gpt-4.1" } },
-        }}
-      />
-    </div>
-  );
-}
-```
-
-Optional: pass `catalog` on the config to override the built-in settings catalogs.
-
-Because this config is resolved asynchronously (dynamic import of the adapter), the SDK shows a
-brief loading indicator before the chat appears.
-
-## Build the server yourself
-
-If you need the resolved `AgentUIServer` outside `<TrueforgeUI />` — to wrap it, log through it, or
-pass it around before mounting — use the plugin factory:
-
-```tsx
-import { createTrueForgeAgentUIServer } from "@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter";
-import { TrueforgeUI } from "@truefoundry/trueforge-ui";
-
-const server = createTrueForgeAgentUIServer({
-  baseUrl: "http://localhost:8790",
-  token: process.env.TRUEFORGE_TOKEN!,
-});
-
-export default function App() {
-  return (
-    <div style={{ height: "100dvh" }}>
-      <TrueforgeUI server={server} layout="sidebar" />
-    </div>
-  );
-}
-```
-
-## Other backends
-
-| Path | Docs |
-| --- | --- |
-| TrueFoundry control plane (`type: "truefoundry"`) | [Connect with TrueFoundry](/ui-sdk/setup-custom-servers/connect-with-truefoundry) |
-| Bring your own `AgentUIServer` | [Custom server](/ui-sdk/setup-custom-servers/custom-server) |
-| Full `server` type union | [Server contract](/ui-sdk/setup-custom-servers/server-contract) |
-
-## Rendered UI
-
-When you run the app, you get a fully functional agent chat experience out of the box, with
-streaming responses, conversation history, and tool-call support.
+That is enough to get a full agent chat with streaming, history, and tool calls.
 
 <Frame caption="What `TrueforgeUI` renders — a full agent chat with streaming, history, and tool calls.">
   ![The TrueforgeUI component rendering an agent chat with an agent-steps panel and a streamed response](/images/agent-composer-with-library.png)

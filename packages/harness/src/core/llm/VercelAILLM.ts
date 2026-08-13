@@ -72,11 +72,18 @@ export type VercelAIProviderName = (typeof VERCEL_AI_PROVIDER_NAMES)[number];
  * storage shapes, which stay as they are because they are the published contract.
  */
 export interface VercelAIProviderConfig {
-  provider: VercelAIProviderName;
-  /** Display name / alias, used for logs and errors. Often a provider/model FQN when set by the host. */
+  /** Adapter discriminator plus configured resource name (source `type/name/...`). */
+  provider: {
+    type: VercelAIProviderName;
+    name: string;
+  };
+  /** Provider-facing model identifier and configured model name. */
+  model: {
+    id: string;
+    name: string;
+  };
+  /** Display name / alias, used for logs and chunk labels. */
   name: string;
-  /** Provider-facing model identifier. */
-  modelId: string;
   /** Optional base URL override. Explicitly includes `undefined` for Zod-derived type compat. */
   baseUrl?: string | undefined;
   apiKey: string;
@@ -113,18 +120,18 @@ function isFunctionToolCall<T extends { type: string }>(toolCall: T): toolCall i
 // ---------------------------------------------------------------------------
 
 /**
- * Shared by every OpenAI-compatible provider, which differ only by endpoint. The provider name
+ * Shared by every OpenAI-compatible provider, which differ only by endpoint. The provider type
  * doubles as the `providerOptions` key. Fireworks, Together and Z AI stay here rather than on their
  * own packages: those drop `json_schema`, and Fireworks also clamps efforts its models do accept.
  * TODO: move Z AI to @ai-sdk/zai once https://github.com/vercel/ai/pull/17340 ships.
  */
 function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
-  const { provider, modelId, apiKey, headers, baseUrl } = config;
+  const { provider, model, apiKey, headers, baseUrl } = config;
   if (baseUrl === undefined) {
-    throw new Error(`Provider "${provider}" requires a baseUrl`);
+    throw new Error(`Provider "${provider.type}" requires a baseUrl`);
   }
   const client = createOpenAICompatible({
-    name: provider,
+    name: provider.type,
     baseURL: baseUrl,
     apiKey,
     // Without this the adapter silently downgrades json_schema to a schema-less json_object.
@@ -133,21 +140,21 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
     includeUsage: true,
     ...(Object.keys(headers).length > 0 ? { headers } : {}),
   });
-  return client(modelId);
+  return client(model.id);
 }
 
 export function buildLanguageModel(config: VercelAIProviderConfig): LanguageModel {
-  const { provider, modelId, baseUrl, apiKey, headers } = config;
+  const { provider, model, baseUrl, apiKey, headers } = config;
   const extraHeaders = Object.keys(headers).length > 0 ? headers : undefined;
 
-  switch (provider) {
+  switch (provider.type) {
     case 'openai': {
       const client = createOpenAI({
         apiKey,
         ...(baseUrl !== undefined ? { baseURL: baseUrl } : {}),
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
-      return client.responses(modelId);
+      return client.responses(model.id);
     }
     case 'anthropic': {
       const client = createAnthropic({
@@ -155,7 +162,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
         ...(baseUrl !== undefined ? { baseURL: baseUrl } : {}),
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
-      return client(modelId);
+      return client(model.id);
     }
     case 'google-gemini': {
       const client = createGoogle({
@@ -163,7 +170,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
         ...(baseUrl !== undefined ? { baseURL: baseUrl } : {}),
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
-      return client(modelId);
+      return client(model.id);
     }
     case 'moonshot': {
       const client = createMoonshotAI({
@@ -171,7 +178,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
         ...(baseUrl !== undefined ? { baseURL: baseUrl } : {}),
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
-      return client(modelId);
+      return client(model.id);
     }
     case 'alibaba': {
       // Endpoints are workspace-scoped, so the package default would address the wrong tenant.
@@ -183,7 +190,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
         baseURL: baseUrl,
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
-      return client(modelId);
+      return client(model.id);
     }
     case 'fireworks':
     case 'zai':
@@ -192,7 +199,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
       return compatibleModel(config);
     }
     default: {
-      const _exhaustive: never = provider;
+      const _exhaustive: never = provider.type;
       throw new Error(`Unknown provider "${String(_exhaustive)}"`);
     }
   }
@@ -520,26 +527,26 @@ export function buildProviderOptions({
   rawBody: unknown;
 }): ProviderOptions {
   const strictJsonSchema = structuredOutputSpec.mode === 'json_schema' ? structuredOutputSpec.strict : undefined;
-  if (config.provider === 'openai') {
+  if (config.provider.type === 'openai') {
     return { openai: openaiProviderOptions({ rawBody, strictJsonSchema, reasoningEffort }) };
-  } else if (config.provider === 'anthropic') {
+  } else if (config.provider.type === 'anthropic') {
     const anthropic = anthropicProviderOptions(rawBody);
     return anthropic !== undefined ? { anthropic } : {};
-  } else if (config.provider === 'google-gemini') {
+  } else if (config.provider.type === 'google-gemini') {
     const google = googleGeminiProviderOptions({ rawBody, reasoningRequested: reasoningEffort !== undefined });
     return google !== undefined ? { google } : {};
-  } else if (config.provider === 'moonshot') {
+  } else if (config.provider.type === 'moonshot') {
     // The package names its options key after itself, not after the provider.
     const moonshotai = moonshotProviderOptions({ rawBody, reasoningEffort });
     return moonshotai !== undefined ? { moonshotai } : {};
-  } else if (config.provider === 'alibaba') {
+  } else if (config.provider.type === 'alibaba') {
     const alibaba = alibabaProviderOptions(rawBody);
     return alibaba !== undefined ? { alibaba } : {};
   } else {
     // The remaining providers all share the compatible adapter, which reads its options from a key
-    // matching the `name` it was built with — the provider name itself.
+    // matching the `name` it was built with — the provider type itself.
     const compatible = compatibleProviderOptions({ strictJsonSchema, reasoningEffort, rawBody });
-    return compatible !== undefined ? { [config.provider]: compatible } : {};
+    return compatible !== undefined ? { [config.provider.type]: compatible } : {};
   }
 }
 
@@ -629,7 +636,7 @@ export function toAssistantModelMessage({
 }: {
   msg: Extract<ChatCompletionMessageParam, { role: 'assistant' }>;
   provider: VercelAIProviderName;
-  /** Configured provider resource name (FQN prefix). */
+  /** Configured provider resource name. */
   providerName: string;
   logger?: Logger | undefined;
 }): ModelMessage {
@@ -1345,18 +1352,6 @@ export async function* mapStreamToChunks({
   return { usage: finalUsage, output, finish_reason: finalFinishReason };
 }
 
-/** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
-function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
-  const slash = name.indexOf('/');
-  if (slash <= 0 || slash === name.length - 1) {
-    return undefined;
-  }
-  if (name.includes('/', slash + 1)) {
-    return undefined;
-  }
-  return { providerName: name.slice(0, slash), modelName: name.slice(slash + 1) };
-}
-
 // ---------------------------------------------------------------------------
 // VercelAILLM
 // ---------------------------------------------------------------------------
@@ -1377,14 +1372,13 @@ export class VercelAILLM implements ILLM {
     body: LLMCreateParamsStreaming,
   ): AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown> {
     const { providerConfig } = this.config;
-    const model = buildLanguageModel(providerConfig);
-    const parsedFqn = parseModelFqn(providerConfig.name);
-    const providerName = parsedFqn?.providerName ?? providerConfig.provider;
+    const languageModel = buildLanguageModel(providerConfig);
+    const { provider, model } = providerConfig;
 
     const { instructions, messages } = convertMessages({
       messages: body.messages,
-      provider: providerConfig.provider,
-      providerName,
+      provider: provider.type,
+      providerName: provider.name,
       logger: this.logger,
     });
     const tools = convertTools(body.tools ?? undefined);
@@ -1407,7 +1401,7 @@ export class VercelAILLM implements ILLM {
     // seed is still accepted by providers but marked @deprecated on the OpenAI request type.
     const rawSeed: unknown = Reflect.get(body, 'seed');
     const streamTextArgs = buildStreamTextArgs({
-      model,
+      model: languageModel,
       instructions,
       messages,
       tools,
@@ -1457,7 +1451,7 @@ export class VercelAILLM implements ILLM {
     );
 
     // Synthetic chunk fields; id is unique per stream instance.
-    // Label chunks with the catalog name — providerConfig.modelId is the wire id.
+    // Label chunks with the display name — model.id is the wire id.
     const chunkMeta: ChunkMeta = {
       id: `vc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       created: Math.floor(Date.now() / 1000),
@@ -1466,9 +1460,7 @@ export class VercelAILLM implements ILLM {
 
     try {
       const result = yield* mapStreamToChunks({ stream: streamResult.stream, chunkMeta });
-      if (parsedFqn) {
-        result.output.source = `${providerConfig.provider}/${parsedFqn.providerName}/${parsedFqn.modelName}`;
-      }
+      result.output.source = `${provider.type}/${provider.name}/${model.name}`;
       return result;
     } catch (error) {
       if (this.signal?.aborted) {

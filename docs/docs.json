@@ -89,21 +89,21 @@
             "pages": ["ui-sdk/index", "ui-sdk/get-started/quickstart"]
           },
           {
-            "group": "Guides",
+            "group": "Frontend Customisation",
             "pages": [
               "ui-sdk/guides/layouts",
               "ui-sdk/guides/layouts-and-theme",
               "ui-sdk/guides/agent-modes",
               "ui-sdk/setup-custom-ui/custom-theme",
-              {
-                "group": "Setup Custom Server",
-                "pages": [
-                  "ui-sdk/setup-custom-servers/connect-with-truefoundry",
-                  "ui-sdk/setup-custom-servers/custom-server",
-                  "ui-sdk/setup-custom-servers/server-contract"
-                ]
-              },
               "ui-sdk/guides/troubleshooting"
+            ]
+          },
+          {
+            "group": "Server Customisations",
+            "pages": [
+              "ui-sdk/setup-custom-servers/connect-with-truefoundry",
+              "ui-sdk/setup-custom-servers/custom-server",
+              "ui-sdk/setup-custom-servers/server-contract"
             ]
           },
           {

@@ -5,9 +5,9 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { DaytonaSandboxProviderAuth } from "./DaytonaSandboxProviderAuth.js";
 
-export const DaytonaSandboxProvider: core.serialization.ObjectSchema<
-    serializers.DaytonaSandboxProvider.Raw,
-    TrueForge.DaytonaSandboxProvider
+export const SandboxProviderManifest: core.serialization.ObjectSchema<
+    serializers.SandboxProviderManifest.Raw,
+    TrueForge.SandboxProviderManifest
 > = core.serialization.object({
     auth: DaytonaSandboxProviderAuth,
     autoArchiveIntervalInMinutes: core.serialization.property(
@@ -23,18 +23,16 @@ export const DaytonaSandboxProvider: core.serialization.ObjectSchema<
         core.serialization.number(),
     ),
     execTimeoutMs: core.serialization.property("exec_timeout_ms", core.serialization.number()),
-    snapshotName: core.serialization.property("snapshot_name", core.serialization.string()),
     type: core.serialization.stringLiteral("daytona"),
 });
 
-export declare namespace DaytonaSandboxProvider {
+export declare namespace SandboxProviderManifest {
     export interface Raw {
         auth: DaytonaSandboxProviderAuth.Raw;
         auto_archive_interval_in_minutes: number;
         auto_delete_interval_in_minutes: number;
         auto_stop_interval_in_minutes: number;
         exec_timeout_ms: number;
-        snapshot_name: string;
         type: "daytona";
     }
 }

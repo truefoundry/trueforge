@@ -157,7 +157,7 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
             clientSecret:
               valueFrom:
                 secretKeyRef:
-                  name: truefoundry-utils-oidc
+                  name: trueforge-oidc
                   key: client-secret
             userReferenceClaim: email
             userRoleClaim: groups
@@ -167,13 +167,13 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
           - apiVersion: v1
             kind: Secret
             metadata:
-              name: truefoundry-utils-oidc
+              name: trueforge-oidc
             type: Opaque
             stringData:
               client-secret: "..."
         ```
 
-        See the [chart README](https://github.com/truefoundry/trueforge/blob/main/charts/truefoundry-utils/README.md#oidc) for the full values shape.
+        See the [chart README](https://github.com/truefoundry/trueforge/blob/main/charts/trueforge/README.md#oidc) for the full values shape.
       </Tab>
     </Tabs>
 
