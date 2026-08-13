@@ -38,7 +38,7 @@ There is no `v*` git-tag publish. One workflow both versions and publishes:
 
    Name only the packages that should bump. A dep can ship without its dependent (the dependent's `workspace:*` stays untouched until that package is itself changeset + published). SDK regen on a PR already adds `@truefoundry/trueforge-sdk` via `pnpm changeset:sdk-regen`.
 
-2. **Merge to `main`.** `.github/workflows/release.yml` runs. If `.changeset/*.md` files are pending, `changesets/action` opens (or updates) a **Version Packages** PR. That PR is `pnpm run version`: `changeset version`, then `pnpm sdk:generate` only if `@truefoundry/trueforge-sdk`'s version actually moved (Fern rebakes version literals). Review the version bumps and CHANGELOGs, then merge.
+2. **Merge to `main`.** `.github/workflows/release.yml` runs. If `.changeset/*.md` files are pending, the job skips build/test (the Version Packages PR is gated by CI.yml) and `changesets/action` opens (or updates) a **Version Packages** PR. That PR is `pnpm run version`: `changeset version`, then `pnpm sdk:generate` only if `@truefoundry/trueforge-sdk`'s version actually moved (Fern rebakes version literals). Review the version bumps and CHANGELOGs, then merge.
 
 3. **Merging Version Packages publishes.** The same workflow sees no pending changesets and runs `pnpm release` (`pnpm build && changeset publish`). Auth is trusted publishing (OIDC — no `NPM_TOKEN`). pnpm 11 implements the OIDC token exchange natively. Watch the repo Actions tab.
 

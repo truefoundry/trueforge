@@ -5,7 +5,8 @@
 #
 # On every push to main, changesets/action does one of:
 #   - pending `.changeset/*.md` → open/update the Version Packages PR
-#   - none pending → `pnpm release` (build + `changeset publish`)
+#     (install only; that PR is gated by CI.yml)
+#   - none pending → build, test, then `pnpm release`
 # Merge the Version Packages PR to publish. There is no separate publish Action
 # and no `v*` tag trigger.
 #
@@ -32,8 +33,7 @@ jobs:
   release:
     name: Version or publish
     runs-on: ubuntu-latest
-    # Same ceiling as generate-sdk.yaml: a Version Packages run that also
-    # rebakes the SDK (Docker Fern) is the slow path. Publish is just CI + npm.
+    # Fern rebake when the sdk version moves, or build+test on publish.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -54,11 +54,27 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm build
-      - run: pnpm test
+      # Same rule changesets/action uses: any `.changeset/*.md` except README.
+      - id: pending
+        name: Detect pending changesets
+        run: |
+          pending=false
+          shopt -s nullglob
+          for file in .changeset/*.md; do
+            [ "$(basename "$file")" = README.md ] && continue
+            pending=true
+            break
+          done
+          echo "pending=$pending" >> "$GITHUB_OUTPUT"
+
+      - if: steps.pending.outputs.pending != 'true'
+        run: pnpm build
+      - if: steps.pending.outputs.pending != 'true'
+        run: pnpm test
 
       # Root build copies FE into packages/server/dist/_frontend; refuse an API-only tarball.
-      - name: Verify packaged UI is present
+      - if: steps.pending.outputs.pending != 'true'
+        name: Verify packaged UI is present
         run: |
           test -f packages/server/dist/cli.js
           test -f packages/server/dist/_frontend/index.html

@@ -80,9 +80,9 @@ export async function getModelDetails({
   const { type, base_url } = provider.manifest;
   return {
     providerConfig: {
-      provider: type,
+      provider: { type, name: provider.name },
+      model: { id: model.model_id, name: model.name },
       name,
-      modelId: model.model_id,
       baseUrl: base_url,
       // Custom providers may omit auth; adapters still require a string.
       apiKey: provider.manifest.auth?.api_key ?? '',
