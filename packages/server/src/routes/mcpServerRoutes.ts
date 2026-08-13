@@ -6,11 +6,12 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
+  CreateMcpServerRequestSchema,
   GetMcpServerResponseSchema,
   ListAvailableMcpServersResponseSchema,
   ListMcpServersResponseSchema,
   McpAuthStatusSchema,
-  McpServerManifestSchema,
+  PutMcpServerRequestSchema,
   PutMcpServerResponseSchema,
 } from '../schemas/mcpServer';
 
@@ -102,7 +103,7 @@ export const createMcpServerRoute = createRoute({
   'x-fern-sdk-method-name': 'create',
   request: {
     body: {
-      content: { 'application/json': { schema: McpServerManifestSchema } },
+      content: { 'application/json': { schema: CreateMcpServerRequestSchema } },
       required: true,
     },
   },
@@ -138,7 +139,7 @@ export const putMcpServerRoute = createRoute({
   'x-fern-sdk-method-name': 'upsert',
   request: {
     body: {
-      content: { 'application/json': { schema: McpServerManifestSchema } },
+      content: { 'application/json': { schema: PutMcpServerRequestSchema } },
       required: true,
     },
   },
