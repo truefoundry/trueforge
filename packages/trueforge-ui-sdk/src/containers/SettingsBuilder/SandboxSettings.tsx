@@ -227,55 +227,55 @@ const SandboxSettings = () => {
               </section>
             ) : null}
 
-            <section>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                Available · {availableEntries.length}
-              </h4>
-              {availableEntries.length === 0 ? (
-                <p className="text-sm text-text-secondary">
-                  {hasConfiguredProvider
-                    ? 'One provider is set up. Update it or remove it to switch.'
-                    : catalog.length > 0
+            {!hasConfiguredProvider ? (
+              <section>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                  Available · {availableEntries.length}
+                </h4>
+                {availableEntries.length === 0 ? (
+                  <p className="text-sm text-text-secondary">
+                    {catalog.length > 0
                       ? 'All catalog providers are configured.'
                       : 'No sandbox providers in the catalog.'}
-                </p>
-              ) : (
-                <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
-                  {availableEntries.map(entry => (
-                    <article
-                      key={entry.id}
-                      className="flex flex-col gap-3 border-b border-border p-3 last:border-b-0 sm:flex-row sm:items-center"
-                    >
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <span
-                          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
-                          aria-hidden
-                        >
-                          <Icon name="cube" className="size-4.5" />
-                        </span>
-                        <div className="min-w-0">
-                          <h5 className="truncate text-sm font-medium text-text-primary">{entry.name}</h5>
-                          <p className="truncate text-[0.8125rem] text-text-secondary">{entry.snapshotName}</p>
-                        </div>
-                      </div>
-
-                      <Button
-                        variant="secondary"
-                        type="button"
-                        disabled={busy}
-                        onClick={() => {
-                          setFormError(null);
-                          setUpdateProvider(null);
-                          setCreateEntry(entry);
-                        }}
+                  </p>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
+                    {availableEntries.map(entry => (
+                      <article
+                        key={entry.id}
+                        className="flex flex-col gap-3 border-b border-border p-3 last:border-b-0 sm:flex-row sm:items-center"
                       >
-                        Configure
-                      </Button>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <span
+                            className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
+                            aria-hidden
+                          >
+                            <Icon name="cube" className="size-4.5" />
+                          </span>
+                          <div className="min-w-0">
+                            <h5 className="truncate text-sm font-medium text-text-primary">{entry.name}</h5>
+                            <p className="truncate text-[0.8125rem] text-text-secondary">{entry.snapshotName}</p>
+                          </div>
+                        </div>
+
+                        <Button
+                          variant="secondary"
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setFormError(null);
+                            setUpdateProvider(null);
+                            setCreateEntry(entry);
+                          }}
+                        >
+                          Configure
+                        </Button>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ) : null}
           </div>
         )}
       </div>
