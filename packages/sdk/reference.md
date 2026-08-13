@@ -55,7 +55,7 @@ await client.agents.list();
 </dl>
 </details>
 
-<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">create</a>({ ...params }) -> TrueForge.CreateAgentResponse</code></summary>
+<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">create</a>({ ...params }) -> TrueForge.GetAgentResponse</code></summary>
 <dl>
 <dd>
 
@@ -83,8 +83,10 @@ Creates an agent and allocates an immutable id. Fails if `name` is already taken
 
 ```typescript
 await client.agents.create({
-    model: {
-        name: "name"
+    manifest: {
+        model: {
+            name: "name"
+        }
     },
     name: "name"
 });
@@ -103,7 +105,7 @@ await client.agents.create({
 <dl>
 <dd>
 
-**request:** `TrueForge.AgentWriteRequest` 
+**request:** `TrueForge.CreateAgentRequest` 
     
 </dd>
 </dl>
@@ -186,7 +188,84 @@ await client.agents.get("agent_id");
 </dl>
 </details>
 
-<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">delete</a>(agent_id) -> void</code></summary>
+<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">update</a>(agent_id, { ...params }) -> TrueForge.GetAgentResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Replaces the manifest for an existing agent keyed by immutable `agent_id`.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.agents.update("agent_id", {
+    manifest: {
+        model: {
+            name: "name"
+        }
+    }
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**agent_id:** `string` — Immutable agent identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.PutAgentRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `AgentsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">delete</a>(agent_id) -> TrueForge.DeleteAgentResponse</code></summary>
 <dl>
 <dd>
 
@@ -230,81 +309,6 @@ await client.agents.delete("agent_id");
 <dd>
 
 **agent_id:** `string` — Immutable agent identifier.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**requestOptions:** `AgentsClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">update</a>(name, { ...params }) -> TrueForge.PutAgentResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Replaces the AgentSpec for an existing agent keyed by immutable `name`.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.agents.update("name", {
-    model: {
-        name: "name"
-    }
-});
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**name:** `string` — Immutable unique agent name within the tenant.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request:** `TrueForge.UpdateAgentRequest` 
     
 </dd>
 </dl>

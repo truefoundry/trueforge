@@ -1,6 +1,15 @@
 'use client';
 
-import { Children, cloneElement, isValidElement, useCallback, useState, type ReactNode } from 'react';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  memo,
+  useCallback,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
 import { Prism as PrismHighlighter } from 'react-syntax-highlighter';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
@@ -31,7 +40,7 @@ function applyLineNumberClassName(children: ReactNode, className: string | undef
   });
 }
 
-export function SyntaxHighlighter({ code, language, darkTheme, className, showLineNumbers }: SyntaxHighlighterProps) {
+function SyntaxHighlighterImpl({ code, language, darkTheme, className, showLineNumbers }: SyntaxHighlighterProps) {
   const classNames = useOptionalContentClassNames();
   const style = darkTheme ? oneDark : oneLight;
   const [copied, setCopied] = useState(false);
@@ -95,6 +104,8 @@ export function SyntaxHighlighter({ code, language, darkTheme, className, showLi
     </div>
   );
 }
+
+export const SyntaxHighlighter: ComponentType<SyntaxHighlighterProps> = memo(SyntaxHighlighterImpl);
 
 declare module '../theme/SlotsProvider.js' {
   interface AtomSlots {

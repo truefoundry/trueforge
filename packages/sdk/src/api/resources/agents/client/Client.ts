@@ -104,7 +104,7 @@ export class AgentsClient {
     /**
      * Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.
      *
-     * @param {TrueForge.AgentWriteRequest} request
+     * @param {TrueForge.CreateAgentRequest} request
      * @param {AgentsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -115,23 +115,25 @@ export class AgentsClient {
      *
      * @example
      *     await client.agents.create({
-     *         model: {
-     *             name: "name"
+     *         manifest: {
+     *             model: {
+     *                 name: "name"
+     *             }
      *         },
      *         name: "name"
      *     })
      */
     public create(
-        request: TrueForge.AgentWriteRequest,
+        request: TrueForge.CreateAgentRequest,
         requestOptions?: AgentsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.CreateAgentResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetAgentResponse> {
         return core.HttpResponsePromise.fromPromise(this.__create(request, requestOptions));
     }
 
     private async __create(
-        request: TrueForge.AgentWriteRequest,
+        request: TrueForge.CreateAgentRequest,
         requestOptions?: AgentsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.CreateAgentResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetAgentResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -150,7 +152,7 @@ export class AgentsClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.AgentWriteRequest.jsonOrThrow(request, {
+                serializers.CreateAgentRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -166,7 +168,7 @@ export class AgentsClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.CreateAgentResponse.parseOrThrow(_response.body, {
+                data: serializers.GetAgentResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -308,26 +310,40 @@ export class AgentsClient {
     }
 
     /**
-     * Delete a configured agent by immutable id. Idempotent if already gone.
+     * Replaces the manifest for an existing agent keyed by immutable `agent_id`.
      *
      * @param {string} agent_id - Immutable agent identifier.
+     * @param {TrueForge.PutAgentRequest} request
      * @param {AgentsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
-     * @throws {@link TrueForge.UnauthorizedError}
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link TrueForge.UnprocessableEntityError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.agents.delete("agent_id")
+     *     await client.agents.update("agent_id", {
+     *         manifest: {
+     *             model: {
+     *                 name: "name"
+     *             }
+     *         }
+     *     })
      */
-    public delete(agent_id: string, requestOptions?: AgentsClient.RequestOptions): core.HttpResponsePromise<void> {
-        return core.HttpResponsePromise.fromPromise(this.__delete(agent_id, requestOptions));
+    public update(
+        agent_id: string,
+        request: TrueForge.PutAgentRequest,
+        requestOptions?: AgentsClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueForge.GetAgentResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__update(agent_id, request, requestOptions));
     }
 
-    private async __delete(
+    private async __update(
         agent_id: string,
+        request: TrueForge.PutAgentRequest,
         requestOptions?: AgentsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<void>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetAgentResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -340,96 +356,13 @@ export class AgentsClient {
                     (await core.Supplier.get(this._options.environment)),
                 `api/v1/agents/${core.url.encodePathParam(agent_id)}`,
             ),
-            method: "DELETE",
-            headers: _headers,
-            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
-            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
-            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
-            abortSignal: requestOptions?.abortSignal,
-            fetchFn: this._options?.fetch,
-            logging: this._options.logging,
-        });
-        if (_response.ok) {
-            return { data: undefined, rawResponse: _response.rawResponse };
-        }
-
-        if (_response.error.reason === "status-code") {
-            switch (_response.error.statusCode) {
-                case 401:
-                    throw new TrueForge.UnauthorizedError(
-                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
-                            unrecognizedObjectKeys: "passthrough",
-                            allowUnrecognizedUnionMembers: true,
-                            allowUnrecognizedEnumValues: true,
-                            skipValidation: true,
-                            breadcrumbsPrefix: ["response"],
-                        }),
-                        _response.rawResponse,
-                    );
-                default:
-                    throw new errors.TrueForgeError({
-                        statusCode: _response.error.statusCode,
-                        body: _response.error.body,
-                        rawResponse: _response.rawResponse,
-                    });
-            }
-        }
-
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "DELETE", "/api/v1/agents/{agent_id}");
-    }
-
-    /**
-     * Replaces the AgentSpec for an existing agent keyed by immutable `name`.
-     *
-     * @param {string} name - Immutable unique agent name within the tenant.
-     * @param {TrueForge.UpdateAgentRequest} request
-     * @param {AgentsClient.RequestOptions} requestOptions - Request-specific configuration.
-     *
-     * @throws {@link TrueForge.BadRequestError}
-     * @throws {@link TrueForge.NotFoundError}
-     * @throws {@link TrueForge.UnprocessableEntityError}
-     * @throws {@link errors.TrueForgeError}
-     * @throws {@link errors.TrueForgeTimeoutError}
-     *
-     * @example
-     *     await client.agents.update("name", {
-     *         model: {
-     *             name: "name"
-     *         }
-     *     })
-     */
-    public update(
-        name: string,
-        request: TrueForge.UpdateAgentRequest,
-        requestOptions?: AgentsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.PutAgentResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__update(name, request, requestOptions));
-    }
-
-    private async __update(
-        name: string,
-        request: TrueForge.UpdateAgentRequest,
-        requestOptions?: AgentsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.PutAgentResponse>> {
-        const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
-        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
-            _authRequest.headers,
-            this._options?.headers,
-            requestOptions?.headers,
-        );
-        const _response = await (this._options.fetcher ?? core.fetcher)({
-            url: core.url.join(
-                (await core.Supplier.get(this._options.baseUrl)) ??
-                    (await core.Supplier.get(this._options.environment)),
-                `api/v1/agents/${core.url.encodePathParam(name)}`,
-            ),
             method: "PUT",
             headers: _headers,
             contentType: "application/json",
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.UpdateAgentRequest.jsonOrThrow(request, {
+                serializers.PutAgentRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -445,7 +378,7 @@ export class AgentsClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.PutAgentResponse.parseOrThrow(_response.body, {
+                data: serializers.GetAgentResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -500,6 +433,89 @@ export class AgentsClient {
             }
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "PUT", "/api/v1/agents/{name}");
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "PUT", "/api/v1/agents/{agent_id}");
+    }
+
+    /**
+     * Delete a configured agent by immutable id. Idempotent if already gone.
+     *
+     * @param {string} agent_id - Immutable agent identifier.
+     * @param {AgentsClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link TrueForge.UnauthorizedError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
+     *
+     * @example
+     *     await client.agents.delete("agent_id")
+     */
+    public delete(
+        agent_id: string,
+        requestOptions?: AgentsClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueForge.DeleteAgentResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__delete(agent_id, requestOptions));
+    }
+
+    private async __delete(
+        agent_id: string,
+        requestOptions?: AgentsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueForge.DeleteAgentResponse>> {
+        const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
+            _authRequest.headers,
+            this._options?.headers,
+            requestOptions?.headers,
+        );
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/agents/${core.url.encodePathParam(agent_id)}`,
+            ),
+            method: "DELETE",
+            headers: _headers,
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return {
+                data: serializers.DeleteAgentResponse.parseOrThrow(_response.body, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    skipValidation: true,
+                    breadcrumbsPrefix: ["response"],
+                }),
+                rawResponse: _response.rawResponse,
+            };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 401:
+                    throw new TrueForge.UnauthorizedError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueForgeError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "DELETE", "/api/v1/agents/{agent_id}");
     }
 }
