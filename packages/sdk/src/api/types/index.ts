@@ -1,7 +1,6 @@
 export * from "./ActionRequiredEvent.js";
 export * from "./Agent.js";
 export * from "./AgentInfo.js";
-export * from "./AgentManifest.js";
 export * from "./AgentParent.js";
 export * from "./AgentSpec.js";
 export * from "./AgentSpecModel.js";

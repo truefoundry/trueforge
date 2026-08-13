@@ -5,7 +5,7 @@ import type * as TrueForge from "../index.js";
 export interface Agent {
     /** Immutable server-generated agent identifier. */
     id: string;
-    manifest: TrueForge.AgentManifest;
+    manifest: TrueForge.AgentSpec;
     /** Fully qualified name. Unique within a tenant. */
     name: string;
 }

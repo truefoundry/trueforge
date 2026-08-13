@@ -13,5 +13,5 @@ import type * as TrueForge from "../../../../index.js";
  *     }
  */
 export interface PutAgentRequest {
-    manifest: TrueForge.AgentManifest;
+    manifest: TrueForge.AgentSpec;
 }

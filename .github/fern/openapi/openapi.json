@@ -32,7 +32,7 @@
             "type": "string"
           },
           "manifest": {
-            "$ref": "#/components/schemas/AgentManifest"
+            "$ref": "#/components/schemas/AgentSpec"
           },
           "name": {
             "allOf": [
@@ -79,50 +79,6 @@
           "type",
           "name",
           "input"
-        ],
-        "type": "object"
-      },
-      "AgentManifest": {
-        "additionalProperties": false,
-        "description": "Persisted agent registry document.",
-        "properties": {
-          "config": {
-            "$ref": "#/components/schemas/RuntimeConfig"
-          },
-          "instructions": {
-            "description": "Optional system prompt — the agent's role, behavior, and constraints.",
-            "type": "string"
-          },
-          "mcp_servers": {
-            "description": "Optional MCP servers attached by configured name.",
-            "items": {
-              "$ref": "#/components/schemas/MCPServer"
-            },
-            "type": "array"
-          },
-          "messages": {
-            "description": "Optional seed user messages injected at the start of every session.",
-            "items": {
-              "$ref": "#/components/schemas/AgentSpecUserMessage"
-            },
-            "type": "array"
-          },
-          "model": {
-            "$ref": "#/components/schemas/AgentSpecModel"
-          },
-          "response_format": {
-            "$ref": "#/components/schemas/ResponseFormat"
-          },
-          "skills": {
-            "description": "Optional name-only skill references. Requires `config.sandbox.enabled: true`.",
-            "items": {
-              "$ref": "#/components/schemas/SkillNameRef"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "model"
         ],
         "type": "object"
       },
@@ -827,7 +783,7 @@
         "additionalProperties": false,
         "properties": {
           "manifest": {
-            "$ref": "#/components/schemas/AgentManifest"
+            "$ref": "#/components/schemas/AgentSpec"
           },
           "name": {
             "allOf": [
@@ -2526,7 +2482,7 @@
         "additionalProperties": false,
         "properties": {
           "manifest": {
-            "$ref": "#/components/schemas/AgentManifest"
+            "$ref": "#/components/schemas/AgentSpec"
           }
         },
         "required": [

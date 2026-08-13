@@ -3,19 +3,19 @@
 import type * as TrueForge from "../../../../../api/index.js";
 import * as core from "../../../../../core/index.js";
 import type * as serializers from "../../../../index.js";
-import { AgentManifest } from "../../../../types/AgentManifest.js";
+import { AgentSpec } from "../../../../types/AgentSpec.js";
 
 export const CreateAgentRequest: core.serialization.Schema<
     serializers.CreateAgentRequest.Raw,
     TrueForge.CreateAgentRequest
 > = core.serialization.object({
-    manifest: AgentManifest,
+    manifest: AgentSpec,
     name: core.serialization.string(),
 });
 
 export declare namespace CreateAgentRequest {
     export interface Raw {
-        manifest: AgentManifest.Raw;
+        manifest: AgentSpec.Raw;
         name: string;
     }
 }
