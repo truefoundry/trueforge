@@ -98,9 +98,9 @@
               {
                 "group": "Setup Custom Server",
                 "pages": [
-                  "ui-sdk/setup-custom-servers/server-contract",
+                  "ui-sdk/setup-custom-servers/connect-with-truefoundry",
                   "ui-sdk/setup-custom-servers/custom-server",
-                  "ui-sdk/setup-custom-servers/connect-with-truefoundry"
+                  "ui-sdk/setup-custom-servers/server-contract"
                 ]
               },
               "ui-sdk/guides/troubleshooting"

@@ -167,9 +167,9 @@ describe('DraftCatalogProvider', () => {
   });
 
   it('refreshes connectors without reloading models or skills', async () => {
-    const getModels = vi.fn(async () => [
+    const getModels = vi.fn(async (): Promise<ModelSelection[]> => [
       {
-        id: 'openai/gpt-4.1',
+        id: 'gpt-4.1',
         name: 'openai/gpt-4.1',
         provider: { name: 'OpenAI' },
         properties: {},

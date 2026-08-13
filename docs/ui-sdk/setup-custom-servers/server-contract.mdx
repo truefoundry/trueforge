@@ -39,7 +39,7 @@ The runtime calls these. All operations are keyed by a flat `sessionId`.
 ```ts
 interface AgentChatServer {
   createSession(req: CreateSessionRequest): Promise<Session>;
-  listSessions(req?: ListSessionsParams): Promise<PageResult<Session, ListSessionsResponse>>;
+  listSessions(req?: ListSessionsParams): Promise<ListResult<Session>>;
   getSession(req: { sessionId: string }): Promise<Session>;
   updateSession(req: UpdateSessionRequest): Promise<Session>;
 
@@ -47,6 +47,8 @@ interface AgentChatServer {
     sessionId: string;
     input?: TurnInputItem[];
     previousTurnId?: PreviousTurnIdInput;
+    abortSignal?: AbortSignal;
+    headers?: Record<string, string>;
   }): AsyncIterable<TurnStreamData>;
 
   cancelSession(req: { sessionId: string }): Promise<void>;
@@ -56,7 +58,8 @@ interface AgentChatServer {
     sessionId: string;
     limit?: number;
     pageToken?: string;
-  }): Promise<PageResult<Turn, ListTurnsResponse>>;
+    order?: ListSessionsOrder;
+  }): Promise<ListResult<Turn>>;
   getTurn(req: { sessionId: string; turnId: string }): Promise<Turn>;
 
   listEvents(req: {
@@ -64,12 +67,21 @@ interface AgentChatServer {
     pageToken?: string;
     lastTurnId?: string;
     limit?: number;
-  }): Promise<PageResult<SessionEventItem, ListSessionEventsResponse>>;
+  }): Promise<ListResult<SessionEventItem>>;
+
+  listTurnEvents?(req: {
+    sessionId: string;
+    turnId: string;
+    limit?: number;
+    pageToken?: string;
+    order?: ListSessionsOrder;
+  }): Promise<ListResult<TurnEvent>>;
 
   subscribeToTurn?(req: {
     sessionId: string;
     turnId: string;
     afterSequenceNumber?: number;
+    abortSignal?: AbortSignal;
   }): AsyncIterable<TurnStreamData>;
 
   downloadSandboxFile?(req: {
@@ -81,7 +93,7 @@ interface AgentChatServer {
 }
 ```
 
-Three methods are optional. `deleteSession` gates the delete control in the session list. `subscribeToTurn` lets a reconnecting client resume a stream from `afterSequenceNumber` rather than replaying it. `downloadSandboxFile` enables artifact downloads.
+Four methods are optional. `deleteSession` gates the delete control in the session list. `listTurnEvents` hydrates the events of a single in-flight turn when your backend can serve them per turn. `subscribeToTurn` lets a reconnecting client resume a stream from `afterSequenceNumber` rather than replaying it — pass the same `abortSignal` you use on `createTurn` to tear it down. `downloadSandboxFile` enables artifact downloads.
 
 <Note>
   `downloadSandboxFile` receives both `turnId` and `sandboxId` because backends address sandboxes differently. If your download route is scoped to a turn, resolve the sandbox from `turnId` and ignore `sandboxId`; if you address sandboxes directly, use `sandboxId`.
@@ -94,8 +106,8 @@ Three methods are optional. `deleteSession` gates the delete control in the sess
 ```ts
 interface Session {
   id: string;
-  title?: string;
-  agentName?: string;
+  title?: string | null;
+  agentName?: string | null;
   agentSpec?: AgentSpec;
   isMutable: boolean;
   createdAt: string;
@@ -110,33 +122,28 @@ interface Session {
 ## Pagination
 
 ```ts
-interface PageResult<T, R = unknown> {
+interface ListResult<T> {
   data: T[];
-  response: R;
-  hasNextPage(): boolean;
-  getNextPage(): Promise<PageResult<T, R>>;
+  nextPageToken?: string;
 }
 ```
 
-`PageResult` is an object with methods, not a plain DTO. `data` holds the rows, `response` carries your raw backend payload, and the two methods drive paging. Requests accept a `pageToken`, so `getNextPage()` is where you call your backend again with the token you held onto.
-
-The `response` type parameter is the shape your endpoint returned — `ListSessionsResponse`, `ListTurnsResponse`, or `ListSessionEventsResponse`, each `{ data, pagination }` where `pagination` is a `TokenPagination` of `{ nextPageToken?, previousPageToken?, limit }`.
+`ListResult` is a plain DTO — `data` holds the rows and `nextPageToken` carries the cursor for the next page, absent on the last page. Requests accept a matching `pageToken`, which the SDK feeds back on the following call.
 
 ```ts
 async listSessions({ pageToken, limit = 20 } = {}) {
   const res = await fetch(`/api/sessions?limit=${limit}&cursor=${pageToken ?? ""}`);
   const body = await res.json(); // { data, pagination }
+  const token = body.pagination?.nextPageToken;
   return {
     data: body.data,
-    response: body,
-    hasNextPage: () => Boolean(body.pagination.nextPageToken),
-    getNextPage: () => this.listSessions({ pageToken: body.pagination.nextPageToken, limit }),
+    ...(token === undefined ? {} : { nextPageToken: token }),
   };
 }
 ```
 
 <Note>
-  Because `PageResult` carries methods, you cannot return a bare object literal parsed from JSON. Build it — or write a small helper — so `hasNextPage` and `getNextPage` are present.
+  Because `ListResult` is a plain object, you can return a parsed JSON body directly as long as it exposes `data` and (optionally) `nextPageToken`.
 </Note>
 
 ## Turn input
@@ -174,7 +181,7 @@ A plain chat message arrives as `user.message`. Approving or rejecting a tool ca
 interface Turn {
   id: string;
   sessionId: string;
-  previousTurnId?: string;
+  previousTurnId?: string | null;
   input?: TurnInputItem[];
   state: TurnState;
   createdAt: string;
@@ -200,7 +207,7 @@ interface AgentBuilderServer {
   getSkills(): Promise<AgentSkill[]>;
   getMcp(): Promise<ConnectorState[]>;
   searchAgents(req?: SearchAgentsParams): Promise<AgentLibraryEntry[]>;
-  saveAgent(req: SaveAgentRequest): Promise<unknown>;
+  saveAgent(req: SaveAgentRequest): Promise<SaveAgentResult>;
   deleteAgent?(req: { agentName: string }): Promise<void>;
 }
 ```
@@ -237,16 +244,18 @@ The remaining methods return the minimum each selector renders:
 
 | Type | Required | Optional |
 | --- | --- | --- |
-| `ModelSelection` | `name`, `provider` | `reasoningEfforts?: string[]` |
+| `ModelSelection` | `id`, `name`, `provider`, `properties` | — |
 | `AgentSkill` | `id`, `name` | `description` |
 | `ConnectorState` | `id`, `name` | `description`, `requiresAuth`, `authenticated` |
-| `AgentLibraryEntry` | `name`, `agentId` | `agentSpec` |
+| `AgentLibraryEntry` | `name` | `agentId`, `agentSpec` |
+
+`provider` is a `{ name; logo? }` object, and `properties` is a `{ reasoningEfforts?: string[] }` object — both are required on the row even when empty (`properties: {}`).
 
 <Note>
-  Return a non-empty `reasoningEfforts` on a `ModelSelection` and the UI shows a reasoning-effort picker beside the model selector. On `AgentLibraryEntry`, `agentId` is the stable identifier used for selection, history filtering, and session binding — it is required even when it matches the display `name`. Supply `agentSpec` to enable Edit; omit it for try-only agents.
+  Return a non-empty `properties.reasoningEfforts` on a `ModelSelection` and the UI shows a reasoning-effort picker beside the model selector. On `AgentLibraryEntry`, `agentId` is the stable identifier used for selection, history filtering, and session binding; omit it and the row falls back to `name`. Supply `agentSpec` to enable Edit; omit it for try-only agents.
 </Note>
 
-`SearchAgentsParams` is `{ query?, limit?, offset? }` — offset paging, since it backs a search box rather than an infinite list. `SaveAgentRequest` is `{ agentName, agentSpec, intent, sessionId? }`, where `intent` is `"create"` for a new agent and `"update"` when the chat is already bound to one, and its return value is passed through untyped.
+`SearchAgentsParams` is `{ query?, limit?, offset? }` — offset paging, since it backs a search box rather than an infinite list. `SaveAgentRequest` is `{ agentName, agentSpec, intent, sessionId? }`, where `intent` is `"create"` for a new agent and `"update"` when the chat is already bound to one. It returns a `SaveAgentResult` of `{ agentId?, sessionUpdatedAt? }` — `agentId` is the id the host registry allocated, and `sessionUpdatedAt` is set when the active mutable session was updated in the same call.
 
 ## AgentSpec
 
@@ -256,15 +265,23 @@ interface AgentSpec {
   instructions?: string;
   skills?: SkillMount[];
   mcpServers?: McpServerMount[];
+  config?: AgentRuntimeConfig;
+  variables?: Record<string, string>;
 }
 
 interface Model {
   name: string;
   params?: { maxTokens?: number; reasoningEffort?: string };
 }
+
+interface AgentRuntimeConfig {
+  generativeUi?: { enabled?: boolean };
+  dynamicSubAgents?: { enabled?: boolean };
+  askUserQuestions?: { enabled?: boolean };
+}
 ```
 
-Only `model` is required. `instructions` carries the system prompt.
+Only `model` is required. `instructions` carries the system prompt. `config` toggles runtime features per agent (generative UI, dynamic sub-agents, ask-user questions), and `variables` holds string substitutions the backend interpolates.
 
 `SkillMount` and `McpServerMount` are typed as `object`. The runtime stores and forwards mounts without reading any field, and your backend owns their shape — so the base constrains only that a mount is an object, and you intersect your concrete type over it.
 
@@ -281,7 +298,7 @@ interface MyModel extends ModelSelection {
 type MySkillMount = { fqn: string; preload: boolean };
 type MySpec = AgentSpec<Model, MySkillMount>;
 
-const server: AgentUIServer<AgentChatServer<MySpec>, AgentBuilderServer<MySpec, MyModel>> = {
+const server: AgentChatServer<MySpec> & AgentBuilderServer<MySpec, MyModel> = {
   /* ... */
 };
 ```
@@ -291,7 +308,7 @@ The UI keeps reading only the fields it knows about; your own components — sup
 ## Next
 
 <CardGroup cols={2}>
-  <Card title="Worked implementation" icon="server" href="/ui-sdk/guides/custom-server">
+  <Card title="Worked implementation" icon="server" href="/ui-sdk/setup-custom-servers/custom-server">
     A minimal `AgentUIServer` you can copy.
   </Card>
 

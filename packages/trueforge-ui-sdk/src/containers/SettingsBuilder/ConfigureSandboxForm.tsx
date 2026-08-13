@@ -25,6 +25,7 @@ type ConfigureSandboxFormProps = {
   /** When false (updates), empty apiKey means keep the existing key. */
   requireApiKey?: boolean;
   busy?: boolean;
+  error?: string | null;
 };
 
 /** Sensible defaults so the advanced fields are never blank, even without a catalog preset. */
@@ -54,6 +55,7 @@ const ConfigureSandboxForm = ({
   initialConfig = null,
   requireApiKey = true,
   busy = false,
+  error,
 }: ConfigureSandboxFormProps) => {
   const [snapshotName, setSnapshotName] = useState('');
   const [execTimeoutMs, setExecTimeoutMs] = useState('');
@@ -273,9 +275,12 @@ const ConfigureSandboxForm = ({
           </Accordion>
         </div>
 
-        <Button type="submit" size="lg" disabled={!isValid || busy} className="mt-6 w-full shrink-0">
-          Save
-        </Button>
+        <div className="mt-6 space-y-3">
+          {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
+          <Button type="submit" size="lg" disabled={!isValid || busy} className="w-full shrink-0">
+            Save
+          </Button>
+        </div>
       </form>
     </CenteredModal>
   );

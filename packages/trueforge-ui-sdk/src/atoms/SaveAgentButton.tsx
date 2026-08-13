@@ -6,6 +6,7 @@ import {
   useTrueFoundryFlushAgentSpec,
 } from '@truefoundry/assistant-ui-runtime';
 import { useId, useMemo, useRef, useState } from 'react';
+import { useSaveAgentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
@@ -106,6 +107,7 @@ function SaveAgentButtonContent({
   const catalog = useDraftCatalog();
   const serverCapabilities = useServerCapabilities();
   const modelListId = useId();
+  const visible = useSaveAgentVisible();
   const [open, setOpen] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [intent, setIntent] = useState<SaveIntent>('create');
@@ -192,7 +194,7 @@ function SaveAgentButtonContent({
     (shell.mode.agentName !== undefined || shell.mode.agentId !== undefined);
   const triggerLabel = isUpdateMode && children === 'Save Agent' ? 'Update Agent' : children;
 
-  if (shell !== null && (shell.mode.status !== 'active' || !shell.mode.isMutable || shell.mode.locked)) {
+  if (!visible || (shell !== null && shell.mode.locked)) {
     return null;
   }
 

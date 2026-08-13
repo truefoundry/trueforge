@@ -136,6 +136,20 @@ describe('SaveAgentButton', () => {
     expect(screen.queryByRole('button', { name: 'Save Agent' })).not.toBeInTheDocument();
   });
 
+  it('shows on an empty new chat when a model is selected', () => {
+    renderButton();
+    expect(screen.getByRole('button', { name: 'Save Agent' })).toBeInTheDocument();
+  });
+
+  it('is hidden when the draft has no model', () => {
+    agentSpec = {
+      model: { name: '' },
+      skills: [{ id: 's1', name: 'Skill One' }],
+    };
+    renderButton();
+    expect(screen.queryByRole('button', { name: 'Save Agent' })).not.toBeInTheDocument();
+  });
+
   it('is hidden in idle library mode without loading catalogs', () => {
     const getModels = vi.fn(async () => []);
     const getSkills = vi.fn(async () => []);

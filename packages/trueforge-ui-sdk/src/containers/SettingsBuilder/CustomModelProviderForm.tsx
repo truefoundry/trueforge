@@ -29,6 +29,7 @@ type CustomModelProviderFormProps = {
   onAdd: (draft: CustomProviderDraft) => void | Promise<void>;
   reasoningEffortOptions?: readonly string[];
   busy?: boolean;
+  error?: string | null;
 };
 
 type ModelRow = {
@@ -109,6 +110,7 @@ const CustomModelProviderForm = ({
   onAdd,
   reasoningEffortOptions,
   busy = false,
+  error,
 }: CustomModelProviderFormProps) => {
   const [name, setName] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
@@ -142,7 +144,14 @@ const CustomModelProviderForm = ({
   const markAllTouched = () => {
     setNameTouched(true);
     setBaseUrlTouched(true);
-    setModels(current => current.map(model => ({ ...model, idTouched: true, contextTouched: true, maxTouched: true })));
+    setModels(current =>
+      current.map(model => ({
+        ...model,
+        idTouched: true,
+        contextTouched: true,
+        maxTouched: true,
+      })),
+    );
   };
 
   // ── Validation (client-side; do not rely on backend errors) ──
@@ -349,7 +358,10 @@ const CustomModelProviderForm = ({
                           onChange={event => {
                             const id = event.target.value;
                             // Keep the model name in sync with the id until the user edits it by hand.
-                            updateModel(index, { id, ...(model.nameDirty ? {} : { name: slugifyModelId(id) }) });
+                            updateModel(index, {
+                              id,
+                              ...(model.nameDirty ? {} : { name: slugifyModelId(id) }),
+                            });
                           }}
                           onBlur={() => updateModel(index, { idTouched: true })}
                           placeholder="llama3.1:70b"
@@ -536,7 +548,8 @@ const CustomModelProviderForm = ({
         </div>
 
         {/* Sticky footer */}
-        <div className="shrink-0 border-t border-border px-5 py-4">
+        <div className="shrink-0 space-y-3 border-t border-border px-5 py-4">
+          {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
           <Button type="submit" size="lg" disabled={!visibleValid || busy} className="w-full">
             Add provider
           </Button>

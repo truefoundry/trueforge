@@ -26,3 +26,75 @@ export default function App() {
 Add `gatewayPlaneURL` alongside `controlPlaneURL` to target a specific gateway.
 
 Because this config is resolved asynchronously, the SDK shows a brief loading indicator before the chat appears. The other two paths mount immediately.
+
+## Build the server yourself
+
+If you need to hold the resolved `AgentUIServer` — to wrap it, log through it, or pass it around before mounting — build it with `createTrueFoundryAgentUIServer`. It returns a ready server (gateway chat plus the Control Plane builder lists) that you hand to `server` directly, so there is no async resolution and no loading indicator on mount.
+
+```tsx App.tsx
+import { useEffect, useState } from "react";
+import { TrueforgeUI } from "@truefoundry/trueforge-ui";
+import {
+  createTrueFoundryAgentUIServer,
+  type TrueFoundryAgentUIServer,
+} from "@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adapter";
+
+export default function App() {
+  const [server, setServer] = useState<TrueFoundryAgentUIServer | null>(null);
+
+  useEffect(() => {
+    createTrueFoundryAgentUIServer({
+      apiKey: import.meta.env.VITE_TFY_API_KEY,
+      cpURL: import.meta.env.VITE_TFY_CONTROL_PLANE_URL,
+    }).then(setServer);
+  }, []);
+
+  if (server === null) {
+    return null;
+  }
+
+  return (
+    <div style={{ height: "100dvh" }}>
+      <TrueforgeUI server={server} layout="sidebar" />
+    </div>
+  );
+}
+```
+
+`gatewayURL` is optional — when omitted it is resolved from `cpURL`.
+
+## TrueFoundry chat, your own builder
+
+To keep TrueFoundry's hosted chat streaming but serve the builder surfaces — models, skills, connectors, and the agent library — from your own backend, compose the gateway chat port with your callbacks through `createTrueFoundryServer`. The stubs below return empty lists, which is enough to mount; fill them in as you add agent management.
+
+```jsx App.tsx
+import { TrueforgeUI, createTrueFoundryServer } from "@truefoundry/trueforge-ui";
+import { createTrueFoundryChatServer } from "@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adapter";
+
+const chatServer = createTrueFoundryChatServer({
+  apiKey: import.meta.env.VITE_TFY_API_KEY,
+  baseUrl: import.meta.env.VITE_TFY_GATEWAY_URL,
+});
+
+const server = createTrueFoundryServer({
+  chatServer,
+  getCapabilities: async () => ({
+    data: { sandbox: { enabled: false }, skill: { enabled: false } },
+  }),
+  getModels: async () => [],
+  getSkills: async () => [],
+  getMcp: async () => [],
+  searchAgents: async () => [],
+  saveAgent: async () => ({}),
+});
+
+export default function App() {
+  return (
+    <div style={{ height: "100dvh" }}>
+      <TrueforgeUI server={server} layout="sidebar" />
+    </div>
+  );
+}
+```
+
+To own chat streaming as well — every call, including the `createTurn` event stream, served by your backend — implement the full interface instead: [Bring your own server](/ui-sdk/setup-custom-servers/custom-server).

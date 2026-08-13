@@ -13,14 +13,14 @@ re-exports override **types** only where needed.
 
 ## Compose
 
-| Export                                                               | Notes                           |
-| -------------------------------------------------------------------- | ------------------------------- |
-| `TrueFoundryChatProvider`                                            | Named-agent runtime + toasts    |
-| `TrueFoundryChatProviderProps`                                       | `client` XOR `apiKey`+`baseUrl` |
-| `Thread`                                                             | Full thread + composer          |
-| `ThreadContainer`, `ComposerContainer`, `ThreadListContainer`        | Building blocks                 |
-| `ErrorToasterProvider`, `useErrorToaster`, `useErrorToasterOptional` | Error toasts                    |
-| Other `*Container` exports                                           | Advanced message / tool wiring  |
+| Export                                                        | Notes                           |
+| ------------------------------------------------------------- | ------------------------------- |
+| `TrueFoundryChatProvider`                                     | Named-agent runtime + toasts    |
+| `TrueFoundryChatProviderProps`                                | `client` XOR `apiKey`+`baseUrl` |
+| `Thread`                                                      | Full thread + composer          |
+| `ThreadContainer`, `ComposerContainer`, `ThreadListContainer` | Building blocks                 |
+| `ToasterProvider`, `useToaster`, `useToasterOptional`         | Success and error toasts        |
+| Other `*Container` exports                                    | Advanced message / tool wiring  |
 
 ## Slots / theme
 
