@@ -4,17 +4,11 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const SandboxBuildMetadata: core.serialization.ObjectSchema<
+export const SandboxBuildMetadata: core.serialization.Schema<
     serializers.SandboxBuildMetadata.Raw,
     TrueForge.SandboxBuildMetadata
-> = core.serialization.object({
-    buildRef: core.serialization.property("build_ref", core.serialization.string()),
-    imageUri: core.serialization.property("image_uri", core.serialization.string()),
-});
+> = core.serialization.record(core.serialization.string(), core.serialization.string().nullable()).nullable();
 
 export declare namespace SandboxBuildMetadata {
-    export interface Raw {
-        build_ref: string;
-        image_uri: string;
-    }
+    export type Raw = Record<string, string | null | undefined> | null | undefined;
 }

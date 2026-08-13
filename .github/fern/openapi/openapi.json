@@ -2706,22 +2706,14 @@
         "type": "object"
       },
       "SandboxBuildMetadata": {
-        "additionalProperties": false,
-        "properties": {
-          "build_ref": {
-            "description": "Provider build handle derived from the image digest (e.g. Daytona snapshot name).",
-            "type": "string"
-          },
-          "image_uri": {
-            "description": "Full reference of the release sandbox image this build refers to.",
-            "type": "string"
-          }
+        "additionalProperties": {
+          "type": "string"
         },
-        "required": [
-          "build_ref",
-          "image_uri"
-        ],
-        "type": "object"
+        "description": "Provider-specific build metadata; null when the provider has none.",
+        "type": [
+          "object",
+          "null"
+        ]
       },
       "SandboxBuildStatus": {
         "description": "Current build status.",

@@ -11,7 +11,7 @@ describe("SandboxProvidersClient", () => {
 
         const rawResponseBody = {
             data: {
-                build_metadata: { build_ref: "build_ref", image_uri: "image_uri" },
+                build_metadata: { key: "value" },
                 manifest: {
                     auth: { api_key: "api_key" },
                     auto_archive_interval_in_minutes: 1,
@@ -37,8 +37,7 @@ describe("SandboxProvidersClient", () => {
         expect(response).toEqual({
             data: {
                 buildMetadata: {
-                    buildRef: "build_ref",
-                    imageUri: "image_uri",
+                    key: "value",
                 },
                 manifest: {
                     auth: {
@@ -88,7 +87,7 @@ describe("SandboxProvidersClient", () => {
         };
         const rawResponseBody = {
             data: {
-                build_metadata: { build_ref: "build_ref", image_uri: "image_uri" },
+                build_metadata: { key: "value" },
                 manifest: {
                     auth: { api_key: "api_key" },
                     auto_archive_interval_in_minutes: 1,
@@ -124,8 +123,7 @@ describe("SandboxProvidersClient", () => {
         expect(response).toEqual({
             data: {
                 buildMetadata: {
-                    buildRef: "build_ref",
-                    imageUri: "image_uri",
+                    key: "value",
                 },
                 manifest: {
                     auth: {

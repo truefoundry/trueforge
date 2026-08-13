@@ -11,7 +11,7 @@ export const SandboxProviderResponse: core.serialization.ObjectSchema<
     serializers.SandboxProviderResponse.Raw,
     TrueForge.SandboxProviderResponse
 > = core.serialization.object({
-    buildMetadata: core.serialization.property("build_metadata", SandboxBuildMetadata),
+    buildMetadata: core.serialization.property("build_metadata", SandboxBuildMetadata.nullable()),
     manifest: SandboxProviderManifest,
     status: SandboxBuildStatus,
     statusReason: core.serialization.property("status_reason", core.serialization.string().nullable()),
@@ -19,7 +19,7 @@ export const SandboxProviderResponse: core.serialization.ObjectSchema<
 
 export declare namespace SandboxProviderResponse {
     export interface Raw {
-        build_metadata: SandboxBuildMetadata.Raw;
+        build_metadata?: (SandboxBuildMetadata.Raw | undefined) | null;
         manifest: SandboxProviderManifest.Raw;
         status: SandboxBuildStatus.Raw;
         status_reason?: string | null;
