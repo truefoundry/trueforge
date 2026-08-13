@@ -20,7 +20,7 @@ The sidebar view is the default layout. You can customize the layout by passing 
     </Frame>
   </Tab>
   <Tab title="drawer">
-    Chat history is tucked into an overlay drawer and can be opened using the history icon. Ideal for smaller viewports, such as tablets and compact monitors, where screen space is limited.
+    Chat history sits in an overlay drawer opened from the history icon. Useful on smaller viewports where a persistent sidebar would crowd the chat.
 
     ```tsx
     <TrueforgeUI server={server} layout="drawer" />
@@ -54,7 +54,7 @@ The sidebar view is the default layout. You can customize the layout by passing 
   </Tab>
 </Tabs>
 
-Built-in layouts are code-split, so only the layout you use is loaded into your bundle. The other three layouts are excluded, keeping your bundle size smaller. A lightweight placeholder is displayed while the selected layout loads.
+Built-in layouts are code-split: only the layout you pick lands in the bundle. A lightweight placeholder shows while it loads.
 
 ## Preset Themes
 
