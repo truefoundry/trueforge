@@ -347,11 +347,7 @@ export interface SandboxProviderTable {
   /** Human-readable detail for `status`; null when ready. */
   status_reason: string | null;
   /** SandboxBuildMetadata document (opaque string map); null when the provider has none. */
-  build_metadata: JSONColumnType<
-    SandboxBuildMetadata | null,
-    SandboxBuildMetadata | null,
-    SandboxBuildMetadata | null
-  >;
+  build_metadata: JSONColumnType<SandboxBuildMetadata | null, SandboxBuildMetadata | null, SandboxBuildMetadata | null>;
   created_at: Date;
   updated_at: Date;
 }

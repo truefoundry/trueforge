@@ -230,8 +230,8 @@ describe('validateAgentSpec', () => {
       },
       status: 'pending',
       status_reason: 'Sandbox image build started.',
-  build_metadata: { build_ref: 'trueforge-build-029ea5ff', image_uri: 'tfy.jfrog.io/tfy-images/sandbox:029ea5ff' },
-});
+      build_metadata: { build_ref: 'trueforge-build-029ea5ff', image_uri: 'tfy.jfrog.io/tfy-images/sandbox:029ea5ff' },
+    });
 
     await expect(
       validateAgentSpec({

@@ -45,7 +45,6 @@ const readyBuild: SandboxBuild = {
 const expectedStatus = {
   status: 'ready' as const,
   status_reason: null,
-  build_metadata: { build_ref: 'trueforge-build-029ea5ff', image_uri: IMAGE_URI },
 };
 
 /** Wire GET/PUT response: the (redacted) manifest nested under `manifest`, plus the build status. */
