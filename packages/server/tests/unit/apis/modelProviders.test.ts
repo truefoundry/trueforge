@@ -187,14 +187,14 @@ describe('custom providers may omit auth', () => {
     },
   ])('PUT stores and lists custom provider with $label', async ({ auth, name }) => {
     const { settingsRouter } = await createRouters();
-    const body = {
+    const base = {
       type: 'custom' as const,
       name,
       base_url: 'http://localhost:11434/v1',
       models: [model],
-      ...(auth === undefined ? {} : { auth }),
     };
-    const expectedWire = auth === undefined ? body : withRedactedApiKey(body);
+    const body = auth === undefined ? base : { ...base, auth };
+    const expectedWire = auth === undefined ? body : withRedactedApiKey({ ...base, auth });
 
     const put = await settingsRouter.request('/model-providers', putInit(body));
     expect(put.status).toBe(200);
@@ -340,7 +340,7 @@ describe('model-provider secret redaction and strict PUT', () => {
     expect(updateBody.data.models).toHaveLength(2);
 
     const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
-    expect(stored?.manifest.auth.api_key).toBe('sk-ant-secret');
+    expect(stored?.manifest.auth?.api_key).toBe('sk-ant-secret');
   });
 
   it('PUT with a real api_key rotates the stored secret', async () => {
@@ -356,7 +356,7 @@ describe('model-provider secret redaction and strict PUT', () => {
     });
 
     const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
-    expect(stored?.manifest.auth.api_key).toBe(rotatedKey);
+    expect(stored?.manifest.auth?.api_key).toBe(rotatedKey);
   });
 });
 

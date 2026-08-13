@@ -14,4 +14,6 @@ import type * as TrueForge from "../../../../index.js";
 export interface AgentWriteRequest extends TrueForge.AgentSpec {
     /** Fully qualified name. Unique within a tenant. */
     name: string;
+    /** Mutable inline session updated atomically with this agent. */
+    sessionId?: string;
 }

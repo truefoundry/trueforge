@@ -20,6 +20,7 @@ export const UpdateAgentRequest: core.serialization.Schema<
     messages: core.serialization.list(AgentSpecUserMessage).optional(),
     model: AgentSpecModel,
     responseFormat: core.serialization.property("response_format", ResponseFormat.optional()),
+    sessionId: core.serialization.property("session_id", core.serialization.string().optional()),
     skills: core.serialization.list(SkillNameRef).optional(),
 });
 
@@ -31,6 +32,7 @@ export declare namespace UpdateAgentRequest {
         messages?: AgentSpecUserMessage.Raw[] | null;
         model: AgentSpecModel.Raw;
         response_format?: ResponseFormat.Raw | null;
+        session_id?: string | null;
         skills?: SkillNameRef.Raw[] | null;
     }
 }

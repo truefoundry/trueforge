@@ -5,7 +5,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # required for npm trusted publishing (OIDC)
+  id-token: write # required for trusted publishing (OIDC)
 
 jobs:
   publish:
@@ -19,10 +19,6 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-
-      # OIDC trusted publishing requires npm >= 11.5.1; node 22 bundles npm 10.x.
-      # npm 11 also refuses prerelease publishes without an explicit --tag.
-      - run: npm install -g npm@latest
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
@@ -41,19 +37,21 @@ jobs:
           fi
 
       # Library first: utils pins workspace:* → this concrete version on publish.
-      # Prereleases (e.g. 0.1.9-rc.1) must pass --tag (npm 11); first preid → dist-tag (rc).
+      # Prereleases (e.g. 0.1.9-rc.1) pass --tag explicitly; first preid → dist-tag (rc).
+      # --no-git-checks: this job checks out a tag (detached HEAD), so pnpm's default
+      # "current branch is main/master" check would otherwise always fail here.
       - name: Publish @truefoundry/utils-core
-        working-directory: packages/harness/dist
+        working-directory: packages/harness
         run: |
           VERSION="$(node -p "require('./package.json').version")"
           if [[ "$VERSION" == *-* ]]; then
             TAG="${VERSION#*-}"
             TAG="${TAG%%.*}"
             echo "Publishing $VERSION with --tag $TAG"
-            npm publish --access public --tag "$TAG"
+            pnpm publish --access public --tag "$TAG" --no-git-checks
           else
             echo "Publishing $VERSION (latest)"
-            npm publish --access public
+            pnpm publish --access public --no-git-checks
           fi
         # TODO(oss): add --provenance once the repo is public. Do NOT add it now:
         # provenance publicly attests the source repo and commit.

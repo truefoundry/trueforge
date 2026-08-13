@@ -20,6 +20,8 @@ export interface UpdateAgentRequest {
     messages?: TrueForge.AgentSpecUserMessage[];
     model: TrueForge.AgentSpecModel;
     responseFormat?: TrueForge.ResponseFormat;
+    /** Mutable inline session updated atomically with this agent. */
+    sessionId?: string;
     /** Optional name-only skill references. Requires `config.sandbox.enabled: true`. */
     skills?: TrueForge.SkillNameRef[];
 }

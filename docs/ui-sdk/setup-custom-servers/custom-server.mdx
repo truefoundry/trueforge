@@ -3,62 +3,22 @@ title: "Bring your own server"
 description: "Implement AgentUIServer and pass the object straight to the component."
 ---
 
-Use this when you compose chat and builder yourself — a chat-only gateway adapter with a stub catalog, a full host BFF, or a proxy that keeps credentials server-side. Pass the server object directly, with no `type` wrapper.
-
-`createTrueFoundryServer` combines a chat port with the builder callbacks. The stubs below return empty lists, which is enough to mount; fill them in as you add agent management.
-
-```jsx App.tsx
-import { TrueforgeUI, createTrueFoundryServer } from "@truefoundry/trueforge-ui";
-import { createTrueFoundryChatServer } from "@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adapter";
-
-// this structure will most likely change. Govinda to update this
-const chatServer = createTrueFoundryChatServer({
-  apiKey: import.meta.env.VITE_TFY_API_KEY,
-  baseUrl: import.meta.env.VITE_TFY_GATEWAY_URL,
-});
-
-const server = createTrueFoundryServer({
-  chatServer,
-  getCapabilities: async () => ({
-    data: { sandbox: { enabled: false }, skill: { enabled: false } },
-  }),
-  getModels: async () => [],
-  getSkills: async () => [],
-  getMcp: async () => [],
-  searchAgents: async () => [],
-  saveAgent: async () => ({}),
-});
-
-export default function App() {
-  return (
-    <div style={{ height: "100dvh" }}>
-      <TrueforgeUI server={server} layout="sidebar" />
-    </div>
-  );
-}
-```
-
-To skip `createTrueFoundryServer` entirely and implement the interface from scratch — against any backend, not just TrueFoundry — see [Bring your own server](/ui-sdk/guides/custom-server).
+Use this when your backend owns the whole contract — sessions, chat streaming, and the agent builder. You implement `AgentUIServer` and pass the object straight to the component, with no `type` wrapper: every call the UI makes, including the `createTurn` event stream, hits your endpoints. Nothing here depends on TrueFoundry.
 
 Because `server` accepts an `AgentUIServer` directly, you can front any backend — including your own proxy that keeps API keys server-side. The object is used immediately, so there is no loading indicator on mount.
+
+<Note>
+  To keep TrueFoundry's hosted chat and supply only your own builder callbacks, use the composition helpers on [Connect with TrueFoundry](/ui-sdk/setup-custom-servers/connect-with-truefoundry#truefoundry-chat-your-own-builder) instead. This page assumes your backend serves everything.
+</Note>
 
 ## Minimal implementation
 
 The shape below is the smallest thing that mounts. Optional methods are omitted; required ones must exist even if they only throw in paths your UI never reaches.
 
-List methods return a `PageResult`, which carries methods as well as data — so a small helper for the single-page case keeps the boilerplate in one place.
+List methods return a `ListResult<T>` — a plain object of `{ data, nextPageToken? }`. There are no methods on it, so you can return a parsed JSON body directly as long as it carries those two fields.
 
 ```ts title="server.ts"
-import type { AgentUIServer, PageResult, Session } from "@truefoundry/trueforge-ui";
-
-function onePage<T>(data: T[]): PageResult<T> {
-  return {
-    data,
-    response: undefined,
-    hasNextPage: () => false,
-    getNextPage: () => Promise.reject(new Error("no more pages")),
-  };
-}
+import type { AgentUIServer, Session } from "@truefoundry/trueforge-ui";
 
 const now = new Date().toISOString();
 const session: Session = {
@@ -74,7 +34,7 @@ export const server: AgentUIServer = {
     return session;
   },
   async listSessions() {
-    return onePage([session]);
+    return { data: [session] };
   },
   async getSession() {
     return session;
@@ -96,13 +56,13 @@ export const server: AgentUIServer = {
     await fetch(`/api/sessions/${sessionId}/cancel`, { method: "POST" });
   },
   async listTurns() {
-    return onePage([]);
+    return { data: [] };
   },
   async getTurn({ turnId }) {
     throw new Error(`unknown turn ${turnId}`);
   },
   async listEvents() {
-    return onePage([]);
+    return { data: [] };
   },
 
   // builder
@@ -110,7 +70,9 @@ export const server: AgentUIServer = {
     return { data: { sandbox: { enabled: false }, skill: { enabled: false } } };
   },
   async getModels() {
-    return [{ name: "my-model", provider: "my-provider" }];
+    return [
+      { id: "my-model", name: "My model", provider: { name: "my-provider" }, properties: {} },
+    ];
   },
   async getSkills() {
     return [];
@@ -183,22 +145,21 @@ Two things are easy to get wrong. Deltas carry the _increment_ rather than the a
 
 ## Pagination
 
-`PageResult<T, R>` carries `data` (the rows), `response` (your raw backend payload), and the methods `hasNextPage()` and `getNextPage()`. Page tokens travel the other way: requests accept a `pageToken`, so `getNextPage()` calls your backend again with the token you kept.
+`ListResult<T>` is `{ data: T[]; nextPageToken?: string }`. Return the next cursor in `nextPageToken`; omit it (or leave it `undefined`) on the last page. Tokens travel the other way too — list requests accept a `pageToken`, which the SDK feeds back to fetch the following page.
 
 ```ts
 async listSessions({ pageToken, limit = 20 } = {}) {
   const res = await fetch(`/api/sessions?limit=${limit}&cursor=${pageToken ?? ""}`);
   const body = await res.json(); // { data, pagination }
+  const token = body.pagination?.nextPageToken;
   return {
     data: body.data,
-    response: body,
-    hasNextPage: () => Boolean(body.pagination.nextPageToken),
-    getNextPage: () => this.listSessions({ pageToken: body.pagination.nextPageToken, limit }),
+    ...(token === undefined ? {} : { nextPageToken: token }),
   };
 }
 ```
 
-Because the result carries methods, you cannot hand back a bare parsed JSON object — construct it, or reuse a helper like the `onePage` above.
+Spreading `nextPageToken` in only when present keeps the result valid under `exactOptionalPropertyTypes`; assigning `undefined` to the optional field directly is rejected there.
 
 `listEvents` additionally accepts `lastTurnId`, used when hydrating history for an existing session.
 
@@ -206,7 +167,7 @@ Because the result carries methods, you cannot hand back a bare parsed JSON obje
 
 <AccordionGroup>
   <Accordion title="deleteSession / deleteAgent">
-    In a hand-written `AgentUIServer` like the one above, omitting these leaves the corresponding affordances unavailable rather than broken. (This differs from `createTrueFoundryServer`, where an omitted `deleteAgent` throws when called.)
+    In a hand-written `AgentUIServer` like the one above, omitting these leaves the corresponding affordances unavailable rather than broken. (This differs from the [`createTrueFoundryServer` composition helper](/ui-sdk/setup-custom-servers/connect-with-truefoundry#truefoundry-chat-your-own-builder), where an omitted `deleteAgent` throws when called.)
   </Accordion>
 
   <Accordion title="downloadSandboxFile">
@@ -224,7 +185,7 @@ Because the result carries methods, you cannot hand back a bare parsed JSON obje
 
 ## Widening the types
 
-The interfaces are generic so you can carry backend-specific fields through the UI without casting. `AgentUIServer` takes the chat port, the builder port, and the catalog:
+The interfaces are generic so you can carry backend-specific fields through the UI without casting. `AgentUIServer` itself is a plain alias, so compose the widened chat and builder ports directly:
 
 ```ts
 interface MyModel extends ModelSelection {
@@ -234,15 +195,12 @@ interface MyModel extends ModelSelection {
 type MySkillMount = { fqn: string; preload: boolean };
 type MySpec = AgentSpec<Model, MySkillMount>;
 
-const server: AgentUIServer<
-  AgentChatServer<MySpec>,
-  AgentBuilderServer<MySpec, MyModel>
-> = {
+const server: AgentChatServer<MySpec> & AgentBuilderServer<MySpec, MyModel> = {
   /* ... */
 };
 ```
 
-See [Widening the types](/ui-sdk/concepts/server-contract#widening-the-types) for the full set of parameters.
+See [Widening the types](/ui-sdk/setup-custom-servers/server-contract#widening-the-types) for the full set of parameters.
 
 ## Attachments
 
