@@ -1,3 +1,3 @@
 - `ISessionStore` is the session/turn persistence contract (no streaming/SSE); Postgres, SQLite, and `InMemorySessionStore` MUST implement it, and shared behavior MUST live in `storeContractSuite.ts` (backend wrappers only bind a store).
 - Changing an `ISessionStore` method, input, error, or semantic MUST update the interface, every implementation, and the contract suite in the same change.
-- Path filters for `agent-session-store-changes` in `.github/workflows/ci.yml` MUST stay synchronized when store or contract-test paths are added, moved, or renamed.
+- Path filters for the `store` filter in `.github/workflows/ci.yml` MUST stay synchronized when store or contract-test paths are added, moved, or renamed.

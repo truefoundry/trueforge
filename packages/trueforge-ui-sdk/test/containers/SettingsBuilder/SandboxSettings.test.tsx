@@ -213,6 +213,8 @@ describe('SandboxSettings', () => {
       expect(screen.getByText('Sandbox providers')).toBeTruthy();
     });
     expect(screen.queryByRole('button', { name: 'Configure' })).toBeNull();
-    expect(screen.getByText('One provider is set up. Update it or remove it to switch.')).toBeTruthy();
+    // Once a provider is configured, the whole "Available" section is hidden (heading + message).
+    expect(screen.queryByText(/^Available ·/)).toBeNull();
+    expect(screen.queryByText('One provider is set up. Update it or remove it to switch.')).toBeNull();
   });
 });
