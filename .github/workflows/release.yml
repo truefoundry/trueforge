@@ -1,17 +1,18 @@
 # npm publish for the four public packages.
 #
-# Filename is load-bearing: npm trusted publishers are bound to `release.yml`.
+# npm trusted publishers are bound to `release.yml`.
 # Do not rename this file without updating every package on npmjs.com.
 #
-# On every push to main, changesets/action does one of:
-#   - pending `.changeset/*.md` → open/update the Version Packages PR
+# On every push to main, changesets/action/select-mode chooses:
+#   - pending `.changeset/*.md` → version job opens/updates the Version Packages PR
 #     (install only; that PR is gated by CI.yml)
-#   - none pending → build, test, then `pnpm release`
+#   - none pending + unpublished versions → pack (build/test) then publish
 # Merge the Version Packages PR to publish. There is no separate publish Action
 # and no `v*` tag trigger.
 #
 # Auth is GitHub OIDC (no NPM_TOKEN). An `_authToken` in user `.npmrc` disables
-# pnpm's OIDC exchange, so this job must not set NPM_TOKEN / NODE_AUTH_TOKEN.
+# pnpm's OIDC exchange, so the publish job must not set NPM_TOKEN / NODE_AUTH_TOKEN.
+# id-token is granted only on the publish job (trusted-publishing best practice).
 name: Release
 
 on:
@@ -24,74 +25,148 @@ concurrency:
   # Never cancel a publish that is already talking to npm.
   cancel-in-progress: false
 
-permissions:
-  contents: write # Version Packages branch + optional GitHub Releases
-  pull-requests: write # open/update the Version Packages PR
-  id-token: write # npm trusted publishing (OIDC)
+permissions: {}
 
 jobs:
-  release:
-    name: Version or publish
+  select-mode:
+    name: Select mode
     runs-on: ubuntu-latest
-    # Fern rebake when the sdk version moves, or build+test on publish.
-    timeout-minutes: 30
+    timeout-minutes: 10
+    outputs:
+      mode: ${{ steps.select-mode.outputs.mode }}
+      publish-plan-artifact-id: ${{ steps.select-mode.outputs.publish-plan-artifact-id }}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repo
+        uses: actions/checkout@v7
         with:
-          # Full history so `changeset version` can write CHANGELOG from commits.
-          fetch-depth: 0
-          # Named branch, not a detached SHA: `pnpm publish` git-checks require
-          # HEAD to be on `main` (the old tag-push job needed --no-git-checks).
-          ref: ${{ github.ref }}
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
-          # No registry-url / NODE_AUTH_TOKEN: an `_authToken` in .npmrc disables
-          # pnpm's OIDC exchange for npm trusted publishing.
 
       - run: pnpm install --frozen-lockfile
 
-      # Same rule changesets/action uses: any `.changeset/*.md` except README.
-      - id: pending
-        name: Detect pending changesets
-        run: |
-          pending=false
-          shopt -s nullglob
-          for file in .changeset/*.md; do
-            [ "$(basename "$file")" = README.md ] && continue
-            pending=true
-            break
-          done
-          echo "pending=$pending" >> "$GITHUB_OUTPUT"
+      - name: Select Changesets mode
+        id: select-mode
+        uses: changesets/action/select-mode@v2
 
-      - if: steps.pending.outputs.pending != 'true'
-        run: pnpm build
-      - if: steps.pending.outputs.pending != 'true'
-        run: pnpm test
+  version:
+    name: Version packages
+    if: needs.select-mode.outputs.mode == 'version'
+    needs: select-mode
+    runs-on: ubuntu-latest
+    # Fern rebake when the sdk version moves.
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v7
+        with:
+          # Full history so `changeset version` can write CHANGELOG from commits.
+          fetch-depth: 0
+          persist-credentials: false
 
-      # Root build copies FE into packages/server/dist/_frontend; refuse an API-only tarball.
-      - if: steps.pending.outputs.pending != 'true'
-        name: Verify packaged UI is present
-        run: |
-          test -f packages/server/dist/cli.js
-          test -f packages/server/dist/_frontend/index.html
+      - uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
 
       # Must be @v2: @changesets/cli@3 stores applied RC changesets under
       # `.changeset/pre/`; @v1 still expects folder-style `pre/changes.md` and
       # fails with ENOENT right after the Version Packages merge.
-      - name: Create Version Packages PR or publish to npm
-        uses: changesets/action@v2
+      - name: Version packages
+        id: version
+        uses: changesets/action/version@v2
         with:
-          version-script: pnpm run version
-          publish-script: pnpm run release
-          create-github-releases: true
+          script: pnpm run version
           push-with-git-cli: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # TODO(oss): set NPM_CONFIG_PROVENANCE once the repo is public. Do NOT
-          # set it now: provenance publicly attests the source repo and commit.
-          # publishConfig.provenance is false on every public package.
+
+  pack:
+    name: Pack packages
+    if: needs.select-mode.outputs.mode == 'publish'
+    needs: select-mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      pack-dir-artifact-id: ${{ steps.pack.outputs.pack-dir-artifact-id }}
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+      - run: pnpm test
+
+      # Root build copies FE into packages/server/dist/_frontend; refuse an API-only tarball.
+      - name: Verify packaged UI is present
+        run: |
+          test -f packages/server/dist/cli.js
+          test -f packages/server/dist/_frontend/index.html
+
+      - name: Pack packages
+        id: pack
+        uses: changesets/action/pack@v2
+        with:
+          publish-plan-artifact-id: ${{ needs.select-mode.outputs.publish-plan-artifact-id }}
+
+  publish:
+    name: Publish packages
+    needs: pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          # No registry-url / NODE_AUTH_TOKEN: an `_authToken` in .npmrc disables
+          # pnpm's OIDC exchange for npm trusted publishing.
+          package-manager-cache: false
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Publish packages
+        uses: changesets/action/publish@v2
+        with:
+          pack-dir-artifact-id: ${{ needs.pack.outputs.pack-dir-artifact-id }}
+          create-github-releases: true
+        # TODO(oss): set NPM_CONFIG_PROVENANCE once the repo is public. Do NOT
+        # set it now: provenance publicly attests the source repo and commit.
+        # publishConfig.provenance is false on every public package.

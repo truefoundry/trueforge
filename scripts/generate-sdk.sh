@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerates .github/fern/openapi/openapi.json and packages/sdk (same steps as CI).
+# Regenerates OpenAPI (.github/fern + docs/) and packages/sdk (same steps as CI).
 # Requires Docker (Fern --local) and network access for the Fern CLI/image.
 set -euo pipefail
 

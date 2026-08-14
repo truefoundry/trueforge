@@ -28,7 +28,7 @@ Workspace dependencies use `workspace:*`. On publish, pnpm rewrites them to the 
 
 ## Release flow
 
-There is no `v*` git-tag publish. One workflow both versions and publishes:
+There is no `v*` git-tag publish. One workflow both versions and publishes, split into least-privilege jobs (`select-mode` → `version` | `pack` → `publish`):
 
 1. **Add a changeset** in the same PR as the code change:
 
@@ -40,17 +40,17 @@ There is no `v*` git-tag publish. One workflow both versions and publishes:
 
    Name only the packages that should bump. A dependency can ship without its dependents. SDK regeneration on a PR already adds `@truefoundry/trueforge-sdk` via `pnpm changeset:sdk-regen`.
 
-2. **Merge to `main`.** `.github/workflows/release.yml` runs. With pending `.changeset/*.md` files, `changesets/action` opens or updates a **Version Packages** PR (`pnpm run version`: `changeset version`, then `pnpm sdk:generate` only if the SDK version moved). Review bumps and changelogs, then merge.
+2. **Merge to `main`.** `.github/workflows/release.yml` runs. `changesets/action/select-mode` picks the path. With pending `.changeset/*.md` files, the **version** job opens or updates a **Version Packages** PR (`pnpm run version`: `changeset version`, then `pnpm sdk:generate` only if the SDK version moved). Review bumps and changelogs, then merge.
 
-3. **Merge Version Packages to publish.** The same workflow sees no pending changesets and runs `pnpm release` (`pnpm build && changeset publish`). Auth is npm trusted publishing over GitHub OIDC (no `NPM_TOKEN`).
+3. **Merge Version Packages to publish.** The same workflow sees no pending changesets: **pack** builds/tests and packs tarballs, then **publish** uploads them. Auth is npm trusted publishing over GitHub OIDC (`id-token` only on the publish job; no `NPM_TOKEN`).
 
    **Dist-tags:** while `.changeset/pre.json` exists (`pnpm changeset pre enter rc`), publishes use the `rc` tag. After `pnpm changeset pre exit`, the next Version Packages merge publishes to `latest`. Install an RC with `npx @truefoundry/trueforge@rc` or a concrete `x.y.z-rc.N` version.
 
 4. **Update downstream pins** that depend on these packages. Prefer exact versions (no `^`) during early `0.x` churn.
 
-`workflow_dispatch` on **Release** re-runs the same job (useful after a bot-only commit that did not re-trigger the workflow).
+`workflow_dispatch` on **Release** re-runs the same workflow (useful after a bot-only commit that did not re-trigger it).
 
-A push to `main` with no pending changesets still runs `changeset publish`, which publishes any `package.json` version not yet on npm and no-ops the rest.
+A push to `main` with no pending changesets still publishes any `package.json` version not yet on npm and no-ops the rest.
 
 ## Prerelease mode
 
@@ -97,9 +97,9 @@ Each of the four packages must list this repository and workflow as a trusted pu
 
 - Repository: `truefoundry/trueforge`
 - Workflow filename: `release.yml` (must match exactly)
-- No GitHub Environment name (the job does not use one)
+- No GitHub Environment name (the publish job does not use one)
 
-Configure the trusted-publisher row **before** the first `changeset publish` for a new package. Do not set `NPM_TOKEN` or an `_authToken` in `.npmrc` on the release job — that disables the OIDC exchange.
+Configure the trusted-publisher row **before** the first publish for a new package. Do not set `NPM_TOKEN` or an `_authToken` in `.npmrc` on the publish job — that disables the OIDC exchange. Only the **publish** job has `id-token: write`.
 
 ## Troubleshooting
 
@@ -107,7 +107,7 @@ Configure the trusted-publisher row **before** the first `changeset publish` for
 - **Publish fails requiring a tag** — prerelease versions need the `rc` dist-tag. `changeset publish` sets that while pre mode is on; for a local publish use `pnpm publish --tag rc`.
 - **Publish fails with 403/E403** — version already published (npm versions are immutable), or the trusted publisher config does not match the workflow filename/repo exactly.
 - **OIDC/auth error** — requires pnpm >= 11.0.7 (native OIDC; `pnpm/action-setup@v4` reads `packageManager` from the root) and a matching trusted publisher config. Remove any registry `_authToken`.
-- **Missing `dist/_frontend/index.html`** — root `pnpm build` must build `frontend` before `@truefoundry/trueforge`; the release job fails closed if the copy is absent.
+- **Missing `dist/_frontend/index.html`** — root `pnpm build` must build `frontend` before `@truefoundry/trueforge`; the pack job fails closed if the copy is absent.
 - **Version PR did not regenerate the SDK** — `scripts/version.mjs` only runs `pnpm sdk:generate` when `@truefoundry/trueforge-sdk`'s version changed. That step needs Docker (available on `ubuntu-latest`).
 
 ---
