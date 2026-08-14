@@ -14,6 +14,8 @@ type DraftCatalogValue = {
   error: string | null;
   /** Kick off catalog fetch (idempotent). Call when a picker opens. */
   ensureLoaded: () => void;
+  /** Reload all collections after settings mutate catalog-backed configuration. */
+  refresh: () => void;
   /** Refresh connector auth state without reloading unrelated catalogs. */
   refreshConnectors: () => Promise<void>;
 };
@@ -37,7 +39,7 @@ export function DraftCatalogProvider({ children }: { children: ReactNode }) {
 }
 
 function DraftCatalogStore({ server, children }: { server: AgentUIServer | null; children: ReactNode }) {
-  const [requested, setRequested] = useState(false);
+  const [requestEpoch, setRequestEpoch] = useState<number | null>(null);
   const [models, setModels] = useState<ModelSelection[]>([]);
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [connectors, setConnectors] = useState<ConnectorState[]>([]);
@@ -45,7 +47,11 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
   const [error, setError] = useState<string | null>(null);
 
   const ensureLoaded = useCallback(() => {
-    setRequested(true);
+    setRequestEpoch(current => current ?? 0);
+  }, []);
+
+  const refresh = useCallback(() => {
+    setRequestEpoch(current => (current ?? -1) + 1);
   }, []);
 
   const refreshConnectors = useCallback(async () => {
@@ -63,7 +69,7 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
   }, [server]);
 
   useEffect(() => {
-    if (!requested || !server) return;
+    if (requestEpoch === null || !server) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -95,11 +101,11 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
     return () => {
       cancelled = true;
     };
-  }, [requested, server]);
+  }, [requestEpoch, server]);
 
   const value = useMemo(
-    () => ({ server, models, skills, connectors, loading, error, ensureLoaded, refreshConnectors }),
-    [server, models, skills, connectors, loading, error, ensureLoaded, refreshConnectors],
+    () => ({ server, models, skills, connectors, loading, error, ensureLoaded, refresh, refreshConnectors }),
+    [server, models, skills, connectors, loading, error, ensureLoaded, refresh, refreshConnectors],
   );
 
   return <DraftCatalogContext.Provider value={value}>{children}</DraftCatalogContext.Provider>;
@@ -115,6 +121,7 @@ export function useDraftCatalog(): DraftCatalogValue {
       loading: false,
       error: null,
       ensureLoaded: IDLE_ENSURE,
+      refresh: IDLE_ENSURE,
       refreshConnectors: IDLE_REFRESH,
     };
   }
