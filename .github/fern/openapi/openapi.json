@@ -433,7 +433,7 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
-            "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
+            "$ref": "#/components/schemas/McpServerManifestAuth"
           },
           "description": {
             "description": "Concise summary of what this MCP server provides.",
@@ -710,24 +710,6 @@
           "auth_status"
         ],
         "type": "object"
-      },
-      "ConfiguredMcpServerAuth": {
-        "description": "Optional default auth settings for the preset.",
-        "discriminator": {
-          "mapping": {
-            "dcr": "#/components/schemas/McpServerDcrAuth",
-            "header": "#/components/schemas/McpServerHeaderAuth"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/McpServerHeaderAuth"
-          },
-          {
-            "$ref": "#/components/schemas/McpServerDcrAuth"
-          }
-        ]
       },
       "ConfiguredSkill": {
         "additionalProperties": false,
@@ -1864,14 +1846,7 @@
         "additionalProperties": false,
         "properties": {
           "auth": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
-              },
-              {
-                "description": "Optional auth settings. Omit when the server needs no credentials."
-              }
-            ]
+            "$ref": "#/components/schemas/McpServerManifestAuth"
           },
           "description": {
             "description": "Concise summary of what this MCP server provides.",
@@ -1904,6 +1879,24 @@
           "description"
         ],
         "type": "object"
+      },
+      "McpServerManifestAuth": {
+        "description": "Optional auth settings. Omit when the server needs no credentials.",
+        "discriminator": {
+          "mapping": {
+            "dcr": "#/components/schemas/McpServerDcrAuth",
+            "header": "#/components/schemas/McpServerHeaderAuth"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/McpServerHeaderAuth"
+          },
+          {
+            "$ref": "#/components/schemas/McpServerDcrAuth"
+          }
+        ]
       },
       "McpServerReadEntry": {
         "additionalProperties": false,

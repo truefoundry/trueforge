@@ -28,7 +28,6 @@ export * from "./ChatCompletionContentPartText.js";
 export * from "./ChatCompletionMessageToolCall.js";
 export * from "./ChatCompletionMessageToolCallFunction.js";
 export * from "./ConfiguredMcpServer.js";
-export * from "./ConfiguredMcpServerAuth.js";
 export * from "./ConfiguredSkill.js";
 export * from "./ContextManagementConfig.js";
 export * from "./ContextManagementConfigCompaction.js";

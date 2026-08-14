@@ -3,7 +3,6 @@
 import type * as TrueForge from "../index.js";
 
 export interface McpServerManifest {
-    /** Optional auth settings. Omit when the server needs no credentials. */
     auth?: TrueForge.McpServerManifestAuth;
     /** Concise summary of what this MCP server provides. */
     description: string;
