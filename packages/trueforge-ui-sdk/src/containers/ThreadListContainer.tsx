@@ -251,6 +251,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   const aui = useAui();
   const server = useOptionalServer();
   const isLoading = useAuiState(s => s.threads.isLoading);
+  const isLoadingMore = useAuiState(s => s.threads.isLoadingMore);
   const hasMore = useAuiState(s => s.threads.hasMore);
   const threadIds = useAuiState(s => s.threads.threadIds);
   const shell = useOptionalShellMode();
@@ -262,7 +263,6 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   const ThreadListEmptyState = useSlot('ThreadListEmptyState');
 
   const viewportRef = useRef<HTMLDivElement>(null);
-  const loadMoreInflightRef = useRef(false);
   const hasMoreRef = useRef(hasMore);
   const auiRef = useRef(aui);
   hasMoreRef.current = hasMore;
@@ -273,35 +273,24 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   const canDeleteSession = typeof server?.deleteSession === 'function';
 
   // Fill an underflowing viewport; once it scrolls, paginate only near the bottom.
+  // Re-measure after commit (threadIds / hasMore) instead of rAF-chaining, which
+  // raced layout and could drain every remaining listSessions page.
+  // The runtime owns request deduplication, so Strict Mode remounts can recheck safely.
   useEffect(() => {
-    if (isIdle) return;
+    if (isIdle || isLoading || isLoadingMore) return;
     const viewport = viewportRef.current;
     if (!viewport) return;
 
     let cancelled = false;
-    let chainRaf = 0;
 
     const tryLoadMore = () => {
-      if (cancelled || !hasMoreRef.current || loadMoreInflightRef.current) return;
+      if (cancelled || !hasMoreRef.current) return;
+      if (viewport.clientHeight <= 0) return;
 
-      // If the viewport has overflow, paginate only near the bottom.
-      const hasOverflow = viewport.scrollHeight > viewport.clientHeight;
-      if (hasOverflow) {
-        if (viewport.scrollTop <= 0) return;
-        const remaining = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-        // If the viewport is not close to the bottom, don't fetch the next page.
-        if (remaining > LOAD_MORE_BOTTOM_PX) return;
-      } else if (viewport.clientHeight <= 0) {
-        return;
-      }
+      const remaining = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+      if (viewport.scrollHeight > viewport.clientHeight && remaining > LOAD_MORE_BOTTOM_PX) return;
 
-      loadMoreInflightRef.current = true;
-      void Promise.resolve(auiRef.current.threads().loadMore()).finally(() => {
-        loadMoreInflightRef.current = false;
-        if (cancelled) return;
-        // Still glued to the bottom after append → fetch the next page.
-        chainRaf = requestAnimationFrame(() => tryLoadMore());
-      });
+      void auiRef.current.threads().loadMore();
     };
 
     viewport.addEventListener('scroll', tryLoadMore, { passive: true });
@@ -310,11 +299,10 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(chainRaf);
       viewport.removeEventListener('scroll', tryLoadMore);
       window.removeEventListener('resize', tryLoadMore);
     };
-  }, [hasMore, isIdle, threadIds.length]);
+  }, [hasMore, isIdle, isLoading, isLoadingMore, threadIds.length]);
 
   const handleNewChat = () => {
     onThreadOpen?.();
