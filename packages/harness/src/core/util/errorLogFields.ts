@@ -16,8 +16,8 @@ function formatObjectErrorForLog(error: object): string {
  * never surface developer-only strings (e.g. unserialisable dumps) in Agent Steps.
  */
 export function describeUnknownError(error: unknown): string {
-  if (error instanceof Error && error.message.length > 0) {
-    return error.message;
+  if (error instanceof Error) {
+    return error.message.length > 0 ? error.message : 'An unexpected error occurred';
   }
   if (typeof error !== 'object' || error === null) {
     return String(error);
