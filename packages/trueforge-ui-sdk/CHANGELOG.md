@@ -26,6 +26,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`@truefoundry/assistant-ui-runtime` ≥ 0.1.18** — depends on the consolidated
+  runtime release that includes:
+  - `getModels` → `properties.reasoningEfforts` for thinking-capable models
+  - extras ancestor walk so nested/readonly AUI clients resolve
+    `useTrueFoundryRespondToToolApproval` (sub-agent Allow/Deny)
+  - parallel enabled-models + provider-metadata CP fetches
+  - `ModelSelectorEntry.name` / `id` = `model_fqn` (`account/model-id`)
+  - gateway mount sanitization (`normalizeMcpMount` / `normalizeSkillMount`,
+    registry `enableTools` default `["@all"]`)
+
+### Fixed
+
+- **Sub-agent Allow/Deny** — nested tool approvals inside `create_sub_agent` now
+  call `useTrueFoundryRespondToToolApproval` with the _nested_ tool's approval
+  id. The old bridge keyed off the outer sub-agent part (usually with no
+  approval), so clicks silently no-op'd. Requires `@truefoundry/assistant-ui-runtime`
+  ≥ 0.1.19 so extras resolve through the readonly nested AUI client.
+- **Sandbox provider contract** — drop `snapshotName` from `SandboxProviderConfig`
+  and wrap `listSandboxProviders` as `{ data, snapshotSyncStatus }` (Harness
+  `status` / `status_reason`). Re-exports `SandboxProviderListEntry` /
+  `SandboxSnapshotSyncStatus`.
+
 ### Added
 
 - **`type: "trueforge"` built-in server** — `<TrueforgeUI server={{ type: 'trueforge', baseUrl?, token?, fetch? }} />`

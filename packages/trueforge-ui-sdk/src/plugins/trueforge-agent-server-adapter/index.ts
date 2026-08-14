@@ -34,8 +34,10 @@ export {
 export {
   configFromHarness,
   createSandboxProviderCatalog,
+  filterUiSandboxProviders,
   toHarnessManifest as toHarnessSandboxManifest,
   toUiSandboxProvider,
+  toUiSandboxProviderListEntry,
 } from './catalogs/sandboxProviderCatalog.js';
 export { createSkillCatalog, toHarnessManifest as toHarnessSkillManifest, toUiSkill } from './catalogs/skillCatalog.js';
 export {

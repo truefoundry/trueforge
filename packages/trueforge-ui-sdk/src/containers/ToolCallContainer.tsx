@@ -59,14 +59,36 @@ function NestedSubAgentAssistantMessage() {
 }
 
 function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
-  const nestedBridge = useNestedApprovalBridge();
+  const isNestedReadonly = useNestedApprovalBridge();
+  const respondToNestedApproval = useTrueFoundryRespondToToolApproval();
 
   const respond = (response: ToolApprovalResponse) => {
-    if (nestedBridge) {
-      nestedBridge(response);
+    if (!isNestedReadonly) {
+      part.respondToApproval(response);
       return;
     }
-    part.respondToApproval(response);
+    // Readonly nested thread: use this part's approval id, not the outer
+    // create_sub_agent tool (which usually has no approval of its own).
+    if (part.approval == null) return;
+
+    let approved: boolean | undefined;
+    let optionId: string | undefined;
+    if ('approved' in response) {
+      approved = response.approved;
+    } else if ('optionId' in response) {
+      const option = buildApprovalOptions(part.approval.options).find(o => o.id === response.optionId);
+      if (option == null) return;
+      approved = option.isAllow;
+      optionId = response.optionId;
+    }
+    if (approved === undefined) return;
+
+    respondToNestedApproval({
+      approvalId: part.approval.id,
+      approved,
+      ...(optionId != null && optionId !== '__allow' && optionId !== '__deny' ? { optionId } : {}),
+      ...('reason' in response && response.reason != null ? { reason: response.reason } : {}),
+    });
   };
 
   const onSelectOption = (optionId: string, reason?: string) => {
@@ -114,7 +136,6 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
   const ToolCallCard = useSlot('ToolCallCard');
   const SubAgentCard = useSlot('SubAgentCard');
   const AskUserPrompt = useSlot('AskUserPrompt');
-  const respondToNestedApproval = useTrueFoundryRespondToToolApproval();
   const elapsedMs = useToolCallElapsed();
   const isRequiresAction = part.status?.type === 'requires-action';
   const isSubAgent = part.toolName === SUB_AGENT_TOOL_NAME;
@@ -163,13 +184,6 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
   if (isSubAgent) {
     const { agentName, instruction, stepCount } = resolveSubAgentMeta(part);
 
-    const bridge = (response: ToolApprovalResponse) => {
-      if (part.approval == null) return;
-      const approved = 'approved' in response ? response.approved : undefined;
-      if (approved === undefined) return;
-      respondToNestedApproval({ approvalId: part.approval.id, approved });
-    };
-
     return (
       <div data-slot="tool-call-card" data-variant="sub-agent" className="w-full">
         <SubAgentCard
@@ -181,7 +195,7 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
           instruction={instruction}
           stepCount={stepCount}
         >
-          <NestedApprovalBridgeContext.Provider value={bridge}>
+          <NestedApprovalBridgeContext.Provider value={true}>
             <MessagePartPrimitive.Messages
               components={{
                 AssistantMessage: NestedSubAgentAssistantMessage,

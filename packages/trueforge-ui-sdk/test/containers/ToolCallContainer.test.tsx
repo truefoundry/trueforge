@@ -11,6 +11,18 @@ import { AssistantMessageContainer } from '@/containers/AssistantMessageContaine
 import { SlotsProvider, type SlotOverrides } from '@/theme/SlotsProvider.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 
+const { respondToNestedApproval } = vi.hoisted(() => ({
+  respondToNestedApproval: vi.fn(),
+}));
+
+vi.mock('@truefoundry/assistant-ui-runtime', async importOriginal => {
+  const actual = await importOriginal<typeof import('@truefoundry/assistant-ui-runtime')>();
+  return {
+    ...actual,
+    useTrueFoundryRespondToToolApproval: () => respondToNestedApproval,
+  };
+});
+
 function renderToolCallMessage(content: ThreadMessageLike['content'], overrides?: SlotOverrides) {
   const message: ThreadMessageLike = { role: 'assistant', content };
   return render(
@@ -224,6 +236,70 @@ describe('ToolCallContainer', () => {
       }),
     );
     expect(screen.getByText('Nested agent response')).toBeInTheDocument();
+  });
+
+  it('routes Allow inside a sub-agent to the nested tool approval id', () => {
+    respondToNestedApproval.mockClear();
+    const SubAgentCard = createSubAgentCardProbe();
+    const nestedMessage: ThreadMessage = {
+      id: 'nested-message-1',
+      role: 'assistant',
+      createdAt: new Date('2026-07-01T00:00:00Z'),
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId: 'nested-tool-1',
+          toolName: 'delete_file',
+          args: {},
+          argsText: '{}',
+          interrupt: { type: 'human', payload: {} },
+          approval: { id: 'nested-approval-1', approved: undefined },
+        },
+      ],
+      status: { type: 'requires-action', reason: 'tool-calls' },
+      metadata: {
+        unstable_state: null,
+        unstable_annotations: [],
+        unstable_data: [],
+        steps: [],
+        custom: {
+          subAgent: {
+            title: 'Research specialist',
+            input: 'Clean up temp files',
+          },
+        },
+      },
+    };
+
+    render(
+      <SlotsProvider overrides={{ SubAgentCard }}>
+        <RuntimeHarness
+          messages={[
+            {
+              role: 'assistant',
+              status: { type: 'requires-action', reason: 'tool-calls' },
+              content: [
+                {
+                  type: 'tool-call',
+                  toolCallId: 'sub-agent-1',
+                  toolName: 'create_sub_agent',
+                  args: {},
+                  // Parent create_sub_agent has no approval — only the nested tool does.
+                  messages: [nestedMessage],
+                },
+              ],
+            },
+          ]}
+        >
+          <ThreadPrimitive.Messages>{() => <AssistantMessageContainer />}</ThreadPrimitive.Messages>
+        </RuntimeHarness>
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Allow' }));
+    expect(respondToNestedApproval).toHaveBeenCalledWith(
+      expect.objectContaining({ approvalId: 'nested-approval-1', approved: true }),
+    );
   });
 
   it('auto-expands and shows the approval bar while an approval is pending', () => {
