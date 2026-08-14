@@ -38,7 +38,6 @@
     "standalone:start": "STANDALONE=true NODE_ENV=production pnpm --filter @truefoundry/trueforge start",
     "start": "STANDALONE=false NODE_ENV=production pnpm --filter @truefoundry/trueforge start",
     "push-sandbox-image-to-daytona": "pnpm --filter @truefoundry/trueforge push-sandbox-image-to-daytona",
-    "release": "pnpm build && changeset publish",
     "test:frontend": "pnpm --filter frontend test",
     "test:harness": "pnpm --filter @truefoundry/trueforge-core test",
     "test:server": "pnpm --filter @truefoundry/trueforge test",

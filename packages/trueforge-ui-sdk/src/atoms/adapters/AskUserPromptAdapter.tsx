@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from 'react';
 import { Icon } from '../../icons/Icon.js';
 import { cn } from '../lib/cn.js';
 import { Button } from '../primitives/Button.js';
@@ -90,11 +91,50 @@ export function AskUserPrompt({
   if (!currentQuestion) return null;
 
   const isCustomSelected = currentAnswer.radioValue === ASK_USER_CUSTOM_OPTION;
+  const hasOptions = currentQuestion.options.length > 0;
 
   const handleOptionSelect = (value: string) => {
     if (readOnly) return;
     onCurrentAnswerChange?.(currentQuestion.id, { radioValue: value });
   };
+
+  const goToNextQuestion = () => onCurrentQuestionIndexChange?.(currentQuestionIndex + 1);
+  const isNextStep = isMultiQuestion && !isLastQuestion;
+
+  const handleAnswerKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Enter' || event.shiftKey || readOnly) return;
+    event.preventDefault();
+    if (isNextStep) {
+      if (!isSubmitDisabled) goToNextQuestion();
+      return;
+    }
+    if (!isSubmitAllDisabled) onSubmit();
+  };
+
+  const answerInput = (
+    <textarea
+      rows={1}
+      value={currentAnswer.custom}
+      disabled={readOnly || !currentQuestion.id}
+      onFocus={() =>
+        onCurrentAnswerChange?.(currentQuestion.id, {
+          radioValue: ASK_USER_CUSTOM_OPTION,
+        })
+      }
+      onChange={e => {
+        onCurrentAnswerChange?.(currentQuestion.id, {
+          custom: e.target.value,
+          radioValue: ASK_USER_CUSTOM_OPTION,
+        });
+      }}
+      placeholder={hasOptions ? 'Other' : 'Type your answer'}
+      aria-label={hasOptions ? 'Other (custom answer)' : 'Your answer'}
+      className={cn(
+        'field-sizing-content min-h-6 max-h-[3lh] w-full resize-none overflow-y-auto rounded border border-input-border bg-primary-bg px-2 py-0.5 text-[0.8125rem] leading-snug text-text-primary',
+        'placeholder:text-[0.8125rem] focus:outline-none focus:ring-1 focus:ring-focus-ring',
+      )}
+    />
+  );
 
   return (
     <div
@@ -146,8 +186,9 @@ export function AskUserPrompt({
           )}
           <div
             className="flex flex-col gap-3 overflow-visible"
-            role="radiogroup"
-            aria-label={currentQuestion.question || 'Answer options'}
+            role={hasOptions ? 'radiogroup' : undefined}
+            aria-label={hasOptions ? currentQuestion.question || 'Answer options' : undefined}
+            onKeyDown={handleAnswerKeyDown}
           >
             {currentQuestion.options.map((opt, index) => {
               const isSelected = currentAnswer.radioValue === opt;
@@ -175,45 +216,27 @@ export function AskUserPrompt({
               );
             })}
 
-            <label
-              className={cn(
-                'flex items-center gap-x-2 overflow-visible',
-                readOnly ? 'cursor-default' : 'cursor-pointer',
-              )}
-            >
-              <input
-                type="radio"
-                disabled={readOnly || !currentQuestion.id}
-                value={ASK_USER_CUSTOM_OPTION}
-                name={`ask-user-question-option-${currentQuestion.id}`}
-                checked={isCustomSelected}
-                onChange={() => handleOptionSelect(ASK_USER_CUSTOM_OPTION)}
-                className="accent-primary-button-bg"
-              />
-              <div className="min-w-0 flex-1">
+            {hasOptions ? (
+              <label
+                className={cn(
+                  'flex items-start gap-x-2 overflow-visible',
+                  readOnly ? 'cursor-default' : 'cursor-pointer',
+                )}
+              >
                 <input
-                  value={currentAnswer.custom}
+                  type="radio"
                   disabled={readOnly || !currentQuestion.id}
-                  onFocus={() =>
-                    onCurrentAnswerChange?.(currentQuestion.id, {
-                      radioValue: ASK_USER_CUSTOM_OPTION,
-                    })
-                  }
-                  onChange={e => {
-                    onCurrentAnswerChange?.(currentQuestion.id, {
-                      custom: e.target.value,
-                      radioValue: ASK_USER_CUSTOM_OPTION,
-                    });
-                  }}
-                  placeholder="Other"
-                  aria-label="Other (custom answer)"
-                  className={cn(
-                    'h-6 w-full rounded border border-input-border bg-primary-bg px-2 text-[0.8125rem] text-text-primary',
-                    'placeholder:text-[0.8125rem] focus:outline-none focus:ring-1 focus:ring-focus-ring',
-                  )}
+                  value={ASK_USER_CUSTOM_OPTION}
+                  name={`ask-user-question-option-${currentQuestion.id}`}
+                  checked={isCustomSelected}
+                  onChange={() => handleOptionSelect(ASK_USER_CUSTOM_OPTION)}
+                  className="mt-1 accent-primary-button-bg"
                 />
-              </div>
-            </label>
+                <div className="min-w-0 flex-1">{answerInput}</div>
+              </label>
+            ) : (
+              answerInput
+            )}
           </div>
         </div>
 
@@ -229,13 +252,8 @@ export function AskUserPrompt({
             ) : (
               <span />
             )}
-            {isMultiQuestion && !isLastQuestion ? (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => onCurrentQuestionIndexChange?.(currentQuestionIndex + 1)}
-                disabled={isSubmitDisabled}
-              >
+            {isNextStep ? (
+              <Button type="button" size="sm" onClick={goToNextQuestion} disabled={isSubmitDisabled}>
                 Next
               </Button>
             ) : (

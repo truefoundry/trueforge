@@ -67,8 +67,5 @@ try {
     rmSync(legacyDbDir, { recursive: true, force: true });
   }
 } catch (error) {
-  console.warn(
-    `Could not remove empty legacy dir ${legacyDbDir}:`,
-    error instanceof Error ? error.message : error,
-  );
+  console.warn(`Could not remove empty legacy dir ${legacyDbDir}:`, error instanceof Error ? error.message : error);
 }

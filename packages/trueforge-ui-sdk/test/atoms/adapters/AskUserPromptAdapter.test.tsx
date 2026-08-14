@@ -111,6 +111,50 @@ describe('AskUserPrompt', () => {
     expect(onCurrentQuestionIndexChange).toHaveBeenLastCalledWith(1);
   });
 
+  it('drops the radio group for an option-less question and submits on Enter', () => {
+    const freeForm: Question = { id: 'where', question: 'Where should I look?', options: [] };
+    const onSubmit = vi.fn();
+    render(
+      <AskUserPrompt
+        questions={[freeForm]}
+        currentQuestion={freeForm}
+        currentAnswer={{ radioValue: ASK_USER_CUSTOM_OPTION, custom: 'packages/server' }}
+        isSubmitAllDisabled={false}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+
+    const answer = screen.getByRole('textbox', { name: 'Your answer' });
+    fireEvent.keyDown(answer, { key: 'Enter', shiftKey: true });
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(answer, { key: 'Enter' });
+    expect(onSubmit).toHaveBeenCalledOnce();
+  });
+
+  it('advances instead of submitting when Enter is pressed before the last question', () => {
+    const onCurrentQuestionIndexChange = vi.fn();
+    const onSubmit = vi.fn();
+    render(
+      <AskUserPrompt
+        questions={[firstQuestion, secondQuestion]}
+        currentQuestion={firstQuestion}
+        currentQuestionIndex={0}
+        currentAnswer={{ radioValue: 'Immediately', custom: '' }}
+        isSubmitDisabled={false}
+        onCurrentQuestionIndexChange={onCurrentQuestionIndexChange}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    fireEvent.keyDown(screen.getByRole('radio', { name: 'Immediately' }), { key: 'Enter' });
+    expect(onCurrentQuestionIndexChange).toHaveBeenCalledWith(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it('makes an unanswered read-only question non-interactive', () => {
     const onCurrentAnswerChange = vi.fn();
     const onSubmit = vi.fn();
