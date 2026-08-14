@@ -106,25 +106,33 @@ See the [chart README](charts/trueforge/README.md) (including [`configs.oidc`](c
 
 ## Build your first agent
 
-Full walkthrough: [Quickstart](https://trueforge.dev/quickstart).
+Full walkthrough: [Quickstart](https://trueforge.dev/quickstart). The example below builds a **web research briefer** — it searches the web, fans out to parallel subagents, and renders an interactive brief.
 
-1. **Setup models** - **Settings → Models**, pick a catalog provider, paste your API key.
+1. **Add a model provider** - **Settings → Models**, pick a provider, paste your API key.
 
    ![Configure a model provider](./docs/images/quickstart-models.png)
 
-2. **Setup connectors & skills** (optional) - **Settings → Connectors** / **Skills**. Skills need a sandbox.
+2. **Connect a web-search tool** - **Settings → Connectors**, connect **Exa** (no auth). Then under **Settings → Skills**, enable **web-artifacts-builder** (skills run in a sandbox).
 
-   ![Connectors](./docs/images/quickstart-connectors.png)
+   ![Connect Exa in Settings → Connectors](./docs/images/quickstart-connectors.png)
 
-3. **Setup sandbox** (optional) - **Settings → Sandbox providers**. Daytona is the only provider supported today.
+3. **Add a sandbox** - **Settings → Sandbox providers**, configure **Daytona** (the provider supported today).
 
-   ![Sandbox](./docs/images/quickstart-sandbox.png)
+   ![Daytona sandbox connected](./docs/images/quickstart-sandbox-connected.png)
 
-4. **Create an agent** - pick a model, attach connectors/skills, write instructions, then **Save as agent**.
+4. **Compose and run** - pick a model, enable Exa and web-artifacts-builder, then send a prompt:
 
-   ![Save as agent](./docs/images/quickstart-save-agent.png)
+   > Research the current state of open-source vector databases. Compare Qdrant, Weaviate, and Milvus on performance, features, and licensing, then write a one-page brief with sources.
 
-5. **Find it in the Agent Library** - open **Agents Library**, then **Try** or **Edit**. In hosted mode with login enabled, agents created by anyone are visible to everyone - see [Agent Library](https://trueforge.dev/agent-library).
+   The agent searches with Exa, delegates to parallel subagents, and renders an interactive brief.
+
+   ![The agent's interactive research brief](./docs/images/quickstart-chat-result.png)
+
+5. **Save as an agent** - click **Save Agent** and name it `web-research-brief`.
+
+   ![Save agent](./docs/images/quickstart-save-agent.png)
+
+6. **Find it in the Agent Library** - open **Agents Library**, then **Try** or **Edit**. In hosted mode with login enabled, agents created by anyone are visible to everyone - see [Agent Library](https://trueforge.dev/agent-library).
 
    ![Agents Library](./docs/images/quickstart-agents-library.png)
 
