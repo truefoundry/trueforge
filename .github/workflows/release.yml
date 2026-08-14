@@ -50,7 +50,8 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          registry-url: https://registry.npmjs.org
+          # No registry-url / NODE_AUTH_TOKEN: an `_authToken` in .npmrc disables
+          # pnpm's OIDC exchange for npm trusted publishing.
 
       - run: pnpm install --frozen-lockfile
 
@@ -79,12 +80,16 @@ jobs:
           test -f packages/server/dist/cli.js
           test -f packages/server/dist/_frontend/index.html
 
+      # Must be @v2: @changesets/cli@3 stores applied RC changesets under
+      # `.changeset/pre/`; @v1 still expects folder-style `pre/changes.md` and
+      # fails with ENOENT right after the Version Packages merge.
       - name: Create Version Packages PR or publish to npm
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
-          version: pnpm run version
-          publish: pnpm run release
-          createGithubReleases: true
+          version-script: pnpm run version
+          publish-script: pnpm run release
+          create-github-releases: true
+          push-with-git-cli: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # TODO(oss): set NPM_CONFIG_PROVENANCE once the repo is public. Do NOT

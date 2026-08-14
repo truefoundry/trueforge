@@ -3,7 +3,6 @@ dist/
 *.tgz
 .DS_Store
 *.log
-.env
 coverage/
 .turbo/
 *.tsbuildinfo
@@ -18,3 +17,21 @@ data/
 # Helm subchart deps are fetched via `helm dependency build` (pinned by the
 # committed Chart.lock); the downloaded .tgz/dirs are not committed.
 charts/*/charts/
+
+# Secrets / local env (keep committed examples and the unit-test env fixture)
+.env
+.env.*
+!.env.example
+!.env.test
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+credentials.json
+service-account*.json
+.aws/
+
+# Local Cursor scratch (committed rules under .cursor/rules/ stay tracked)
+.cursor/notes/
+.cursor/plans/
