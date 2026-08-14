@@ -687,23 +687,11 @@
       "ConfiguredMcpServer": {
         "additionalProperties": false,
         "properties": {
-          "auth": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
-              },
-              {
-                "description": "Optional auth settings. Omit when the server needs no credentials."
-              }
-            ]
-          },
           "auth_status": {
             "$ref": "#/components/schemas/McpAuthStatus"
           },
-          "description": {
-            "description": "Concise summary of what this MCP server provides.",
-            "minLength": 1,
-            "type": "string"
+          "manifest": {
+            "$ref": "#/components/schemas/McpServerManifest"
           },
           "name": {
             "allOf": [
@@ -714,21 +702,11 @@
                 "description": "Fully qualified name. Unique within a tenant."
               }
             ]
-          },
-          "type": {
-            "$ref": "#/components/schemas/McpServerType"
-          },
-          "url": {
-            "description": "URL of the remote MCP server.",
-            "format": "uri",
-            "type": "string"
           }
         },
         "required": [
-          "type",
           "name",
-          "url",
-          "description",
+          "manifest",
           "auth_status"
         ],
         "type": "object"
@@ -750,6 +728,29 @@
             "$ref": "#/components/schemas/McpServerDcrAuth"
           }
         ]
+      },
+      "ConfiguredSkill": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/SkillManifest"
+          },
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "manifest"
+        ],
+        "type": "object"
       },
       "ContextManagementConfig": {
         "default": {
@@ -811,45 +812,24 @@
       "CreateMcpServerRequest": {
         "additionalProperties": false,
         "properties": {
-          "auth": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ConfiguredMcpServerAuth"
-              },
-              {
-                "description": "Optional auth settings. Omit when the server needs no credentials."
-              }
-            ]
-          },
-          "description": {
-            "description": "Concise summary of what this MCP server provides.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
-          },
-          "type": {
-            "$ref": "#/components/schemas/McpServerType"
-          },
-          "url": {
-            "description": "URL of the remote MCP server.",
-            "format": "uri",
-            "type": "string"
+          "manifest": {
+            "$ref": "#/components/schemas/McpServerManifest"
           }
         },
         "required": [
-          "type",
-          "name",
-          "url",
-          "description"
+          "manifest"
+        ],
+        "type": "object"
+      },
+      "CreateModelProviderRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/ModelProviderManifest"
+          }
+        },
+        "required": [
+          "manifest"
         ],
         "type": "object"
       },
@@ -872,6 +852,18 @@
         },
         "required": [
           "agent"
+        ],
+        "type": "object"
+      },
+      "CreateSkillRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/SkillManifest"
+          }
+        },
+        "required": [
+          "manifest"
         ],
         "type": "object"
       },
@@ -1181,6 +1173,17 @@
         ],
         "type": "object"
       },
+      "GetModelProviderResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ModelProvider"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetSandboxProviderCatalogResponse": {
         "properties": {
           "data": {
@@ -1198,7 +1201,7 @@
       "GetSandboxProviderResponse": {
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/SandboxProviderResponse"
+            "$ref": "#/components/schemas/SandboxProvider"
           }
         },
         "required": [
@@ -1224,6 +1227,17 @@
               "$ref": "#/components/schemas/CatalogSkill"
             },
             "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetSkillResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ConfiguredSkill"
           }
         },
         "required": [
@@ -1322,20 +1336,6 @@
           "data": {
             "items": {
               "$ref": "#/components/schemas/SkillReadEntry"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "type": "object"
-      },
-      "ListConfiguredSkillsResponse": {
-        "properties": {
-          "data": {
-            "items": {
-              "$ref": "#/components/schemas/SkillManifest"
             },
             "type": "array"
           }
@@ -1445,6 +1445,20 @@
         "required": [
           "data",
           "pagination"
+        ],
+        "type": "object"
+      },
+      "ListSkillsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredSkill"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       },
@@ -2297,6 +2311,44 @@
         "type": "object"
       },
       "ModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/ModelProviderManifest"
+          },
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "manifest"
+        ],
+        "type": "object"
+      },
+      "ModelProviderAuth": {
+        "additionalProperties": false,
+        "description": "Provider authentication credentials.",
+        "properties": {
+          "api_key": {
+            "description": "Provider API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_key"
+        ],
+        "type": "object"
+      },
+      "ModelProviderManifest": {
         "discriminator": {
           "mapping": {
             "alibaba": "#/components/schemas/AlibabaModelProvider",
@@ -2340,21 +2392,6 @@
             "$ref": "#/components/schemas/CustomModelProvider"
           }
         ]
-      },
-      "ModelProviderAuth": {
-        "additionalProperties": false,
-        "description": "Provider authentication credentials.",
-        "properties": {
-          "api_key": {
-            "description": "Provider API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key.",
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "api_key"
-        ],
-        "type": "object"
       },
       "MoonshotModelProvider": {
         "additionalProperties": false,
@@ -2458,47 +2495,51 @@
         ],
         "type": "object"
       },
-      "PutMcpServerResponse": {
+      "PutMcpServerRequest": {
+        "additionalProperties": false,
         "properties": {
-          "data": {
-            "$ref": "#/components/schemas/ConfiguredMcpServer"
+          "manifest": {
+            "$ref": "#/components/schemas/McpServerManifest"
           }
         },
         "required": [
-          "data"
+          "manifest"
         ],
         "type": "object"
       },
-      "PutModelProviderResponse": {
+      "PutModelProviderRequest": {
+        "additionalProperties": false,
         "properties": {
-          "data": {
-            "$ref": "#/components/schemas/ModelProvider"
+          "manifest": {
+            "$ref": "#/components/schemas/ModelProviderManifest"
           }
         },
         "required": [
-          "data"
+          "manifest"
         ],
         "type": "object"
       },
-      "PutSandboxProviderResponse": {
+      "PutSandboxProviderRequest": {
+        "additionalProperties": false,
         "properties": {
-          "data": {
-            "$ref": "#/components/schemas/SandboxProviderResponse"
+          "manifest": {
+            "$ref": "#/components/schemas/SandboxProviderManifest"
           }
         },
         "required": [
-          "data"
+          "manifest"
         ],
         "type": "object"
       },
-      "PutSkillResponse": {
+      "PutSkillRequest": {
+        "additionalProperties": false,
         "properties": {
-          "data": {
+          "manifest": {
             "$ref": "#/components/schemas/SkillManifest"
           }
         },
         "required": [
-          "data"
+          "manifest"
         ],
         "type": "object"
       },
@@ -2872,6 +2913,30 @@
         },
         "type": "object"
       },
+      "SandboxProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/SandboxProviderManifest"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SandboxBuildStatus"
+          },
+          "status_reason": {
+            "description": "Human-readable detail for the current status; null when ready.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "manifest",
+          "status",
+          "status_reason"
+        ],
+        "type": "object"
+      },
       "SandboxProviderManifest": {
         "additionalProperties": false,
         "properties": {
@@ -2913,30 +2978,6 @@
           "auto_stop_interval_in_minutes",
           "auto_archive_interval_in_minutes",
           "auto_delete_interval_in_minutes"
-        ],
-        "type": "object"
-      },
-      "SandboxProviderResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "manifest": {
-            "$ref": "#/components/schemas/SandboxProviderManifest"
-          },
-          "status": {
-            "$ref": "#/components/schemas/SandboxBuildStatus"
-          },
-          "status_reason": {
-            "description": "Human-readable detail for the current status; null when ready.",
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "manifest",
-          "status",
-          "status_reason"
         ],
         "type": "object"
       },
@@ -4994,7 +5035,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PutMcpServerResponse"
+                  "$ref": "#/components/schemas/GetMcpServerResponse"
                 }
               }
             },
@@ -6391,11 +6432,11 @@
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PutMcpServerResponse"
+                  "$ref": "#/components/schemas/GetMcpServerResponse"
                 }
               }
             },
@@ -6448,7 +6489,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/McpServerManifest"
+                "$ref": "#/components/schemas/PutMcpServerRequest"
               }
             }
           },
@@ -6459,7 +6500,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PutMcpServerResponse"
+                  "$ref": "#/components/schemas/GetMcpServerResponse"
                 }
               }
             },
@@ -6627,7 +6668,7 @@
     },
     "/api/v1/settings/model-providers": {
       "get": {
-        "description": "All configured providers with their models.",
+        "description": "All configured providers with nested manifests.",
         "responses": {
           "200": {
             "content": {
@@ -6676,18 +6717,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ModelProvider"
+                "$ref": "#/components/schemas/CreateModelProviderRequest"
               }
             }
           },
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PutModelProviderResponse"
+                  "$ref": "#/components/schemas/GetModelProviderResponse"
                 }
               }
             },
@@ -6730,7 +6771,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ModelProvider"
+                "$ref": "#/components/schemas/PutModelProviderRequest"
               }
             }
           },
@@ -6741,7 +6782,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PutModelProviderResponse"
+                  "$ref": "#/components/schemas/GetModelProviderResponse"
                 }
               }
             },
@@ -6810,7 +6851,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SandboxProviderManifest"
+                "$ref": "#/components/schemas/PutSandboxProviderRequest"
               }
             }
           },
@@ -6821,7 +6862,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PutSandboxProviderResponse"
+                  "$ref": "#/components/schemas/GetSandboxProviderResponse"
                 }
               }
             },
@@ -6861,13 +6902,13 @@
     },
     "/api/v1/settings/skills": {
       "get": {
-        "description": "All configured skills with full manifests (settings / admin projection).",
+        "description": "All configured skills with nested manifests (settings / admin projection).",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListConfiguredSkillsResponse"
+                  "$ref": "#/components/schemas/ListSkillsResponse"
                 }
               }
             },
@@ -6910,18 +6951,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SkillManifest"
+                "$ref": "#/components/schemas/CreateSkillRequest"
               }
             }
           },
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PutSkillResponse"
+                  "$ref": "#/components/schemas/GetSkillResponse"
                 }
               }
             },
@@ -6964,7 +7005,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SkillManifest"
+                "$ref": "#/components/schemas/PutSkillRequest"
               }
             }
           },
@@ -6975,7 +7016,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PutSkillResponse"
+                  "$ref": "#/components/schemas/GetSkillResponse"
                 }
               }
             },

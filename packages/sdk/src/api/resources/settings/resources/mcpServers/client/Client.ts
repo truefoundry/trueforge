@@ -129,22 +129,25 @@ export class McpServersClient {
      *
      * @example
      *     await client.settings.mcpServers.create({
-     *         description: "description",
-     *         name: "name",
-     *         url: "url"
+     *         manifest: {
+     *             description: "description",
+     *             name: "name",
+     *             type: "remote",
+     *             url: "url"
+     *         }
      *     })
      */
     public create(
         request: TrueForge.settings.CreateMcpServerRequest,
         requestOptions?: McpServersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.PutMcpServerResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetMcpServerResponse> {
         return core.HttpResponsePromise.fromPromise(this.__create(request, requestOptions));
     }
 
     private async __create(
         request: TrueForge.settings.CreateMcpServerRequest,
         requestOptions?: McpServersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.PutMcpServerResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetMcpServerResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -163,15 +166,12 @@ export class McpServersClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                {
-                    ...serializers.settings.CreateMcpServerRequest.jsonOrThrow(request, {
-                        unrecognizedObjectKeys: "passthrough",
-                        allowUnrecognizedUnionMembers: true,
-                        allowUnrecognizedEnumValues: true,
-                        omitUndefined: true,
-                    }),
-                    type: "remote",
-                },
+                serializers.settings.CreateMcpServerRequest.jsonOrThrow(request, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    omitUndefined: true,
+                }),
                 requestOptions?.additionalBodyParameters,
             ),
             timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
@@ -182,7 +182,7 @@ export class McpServersClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.PutMcpServerResponse.parseOrThrow(_response.body, {
+                data: serializers.GetMcpServerResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -243,7 +243,7 @@ export class McpServersClient {
     /**
      * Create or replace by `name`. Does not start DCR or change oauth client columns. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).
      *
-     * @param {TrueForge.settings.McpServerManifest} request
+     * @param {TrueForge.settings.PutMcpServerRequest} request
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -253,22 +253,25 @@ export class McpServersClient {
      *
      * @example
      *     await client.settings.mcpServers.upsert({
-     *         description: "description",
-     *         name: "name",
-     *         url: "url"
+     *         manifest: {
+     *             description: "description",
+     *             name: "name",
+     *             type: "remote",
+     *             url: "url"
+     *         }
      *     })
      */
     public upsert(
-        request: TrueForge.settings.McpServerManifest,
+        request: TrueForge.settings.PutMcpServerRequest,
         requestOptions?: McpServersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.PutMcpServerResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetMcpServerResponse> {
         return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
     }
 
     private async __upsert(
-        request: TrueForge.settings.McpServerManifest,
+        request: TrueForge.settings.PutMcpServerRequest,
         requestOptions?: McpServersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.PutMcpServerResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetMcpServerResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -287,15 +290,12 @@ export class McpServersClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                {
-                    ...serializers.settings.McpServerManifest.jsonOrThrow(request, {
-                        unrecognizedObjectKeys: "passthrough",
-                        allowUnrecognizedUnionMembers: true,
-                        allowUnrecognizedEnumValues: true,
-                        omitUndefined: true,
-                    }),
-                    type: "remote",
-                },
+                serializers.settings.PutMcpServerRequest.jsonOrThrow(request, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    omitUndefined: true,
+                }),
                 requestOptions?.additionalBodyParameters,
             ),
             timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
@@ -306,7 +306,7 @@ export class McpServersClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.PutMcpServerResponse.parseOrThrow(_response.body, {
+                data: serializers.GetMcpServerResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

@@ -5,18 +5,14 @@ import type * as TrueForge from "../../../../../../index.js";
 /**
  * @example
  *     {
- *         description: "description",
- *         name: "name",
- *         url: "url"
+ *         manifest: {
+ *             description: "description",
+ *             name: "name",
+ *             type: "remote",
+ *             url: "url"
+ *         }
  *     }
  */
 export interface CreateMcpServerRequest {
-    /** Optional auth settings. Omit when the server needs no credentials. */
-    auth?: TrueForge.settings.CreateMcpServerRequestAuth;
-    /** Concise summary of what this MCP server provides. */
-    description: string;
-    /** Fully qualified name. Unique within a tenant. */
-    name: string;
-    /** URL of the remote MCP server. */
-    url: string;
+    manifest: TrueForge.McpServerManifest;
 }

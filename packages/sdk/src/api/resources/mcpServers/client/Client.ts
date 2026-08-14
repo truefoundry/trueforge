@@ -265,14 +265,14 @@ export class McpServersClient {
     public deleteAuthorize(
         name: string,
         requestOptions?: McpServersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.PutMcpServerResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetMcpServerResponse> {
         return core.HttpResponsePromise.fromPromise(this.__deleteAuthorize(name, requestOptions));
     }
 
     private async __deleteAuthorize(
         name: string,
         requestOptions?: McpServersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.PutMcpServerResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetMcpServerResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -296,7 +296,7 @@ export class McpServersClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.PutMcpServerResponse.parseOrThrow(_response.body, {
+                data: serializers.GetMcpServerResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

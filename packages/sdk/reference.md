@@ -622,7 +622,7 @@ await client.mcpServers.authorize("name");
 </dl>
 </details>
 
-<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">deleteAuthorize</a>(name) -> TrueForge.PutMcpServerResponse</code></summary>
+<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">deleteAuthorize</a>(name) -> TrueForge.GetMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -2084,7 +2084,7 @@ await client.settings.mcpServers.list();
 </dl>
 </details>
 
-<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">create</a>({ ...params }) -> TrueForge.PutMcpServerResponse</code></summary>
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">create</a>({ ...params }) -> TrueForge.GetMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -2112,9 +2112,12 @@ Creates an MCP server by `name`. Fails if `name` is already taken. Runs DCR regi
 
 ```typescript
 await client.settings.mcpServers.create({
-    description: "description",
-    name: "name",
-    url: "url"
+    manifest: {
+        description: "description",
+        name: "name",
+        type: "remote",
+        url: "url"
+    }
 });
 
 ```
@@ -2151,7 +2154,7 @@ await client.settings.mcpServers.create({
 </dl>
 </details>
 
-<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.PutMcpServerResponse</code></summary>
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.GetMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -2179,9 +2182,12 @@ Create or replace by `name`. Does not start DCR or change oauth client columns. 
 
 ```typescript
 await client.settings.mcpServers.upsert({
-    description: "description",
-    name: "name",
-    url: "url"
+    manifest: {
+        description: "description",
+        name: "name",
+        type: "remote",
+        url: "url"
+    }
 });
 
 ```
@@ -2198,7 +2204,7 @@ await client.settings.mcpServers.upsert({
 <dl>
 <dd>
 
-**request:** `TrueForge.settings.McpServerManifest` 
+**request:** `TrueForge.settings.PutMcpServerRequest` 
     
 </dd>
 </dl>
@@ -2357,7 +2363,7 @@ await client.settings.mcpServers.listTools("name");
 <dl>
 <dd>
 
-All configured providers with their models.
+All configured providers with nested manifests.
 </dd>
 </dl>
 </dd>
@@ -2400,7 +2406,7 @@ await client.settings.modelProviders.list();
 </dl>
 </details>
 
-<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">create</a>({ ...params }) -> TrueForge.PutModelProviderResponse</code></summary>
+<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">create</a>({ ...params }) -> TrueForge.GetModelProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -2428,15 +2434,17 @@ Creates a provider (models included). Fails if `name` is already taken. Well-kno
 
 ```typescript
 await client.settings.modelProviders.create({
-    auth: {
-        apiKey: "api_key"
-    },
-    models: [{
-            modelId: "model_id",
-            name: "name",
-            properties: {}
-        }],
-    type: "alibaba"
+    manifest: {
+        auth: {
+            apiKey: "api_key"
+        },
+        models: [{
+                modelId: "model_id",
+                name: "name",
+                properties: {}
+            }],
+        type: "alibaba"
+    }
 });
 
 ```
@@ -2453,7 +2461,7 @@ await client.settings.modelProviders.create({
 <dl>
 <dd>
 
-**request:** `TrueForge.ModelProvider` 
+**request:** `TrueForge.settings.CreateModelProviderRequest` 
     
 </dd>
 </dl>
@@ -2473,7 +2481,7 @@ await client.settings.modelProviders.create({
 </dl>
 </details>
 
-<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.PutModelProviderResponse</code></summary>
+<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.GetModelProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -2501,15 +2509,17 @@ Create or replace a provider (models included). Well-known types use `type` as `
 
 ```typescript
 await client.settings.modelProviders.upsert({
-    auth: {
-        apiKey: "api_key"
-    },
-    models: [{
-            modelId: "model_id",
-            name: "name",
-            properties: {}
-        }],
-    type: "alibaba"
+    manifest: {
+        auth: {
+            apiKey: "api_key"
+        },
+        models: [{
+                modelId: "model_id",
+                name: "name",
+                properties: {}
+            }],
+        type: "alibaba"
+    }
 });
 
 ```
@@ -2526,7 +2536,7 @@ await client.settings.modelProviders.upsert({
 <dl>
 <dd>
 
-**request:** `TrueForge.ModelProvider` 
+**request:** `TrueForge.settings.PutModelProviderRequest` 
     
 </dd>
 </dl>
@@ -2602,7 +2612,7 @@ await client.settings.sandboxProviders.get();
 </dl>
 </details>
 
-<details><summary><code>client.settings.sandboxProviders.<a href="/src/api/resources/settings/resources/sandboxProviders/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.PutSandboxProviderResponse</code></summary>
+<details><summary><code>client.settings.sandboxProviders.<a href="/src/api/resources/settings/resources/sandboxProviders/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.GetSandboxProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -2630,14 +2640,16 @@ Upserts the single sandbox provider for this tenant: creates it or replaces its 
 
 ```typescript
 await client.settings.sandboxProviders.upsert({
-    auth: {
-        apiKey: "api_key"
-    },
-    autoArchiveIntervalInMinutes: 1,
-    autoDeleteIntervalInMinutes: 1,
-    autoStopIntervalInMinutes: 1,
-    execTimeoutMs: 1,
-    type: "daytona"
+    manifest: {
+        auth: {
+            apiKey: "api_key"
+        },
+        autoArchiveIntervalInMinutes: 1,
+        autoDeleteIntervalInMinutes: 1,
+        autoStopIntervalInMinutes: 1,
+        execTimeoutMs: 1,
+        type: "daytona"
+    }
 });
 
 ```
@@ -2654,7 +2666,7 @@ await client.settings.sandboxProviders.upsert({
 <dl>
 <dd>
 
-**request:** `TrueForge.SandboxProviderManifest` 
+**request:** `TrueForge.settings.PutSandboxProviderRequest` 
     
 </dd>
 </dl>
@@ -2675,7 +2687,7 @@ await client.settings.sandboxProviders.upsert({
 </details>
 
 ## Settings Skills
-<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">list</a>() -> TrueForge.ListConfiguredSkillsResponse</code></summary>
+<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">list</a>() -> TrueForge.ListSkillsResponse</code></summary>
 <dl>
 <dd>
 
@@ -2687,7 +2699,7 @@ await client.settings.sandboxProviders.upsert({
 <dl>
 <dd>
 
-All configured skills with full manifests (settings / admin projection).
+All configured skills with nested manifests (settings / admin projection).
 </dd>
 </dl>
 </dd>
@@ -2730,7 +2742,7 @@ await client.settings.skills.list();
 </dl>
 </details>
 
-<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">create</a>({ ...params }) -> TrueForge.PutSkillResponse</code></summary>
+<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">create</a>({ ...params }) -> TrueForge.GetSkillResponse</code></summary>
 <dl>
 <dd>
 
@@ -2758,11 +2770,13 @@ Creates a skill keyed by `name`. Fails if `name` is already taken.
 
 ```typescript
 await client.settings.skills.create({
-    description: "description",
-    name: "name",
-    ref: "ref",
-    type: "git",
-    url: "url"
+    manifest: {
+        description: "description",
+        name: "name",
+        ref: "ref",
+        type: "git",
+        url: "url"
+    }
 });
 
 ```
@@ -2779,7 +2793,7 @@ await client.settings.skills.create({
 <dl>
 <dd>
 
-**request:** `TrueForge.SkillManifest` 
+**request:** `TrueForge.settings.CreateSkillRequest` 
     
 </dd>
 </dl>
@@ -2799,7 +2813,7 @@ await client.settings.skills.create({
 </dl>
 </details>
 
-<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.PutSkillResponse</code></summary>
+<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.GetSkillResponse</code></summary>
 <dl>
 <dd>
 
@@ -2827,11 +2841,13 @@ Full upsert keyed by `name`: creates the skill or replaces its entire manifest.
 
 ```typescript
 await client.settings.skills.upsert({
-    description: "description",
-    name: "name",
-    ref: "ref",
-    type: "git",
-    url: "url"
+    manifest: {
+        description: "description",
+        name: "name",
+        ref: "ref",
+        type: "git",
+        url: "url"
+    }
 });
 
 ```
@@ -2848,7 +2864,7 @@ await client.settings.skills.upsert({
 <dl>
 <dd>
 
-**request:** `TrueForge.SkillManifest` 
+**request:** `TrueForge.settings.PutSkillRequest` 
     
 </dd>
 </dl>

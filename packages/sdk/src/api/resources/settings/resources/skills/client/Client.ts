@@ -24,7 +24,7 @@ export class SkillsClient {
     }
 
     /**
-     * All configured skills with full manifests (settings / admin projection).
+     * All configured skills with nested manifests (settings / admin projection).
      *
      * @param {SkillsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -36,15 +36,13 @@ export class SkillsClient {
      * @example
      *     await client.settings.skills.list()
      */
-    public list(
-        requestOptions?: SkillsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.ListConfiguredSkillsResponse> {
+    public list(requestOptions?: SkillsClient.RequestOptions): core.HttpResponsePromise<TrueForge.ListSkillsResponse> {
         return core.HttpResponsePromise.fromPromise(this.__list(requestOptions));
     }
 
     private async __list(
         requestOptions?: SkillsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.ListConfiguredSkillsResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.ListSkillsResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -68,7 +66,7 @@ export class SkillsClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.ListConfiguredSkillsResponse.parseOrThrow(_response.body, {
+                data: serializers.ListSkillsResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -118,7 +116,7 @@ export class SkillsClient {
     /**
      * Creates a skill keyed by `name`. Fails if `name` is already taken.
      *
-     * @param {TrueForge.SkillManifest} request
+     * @param {TrueForge.settings.CreateSkillRequest} request
      * @param {SkillsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -128,24 +126,26 @@ export class SkillsClient {
      *
      * @example
      *     await client.settings.skills.create({
-     *         description: "description",
-     *         name: "name",
-     *         ref: "ref",
-     *         type: "git",
-     *         url: "url"
+     *         manifest: {
+     *             description: "description",
+     *             name: "name",
+     *             ref: "ref",
+     *             type: "git",
+     *             url: "url"
+     *         }
      *     })
      */
     public create(
-        request: TrueForge.SkillManifest,
+        request: TrueForge.settings.CreateSkillRequest,
         requestOptions?: SkillsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.PutSkillResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetSkillResponse> {
         return core.HttpResponsePromise.fromPromise(this.__create(request, requestOptions));
     }
 
     private async __create(
-        request: TrueForge.SkillManifest,
+        request: TrueForge.settings.CreateSkillRequest,
         requestOptions?: SkillsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.PutSkillResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetSkillResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -164,7 +164,7 @@ export class SkillsClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.SkillManifest.jsonOrThrow(request, {
+                serializers.settings.CreateSkillRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -180,7 +180,7 @@ export class SkillsClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.PutSkillResponse.parseOrThrow(_response.body, {
+                data: serializers.GetSkillResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -230,7 +230,7 @@ export class SkillsClient {
     /**
      * Full upsert keyed by `name`: creates the skill or replaces its entire manifest.
      *
-     * @param {TrueForge.SkillManifest} request
+     * @param {TrueForge.settings.PutSkillRequest} request
      * @param {SkillsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -239,24 +239,26 @@ export class SkillsClient {
      *
      * @example
      *     await client.settings.skills.upsert({
-     *         description: "description",
-     *         name: "name",
-     *         ref: "ref",
-     *         type: "git",
-     *         url: "url"
+     *         manifest: {
+     *             description: "description",
+     *             name: "name",
+     *             ref: "ref",
+     *             type: "git",
+     *             url: "url"
+     *         }
      *     })
      */
     public upsert(
-        request: TrueForge.SkillManifest,
+        request: TrueForge.settings.PutSkillRequest,
         requestOptions?: SkillsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.PutSkillResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetSkillResponse> {
         return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
     }
 
     private async __upsert(
-        request: TrueForge.SkillManifest,
+        request: TrueForge.settings.PutSkillRequest,
         requestOptions?: SkillsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.PutSkillResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetSkillResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -275,7 +277,7 @@ export class SkillsClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.SkillManifest.jsonOrThrow(request, {
+                serializers.settings.PutSkillRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -291,7 +293,7 @@ export class SkillsClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.PutSkillResponse.parseOrThrow(_response.body, {
+                data: serializers.GetSkillResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
