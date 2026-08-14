@@ -36,9 +36,10 @@ const McpServerDcrAuthSchema = z
   .strict()
   .openapi('McpServerDcrAuth');
 
-export const McpServerAuthSettingsSchema = z
+export const McpServerManifestAuthSchema = z
   .discriminatedUnion('type', [McpServerHeaderAuthSchema, McpServerDcrAuthSchema])
-  .openapi('ConfiguredMcpServerAuth');
+  .describe('Optional auth settings. Omit when the server needs no credentials.')
+  .openapi('McpServerManifestAuth');
 
 export const McpServerDescriptionSchema = z
   .string()
@@ -53,9 +54,7 @@ export const McpServerManifestObjectSchema = z
     name: NameSchema,
     url: z.url().describe('URL of the remote MCP server.'),
     description: McpServerDescriptionSchema,
-    auth: McpServerAuthSettingsSchema.optional().describe(
-      'Optional auth settings. Omit when the server needs no credentials.',
-    ),
+    auth: McpServerManifestAuthSchema.optional(),
   })
   .strict();
 
@@ -129,7 +128,7 @@ export const ListAvailableMcpServersResponseSchema = z
   .openapi('ListAvailableMcpServersResponse');
 
 export type McpServerType = z.infer<typeof McpServerTypeSchema>;
-export type McpServerAuthSettings = z.infer<typeof McpServerAuthSettingsSchema>;
+export type McpServerManifestAuth = z.infer<typeof McpServerManifestAuthSchema>;
 export type McpServerManifest = z.infer<typeof McpServerManifestSchema>;
 export type McpAuthStatus = z.infer<typeof McpAuthStatusSchema>;
 export type McpServerAuthPublic = z.infer<typeof McpServerAuthPublicSchema>;
