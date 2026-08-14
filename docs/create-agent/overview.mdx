@@ -1,7 +1,7 @@
 ---
 title: 'Create an Agent'
-sidebarTitle: 'Create an Agent'
-description: 'Pick a model, attach MCP servers and skills, write instructions, save a reusable agent, and tune its capabilities.'
+sidebarTitle: 'Overview'
+description: 'Pick a model, attach MCP servers and skills, write instructions, and save a reusable agent.'
 ---
 
 After [initial setup](/harness/initial-setup), build an agent in the chat UI composer (or via the [SDK](/api/overview)).
@@ -40,10 +40,6 @@ Switching the model is a one-click (or one-field) change. No new API keys in the
 ## Configure capabilities
 
 Beyond model, tools, and skills, an agent has a few runtime behaviors you can tune.
-
-<Note>
-  The composer's **Capabilities** tab has toggles for **Generative UI**, **Ask clarifying questions** (ask-user-questions), and **Dynamic sub-agents** — all three are **on by default**. (Dynamic sub-agents is covered in [Subagents](/key-features/subagents).) Finer-grained settings — the per-tool **approval policy** (`require_approval_for_tools`) and the raw `config.*` fields — are set via the **API / SDK**. See the [Agent Spec reference](/create-agent/agent-spec).
-</Note>
 
 ### Tool approval
 
