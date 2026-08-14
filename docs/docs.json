@@ -72,52 +72,38 @@
             "pages": ["api/overview", "api/use-agent", "api/turn-events"]
           },
           {
-            "group": "Chat UI",
-            "pages": ["chat-ui"]
+            "group": "UI Chat",
+            "pages": [
+              "chat-ui",
+              "ui-sdk/get-started/quickstart",
+              {
+                "group": "Frontend Customisation",
+                "pages": [
+                  "ui-sdk/guides/layouts",
+                  "ui-sdk/guides/layouts-and-theme",
+                  "ui-sdk/guides/agent-modes",
+                  "ui-sdk/setup-custom-ui/custom-theme",
+                  "ui-sdk/guides/troubleshooting"
+                ]
+              },
+              {
+                "group": "API reference",
+                "pages": [
+                  "ui-sdk/reference/trueforge-ui",
+                  "ui-sdk/reference/theme",
+                  "ui-sdk/reference/containers",
+                  "ui-sdk/reference/atoms",
+                  "ui-sdk/reference/hooks",
+                  "ui-sdk/reference/server",
+                  "ui-sdk/reference/events",
+                  "ui-sdk/reference/catalog"
+                ]
+              }
+            ]
           },
           {
             "group": "Project",
             "pages": ["roadmap"]
-          }
-        ]
-      },
-      {
-        "tab": "UI SDK",
-        "groups": [
-          {
-            "group": "Get started",
-            "pages": ["ui-sdk/index", "ui-sdk/get-started/quickstart"]
-          },
-          {
-            "group": "Frontend Customisation",
-            "pages": [
-              "ui-sdk/guides/layouts",
-              "ui-sdk/guides/layouts-and-theme",
-              "ui-sdk/guides/agent-modes",
-              "ui-sdk/setup-custom-ui/custom-theme",
-              "ui-sdk/guides/troubleshooting"
-            ]
-          },
-          {
-            "group": "Server Customisations",
-            "pages": [
-              "ui-sdk/setup-custom-servers/connect-with-truefoundry",
-              "ui-sdk/setup-custom-servers/custom-server",
-              "ui-sdk/setup-custom-servers/server-contract"
-            ]
-          },
-          {
-            "group": "API reference",
-            "pages": [
-              "ui-sdk/reference/trueforge-ui",
-              "ui-sdk/reference/theme",
-              "ui-sdk/reference/containers",
-              "ui-sdk/reference/atoms",
-              "ui-sdk/reference/hooks",
-              "ui-sdk/reference/server",
-              "ui-sdk/reference/events",
-              "ui-sdk/reference/catalog"
-            ]
           }
         ]
       },
