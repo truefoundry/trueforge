@@ -294,8 +294,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
     };
 
     viewport.addEventListener('scroll', tryLoadMore, { passive: true });
-    const resizeObserver =
-      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(() => tryLoadMore());
+    const resizeObserver = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(() => tryLoadMore());
     if (resizeObserver) {
       resizeObserver.observe(viewport);
     } else {
