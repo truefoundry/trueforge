@@ -17,7 +17,7 @@ An agent is a saved combination of:
 ## Build it in the UI
 
 1. Open TrueForge and use the composer to create or edit an agent.
-2. **Select a model** from the providers you configured under Settings → Models.
+2. **Select a model** from the providers you configured under Settings → Models. Switching it later is a one-click change — no new API keys in the agent definition.
 3. **Attach connectors** (MCP servers) the agent should use. Prefer only the servers it needs.
 4. **Attach skills** if the agent should follow specialized procedures (requires [sandbox](/sandbox) enabled on the agent).
 5. Write focused **instructions** — role, audience, and behavior. Put long playbooks in skills, not the prompt.
@@ -27,19 +27,13 @@ An agent is a saved combination of:
   <img src="/images/create-agent-save.png" alt="The Save agent dialog with a name, instructions, and a configuration summary of model, connectors, and skills" />
 </Frame>
 
-## Selecting models, MCP servers, and skills
-
-| Resource | What you choose | Tips |
-| --- | --- | --- |
-| Model | One model from configured providers | Switch anytime without changing credentials |
-| MCP servers | Zero or more connectors by name | Smaller tool surface → better tool-call quality |
-| Skills | Zero or more registered skills by name | Enable sandbox when attaching skills |
-
-Switching the model is a one-click (or one-field) change. No new API keys in the agent definition.
-
 ## Configure capabilities
 
-Beyond model, tools, and skills, an agent has a few runtime behaviors you can tune.
+Beyond model, tools, and skills, you can tune how the agent behaves at runtime. **Generative UI**, **Ask clarifying questions**, and **Dynamic sub-agents** are toggles in the composer's **Capabilities** tab — all on by default. **Tool approval** is a per-tool policy (below).
+
+<Frame caption="The composer's Capabilities tab: Generative UI, Dynamic sub-agents, and Ask clarifying questions — all on by default.">
+  <img src="/images/create-agent-capabilities.png" alt="The composer Capabilities tab with Generative UI, Dynamic sub-agents, and Ask clarifying questions toggled on" />
+</Frame>
 
 ### Tool approval
 
@@ -79,6 +73,10 @@ For dashboards, comparisons, and structured data, **Generative UI** lets the age
 | Forms | Guided inputs for the next action |
 
 Skip it for short explanations, bullet lists, or code blocks where markdown is enough.
+
+### Dynamic sub-agents
+
+For multi-step work across several sources, the agent can delegate focused subtasks to parallel **subagents** and merge only their results — keeping its own context clean. On by default. See [Subagents](/key-features/subagents) for how it works.
 
 ## Agent spec reference
 
