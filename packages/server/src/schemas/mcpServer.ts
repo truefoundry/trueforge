@@ -74,17 +74,30 @@ export const McpAuthStatusSchema = z
   .strict()
   .openapi('McpAuthStatus');
 
-/** Admin/settings wire view: manifest fields plus nested auth_status. */
-export const ConfiguredMcpServerSchema = McpServerManifestObjectSchema.extend({
-  auth_status: McpAuthStatusSchema,
-}).openapi('ConfiguredMcpServer');
+/** Admin/settings wire view: identity column plus nested manifest and auth_status. */
+export const ConfiguredMcpServerSchema = z
+  .object({
+    name: NameSchema,
+    manifest: McpServerManifestSchema,
+    auth_status: McpAuthStatusSchema,
+  })
+  .strict()
+  .openapi('ConfiguredMcpServer');
 
-/** PUT body — same Zod shape as `McpServerManifest` (OpenAPI name stays `McpServerManifest`). */
-export const PutMcpServerRequestSchema = McpServerManifestSchema;
-/** Shared create/upsert/disconnect response envelope (`{ data: ConfiguredMcpServer }`). */
-export const PutMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('PutMcpServerResponse');
-/** POST create body — separate OpenAPI name so Fern keeps the main-branch upsert request + `type` inject. */
-export const CreateMcpServerRequestSchema = McpServerManifestObjectSchema.openapi('CreateMcpServerRequest');
+export const CreateMcpServerRequestSchema = z
+  .object({
+    manifest: McpServerManifestSchema,
+  })
+  .strict()
+  .openapi('CreateMcpServerRequest');
+
+export const PutMcpServerRequestSchema = z
+  .object({
+    manifest: McpServerManifestSchema,
+  })
+  .strict()
+  .openapi('PutMcpServerRequest');
+
 export const GetMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('GetMcpServerResponse');
 export const ListMcpServersResponseSchema = z
   .object({ data: z.array(ConfiguredMcpServerSchema) })
@@ -121,6 +134,8 @@ export type McpServerManifest = z.infer<typeof McpServerManifestSchema>;
 export type McpAuthStatus = z.infer<typeof McpAuthStatusSchema>;
 export type McpServerAuthPublic = z.infer<typeof McpServerAuthPublicSchema>;
 export type ConfiguredMcpServer = z.infer<typeof ConfiguredMcpServerSchema>;
+export type CreateMcpServerRequest = z.infer<typeof CreateMcpServerRequestSchema>;
+export type PutMcpServerRequest = z.infer<typeof PutMcpServerRequestSchema>;
 export type McpServerReadEntry = z.infer<typeof McpServerReadEntrySchema>;
 
 /**
