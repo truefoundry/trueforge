@@ -2,13 +2,27 @@
  * Conversion of OpenAI response_format → StructuredOutputSpec, and assembly of
  * provider-specific options (reasoning effort, strictJsonSchema) for each provider.
  */
-import type { StructuredOutputSpec, VercelAIProviderConfig } from '../../../src/core/llm/VercelAILLM';
+import type {
+  StructuredOutputSpec,
+  VercelAIProviderConfig,
+  VercelAIProviderName,
+} from '../../../src/core/llm/VercelAILLM';
 import { buildProviderOptions, toReasoningLevel, toStructuredOutputSpec } from '../../../src/core/llm/VercelAILLM';
 
 function makeConfig(
-  overrides: Partial<VercelAIProviderConfig> & { provider: VercelAIProviderConfig['provider'] },
+  overrides: Omit<Partial<VercelAIProviderConfig>, 'provider' | 'model'> & {
+    provider: VercelAIProviderName;
+  },
 ): VercelAIProviderConfig {
-  return { name: 'test', modelId: 'test-model', apiKey: 'sk-test', headers: {}, ...overrides };
+  const { provider, ...rest } = overrides;
+  return {
+    name: 'test',
+    model: { id: 'test-model', name: 'test-model' },
+    apiKey: 'sk-test',
+    headers: {},
+    ...rest,
+    provider: { type: provider, name: provider },
+  };
 }
 
 // ─────────── toStructuredOutputSpec ───────────
@@ -473,14 +487,7 @@ describe('buildProviderOptions', () => {
   });
 
   describe('cross-provider completeness', () => {
-    const providers: VercelAIProviderConfig['provider'][] = [
-      'openai',
-      'anthropic',
-      'custom',
-      'google-gemini',
-      'moonshot',
-      'alibaba',
-    ];
+    const providers: VercelAIProviderName[] = ['openai', 'anthropic', 'custom', 'google-gemini', 'moonshot', 'alibaba'];
 
     // Reasoning travels only on the top-level setting. A providerOptions copy would take precedence
     // over it, so any provider growing one here would silently shadow the requested effort. The one

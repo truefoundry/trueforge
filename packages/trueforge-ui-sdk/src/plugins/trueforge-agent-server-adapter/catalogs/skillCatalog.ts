@@ -1,6 +1,5 @@
 /**
  * Maps trueforge-ui skill-settings calls onto Harness
- * `/api/v1/settings/skills` (name-keyed upsert, no delete).
  *
  * UI: `repoURL` / skill `id` / optional `catalogId`.
  * Harness: `url` / resource `name` (no separate id or catalogId on wire).
@@ -68,7 +67,7 @@ export function createSkillCatalog(client: TrueForge): SkillCatalogServer<UiSkil
       );
     },
     createSkill: async req => {
-      const body = await client.settings.skills.upsert(toHarnessManifest(req));
+      const body = await client.settings.skills.create(toHarnessManifest(req));
       const catalogId = 'catalogId' in req ? req.catalogId : undefined;
       if (catalogId !== undefined) {
         return {

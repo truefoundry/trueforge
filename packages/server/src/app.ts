@@ -160,6 +160,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createCapabilitiesRouter({
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
+        logger: deps.logger,
       }),
     ),
   );
@@ -190,7 +191,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     createMcpOAuthRouter({
       tokenStore: deps.tokenStore,
       mcpServerStore: deps.mcpServerStore,
-      withTransaction: deps.withTransaction,
       logger: deps.logger,
     }),
   );

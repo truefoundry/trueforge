@@ -1,12 +1,21 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import ConnectorDetails from '@/containers/SettingsBuilder/ConnectorDetails.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { ConnectorBase, ToolBase } from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
+
+const oauthMock = vi.hoisted(() => ({
+  handleAuthorize: vi.fn(),
+  isOAuthLoading: false,
+}));
+
+vi.mock('@/hooks/useMcpAuth.js', () => ({
+  useMCPAuth: () => oauthMock,
+}));
 
 const connector: ConnectorBase = {
   id: 'conn-1',
@@ -50,7 +59,12 @@ describe('ConnectorDetails tool descriptions', () => {
 
     render(
       <Wrapper>
-        <ConnectorDetails connector={connector} onBack={() => {}} onDisconnect={() => {}} />
+        <ConnectorDetails
+          connector={connector}
+          onBack={() => {}}
+          onConnectorRefreshed={() => {}}
+          onDisconnect={() => {}}
+        />
       </Wrapper>,
     );
 
@@ -81,7 +95,12 @@ describe('ConnectorDetails tool descriptions', () => {
 
     render(
       <Wrapper>
-        <ConnectorDetails connector={connector} onBack={() => {}} onDisconnect={() => {}} />
+        <ConnectorDetails
+          connector={connector}
+          onBack={() => {}}
+          onConnectorRefreshed={() => {}}
+          onDisconnect={() => {}}
+        />
       </Wrapper>,
     );
 
@@ -90,5 +109,155 @@ describe('ConnectorDetails tool descriptions', () => {
     });
 
     expect(screen.queryByRole('button', { name: 'Read more' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ConnectorDetails OAuth connection', () => {
+  const unauthenticatedConnector: ConnectorBase = {
+    ...connector,
+    authenticated: false,
+    requiresAuth: true,
+  };
+
+  it('shows Connect only for an unauthenticated DCR connector', () => {
+    const Wrapper = wrapperFor([]);
+    const headerConnector: ConnectorBase = {
+      ...unauthenticatedConnector,
+      auth: { type: 'header', headerName: 'Authorization' },
+    };
+
+    const { rerender } = render(
+      <Wrapper>
+        <ConnectorDetails
+          connector={unauthenticatedConnector}
+          onBack={() => {}}
+          onConnectorRefreshed={() => {}}
+          onDisconnect={() => {}}
+        />
+      </Wrapper>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Disconnect' })).not.toBeInTheDocument();
+
+    rerender(
+      <Wrapper>
+        <ConnectorDetails
+          connector={headerConnector}
+          onBack={() => {}}
+          onConnectorRefreshed={() => {}}
+          onDisconnect={() => {}}
+        />
+      </Wrapper>,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Connect' })).not.toBeInTheDocument();
+  });
+
+  it('does not refresh connector details or tools when OAuth is unsuccessful', async () => {
+    const getConnector = vi.fn(async () => unauthenticatedConnector);
+    const getToolsByConnectorId = vi.fn(async () => []);
+    oauthMock.handleAuthorize.mockImplementation(async (_id: string, callback: (isSuccess: boolean) => void) => {
+      callback(false);
+    });
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({
+        connectorCatalog: {
+          getConnectorCatalog: async () => [],
+          listConnectors: async () => [],
+          getConnector,
+          getToolsByConnectorId,
+          createConnector: async () => unauthenticatedConnector,
+          updateConnector: async () => unauthenticatedConnector,
+          authenticateConnector: async () => ({ authorization_endpoint: '' }),
+          disconnectConnector: async () => unauthenticatedConnector,
+        },
+      }),
+    });
+
+    render(
+      <ServerProvider server={server}>
+        <ConnectorDetails
+          connector={unauthenticatedConnector}
+          onBack={() => {}}
+          onConnectorRefreshed={() => {}}
+          onDisconnect={() => {}}
+        />
+      </ServerProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getToolsByConnectorId).toHaveBeenCalledTimes(1);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+
+    await waitFor(() => {
+      expect(oauthMock.handleAuthorize).toHaveBeenCalledWith(unauthenticatedConnector.id, expect.any(Function));
+    });
+    expect(getConnector).not.toHaveBeenCalled();
+    expect(getToolsByConnectorId).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes the connector and its tools after successful OAuth', async () => {
+    const refreshedConnector: ConnectorBase = {
+      ...unauthenticatedConnector,
+      authenticated: true,
+      requiresAuth: false,
+    };
+    const initialTools: ToolBase[] = [
+      { id: 'tool-before-auth', name: 'before_auth', description: 'Available before auth' },
+    ];
+    const refreshedTools: ToolBase[] = [
+      { id: 'tool-after-auth', name: 'after_auth', description: 'Available after auth' },
+    ];
+    const getConnector = vi.fn(async () => refreshedConnector);
+    const getToolsByConnectorId = vi.fn().mockResolvedValueOnce(initialTools).mockResolvedValueOnce(refreshedTools);
+    oauthMock.handleAuthorize.mockImplementation(async (_id: string, callback: (isSuccess: boolean) => void) => {
+      callback(true);
+    });
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({
+        connectorCatalog: {
+          getConnectorCatalog: async () => [],
+          listConnectors: async () => [],
+          getConnector,
+          getToolsByConnectorId,
+          createConnector: async () => unauthenticatedConnector,
+          updateConnector: async () => unauthenticatedConnector,
+          authenticateConnector: async () => ({ authorization_endpoint: '' }),
+          disconnectConnector: async () => unauthenticatedConnector,
+        },
+      }),
+    });
+
+    function StatefulDetails() {
+      const [currentConnector, setCurrentConnector] = useState(unauthenticatedConnector);
+      return (
+        <ConnectorDetails
+          connector={currentConnector}
+          onBack={() => {}}
+          onConnectorRefreshed={setCurrentConnector}
+          onDisconnect={() => {}}
+        />
+      );
+    }
+
+    render(
+      <ServerProvider server={server}>
+        <StatefulDetails />
+      </ServerProvider>,
+    );
+
+    expect(await screen.findByText('before_auth')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Connected')).toBeInTheDocument();
+      expect(screen.getByText('after_auth')).toBeInTheDocument();
+    });
+    expect(getConnector).toHaveBeenCalledWith({ id: unauthenticatedConnector.id });
+    expect(getToolsByConnectorId).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('button', { name: 'Connect' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Disconnect' })).toBeInTheDocument();
   });
 });

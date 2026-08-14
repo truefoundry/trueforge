@@ -21,7 +21,7 @@ Install once at the app root.
 | ----------------------------------- | ------------- |
 | `@assistant-ui/core`                | `^0.2.22`     |
 | `@assistant-ui/react`               | `^0.14.24`    |
-| `@truefoundry/assistant-ui-runtime` | `0.1.13`      |
+| `@truefoundry/assistant-ui-runtime` | `0.1.15`      |
 | `truefoundry-gateway-sdk`           | `^0.4.0-rc.6` |
 | `lucide-react`                      | `^0.562.0`    |
 
@@ -37,11 +37,11 @@ hosts may override via `theme.icons` or register custom SVGR components.
 Chrome hooks (`useAui`, `useAuiState`, `useTheme`) are re-exported from
 `@truefoundry/trueforge-ui` — prefer those so the host shares the SDK instance.
 
-When importing deep `@assistant-ui/react` primitives, `@assistant-ui/core`, or
-`tfy-web-components` from host code, also add them as direct dependencies at
-versions within the ranges above so resolution is app-rooted. Force a
-singleton (Vite `dedupe`, Yarn `resolutions`, npm `overrides`) so the SDK and
-host share one copy — see README Troubleshooting.
+When importing deep `@assistant-ui/react` primitives or `@assistant-ui/core`
+from host code, also add them as direct dependencies at versions within the
+ranges above so resolution is app-rooted. Force a singleton (Vite `dedupe`,
+Yarn `resolutions`, npm `overrides`) so the SDK and host share one copy — see
+README Troubleshooting.
 
 ## Singletons
 
@@ -49,4 +49,3 @@ These must resolve to one physical copy in the dependency graph:
 
 - `react` / `react-dom`
 - `@assistant-ui/core` / `@assistant-ui/react` / `@assistant-ui/store`
-- `tfy-web-components` (for shared theme context)

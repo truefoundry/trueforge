@@ -49,7 +49,28 @@ export interface SandboxExecParams {
 // An init command a producer (e.g. a skill mounter) hands to the Sandbox, which supplies `sandboxId`.
 export type SandboxInit = Omit<SandboxExecParams, 'sandboxId'>;
 
+export type SandboxBuildStatus = 'pending' | 'ready' | 'failed';
+
+/** Provider-specific opaque build metadata (string map). */
+export type SandboxBuildMetadata = Record<string, string>;
+
+export interface SandboxBuild {
+  status: SandboxBuildStatus;
+  /** Human-readable detail for the current status (shown to the user); null when ready. */
+  reason: string | null;
+  /** Provider-specific build details; null when the provider has none. */
+  metadata: SandboxBuildMetadata | null;
+}
+
 export interface SandboxProvider {
+  /**
+   * Ensures the release image is being built into the provider's backing store and
+   * returns its current status. Idempotent: an already-built image reports `ready`;
+   * a fresh build starts in the background and reports `pending`.
+   */
+  buildImage(): Promise<SandboxBuild>;
+  /** Current build status of the release image. Read-only: never kicks off a build. */
+  getImageBuildStatus(): Promise<SandboxBuild>;
   createSandbox(): Promise<{ sandboxId: string }>;
   exec(params: SandboxExecParams): Promise<ExecResult>;
   /** Provider-specific instructions appended to the agent system prompt. */

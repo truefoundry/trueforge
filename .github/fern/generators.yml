@@ -3,7 +3,7 @@
 # openapi/openapi.json is committed by `pnpm openapi:write`, so Fern never needs the server.
 readme:
   introduction: >
-    TypeScript client for the TrueFoundry agent harness server: a self-hosted
+    TypeScript client for the TrueForge agent harness server: a self-hosted
     runtime that executes agent turns and streams them over Server-Sent Events.
 
 
@@ -42,6 +42,18 @@ groups:
         config:
           packageJson:
             name: '@truefoundry/trueforge-sdk'
+            license: MIT
+            author: TrueForge
+            repository:
+              type: git
+              url: git+https://github.com/truefoundry/trueforge.git
+              directory: packages/sdk
+            homepage: https://github.com/truefoundry/trueforge/tree/main/packages/sdk#readme
+            bugs:
+              url: https://github.com/truefoundry/trueforge/issues
+            publishConfig:
+              access: public
+              provenance: false
           allowExtraFields: true
           allowCustomFetcher: true
           enableInlineTypes: false

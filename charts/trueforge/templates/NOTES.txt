@@ -1,0 +1,50 @@
+TrueForge {{ .Chart.AppVersion }} has been deployed as release {{ .Release.Name }}.
+
+Image: {{ include "trueforge.image" . }}
+
+Reach the server (API + UI) inside the cluster at:
+  http://{{ include "trueforge.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}
+
+Port-forward it locally with:
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "trueforge.fullname" . }} 8790:{{ .Values.service.port }}
+
+Then open http://localhost:8790 and check http://localhost:8790/healthz.
+
+Postgres: {{ if .Values.postgresql.enabled }}bundled ({{ include "trueforge.postgres.host" . }}){{ else }}external ({{ include "trueforge.postgres.host" . }}){{ end }}
+Redis:    {{ if .Values.redis.enabled }}bundled{{- else }}external (literal or valueFrom){{- end }}
+OIDC:     {{ if .Values.configs.oidc.enabled }}enabled{{- else }}disabled (local admin identity){{- end }}
+
+{{- if not .Values.configs.oidc.enabled }}
+
+WARNING: OIDC is disabled. Anyone who can reach the API/UI is the shared local
+admin (trueforge-default). Enable configs.oidc before exposing this release
+beyond a trusted network.
+{{- end }}
+
+{{- if and .Values.postgresql.enabled (eq (default "" .Values.postgresql.auth.existingSecret) "") (eq (default "" .Values.postgresql.auth.password) "trueforge") }}
+
+WARNING: Bundled Postgres is using the chart's well-known dev password
+(trueforge). Set postgresql.auth.password or postgresql.auth.existingSecret
+before any shared / public deploy.
+{{- end }}
+
+{{- if and .Values.redis.enabled (not .Values.redis.auth.enabled) }}
+
+WARNING: Bundled Redis has auth disabled. Keep it cluster-internal (NetworkPolicy)
+or switch to external passworded Redis via externalRedis.url.
+{{- end }}
+
+{{- if and .Values.configs.oidc.enabled (not .Values.server.publicBaseUrl) }}
+
+WARNING: configs.oidc.enabled is true but server.publicBaseUrl is empty.
+OIDC callbacks require PUBLIC_BASE_URL. Register
+https://<your-public-origin>/api/v1/auth/callback at your IdP.
+{{- else if not .Values.server.publicBaseUrl }}
+
+WARNING: server.publicBaseUrl is empty. MCP OAuth and OIDC callbacks will fail until you set it to the public origin (e.g. https://trueforge.example.com).
+{{- end }}
+
+{{- if and (not .Values.postgresql.enabled) (not .Values.externalPostgres.host) }}
+
+WARNING: postgresql.enabled is false and externalPostgres.host is empty. Set one so the server can reach Postgres.
+{{- end }}

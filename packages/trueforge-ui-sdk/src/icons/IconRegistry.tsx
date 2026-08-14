@@ -23,6 +23,7 @@ import {
   File,
   Github,
   History,
+  Info,
   Lightbulb,
   ListChecks,
   ListFilter,
@@ -42,6 +43,7 @@ import {
   Plug,
   Plus,
   RotateCw,
+  Save,
   Search,
   Settings,
   Sparkle,
@@ -152,6 +154,7 @@ const defaults: Record<string, IconEntry> = {
   cube: Box,
   'list-ol': ListOrdered,
   download: Download,
+  save: Save,
   brain: Brain,
   terminal: Terminal,
   code: Code2,
@@ -160,6 +163,7 @@ const defaults: Record<string, IconEntry> = {
   compress: Minimize2,
   'external-link': ExternalLink,
   github: Github,
+  info: Info,
 };
 
 for (const [name, icon] of Object.entries(defaults)) {

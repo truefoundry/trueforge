@@ -5,7 +5,6 @@ import { useState, type ReactNode } from 'react';
 import { cn } from '../../atoms/lib/cn.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
-import { Switch } from '../../atoms/primitives/Switch.js';
 import { Icon } from '../../icons/Icon.js';
 
 export type CustomProviderDraft = {
@@ -23,10 +22,14 @@ export type CustomProviderDraft = {
   }>;
 };
 
+export type CustomProviderInitialValues = Omit<CustomProviderDraft, 'apiKey'>;
+
 type CustomModelProviderFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAdd: (draft: CustomProviderDraft) => void | Promise<void>;
+  onSubmit: (draft: CustomProviderDraft) => void | Promise<void>;
+  isEditMode?: boolean;
+  initialValues?: CustomProviderInitialValues;
   reasoningEffortOptions?: readonly string[];
   busy?: boolean;
   error?: string | null;
@@ -62,14 +65,22 @@ const createEmptyModelRow = (): ModelRow => ({
   maxOutputTokens: '',
 });
 
+const createModelRows = (initialValues?: CustomProviderInitialValues): ModelRow[] =>
+  initialValues?.models.map(model => ({
+    id: model.id,
+    name: model.name,
+    advancedExpanded: true,
+    reasoningEfforts: model.properties?.reasoningEfforts,
+    contextLength: model.properties?.contextLength?.toString() ?? '',
+    maxOutputTokens: model.properties?.maxOutputTokens?.toString() ?? '',
+    nameDirty: true,
+  })) ?? [createEmptyModelRow()];
+
 // Flat, de-boxed input with enough contrast to read as editable: a slightly
 // deeper fill, a subtle hairline, and a clear focus ring.
 const inputClassName =
   'h-11 w-full rounded-md border border-border/70 bg-secondary-bg px-3 text-sm text-text-primary outline-none transition-colors placeholder:text-text-secondary/70 focus-visible:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/50';
 const inputErrorClassName = 'border-failure-bg focus-visible:border-failure-bg focus-visible:ring-failure-bg';
-
-/** Client-side slug rule — identical to the backend NameSchema so the form never rejects a name the server accepts. */
-const NAME_RE = /^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$/;
 
 /** Parse an optional positive integer; returns null when empty or invalid (so it's simply omitted). */
 function parsePositiveInt(raw: string): number | null {
@@ -107,23 +118,25 @@ const FieldHelp = ({ children }: { children: ReactNode }) => (
 const CustomModelProviderForm = ({
   open,
   onOpenChange,
-  onAdd,
+  onSubmit,
   reasoningEffortOptions,
   busy = false,
   error,
+  isEditMode = false,
+  initialValues,
 }: CustomModelProviderFormProps) => {
-  const [name, setName] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
+  const [name, setName] = useState(initialValues?.name ?? '');
+  const [baseUrl, setBaseUrl] = useState(initialValues?.baseUrl ?? '');
   const [apiKey, setApiKey] = useState('');
-  const [models, setModels] = useState<ModelRow[]>([createEmptyModelRow()]);
+  const [models, setModels] = useState<ModelRow[]>(() => createModelRows(initialValues));
   const [nameTouched, setNameTouched] = useState(false);
   const [baseUrlTouched, setBaseUrlTouched] = useState(false);
 
   const resetForm = () => {
-    setName('');
-    setBaseUrl('');
+    setName(initialValues?.name ?? '');
+    setBaseUrl(initialValues?.baseUrl ?? '');
     setApiKey('');
-    setModels([createEmptyModelRow()]);
+    setModels(createModelRows(initialValues));
     setNameTouched(false);
     setBaseUrlTouched(false);
   };
@@ -154,13 +167,11 @@ const CustomModelProviderForm = ({
     );
   };
 
-  // ── Validation (client-side; do not rely on backend errors) ──
+  // ── Validation ── Client checks stay backend-agnostic: presence only. Name *format*
+  // rules (slug pattern, length) belong to the server, which may differ per deployment;
+  // violations surface via the `error` prop on submit rather than being second-guessed here.
   const trimmedName = name.trim();
-  const nameError = !trimmedName
-    ? 'Name is required.'
-    : trimmedName.length < 2 || trimmedName.length > 64 || !NAME_RE.test(trimmedName)
-      ? 'Must be 2–64 lowercase characters, start with a letter, using . _ or - as separators.'
-      : null;
+  const nameError = trimmedName ? null : 'Name is required.';
 
   const trimmedBaseUrl = baseUrl.trim();
   let baseUrlError: string | null = null;
@@ -175,18 +186,11 @@ const CustomModelProviderForm = ({
   }
 
   const modelIdError = (model: ModelRow): string | null => (model.id.trim() ? null : 'Model ID is required.');
-  const modelNameError = (model: ModelRow): string | null => {
-    const value = model.name.trim();
-    if (!value) return 'Model name is required.';
-    if (value.length < 2 || value.length > 64 || !NAME_RE.test(value)) {
-      return 'Must be 2–64 lowercase characters, start with a letter, using . _ or - as separators.';
-    }
-    return null;
-  };
+  const modelNameError = (model: ModelRow): string | null => (model.name.trim() ? null : 'Model name is required.');
 
   // Both limits are required: the harness budgets a run as input + reserved output ≤ context window.
   const modelContextError = (model: ModelRow): string | null =>
-    parsePositiveInt(model.contextLength) == null ? 'Set the model’s context window.' : null;
+    parsePositiveInt(model.contextLength) == null ? "Set the model's context window." : null;
   const modelMaxOutputError = (model: ModelRow): string | null =>
     parsePositiveInt(model.maxOutputTokens) == null ? 'Set the max output tokens.' : null;
 
@@ -219,7 +223,7 @@ const CustomModelProviderForm = ({
     }
 
     try {
-      await onAdd({
+      await onSubmit({
         name: trimmedName,
         baseUrl: trimmedBaseUrl,
         apiKey: apiKey.trim(),
@@ -237,8 +241,7 @@ const CustomModelProviderForm = ({
           };
         }),
       });
-      resetForm();
-      onOpenChange(false);
+      handleOpenChange(false);
     } catch {
       // Parent surfaces error; keep form open.
     }
@@ -248,8 +251,12 @@ const CustomModelProviderForm = ({
     <CenteredModal
       open={open}
       onOpenChange={handleOpenChange}
-      title="Add custom provider"
-      description="Connect any OpenAI-compatible endpoint, whether it's a local model, a proxy, or your own hosted service."
+      title={isEditMode ? `Edit ${initialValues?.name ?? name}` : 'Add custom provider'}
+      description={
+        isEditMode
+          ? 'Update the endpoint, credentials, and models for this provider.'
+          : "Connect any OpenAI-compatible endpoint, whether it's a local model, a proxy, or your own hosted service."
+      }
       contentSized
     >
       <form
@@ -273,10 +280,17 @@ const CustomModelProviderForm = ({
               onChange={event => setName(event.target.value)}
               onBlur={() => setNameTouched(true)}
               placeholder="local-llama"
-              autoFocus
+              autoFocus={!isEditMode}
+              readOnly={isEditMode}
+              aria-readonly={isEditMode}
               aria-invalid={showNameError ? true : undefined}
-              className={cn(inputClassName, showNameError && inputErrorClassName)}
+              className={cn(
+                inputClassName,
+                isEditMode && 'cursor-not-allowed bg-secondary-bg/60 text-text-secondary',
+                showNameError && inputErrorClassName,
+              )}
             />
+            {isEditMode ? <FieldHelp>Provider names cannot be changed after creation.</FieldHelp> : null}
             {showNameError ? <FieldError>{nameError}</FieldError> : null}
           </div>
 
@@ -292,6 +306,7 @@ const CustomModelProviderForm = ({
               onChange={event => setBaseUrl(event.target.value)}
               onBlur={() => setBaseUrlTouched(true)}
               placeholder="http://localhost:11434/v1"
+              autoFocus={isEditMode}
               aria-invalid={showBaseUrlError ? true : undefined}
               className={cn(inputClassName, showBaseUrlError && inputErrorClassName)}
             />
@@ -315,7 +330,11 @@ const CustomModelProviderForm = ({
               placeholder="sk-…"
               className={inputClassName}
             />
-            <FieldHelp>Leave empty if your endpoint needs no key (e.g. a local model).</FieldHelp>
+            <FieldHelp>
+              {isEditMode
+                ? 'Leave blank to keep the saved key, or enter a new key to replace it.'
+                : 'Leave blank if your endpoint needs no key (e.g. a local model).'}
+            </FieldHelp>
           </div>
 
           <fieldset className="m-0 min-w-0 border-0 p-0">
@@ -476,20 +495,21 @@ const CustomModelProviderForm = ({
 
                           {reasoningEffortOptions && reasoningEffortOptions.length > 0 ? (
                             <div>
-                              <div className="flex items-center justify-between gap-3">
-                                <span className="text-text-secondary text-xs font-medium">Reasoning effort</span>
-                                <Switch
+                              <label className="flex w-fit cursor-pointer items-center gap-2 select-none">
+                                <input
+                                  type="checkbox"
+                                  className="size-4 shrink-0 cursor-pointer accent-primary-button-bg disabled:cursor-not-allowed disabled:opacity-50"
                                   checked={model.reasoningEfforts !== undefined}
                                   aria-label={`Enable reasoning effort for model ${index + 1}`}
                                   disabled={busy}
-                                  size="md"
-                                  onCheckedChange={nextChecked =>
+                                  onChange={event =>
                                     updateModel(index, {
-                                      reasoningEfforts: nextChecked ? [] : undefined,
+                                      reasoningEfforts: event.target.checked ? [] : undefined,
                                     })
                                   }
                                 />
-                              </div>
+                                <span className="text-text-secondary text-xs font-medium">Reasoning effort</span>
+                              </label>
                               {model.reasoningEfforts !== undefined ? (
                                 <div
                                   role="group"
@@ -551,7 +571,7 @@ const CustomModelProviderForm = ({
         <div className="shrink-0 space-y-3 border-t border-border px-5 py-4">
           {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
           <Button type="submit" size="lg" disabled={!visibleValid || busy} className="w-full">
-            Add provider
+            {isEditMode ? 'Save changes' : 'Add provider'}
           </Button>
         </div>
       </form>

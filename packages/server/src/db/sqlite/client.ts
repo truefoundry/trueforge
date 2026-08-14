@@ -137,6 +137,7 @@ const JSON_RESULT_COLUMNS = new Set([
   'thread_checkpoint',
   'event',
   'manifest',
+  'build_metadata',
   'oauth_server',
   'oauth_client',
   'token',

@@ -1,0 +1,27 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- /* toString so integer 0 is distinct from unset ("" / nil); if/with treat 0 as falsy. */}}
+{{- $min := .Values.podDisruptionBudget.minAvailable | toString }}
+{{- $max := .Values.podDisruptionBudget.maxUnavailable | toString }}
+{{- if and (ne $min "") (ne $max "") }}
+{{- fail "podDisruptionBudget: set exactly one of minAvailable or maxUnavailable, not both" }}
+{{- end }}
+{{- if and (eq $min "") (eq $max "") }}
+{{- fail "podDisruptionBudget: set exactly one of minAvailable or maxUnavailable when enabled" }}
+{{- end }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "trueforge.fullname" . }}
+  labels:
+    {{- include "trueforge.labels" . | nindent 4 }}
+spec:
+  {{- if ne $min "" }}
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  {{- if ne $max "" }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "trueforge.selectorLabels" . | nindent 6 }}
+{{- end }}

@@ -93,3 +93,10 @@ mcp_servers:
     description: Jira MCP server.
     auth:
       type: dcr
+  - type: remote
+    name: posthog
+    logo: https://assets.production.truefoundry.com/posthog.svg
+    url: https://mcp.posthog.com/mcp
+    description: PostHog MCP server.
+    auth:
+      type: dcr

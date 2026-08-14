@@ -23,6 +23,7 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
 
 <Warning>
   Use this only on `localhost` or behind network controls you trust. On a public host, anyone who can reach the server gets full admin access under one shared identity.
+  The Helm chart defaults to this mode (`configs.oidc.enabled: false`) plus a well-known bundled Postgres password and Redis without auth — see the [chart README](https://github.com/truefoundry/trueforge/blob/main/charts/trueforge/README.md#dev-defaults-read-before-exposing) before exposing a release.
 </Warning>
 
 ## Option B — enable OIDC login
@@ -157,7 +158,7 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
             clientSecret:
               valueFrom:
                 secretKeyRef:
-                  name: truefoundry-utils-oidc
+                  name: trueforge-oidc
                   key: client-secret
             userReferenceClaim: email
             userRoleClaim: groups
@@ -167,13 +168,13 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
           - apiVersion: v1
             kind: Secret
             metadata:
-              name: truefoundry-utils-oidc
+              name: trueforge-oidc
             type: Opaque
             stringData:
               client-secret: "..."
         ```
 
-        See the [chart README](https://github.com/truefoundry/trueforge/blob/main/charts/truefoundry-utils/README.md#oidc) for the full values shape.
+        See the [chart README](https://github.com/truefoundry/trueforge/blob/main/charts/trueforge/README.md#oidc) for the full values shape.
       </Tab>
     </Tabs>
 
