@@ -6,6 +6,5 @@ export interface Agent {
     /** Immutable server-generated agent identifier. */
     id: string;
     manifest: TrueForge.AgentSpec;
-    /** Fully qualified name. Unique within a tenant. */
-    name: string;
+    name: TrueForge.ResourceName;
 }

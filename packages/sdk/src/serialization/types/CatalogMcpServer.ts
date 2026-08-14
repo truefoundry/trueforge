@@ -5,6 +5,7 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { McpServerManifestAuth } from "./McpServerManifestAuth.js";
 import { McpServerType } from "./McpServerType.js";
+import { ResourceName } from "./ResourceName.js";
 
 export const CatalogMcpServer: core.serialization.ObjectSchema<
     serializers.CatalogMcpServer.Raw,
@@ -13,7 +14,7 @@ export const CatalogMcpServer: core.serialization.ObjectSchema<
     auth: McpServerManifestAuth.optional(),
     description: core.serialization.string(),
     logo: core.serialization.string().optional(),
-    name: core.serialization.string(),
+    name: ResourceName,
     type: McpServerType,
     url: core.serialization.string(),
 });
@@ -23,7 +24,7 @@ export declare namespace CatalogMcpServer {
         auth?: McpServerManifestAuth.Raw | null;
         description: string;
         logo?: string | null;
-        name: string;
+        name: ResourceName.Raw;
         type: McpServerType.Raw;
         url: string;
     }

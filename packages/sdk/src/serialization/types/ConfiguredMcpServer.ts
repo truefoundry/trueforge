@@ -5,6 +5,7 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { McpAuthStatus } from "./McpAuthStatus.js";
 import { McpServerManifest } from "./McpServerManifest.js";
+import { ResourceName } from "./ResourceName.js";
 
 export const ConfiguredMcpServer: core.serialization.ObjectSchema<
     serializers.ConfiguredMcpServer.Raw,
@@ -12,13 +13,13 @@ export const ConfiguredMcpServer: core.serialization.ObjectSchema<
 > = core.serialization.object({
     authStatus: core.serialization.property("auth_status", McpAuthStatus),
     manifest: McpServerManifest,
-    name: core.serialization.string(),
+    name: ResourceName,
 });
 
 export declare namespace ConfiguredMcpServer {
     export interface Raw {
         auth_status: McpAuthStatus.Raw;
         manifest: McpServerManifest.Raw;
-        name: string;
+        name: ResourceName.Raw;
     }
 }

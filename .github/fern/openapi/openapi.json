@@ -35,14 +35,7 @@
             "$ref": "#/components/schemas/AgentSpec"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           }
         },
         "required": [
@@ -446,14 +439,7 @@
             "type": "string"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           },
           "type": {
             "$ref": "#/components/schemas/McpServerType"
@@ -491,14 +477,7 @@
             "type": "string"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           },
           "path": {
             "description": "Path to the skill directory within the repository. Omit to use the repository root.",
@@ -694,14 +673,7 @@
             "$ref": "#/components/schemas/McpServerManifest"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           }
         },
         "required": [
@@ -718,14 +690,7 @@
             "$ref": "#/components/schemas/SkillManifest"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           }
         },
         "required": [
@@ -775,14 +740,7 @@
             "$ref": "#/components/schemas/AgentSpec"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           }
         },
         "required": [
@@ -889,14 +847,7 @@
             "type": "array"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           },
           "type": {
             "enum": [
@@ -1744,7 +1695,7 @@
       },
       "McpAuthStatus": {
         "additionalProperties": false,
-        "description": "Auth state for the calling user.",
+        "description": "Current auth state.",
         "properties": {
           "authorization_url": {
             "description": "When auth is required, this contains the URL to redirect the user to for authorization.",
@@ -1854,14 +1805,7 @@
             "type": "string"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           },
           "type": {
             "$ref": "#/components/schemas/McpServerType"
@@ -1908,14 +1852,7 @@
             "$ref": "#/components/schemas/McpAuthStatus"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           },
           "url": {
             "description": "URL of the remote MCP server.",
@@ -1931,7 +1868,6 @@
         "type": "object"
       },
       "McpServerType": {
-        "description": "MCP server kind (`remote` today).",
         "enum": [
           "remote"
         ],
@@ -2310,14 +2246,7 @@
             "$ref": "#/components/schemas/ModelProviderManifest"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           }
         },
         "required": [
@@ -2603,7 +2532,6 @@
         "type": "object"
       },
       "ResourceName": {
-        "description": "Internal identifier; forms the fully qualified name `name/model_name`.",
         "maxLength": 64,
         "minLength": 2,
         "pattern": "^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$",
@@ -3054,14 +2982,7 @@
         "additionalProperties": false,
         "properties": {
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           }
         },
         "required": [
@@ -3189,14 +3110,7 @@
             "type": "string"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           },
           "path": {
             "description": "Path to the skill directory within the repository. Omit to use the repository root.",
@@ -3254,14 +3168,7 @@
             "type": "string"
           },
           "name": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              {
-                "description": "Fully qualified name. Unique within a tenant."
-              }
-            ]
+            "$ref": "#/components/schemas/ResourceName"
           }
         },
         "required": [

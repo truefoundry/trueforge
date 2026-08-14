@@ -8,8 +8,7 @@ export interface CatalogMcpServer {
     description: string;
     /** URL of the MCP server logo asset. */
     logo?: string;
-    /** Fully qualified name. Unique within a tenant. */
-    name: string;
+    name: TrueForge.ResourceName;
     type: TrueForge.McpServerType;
     /** URL of the remote MCP server. */
     url: string;

@@ -5,6 +5,5 @@ import type * as TrueForge from "../index.js";
 export interface ConfiguredMcpServer {
     authStatus: TrueForge.McpAuthStatus;
     manifest: TrueForge.McpServerManifest;
-    /** Fully qualified name. Unique within a tenant. */
-    name: string;
+    name: TrueForge.ResourceName;
 }

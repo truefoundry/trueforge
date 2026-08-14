@@ -4,16 +4,17 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ModelProviderManifest } from "./ModelProviderManifest.js";
+import { ResourceName } from "./ResourceName.js";
 
 export const ModelProvider: core.serialization.ObjectSchema<serializers.ModelProvider.Raw, TrueForge.ModelProvider> =
     core.serialization.object({
         manifest: ModelProviderManifest,
-        name: core.serialization.string(),
+        name: ResourceName,
     });
 
 export declare namespace ModelProvider {
     export interface Raw {
         manifest: ModelProviderManifest.Raw;
-        name: string;
+        name: ResourceName.Raw;
     }
 }

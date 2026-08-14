@@ -3,16 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { ResourceName } from "./ResourceName.js";
 
 export const SessionAgentNameRef: core.serialization.ObjectSchema<
     serializers.SessionAgentNameRef.Raw,
     TrueForge.SessionAgentNameRef
 > = core.serialization.object({
-    name: core.serialization.string(),
+    name: ResourceName,
 });
 
 export declare namespace SessionAgentNameRef {
     export interface Raw {
-        name: string;
+        name: ResourceName.Raw;
     }
 }

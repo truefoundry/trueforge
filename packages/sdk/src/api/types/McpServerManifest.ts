@@ -6,8 +6,7 @@ export interface McpServerManifest {
     auth?: TrueForge.McpServerManifestAuth;
     /** Concise summary of what this MCP server provides. */
     description: string;
-    /** Fully qualified name. Unique within a tenant. */
-    name: string;
+    name: TrueForge.ResourceName;
     type: TrueForge.McpServerType;
     /** URL of the remote MCP server. */
     url: string;
