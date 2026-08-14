@@ -462,7 +462,7 @@ const CustomModelProviderForm = ({
                             {showContextError ? (
                               <FieldError>{contextError}</FieldError>
                             ) : model.contextLength.trim() === '' ? (
-                              <FieldHelp>Prevents the context window from overflowing during a run.</FieldHelp>
+                              <FieldHelp>Model&apos;s total token window.</FieldHelp>
                             ) : null}
                           </div>
 
@@ -489,7 +489,7 @@ const CustomModelProviderForm = ({
                             {showMaxError ? (
                               <FieldError>{maxError}</FieldError>
                             ) : model.maxOutputTokens.trim() === '' ? (
-                              <FieldHelp>Caps tokens per model call.</FieldHelp>
+                              <FieldHelp>Longest reply the model allows — use its real limit.</FieldHelp>
                             ) : null}
                           </div>
 

@@ -87,7 +87,7 @@ jobs:
           set -euo pipefail
 
           reason=""
-          if [ -n "$(git status --porcelain -- .github/fern/openapi/openapi.json)" ]; then
+          if [ -n "$(git status --porcelain -- .github/fern/openapi/openapi.json docs/openapi.json)" ]; then
             reason="the OpenAPI document changed"
           elif ! git rev-parse --verify --quiet "${BASE_SHA}^{commit}" >/dev/null; then
             # A branch's first push reports an all-zero base commit.
@@ -120,7 +120,9 @@ jobs:
           set -euo pipefail
 
           # --porcelain, not `git diff`, so new files count too.
-          if [ -z "$(git status --porcelain -- .github/fern/openapi packages/sdk pnpm-lock.yaml)" ]; then
+          # docs/openapi.json is a second copy of the same document (Mintlify); keep it
+          # in the same commit as .github/fern/openapi or the docs site drifts.
+          if [ -z "$(git status --porcelain -- .github/fern/openapi docs/openapi.json packages/sdk pnpm-lock.yaml)" ]; then
             echo "OpenAPI document and SDK are already up to date."
             exit 0
           fi
@@ -135,7 +137,7 @@ jobs:
             pnpm changeset:sdk-regen
           fi
 
-          git add .github/fern/openapi packages/sdk pnpm-lock.yaml .changeset
+          git add .github/fern/openapi docs/openapi.json packages/sdk pnpm-lock.yaml .changeset
           git commit -m "Regenerate OpenAPI document and TypeScript SDK"
           git push origin "HEAD:refs/heads/$BRANCH"
 

@@ -1,5 +1,7 @@
 /**
- * Writes the server's OpenAPI document to `.github/fern/openapi/openapi.json` for Fern.
+ * Writes the server's OpenAPI document to `.github/fern/openapi/openapi.json`
+ * (Fern) and `docs/openapi.json` (Mintlify). Both copies must stay identical;
+ * CI's Generate SDK workflow commits both after this script runs.
  *
  * The real app is built in-process and asked for its document, so the committed
  * spec cannot drift from what the server serves. Nothing listens or dials out:
@@ -78,8 +80,7 @@ mkdirSync(path.dirname(sdkOutputPath), { recursive: true });
 writeFileSync(sdkOutputPath, `${JSON.stringify(canonicalise(document), null, 2)}\n`);
 console.log(`Wrote ${String(Object.keys(document.paths ?? {}).length)} paths to ${sdkOutputPath}`);
 
-// we are replicating it here because we need to use it in the docs
-// TODO (chiragjn): We tried symlinking but that did not work, revisit it later
+// Mintlify cannot consume the Fern path; keep a second identical copy for docs.
 const docsOutputPath = path.join(import.meta.dirname, '../../../docs/openapi.json');
 mkdirSync(path.dirname(docsOutputPath), { recursive: true });
 writeFileSync(docsOutputPath, `${JSON.stringify(canonicalise(document), null, 2)}\n`);

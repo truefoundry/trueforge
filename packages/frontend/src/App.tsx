@@ -99,7 +99,11 @@ export function App() {
   const overrides: SlotOverrides = useMemo(() => ({ ShellActionsActionSlot: LogoutButton }), []);
 
   if (authError != null) {
-    return <AuthErrorScreen reason={authError} />;
+    return (
+      <ThemeProvider>
+        <AuthErrorScreen reason={authError} />
+      </ThemeProvider>
+    );
   }
 
   if (session === 'checking') {
@@ -111,7 +115,11 @@ export function App() {
   }
 
   if (session === 'unauthenticated') {
-    return <GetStartedScreen />;
+    return (
+      <ThemeProvider>
+        <GetStartedScreen />
+      </ThemeProvider>
+    );
   }
 
   if (boot.status === 'error') {

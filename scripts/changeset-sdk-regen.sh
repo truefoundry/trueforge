@@ -15,4 +15,14 @@ for file in .changeset/*.md; do
   fi
 done
 
-pnpm change --bump patch --summary "Regenerate SDK from updated OpenAPI spec." @truefoundry/trueforge-sdk
+slug="regenerate-sdk-from-openapi"
+outfile=".changeset/$(date -u +%Y%m%d%H%M%S)-${slug}.md"
+cat >"$outfile" <<'EOF'
+---
+"@truefoundry/trueforge-sdk": patch
+---
+
+Regenerate SDK from updated OpenAPI spec.
+EOF
+
+echo "Wrote $outfile"
