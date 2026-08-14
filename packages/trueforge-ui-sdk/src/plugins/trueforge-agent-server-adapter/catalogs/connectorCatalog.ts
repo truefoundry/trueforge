@@ -98,6 +98,7 @@ export function toUiConnectorFromReadEntry(server: TrueForgeApi.McpServerReadEnt
 export interface HarnessMcpUpsert {
   name: string;
   url: string;
+  description: string;
   auth?: TrueForgeApi.ConfiguredMcpServerAuth;
 }
 
@@ -106,6 +107,7 @@ export function toHarnessManifest(req: { name: string; url: string; auth: Connec
   return {
     name: req.name,
     url: req.url,
+    description: `${req.name} MCP server`,
     ...(auth === undefined ? {} : { auth }),
   };
 }

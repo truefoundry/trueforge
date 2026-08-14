@@ -44,6 +44,7 @@ describe('connectorCatalog mappers', () => {
         type: 'remote',
         name: 'linear',
         url: 'https://mcp.linear.app/mcp',
+        description: 'Linear MCP server.',
         auth: { type: 'dcr' },
       }),
       {
@@ -61,6 +62,7 @@ describe('connectorCatalog mappers', () => {
         type: 'remote',
         name: 'deepwiki',
         url: 'https://mcp.deepwiki.com/mcp',
+        description: 'DeepWiki MCP server.',
         authStatus: { status: 'not_required' },
       }),
       {
@@ -80,6 +82,7 @@ describe('connectorCatalog mappers', () => {
       type: 'remote',
       name: 'linear',
       url: 'https://mcp.linear.app/mcp',
+      description: 'Linear MCP server.',
       auth: { type: 'dcr' },
       authStatus: { status: 'auth_required' },
     });
@@ -90,6 +93,7 @@ describe('connectorCatalog mappers', () => {
       type: 'remote',
       name: 'linear',
       url: 'https://mcp.linear.app/mcp',
+      description: 'Linear MCP server.',
       auth: { type: 'dcr' },
       authStatus: { status: 'authenticated' },
     });
@@ -141,6 +145,7 @@ describe('connectorCatalog mappers', () => {
       {
         name: 'linear',
         url: 'https://mcp.linear.app/mcp',
+        description: 'linear MCP server',
         auth: { type: 'dcr' },
       },
     );
@@ -153,6 +158,7 @@ describe('connectorCatalog mappers', () => {
       {
         name: 'custom-mcp',
         url: 'https://example.com/mcp',
+        description: 'custom-mcp MCP server',
       },
     );
   });

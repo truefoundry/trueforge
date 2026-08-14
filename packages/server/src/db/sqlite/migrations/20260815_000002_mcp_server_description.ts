@@ -3,7 +3,7 @@ import { type Kysely, sql } from 'kysely';
 /**
  * Required `description` on `mcp_server.manifest`. Backfill `{name} MCP Server`
  * when the key is missing or blank so existing rows satisfy McpServerManifestSchema.
- * Mirrors db/postgres/migrations/20260815_000001_mcp_server_description.ts.
+ * Mirrors db/postgres/migrations/20260815_000002_mcp_server_description.ts.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`
