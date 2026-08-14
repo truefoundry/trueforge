@@ -10,12 +10,15 @@ const { loadMore } = vi.hoisted(() => ({
 }));
 
 let resizeCallback: ResizeObserverCallback | undefined;
-let resizeObserver: ResizeObserver | undefined;
+const resizeObserverStub: ResizeObserver = {
+  observe(): void {},
+  unobserve(): void {},
+  disconnect(): void {},
+};
 
 class ResizeObserverMock implements ResizeObserver {
   constructor(callback: ResizeObserverCallback) {
     resizeCallback = callback;
-    resizeObserver = this;
   }
 
   observe(): void {}
@@ -95,15 +98,14 @@ function getViewport(container: HTMLElement): HTMLElement {
 }
 
 function notifyViewportResize(): void {
-  if (resizeCallback === undefined || resizeObserver === undefined) {
+  if (resizeCallback === undefined) {
     throw new Error('Expected viewport ResizeObserver');
   }
-  resizeCallback([], resizeObserver);
+  resizeCallback([], resizeObserverStub);
 }
 
 beforeEach(() => {
   resizeCallback = undefined;
-  resizeObserver = undefined;
   vi.stubGlobal('ResizeObserver', ResizeObserverMock);
 });
 
